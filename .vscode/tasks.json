@@ -1,0 +1,537 @@
+{
+    // See https://go.microsoft.com/fwlink/?LinkId=733558
+    // for the documentation about the tasks.json format
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "BuildRelease",
+            "type": "shell",
+            "command": "cd cmake-build-release && make -j 8",
+            "group": "build"
+        },
+        {
+            "label": "BuildDebug",
+            "type": "shell",
+            "command": "cd cmake-build-debug && make -j 8",
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+        {
+            "label": "BuildShaders: EyeRays_RTX",
+            "type": "shell",
+            "command": "cd examples/01_eye_rays/shaders_rtx && bash build.sh",
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+        {
+            "label": "BuildShaders: EyeRays_BVH2",
+            "type": "shell",
+            "command": "cd examples/01_eye_rays/shaders_bvh2 && bash build.sh",
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+        {
+            "label": "BuildShaders: EyeRays_BVH2_STAS",
+            "type": "shell",
+            "command": "cd examples/01_eye_rays/shaders_bvh2_stas && bash build.sh",
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+        {
+            "label": "BuildShaders: EyeRays_BVH2_LOFT",
+            "type": "shell",
+            "command": "cd examples/01_eye_rays/shaders_bvh2_loft && bash build.sh",
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+
+        {
+            "label": "BuildShaders: EyeRays_BVH2_LOFT_16",
+            "type": "shell",
+            "command": "cd examples/01_eye_rays/shaders_bvh2_loft_16 && bash build.sh",
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+
+        {
+            "label": "BuildShaders: EyeRays_BVH2_LRFT",
+            "type": "shell",
+            "command": "cd examples/01_eye_rays/shaders_bvh2_lrft && bash build.sh",
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+
+        {
+            "label": "BuildShaders: EyeRays_STACKLESS",
+            "type": "shell",
+            "command": "cd examples/01_eye_rays/shaders_bvh2_stackless && bash build.sh",
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+
+        {
+            "label": "BuildShaders: EyeRays_Fat32",
+            "type": "shell",
+            "command": "cd examples/01_eye_rays/shaders_bvh2_fat32 && bash build.sh",
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+
+        {
+            "label": "BuildShaders: EyeRays_Fat16",
+            "type": "shell",
+            "command": "cd examples/01_eye_rays/shaders_bvh2_fat16 && bash build.sh",
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+
+        {
+            "label": "BuildShaders: EyeRays_Fat06",
+            "type": "shell",
+            "command": "cd examples/01_eye_rays/shaders_bvh2_fat06 && bash build.sh",
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+
+
+        {
+            "label": "BuildShaders: EyeRays_BVH4",
+            "type": "shell",
+            "command": "cd examples/01_eye_rays/shaders_bvh4 && bash build.sh",
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+
+        {
+            "label": "BuildShaders: EyeRays_BVH4_Half",
+            "type": "shell",
+            "command": "cd examples/01_eye_rays/shaders_bvh4_half && bash build.sh",
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+
+        {
+            "label": "BuildShaders: EyeRays_BVH2_SHRT",
+            "type": "shell",
+            "command": "cd examples/01_eye_rays/shaders_bvh2_shrt && bash build.sh",
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+
+        {
+            "label": "BuildShaders: EyeRays_BVH4_SHRT",
+            "type": "shell",
+            "command": "cd examples/01_eye_rays/shaders_bvh4_shrt && bash build.sh",
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+
+        {
+            "label": "BuildShaders: RTAO_RTX",
+            "type": "shell",
+            "command": "cd examples/02_rtao/shaders_rtx && bash build.sh",
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+        {
+            "label": "BuildShaders: RTAO_BVH2",
+            "type": "shell",
+            "command": "cd examples/02_rtao/shaders_bvh2 && bash build.sh",
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+        {
+            "label": "BuildShaders: RTAO_BVH2Fat32",
+            "type": "shell",
+            "command": "cd examples/02_rtao/shaders_bvh2_fat32 && bash build.sh",
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+
+        {
+            "label": "BuildShaders: RTAO_BVH2Fat16",
+            "type": "shell",
+            "command": "cd examples/02_rtao/shaders_bvh2_fat16 && bash build.sh",
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+
+        {
+            "label": "BuildShaders: RTAO_BVH4",
+            "type": "shell",
+            "command": "cd examples/02_rtao/shaders_bvh4 && bash build.sh",
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+
+        {
+            "label": "BuildShaders: RTAO_BVH4_HALF",
+            "type": "shell",
+            "command": "cd examples/02_rtao/shaders_bvh4_half && bash build.sh",
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+
+        {
+            "label": "BuildShaders: RTAO_BVH2_LOFT",
+            "type": "shell",
+            "command": "cd examples/02_rtao/shaders_bvh2_loft && bash build.sh",
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+
+        {
+            "label": "BuildShaders: RTAO_BVH2_LOFT_16",
+            "type": "shell",
+            "command": "cd examples/02_rtao/shaders_bvh2_loft_16 && bash build.sh",
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+
+        {
+            "label": "BuildShaders: RTAO_BVH2_SHRT32",
+            "type": "shell",
+            "command": "cd examples/02_rtao/shaders_bvh2_shrt32 && bash build.sh",
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+
+        {
+            "label": "BuildShaders: RTAO_BVH2_SHRT64",
+            "type": "shell",
+            "command": "cd examples/02_rtao/shaders_bvh2_shrt64 && bash build.sh",
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+
+        {
+            "label": "BuildShaders: RTAO_BVH4_SHRT64",
+            "type": "shell",
+            "command": "cd examples/02_rtao/shaders_bvh4_shrt64 && bash build.sh",
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+
+        {
+            "label": "BuildShaders: RTAO_BVH4_SHRT64_HALF",
+            "type": "shell",
+            "command": "cd examples/02_rtao/shaders_bvh4_shrt64_half && bash build.sh",
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+
+        {
+            "label": "BuildShaders: RTAO_BVH2_STACKLESS",
+            "type": "shell",
+            "command": "cd examples/02_rtao/shaders_bvh2_stackless_ii && bash build.sh",
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+
+        {
+            "label": "BuildShaders: RTAO_BVH2_FAT06",
+            "type": "shell",
+            "command": "cd examples/02_rtao/shaders_bvh2_fat06 && bash build.sh",
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+ 
+        {
+            "label": "BuildShaders: Whitted_UBER_RTX",
+            "type": "shell",
+            "command": "cd examples/04_simple_rt/shaders_uber_rtx && bash build.sh",
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+
+        {
+            "label": "BuildShaders: Whitted_SEPARATE_RTX",
+            "type": "shell",
+            "command": "cd examples/04_simple_rt/shaders_separate_rtx && bash build.sh",
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+
+        {
+            "label": "BuildShaders: Whitted_UBER_BVH4",
+            "type": "shell",
+            "command": "cd examples/04_simple_rt/shaders_uber_bvh4 && bash build.sh",
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+
+        {
+            "label": "BuildShaders: Whitted_SEPARATE_BVH4",
+            "type": "shell",
+            "command": "cd examples/04_simple_rt/shaders_separate_bvh4 && bash build.sh",
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+
+        {
+            "label": "BuildShaders: Whitted_UBER_BVH4_HALF",
+            "type": "shell",
+            "command": "cd examples/04_simple_rt/shaders_uber_bvh4_half && bash build.sh",
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+
+        {
+            "label": "BuildShaders: Whitted_SEPARATE_BVH4_HALF",
+            "type": "shell",
+            "command": "cd examples/04_simple_rt/shaders_separate_bvh4_half && bash build.sh",
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+
+        {
+            "label": "BuildShaders: Whitted_UBER_BVH2_STAS",
+            "type": "shell",
+            "command": "cd examples/04_simple_rt/shaders_uber_bvh2_stas && bash build.sh",
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+
+        {
+            "label": "BuildShaders: Whitted_UBER_BVH2_LOFT",
+            "type": "shell",
+            "command": "cd examples/04_simple_rt/shaders_uber_bvh2_loft && bash build.sh",
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+
+        {
+            "label": "BuildShaders: Whitted_SEPARATE_BVH2_LOFT",
+            "type": "shell",
+            "command": "cd examples/04_simple_rt/shaders_separate_bvh2_loft && bash build.sh",
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+        
+        {
+            "label": "BuildShaders: Whitted_UBER_BVH2_FAT32",
+            "type": "shell",
+            "command": "cd examples/04_simple_rt/shaders_uber_bvh2_fat32 && bash build.sh",
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+
+        {
+            "label": "BuildShaders: Whitted_SEPARATE_BVH2_FAT32",
+            "type": "shell",
+            "command": "cd examples/04_simple_rt/shaders_separate_bvh2_fat32 && bash build.sh",
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+
+        {
+            "label": "BuildShaders: Whitted_UBER_BVH2_FAT16",
+            "type": "shell",
+            "command": "cd examples/04_simple_rt/shaders_uber_bvh2_fat16 && bash build.sh",
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+
+        {
+            "label": "BuildShaders: Whitted_SEPARATE_BVH2_FAT16",
+            "type": "shell",
+            "command": "cd examples/04_simple_rt/shaders_separate_bvh2_fat16 && bash build.sh",
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+
+        {
+            "label": "BuildShaders: Whitted_UBER_BVH2_FAT06",
+            "type": "shell",
+            "command": "cd examples/04_simple_rt/shaders_uber_bvh2_fat06 && bash build.sh",
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+
+        {
+            "label": "BuildShaders: Whitted_SEPARATE_BVH2_FAT06",
+            "type": "shell",
+            "command": "cd examples/04_simple_rt/shaders_separate_bvh2_fat06 && bash build.sh",
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+
+        {
+            "label": "BuildShaders: Whitted_UBER_BVH2_SHRT64",
+            "type": "shell",
+            "command": "cd examples/04_simple_rt/shaders_uber_bvh2_shrt64 && bash build.sh",
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+
+        {
+            "label": "BuildShaders: Whitted_SEPARATE_BVH2_SHRT64",
+            "type": "shell",
+            "command": "cd examples/04_simple_rt/shaders_separate_bvh2_shrt64 && bash build.sh",
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+
+        {
+            "label": "BuildShaders: Whitted_UBER_BVH4_SHRT64_HALF",
+            "type": "shell",
+            "command": "cd examples/04_simple_rt/shaders_uber_bvh4_shrt64_half && bash build.sh",
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+
+        {
+            "label": "BuildShaders: Whitted_SEPARATE_BVH4_SHRT64_HALF",
+            "type": "shell",
+            "command": "cd examples/04_simple_rt/shaders_separate_bvh4_shrt64_half && bash build.sh",
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+
+
+        {
+            "label": "BuildShaders: LBVH",
+            "type": "shell",
+            "command": "cd core/builders/shaders_gpu && bash build.sh",
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+
+        {
+            "label": "BuildShaders: Animation",
+            "type": "shell",
+            "command": "cd examples/shaders_gpu && bash build.sh",
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+
+        {
+            "label": "BuildShaders: RTLIB_TRACER",
+            "type": "shell",
+            "command": "cd examples/07_raylib_tracer2/shaders_separate_raylib && bash build.sh",
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+
+        {
+            "label": "BuildShaders: LIB_RTX",
+            "type": "shell",
+            "command": "cd examples/05_cbvh_trav/shaders_rtx && bash build.sh",
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+
+        {
+            "label": "BuildShaders: LIB_BVH2Fat32",
+            "type": "shell",
+            "command": "cd examples/05_cbvh_trav/shaders_bvh2_fat32 && bash build.sh",
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+    ]
