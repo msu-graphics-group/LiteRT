@@ -1,6 +1,7 @@
 #include <cfloat>
 #include <cstring>
 #include <sstream>
+#include <fstream>
 
 #include "eye_ray.h"
 #include "hydraxml.h"
@@ -76,6 +77,13 @@ bool EyeRayCaster::LoadSceneHydra(const std::string& a_path)
       std::cout << "[LoadScene]: sdf = " << dir.c_str() << std::endl;
       SdfScene scene;
       load_sdf_scene(scene, dir);
+      m_pAccelStruct->AddGeom_Sdf(scene);
+    }
+    else if (name == "nsdf")
+    {
+      std::cout << "[LoadScene]: neural sdf = " << dir.c_str() << std::endl;
+      SdfScene scene;
+      load_neural_sdf_scene_SIREN(scene, dir);
       m_pAccelStruct->AddGeom_Sdf(scene);
     }
     else

@@ -30,10 +30,10 @@ ISceneObject* CreateSceneRT(const char* a_implName, const char* a_buildName, con
 
 int main(int argc, const char** argv)
 {
-  uint32_t WIDTH  = 2048;
-  uint32_t HEIGHT = 2048;
+  uint32_t WIDTH  = 256;
+  uint32_t HEIGHT = 256;
   
-  const char* scenePath   = "scenes/02_sdf_scenes/sdf_manual.xml"; // bunny_cornell.xml, instanced_objects.xml
+  const char* scenePath   = "scenes/02_sdf_scenes/sdf_neural.xml"; // bunny_cornell.xml, instanced_objects.xml
   const char* meshPath    = "scenes/meshes/bunny.vsgf";///helix_mid.vsgf";
   const char* renderName  = "eye"; // "RT", "RTAO" or just "AO"
 

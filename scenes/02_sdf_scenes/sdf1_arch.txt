@@ -1,0 +1,7 @@
+Dense input shape (3) output shape (64)
+Sin input shape (64) output shape (64)
+Dense input shape (64) output shape (64)
+Sin input shape (64) output shape (64)
+Dense input shape (64) output shape (64)
+Sin input shape (64) output shape (64)
+Dense input shape (64) output shape (1)

@@ -123,13 +123,18 @@ uint32_t BVHRT::AddGeom_Sdf(const SdfScene &scene, BuildQuality a_qualityLevel)
   unsigned p_offset = m_SdfScene.parameters.size();
   unsigned o_offset = m_SdfScene.objects.size();
   unsigned c_offset = m_SdfScene.conjunctions.size();
+  unsigned np_offset = m_SdfScene.neural_properties.size();
 
   m_SdfScene.parameters.insert(m_SdfScene.parameters.end(), scene.parameters.begin(), scene.parameters.end());
   m_SdfScene.objects.insert(m_SdfScene.objects.end(), scene.objects.begin(), scene.objects.end());
   m_SdfScene.conjunctions.insert(m_SdfScene.conjunctions.end(), scene.conjunctions.begin(), scene.conjunctions.end());
+  m_SdfScene.neural_properties.insert(m_SdfScene.neural_properties.end(), scene.neural_properties.begin(), scene.neural_properties.end());
 
   for (int i=o_offset;i<m_SdfScene.objects.size();i++)
+  {
     m_SdfScene.objects[i].params_offset += p_offset;
+    m_SdfScene.objects[i].neural_id += np_offset;
+  }
   
   for (int i=c_offset;i<m_SdfScene.conjunctions.size();i++)
     m_SdfScene.conjunctions[i].offset += o_offset;
@@ -143,6 +148,13 @@ uint32_t BVHRT::AddGeom_Sdf(const SdfScene &scene, BuildQuality a_qualityLevel)
     orig_nodes.emplace_back();
     orig_nodes.back().boxMin = c.bbox.min_pos;
     orig_nodes.back().boxMax = c.bbox.max_pos;
+  }
+  while (orig_nodes.size() < 2)
+  {
+    conj_indices.push_back(conj_indices.back());
+    orig_nodes.emplace_back();
+    orig_nodes.back().boxMin = float3(1000,1000,1000);
+    orig_nodes.back().boxMax = float3(1000.1,1000.1,1000.1);
   }
   m_ConjIndices.insert(m_ConjIndices.end(), conj_indices.begin(), conj_indices.end());
   //orig_nodes.resize(1);

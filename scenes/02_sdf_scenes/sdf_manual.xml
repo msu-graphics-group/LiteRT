@@ -47,7 +47,7 @@
     <indices type="array1i" bytesize="24" offset="248" apply="tlist" />
     <matindices type="array1i" bytesize="8" offset="272" apply="primitive" />
   </mesh>
-  <sdf id="1" name="test" type="bin" bytesize="1532" loc="sdf_2.bin">
+  <sdf id="1" name="test" type="bin" bytesize="1532" loc="sdf_4.bin">
   </sdf>
   <mesh id="2" name="my_area_light_lightmesh" type="vsgf" bytesize="280" loc="data/chunk_00003.vsgf" offset="0" vertNum="4" triNum="2" dl="0" path="" light_id="0" bbox="    -1 1 0 0 -1 1">
     <positions type="array4f" bytesize="64" offset="24" apply="vertex" />
