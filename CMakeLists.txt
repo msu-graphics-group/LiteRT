@@ -28,6 +28,7 @@ set(SCENE_LOADER_SRC
     ${CMAKE_SOURCE_DIR}/LiteScene/hydraxml.cpp
     ${CMAKE_SOURCE_DIR}/LiteScene/cmesh4.cpp
     ${CMAKE_SOURCE_DIR}/sdfScene/sdf_scene.cpp
+    ${CMAKE_SOURCE_DIR}/sdfScene/sdf_scene_gpu.cpp
     )
 
 set(CORE_SRC

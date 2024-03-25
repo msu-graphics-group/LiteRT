@@ -202,13 +202,11 @@ CRT_Hit BVHRT::RayQuery_NearestHit(float4 posAndNear, float4 dirAndFar)
 
   } while (nodeIdx < 0xFFFFFFFE && !(stopOnFirstHit && hit.primId != uint32_t(-1))); //
 
-  #ifdef REMAP_PRIM_ID
   if(hit.geomId < uint32_t(-1)) 
   {
     const uint2 geomOffsets = m_geomOffsets[hit.geomId];
     hit.primId = m_primIndices[geomOffsets.x/3 + hit.primId];
   }
-  #endif 
   
   return hit;
 }

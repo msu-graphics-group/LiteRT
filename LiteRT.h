@@ -31,11 +31,6 @@ struct CRT_Hit
 static constexpr unsigned TYPE_MESH_TRIANGLE = 0;
 static constexpr unsigned TYPE_SDF_PRIMITIVE = 1;
 
-#define REMAP_PRIM_ID
-
-constexpr int TREELET_ARR_SIZE = 5;
-constexpr int treelet_sizes[TREELET_ARR_SIZE] = { 128, 512, 4096, 16384, 131072 };
-
 /**
 \brief API to ray-scene intersection on CPU
 */
