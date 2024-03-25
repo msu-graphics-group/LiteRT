@@ -77,7 +77,9 @@ struct ISceneObject
   */
   virtual void UpdateGeom_Triangles3f(uint32_t a_geomId, const float* a_vpos3f, size_t a_vertNumber, const uint32_t* a_triIndices, size_t a_indNumber, BuildQuality a_qualityLevel = BUILD_HIGH, size_t vByteStride = sizeof(float)*3) = 0;
   
+#ifndef KERNEL_SLICER 
   virtual uint32_t AddGeom_Sdf(const SdfScene &scene, BuildQuality a_qualityLevel = BUILD_HIGH) = 0;
+#endif
 
   /**
   \brief Clear all instances, but don't touch geometry

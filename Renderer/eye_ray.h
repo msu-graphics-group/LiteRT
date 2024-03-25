@@ -11,6 +11,7 @@
 #include "LiteMath.h"
 #include "LiteRT.h"
 #include "IRenderer.h"
+#include "BVH/BVH2Common.h"
 
 using LiteMath::uint;
 

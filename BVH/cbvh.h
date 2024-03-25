@@ -30,6 +30,7 @@
     BVHNode right;
   };
 
+#ifndef KERNEL_SLICER
   enum FMT{ BVH2_LEFT_OFFSET = 1, //!< Children: (leftOffset, leftOffset+1); 'escapeIndex' is a true escapeIndex;
             BVH2_LEFT_RIGHT  = 2, //!< Children: (leftOffset, rightOffset is 'escapeIndex'); actual escapeIndex is not stored;
             BVH4_LEFT_OFFSET = 3, //!< Children: (leftOffset, leftOffset+1,leftOffset+2,leftOffset+3); escapeIndex is a true escapeIndex;
@@ -198,3 +199,4 @@
   BVHTreeFat BuildBVHFatCustom(const BVHNode* a_nodes, size_t a_objNum, BuilderPresets a_presets, LayoutPresets a_layout);
 
   BVHTree BuildBVHEmbree(const float4 *a_vertices, size_t a_vertNum, const uint *a_indices, size_t a_indexNum, BVHPresets a_presets);
+#endif

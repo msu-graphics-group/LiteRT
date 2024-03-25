@@ -30,6 +30,10 @@ void BVHRT::IntersectAllSdfPrimitivesInLeaf(const float3 ray_pos, const float3 r
   unsigned conjId = m_ConjIndices[m_geomOffsets[geomId].x + a_start];
   float l = LiteMath::length(ray_dir);
   float3 dir = ray_dir/l;
+  if (false)
+    eval_dist_conjunction(m_SdfParameters.data(), m_SdfObjects.data(), m_SdfConjunctions.data(), m_SdfNeuralProperties.data(),
+                                     m_SdfParameters.size(), m_SdfObjects.size(), m_SdfConjunctions.size(), m_SdfNeuralProperties.size(),
+                                     conjId, ray_pos);
   SdfHit hit = sdf_conjunction_sphere_tracing(m_SdfParameters.data(), m_SdfObjects.data(), m_SdfConjunctions.data(), m_SdfNeuralProperties.data(),
                                      m_SdfParameters.size(), m_SdfObjects.size(), m_SdfConjunctions.size(), m_SdfNeuralProperties.size(),
                                      conjId, m_SdfConjunctions[conjId].min_pos, m_SdfConjunctions[conjId].max_pos, ray_pos, dir, true);

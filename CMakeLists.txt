@@ -31,7 +31,7 @@ set(SCENE_LOADER_SRC
     ${CMAKE_SOURCE_DIR}/LiteScene/hydraxml.cpp
     ${CMAKE_SOURCE_DIR}/LiteScene/cmesh4.cpp
     ${CMAKE_SOURCE_DIR}/sdfScene/sdf_scene.cpp
-    ${CMAKE_SOURCE_DIR}/sdfScene/sdf_scene_gpu.cpp
+    ${CMAKE_SOURCE_DIR}/sdfScene/gpuReady/sdf_scene.cpp
     )
 
 set(CORE_SRC
@@ -86,7 +86,6 @@ if (MODULE_VULKAN)
   add_compile_definitions(USE_VOLK)
 
   set(VKGEN_SOURCE 
-      ${CMAKE_SOURCE_DIR}/Renderer/eye_ray_temp.cpp 
       ${CMAKE_SOURCE_DIR}/Renderer/eye_ray_generated.cpp 
       ${CMAKE_SOURCE_DIR}/Renderer/eye_ray_generated_ds.cpp 
       ${CMAKE_SOURCE_DIR}/Renderer/eye_ray_generated_init.cpp)
