@@ -94,7 +94,10 @@ protected:
   std::vector<GeometryType> m_geomTypeByGeomId;
 
   //SDFs data
-  SdfScene              m_SdfScene;
+  std::vector<float> m_SdfParameters;
+  std::vector<SdfObject> m_SdfObjects;
+  std::vector<SdfConjunction> m_SdfConjunctions;
+  std::vector<NeuralProperties> m_SdfNeuralProperties;
   std::vector<uint32_t> m_ConjIndices; //conjunction index for each leaf node in Fat BVH related to SDF
 
   //for each instance in scene

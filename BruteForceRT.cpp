@@ -148,17 +148,15 @@ uint32_t BruteForceRT::AddGeom_Sdf(const SdfScene &scene, BuildQuality a_quality
   assert(scene.conjunctions.size() > 0);
   assert(scene.objects.size() > 0);
   assert(scene.parameters.size() > 0);
-  float3 mn = scene.conjunctions[0].bbox.min_pos;
-  float3 mx = scene.conjunctions[0].bbox.max_pos;
+  float3 mn = scene.conjunctions[0].min_pos;
+  float3 mx = scene.conjunctions[0].max_pos;
   for (auto &c : scene.conjunctions) 
   {
-    mn = min(mn, c.bbox.min_pos);
-    mx = max(mx, c.bbox.max_pos);
+    mn = min(mn, c.min_pos);
+    mx = max(mx, c.max_pos);
   }
-  LiteMath::AABB aabb(mn, mx);
-  //aabb = aabb.expand(1.1f);
   m_indStartSize.push_back (uint2(0, scene.conjunctions.size()));
-  m_geomBoxes.push_back(Box4f(LiteMath::to_float4(aabb.min_pos, 1), LiteMath::to_float4(aabb.max_pos, 1)));
+  m_geomBoxes.push_back(Box4f(LiteMath::to_float4(mn, 1), LiteMath::to_float4(mx, 1)));
   m_geomTypeByGeomId.push_back(GeometryType::SDF_PRIMITIVE);
 
   m_SdfScenes.push_back(scene);
@@ -276,18 +274,12 @@ void BruteForceRT::IntersectAllSdfPrimitivesInLeaf(const float3 ray_pos, const f
                                                    CRT_Hit *pHit)
 {
   auto &sdf = m_SdfScenes[m_SdfSceneIdByGeomId[geomId]];
-  LiteMath::AABB box(LiteMath::to_float3(m_geomBoxes[geomId].boxMin), LiteMath::to_float3(m_geomBoxes[geomId].boxMax));
   float3 p0;
   float l = LiteMath::length(ray_dir);
   float3 dir = ray_dir/l;
-  if (sdf_sphere_tracing(sdf, box, ray_pos, dir, &p0))
+  float3 n = float3(1,0,0);
+  if (sdf_sphere_tracing(sdf, LiteMath::to_float3(m_geomBoxes[geomId].boxMin), LiteMath::to_float3(m_geomBoxes[geomId].boxMax), ray_pos, dir, &p0))
   {
-    constexpr float h = 0.001;
-    float ddx = (eval_dist_scene(sdf, p0 + LiteMath::float3(h, 0, 0)) - eval_dist_scene(sdf, p0 + LiteMath::float3(-h, 0, 0))) / (2 * h);
-    float ddy = (eval_dist_scene(sdf, p0 + LiteMath::float3(0, h, 0)) - eval_dist_scene(sdf, p0 + LiteMath::float3(0, -h, 0))) / (2 * h);
-    float ddz = (eval_dist_scene(sdf, p0 + LiteMath::float3(0, 0, h)) - eval_dist_scene(sdf, p0 + LiteMath::float3(0, 0, -h))) / (2 * h);
-    float3 n = normalize(float3(ddx, ddy, ddz));
-
     pHit->t         = LiteMath::length(p0-ray_pos)/l;
     pHit->primId    = 0;
     pHit->instId    = instId;

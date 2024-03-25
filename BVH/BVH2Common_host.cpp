@@ -37,7 +37,10 @@ void BVHRT::ClearGeom()
   m_bvhOffsets.reserve(std::max<size_t>(reserveSize, m_bvhOffsets.capacity()));
   m_bvhOffsets.resize(0);
 
-  m_SdfScene = SdfScene();
+  m_SdfParameters.resize(0);
+  m_SdfObjects.resize(0);
+  m_SdfConjunctions.resize(0);
+  m_SdfNeuralProperties.resize(0);
 
   ClearScene();
 }
@@ -107,37 +110,36 @@ uint32_t BVHRT::AddGeom_Sdf(const SdfScene &scene, BuildQuality a_qualityLevel)
   assert(scene.conjunctions.size() > 0);
   assert(scene.objects.size() > 0);
   assert(scene.parameters.size() > 0);
-  float3 mn = scene.conjunctions[0].bbox.min_pos;
-  float3 mx = scene.conjunctions[0].bbox.max_pos;
+  float3 mn = scene.conjunctions[0].min_pos;
+  float3 mx = scene.conjunctions[0].max_pos;
   for (auto &c : scene.conjunctions) 
   {
-    mn = min(mn, c.bbox.min_pos);
-    mx = max(mx, c.bbox.max_pos);
+    mn = min(mn, c.min_pos);
+    mx = max(mx, c.max_pos);
   }
-  LiteMath::AABB aabb(mn, mx);
   m_geomOffsets.push_back(uint2(m_ConjIndices.size(), 0));
-  m_geomBoxes.push_back(Box4f(LiteMath::to_float4(aabb.min_pos, 1), LiteMath::to_float4(aabb.max_pos, 1)));
+  m_geomBoxes.push_back(Box4f(LiteMath::to_float4(mn, 1), LiteMath::to_float4(mx, 1)));
   m_geomTypeByGeomId.push_back(GeometryType::SDF_PRIMITIVE);
   m_bvhOffsets.push_back(m_allNodePairs.size());
 
-  unsigned p_offset = m_SdfScene.parameters.size();
-  unsigned o_offset = m_SdfScene.objects.size();
-  unsigned c_offset = m_SdfScene.conjunctions.size();
-  unsigned np_offset = m_SdfScene.neural_properties.size();
+  unsigned p_offset = m_SdfParameters.size();
+  unsigned o_offset = m_SdfObjects.size();
+  unsigned c_offset = m_SdfConjunctions.size();
+  unsigned np_offset = m_SdfNeuralProperties.size();
 
-  m_SdfScene.parameters.insert(m_SdfScene.parameters.end(), scene.parameters.begin(), scene.parameters.end());
-  m_SdfScene.objects.insert(m_SdfScene.objects.end(), scene.objects.begin(), scene.objects.end());
-  m_SdfScene.conjunctions.insert(m_SdfScene.conjunctions.end(), scene.conjunctions.begin(), scene.conjunctions.end());
-  m_SdfScene.neural_properties.insert(m_SdfScene.neural_properties.end(), scene.neural_properties.begin(), scene.neural_properties.end());
+  m_SdfParameters.insert(m_SdfParameters.end(), scene.parameters.begin(), scene.parameters.end());
+  m_SdfObjects.insert(m_SdfObjects.end(), scene.objects.begin(), scene.objects.end());
+  m_SdfConjunctions.insert(m_SdfConjunctions.end(), scene.conjunctions.begin(), scene.conjunctions.end());
+  m_SdfNeuralProperties.insert(m_SdfNeuralProperties.end(), scene.neural_properties.begin(), scene.neural_properties.end());
 
-  for (int i=o_offset;i<m_SdfScene.objects.size();i++)
+  for (int i=o_offset;i<m_SdfObjects.size();i++)
   {
-    m_SdfScene.objects[i].params_offset += p_offset;
-    m_SdfScene.objects[i].neural_id += np_offset;
+    m_SdfObjects[i].params_offset += p_offset;
+    m_SdfObjects[i].neural_id += np_offset;
   }
   
-  for (int i=c_offset;i<m_SdfScene.conjunctions.size();i++)
-    m_SdfScene.conjunctions[i].offset += o_offset;
+  for (int i=c_offset;i<m_SdfConjunctions.size();i++)
+    m_SdfConjunctions[i].offset += o_offset;
 
   std::vector<unsigned> conj_indices;
   std::vector<bvh::BVHNode> orig_nodes;
@@ -146,8 +148,8 @@ uint32_t BVHRT::AddGeom_Sdf(const SdfScene &scene, BuildQuality a_qualityLevel)
     auto &c = scene.conjunctions[i];
     conj_indices.push_back(c_offset + i);
     orig_nodes.emplace_back();
-    orig_nodes.back().boxMin = c.bbox.min_pos;
-    orig_nodes.back().boxMax = c.bbox.max_pos;
+    orig_nodes.back().boxMin = c.min_pos;
+    orig_nodes.back().boxMax = c.max_pos;
   }
   while (orig_nodes.size() < 2)
   {

@@ -28,24 +28,24 @@ void BVHRT::IntersectAllSdfPrimitivesInLeaf(const float3 ray_pos, const float3 r
 {
   assert(a_count == 1);
   unsigned conjId = m_ConjIndices[m_geomOffsets[geomId].x + a_start];
-  LiteMath::AABB box(LiteMath::to_float3(m_geomBoxes[geomId].boxMin), LiteMath::to_float3(m_geomBoxes[geomId].boxMax));
-  float3 p0;
-  float3 n;
   float l = LiteMath::length(ray_dir);
   float3 dir = ray_dir/l;
-  if (sdf_conjunction_sphere_tracing(m_SdfScene, conjId, m_SdfScene.conjunctions[conjId].bbox, ray_pos, dir, &p0, &n))
+  SdfHit hit = sdf_conjunction_sphere_tracing(m_SdfParameters.data(), m_SdfObjects.data(), m_SdfConjunctions.data(), m_SdfNeuralProperties.data(),
+                                     m_SdfParameters.size(), m_SdfObjects.size(), m_SdfConjunctions.size(), m_SdfNeuralProperties.size(),
+                                     conjId, m_SdfConjunctions[conjId].min_pos, m_SdfConjunctions[conjId].max_pos, ray_pos, dir, true);
+  if (hit.hit_id > 0)
   {
-    float t = LiteMath::length(p0-ray_pos)/l;
+    float t = LiteMath::length(hit.hit_pos-ray_pos)/l;
     if (t > tNear && t < pHit->t)
     {
-      pHit->t         = LiteMath::length(p0-ray_pos)/l;
+      pHit->t         = t;
       pHit->primId    = conjId;
       pHit->instId    = instId;
       pHit->geomId    = geomId;  
       pHit->coords[0] = 0;
       pHit->coords[1] = 0;
-      pHit->coords[2] = n.x;
-      pHit->coords[3] = n.y;
+      pHit->coords[2] = hit.hit_norm.x;
+      pHit->coords[3] = hit.hit_norm.y;
     }
   }
 }
