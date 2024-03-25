@@ -83,7 +83,7 @@ uint32_t BVHRT::AddGeom_Triangles3f(const float *a_vpos3f, size_t a_vertNumber, 
   }
 
   m_geomBoxes.push_back(bbox);
-  m_geomTypeByGeomId.push_back(GeometryType::MESH_TRIANGLE);
+  m_geomTypeByGeomId.push_back(TYPE_MESH_TRIANGLE);
 
   // Build BVH for each geom and append it to big buffer;
   // append data to global arrays and fix offsets
@@ -119,7 +119,7 @@ uint32_t BVHRT::AddGeom_Sdf(const SdfScene &scene, BuildQuality a_qualityLevel)
   }
   m_geomOffsets.push_back(uint2(m_ConjIndices.size(), 0));
   m_geomBoxes.push_back(Box4f(LiteMath::to_float4(mn, 1), LiteMath::to_float4(mx, 1)));
-  m_geomTypeByGeomId.push_back(GeometryType::SDF_PRIMITIVE);
+  m_geomTypeByGeomId.push_back(TYPE_SDF_PRIMITIVE);
   m_bvhOffsets.push_back(m_allNodePairs.size());
 
   unsigned p_offset = m_SdfParameters.size();

@@ -91,7 +91,7 @@ protected:
   std::vector<Box4f>    m_geomBoxes;
   std::vector<uint2>    m_geomOffsets; //means different things for different types of geometry
   std::vector<uint32_t> m_bvhOffsets;
-  std::vector<GeometryType> m_geomTypeByGeomId;
+  std::vector<unsigned> m_geomTypeByGeomId;
 
   //SDFs data
   std::vector<float> m_SdfParameters;

@@ -14,10 +14,10 @@ void BVHRT::IntersectAllPrimitivesInLeaf(const float3 ray_pos, const float3 ray_
                                              uint32_t a_start, uint32_t a_count,
                                              CRT_Hit *pHit)
 {
-  GeometryType type = m_geomTypeByGeomId[geomId];
-  if (type == GeometryType::MESH_TRIANGLE)
+  unsigned type = m_geomTypeByGeomId[geomId];
+  if (type == TYPE_MESH_TRIANGLE)
     IntersectAllTrianglesInLeaf(ray_pos, ray_dir, tNear, instId, geomId, a_start, a_count, pHit);
-  else if (type == GeometryType::SDF_PRIMITIVE)
+  else if (type == TYPE_SDF_PRIMITIVE)
     IntersectAllSdfPrimitivesInLeaf(ray_pos, ray_dir, tNear, instId, geomId, a_start, a_count, pHit);
 }
 

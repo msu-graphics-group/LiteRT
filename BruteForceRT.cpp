@@ -70,7 +70,7 @@ protected:
   std::vector<float4x4> m_instMatricesFwd; ///< instance matrices
   std::vector<uint2> m_indStartSize;
   std::vector<uint32_t>  m_geomIdByInstId;
-  std::vector<GeometryType> m_geomTypeByGeomId;
+  std::vector<unsigned> m_geomTypeByGeomId;
 
   //meshes data
   std::vector<float4>   m_vertPos;
@@ -130,7 +130,7 @@ uint32_t BruteForceRT::AddGeom_Triangles3f(const float* a_vpos3f, size_t a_vertN
   }
 
   m_geomBoxes.push_back(bbox);
-  m_geomTypeByGeomId.push_back(GeometryType::MESH_TRIANGLE);
+  m_geomTypeByGeomId.push_back(TYPE_MESH_TRIANGLE);
 
   for(size_t i=0;i<a_indNumber;i++)
     m_indices[oldSizeInd + i] = oldSizeVert + a_triIndices[i];
@@ -157,7 +157,7 @@ uint32_t BruteForceRT::AddGeom_Sdf(const SdfScene &scene, BuildQuality a_quality
   }
   m_indStartSize.push_back (uint2(0, scene.conjunctions.size()));
   m_geomBoxes.push_back(Box4f(LiteMath::to_float4(mn, 1), LiteMath::to_float4(mx, 1)));
-  m_geomTypeByGeomId.push_back(GeometryType::SDF_PRIMITIVE);
+  m_geomTypeByGeomId.push_back(TYPE_SDF_PRIMITIVE);
 
   m_SdfScenes.push_back(scene);
   while (m_SdfSceneIdByGeomId.size() < m_geomTypeByGeomId.size())
@@ -296,10 +296,10 @@ void BruteForceRT::IntersectAllPrimitivesInLeaf(const float3 ray_pos, const floa
                                                 uint32_t a_start, uint32_t a_count,
                                                 CRT_Hit *pHit)
 {
-  GeometryType type = m_geomTypeByGeomId[geomId];
-  if (type == GeometryType::MESH_TRIANGLE)
+  unsigned type = m_geomTypeByGeomId[geomId];
+  if (type == TYPE_MESH_TRIANGLE)
     IntersectAllTrianglesInLeaf(ray_pos, ray_dir, tNear, instId, geomId, a_start, a_count, pHit);
-  else if (type == GeometryType::SDF_PRIMITIVE)
+  else if (type == TYPE_SDF_PRIMITIVE)
     IntersectAllSdfPrimitivesInLeaf(ray_pos, ray_dir, tNear, instId, geomId, a_start, a_count, pHit);
 }
 

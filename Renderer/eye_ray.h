@@ -54,7 +54,7 @@ protected:
   virtual void kernel_PackXY(uint tidX, uint tidY, uint* out_pakedXY);
   
   void SetPresets(const RenderPreset& a_presets) override;
-  void CastRaySingle(uint32_t tidX, uint32_t* out_color);
+  virtual void CastRaySingle(uint32_t tidX, uint32_t* out_color __attribute__((size("tidX"))));
 
   virtual void CastRaySingleBlock(uint32_t tidX, uint32_t* out_color, uint32_t a_numPasses = 1);
 

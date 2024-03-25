@@ -28,11 +28,8 @@ struct CRT_Hit
                       // coords[2] and coords[3] stores normal.xy
 };
 
-enum class GeometryType
-{
-  MESH_TRIANGLE,
-  SDF_PRIMITIVE
-};
+static constexpr unsigned TYPE_MESH_TRIANGLE = 0;
+static constexpr unsigned TYPE_SDF_PRIMITIVE = 1;
 
 #define REMAP_PRIM_ID
 
