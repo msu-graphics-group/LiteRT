@@ -157,10 +157,10 @@ namespace embree
   struct NextNode
   {
     uint32_t       leftOffset = uint32_t(-1);
-    bvh::Interval interval   = bvh::Interval(0,0);
+    Interval interval   = Interval(0,0);
   };
 
-  NextNode ConvertTreeRec(Node* node, bvh::BVHTree& a_res, uint32_t a_parentEscapeIndex)
+  NextNode ConvertTreeRec(Node* node, BVHTree& a_res, uint32_t a_parentEscapeIndex)
   {
     if(node == nullptr)
       return NextNode();
@@ -172,12 +172,12 @@ namespace embree
       const uint32_t oldTris = a_res.indicesReordered.size();
       a_res.indicesReordered.push_back(leaf->id);
       
-      bvh::BVHNode currNode;
+      BVHNode currNode;
       currNode.boxMin = to_float3(leaf->bounds.boxMin);
       currNode.boxMax = to_float3(leaf->bounds.boxMax);
-      currNode.leftOffset  = bvh::LEAF_NORMAL;
-      currNode.escapeIndex = bvh::LEAF_NORMAL;
-      nodeData.interval    = bvh::Interval(oldTris, 1);
+      currNode.leftOffset  = LEAF_NORMAL;
+      currNode.escapeIndex = LEAF_NORMAL;
+      nodeData.interval    = Interval(oldTris, 1);
       a_res.intervals.push_back(nodeData.interval);
       a_res.nodes.push_back(currNode);
       return nodeData;      
@@ -200,14 +200,14 @@ namespace embree
         for(size_t triId = 0; triId < g_prims.size(); triId++)
           a_res.indicesReordered[oldTris + triId] = g_prims[triId];
         
-        bvh::BVHNode currNode;
+        BVHNode currNode;
         {
           currNode.boxMin = to_float3(min(pInnderNode->bounds[0].boxMin, pInnderNode->bounds[1].boxMin));
           currNode.boxMax = to_float3(max(pInnderNode->bounds[0].boxMax, pInnderNode->bounds[1].boxMax));
-          currNode.leftOffset  = bvh::LEAF_NORMAL;
-          currNode.escapeIndex = bvh::LEAF_NORMAL;
+          currNode.leftOffset  = LEAF_NORMAL;
+          currNode.escapeIndex = LEAF_NORMAL;
         }
-        nodeData.interval = bvh::Interval(oldTris, uint32_t(g_prims.size()));
+        nodeData.interval = Interval(oldTris, uint32_t(g_prims.size()));
         a_res.intervals.push_back(nodeData.interval);
         a_res.nodes.push_back(currNode);
         return nodeData;
@@ -216,22 +216,22 @@ namespace embree
     
     
     InnerNode* pInnderNode = (InnerNode*)node;
-    bvh::BVHNode leftNode, rightNode;
+    BVHNode leftNode, rightNode;
     {
       leftNode.boxMin  = to_float3(pInnderNode->bounds[0].boxMin);
       leftNode.boxMax  = to_float3(pInnderNode->bounds[0].boxMax);
       rightNode.boxMin = to_float3(pInnderNode->bounds[1].boxMin);
       rightNode.boxMax = to_float3(pInnderNode->bounds[1].boxMax);
       
-      leftNode.leftOffset   = bvh::LEAF_NORMAL;
-      leftNode.escapeIndex  = bvh::LEAF_NORMAL;
-      rightNode.leftOffset  = bvh::LEAF_NORMAL;
-      rightNode.escapeIndex = bvh::LEAF_NORMAL;
+      leftNode.leftOffset   = LEAF_NORMAL;
+      leftNode.escapeIndex  = LEAF_NORMAL;
+      rightNode.leftOffset  = LEAF_NORMAL;
+      rightNode.escapeIndex = LEAF_NORMAL;
     }
       
     nodeData.leftOffset = uint32_t(a_res.nodes.size());
-    a_res.intervals.push_back(bvh::Interval(0,0));
-    a_res.intervals.push_back(bvh::Interval(0,0));
+    a_res.intervals.push_back(Interval(0,0));
+    a_res.intervals.push_back(Interval(0,0));
     a_res.nodes.push_back(leftNode);
     a_res.nodes.push_back(rightNode);
     
@@ -247,12 +247,12 @@ namespace embree
     a_res.intervals[nodeData.leftOffset + 1] = dataRight.interval;          // same for intervals
 
     assert(dataLeft.interval.start + dataLeft.interval.count == dataRight.interval.start);
-    nodeData.interval = bvh::Interval(dataLeft.interval.start, dataLeft.interval.count + dataRight.interval.count);
+    nodeData.interval = Interval(dataLeft.interval.start, dataLeft.interval.count + dataRight.interval.count);
     
     return nodeData;
   }
 
-  void ConvertTree(Node* node, bvh::BVHTree& a_res)
+  void ConvertTree(Node* node, BVHTree& a_res)
   {
     uint32_t totalPrims = EvaluatePrimsInNode(node);
     
@@ -266,15 +266,15 @@ namespace embree
     //
     assert(!node->isLeaf());
     InnerNode* pInnderNode = (InnerNode*)node;
-    bvh::BVHNode root;
+    BVHNode root;
     {
       root.boxMin = to_float3(min(pInnderNode->bounds[0].boxMin, pInnderNode->bounds[1].boxMin));
       root.boxMax = to_float3(max(pInnderNode->bounds[0].boxMax, pInnderNode->bounds[1].boxMax));  
-      root.leftOffset  = bvh::LEAF_NORMAL;
-      root.escapeIndex = bvh::ESCAPE_ROOT;
+      root.leftOffset  = LEAF_NORMAL;
+      root.escapeIndex = ESCAPE_ROOT;
     }
 
-    a_res.intervals.push_back(bvh::Interval(0,pInnderNode->primsInNode));
+    a_res.intervals.push_back(Interval(0,pInnderNode->primsInNode));
     a_res.nodes.push_back(root);
 
     // (2) then convert tree format to out BVH2_Static format
@@ -284,7 +284,7 @@ namespace embree
     a_res.intervals[0]        = rootData.interval;
   }
 
-  void build(RTCBuildQuality quality, std::vector<RTCBuildPrimitive>& prims_i, size_t extraSpace, bvh::BVHTree& a_res)
+  void build(RTCBuildQuality quality, std::vector<RTCBuildPrimitive>& prims_i, size_t extraSpace, BVHTree& a_res)
   {
     printf("ITS ALIVE\n");
     auto a_device = rtcNewDevice("");
@@ -332,14 +332,14 @@ namespace embree
   }
 }
 
-bvh::BVHTree bvh::BuildBVHEmbree(const float4 *a_vertices, size_t a_vertNum, const uint *a_indices, size_t a_indexNum, bvh::BVHPresets a_presets)
+BVHTree BuildBVHEmbree(const float4 *a_vertices, size_t a_vertNum, const uint *a_indices, size_t a_indexNum, BVHPresets a_presets)
 {
   RTCBuildQuality quality = RTC_BUILD_QUALITY_HIGH;
-  if (a_presets.quality == bvh::BVHQuality::LOW)
+  if (a_presets.quality == BVHQuality::LOW)
     quality = RTC_BUILD_QUALITY_LOW;
-  else if (a_presets.quality == bvh::BVHQuality::MEDIUM)
+  else if (a_presets.quality == BVHQuality::MEDIUM)
     quality = RTC_BUILD_QUALITY_MEDIUM;
-  else if (a_presets.quality == bvh::BVHQuality::HIGH)
+  else if (a_presets.quality == BVHQuality::HIGH)
     quality = RTC_BUILD_QUALITY_HIGH;
 
   embree::g_recommendedPrimsInLeaf = a_presets.primsInLeaf;
@@ -371,8 +371,8 @@ bvh::BVHTree bvh::BuildBVHEmbree(const float4 *a_vertices, size_t a_vertNum, con
     primBoxData[i] = prim;
   }
 
-  bvh::BVHTree res;
+  BVHTree res;
   embree::build(quality, primBoxData, (a_indexNum / 6), res);
-  res.format = bvh::CBVH_FORMATS::FMT_BVH2Node32_Interval32_Static;
+  res.format = CBVH_FORMATS::FMT_BVH2Node32_Interval32_Static;
   return res;
 }

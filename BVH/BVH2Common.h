@@ -29,14 +29,11 @@ using LiteMath::Box4f;
 #include "raytrace_common.h"
 #include "cbvh.h"
 
-using bvh::BVHNode;
-using bvh::BVHNodePair;
-
 // main class
 //
 struct BVHRT : public ISceneObject
 {
-  BVHRT(const char* a_buildName, const char* a_layoutName) : 
+  BVHRT(const char* a_buildName = nullptr, const char* a_layoutName = nullptr) : 
     m_buildName(a_buildName != nullptr ? a_buildName : ""), 
     m_layoutName(a_layoutName != nullptr ? a_layoutName : "") { }
   ~BVHRT() override {}

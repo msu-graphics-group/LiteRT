@@ -17,12 +17,10 @@ extern uint64_t g_buildTris;
 
 namespace embree
 {
-  void build(RTCBuildQuality quality, std::vector<RTCBuildPrimitive> &prims_i, size_t extraSpace, bvh::BVHTree &a_res);
+  void build(RTCBuildQuality quality, std::vector<RTCBuildPrimitive> &prims_i, size_t extraSpace, BVHTree &a_res);
   extern uint32_t g_recommendedPrimsInLeaf;
 }
 
-namespace bvh
-{
 // NOINTERVALS format
 //
 static constexpr uint32_t START_MASK = 0x00FFFFFF;
@@ -652,5 +650,4 @@ BVHTree BuildBVH(const BVHNode *a_nodes, size_t a_objNum, BuilderPresets a_prese
     lbvh.nodes = AlignNodes2(lbvh.nodes);
   
   return lbvh;
-}
 }

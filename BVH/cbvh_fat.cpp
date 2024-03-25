@@ -4,35 +4,30 @@
 
 #include "cbvh.h"
 
-using bvh::BVHNode;
 using LiteMath::float4;
 
 #include "raytrace_common.h"
 
-using bvh::Interval;
-using bvh::BVHNode;
-using bvh::BVHNodePair;
-
-bvh::LayoutPresets bvh::LayoutPresetsFromString(const char* a_str)
+LayoutPresets LayoutPresetsFromString(const char* a_str)
 {
   LayoutPresets layout;
   std::string m_layoutName(a_str);
 
   if(m_layoutName == "DepthFirst" || m_layoutName == "DFS" || m_layoutName == "DFL")
   {
-    layout.layout = bvh::LAYOUT_DFS;
+    layout.layout = LAYOUT_DFS;
     layout.grSzId = 0;
     layout.grSzXX = 0;
   }
   else if(m_layoutName == "OrderedDepthFirst" || m_layoutName == "ODFS" || m_layoutName == "ODFL")
   {
-    layout.layout = bvh::LAYOUT_ODFS;
+    layout.layout = LAYOUT_ODFS;
     layout.grSzId = 0;
     layout.grSzXX = 0;
   }
   else if(m_layoutName == "BreadthFirst" || m_layoutName == "BFS" || m_layoutName == "BFL")
   {
-    layout.layout = bvh::LAYOUT_BFS;
+    layout.layout = LAYOUT_BFS;
     layout.grSzId = 0;
     layout.grSzXX = 0;
   }
@@ -54,17 +49,17 @@ bvh::LayoutPresets bvh::LayoutPresetsFromString(const char* a_str)
     layout.grSzXX = int(leavesNumberInTreelet); // actual size is 2*int(leavesNumberInTreelet)-1;
 
     if (m_layoutName.find("SuperSuperTreelet") != std::string::npos)
-      layout.layout = bvh::LAYOUT_COLBVH_TRB3;
+      layout.layout = LAYOUT_COLBVH_TRB3;
     else if (m_layoutName.find("SuperTreelet") != std::string::npos)
-      layout.layout = bvh::LAYOUT_COLBVH_TRB2;
+      layout.layout = LAYOUT_COLBVH_TRB2;
     else
-      layout.layout = bvh::LAYOUT_COLBVH_TRB1;
+      layout.layout = LAYOUT_COLBVH_TRB1;
    
     const bool a_aligned = m_layoutName.find("Aligned") != std::string::npos;
     const bool a_merge   = m_layoutName.find("Merged") != std::string::npos;
 
     if (m_layoutName.find("SuperTreelet") != std::string::npos && a_aligned && a_merge)
-      layout.layout = bvh::LAYOUT_CALBVH;
+      layout.layout = LAYOUT_CALBVH;
   }
   else if (m_layoutName.find("Clusterized") != std::string::npos || m_layoutName.find("TRB") != std::string::npos || m_layoutName == "opt")
   {
@@ -79,7 +74,7 @@ bvh::LayoutPresets bvh::LayoutPresetsFromString(const char* a_str)
         cluster_size = stoi(str);
     }
     
-    layout.layout = bvh::LAYOUT_COLBVH_YM06;
+    layout.layout = LAYOUT_COLBVH_YM06;
     layout.grSzId = std::log2(int(cluster_size+1))-3;
     layout.grSzXX = int(cluster_size);          // actual size is cluster_size+1;
   }
@@ -152,7 +147,7 @@ std::vector<BVHNodePair> CreateFatTreeArray(const std::vector<BVHNode>& a_input)
 extern double g_buildTime;
 extern uint64_t g_buildTris;
 
-bvh::BVHTreeFat bvh::BuildBVHFat(const float* a_vpos3f,     size_t a_vertNum, size_t a_vByteStride, 
+BVHTreeFat BuildBVHFat(const float* a_vpos3f,     size_t a_vertNum, size_t a_vByteStride, 
                                  const uint32_t* a_indices, size_t a_indexNum, BuilderPresets a_presets, LayoutPresets a_layout)
 {
   std::vector<BVHNodePair> bvhFat;
@@ -160,8 +155,8 @@ bvh::BVHTreeFat bvh::BuildBVHFat(const float* a_vpos3f,     size_t a_vertNum, si
   
   // (1) build
   {
-    a_presets.format    = bvh::BVH2_LEFT_OFFSET;
-    auto bvhData        = bvh::BuildBVH(a_vpos3f, a_vertNum, a_vByteStride, a_indices, a_indexNum, a_presets);
+    a_presets.format    = BVH2_LEFT_OFFSET;
+    auto bvhData        = BuildBVH(a_vpos3f, a_vertNum, a_vByteStride, a_indices, a_indexNum, a_presets);
     bvhFat              = CreateFatTreeArray(bvhData.nodes);
     objIndicesReordered = bvhData.indices;
   }
@@ -169,16 +164,16 @@ bvh::BVHTreeFat bvh::BuildBVHFat(const float* a_vpos3f,     size_t a_vertNum, si
   return BVHTreeFat(bvhFat, objIndicesReordered);
 }
 
-bvh::BVHTreeFat bvh::BuildBVHFatCustom(const BVHNode* a_nodes, size_t a_objNum, BuilderPresets a_presets, LayoutPresets a_layout)
+BVHTreeFat BuildBVHFatCustom(const BVHNode* a_nodes, size_t a_objNum, BuilderPresets a_presets, LayoutPresets a_layout)
 {
   std::vector<BVHNodePair> bvhFat;
   std::vector<uint32_t>   objIndicesReordered;
   
   // (1) build
   {
-    a_presets.format    = bvh::BVH2_LEFT_OFFSET;
+    a_presets.format    = BVH2_LEFT_OFFSET;
     a_presets.primsInLeaf = 1;
-    auto bvhData        = bvh::BuildBVH(a_nodes, a_objNum, a_presets);
+    auto bvhData        = BuildBVH(a_nodes, a_objNum, a_presets);
     bvhFat              = CreateFatTreeArray(bvhData.nodes);
     objIndicesReordered = bvhData.indicesReordered;
   }

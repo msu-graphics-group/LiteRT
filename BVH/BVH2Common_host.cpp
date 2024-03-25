@@ -91,9 +91,9 @@ uint32_t BVHRT::AddGeom_Triangles3f(const float *a_vpos3f, size_t a_vertNumber, 
   const size_t oldBvhSize = m_allNodePairs.size();
   m_bvhOffsets.push_back(oldBvhSize);
   
-  auto presets = bvh::BuilderPresetsFromString(m_buildName.c_str());
-  auto layout  = bvh::LayoutPresetsFromString(m_layoutName.c_str());
-  auto bvhData = bvh::BuildBVHFat((const float*)(m_vertPos.data() + oldSizeVert), a_vertNumber, 16, a_triIndices, a_indNumber, presets, layout);
+  auto presets = BuilderPresetsFromString(m_buildName.c_str());
+  auto layout  = LayoutPresetsFromString(m_layoutName.c_str());
+  auto bvhData = BuildBVHFat((const float*)(m_vertPos.data() + oldSizeVert), a_vertNumber, 16, a_triIndices, a_indNumber, presets, layout);
 
   AppendTreeData(bvhData.nodes, bvhData.indices, a_triIndices, a_indNumber);
 
@@ -142,7 +142,7 @@ uint32_t BVHRT::AddGeom_Sdf(const SdfScene &scene, BuildQuality a_qualityLevel)
     m_SdfConjunctions[i].offset += o_offset;
 
   std::vector<unsigned> conj_indices;
-  std::vector<bvh::BVHNode> orig_nodes;
+  std::vector<BVHNode> orig_nodes;
   for (int i=0;i<scene.conjunctions.size();i++)
   {
     auto &c = scene.conjunctions[i];
@@ -165,9 +165,9 @@ uint32_t BVHRT::AddGeom_Sdf(const SdfScene &scene, BuildQuality a_qualityLevel)
 
   // Build BVH for each geom and append it to big buffer;
   // append data to global arrays and fix offsets
-  auto presets = bvh::BuilderPresetsFromString(m_buildName.c_str());
-  auto layout  = bvh::LayoutPresetsFromString(m_layoutName.c_str());
-  auto bvhData = bvh::BuildBVHFatCustom(orig_nodes.data(), orig_nodes.size(), presets, layout);
+  auto presets = BuilderPresetsFromString(m_buildName.c_str());
+  auto layout  = LayoutPresetsFromString(m_layoutName.c_str());
+  auto bvhData = BuildBVHFatCustom(orig_nodes.data(), orig_nodes.size(), presets, layout);
 
   for (auto &i : bvhData.indices)
     printf("ind %d\n",(int)i);
@@ -221,8 +221,8 @@ void DebugPrintBoxes(const std::vector<Box4f>& nodes, const std::string& a_fileN
 
 void BVHRT::CommitScene(BuildQuality a_qualityLevel)
 {
-  bvh::BuilderPresets presets = {bvh::BVH2_LEFT_OFFSET, bvh::BVHQuality::HIGH, 1};
-  m_nodesTLAS = bvh::BuildBVH((const bvh::BVHNode *)m_instBoxes.data(), m_instBoxes.size(), presets).nodes;
+  BuilderPresets presets = {BVH2_LEFT_OFFSET, BVHQuality::HIGH, 1};
+  m_nodesTLAS = BuildBVH((const BVHNode *)m_instBoxes.data(), m_instBoxes.size(), presets).nodes;
 
   // DebugPrintNodes(m_nodesTLAS, "z01_tlas.txt");
   // DebugPrintBoxes(m_instBoxes, "y01_boxes.txt");

@@ -6,8 +6,6 @@
 
 #include "LiteMath.h"
 
-namespace bvh
-{
   using LiteMath::float4;
   using LiteMath::float3;
   using LiteMath::uint;
@@ -81,7 +79,7 @@ namespace bvh
     int  primsInLeaf  = 4;                             ///<! recomended primitives in leaf
     int  childrenNum  = 4;                             ///<! (2,4,8,16,32) 
     int  maxThreads   = 0;                             ///<! 0 means unbounden number of threads; please note that current implementation is single threaded!
-    bvh::BVHQuality quality = bvh::BVHQuality::HIGH;
+    BVHQuality quality = BVHQuality::HIGH;
     CBVH_FORMATS     desiredFormat = FMT_BVH4Node32_Interval32_Static; ///<! desired format of BVH; if required format is not possiable for current presets (not compatible with childrenNum or not implemented for example), different format will be selected.
   };
 
@@ -199,6 +197,4 @@ namespace bvh
   */
   BVHTreeFat BuildBVHFatCustom(const BVHNode* a_nodes, size_t a_objNum, BuilderPresets a_presets, LayoutPresets a_layout);
 
-  BVHTree BuildBVHEmbree(const float4 *a_vertices, size_t a_vertNum, const uint *a_indices, size_t a_indexNum, bvh::BVHPresets a_presets);
-};
-
+  BVHTree BuildBVHEmbree(const float4 *a_vertices, size_t a_vertNum, const uint *a_indices, size_t a_indexNum, BVHPresets a_presets);
