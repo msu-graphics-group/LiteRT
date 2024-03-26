@@ -43,7 +43,7 @@ void EyeRayCaster::kernel_InitEyeRay(uint32_t tidX, float4* rayPosAndNear, float
                   &rayPos, &rayDir);
   
   *rayPosAndNear = to_float4(rayPos, 0.0f);
-  *rayDirAndFar  = to_float4(rayDir, MAXFLOAT);
+  *rayDirAndFar  = to_float4(rayDir, 1e9f);
 }
 
 void EyeRayCaster::kernel_RayTrace(uint32_t tidX, const float4* rayPosAndNear,
@@ -63,7 +63,7 @@ void EyeRayCaster::kernel_RayTrace(uint32_t tidX, const float4* rayPosAndNear,
   {
     float3 norm(hit.coords[2], hit.coords[3], sqrt(max(0.0f, 1-hit.coords[2]*hit.coords[2] - hit.coords[3]*hit.coords[3])));
     float q = max(0.1f, dot(norm, normalize(float3(1,1,1))));
-    uint32_t col = 255*q;
+    uint32_t col= uint32_t(255*q);
     out_color[y * m_width + x] = 0xFF000000 | (col<<16) | (col<<8) | col;
     //out_color[y * m_width + x] = m_palette[(hit.primId) % palette_size];
   } 

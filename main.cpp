@@ -14,7 +14,7 @@ uint64_t g_buildTris = 0; // used to get total tris processed by builder
 
 constexpr bool MEASURE_FRAMES = false;
 
-IRenderer* MakeEyeRayShooterRenderer(const char* a_name);
+std::shared_ptr<EyeRayCaster> MakeEyeRayShooterRenderer(const char* a_name);
 
 ISceneObject* MakeBruteForceRT(const char* a_implName);
 ISceneObject* MakeBVH2CommonRT(const char* a_implName, const char* a_buildName, const char* a_layoutName);
@@ -114,7 +114,7 @@ int main(int argc, const char** argv)
 
   std::cout << "[main]: init renderer ..." << std::endl; 
   {
-    pRender = std::shared_ptr<IRenderer>(MakeEyeRayShooterRenderer(renderName));  
+    pRender = std::shared_ptr<IRenderer>(MakeEyeRayShooterRenderer("GPU"));  
     auto accelStructImpl = std::shared_ptr<ISceneObject>(CreateSceneRT(accelStruct, buildFormat, layout));
     pRender->SetAccelStruct(accelStructImpl);
   }

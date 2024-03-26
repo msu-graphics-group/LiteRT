@@ -25,7 +25,7 @@ float2 BVHRT::box_intersects(const float3 &min_pos, const float3 &max_pos, const
 float BVHRT::eval_dist_prim(unsigned prim_id, float3 p)
 {
   SdfObject prim = m_SdfObjects[prim_id];
-  float3 pos = prim.transform * p;
+  float3 pos = to_float3(prim.transform * to_float4(p, 1));
 
   switch (prim.type)
   {
@@ -55,7 +55,7 @@ float BVHRT::eval_dist_prim(unsigned prim_id, float3 p)
   {
     float tmp_mem[2 * NEURAL_SDF_MAX_LAYER_SIZE];
 
-    auto &prop = m_SdfNeuralProperties[prim.neural_id];
+    NeuralProperties prop = m_SdfNeuralProperties[prim.neural_id];
     unsigned t_ofs1 = 0;
     unsigned t_ofs2 = NEURAL_SDF_MAX_LAYER_SIZE;
 
@@ -98,7 +98,7 @@ float BVHRT::eval_dist_conjunction(unsigned conj_id, float3 p)
   {
     float prim_d = m_SdfObjects[pid].distance_mult * eval_dist_prim(pid, p) +
                    m_SdfObjects[pid].distance_add;
-    conj_d = max(conj_d, m_SdfObjects[pid].complement ? -prim_d : prim_d);
+    conj_d = max(conj_d, m_SdfObjects[pid].complement == 0 ? -prim_d : prim_d);
   }
   return conj_d;
 }
@@ -140,7 +140,7 @@ SdfHit BVHRT::sdf_conjunction_sphere_tracing(unsigned conj_id, const float3 &min
   float3 norm = float3(1,0,0);
   if (need_norm)
   {
-    constexpr float h = 0.001;
+    const float h = 0.001;
     float ddx = (eval_dist_conjunction(conj_id, p0 + float3(h, 0, 0)) -
                  eval_dist_conjunction(conj_id, p0 + float3(-h, 0, 0))) /
                 (2 * h);
@@ -158,7 +158,7 @@ SdfHit BVHRT::sdf_conjunction_sphere_tracing(unsigned conj_id, const float3 &min
   hit.hit_id = (unsigned)(d <= EPS);
   hit.hit_pos = p0;
   hit.hit_norm = norm;
-  return {(unsigned)(d <= EPS), p0, norm};
+  return hit;
 }
 
 void BVHRT::IntersectAllSdfPrimitivesInLeaf(const float3 ray_pos, const float3 ray_dir,
@@ -166,16 +166,16 @@ void BVHRT::IntersectAllSdfPrimitivesInLeaf(const float3 ray_pos, const float3 r
                                                 uint32_t a_start, uint32_t a_count,
                                                 CRT_Hit *pHit)
 {
-  assert(a_count == 1);
+  //assert(a_count == 1);
   unsigned conjId = m_ConjIndices[m_geomOffsets[geomId].x + a_start];
-  float l = LiteMath::length(ray_dir);
+  float l = length(ray_dir);
   float3 dir = ray_dir/l;
 
   SdfHit hit = sdf_conjunction_sphere_tracing(conjId, m_SdfConjunctions[conjId].min_pos, m_SdfConjunctions[conjId].max_pos,
                                               ray_pos, dir, true);
   if (hit.hit_id > 0)
   {
-    float t = LiteMath::length(hit.hit_pos-ray_pos)/l;
+    float t = length(hit.hit_pos-ray_pos)/l;
     if (t > tNear && t < pHit->t)
     {
       pHit->t         = t;
