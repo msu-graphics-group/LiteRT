@@ -1,0 +1,425 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+#include "common_generated.h"
+
+layout(binding = 0, set = 0) buffer data0 { uint out_color[]; }; //
+layout(binding = 1, set = 0) buffer data1 { uint m_pAccelStruct_m_primIndices[]; }; //
+layout(binding = 2, set = 0) buffer data2 { BVHNodePair m_pAccelStruct_m_allNodePairs[]; }; //
+layout(binding = 3, set = 0) buffer data3 { SdfObject m_pAccelStruct_m_SdfObjects[]; }; //
+layout(binding = 4, set = 0) buffer data4 { uint m_packedXY[]; }; //
+layout(binding = 5, set = 0) buffer data5 { float m_pAccelStruct_m_SdfParameters[]; }; //
+layout(binding = 6, set = 0) buffer data6 { mat4 m_pAccelStruct_m_instMatricesInv[]; }; //
+layout(binding = 7, set = 0) buffer data7 { NeuralProperties m_pAccelStruct_m_SdfNeuralProperties[]; }; //
+layout(binding = 8, set = 0) buffer data8 { SdfConjunction m_pAccelStruct_m_SdfConjunctions[]; }; //
+layout(binding = 9, set = 0) buffer data9 { vec4 m_pAccelStruct_m_vertPos[]; }; //
+layout(binding = 10, set = 0) buffer data10 { uint m_pAccelStruct_m_indices[]; }; //
+layout(binding = 11, set = 0) buffer data11 { uint m_pAccelStruct_m_geomTypeByGeomId[]; }; //
+layout(binding = 12, set = 0) buffer data12 { uint m_pAccelStruct_m_geomIdByInstId[]; }; //
+layout(binding = 13, set = 0) buffer data13 { uvec2 m_pAccelStruct_m_geomOffsets[]; }; //
+layout(binding = 14, set = 0) buffer data14 { uint m_pAccelStruct_m_bvhOffsets[]; }; //
+layout(binding = 15, set = 0) buffer data15 { uint m_pAccelStruct_m_ConjIndices[]; }; //
+layout(binding = 16, set = 0) buffer data16 { BVHNode m_pAccelStruct_m_nodesTLAS[]; }; //
+layout(binding = 17, set = 0) buffer dataUBO { EyeRayCaster_Generated_UBO_Data ubo; };
+
+float m_pAccelStruct_eval_dist_prim(uint prim_id, vec3 p) {
+  SdfObject prim = m_pAccelStruct_m_SdfObjects[prim_id];
+  vec3 pos = (prim.transform * vec4(p, 1)).xyz;
+
+  switch (prim.type)
+  {
+  case SDF_PRIM_SPHERE:
+  {
+    float r = m_pAccelStruct_m_SdfParameters[prim.params_offset + 0];
+    // fprintf(stderr, "sphere %f %f %f - %f",pos.x, pos.y, pos.z, r);
+    return length(pos) - r;
+  }
+  case SDF_PRIM_BOX:
+  {
+    vec3 size = vec3(m_pAccelStruct_m_SdfParameters[prim.params_offset + 0],m_pAccelStruct_m_SdfParameters[prim.params_offset + 1],m_pAccelStruct_m_SdfParameters[prim.params_offset + 2]);
+    // fprintf(stderr, "box %f %f %f - %f %f %f - %f %f %f",p.x, p.y, p.z, pos.x, pos.y, pos.z, size.x, size.y, size.z);
+    vec3 q = abs(pos) - size;
+    return length(max(q, vec3(0.0f))) + min(max(q.x, max(q.y, q.z)), 0.0f);
+  }
+  case SDF_PRIM_CYLINDER:
+  {
+    float h = m_pAccelStruct_m_SdfParameters[prim.params_offset + 0];
+    float r = m_pAccelStruct_m_SdfParameters[prim.params_offset + 1];
+    vec2 d = abs(vec2(sqrt(pos.x * pos.x + pos.z * pos.z),pos.y)) - vec2(r,h);
+    return min(max(d.x, d.y), 0.0f) + length(max(d, vec2(0.0f)));
+  }
+  case SDF_PRIM_SIREN:
+  {
+    float tmp_mem[2 * NEURAL_SDF_MAX_LAYER_SIZE];
+
+    NeuralProperties prop = m_pAccelStruct_m_SdfNeuralProperties[prim.neural_id];
+    uint t_ofs1 = 0;
+    uint t_ofs2 = NEURAL_SDF_MAX_LAYER_SIZE;
+
+    tmp_mem[t_ofs1 + 0] = p.x;
+    tmp_mem[t_ofs1 + 1] = p.y;
+    tmp_mem[t_ofs1 + 2] = p.z;
+
+    for (int l = 0; uint(l) < prop.layer_count; l++)
+    {
+      uint m_ofs = prop.layers[l].offset;
+      uint b_ofs = prop.layers[l].offset + prop.layers[l].in_size * prop.layers[l].out_size;
+      for (int i = 0; uint(i) < prop.layers[l].out_size; i++)
+      {
+        tmp_mem[t_ofs2 + uint(i)] = m_pAccelStruct_m_SdfParameters[b_ofs + uint(i)];
+        for (int j = 0; uint(j) < prop.layers[l].in_size; j++)
+          tmp_mem[t_ofs2 + uint(i)] += tmp_mem[t_ofs1 + uint(j)] * m_pAccelStruct_m_SdfParameters[m_ofs + uint(i) * prop.layers[l].in_size + uint(j)];
+        if (uint(l) < prop.layer_count - 1)
+          tmp_mem[t_ofs2 + uint(i)] = sin(SIREN_W0 * tmp_mem[t_ofs2 + uint(i)]);
+      }
+
+      t_ofs2 = t_ofs1;
+      t_ofs1 = (t_ofs1 + uint(NEURAL_SDF_MAX_LAYER_SIZE)) % (2 * NEURAL_SDF_MAX_LAYER_SIZE);
+    }
+
+    return tmp_mem[t_ofs1];
+  }
+  default:
+    //fprintf(stderr, "unknown type %u", prim.type);
+    //assert(false);
+    break;
+  }
+  return -1000;
+}
+
+float m_pAccelStruct_eval_dist_conjunction(uint conj_id, vec3 p) {
+  SdfConjunction conj = m_pAccelStruct_m_SdfConjunctions[conj_id];
+  float conj_d = -1e6;
+  for (uint pid = conj.offset; pid < conj.offset + conj.size; pid++)
+  {
+    float prim_d = m_pAccelStruct_m_SdfObjects[pid].distance_mult * m_pAccelStruct_eval_dist_prim(pid, p) +
+                   m_pAccelStruct_m_SdfObjects[pid].distance_add;
+    conj_d = max(conj_d, m_pAccelStruct_m_SdfObjects[pid].complement == 0 ? -prim_d : prim_d);
+  }
+  return conj_d;
+}
+
+vec2 m_pAccelStruct_box_intersects(in vec3 min_pos, in vec3 max_pos, in vec3 origin, in vec3 dir) {
+  vec3 safe_dir = sign(dir) * max(vec3(1e-9f), abs(dir));
+  vec3 tMin = (min_pos - origin) / safe_dir;
+  vec3 tMax = (max_pos - origin) / safe_dir;
+  vec3 t1 = min(tMin, tMax);
+  vec3 t2 = max(tMin, tMax);
+  float tNear = max(t1.x, max(t1.y, t1.z));
+  float tFar = min(t2.x, min(t2.y, t2.z));
+
+  return vec2(tNear,tFar);
+}
+
+SdfHit m_pAccelStruct_sdf_conjunction_sphere_tracing(uint conj_id, in vec3 min_pos, in vec3 max_pos, in vec3 pos, in vec3 dir, bool need_norm) {
+  const float EPS = 1e-5;
+
+  SdfHit hit;
+  vec2 tNear_tFar = m_pAccelStruct_box_intersects(min_pos, max_pos, pos, dir);
+  float t = tNear_tFar.x;
+  float tFar = tNear_tFar.y;
+  if (t > tFar)
+    return hit;
+  
+  int iter = 0;
+  float d = m_pAccelStruct_eval_dist_conjunction(conj_id, pos + t * dir);
+  while (iter < 1000 && d > EPS && t < tFar)
+  {
+    t += d + EPS;
+    d = m_pAccelStruct_eval_dist_conjunction(conj_id, pos + t * dir);
+    iter++;
+  }
+
+  vec3 p0 = pos + t * dir;
+  vec3 norm = vec3(1,0,0);
+  if (need_norm)
+  {
+    const float h = 0.001;
+    float ddx = (m_pAccelStruct_eval_dist_conjunction(conj_id, p0 + vec3(h,0,0)) -
+                 m_pAccelStruct_eval_dist_conjunction(conj_id, p0 + vec3(-h,0,0))) /
+                (2 * h);
+    float ddy = (m_pAccelStruct_eval_dist_conjunction(conj_id, p0 + vec3(0,h,0)) -
+                 m_pAccelStruct_eval_dist_conjunction(conj_id, p0 + vec3(0,-h,0))) /
+                (2 * h);
+    float ddz = (m_pAccelStruct_eval_dist_conjunction(conj_id, p0 + vec3(0,0,h)) -
+                 m_pAccelStruct_eval_dist_conjunction(conj_id, p0 + vec3(0,0,-h))) /
+                (2 * h);
+
+    norm = normalize(vec3(ddx,ddy,ddz));
+    // fprintf(stderr, "st %d (%f %f %f)\n", iter, surface_normal->x, surface_normal->y, surface_normal->z);
+  }
+  // fprintf(stderr, "st %d (%f %f %f)", iter, p0.x, p0.y, p0.z);
+  hit.hit_id = uint((d <= EPS));
+  hit.hit_pos = p0;
+  hit.hit_norm = norm;
+  return hit;
+}
+
+void m_pAccelStruct_IntersectAllTrianglesInLeaf(const vec3 ray_pos, const vec3 ray_dir, float tNear, uint instId, uint geomId, uint a_start, uint a_count, inout CRT_Hit pHit) {
+  const uvec2 a_geomOffsets = m_pAccelStruct_m_geomOffsets[geomId];
+
+  for (uint triId = a_start; triId < a_start + a_count; triId++)
+  {
+    const uint A = m_pAccelStruct_m_indices[a_geomOffsets.x + triId*3 + 0];
+    const uint B = m_pAccelStruct_m_indices[a_geomOffsets.x + triId*3 + 1];
+    const uint C = m_pAccelStruct_m_indices[a_geomOffsets.x + triId*3 + 2];
+
+    const vec3 A_pos = m_pAccelStruct_m_vertPos[a_geomOffsets.y + A].xyz;
+    const vec3 B_pos = m_pAccelStruct_m_vertPos[a_geomOffsets.y + B].xyz;
+    const vec3 C_pos = m_pAccelStruct_m_vertPos[a_geomOffsets.y + C].xyz;
+
+    const vec3 edge1 = B_pos - A_pos;
+    const vec3 edge2 = C_pos - A_pos;
+    const vec3 pvec = cross(ray_dir, edge2);
+    const vec3 tvec = ray_pos - A_pos;
+    const vec3 qvec = cross(tvec, edge1);
+
+    const float invDet = 1.0f / dot(edge1, pvec);
+    const float v = dot(tvec, pvec) * invDet;
+    const float u = dot(qvec, ray_dir) * invDet;
+    const float t = dot(edge2, qvec) * invDet;
+
+    if (v >= -1e-6f && u >= -1e-6f && (u + v <= 1.0f + 1e-6f) && t > tNear && t < pHit.t) 
+    {
+      vec3 n = normalize(cross(edge1, edge2));
+
+      pHit.t = t;
+      pHit.primId = triId;
+      pHit.instId = instId;
+      pHit.geomId = geomId;
+      pHit.coords[0] = u;
+      pHit.coords[1] = v;
+      pHit.coords[2] = n.x;
+      pHit.coords[3] = n.y;
+    }
+  }
+}
+
+void m_pAccelStruct_IntersectAllSdfPrimitivesInLeaf(const vec3 ray_pos, const vec3 ray_dir, float tNear, uint instId, uint geomId, uint a_start, uint a_count, inout CRT_Hit pHit) {
+  //assert(a_count == 1);
+  uint conjId = m_pAccelStruct_m_ConjIndices[m_pAccelStruct_m_geomOffsets[geomId].x + a_start];
+  float l = length(ray_dir);
+  vec3 dir = ray_dir/l;
+
+  SdfHit hit = m_pAccelStruct_sdf_conjunction_sphere_tracing(conjId, m_pAccelStruct_m_SdfConjunctions[conjId].min_pos, m_pAccelStruct_m_SdfConjunctions[conjId].max_pos, ray_pos, dir, true);
+  if (hit.hit_id > 0)
+  {
+    float t = length(hit.hit_pos-ray_pos)/l;
+    if (t > tNear && t < pHit.t)
+    {
+      pHit.t         = t;
+      pHit.primId    = conjId;
+      pHit.instId    = instId;
+      pHit.geomId    = geomId;  
+      pHit.coords[0] = 0;
+      pHit.coords[1] = 0;
+      pHit.coords[2] = hit.hit_norm.x;
+      pHit.coords[3] = hit.hit_norm.y;
+    }
+  }
+}
+
+void m_pAccelStruct_IntersectAllPrimitivesInLeaf(const vec3 ray_pos, const vec3 ray_dir, float tNear, uint instId, uint geomId, uint a_start, uint a_count, inout CRT_Hit pHit) {
+  uint type = m_pAccelStruct_m_geomTypeByGeomId[geomId];
+  if (type == TYPE_MESH_TRIANGLE)
+    m_pAccelStruct_IntersectAllTrianglesInLeaf(ray_pos, ray_dir, tNear, instId, geomId, a_start, a_count, pHit);
+  else if (type == TYPE_SDF_PRIMITIVE)
+    m_pAccelStruct_IntersectAllSdfPrimitivesInLeaf(ray_pos, ray_dir, tNear, instId, geomId, a_start, a_count, pHit);
+}
+
+void m_pAccelStruct_BVH2TraverseF32(const vec3 ray_pos, const vec3 ray_dir, float tNear, uint instId, uint geomId, inout uint32_t stack[STACK_SIZE], bool stopOnFirstHit, inout CRT_Hit pHit) {
+  const uint bvhOffset = m_pAccelStruct_m_bvhOffsets[geomId];
+
+  int top = 0;
+  uint leftNodeOffset = 0;
+
+  const vec3 rayDirInv = SafeInverse(ray_dir);
+  while (top >= 0 && !(stopOnFirstHit && pHit.primId != uint32_t(-1)))
+  {
+    while (top >= 0 && ((leftNodeOffset & LEAF_BIT) == 0))
+    {
+      const BVHNodePair fatNode = m_pAccelStruct_m_allNodePairs[bvhOffset + leftNodeOffset];
+
+      const uint node0_leftOffset = fatNode.left.leftOffset;
+      const uint node1_leftOffset = fatNode.right.leftOffset;
+
+      const vec2 tm0 = RayBoxIntersection2(ray_pos, rayDirInv, fatNode.left.boxMin, fatNode.left.boxMax);
+      const vec2 tm1 = RayBoxIntersection2(ray_pos, rayDirInv, fatNode.right.boxMin, fatNode.right.boxMax);
+
+      const bool hitChild0 = (tm0.x <= tm0.y) && (tm0.y >= tNear) && (tm0.x <= pHit.t);
+      const bool hitChild1 = (tm1.x <= tm1.y) && (tm1.y >= tNear) && (tm1.x <= pHit.t);
+
+      // traversal decision
+      leftNodeOffset = hitChild0 ? node0_leftOffset : node1_leftOffset;
+
+      if (hitChild0 && hitChild1)
+      {
+        leftNodeOffset = (tm0.x <= tm1.x) ? node0_leftOffset : node1_leftOffset; // GPU style branch
+        stack[top]     = (tm0.x <= tm1.x) ? node1_leftOffset : node0_leftOffset; // GPU style branch
+        top++;
+      }
+
+      if (!hitChild0 && !hitChild1) // both miss, stack.pop()
+      {
+        top--;
+        leftNodeOffset = stack[max(top, 0)];
+      }
+
+    } // end while (searchingForLeaf)
+
+    // leaf node, intersect triangles
+    //
+    if (top >= 0 && leftNodeOffset != 0xFFFFFFFF)
+    {
+      const uint start = EXTRACT_START(leftNodeOffset);
+      const uint count = EXTRACT_COUNT(leftNodeOffset);
+      m_pAccelStruct_IntersectAllPrimitivesInLeaf(ray_pos, ray_dir, tNear, instId, geomId, start, count, pHit);
+    }
+
+    // continue BVH traversal
+    //
+    top--;
+    leftNodeOffset = stack[max(top, 0)];
+
+  } // end while (top >= 0)
+
+}
+
+CRT_Hit m_pAccelStruct_RayQuery_NearestHit(vec4 posAndNear, vec4 dirAndFar) {
+  bool stopOnFirstHit = (dirAndFar.w <= 0.0f);
+  if(stopOnFirstHit)
+    dirAndFar.w *= -1.0f;
+
+  uint32_t stack[STACK_SIZE];
+
+  CRT_Hit hit;
+  hit.t      = dirAndFar.w;
+  hit.primId = uint32_t(-1);
+  hit.instId = uint32_t(-1);
+  hit.geomId = uint32_t(-1);
+
+  const vec3 rayDirInv = SafeInverse(dirAndFar.xyz);
+  uint nodeIdx = 0;
+  do
+  {
+    uint travFlags = 0;
+    uint leftOffset = 0;
+    do
+    {
+      const BVHNode currNode = m_pAccelStruct_m_nodesTLAS[nodeIdx];
+      const vec2 boxHit = RayBoxIntersection2(posAndNear.xyz, rayDirInv, currNode.boxMin, currNode.boxMax);
+      const bool intersects = (boxHit.x <= boxHit.y) && (boxHit.y > posAndNear.w) && (boxHit.x < hit.t); // (tmin <= tmax) && (tmax > 0.f) && (tmin < curr_t)
+
+      travFlags  = (currNode.leftOffset & LEAF_BIT) | uint32_t(intersects); // travFlags  = (((currNode.leftOffset & LEAF_BIT) == 0) ? 0 : LEAF_BIT) | (intersects ? 1 : 0);
+      leftOffset = currNode.leftOffset;
+      nodeIdx    = isLeafOrNotIntersect(travFlags) ? currNode.escapeIndex : leftOffset;
+
+    } while (notLeafAndIntersect(travFlags) && nodeIdx != 0 && nodeIdx < 0xFFFFFFFE); 
+     
+    if(isLeafAndIntersect(travFlags)) 
+    {
+      const uint instId = EXTRACT_START(leftOffset);
+      const uint geomId = m_pAccelStruct_m_geomIdByInstId[instId];
+  
+      // transform ray with matrix to local space
+      //
+      const vec3 ray_pos = matmul4x3(m_pAccelStruct_m_instMatricesInv[instId], posAndNear.xyz);
+      const vec3 ray_dir = matmul3x3(m_pAccelStruct_m_instMatricesInv[instId], dirAndFar.xyz); // DON'T NORMALIZE IT !!!! When we transform to local space of node, ray_dir must be unnormalized!!!
+  
+      m_pAccelStruct_BVH2TraverseF32(ray_pos, ray_dir, posAndNear.w, instId, geomId, stack, stopOnFirstHit, hit);
+    }
+
+  } while (nodeIdx < 0xFFFFFFFE && !(stopOnFirstHit && hit.primId != uint32_t(-1))); //
+
+  if(hit.geomId < uint32_t(-1)) 
+  {
+    const uvec2 geomOffsets = m_pAccelStruct_m_geomOffsets[hit.geomId];
+    hit.primId = m_pAccelStruct_m_primIndices[geomOffsets.x/3 + hit.primId];
+  }
+  
+  return hit;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+layout( push_constant ) uniform kernelArgs
+{
+  uint iNumElementsX; 
+  uint iNumElementsY; 
+  uint iNumElementsZ; 
+  uint tFlagsMask;    
+} kgenArgs;
+
+///////////////////////////////////////////////////////////////// subkernels here
+void kernel_RayTrace_out_color(uint tidX, in vec4 rayPosAndNear, in vec4 rayDirAndFar, uint out_colorOffset) 
+{
+  
+  const vec4 rayPos = rayPosAndNear;
+  const vec4 rayDir = rayDirAndFar ;
+  
+  CRT_Hit hit   = m_pAccelStruct_RayQuery_NearestHit(rayPos, rayDir);
+  const uint XY = m_packedXY[tidX];
+  const uint x  = (XY & 0x0000FFFF);
+  const uint y  = (XY & 0xFFFF0000) >> 16;
+
+  if (hit.primId == 0xFFFFFFFF) //no hit
+    out_color[y * ubo.m_width + x + out_colorOffset] = 0;
+  else
+  {
+    vec3 norm = vec3(hit.coords[2],hit.coords[3],sqrt(max(0.0f, 1-hit.coords[2]*hit.coords[2] - hit.coords[3]*hit.coords[3])));
+    float q = max(0.1f, dot(norm, normalize(vec3(1,1,1))));
+    uint col = uint32_t(255*q);
+    out_color[y * ubo.m_width + x + out_colorOffset] = 0xFF000000 | (col<<16) | (col<<8) | col;
+    //out_color[y * m_width + x] = m_palette[(hit.primId) % palette_size];
+  } 
+
+}
+
+void kernel_InitEyeRay(uint tidX, inout vec4 rayPosAndNear, inout vec4 rayDirAndFar) 
+{
+  
+  const uint XY = m_packedXY[tidX];
+  const uint x  = (XY & 0x0000FFFF);
+  const uint y  = (XY & 0xFFFF0000) >> 16;
+  
+  //if(x == 37 && y == 450)
+  //{
+  //  g_debugPrint = true;
+  //}
+  //else
+  //  g_debugPrint = false;
+
+  vec3 rayDir = EyeRayDirNormalized((float(x)+0.5f)/float(ubo.m_width), (float(y)+0.5f)/float(ubo.m_height), ubo.m_projInv);
+  vec3 rayPos = vec3(0,0,0);
+
+  transform_ray3f(ubo.m_worldViewInv, 
+                  rayPos, rayDir);
+  
+  rayPosAndNear = vec4(rayPos, 0.0f);
+  rayDirAndFar  = vec4(rayDir, 1e9f);
+
+}
+
+///////////////////////////////////////////////////////////////// subkernels here
+
+void main()
+{
+  ///////////////////////////////////////////////////////////////// prolog
+  const uint tidX = uint(gl_GlobalInvocationID[0]); 
+  ///////////////////////////////////////////////////////////////// prolog
+
+  
+  //const uint XY = m_pakedXY[tidX];
+  //const uint x  = (XY & 0x0000FFFF);
+  //const uint y  = (XY & 0xFFFF0000) >> 16;
+  //if(x >= 50 && y == 450)
+  //{
+  //  int a = 2; // put debug breakpoint here
+  //}
+  vec4 rayPosAndNear,  rayDirAndFar;
+  kernel_InitEyeRay(tidX, rayPosAndNear, rayDirAndFar);
+  kernel_RayTrace_out_color(tidX, rayPosAndNear, rayDirAndFar, 0);
+
+}
+

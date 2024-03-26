@@ -40,3 +40,4 @@ render_app
 z_out.bmp
 z_timings.csv
 sdf_auto.*
+*.spv
