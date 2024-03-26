@@ -34,7 +34,7 @@ int main(int argc, const char** argv)
   uint32_t WIDTH  = 1024;
   uint32_t HEIGHT = 1024;
   
-  const char* scenePath   = "scenes/02_sdf_scenes/csg_1.xml"; // bunny_cornell.xml, instanced_objects.xml
+  const char* scenePath   = "scenes/02_sdf_scenes/csg_new.xml"; // 02_sdf_scenes/csg_new.xml bunny_cornell.xml, instanced_objects.xml
   const char* meshPath    = "scenes/meshes/bunny.vsgf";///helix_mid.vsgf";
   const char* renderName  = "eye"; // "RT", "RTAO" or just "AO"
 

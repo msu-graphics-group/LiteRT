@@ -82,19 +82,24 @@ struct SdfObject
   uint params_offset; // in parameters vector
   uint params_count;
   uint neural_id; // index in neural_properties if type is neural
+
   float distance_mult;
   float distance_add;
-  vec3 max_pos;
-  vec3 min_pos;
-  mat4 transform;
   uint complement; // 0 or 1
+  uint _pad; 
+
+  vec4 max_pos;    //vec4 to prevent padding issues
+  vec4 min_pos;    //vec4 to prevent padding issues
+
+  mat4 transform;
 };
 struct SdfConjunction
 {
+  vec4 max_pos;
+  vec4 min_pos;
   uint offset; // in objects vector
   uint size;
-  vec3 max_pos;
-  vec3 min_pos;
+  uint _pad[2];
 };
 const int NEURAL_SDF_MAX_LAYERS = 8;
 const int NEURAL_SDF_MAX_LAYER_SIZE = 1024;
@@ -112,9 +117,8 @@ struct NeuralProperties
 };
 struct SdfHit
 {
-  uint hit_id; // 0 if no hit
-  vec3 hit_pos;
-  vec3 hit_norm;
+  vec4 hit_pos;  // hit_pos.w < 0 if no hit, hit_pos.w > 0 otherwise
+  vec4 hit_norm; // hit_norm.w is not used
 };
 const uint BUILD_LOW = 0;
 const uint BUILD_MEDIUM = 1;
@@ -229,7 +233,14 @@ mat3 make_float3x3(vec3 a, vec3 b, vec3 c) { // different way than mat3(a,b,c)
               a.z, b.z, c.z);
 }
 
-uint EXTRACT_COUNT(uint a_leftOffset) { return (a_leftOffset & SIZE_MASK) >> 24; }
+vec3 SafeInverse(vec3 d) {
+  const float ooeps = 1.0e-36f; // Avoid div by zero.
+  vec3 res;
+  res.x = 1.0f / (abs(d.x) > ooeps ? d.x : copysign(ooeps, d.x));
+  res.y = 1.0f / (abs(d.y) > ooeps ? d.y : copysign(ooeps, d.y));
+  res.z = 1.0f / (abs(d.z) > ooeps ? d.z : copysign(ooeps, d.z));
+  return res;
+}
 
 uint EXTRACT_START(uint a_leftOffset) { return  a_leftOffset & START_MASK; }
 
@@ -247,13 +258,10 @@ vec2 RayBoxIntersection2(vec3 rayOrigin, vec3 rayDirInv, vec3 boxMin, vec3 boxMa
   return vec2(max(tmin, min(lo2, hi2)),min(tmax, max(lo2, hi2)));
 }
 
-vec3 SafeInverse(vec3 d) {
-  const float ooeps = 1.0e-36f; // Avoid div by zero.
-  vec3 res;
-  res.x = 1.0f / (abs(d.x) > ooeps ? d.x : copysign(ooeps, d.x));
-  res.y = 1.0f / (abs(d.y) > ooeps ? d.y : copysign(ooeps, d.y));
-  res.z = 1.0f / (abs(d.z) > ooeps ? d.z : copysign(ooeps, d.z));
-  return res;
+uint EXTRACT_COUNT(uint a_leftOffset) { return (a_leftOffset & SIZE_MASK) >> 24; }
+
+vec3 matmul3x3(mat4 m, vec3 v) { 
+  return (m*vec4(v, 0.0f)).xyz;
 }
 
 bool isLeafAndIntersect(uint flags) { return (flags == (LEAF_BIT | 0x1 )); }
@@ -264,10 +272,6 @@ vec3 mymul4x3(mat4 m, vec3 v) {
 
 vec3 matmul4x3(mat4 m, vec3 v) {
   return (m*vec4(v, 1.0f)).xyz;
-}
-
-vec3 matmul3x3(mat4 m, vec3 v) { 
-  return (m*vec4(v, 0.0f)).xyz;
 }
 
 bool notLeafAndIntersect(uint flags) { return (flags != (LEAF_BIT | 0x1)); }
@@ -316,6 +320,6 @@ uint fakeOffset(uint x, uint y, uint pitch) { return y*pitch + x; }  // RTV patt
 #define KGEN_FLAG_DONT_SET_EXIT     4
 #define KGEN_FLAG_SET_EXIT_NEGATIVE 8
 #define KGEN_REDUCTION_LAST_STEP    16
-#define CFLOAT_GUARDIAN 
 #define MAXFLOAT FLT_MAX
+#define CFLOAT_GUARDIAN 
 

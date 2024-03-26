@@ -148,15 +148,15 @@ uint32_t BruteForceRT::AddGeom_Sdf(const SdfScene &scene, BuildQuality a_quality
   assert(scene.conjunctions.size() > 0);
   assert(scene.objects.size() > 0);
   assert(scene.parameters.size() > 0);
-  float3 mn = scene.conjunctions[0].min_pos;
-  float3 mx = scene.conjunctions[0].max_pos;
+  float4 mn = scene.conjunctions[0].min_pos;
+  float4 mx = scene.conjunctions[0].max_pos;
   for (auto &c : scene.conjunctions) 
   {
     mn = min(mn, c.min_pos);
     mx = max(mx, c.max_pos);
   }
   m_indStartSize.push_back (uint2(0, scene.conjunctions.size()));
-  m_geomBoxes.push_back(Box4f(LiteMath::to_float4(mn, 1), LiteMath::to_float4(mx, 1)));
+  m_geomBoxes.push_back(Box4f(mn, mx));
   m_geomTypeByGeomId.push_back(TYPE_SDF_PRIMITIVE);
 
   m_SdfScenes.push_back(scene);

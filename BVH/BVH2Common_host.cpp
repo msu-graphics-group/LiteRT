@@ -37,10 +37,20 @@ void BVHRT::ClearGeom()
   m_bvhOffsets.reserve(std::max<size_t>(reserveSize, m_bvhOffsets.capacity()));
   m_bvhOffsets.resize(0);
 
+  m_SdfParameters.reserve(16);
   m_SdfParameters.resize(0);
+
+  m_SdfObjects.reserve(16);
   m_SdfObjects.resize(0);
+
+  m_SdfConjunctions.reserve(16);
   m_SdfConjunctions.resize(0);
+
+  m_SdfNeuralProperties.reserve(16);
   m_SdfNeuralProperties.resize(0);
+
+  m_ConjIndices.reserve(16);
+  m_ConjIndices.resize(0);
 
   ClearScene();
 }
@@ -110,15 +120,15 @@ uint32_t BVHRT::AddGeom_Sdf(const SdfScene &scene, BuildQuality a_qualityLevel)
   assert(scene.conjunctions.size() > 0);
   assert(scene.objects.size() > 0);
   assert(scene.parameters.size() > 0);
-  float3 mn = scene.conjunctions[0].min_pos;
-  float3 mx = scene.conjunctions[0].max_pos;
+  float4 mn = scene.conjunctions[0].min_pos;
+  float4 mx = scene.conjunctions[0].max_pos;
   for (auto &c : scene.conjunctions) 
   {
     mn = min(mn, c.min_pos);
     mx = max(mx, c.max_pos);
   }
   m_geomOffsets.push_back(uint2(m_ConjIndices.size(), 0));
-  m_geomBoxes.push_back(Box4f(LiteMath::to_float4(mn, 1), LiteMath::to_float4(mx, 1)));
+  m_geomBoxes.push_back(Box4f(mn, mx));
   m_geomTypeByGeomId.push_back(TYPE_SDF_PRIMITIVE);
   m_bvhOffsets.push_back(m_allNodePairs.size());
 
@@ -148,8 +158,8 @@ uint32_t BVHRT::AddGeom_Sdf(const SdfScene &scene, BuildQuality a_qualityLevel)
     auto &c = scene.conjunctions[i];
     conj_indices.push_back(c_offset + i);
     orig_nodes.emplace_back();
-    orig_nodes.back().boxMin = c.min_pos;
-    orig_nodes.back().boxMax = c.max_pos;
+    orig_nodes.back().boxMin = to_float3(c.min_pos);
+    orig_nodes.back().boxMax = to_float3(c.max_pos);
   }
   while (orig_nodes.size() < 2)
   {

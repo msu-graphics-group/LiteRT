@@ -149,7 +149,7 @@ std::shared_ptr<EyeRayCaster> CreateEyeRayCaster_Generated(vk_utils::VulkanConte
 std::shared_ptr<EyeRayCaster> MakeEyeRayShooterRenderer(const char* a_name) 
 { 
   if (std::string(a_name) == "GPU")
-    return CreateEyeRayCaster_Generated(vk_utils::globalContextGet(false, 0u), 256); 
+    return CreateEyeRayCaster_Generated(vk_utils::globalContextGet(true, 0u), 256); 
   else
     return std::shared_ptr<EyeRayCaster>(new EyeRayCaster());
 }

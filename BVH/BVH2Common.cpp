@@ -98,7 +98,7 @@ float BVHRT::eval_dist_conjunction(unsigned conj_id, float3 p)
   {
     float prim_d = m_SdfObjects[pid].distance_mult * eval_dist_prim(pid, p) +
                    m_SdfObjects[pid].distance_add;
-    conj_d = max(conj_d, m_SdfObjects[pid].complement == 0 ? -prim_d : prim_d);
+    conj_d = max(conj_d, m_SdfObjects[pid].complement == 1 ? -prim_d : prim_d);
   }
   return conj_d;
 }
@@ -121,6 +121,7 @@ SdfHit BVHRT::sdf_conjunction_sphere_tracing(unsigned conj_id, const float3 &min
   const float EPS = 1e-5;
 
   SdfHit hit;
+  hit.hit_pos = float4(0,0,0,-1);
   float2 tNear_tFar = box_intersects(min_pos, max_pos, pos, dir);
   float t = tNear_tFar.x;
   float tFar = tNear_tFar.y;
@@ -135,6 +136,9 @@ SdfHit BVHRT::sdf_conjunction_sphere_tracing(unsigned conj_id, const float3 &min
     d = eval_dist_conjunction(conj_id, pos + t * dir);
     iter++;
   }
+
+  if (d > EPS)
+    return hit;
 
   float3 p0 = pos + t * dir;
   float3 norm = float3(1,0,0);
@@ -155,9 +159,8 @@ SdfHit BVHRT::sdf_conjunction_sphere_tracing(unsigned conj_id, const float3 &min
     // fprintf(stderr, "st %d (%f %f %f)\n", iter, surface_normal->x, surface_normal->y, surface_normal->z);
   }
   // fprintf(stderr, "st %d (%f %f %f)", iter, p0.x, p0.y, p0.z);
-  hit.hit_id = (unsigned)(d <= EPS);
-  hit.hit_pos = p0;
-  hit.hit_norm = norm;
+  hit.hit_pos = to_float4(p0, 1);
+  hit.hit_norm = to_float4(norm, 1.0f);
   return hit;
 }
 
@@ -171,11 +174,13 @@ void BVHRT::IntersectAllSdfPrimitivesInLeaf(const float3 ray_pos, const float3 r
   float l = length(ray_dir);
   float3 dir = ray_dir/l;
 
-  SdfHit hit = sdf_conjunction_sphere_tracing(conjId, m_SdfConjunctions[conjId].min_pos, m_SdfConjunctions[conjId].max_pos,
+  SdfHit hit = sdf_conjunction_sphere_tracing(conjId, 
+                                              to_float3(m_SdfConjunctions[conjId].min_pos), 
+                                              to_float3(m_SdfConjunctions[conjId].max_pos),
                                               ray_pos, dir, true);
-  if (hit.hit_id > 0)
+  if (hit.hit_pos.w > 0)
   {
-    float t = length(hit.hit_pos-ray_pos)/l;
+    float t = length(to_float3(hit.hit_pos)-ray_pos)/l;
     if (t > tNear && t < pHit->t)
     {
       pHit->t         = t;

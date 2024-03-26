@@ -87,18 +87,6 @@ float m_pAccelStruct_eval_dist_prim(uint prim_id, vec3 p) {
   return -1000;
 }
 
-float m_pAccelStruct_eval_dist_conjunction(uint conj_id, vec3 p) {
-  SdfConjunction conj = m_pAccelStruct_m_SdfConjunctions[conj_id];
-  float conj_d = -1e6;
-  for (uint pid = conj.offset; pid < conj.offset + conj.size; pid++)
-  {
-    float prim_d = m_pAccelStruct_m_SdfObjects[pid].distance_mult * m_pAccelStruct_eval_dist_prim(pid, p) +
-                   m_pAccelStruct_m_SdfObjects[pid].distance_add;
-    conj_d = max(conj_d, m_pAccelStruct_m_SdfObjects[pid].complement == 0 ? -prim_d : prim_d);
-  }
-  return conj_d;
-}
-
 vec2 m_pAccelStruct_box_intersects(in vec3 min_pos, in vec3 max_pos, in vec3 origin, in vec3 dir) {
   vec3 safe_dir = sign(dir) * max(vec3(1e-9f), abs(dir));
   vec3 tMin = (min_pos - origin) / safe_dir;
@@ -111,10 +99,23 @@ vec2 m_pAccelStruct_box_intersects(in vec3 min_pos, in vec3 max_pos, in vec3 ori
   return vec2(tNear,tFar);
 }
 
+float m_pAccelStruct_eval_dist_conjunction(uint conj_id, vec3 p) {
+  SdfConjunction conj = m_pAccelStruct_m_SdfConjunctions[conj_id];
+  float conj_d = -1e6;
+  for (uint pid = conj.offset; pid < conj.offset + conj.size; pid++)
+  {
+    float prim_d = m_pAccelStruct_m_SdfObjects[pid].distance_mult * m_pAccelStruct_eval_dist_prim(pid, p) +
+                   m_pAccelStruct_m_SdfObjects[pid].distance_add;
+    conj_d = max(conj_d, m_pAccelStruct_m_SdfObjects[pid].complement == 1 ? -prim_d : prim_d);
+  }
+  return conj_d;
+}
+
 SdfHit m_pAccelStruct_sdf_conjunction_sphere_tracing(uint conj_id, in vec3 min_pos, in vec3 max_pos, in vec3 pos, in vec3 dir, bool need_norm) {
   const float EPS = 1e-5;
 
   SdfHit hit;
+  hit.hit_pos = vec4(0,0,0,-1);
   vec2 tNear_tFar = m_pAccelStruct_box_intersects(min_pos, max_pos, pos, dir);
   float t = tNear_tFar.x;
   float tFar = tNear_tFar.y;
@@ -129,6 +130,9 @@ SdfHit m_pAccelStruct_sdf_conjunction_sphere_tracing(uint conj_id, in vec3 min_p
     d = m_pAccelStruct_eval_dist_conjunction(conj_id, pos + t * dir);
     iter++;
   }
+
+  if (d > EPS)
+    return hit;
 
   vec3 p0 = pos + t * dir;
   vec3 norm = vec3(1,0,0);
@@ -149,9 +153,8 @@ SdfHit m_pAccelStruct_sdf_conjunction_sphere_tracing(uint conj_id, in vec3 min_p
     // fprintf(stderr, "st %d (%f %f %f)\n", iter, surface_normal->x, surface_normal->y, surface_normal->z);
   }
   // fprintf(stderr, "st %d (%f %f %f)", iter, p0.x, p0.y, p0.z);
-  hit.hit_id = uint((d <= EPS));
-  hit.hit_pos = p0;
-  hit.hit_norm = norm;
+  hit.hit_pos = vec4(p0, 1);
+  hit.hit_norm = vec4(norm, 1.0f);
   return hit;
 }
 
@@ -201,10 +204,10 @@ void m_pAccelStruct_IntersectAllSdfPrimitivesInLeaf(const vec3 ray_pos, const ve
   float l = length(ray_dir);
   vec3 dir = ray_dir/l;
 
-  SdfHit hit = m_pAccelStruct_sdf_conjunction_sphere_tracing(conjId, m_pAccelStruct_m_SdfConjunctions[conjId].min_pos, m_pAccelStruct_m_SdfConjunctions[conjId].max_pos, ray_pos, dir, true);
-  if (hit.hit_id > 0)
+  SdfHit hit = m_pAccelStruct_sdf_conjunction_sphere_tracing(conjId, m_pAccelStruct_m_SdfConjunctions[conjId].min_pos.xyz, m_pAccelStruct_m_SdfConjunctions[conjId].max_pos.xyz, ray_pos, dir, true);
+  if (hit.hit_pos.w > 0)
   {
-    float t = length(hit.hit_pos-ray_pos)/l;
+    float t = length(hit.hit_pos.xyz-ray_pos)/l;
     if (t > tNear && t < pHit.t)
     {
       pHit.t         = t;
