@@ -85,6 +85,14 @@ struct BVHRT : public ISceneObject
   virtual void AppendTreeData(const std::vector<BVHNodePair>& a_nodes, const std::vector<uint32_t>& a_indices, 
                               const uint32_t *a_triIndices, size_t a_indNumber);
 
+  //helper functions to calculate SDF
+  //It is a copy-past of sdfScene functions with the same names
+  //Slicer is weak and can't handle calling external functions  ¯\_(ツ)_/¯
+  virtual float2 box_intersects(const float3 &min_pos, const float3 &max_pos, const float3 &origin, const float3 &dir);
+  virtual float eval_dist_prim(unsigned prim_id, float3 p);
+  virtual float eval_dist_conjunction(unsigned conj_id, float3 p);
+  virtual SdfHit sdf_conjunction_sphere_tracing(unsigned conj_id, const float3 &min_pos, const float3 &max_pos,
+                                                const float3 &pos, const float3 &dir, bool need_norm);
   //for each model in scene  
   std::vector<Box4f>    m_geomBoxes;
   std::vector<uint2>    m_geomOffsets; //means different things for different types of geometry

@@ -26,6 +26,7 @@ ISceneObject* CreateSceneRT(const char* a_implName, const char* a_buildName, con
     return MakeBruteForceRT(a_implName);
   else if (className.find("BVH2Common") != std::string::npos || className.find("BVH2") != std::string::npos)
     return MakeBVH2CommonRT(a_implName, a_buildName, a_layoutName);
+  return nullptr;
 }
 
 int main(int argc, const char** argv)

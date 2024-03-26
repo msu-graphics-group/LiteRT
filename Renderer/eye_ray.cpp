@@ -57,7 +57,7 @@ void EyeRayCaster::kernel_RayTrace(uint32_t tidX, const float4* rayPosAndNear,
   const uint x  = (XY & 0x0000FFFF);
   const uint y  = (XY & 0xFFFF0000) >> 16;
 
-  if ((hit.primId == 0xFFFFFFFF)) //no hit
+  if (hit.primId == 0xFFFFFFFF) //no hit
     out_color[y * m_width + x] = 0;
   else
   {

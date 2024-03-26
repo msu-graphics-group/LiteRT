@@ -6,10 +6,6 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
 project(loader_app CXX)
 
-add_library(project_warnings INTERFACE)
-include(cmake/CompilerWarnings.cmake)
-set_project_warnings(project_warnings)
-
 include_directories(${CMAKE_SOURCE_DIR})
 include_directories(${CMAKE_SOURCE_DIR}/LiteMath)
 include_directories(${CMAKE_SOURCE_DIR}/LiteScene)
@@ -25,7 +21,12 @@ find_package(Threads REQUIRED)
 find_package(OpenMP REQUIRED)
 
 set(CMAKE_CXX_STANDARD 17)
-
+set(CLANG_VERSION "14" CACHE STRING "clang and LLVM version to use")
+set(CMAKE_CXX_COMPILER "/usr/bin/clang++-${CLANG_VERSION}")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -Wall -Wno-unused-function \
+                     -Wno-unused-variable -Wno-unused-but-set-variable -Wno-unused-parameter -Wno-unused-result \
+                     -Wno-int-to-pointer-cast -Wno-register -Wreturn-type -Wdisabled-optimization \
+                     -Wno-narrowing -Wno-attributes -Wno-sign-compare")
 set(SCENE_LOADER_SRC
     ${CMAKE_SOURCE_DIR}/LiteScene/pugixml.cpp
     ${CMAKE_SOURCE_DIR}/LiteScene/hydraxml.cpp
@@ -120,16 +121,16 @@ set_property(TARGET render_app PROPERTY CXX_STANDARD 17)
 if(CMAKE_SYSTEM_NAME STREQUAL Windows)
     set_target_properties(render_app PROPERTIES VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}")
 
-    target_link_libraries(render_app PRIVATE project_warnings ${RAYTRACING_EMBREE_LIBS} ${MODULES_LIBRARIES})
+    target_link_libraries(render_app PRIVATE ${RAYTRACING_EMBREE_LIBS} ${MODULES_LIBRARIES})
 
     add_custom_command(TARGET render_app POST_BUILD COMMAND ${CMAKE_COMMAND}
             -E copy_directory "${PROJECT_SOURCE_DIR}/external/embree/bin_win64" $<TARGET_FILE_DIR:render_app>)
 elseif(ANDROID)
     find_library(log-lib log)
     find_library(android-lib android)
-    target_link_libraries(render_app PRIVATE project_warnings Threads::Threads dl embree3 ${android-lib} ${log-lib} volk )
+    target_link_libraries(render_app PRIVATE Threads::Threads dl embree3 ${android-lib} ${log-lib} volk )
 else()
-    target_link_libraries(render_app PRIVATE project_warnings Threads::Threads dl ${RAYTRACING_EMBREE_LIBS} ${MODULES_LIBRARIES})
+    target_link_libraries(render_app PRIVATE Threads::Threads dl ${RAYTRACING_EMBREE_LIBS} ${MODULES_LIBRARIES})
 endif()
 
 if(OpenMP_CXX_FOUND)
