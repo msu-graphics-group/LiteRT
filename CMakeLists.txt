@@ -72,7 +72,6 @@ if (MODULE_VULKAN)
   list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}")
   set(SLICER_DIR "/home/sammael/kernel_slicer" CACHE STRING "Custom diff render location")
   
-  find_package(OpenMP)
   find_package(Vulkan)
 
   set(MODULES_INCLUDE_DIRS ${MODULES_INCLUDE_DIRS} ${Vulkan_INCLUDE_DIR}
