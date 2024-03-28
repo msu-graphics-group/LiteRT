@@ -39,7 +39,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS} -std=c++17 -Wall -Wn
                      -Wno-unused-variable -Wno-unused-but-set-variable -Wno-unused-parameter -Wno-unused-result \
                      -Wno-int-to-pointer-cast -Wno-register -Wreturn-type -Wdisabled-optimization \
                      -Wno-narrowing -Wno-attributes -Wno-sign-compare")
-                     
+
 set(SCENE_LOADER_SRC
     ${CMAKE_SOURCE_DIR}/dependencies/LiteScene/pugixml.cpp
     ${CMAKE_SOURCE_DIR}/dependencies/LiteScene/hydraxml.cpp
@@ -128,7 +128,6 @@ endif()
 
 add_executable(render_app)
 target_include_directories(render_app PUBLIC ${MODULES_INCLUDE_DIRS})
-#add_subdirectory(${CMAKE_SOURCE_DIR}/volk ${CMAKE_SOURCE_DIR}/volk)
 
 target_sources(render_app PRIVATE main.cpp
                ${MODULES_SRC}
@@ -137,24 +136,5 @@ target_sources(render_app PRIVATE main.cpp
                ${BUILDERS_SRC})
 
 set_property(TARGET render_app PROPERTY CXX_STANDARD 17)
-
-
-if(CMAKE_SYSTEM_NAME STREQUAL Windows)
-    set_target_properties(render_app PROPERTIES VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}")
-
-    target_link_libraries(render_app PRIVATE ${RAYTRACING_EMBREE_LIBS} ${MODULES_LIBRARIES})
-
-    add_custom_command(TARGET render_app POST_BUILD COMMAND ${CMAKE_COMMAND}
-            -E copy_directory "${PROJECT_SOURCE_DIR}/external/embree/bin_win64" $<TARGET_FILE_DIR:render_app>)
-elseif(ANDROID)
-    find_library(log-lib log)
-    find_library(android-lib android)
-    target_link_libraries(render_app PRIVATE Threads::Threads dl embree3 ${android-lib} ${log-lib} volk )
-else()
-    target_link_libraries(render_app PRIVATE Threads::Threads dl ${RAYTRACING_EMBREE_LIBS} ${MODULES_LIBRARIES})
-endif()
-
-if(OpenMP_CXX_FOUND)
-  target_link_libraries(render_app PUBLIC OpenMP::OpenMP_CXX) ##
-endif()
-
+target_link_libraries(render_app PRIVATE Threads::Threads dl ${RAYTRACING_EMBREE_LIBS} ${MODULES_LIBRARIES})
+target_link_libraries(render_app PUBLIC OpenMP::OpenMP_CXX)
