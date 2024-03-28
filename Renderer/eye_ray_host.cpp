@@ -4,9 +4,9 @@
 #include <fstream>
 
 #include "eye_ray.h"
-#include "hydraxml.h"
-#include "cmesh4.h"
-#include "Timer.h"
+#include "LiteScene/hydraxml.h"
+#include "LiteScene/cmesh4.h"
+#include "../Timer.h"
 
 using LiteMath::float2;
 using LiteMath::float3;

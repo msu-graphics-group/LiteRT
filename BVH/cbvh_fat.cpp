@@ -6,7 +6,7 @@
 
 using LiteMath::float4;
 
-#include "raytrace_common.h"
+#include "../raytrace_common.h"
 
 LayoutPresets LayoutPresetsFromString(const char* a_str)
 {
@@ -144,8 +144,8 @@ std::vector<BVHNodePair> CreateFatTreeArray(const std::vector<BVHNode>& a_input)
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-extern double g_buildTime;
-extern uint64_t g_buildTris;
+double g_buildTime;
+uint64_t g_buildTris;
 
 BVHTreeFat BuildBVHFat(const float* a_vpos3f,     size_t a_vertNum, size_t a_vByteStride, 
                                  const uint32_t* a_indices, size_t a_indexNum, BuilderPresets a_presets, LayoutPresets a_layout)

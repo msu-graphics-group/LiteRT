@@ -25,8 +25,8 @@ using LiteMath::uint3;
 using LiteMath::uint4;
 using LiteMath::Box4f;
 
-#include "LiteRT.h"
-#include "raytrace_common.h"
+#include "../LiteRT.h"
+#include "../raytrace_common.h"
 #include "cbvh.h"
 
 // main class

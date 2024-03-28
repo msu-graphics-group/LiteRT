@@ -4,7 +4,7 @@
 //#include <iomanip>   
 
 #include "eye_ray.h"
-#include "render_common.h"
+#include "../render_common.h"
 
 
 void EyeRayCaster::CastRaySingle(uint32_t tidX, uint32_t* out_color)

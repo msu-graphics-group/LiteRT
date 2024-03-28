@@ -9,9 +9,9 @@
 #include <unordered_map>
 
 #include "LiteMath.h"
-#include "LiteRT.h"
-#include "IRenderer.h"
-#include "BVH/BVH2Common.h"
+#include "../LiteRT.h"
+#include "../IRenderer.h"
+#include "../BVH/BVH2Common.h"
 
 using LiteMath::uint;
 

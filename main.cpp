@@ -9,8 +9,8 @@
 
 using LiteImage::Image2D;
 
-double   g_buildTime = 0; // used to get build time from deep underground of code
-uint64_t g_buildTris = 0; // used to get total tris processed by builder
+extern double   g_buildTime = 0; // used to get build time from deep underground of code
+extern uint64_t g_buildTris = 0; // used to get total tris processed by builder
 
 constexpr bool MEASURE_FRAMES = false;
 
