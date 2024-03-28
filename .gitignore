@@ -41,3 +41,7 @@ z_out.bmp
 z_timings.csv
 sdf_auto.*
 *.spv
+
+_deps/*
+dependencies/*
+math_tests
