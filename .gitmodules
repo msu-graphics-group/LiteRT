@@ -4,6 +4,3 @@
 [submodule "LiteScene"]
 	path = LiteScene
 	url = https://github.com/msu-graphics-group/LiteScene.git
-[submodule "sdfScene"]
-	path = sdfScene
-	url = https://github.com/SammaelA/sdfScene.git
