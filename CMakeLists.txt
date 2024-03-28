@@ -23,12 +23,12 @@ include_directories(${CMAKE_SOURCE_DIR})
 include_directories(${CMAKE_SOURCE_DIR}/dependencies)
 include_directories(${CMAKE_SOURCE_DIR}/dependencies/LiteMath)
 include_directories(${CMAKE_SOURCE_DIR}/dependencies/LiteScene)
-include_directories(${CMAKE_SOURCE_DIR}/embree)
+include_directories(${CMAKE_SOURCE_DIR}/dependencies/embree)
 include_directories(${CMAKE_SOURCE_DIR}/sdfScene)
 include_directories(${CMAKE_SOURCE_DIR}/BVH)
 include_directories(${CMAKE_SOURCE_DIR}/Render)
 
-link_directories(${CMAKE_SOURCE_DIR}/embree/lib)
+link_directories(${CMAKE_SOURCE_DIR}/dependencies/embree/lib)
 set(RAYTRACING_EMBREE_LIBS embree3 embree_sse42 embree_avx embree_avx2 lexers simd sys tasking) # embree_avx embree_avx2
 
 find_package(Threads REQUIRED)
@@ -87,14 +87,23 @@ if (MODULE_VULKAN)
   set(SLICER_DIR "/home/sammael/kernel_slicer" CACHE STRING "Custom diff render location")
   
   find_package(Vulkan)
+  FetchContent_Declare(
+    volk
+    URL      https://github.com/zeux/volk/archive/refs/heads/master.zip
+    SOURCE_DIR dependencies/volk
+  )
+  FetchContent_Declare(
+    vkutils
+    URL      https://github.com/msu-graphics-group/vk-utils/archive/refs/heads/master.zip
+    SOURCE_DIR dependencies/vkutils
+  )
+  FetchContent_MakeAvailable(volk vkutils)
 
   set(MODULES_INCLUDE_DIRS ${MODULES_INCLUDE_DIRS} ${Vulkan_INCLUDE_DIR}
-                                                   ${SLICER_DIR}/apps/vkutils
-                                                   ${SLICER_DIR}/apps/volk
-                                                   ${SLICER_DIR}/apps/LiteMath
-                                                   ${SLICER_DIR}/apps/utils)
+                                                   ${CMAKE_SOURCE_DIR}/dependencies/vkutils
+                                                   ${CMAKE_SOURCE_DIR}/dependencies/volk)
 
-  link_directories(${SLICER_DIR}/apps/volk)
+  link_directories(${CMAKE_SOURCE_DIR}/dependencies/volk)
 
   add_compile_definitions(USE_GPU)
   add_compile_definitions(USE_VOLK)
@@ -104,14 +113,14 @@ if (MODULE_VULKAN)
       ${CMAKE_SOURCE_DIR}/Renderer/eye_ray_generated_ds.cpp 
       ${CMAKE_SOURCE_DIR}/Renderer/eye_ray_generated_init.cpp)
 
-  set(VKUTILS_SOURCE ${SLICER_DIR}/apps/vkutils/vk_utils.cpp
-                     ${SLICER_DIR}/apps/vkutils/vk_copy.cpp
-                     ${SLICER_DIR}/apps/vkutils/vk_buffers.cpp
-                     ${SLICER_DIR}/apps/vkutils/vk_images.cpp
-                     ${SLICER_DIR}/apps/vkutils/vk_context.cpp
-                     ${SLICER_DIR}/apps/vkutils/vk_alloc_simple.cpp
-                     ${SLICER_DIR}/apps/vkutils/vk_pipeline.cpp
-                     ${SLICER_DIR}/apps/vkutils/vk_descriptor_sets.cpp)   
+  set(VKUTILS_SOURCE ${CMAKE_SOURCE_DIR}/dependencies/vkutils/vk_utils.cpp
+                     ${CMAKE_SOURCE_DIR}/dependencies/vkutils/vk_copy.cpp
+                     ${CMAKE_SOURCE_DIR}/dependencies/vkutils/vk_buffers.cpp
+                     ${CMAKE_SOURCE_DIR}/dependencies/vkutils/vk_images.cpp
+                     ${CMAKE_SOURCE_DIR}/dependencies/vkutils/vk_context.cpp
+                     ${CMAKE_SOURCE_DIR}/dependencies/vkutils/vk_alloc_simple.cpp
+                     ${CMAKE_SOURCE_DIR}/dependencies/vkutils/vk_pipeline.cpp
+                     ${CMAKE_SOURCE_DIR}/dependencies/vkutils/vk_descriptor_sets.cpp)   
 
   set(MODULES_SRC ${MODULES_SRC} ${VKGEN_SOURCE} ${VKUTILS_SOURCE})
 
