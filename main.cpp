@@ -14,21 +14,6 @@ extern uint64_t g_buildTris = 0; // used to get total tris processed by builder
 
 constexpr bool MEASURE_FRAMES = false;
 
-std::shared_ptr<EyeRayCaster> MakeEyeRayShooterRenderer(const char* a_name);
-
-ISceneObject* MakeBruteForceRT(const char* a_implName);
-ISceneObject* MakeBVH2CommonRT(const char* a_implName, const char* a_buildName, const char* a_layoutName);
-
-ISceneObject* CreateSceneRT(const char* a_implName, const char* a_buildName, const char* a_layoutName)
-{
-  const std::string className(a_implName); //
-  if (className.find("BruteForce") != std::string::npos)
-    return MakeBruteForceRT(a_implName);
-  else if (className.find("BVH2Common") != std::string::npos || className.find("BVH2") != std::string::npos)
-    return MakeBVH2CommonRT(a_implName, a_buildName, a_layoutName);
-  return nullptr;
-}
-
 int main(int argc, const char** argv)
 {
   uint32_t WIDTH  = 1024;
@@ -114,8 +99,8 @@ int main(int argc, const char** argv)
 
   std::cout << "[main]: init renderer ..." << std::endl; 
   {
-    pRender = std::shared_ptr<IRenderer>(MakeEyeRayShooterRenderer("GPU"));  
-    auto accelStructImpl = std::shared_ptr<ISceneObject>(CreateSceneRT(accelStruct, buildFormat, layout));
+    pRender = MakeEyeRayShooterRenderer("GPU");  
+    auto accelStructImpl = CreateSceneRT(accelStruct, buildFormat, layout);
     pRender->SetAccelStruct(accelStructImpl);
   }
 

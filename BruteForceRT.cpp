@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <cassert>
 
-#include "LiteRT.h"
+#include "ISceneObject.h"
 #include "raytrace_common.h"
 
 using LiteMath::dot;

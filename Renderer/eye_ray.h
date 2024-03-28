@@ -9,7 +9,7 @@
 #include <unordered_map>
 
 #include "LiteMath.h"
-#include "../LiteRT.h"
+#include "../ISceneObject.h"
 #include "../IRenderer.h"
 #include "../BVH/BVH2Common.h"
 
@@ -46,6 +46,8 @@ public:
   void GetExecutionTime(const char* a_funcName, float a_out[4]) override;
 
   void CommitDeviceData() override {}
+
+  void UpdateCamera(const LiteMath::float4x4& a_worldView, const LiteMath::float4x4& a_proj) override;
   
 protected:
   bool LoadSceneHydra(const std::string& a_path);

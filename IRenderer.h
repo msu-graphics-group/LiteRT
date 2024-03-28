@@ -2,7 +2,7 @@
 #include <cstdint>
 #include <memory>
 
-#include "LiteRT.h"
+#include "ISceneObject.h"
 
 struct RenderPreset
 {
@@ -55,4 +55,5 @@ protected:
   virtual const LiteMath::float4* GetGeomBoxes() const { return nullptr; };
 };
 
-
+std::shared_ptr<IRenderer> MakeEyeRayShooterRenderer(const char* a_name);
+std::shared_ptr<ISceneObject> CreateSceneRT(const char* a_implName, const char* a_buildName, const char* a_layoutName);

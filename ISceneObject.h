@@ -131,6 +131,3 @@ struct ISceneObject
   virtual uint32_t GetInstNum() const  { return 0; };
   virtual const LiteMath::float4* GetGeomBoxes() const { return nullptr; };
 };
-
-ISceneObject* CreateSceneRT(const char* a_implName, const char* a_buildName, const char* a_layoutName);
-void DeleteSceneRT(ISceneObject* a_impl);
