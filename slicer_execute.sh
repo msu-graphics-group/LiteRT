@@ -23,8 +23,9 @@ $2 $start_dir/Renderer/eye_ray.cpp $start_dir/BVH/BVH2Common.cpp $start_dir/sdfS
 -DPUGIXML_NO_EXCEPTIONS -DKERNEL_SLICER -v
 
 cd $start_dir
+rm -r shaders_gpu
+mkdir shaders_gpu
 cd Renderer/shaders_gpu
 bash build.sh
+find -name "*.spv" | xargs cp --parents -t ../../shaders_gpu
 cd ../..
-rm -r shaders_gpu
-mv Renderer/shaders_gpu/ shaders_gpu
