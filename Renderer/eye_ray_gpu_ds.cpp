@@ -7,10 +7,10 @@
 #include "vk_copy.h"
 #include "vk_context.h"
 
-#include "eye_ray_generated.h"
+#include "eye_ray_gpu.h"
 
 
-void EyeRayCaster_Generated::AllocateAllDescriptorSets()
+void EyeRayCaster_GPU::AllocateAllDescriptorSets()
 {
   // allocate pool
   //
@@ -55,7 +55,7 @@ void EyeRayCaster_Generated::AllocateAllDescriptorSets()
   VK_CHECK_RESULT(tmpRes);
 }
 
-VkDescriptorSetLayout EyeRayCaster_Generated::CreatePackXYMegaDSLayout()
+VkDescriptorSetLayout EyeRayCaster_GPU::CreatePackXYMegaDSLayout()
 {
   std::array<VkDescriptorSetLayoutBinding, 16+1> dsBindings;
 
@@ -96,49 +96,49 @@ VkDescriptorSetLayout EyeRayCaster_Generated::CreatePackXYMegaDSLayout()
   dsBindings[4].stageFlags         = stageFlags;
   dsBindings[4].pImmutableSamplers = nullptr;
 
-  // binding for m_pAccelStruct_m_indices
+  // binding for m_pAccelStruct_m_geomIdByInstId
   dsBindings[5].binding            = 5;
   dsBindings[5].descriptorType     = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
   dsBindings[5].descriptorCount    = 1;
   dsBindings[5].stageFlags         = stageFlags;
   dsBindings[5].pImmutableSamplers = nullptr;
 
-  // binding for m_pAccelStruct_m_geomTypeByGeomId
+  // binding for m_pAccelStruct_m_geomOffsets
   dsBindings[6].binding            = 6;
   dsBindings[6].descriptorType     = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
   dsBindings[6].descriptorCount    = 1;
   dsBindings[6].stageFlags         = stageFlags;
   dsBindings[6].pImmutableSamplers = nullptr;
 
-  // binding for m_pAccelStruct_m_geomIdByInstId
+  // binding for m_pAccelStruct_m_bvhOffsets
   dsBindings[7].binding            = 7;
   dsBindings[7].descriptorType     = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
   dsBindings[7].descriptorCount    = 1;
   dsBindings[7].stageFlags         = stageFlags;
   dsBindings[7].pImmutableSamplers = nullptr;
 
-  // binding for m_pAccelStruct_m_geomOffsets
+  // binding for m_pAccelStruct_m_ConjIndices
   dsBindings[8].binding            = 8;
   dsBindings[8].descriptorType     = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
   dsBindings[8].descriptorCount    = 1;
   dsBindings[8].stageFlags         = stageFlags;
   dsBindings[8].pImmutableSamplers = nullptr;
 
-  // binding for m_pAccelStruct_m_bvhOffsets
+  // binding for m_pAccelStruct_m_nodesTLAS
   dsBindings[9].binding            = 9;
   dsBindings[9].descriptorType     = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
   dsBindings[9].descriptorCount    = 1;
   dsBindings[9].stageFlags         = stageFlags;
   dsBindings[9].pImmutableSamplers = nullptr;
 
-  // binding for m_pAccelStruct_m_ConjIndices
+  // binding for m_pAccelStruct_m_indices
   dsBindings[10].binding            = 10;
   dsBindings[10].descriptorType     = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
   dsBindings[10].descriptorCount    = 1;
   dsBindings[10].stageFlags         = stageFlags;
   dsBindings[10].pImmutableSamplers = nullptr;
 
-  // binding for m_pAccelStruct_m_nodesTLAS
+  // binding for m_pAccelStruct_m_geomTypeByGeomId
   dsBindings[11].binding            = 11;
   dsBindings[11].descriptorType     = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
   dsBindings[11].descriptorCount    = 1;
@@ -189,7 +189,7 @@ VkDescriptorSetLayout EyeRayCaster_Generated::CreatePackXYMegaDSLayout()
   VK_CHECK_RESULT(vkCreateDescriptorSetLayout(device, &descriptorSetLayoutCreateInfo, NULL, &layout));
   return layout;
 }
-VkDescriptorSetLayout EyeRayCaster_Generated::CreateCastRaySingleMegaDSLayout()
+VkDescriptorSetLayout EyeRayCaster_GPU::CreateCastRaySingleMegaDSLayout()
 {
   std::array<VkDescriptorSetLayoutBinding, 17+1> dsBindings;
 
@@ -265,49 +265,49 @@ VkDescriptorSetLayout EyeRayCaster_Generated::CreateCastRaySingleMegaDSLayout()
   dsBindings[9].stageFlags         = stageFlags;
   dsBindings[9].pImmutableSamplers = nullptr;
 
-  // binding for m_pAccelStruct_m_indices
+  // binding for m_pAccelStruct_m_geomIdByInstId
   dsBindings[10].binding            = 10;
   dsBindings[10].descriptorType     = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
   dsBindings[10].descriptorCount    = 1;
   dsBindings[10].stageFlags         = stageFlags;
   dsBindings[10].pImmutableSamplers = nullptr;
 
-  // binding for m_pAccelStruct_m_geomTypeByGeomId
+  // binding for m_pAccelStruct_m_geomOffsets
   dsBindings[11].binding            = 11;
   dsBindings[11].descriptorType     = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
   dsBindings[11].descriptorCount    = 1;
   dsBindings[11].stageFlags         = stageFlags;
   dsBindings[11].pImmutableSamplers = nullptr;
 
-  // binding for m_pAccelStruct_m_geomIdByInstId
+  // binding for m_pAccelStruct_m_bvhOffsets
   dsBindings[12].binding            = 12;
   dsBindings[12].descriptorType     = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
   dsBindings[12].descriptorCount    = 1;
   dsBindings[12].stageFlags         = stageFlags;
   dsBindings[12].pImmutableSamplers = nullptr;
 
-  // binding for m_pAccelStruct_m_geomOffsets
+  // binding for m_pAccelStruct_m_ConjIndices
   dsBindings[13].binding            = 13;
   dsBindings[13].descriptorType     = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
   dsBindings[13].descriptorCount    = 1;
   dsBindings[13].stageFlags         = stageFlags;
   dsBindings[13].pImmutableSamplers = nullptr;
 
-  // binding for m_pAccelStruct_m_bvhOffsets
+  // binding for m_pAccelStruct_m_nodesTLAS
   dsBindings[14].binding            = 14;
   dsBindings[14].descriptorType     = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
   dsBindings[14].descriptorCount    = 1;
   dsBindings[14].stageFlags         = stageFlags;
   dsBindings[14].pImmutableSamplers = nullptr;
 
-  // binding for m_pAccelStruct_m_ConjIndices
+  // binding for m_pAccelStruct_m_indices
   dsBindings[15].binding            = 15;
   dsBindings[15].descriptorType     = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
   dsBindings[15].descriptorCount    = 1;
   dsBindings[15].stageFlags         = stageFlags;
   dsBindings[15].pImmutableSamplers = nullptr;
 
-  // binding for m_pAccelStruct_m_nodesTLAS
+  // binding for m_pAccelStruct_m_geomTypeByGeomId
   dsBindings[16].binding            = 16;
   dsBindings[16].descriptorType     = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
   dsBindings[16].descriptorCount    = 1;
@@ -331,7 +331,7 @@ VkDescriptorSetLayout EyeRayCaster_Generated::CreateCastRaySingleMegaDSLayout()
   return layout;
 }
 
-VkDescriptorSetLayout EyeRayCaster_Generated::CreatecopyKernelFloatDSLayout()
+VkDescriptorSetLayout EyeRayCaster_GPU::CreatecopyKernelFloatDSLayout()
 {
   std::array<VkDescriptorSetLayoutBinding, 2> dsBindings;
 
@@ -357,11 +357,11 @@ VkDescriptorSetLayout EyeRayCaster_Generated::CreatecopyKernelFloatDSLayout()
   return layout;
 }
 
-void EyeRayCaster_Generated::InitAllGeneratedDescriptorSets_PackXY()
+void EyeRayCaster_GPU::InitAllGeneratedDescriptorSets_PackXY()
 {
   // now create actual bindings
   //
-  // descriptor set #0: PackXYMegaCmd (["m_packedXY","m_pAccelStruct_m_primIndices","m_pAccelStruct_m_SdfNeuralProperties","m_pAccelStruct_m_SdfConjunctions","m_pAccelStruct_m_vertPos","m_pAccelStruct_m_indices","m_pAccelStruct_m_geomTypeByGeomId","m_pAccelStruct_m_geomIdByInstId","m_pAccelStruct_m_geomOffsets","m_pAccelStruct_m_bvhOffsets","m_pAccelStruct_m_ConjIndices","m_pAccelStruct_m_nodesTLAS","m_pAccelStruct_m_SdfObjects","m_pAccelStruct_m_allNodePairs","m_pAccelStruct_m_instMatricesInv","m_pAccelStruct_m_SdfParameters"])
+  // descriptor set #0: PackXYMegaCmd (["m_packedXY","m_pAccelStruct_m_primIndices","m_pAccelStruct_m_SdfNeuralProperties","m_pAccelStruct_m_SdfConjunctions","m_pAccelStruct_m_vertPos","m_pAccelStruct_m_geomIdByInstId","m_pAccelStruct_m_geomOffsets","m_pAccelStruct_m_bvhOffsets","m_pAccelStruct_m_ConjIndices","m_pAccelStruct_m_nodesTLAS","m_pAccelStruct_m_indices","m_pAccelStruct_m_geomTypeByGeomId","m_pAccelStruct_m_SdfObjects","m_pAccelStruct_m_allNodePairs","m_pAccelStruct_m_instMatricesInv","m_pAccelStruct_m_SdfParameters"])
   {
     constexpr uint additionalSize = 1;
 
@@ -440,8 +440,8 @@ void EyeRayCaster_Generated::InitAllGeneratedDescriptorSets_PackXY()
     writeDescriptorSet[4].pTexelBufferView = nullptr; 
 
     descriptorBufferInfo[5]        = VkDescriptorBufferInfo{};
-    descriptorBufferInfo[5].buffer = m_vdata.m_pAccelStruct_m_indicesBuffer;
-    descriptorBufferInfo[5].offset = m_vdata.m_pAccelStruct_m_indicesOffset;
+    descriptorBufferInfo[5].buffer = m_vdata.m_pAccelStruct_m_geomIdByInstIdBuffer;
+    descriptorBufferInfo[5].offset = m_vdata.m_pAccelStruct_m_geomIdByInstIdOffset;
     descriptorBufferInfo[5].range  = VK_WHOLE_SIZE;  
     writeDescriptorSet[5]                  = VkWriteDescriptorSet{};
     writeDescriptorSet[5].sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -454,8 +454,8 @@ void EyeRayCaster_Generated::InitAllGeneratedDescriptorSets_PackXY()
     writeDescriptorSet[5].pTexelBufferView = nullptr; 
 
     descriptorBufferInfo[6]        = VkDescriptorBufferInfo{};
-    descriptorBufferInfo[6].buffer = m_vdata.m_pAccelStruct_m_geomTypeByGeomIdBuffer;
-    descriptorBufferInfo[6].offset = m_vdata.m_pAccelStruct_m_geomTypeByGeomIdOffset;
+    descriptorBufferInfo[6].buffer = m_vdata.m_pAccelStruct_m_geomOffsetsBuffer;
+    descriptorBufferInfo[6].offset = m_vdata.m_pAccelStruct_m_geomOffsetsOffset;
     descriptorBufferInfo[6].range  = VK_WHOLE_SIZE;  
     writeDescriptorSet[6]                  = VkWriteDescriptorSet{};
     writeDescriptorSet[6].sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -468,8 +468,8 @@ void EyeRayCaster_Generated::InitAllGeneratedDescriptorSets_PackXY()
     writeDescriptorSet[6].pTexelBufferView = nullptr; 
 
     descriptorBufferInfo[7]        = VkDescriptorBufferInfo{};
-    descriptorBufferInfo[7].buffer = m_vdata.m_pAccelStruct_m_geomIdByInstIdBuffer;
-    descriptorBufferInfo[7].offset = m_vdata.m_pAccelStruct_m_geomIdByInstIdOffset;
+    descriptorBufferInfo[7].buffer = m_vdata.m_pAccelStruct_m_bvhOffsetsBuffer;
+    descriptorBufferInfo[7].offset = m_vdata.m_pAccelStruct_m_bvhOffsetsOffset;
     descriptorBufferInfo[7].range  = VK_WHOLE_SIZE;  
     writeDescriptorSet[7]                  = VkWriteDescriptorSet{};
     writeDescriptorSet[7].sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -482,8 +482,8 @@ void EyeRayCaster_Generated::InitAllGeneratedDescriptorSets_PackXY()
     writeDescriptorSet[7].pTexelBufferView = nullptr; 
 
     descriptorBufferInfo[8]        = VkDescriptorBufferInfo{};
-    descriptorBufferInfo[8].buffer = m_vdata.m_pAccelStruct_m_geomOffsetsBuffer;
-    descriptorBufferInfo[8].offset = m_vdata.m_pAccelStruct_m_geomOffsetsOffset;
+    descriptorBufferInfo[8].buffer = m_vdata.m_pAccelStruct_m_ConjIndicesBuffer;
+    descriptorBufferInfo[8].offset = m_vdata.m_pAccelStruct_m_ConjIndicesOffset;
     descriptorBufferInfo[8].range  = VK_WHOLE_SIZE;  
     writeDescriptorSet[8]                  = VkWriteDescriptorSet{};
     writeDescriptorSet[8].sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -496,8 +496,8 @@ void EyeRayCaster_Generated::InitAllGeneratedDescriptorSets_PackXY()
     writeDescriptorSet[8].pTexelBufferView = nullptr; 
 
     descriptorBufferInfo[9]        = VkDescriptorBufferInfo{};
-    descriptorBufferInfo[9].buffer = m_vdata.m_pAccelStruct_m_bvhOffsetsBuffer;
-    descriptorBufferInfo[9].offset = m_vdata.m_pAccelStruct_m_bvhOffsetsOffset;
+    descriptorBufferInfo[9].buffer = m_vdata.m_pAccelStruct_m_nodesTLASBuffer;
+    descriptorBufferInfo[9].offset = m_vdata.m_pAccelStruct_m_nodesTLASOffset;
     descriptorBufferInfo[9].range  = VK_WHOLE_SIZE;  
     writeDescriptorSet[9]                  = VkWriteDescriptorSet{};
     writeDescriptorSet[9].sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -510,8 +510,8 @@ void EyeRayCaster_Generated::InitAllGeneratedDescriptorSets_PackXY()
     writeDescriptorSet[9].pTexelBufferView = nullptr; 
 
     descriptorBufferInfo[10]        = VkDescriptorBufferInfo{};
-    descriptorBufferInfo[10].buffer = m_vdata.m_pAccelStruct_m_ConjIndicesBuffer;
-    descriptorBufferInfo[10].offset = m_vdata.m_pAccelStruct_m_ConjIndicesOffset;
+    descriptorBufferInfo[10].buffer = m_vdata.m_pAccelStruct_m_indicesBuffer;
+    descriptorBufferInfo[10].offset = m_vdata.m_pAccelStruct_m_indicesOffset;
     descriptorBufferInfo[10].range  = VK_WHOLE_SIZE;  
     writeDescriptorSet[10]                  = VkWriteDescriptorSet{};
     writeDescriptorSet[10].sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -524,8 +524,8 @@ void EyeRayCaster_Generated::InitAllGeneratedDescriptorSets_PackXY()
     writeDescriptorSet[10].pTexelBufferView = nullptr; 
 
     descriptorBufferInfo[11]        = VkDescriptorBufferInfo{};
-    descriptorBufferInfo[11].buffer = m_vdata.m_pAccelStruct_m_nodesTLASBuffer;
-    descriptorBufferInfo[11].offset = m_vdata.m_pAccelStruct_m_nodesTLASOffset;
+    descriptorBufferInfo[11].buffer = m_vdata.m_pAccelStruct_m_geomTypeByGeomIdBuffer;
+    descriptorBufferInfo[11].offset = m_vdata.m_pAccelStruct_m_geomTypeByGeomIdOffset;
     descriptorBufferInfo[11].range  = VK_WHOLE_SIZE;  
     writeDescriptorSet[11]                  = VkWriteDescriptorSet{};
     writeDescriptorSet[11].sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -612,11 +612,11 @@ void EyeRayCaster_Generated::InitAllGeneratedDescriptorSets_PackXY()
   }
 }
 
-void EyeRayCaster_Generated::InitAllGeneratedDescriptorSets_CastRaySingle()
+void EyeRayCaster_GPU::InitAllGeneratedDescriptorSets_CastRaySingle()
 {
   // now create actual bindings
   //
-  // descriptor set #1: CastRaySingleMegaCmd (["out_color","m_pAccelStruct_m_primIndices","m_pAccelStruct_m_allNodePairs","m_pAccelStruct_m_SdfObjects","m_packedXY","m_pAccelStruct_m_SdfParameters","m_pAccelStruct_m_instMatricesInv","m_pAccelStruct_m_SdfNeuralProperties","m_pAccelStruct_m_SdfConjunctions","m_pAccelStruct_m_vertPos","m_pAccelStruct_m_indices","m_pAccelStruct_m_geomTypeByGeomId","m_pAccelStruct_m_geomIdByInstId","m_pAccelStruct_m_geomOffsets","m_pAccelStruct_m_bvhOffsets","m_pAccelStruct_m_ConjIndices","m_pAccelStruct_m_nodesTLAS"])
+  // descriptor set #1: CastRaySingleMegaCmd (["out_color","m_pAccelStruct_m_primIndices","m_pAccelStruct_m_allNodePairs","m_pAccelStruct_m_SdfObjects","m_packedXY","m_pAccelStruct_m_SdfParameters","m_pAccelStruct_m_instMatricesInv","m_pAccelStruct_m_SdfNeuralProperties","m_pAccelStruct_m_SdfConjunctions","m_pAccelStruct_m_vertPos","m_pAccelStruct_m_geomIdByInstId","m_pAccelStruct_m_geomOffsets","m_pAccelStruct_m_bvhOffsets","m_pAccelStruct_m_ConjIndices","m_pAccelStruct_m_nodesTLAS","m_pAccelStruct_m_indices","m_pAccelStruct_m_geomTypeByGeomId"])
   {
     constexpr uint additionalSize = 1;
 
@@ -765,8 +765,8 @@ void EyeRayCaster_Generated::InitAllGeneratedDescriptorSets_CastRaySingle()
     writeDescriptorSet[9].pTexelBufferView = nullptr; 
 
     descriptorBufferInfo[10]        = VkDescriptorBufferInfo{};
-    descriptorBufferInfo[10].buffer = m_vdata.m_pAccelStruct_m_indicesBuffer;
-    descriptorBufferInfo[10].offset = m_vdata.m_pAccelStruct_m_indicesOffset;
+    descriptorBufferInfo[10].buffer = m_vdata.m_pAccelStruct_m_geomIdByInstIdBuffer;
+    descriptorBufferInfo[10].offset = m_vdata.m_pAccelStruct_m_geomIdByInstIdOffset;
     descriptorBufferInfo[10].range  = VK_WHOLE_SIZE;  
     writeDescriptorSet[10]                  = VkWriteDescriptorSet{};
     writeDescriptorSet[10].sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -779,8 +779,8 @@ void EyeRayCaster_Generated::InitAllGeneratedDescriptorSets_CastRaySingle()
     writeDescriptorSet[10].pTexelBufferView = nullptr; 
 
     descriptorBufferInfo[11]        = VkDescriptorBufferInfo{};
-    descriptorBufferInfo[11].buffer = m_vdata.m_pAccelStruct_m_geomTypeByGeomIdBuffer;
-    descriptorBufferInfo[11].offset = m_vdata.m_pAccelStruct_m_geomTypeByGeomIdOffset;
+    descriptorBufferInfo[11].buffer = m_vdata.m_pAccelStruct_m_geomOffsetsBuffer;
+    descriptorBufferInfo[11].offset = m_vdata.m_pAccelStruct_m_geomOffsetsOffset;
     descriptorBufferInfo[11].range  = VK_WHOLE_SIZE;  
     writeDescriptorSet[11]                  = VkWriteDescriptorSet{};
     writeDescriptorSet[11].sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -793,8 +793,8 @@ void EyeRayCaster_Generated::InitAllGeneratedDescriptorSets_CastRaySingle()
     writeDescriptorSet[11].pTexelBufferView = nullptr; 
 
     descriptorBufferInfo[12]        = VkDescriptorBufferInfo{};
-    descriptorBufferInfo[12].buffer = m_vdata.m_pAccelStruct_m_geomIdByInstIdBuffer;
-    descriptorBufferInfo[12].offset = m_vdata.m_pAccelStruct_m_geomIdByInstIdOffset;
+    descriptorBufferInfo[12].buffer = m_vdata.m_pAccelStruct_m_bvhOffsetsBuffer;
+    descriptorBufferInfo[12].offset = m_vdata.m_pAccelStruct_m_bvhOffsetsOffset;
     descriptorBufferInfo[12].range  = VK_WHOLE_SIZE;  
     writeDescriptorSet[12]                  = VkWriteDescriptorSet{};
     writeDescriptorSet[12].sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -807,8 +807,8 @@ void EyeRayCaster_Generated::InitAllGeneratedDescriptorSets_CastRaySingle()
     writeDescriptorSet[12].pTexelBufferView = nullptr; 
 
     descriptorBufferInfo[13]        = VkDescriptorBufferInfo{};
-    descriptorBufferInfo[13].buffer = m_vdata.m_pAccelStruct_m_geomOffsetsBuffer;
-    descriptorBufferInfo[13].offset = m_vdata.m_pAccelStruct_m_geomOffsetsOffset;
+    descriptorBufferInfo[13].buffer = m_vdata.m_pAccelStruct_m_ConjIndicesBuffer;
+    descriptorBufferInfo[13].offset = m_vdata.m_pAccelStruct_m_ConjIndicesOffset;
     descriptorBufferInfo[13].range  = VK_WHOLE_SIZE;  
     writeDescriptorSet[13]                  = VkWriteDescriptorSet{};
     writeDescriptorSet[13].sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -821,8 +821,8 @@ void EyeRayCaster_Generated::InitAllGeneratedDescriptorSets_CastRaySingle()
     writeDescriptorSet[13].pTexelBufferView = nullptr; 
 
     descriptorBufferInfo[14]        = VkDescriptorBufferInfo{};
-    descriptorBufferInfo[14].buffer = m_vdata.m_pAccelStruct_m_bvhOffsetsBuffer;
-    descriptorBufferInfo[14].offset = m_vdata.m_pAccelStruct_m_bvhOffsetsOffset;
+    descriptorBufferInfo[14].buffer = m_vdata.m_pAccelStruct_m_nodesTLASBuffer;
+    descriptorBufferInfo[14].offset = m_vdata.m_pAccelStruct_m_nodesTLASOffset;
     descriptorBufferInfo[14].range  = VK_WHOLE_SIZE;  
     writeDescriptorSet[14]                  = VkWriteDescriptorSet{};
     writeDescriptorSet[14].sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -835,8 +835,8 @@ void EyeRayCaster_Generated::InitAllGeneratedDescriptorSets_CastRaySingle()
     writeDescriptorSet[14].pTexelBufferView = nullptr; 
 
     descriptorBufferInfo[15]        = VkDescriptorBufferInfo{};
-    descriptorBufferInfo[15].buffer = m_vdata.m_pAccelStruct_m_ConjIndicesBuffer;
-    descriptorBufferInfo[15].offset = m_vdata.m_pAccelStruct_m_ConjIndicesOffset;
+    descriptorBufferInfo[15].buffer = m_vdata.m_pAccelStruct_m_indicesBuffer;
+    descriptorBufferInfo[15].offset = m_vdata.m_pAccelStruct_m_indicesOffset;
     descriptorBufferInfo[15].range  = VK_WHOLE_SIZE;  
     writeDescriptorSet[15]                  = VkWriteDescriptorSet{};
     writeDescriptorSet[15].sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -849,8 +849,8 @@ void EyeRayCaster_Generated::InitAllGeneratedDescriptorSets_CastRaySingle()
     writeDescriptorSet[15].pTexelBufferView = nullptr; 
 
     descriptorBufferInfo[16]        = VkDescriptorBufferInfo{};
-    descriptorBufferInfo[16].buffer = m_vdata.m_pAccelStruct_m_nodesTLASBuffer;
-    descriptorBufferInfo[16].offset = m_vdata.m_pAccelStruct_m_nodesTLASOffset;
+    descriptorBufferInfo[16].buffer = m_vdata.m_pAccelStruct_m_geomTypeByGeomIdBuffer;
+    descriptorBufferInfo[16].offset = m_vdata.m_pAccelStruct_m_geomTypeByGeomIdOffset;
     descriptorBufferInfo[16].range  = VK_WHOLE_SIZE;  
     writeDescriptorSet[16]                  = VkWriteDescriptorSet{};
     writeDescriptorSet[16].sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;

@@ -22,7 +22,7 @@ typedef LiteMath::uint4    uvec4;
 #define INV_TWOPI     0.15915494309189533577f
 #endif
 
-struct EyeRayCaster_Generated_UBO_Data
+struct EyeRayCaster_GPU_UBO_Data
 {
   mat4 m_projInv; 
   mat4 m_worldViewInv; 

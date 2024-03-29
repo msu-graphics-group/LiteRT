@@ -1,5 +1,5 @@
 ////////////////////////////////////////////////////
-//// input file: /home/sammael/LiteRT/Renderer/eye_ray.cpp
+//// input file: /home/sammael/grade/modules/LiteRT/Renderer/eye_ray.cpp
 ////////////////////////////////////////////////////
 #include <cfloat>
 #include <cstring>
@@ -7,7 +7,7 @@
 //#include <iomanip>   
 
 #include "eye_ray.h"
-#include "render_common.h"
+#include "../render_common.h"
 
 
 void EyeRayCaster::CastRaySingle(uint32_t tidX, uint32_t* out_color)
@@ -169,7 +169,7 @@ void EyeRayCaster::SetPresets(const RenderPreset& a_presets)
     m_measureOverhead = 0;
 }
 ////////////////////////////////////////////////////
-//// input file: /home/sammael/LiteRT/BVH/BVH2Common.cpp
+//// input file: /home/sammael/grade/modules/LiteRT/BVH/BVH2Common.cpp
 ////////////////////////////////////////////////////
 #include <iostream>
 #include <fstream>
@@ -536,7 +536,7 @@ bool BVHRT::RayQuery_AnyHit(float4 posAndNear, float4 dirAndFar)
   return (hit.geomId != uint32_t(-1));
 }
 ////////////////////////////////////////////////////
-//// input file: /home/sammael/LiteRT/sdfScene/gpuReady/sdf_scene.cpp
+//// input file: /home/sammael/grade/modules/LiteRT/sdfScene/gpuReady/sdf_scene.cpp
 ////////////////////////////////////////////////////
 #include "sdf_scene.h"
 

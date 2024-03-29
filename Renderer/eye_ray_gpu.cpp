@@ -9,8 +9,8 @@
 #include "vk_context.h"
 #include "vk_images.h"
 
-#include "eye_ray_generated.h"
-#include "include/EyeRayCaster_generated_ubo.h"
+#include "eye_ray_gpu.h"
+#include "include/EyeRayCaster_gpu_ubo.h"
 
 static uint32_t ComputeReductionSteps(uint32_t whole_size, uint32_t wg_size)
 {
@@ -30,7 +30,7 @@ constexpr uint32_t KGEN_FLAG_SET_EXIT_NEGATIVE = 8;
 constexpr uint32_t KGEN_REDUCTION_LAST_STEP    = 16;
 
 
-void EyeRayCaster_Generated::UpdatePlainMembers(std::shared_ptr<vk_utils::ICopyEngine> a_pCopyEngine)
+void EyeRayCaster_GPU::UpdatePlainMembers(std::shared_ptr<vk_utils::ICopyEngine> a_pCopyEngine)
 {
   const size_t maxAllowedSize = std::numeric_limits<uint32_t>::max();
   auto pUnderlyingImpl = dynamic_cast<BVHRT*>(m_pAccelStruct.get());
@@ -73,7 +73,7 @@ void EyeRayCaster_Generated::UpdatePlainMembers(std::shared_ptr<vk_utils::ICopyE
   a_pCopyEngine->UpdateBuffer(m_classDataBuffer, 0, &m_uboData, sizeof(m_uboData));
 }
 
-void EyeRayCaster_Generated::ReadPlainMembers(std::shared_ptr<vk_utils::ICopyEngine> a_pCopyEngine)
+void EyeRayCaster_GPU::ReadPlainMembers(std::shared_ptr<vk_utils::ICopyEngine> a_pCopyEngine)
 {
   a_pCopyEngine->ReadBuffer(m_classDataBuffer, 0, &m_uboData, sizeof(m_uboData));
   auto pUnderlyingImpl = dynamic_cast<BVHRT*>(m_pAccelStruct.get());
@@ -99,7 +99,7 @@ void EyeRayCaster_Generated::ReadPlainMembers(std::shared_ptr<vk_utils::ICopyEng
   m_packedXY.resize(m_uboData.m_packedXY_size);
 }
 
-void EyeRayCaster_Generated::UpdateVectorMembers(std::shared_ptr<vk_utils::ICopyEngine> a_pCopyEngine)
+void EyeRayCaster_GPU::UpdateVectorMembers(std::shared_ptr<vk_utils::ICopyEngine> a_pCopyEngine)
 {
   if(m_pAccelStruct_m_ConjIndices->size() > 0)
     a_pCopyEngine->UpdateBuffer(m_vdata.m_pAccelStruct_m_ConjIndicesBuffer, 0, m_pAccelStruct_m_ConjIndices->data(), m_pAccelStruct_m_ConjIndices->size()*sizeof(unsigned int) );
@@ -135,11 +135,11 @@ void EyeRayCaster_Generated::UpdateVectorMembers(std::shared_ptr<vk_utils::ICopy
     a_pCopyEngine->UpdateBuffer(m_vdata.m_packedXYBuffer, 0, m_packedXY.data(), m_packedXY.size()*sizeof(unsigned int) );
 }
 
-void EyeRayCaster_Generated::UpdateTextureMembers(std::shared_ptr<vk_utils::ICopyEngine> a_pCopyEngine)
+void EyeRayCaster_GPU::UpdateTextureMembers(std::shared_ptr<vk_utils::ICopyEngine> a_pCopyEngine)
 { 
 }
 
-void EyeRayCaster_Generated::PackXYMegaCmd(uint tidX, uint tidY)
+void EyeRayCaster_GPU::PackXYMegaCmd(uint tidX, uint tidY)
 {
   uint32_t blockSizeX = 256;
   uint32_t blockSizeY = 1;
@@ -166,7 +166,7 @@ void EyeRayCaster_Generated::PackXYMegaCmd(uint tidX, uint tidY)
   vkCmdDispatch    (m_currCmdBuffer, (sizeX + blockSizeX - 1) / blockSizeX, (sizeY + blockSizeY - 1) / blockSizeY, (sizeZ + blockSizeZ - 1) / blockSizeZ);
 }
 
-void EyeRayCaster_Generated::CastRaySingleMegaCmd(uint32_t tidX, uint32_t* out_color)
+void EyeRayCaster_GPU::CastRaySingleMegaCmd(uint32_t tidX, uint32_t* out_color)
 {
   uint32_t blockSizeX = 256;
   uint32_t blockSizeY = 1;
@@ -194,7 +194,7 @@ void EyeRayCaster_Generated::CastRaySingleMegaCmd(uint32_t tidX, uint32_t* out_c
 }
 
 
-void EyeRayCaster_Generated::copyKernelFloatCmd(uint32_t length)
+void EyeRayCaster_GPU::copyKernelFloatCmd(uint32_t length)
 {
   uint32_t blockSizeX = MEMCPY_BLOCK_SIZE;
 
@@ -203,7 +203,7 @@ void EyeRayCaster_Generated::copyKernelFloatCmd(uint32_t length)
   vkCmdDispatch(m_currCmdBuffer, (length + blockSizeX - 1) / blockSizeX, 1, 1);
 }
 
-VkBufferMemoryBarrier EyeRayCaster_Generated::BarrierForClearFlags(VkBuffer a_buffer)
+VkBufferMemoryBarrier EyeRayCaster_GPU::BarrierForClearFlags(VkBuffer a_buffer)
 {
   VkBufferMemoryBarrier bar = {};
   bar.sType               = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
@@ -218,7 +218,7 @@ VkBufferMemoryBarrier EyeRayCaster_Generated::BarrierForClearFlags(VkBuffer a_bu
   return bar;
 }
 
-VkBufferMemoryBarrier EyeRayCaster_Generated::BarrierForSingleBuffer(VkBuffer a_buffer)
+VkBufferMemoryBarrier EyeRayCaster_GPU::BarrierForSingleBuffer(VkBuffer a_buffer)
 {
   VkBufferMemoryBarrier bar = {};
   bar.sType               = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
@@ -233,7 +233,7 @@ VkBufferMemoryBarrier EyeRayCaster_Generated::BarrierForSingleBuffer(VkBuffer a_
   return bar;
 }
 
-void EyeRayCaster_Generated::BarriersForSeveralBuffers(VkBuffer* a_inBuffers, VkBufferMemoryBarrier* a_outBarriers, uint32_t a_buffersNum)
+void EyeRayCaster_GPU::BarriersForSeveralBuffers(VkBuffer* a_inBuffers, VkBufferMemoryBarrier* a_outBarriers, uint32_t a_buffersNum)
 {
   for(uint32_t i=0; i<a_buffersNum;i++)
   {
@@ -249,7 +249,7 @@ void EyeRayCaster_Generated::BarriersForSeveralBuffers(VkBuffer* a_inBuffers, Vk
   }
 }
 
-void EyeRayCaster_Generated::PackXYCmd(VkCommandBuffer a_commandBuffer, uint tidX, uint tidY)
+void EyeRayCaster_GPU::PackXYCmd(VkCommandBuffer a_commandBuffer, uint tidX, uint tidY)
 {
   m_currCmdBuffer = a_commandBuffer;
   VkMemoryBarrier memoryBarrier = { VK_STRUCTURE_TYPE_MEMORY_BARRIER, nullptr, VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT }; 
@@ -258,7 +258,7 @@ void EyeRayCaster_Generated::PackXYCmd(VkCommandBuffer a_commandBuffer, uint tid
   vkCmdPipelineBarrier(m_currCmdBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 1, &memoryBarrier, 0, nullptr, 0, nullptr); 
 }
 
-void EyeRayCaster_Generated::CastRaySingleCmd(VkCommandBuffer a_commandBuffer, uint32_t tidX, uint32_t* out_color)
+void EyeRayCaster_GPU::CastRaySingleCmd(VkCommandBuffer a_commandBuffer, uint32_t tidX, uint32_t* out_color)
 {
   m_currCmdBuffer = a_commandBuffer;
   VkMemoryBarrier memoryBarrier = { VK_STRUCTURE_TYPE_MEMORY_BARRIER, nullptr, VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT }; 
@@ -269,7 +269,7 @@ void EyeRayCaster_Generated::CastRaySingleCmd(VkCommandBuffer a_commandBuffer, u
 
 
 
-void EyeRayCaster_Generated::PackXYBlock(uint tidX, uint tidY, uint32_t a_numPasses)
+void EyeRayCaster_GPU::PackXYBlock(uint tidX, uint tidY, uint32_t a_numPasses)
 {
   // (1) get global Vulkan context objects
   //
@@ -392,7 +392,7 @@ void EyeRayCaster_Generated::PackXYBlock(uint tidX, uint tidY, uint32_t a_numPas
   m_exTimePackXY.msAPIOverhead += std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - afterCopy2).count()/1000.f;
 }
 
-void EyeRayCaster_Generated::CastRaySingleBlock(uint32_t tidX, uint32_t* out_color, uint32_t a_numPasses)
+void EyeRayCaster_GPU::CastRaySingleBlock(uint32_t tidX, uint32_t* out_color, uint32_t a_numPasses)
 {
   // (1) get global Vulkan context objects
   //
@@ -520,7 +520,7 @@ void EyeRayCaster_Generated::CastRaySingleBlock(uint32_t tidX, uint32_t* out_col
   m_exTimeCastRaySingle.msAPIOverhead += std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - afterCopy2).count()/1000.f;
 }
 
-void EyeRayCaster_Generated::GetExecutionTime(const char* a_funcName, float a_out[4])
+void EyeRayCaster_GPU::GetExecutionTime(const char* a_funcName, float a_out[4])
 {
   vk_utils::ExecTime res = {};
   if(std::string(a_funcName) == "PackXY" || std::string(a_funcName) == "PackXYBlock")

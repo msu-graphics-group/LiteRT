@@ -150,12 +150,12 @@ void EyeRayCaster::GetExecutionTime(const char* a_funcName, float a_out[4])
 }
 
 #if defined(USE_GPU)
-#include "eye_ray_generated.h"
-std::shared_ptr<EyeRayCaster> CreateEyeRayCaster_Generated(vk_utils::VulkanContext a_ctx, size_t a_maxThreadsGenerated);
+#include "eye_ray_gpu.h"
+std::shared_ptr<EyeRayCaster> CreateEyeRayCaster_GPU(vk_utils::VulkanContext a_ctx, size_t a_maxThreadsGenerated);
 std::shared_ptr<IRenderer> MakeEyeRayShooterRenderer(const char* a_name) 
 { 
   if (std::string(a_name) == "GPU")
-    return CreateEyeRayCaster_Generated(vk_utils::globalContextGet(true, 0u), 256); 
+    return CreateEyeRayCaster_GPU(vk_utils::globalContextGet(true, 0u), 256); 
   else
     return std::shared_ptr<IRenderer>(new EyeRayCaster());
 }

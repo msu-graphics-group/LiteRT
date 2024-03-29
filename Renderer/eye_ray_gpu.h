@@ -15,17 +15,17 @@
 
 #include "eye_ray.h"
 
-#include "include/EyeRayCaster_generated_ubo.h"
-class EyeRayCaster_Generated : public EyeRayCaster
+#include "include/EyeRayCaster_gpu_ubo.h"
+class EyeRayCaster_GPU : public EyeRayCaster
 {
 public:
 
-  EyeRayCaster_Generated() 
+  EyeRayCaster_GPU() 
   {
     if(m_pAccelStruct == nullptr)
       m_pAccelStruct = std::make_shared<BVHRT>();
   }
-  const char* Name() const override { return "EyeRayCaster_Generated";}
+  const char* Name() const override { return "EyeRayCaster_GPU";}
   virtual void InitVulkanObjects(VkDevice a_device, VkPhysicalDevice a_physicalDevice, size_t a_maxThreadsCount);
   
   virtual void SetVulkanContext(vk_utils::VulkanContext a_ctx) { m_ctx = a_ctx; }
@@ -45,7 +45,7 @@ public:
     InitAllGeneratedDescriptorSets_CastRaySingle();
   }
 
-  virtual ~EyeRayCaster_Generated();
+  virtual ~EyeRayCaster_GPU();
 
   
   virtual void InitMemberBuffers();
@@ -148,7 +148,7 @@ protected:
   virtual void AssignBuffersToMemory(const std::vector<VkBuffer>& a_buffers, VkDeviceMemory a_mem);
 
   virtual void AllocMemoryForMemberBuffersAndImages(const std::vector<VkBuffer>& a_buffers, const std::vector<VkImage>& a_image);
-  virtual std::string AlterShaderPath(const char* in_shaderPath) { return std::string("Renderer/") + std::string(in_shaderPath); }
+  virtual std::string AlterShaderPath(const char* in_shaderPath) { return std::string("") + std::string(in_shaderPath); }
 
   
   
@@ -245,7 +245,7 @@ protected:
   VkDescriptorPool m_dsPool = VK_NULL_HANDLE;
   VkDescriptorSet  m_allGeneratedDS[2];
 
-  EyeRayCaster_Generated_UBO_Data m_uboData;
+  EyeRayCaster_GPU_UBO_Data m_uboData;
   
   constexpr static uint32_t MEMCPY_BLOCK_SIZE = 256;
   constexpr static uint32_t REDUCTION_BLOCK_SIZE = 256;
