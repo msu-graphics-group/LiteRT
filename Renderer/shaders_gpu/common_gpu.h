@@ -135,6 +135,7 @@ struct CRT_Hit
 };
 const uint TYPE_MESH_TRIANGLE = 0;
 const uint TYPE_SDF_PRIMITIVE = 1;
+const uint TYPE_SDF_GRID = 2;
 struct RenderPreset
 {
   bool  isAORadiusInMeters;
@@ -233,8 +234,6 @@ mat3 make_float3x3(vec3 a, vec3 b, vec3 c) { // different way than mat3(a,b,c)
               a.z, b.z, c.z);
 }
 
-uint EXTRACT_COUNT(uint a_leftOffset) { return (a_leftOffset & SIZE_MASK) >> 24; }
-
 vec3 SafeInverse(vec3 d) {
   const float ooeps = 1.0e-36f; // Avoid div by zero.
   vec3 res;
@@ -243,8 +242,6 @@ vec3 SafeInverse(vec3 d) {
   res.z = 1.0f / (abs(d.z) > ooeps ? d.z : copysign(ooeps, d.z));
   return res;
 }
-
-uint EXTRACT_START(uint a_leftOffset) { return  a_leftOffset & START_MASK; }
 
 vec2 RayBoxIntersection2(vec3 rayOrigin, vec3 rayDirInv, vec3 boxMin, vec3 boxMax) {
   const float lo  = rayDirInv.x * (boxMin.x - rayOrigin.x);
@@ -260,13 +257,11 @@ vec2 RayBoxIntersection2(vec3 rayOrigin, vec3 rayDirInv, vec3 boxMin, vec3 boxMa
   return vec2(max(tmin, min(lo2, hi2)),min(tmax, max(lo2, hi2)));
 }
 
-bool notLeafAndIntersect(uint flags) { return (flags != (LEAF_BIT | 0x1)); }
+uint EXTRACT_START(uint a_leftOffset) { return  a_leftOffset & START_MASK; }
+
+uint EXTRACT_COUNT(uint a_leftOffset) { return (a_leftOffset & SIZE_MASK) >> 24; }
 
 bool isLeafAndIntersect(uint flags) { return (flags == (LEAF_BIT | 0x1 )); }
-
-vec3 matmul4x3(mat4 m, vec3 v) {
-  return (m*vec4(v, 1.0f)).xyz;
-}
 
 vec3 mymul4x3(mat4 m, vec3 v) {
   return (m*vec4(v, 1.0f)).xyz;
@@ -275,6 +270,12 @@ vec3 mymul4x3(mat4 m, vec3 v) {
 vec3 matmul3x3(mat4 m, vec3 v) { 
   return (m*vec4(v, 0.0f)).xyz;
 }
+
+vec3 matmul4x3(mat4 m, vec3 v) {
+  return (m*vec4(v, 1.0f)).xyz;
+}
+
+bool notLeafAndIntersect(uint flags) { return (flags != (LEAF_BIT | 0x1)); }
 
 bool isLeafOrNotIntersect(uint flags) { return (flags & LEAF_BIT) !=0 || (flags & 0x1) == 0; }
 

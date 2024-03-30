@@ -33,6 +33,12 @@ struct EyeRayCaster_GPU_UBO_Data
   uint m_pAccelStruct_m_ConjIndices_size; 
   uint m_pAccelStruct_m_SdfConjunctions_capacity; 
   uint m_pAccelStruct_m_SdfConjunctions_size; 
+  uint m_pAccelStruct_m_SdfGridData_capacity; 
+  uint m_pAccelStruct_m_SdfGridData_size; 
+  uint m_pAccelStruct_m_SdfGridOffsets_capacity; 
+  uint m_pAccelStruct_m_SdfGridOffsets_size; 
+  uint m_pAccelStruct_m_SdfGridSizes_capacity; 
+  uint m_pAccelStruct_m_SdfGridSizes_size; 
   uint m_pAccelStruct_m_SdfNeuralProperties_capacity; 
   uint m_pAccelStruct_m_SdfNeuralProperties_size; 
   uint m_pAccelStruct_m_SdfObjects_capacity; 

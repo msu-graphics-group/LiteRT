@@ -63,6 +63,9 @@ public:
     {
       m_pAccelStruct_m_ConjIndices = &pUnderlyingImpl->m_ConjIndices;
       m_pAccelStruct_m_SdfConjunctions = &pUnderlyingImpl->m_SdfConjunctions;
+      m_pAccelStruct_m_SdfGridData = &pUnderlyingImpl->m_SdfGridData;
+      m_pAccelStruct_m_SdfGridOffsets = &pUnderlyingImpl->m_SdfGridOffsets;
+      m_pAccelStruct_m_SdfGridSizes = &pUnderlyingImpl->m_SdfGridSizes;
       m_pAccelStruct_m_SdfNeuralProperties = &pUnderlyingImpl->m_SdfNeuralProperties;
       m_pAccelStruct_m_SdfObjects = &pUnderlyingImpl->m_SdfObjects;
       m_pAccelStruct_m_SdfParameters = &pUnderlyingImpl->m_SdfParameters;
@@ -173,6 +176,12 @@ protected:
     size_t   m_pAccelStruct_m_ConjIndicesOffset = 0;
     VkBuffer m_pAccelStruct_m_SdfConjunctionsBuffer = VK_NULL_HANDLE;
     size_t   m_pAccelStruct_m_SdfConjunctionsOffset = 0;
+    VkBuffer m_pAccelStruct_m_SdfGridDataBuffer = VK_NULL_HANDLE;
+    size_t   m_pAccelStruct_m_SdfGridDataOffset = 0;
+    VkBuffer m_pAccelStruct_m_SdfGridOffsetsBuffer = VK_NULL_HANDLE;
+    size_t   m_pAccelStruct_m_SdfGridOffsetsOffset = 0;
+    VkBuffer m_pAccelStruct_m_SdfGridSizesBuffer = VK_NULL_HANDLE;
+    size_t   m_pAccelStruct_m_SdfGridSizesOffset = 0;
     VkBuffer m_pAccelStruct_m_SdfNeuralPropertiesBuffer = VK_NULL_HANDLE;
     size_t   m_pAccelStruct_m_SdfNeuralPropertiesOffset = 0;
     VkBuffer m_pAccelStruct_m_SdfObjectsBuffer = VK_NULL_HANDLE;
@@ -205,6 +214,9 @@ protected:
   
   std::vector<uint32_t>* m_pAccelStruct_m_ConjIndices = nullptr;
   std::vector<SdfConjunction>* m_pAccelStruct_m_SdfConjunctions = nullptr;
+  std::vector<float>* m_pAccelStruct_m_SdfGridData = nullptr;
+  std::vector<uint32_t>* m_pAccelStruct_m_SdfGridOffsets = nullptr;
+  std::vector<uint3>* m_pAccelStruct_m_SdfGridSizes = nullptr;
   std::vector<NeuralProperties>* m_pAccelStruct_m_SdfNeuralProperties = nullptr;
   std::vector<SdfObject>* m_pAccelStruct_m_SdfObjects = nullptr;
   std::vector<float>* m_pAccelStruct_m_SdfParameters = nullptr;
@@ -212,7 +224,7 @@ protected:
   std::vector<uint32_t>* m_pAccelStruct_m_bvhOffsets = nullptr;
   std::vector<uint32_t>* m_pAccelStruct_m_geomIdByInstId = nullptr;
   std::vector<uint2>* m_pAccelStruct_m_geomOffsets = nullptr;
-  std::vector<unsigned int>* m_pAccelStruct_m_geomTypeByGeomId = nullptr;
+  std::vector<uint32_t>* m_pAccelStruct_m_geomTypeByGeomId = nullptr;
   std::vector<uint32_t>* m_pAccelStruct_m_indices = nullptr;
   std::vector<float4x4>* m_pAccelStruct_m_instMatricesInv = nullptr;
   std::vector<BVHNode>* m_pAccelStruct_m_nodesTLAS = nullptr;

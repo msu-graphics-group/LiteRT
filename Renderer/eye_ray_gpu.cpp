@@ -42,6 +42,12 @@ void EyeRayCaster_GPU::UpdatePlainMembers(std::shared_ptr<vk_utils::ICopyEngine>
   m_uboData.m_pAccelStruct_m_ConjIndices_capacity = uint32_t( m_pAccelStruct_m_ConjIndices->capacity() ); assert( m_pAccelStruct_m_ConjIndices->capacity() < maxAllowedSize );
   m_uboData.m_pAccelStruct_m_SdfConjunctions_size     = uint32_t( m_pAccelStruct_m_SdfConjunctions->size() );     assert( m_pAccelStruct_m_SdfConjunctions->size() < maxAllowedSize );
   m_uboData.m_pAccelStruct_m_SdfConjunctions_capacity = uint32_t( m_pAccelStruct_m_SdfConjunctions->capacity() ); assert( m_pAccelStruct_m_SdfConjunctions->capacity() < maxAllowedSize );
+  m_uboData.m_pAccelStruct_m_SdfGridData_size     = uint32_t( m_pAccelStruct_m_SdfGridData->size() );     assert( m_pAccelStruct_m_SdfGridData->size() < maxAllowedSize );
+  m_uboData.m_pAccelStruct_m_SdfGridData_capacity = uint32_t( m_pAccelStruct_m_SdfGridData->capacity() ); assert( m_pAccelStruct_m_SdfGridData->capacity() < maxAllowedSize );
+  m_uboData.m_pAccelStruct_m_SdfGridOffsets_size     = uint32_t( m_pAccelStruct_m_SdfGridOffsets->size() );     assert( m_pAccelStruct_m_SdfGridOffsets->size() < maxAllowedSize );
+  m_uboData.m_pAccelStruct_m_SdfGridOffsets_capacity = uint32_t( m_pAccelStruct_m_SdfGridOffsets->capacity() ); assert( m_pAccelStruct_m_SdfGridOffsets->capacity() < maxAllowedSize );
+  m_uboData.m_pAccelStruct_m_SdfGridSizes_size     = uint32_t( m_pAccelStruct_m_SdfGridSizes->size() );     assert( m_pAccelStruct_m_SdfGridSizes->size() < maxAllowedSize );
+  m_uboData.m_pAccelStruct_m_SdfGridSizes_capacity = uint32_t( m_pAccelStruct_m_SdfGridSizes->capacity() ); assert( m_pAccelStruct_m_SdfGridSizes->capacity() < maxAllowedSize );
   m_uboData.m_pAccelStruct_m_SdfNeuralProperties_size     = uint32_t( m_pAccelStruct_m_SdfNeuralProperties->size() );     assert( m_pAccelStruct_m_SdfNeuralProperties->size() < maxAllowedSize );
   m_uboData.m_pAccelStruct_m_SdfNeuralProperties_capacity = uint32_t( m_pAccelStruct_m_SdfNeuralProperties->capacity() ); assert( m_pAccelStruct_m_SdfNeuralProperties->capacity() < maxAllowedSize );
   m_uboData.m_pAccelStruct_m_SdfObjects_size     = uint32_t( m_pAccelStruct_m_SdfObjects->size() );     assert( m_pAccelStruct_m_SdfObjects->size() < maxAllowedSize );
@@ -83,6 +89,9 @@ void EyeRayCaster_GPU::ReadPlainMembers(std::shared_ptr<vk_utils::ICopyEngine> a
   m_width = m_uboData.m_width;
   m_pAccelStruct_m_ConjIndices->resize(m_uboData.m_pAccelStruct_m_ConjIndices_size);
   m_pAccelStruct_m_SdfConjunctions->resize(m_uboData.m_pAccelStruct_m_SdfConjunctions_size);
+  m_pAccelStruct_m_SdfGridData->resize(m_uboData.m_pAccelStruct_m_SdfGridData_size);
+  m_pAccelStruct_m_SdfGridOffsets->resize(m_uboData.m_pAccelStruct_m_SdfGridOffsets_size);
+  m_pAccelStruct_m_SdfGridSizes->resize(m_uboData.m_pAccelStruct_m_SdfGridSizes_size);
   m_pAccelStruct_m_SdfNeuralProperties->resize(m_uboData.m_pAccelStruct_m_SdfNeuralProperties_size);
   m_pAccelStruct_m_SdfObjects->resize(m_uboData.m_pAccelStruct_m_SdfObjects_size);
   m_pAccelStruct_m_SdfParameters->resize(m_uboData.m_pAccelStruct_m_SdfParameters_size);
@@ -105,6 +114,12 @@ void EyeRayCaster_GPU::UpdateVectorMembers(std::shared_ptr<vk_utils::ICopyEngine
     a_pCopyEngine->UpdateBuffer(m_vdata.m_pAccelStruct_m_ConjIndicesBuffer, 0, m_pAccelStruct_m_ConjIndices->data(), m_pAccelStruct_m_ConjIndices->size()*sizeof(unsigned int) );
   if(m_pAccelStruct_m_SdfConjunctions->size() > 0)
     a_pCopyEngine->UpdateBuffer(m_vdata.m_pAccelStruct_m_SdfConjunctionsBuffer, 0, m_pAccelStruct_m_SdfConjunctions->data(), m_pAccelStruct_m_SdfConjunctions->size()*sizeof(struct SdfConjunction) );
+  if(m_pAccelStruct_m_SdfGridData->size() > 0)
+    a_pCopyEngine->UpdateBuffer(m_vdata.m_pAccelStruct_m_SdfGridDataBuffer, 0, m_pAccelStruct_m_SdfGridData->data(), m_pAccelStruct_m_SdfGridData->size()*sizeof(float) );
+  if(m_pAccelStruct_m_SdfGridOffsets->size() > 0)
+    a_pCopyEngine->UpdateBuffer(m_vdata.m_pAccelStruct_m_SdfGridOffsetsBuffer, 0, m_pAccelStruct_m_SdfGridOffsets->data(), m_pAccelStruct_m_SdfGridOffsets->size()*sizeof(unsigned int) );
+  if(m_pAccelStruct_m_SdfGridSizes->size() > 0)
+    a_pCopyEngine->UpdateBuffer(m_vdata.m_pAccelStruct_m_SdfGridSizesBuffer, 0, m_pAccelStruct_m_SdfGridSizes->data(), m_pAccelStruct_m_SdfGridSizes->size()*sizeof(struct LiteMath::uint3) );
   if(m_pAccelStruct_m_SdfNeuralProperties->size() > 0)
     a_pCopyEngine->UpdateBuffer(m_vdata.m_pAccelStruct_m_SdfNeuralPropertiesBuffer, 0, m_pAccelStruct_m_SdfNeuralProperties->data(), m_pAccelStruct_m_SdfNeuralProperties->size()*sizeof(struct NeuralProperties) );
   if(m_pAccelStruct_m_SdfObjects->size() > 0)

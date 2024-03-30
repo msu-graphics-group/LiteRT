@@ -31,7 +31,8 @@ struct BruteForceRT : public ISceneObject
 
   uint32_t AddGeom_Triangles3f(const float* a_vpos3f, size_t a_vertNumber, const uint32_t* a_triIndices, size_t a_indNumber, BuildQuality a_qualityLevel, size_t vByteStride) override;
   void     UpdateGeom_Triangles3f(uint32_t a_geomId, const float* a_vpos3f, size_t a_vertNumber, const uint32_t* a_triIndices, size_t a_indNumber, BuildQuality a_qualityLevel, size_t vByteStride) override;
-  uint32_t AddGeom_Sdf(const SdfScene &scene, BuildQuality a_qualityLevel = BUILD_HIGH) override;
+  uint32_t AddGeom_SdfScene(SdfSceneView scene, BuildQuality a_qualityLevel = BUILD_HIGH) override;
+  uint32_t AddGeom_SdfGrid(SdfGridView grid, BuildQuality a_qualityLevel = BUILD_HIGH) override;
 
   void ClearScene() override; 
   void CommitScene  (BuildQuality a_qualityLevel) override; 
@@ -143,23 +144,30 @@ void BruteForceRT::UpdateGeom_Triangles3f(uint32_t a_geomId, const float* a_vpos
   std::cout << "[BruteForceRT::UpdateGeom_Triangles3f]: " << "not implemeted!" << std::endl;
 }
 
-uint32_t BruteForceRT::AddGeom_Sdf(const SdfScene &scene, BuildQuality a_qualityLevel)
+uint32_t BruteForceRT::AddGeom_SdfScene(SdfSceneView scene, BuildQuality a_qualityLevel)
 {
-  assert(scene.conjunctions.size() > 0);
-  assert(scene.objects.size() > 0);
-  assert(scene.parameters.size() > 0);
+  assert(scene.conjunctions_count > 0);
+  assert(scene.objects_count > 0);
+  assert(scene.parameters_count > 0);
   float4 mn = scene.conjunctions[0].min_pos;
   float4 mx = scene.conjunctions[0].max_pos;
-  for (auto &c : scene.conjunctions) 
+  for (int i=0; i<scene.conjunctions_count; i++) 
   {
-    mn = min(mn, c.min_pos);
-    mx = max(mx, c.max_pos);
+    mn = min(mn, scene.conjunctions[i].min_pos);
+    mx = max(mx, scene.conjunctions[i].max_pos);
   }
-  m_indStartSize.push_back (uint2(0, scene.conjunctions.size()));
+  m_indStartSize.push_back (uint2(0, scene.conjunctions_count));
   m_geomBoxes.push_back(Box4f(mn, mx));
   m_geomTypeByGeomId.push_back(TYPE_SDF_PRIMITIVE);
 
-  m_SdfScenes.push_back(scene);
+
+  SdfScene scene_copy;
+  scene_copy.conjunctions = std::vector<SdfConjunction>(scene.conjunctions, scene.conjunctions + scene.conjunctions_count);
+  scene_copy.neural_properties = std::vector<NeuralProperties>(scene.neural_properties, scene.neural_properties + scene.neural_properties_count);
+  scene_copy.objects = std::vector<SdfObject>(scene.objects, scene.objects + scene.objects_count);
+  scene_copy.parameters = std::vector<float>(scene.parameters, scene.parameters + scene.parameters_count);
+
+  m_SdfScenes.push_back(scene_copy);
   while (m_SdfSceneIdByGeomId.size() < m_geomTypeByGeomId.size())
     m_SdfSceneIdByGeomId.push_back(0u);
   m_SdfSceneIdByGeomId.back() = m_SdfScenes.size() - 1;
@@ -179,6 +187,12 @@ void BruteForceRT::ClearScene()
   m_instMatricesInv.resize(0);
   m_instMatricesFwd.resize(0);
   m_geomIdByInstId.resize(0);
+}
+
+uint32_t BruteForceRT::AddGeom_SdfGrid(SdfGridView grid, BuildQuality a_qualityLevel)
+{
+  printf("AddGeom_SdfGrid not implemented!!!\n");
+  return 0u;
 }
 
 void BruteForceRT::CommitScene(BuildQuality a_qualityLevel)

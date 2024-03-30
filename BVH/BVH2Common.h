@@ -46,7 +46,8 @@ struct BVHRT : public ISceneObject
   uint32_t AddGeom_Triangles3f(const float *a_vpos3f, size_t a_vertNumber, const uint32_t *a_triIndices, size_t a_indNumber, BuildQuality a_qualityLevel, size_t vByteStride) override;
   void     UpdateGeom_Triangles3f(uint32_t a_geomId, const float *a_vpos3f, size_t a_vertNumber, const uint32_t *a_triIndices, size_t a_indNumber, BuildQuality a_qualityLevel, size_t vByteStride) override;
 #ifndef KERNEL_SLICER  
-  uint32_t AddGeom_Sdf(const SdfScene &scene, BuildQuality a_qualityLevel = BUILD_HIGH) override;
+  uint32_t AddGeom_SdfScene(SdfSceneView scene, BuildQuality a_qualityLevel = BUILD_HIGH) override;
+  uint32_t AddGeom_SdfGrid(SdfGridView grid, BuildQuality a_qualityLevel = BUILD_HIGH) override;
 #endif
   void ClearScene() override;
   virtual void CommitScene(BuildQuality a_qualityLevel) override;
@@ -73,6 +74,11 @@ struct BVHRT : public ISceneObject
                                        uint32_t a_start, uint32_t a_count,
                                        CRT_Hit *pHit);
 
+  void IntersectAllSdfGridsInLeaf(const float3 ray_pos, const float3 ray_dir,
+                                  float tNear, uint32_t instId, uint32_t geomId,
+                                  uint32_t a_start, uint32_t a_count,
+                                  CRT_Hit *pHit);
+
   void IntersectAllTrianglesInLeaf(const float3 ray_pos, const float3 ray_dir,
                                    float tNear, uint32_t instId, uint32_t geomId,
                                    uint32_t a_start, uint32_t a_count,
@@ -93,11 +99,16 @@ struct BVHRT : public ISceneObject
   virtual float eval_dist_conjunction(unsigned conj_id, float3 p);
   virtual SdfHit sdf_conjunction_sphere_tracing(unsigned conj_id, const float3 &min_pos, const float3 &max_pos,
                                                 const float3 &pos, const float3 &dir, bool need_norm);
+  
+  virtual float eval_distance_sdf_grid(unsigned grid_id, float3 p);
+  virtual SdfHit sdf_grid_sphere_tracing(unsigned grid_id, const float3 &min_pos, const float3 &max_pos,
+                                         const float3 &pos, const float3 &dir, bool need_norm);
+  
   //for each model in scene  
   std::vector<Box4f>    m_geomBoxes;
   std::vector<uint2>    m_geomOffsets; //means different things for different types of geometry
   std::vector<uint32_t> m_bvhOffsets;
-  std::vector<unsigned> m_geomTypeByGeomId;
+  std::vector<uint32_t> m_geomTypeByGeomId;
 
   //SDFs data
   std::vector<float> m_SdfParameters;
@@ -105,6 +116,11 @@ struct BVHRT : public ISceneObject
   std::vector<SdfConjunction> m_SdfConjunctions;
   std::vector<NeuralProperties> m_SdfNeuralProperties;
   std::vector<uint32_t> m_ConjIndices; //conjunction index for each leaf node in Fat BVH related to SDF
+
+  //SDF grid data
+  std::vector<float> m_SdfGridData;       //raw data for all SDF grids
+  std::vector<uint32_t> m_SdfGridOffsets; //offset in m_SdfGridData for each SDF grid
+  std::vector<uint3> m_SdfGridSizes;      //size for each SDF grid
 
   //for each instance in scene
   std::vector<Box4f> m_instBoxes;

@@ -151,6 +151,9 @@ EyeRayCaster_GPU::~EyeRayCaster_GPU()
 
   vkDestroyBuffer(device, m_vdata.m_pAccelStruct_m_ConjIndicesBuffer, nullptr);
   vkDestroyBuffer(device, m_vdata.m_pAccelStruct_m_SdfConjunctionsBuffer, nullptr);
+  vkDestroyBuffer(device, m_vdata.m_pAccelStruct_m_SdfGridDataBuffer, nullptr);
+  vkDestroyBuffer(device, m_vdata.m_pAccelStruct_m_SdfGridOffsetsBuffer, nullptr);
+  vkDestroyBuffer(device, m_vdata.m_pAccelStruct_m_SdfGridSizesBuffer, nullptr);
   vkDestroyBuffer(device, m_vdata.m_pAccelStruct_m_SdfNeuralPropertiesBuffer, nullptr);
   vkDestroyBuffer(device, m_vdata.m_pAccelStruct_m_SdfObjectsBuffer, nullptr);
   vkDestroyBuffer(device, m_vdata.m_pAccelStruct_m_SdfParametersBuffer, nullptr);
@@ -275,6 +278,12 @@ void EyeRayCaster_GPU::ReserveEmptyVectors()
     m_pAccelStruct_m_ConjIndices->reserve(4);
   if(m_pAccelStruct_m_SdfConjunctions != nullptr && m_pAccelStruct_m_SdfConjunctions->capacity() == 0)
     m_pAccelStruct_m_SdfConjunctions->reserve(4);
+  if(m_pAccelStruct_m_SdfGridData != nullptr && m_pAccelStruct_m_SdfGridData->capacity() == 0)
+    m_pAccelStruct_m_SdfGridData->reserve(4);
+  if(m_pAccelStruct_m_SdfGridOffsets != nullptr && m_pAccelStruct_m_SdfGridOffsets->capacity() == 0)
+    m_pAccelStruct_m_SdfGridOffsets->reserve(4);
+  if(m_pAccelStruct_m_SdfGridSizes != nullptr && m_pAccelStruct_m_SdfGridSizes->capacity() == 0)
+    m_pAccelStruct_m_SdfGridSizes->reserve(4);
   if(m_pAccelStruct_m_SdfNeuralProperties != nullptr && m_pAccelStruct_m_SdfNeuralProperties->capacity() == 0)
     m_pAccelStruct_m_SdfNeuralProperties->reserve(4);
   if(m_pAccelStruct_m_SdfObjects != nullptr && m_pAccelStruct_m_SdfObjects->capacity() == 0)
@@ -314,6 +323,12 @@ void EyeRayCaster_GPU::InitMemberBuffers()
   memberVectors.push_back(m_vdata.m_pAccelStruct_m_ConjIndicesBuffer);
   m_vdata.m_pAccelStruct_m_SdfConjunctionsBuffer = vk_utils::createBuffer(device, m_pAccelStruct_m_SdfConjunctions->capacity()*sizeof(struct SdfConjunction), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
   memberVectors.push_back(m_vdata.m_pAccelStruct_m_SdfConjunctionsBuffer);
+  m_vdata.m_pAccelStruct_m_SdfGridDataBuffer = vk_utils::createBuffer(device, m_pAccelStruct_m_SdfGridData->capacity()*sizeof(float), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
+  memberVectors.push_back(m_vdata.m_pAccelStruct_m_SdfGridDataBuffer);
+  m_vdata.m_pAccelStruct_m_SdfGridOffsetsBuffer = vk_utils::createBuffer(device, m_pAccelStruct_m_SdfGridOffsets->capacity()*sizeof(unsigned int), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
+  memberVectors.push_back(m_vdata.m_pAccelStruct_m_SdfGridOffsetsBuffer);
+  m_vdata.m_pAccelStruct_m_SdfGridSizesBuffer = vk_utils::createBuffer(device, m_pAccelStruct_m_SdfGridSizes->capacity()*sizeof(struct LiteMath::uint3), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
+  memberVectors.push_back(m_vdata.m_pAccelStruct_m_SdfGridSizesBuffer);
   m_vdata.m_pAccelStruct_m_SdfNeuralPropertiesBuffer = vk_utils::createBuffer(device, m_pAccelStruct_m_SdfNeuralProperties->capacity()*sizeof(struct NeuralProperties), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
   memberVectors.push_back(m_vdata.m_pAccelStruct_m_SdfNeuralPropertiesBuffer);
   m_vdata.m_pAccelStruct_m_SdfObjectsBuffer = vk_utils::createBuffer(device, m_pAccelStruct_m_SdfObjects->capacity()*sizeof(struct SdfObject), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);

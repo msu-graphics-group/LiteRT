@@ -282,10 +282,20 @@ void BVHRT::IntersectAllPrimitivesInLeaf(const float3 ray_pos, const float3 ray_
                                              CRT_Hit *pHit)
 {
   unsigned type = m_geomTypeByGeomId[geomId];
-  if (type == TYPE_MESH_TRIANGLE)
+  switch (type)
+  {
+  case TYPE_MESH_TRIANGLE:
     IntersectAllTrianglesInLeaf(ray_pos, ray_dir, tNear, instId, geomId, a_start, a_count, pHit);
-  else if (type == TYPE_SDF_PRIMITIVE)
+    break;
+  case TYPE_SDF_PRIMITIVE:
     IntersectAllSdfPrimitivesInLeaf(ray_pos, ray_dir, tNear, instId, geomId, a_start, a_count, pHit);
+    break;
+  case TYPE_SDF_GRID:
+    IntersectAllSdfGridsInLeaf(ray_pos, ray_dir, tNear, instId, geomId, a_start, a_count, pHit);
+    break;
+  default:
+    break;
+  }
 }
 
 SdfHit BVHRT::sdf_conjunction_sphere_tracing(unsigned conj_id, const float3 &min_pos, const float3 &max_pos,
@@ -358,6 +368,120 @@ void BVHRT::IntersectAllSdfPrimitivesInLeaf(const float3 ray_pos, const float3 r
     {
       pHit->t         = t;
       pHit->primId    = conjId;
+      pHit->instId    = instId;
+      pHit->geomId    = geomId;  
+      pHit->coords[0] = 0;
+      pHit->coords[1] = 0;
+      pHit->coords[2] = hit.hit_norm.x;
+      pHit->coords[3] = hit.hit_norm.y;
+    }
+  }
+}
+
+float BVHRT::eval_distance_sdf_grid(unsigned grid_id, float3 pos)
+{
+  unsigned off = m_SdfGridOffsets[grid_id];
+  uint3 size = m_SdfGridSizes[grid_id];
+
+  //bbox for grid is a unit cube
+  float3 grid_size_f = float3(size);
+  float3 vox_f = grid_size_f*min(max((pos-float3(-1,-1,-1))/float3(2,2,2), float3(0.0f)), float3(1.0f-1e-5f));
+  uint3 vox_u = uint3(vox_f);
+  float3 dp = vox_f - float3(vox_u);
+
+  //trilinear sampling
+  float res = 0.0;
+  if (vox_u.x < size.x-1 && vox_u.y < size.y-1 && vox_u.z < size.z-1)
+  {
+    for (int i=0;i<2;i++)
+    {
+      for (int j=0;j<2;j++)
+      {
+        for (int k=0;k<2;k++)
+        {
+          float qx = (1 - dp.x + i*(2*dp.x-1));
+          float qy = (1 - dp.y + j*(2*dp.y-1));
+          float qz = (1 - dp.z + k*(2*dp.z-1));   
+          res += qx*qy*qz*m_SdfGridData[off + (vox_u.z + k)*size.x*size.y + (vox_u.y + j)*size.x + (vox_u.x + i)];   
+        }      
+      }
+    }
+  }
+  else
+  {
+    res += m_SdfGridData[off + (vox_u.z)*size.x*size.y + (vox_u.y)*size.x + (vox_u.x)]; 
+  }
+  
+  return res;
+}
+
+SdfHit BVHRT::sdf_grid_sphere_tracing(unsigned grid_id, const float3 &min_pos, const float3 &max_pos,
+                                      const float3 &pos, const float3 &dir, bool need_norm)
+{
+  const float EPS = 1e-5;
+
+  SdfHit hit;
+  hit.hit_pos = float4(0,0,0,-1);
+  float2 tNear_tFar = box_intersects(min_pos, max_pos, pos, dir);
+  float t = tNear_tFar.x;
+  float tFar = tNear_tFar.y;
+  if (t > tFar)
+    return hit;
+  
+  int iter = 0;
+  float d = eval_distance_sdf_grid(grid_id, pos + t * dir);
+  while (iter < 1000 && d > EPS && t < tFar)
+  {
+    t += d + EPS;
+    d = eval_distance_sdf_grid(grid_id, pos + t * dir);
+    iter++;
+  }
+
+  if (d > EPS)
+    return hit;
+
+  float3 p0 = pos + t * dir;
+  float3 norm = float3(1,0,0);
+  if (need_norm)
+  {
+    const float h = 0.001;
+    float ddx = (eval_distance_sdf_grid(grid_id, p0 + float3(h, 0, 0)) -
+                 eval_distance_sdf_grid(grid_id, p0 + float3(-h, 0, 0))) /
+                (2 * h);
+    float ddy = (eval_distance_sdf_grid(grid_id, p0 + float3(0, h, 0)) -
+                 eval_distance_sdf_grid(grid_id, p0 + float3(0, -h, 0))) /
+                (2 * h);
+    float ddz = (eval_distance_sdf_grid(grid_id, p0 + float3(0, 0, h)) -
+                 eval_distance_sdf_grid(grid_id, p0 + float3(0, 0, -h))) /
+                (2 * h);
+
+    norm = normalize(float3(ddx, ddy, ddz));
+    // fprintf(stderr, "st %d (%f %f %f)\n", iter, surface_normal->x, surface_normal->y, surface_normal->z);
+  }
+  // fprintf(stderr, "st %d (%f %f %f)", iter, p0.x, p0.y, p0.z);
+  hit.hit_pos = to_float4(p0, 1);
+  hit.hit_norm = to_float4(norm, 1.0f);
+  return hit;
+}
+
+void BVHRT::IntersectAllSdfGridsInLeaf(const float3 ray_pos, const float3 ray_dir,
+                                       float tNear, uint32_t instId, uint32_t geomId,
+                                       uint32_t a_start, uint32_t a_count,
+                                       CRT_Hit *pHit)
+{
+  //assert(a_count == 1);
+  unsigned gridId = m_geomOffsets[geomId].x;
+  float l = length(ray_dir);
+  float3 dir = ray_dir/l;
+
+  SdfHit hit = sdf_grid_sphere_tracing(gridId, float3(-1,-1,-1), float3( 1, 1, 1), ray_pos, dir, true);
+  if (hit.hit_pos.w > 0)
+  {
+    float t = length(to_float3(hit.hit_pos)-ray_pos)/l;
+    if (t > tNear && t < pHit->t)
+    {
+      pHit->t         = t;
+      pHit->primId    = 0;
       pHit->instId    = instId;
       pHit->geomId    = geomId;  
       pHit->coords[0] = 0;

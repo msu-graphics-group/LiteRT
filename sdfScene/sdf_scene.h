@@ -3,6 +3,13 @@
 #include <string>
 
 #ifndef KERNEL_SLICER
+
+struct SdfGridView
+{
+  uint3 size;
+  const float *data; //size.x*size.y*size.z values 
+};
+
 struct SdfScene
 {
   std::vector<float> parameters;

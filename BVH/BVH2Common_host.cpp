@@ -52,6 +52,9 @@ void BVHRT::ClearGeom()
   m_ConjIndices.reserve(16);
   m_ConjIndices.resize(0);
 
+  m_SdfGridData.reserve(16);
+  m_SdfGridData.resize(0);  
+
   ClearScene();
 }
 
@@ -115,17 +118,17 @@ void BVHRT::UpdateGeom_Triangles3f(uint32_t a_geomId, const float *a_vpos3f, siz
   std::cout << "[BVHRT::UpdateGeom_Triangles3f]: " << "not implemeted!" << std::endl; // not planned for this implementation (possible in general)
 }
 
-uint32_t BVHRT::AddGeom_Sdf(const SdfScene &scene, BuildQuality a_qualityLevel)
+uint32_t BVHRT::AddGeom_SdfScene(SdfSceneView scene, BuildQuality a_qualityLevel)
 {
-  assert(scene.conjunctions.size() > 0);
-  assert(scene.objects.size() > 0);
-  assert(scene.parameters.size() > 0);
+  assert(scene.conjunctions_count > 0);
+  assert(scene.objects_count > 0);
+  assert(scene.parameters_count > 0);
   float4 mn = scene.conjunctions[0].min_pos;
   float4 mx = scene.conjunctions[0].max_pos;
-  for (auto &c : scene.conjunctions) 
+  for (int i=0; i<scene.conjunctions_count; i++) 
   {
-    mn = min(mn, c.min_pos);
-    mx = max(mx, c.max_pos);
+    mn = min(mn, scene.conjunctions[i].min_pos);
+    mx = max(mx, scene.conjunctions[i].max_pos);
   }
   m_geomOffsets.push_back(uint2(m_ConjIndices.size(), 0));
   m_geomBoxes.push_back(Box4f(mn, mx));
@@ -137,10 +140,10 @@ uint32_t BVHRT::AddGeom_Sdf(const SdfScene &scene, BuildQuality a_qualityLevel)
   unsigned c_offset = m_SdfConjunctions.size();
   unsigned np_offset = m_SdfNeuralProperties.size();
 
-  m_SdfParameters.insert(m_SdfParameters.end(), scene.parameters.begin(), scene.parameters.end());
-  m_SdfObjects.insert(m_SdfObjects.end(), scene.objects.begin(), scene.objects.end());
-  m_SdfConjunctions.insert(m_SdfConjunctions.end(), scene.conjunctions.begin(), scene.conjunctions.end());
-  m_SdfNeuralProperties.insert(m_SdfNeuralProperties.end(), scene.neural_properties.begin(), scene.neural_properties.end());
+  m_SdfParameters.insert(m_SdfParameters.end(), scene.parameters, scene.parameters + scene.parameters_count);
+  m_SdfObjects.insert(m_SdfObjects.end(), scene.objects, scene.objects + scene.objects_count);
+  m_SdfConjunctions.insert(m_SdfConjunctions.end(), scene.conjunctions, scene.conjunctions + scene.conjunctions_count);
+  m_SdfNeuralProperties.insert(m_SdfNeuralProperties.end(), scene.neural_properties, scene.neural_properties + scene.neural_properties_count);
 
   for (int i=o_offset;i<m_SdfObjects.size();i++)
   {
@@ -153,7 +156,7 @@ uint32_t BVHRT::AddGeom_Sdf(const SdfScene &scene, BuildQuality a_qualityLevel)
 
   std::vector<unsigned> conj_indices;
   std::vector<BVHNode> orig_nodes;
-  for (int i=0;i<scene.conjunctions.size();i++)
+  for (int i=0;i<scene.conjunctions_count;i++)
   {
     auto &c = scene.conjunctions[i];
     conj_indices.push_back(c_offset + i);
@@ -181,6 +184,48 @@ uint32_t BVHRT::AddGeom_Sdf(const SdfScene &scene, BuildQuality a_qualityLevel)
 
   for (auto &i : bvhData.indices)
     printf("ind %d\n",(int)i);
+
+  m_allNodePairs.insert(m_allNodePairs.end(), bvhData.nodes.begin(), bvhData.nodes.end());
+
+  return m_geomTypeByGeomId.size()-1;
+}
+
+uint32_t BVHRT::AddGeom_SdfGrid(SdfGridView grid, BuildQuality a_qualityLevel)
+{
+  assert(grid.size.x*grid.size.y*grid.size.z > 0);
+  assert(grid.size.x*grid.size.y*grid.size.z < (1u<<28)); //huge grids shouldn't be here
+  //SDF grid is always a unit cube
+  float4 mn = float4(-1,-1,-1,1);
+  float4 mx = float4( 1, 1, 1,1);
+
+  //fill common data arrays
+  m_geomOffsets.push_back(uint2(m_SdfGridOffsets.size(), 0));
+  m_geomBoxes.push_back(Box4f(mn, mx));
+  m_geomTypeByGeomId.push_back(TYPE_SDF_GRID);
+  m_bvhOffsets.push_back(m_allNodePairs.size());
+
+  //fill grid-specific data arrays
+  m_SdfGridOffsets.push_back(m_SdfGridData.size());
+  m_SdfGridSizes.push_back(grid.size);
+  m_SdfGridData.insert(m_SdfGridData.end(), grid.data, grid.data + grid.size.x*grid.size.y*grid.size.z);
+
+  //create BLAS for grid
+  //TODO: do it properly
+  std::vector<BVHNode> orig_nodes;
+  orig_nodes.resize(2);
+  orig_nodes[0].boxMin = float3(-1,-1,-1);
+  orig_nodes[0].boxMax = float3(1,1,0);
+  orig_nodes[1].boxMin = float3(-1,-1,0);
+  orig_nodes[1].boxMax = float3(1,1,1);
+
+  // Build BVH for each geom and append it to big buffer;
+  // append data to global arrays and fix offsets
+  auto presets = BuilderPresetsFromString(m_buildName.c_str());
+  auto layout  = LayoutPresetsFromString(m_layoutName.c_str());
+  auto bvhData = BuildBVHFatCustom(orig_nodes.data(), orig_nodes.size(), presets, layout);
+
+  for (auto &i : bvhData.indices)
+    printf("grid ind %d\n",(int)i);
 
   m_allNodePairs.insert(m_allNodePairs.end(), bvhData.nodes.begin(), bvhData.nodes.end());
 
