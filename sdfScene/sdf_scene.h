@@ -10,6 +10,12 @@ struct SdfGridView
   const float *data; //size.x*size.y*size.z values 
 };
 
+struct SdfOctreeView
+{
+  unsigned size;
+  const SdfOctreeNode *nodes;
+};
+
 struct SdfScene
 {
   std::vector<float> parameters;

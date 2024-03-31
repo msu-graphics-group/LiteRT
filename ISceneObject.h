@@ -31,6 +31,22 @@ struct CRT_Hit
 static constexpr unsigned TYPE_MESH_TRIANGLE = 0;
 static constexpr unsigned TYPE_SDF_PRIMITIVE = 1;
 static constexpr unsigned TYPE_SDF_GRID      = 2;
+static constexpr unsigned TYPE_SDF_OCTREE    = 3;
+
+static constexpr unsigned X_L = 1<<0;
+static constexpr unsigned X_H = 1<<1;
+static constexpr unsigned Y_L = 1<<2;
+static constexpr unsigned Y_H = 1<<3;
+static constexpr unsigned Z_L = 1<<4;
+static constexpr unsigned Z_H = 1<<5;
+
+constexpr unsigned INVALID_IDX = 1u<<31u;
+
+struct SDONeighbor
+{
+  SdfOctreeNode node;
+  unsigned overshoot;
+};
 
 /**
 \brief API to ray-scene intersection on CPU
@@ -81,6 +97,7 @@ struct ISceneObject
 #ifndef KERNEL_SLICER 
   virtual uint32_t AddGeom_SdfScene(SdfSceneView scene, BuildQuality a_qualityLevel = BUILD_HIGH) = 0;
   virtual uint32_t AddGeom_SdfGrid(SdfGridView grid, BuildQuality a_qualityLevel = BUILD_HIGH) = 0;
+  virtual uint32_t AddGeom_SdfOctree(SdfOctreeView octree, BuildQuality a_qualityLevel = BUILD_HIGH) = 0;
 #endif
 
   /**

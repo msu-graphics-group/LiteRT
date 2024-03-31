@@ -33,6 +33,7 @@ struct BruteForceRT : public ISceneObject
   void     UpdateGeom_Triangles3f(uint32_t a_geomId, const float* a_vpos3f, size_t a_vertNumber, const uint32_t* a_triIndices, size_t a_indNumber, BuildQuality a_qualityLevel, size_t vByteStride) override;
   uint32_t AddGeom_SdfScene(SdfSceneView scene, BuildQuality a_qualityLevel = BUILD_HIGH) override;
   uint32_t AddGeom_SdfGrid(SdfGridView grid, BuildQuality a_qualityLevel = BUILD_HIGH) override;
+  uint32_t AddGeom_SdfOctree(SdfOctreeView octree, BuildQuality a_qualityLevel = BUILD_HIGH) override;
 
   void ClearScene() override; 
   void CommitScene  (BuildQuality a_qualityLevel) override; 
@@ -190,6 +191,12 @@ void BruteForceRT::ClearScene()
 }
 
 uint32_t BruteForceRT::AddGeom_SdfGrid(SdfGridView grid, BuildQuality a_qualityLevel)
+{
+  printf("AddGeom_SdfGrid not implemented!!!\n");
+  return 0u;
+}
+
+uint32_t BruteForceRT::AddGeom_SdfOctree(SdfOctreeView octree, BuildQuality a_qualityLevel)
 {
   printf("AddGeom_SdfGrid not implemented!!!\n");
   return 0u;

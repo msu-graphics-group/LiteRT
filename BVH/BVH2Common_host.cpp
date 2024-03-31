@@ -55,6 +55,18 @@ void BVHRT::ClearGeom()
   m_SdfGridData.reserve(16);
   m_SdfGridData.resize(0);  
 
+  m_SdfGridOffsets.reserve(16);
+  m_SdfGridOffsets.resize(0);  
+
+  m_SdfGridSizes.reserve(16);
+  m_SdfGridSizes.resize(0);  
+
+  m_SdfOctreeNodes.reserve(16);
+  m_SdfOctreeNodes.resize(0);  
+
+  m_SdfOctreeRoots.reserve(16);
+  m_SdfOctreeRoots.resize(0);  
+
   ClearScene();
 }
 
@@ -226,6 +238,49 @@ uint32_t BVHRT::AddGeom_SdfGrid(SdfGridView grid, BuildQuality a_qualityLevel)
 
   for (auto &i : bvhData.indices)
     printf("grid ind %d\n",(int)i);
+
+  m_allNodePairs.insert(m_allNodePairs.end(), bvhData.nodes.begin(), bvhData.nodes.end());
+
+  return m_geomTypeByGeomId.size()-1;
+}
+
+uint32_t BVHRT::AddGeom_SdfOctree(SdfOctreeView octree, BuildQuality a_qualityLevel)
+{
+  assert(octree.size > 0);
+  assert(octree.size < (1u<<28)); //huge grids shouldn't be here
+  //SDF octree is always a unit cube
+  float4 mn = float4(-1,-1,-1,1);
+  float4 mx = float4( 1, 1, 1,1);
+
+  //fill common data arrays
+  m_geomOffsets.push_back(uint2(m_SdfOctreeRoots.size(), 0));
+  m_geomBoxes.push_back(Box4f(mn, mx));
+  m_geomTypeByGeomId.push_back(TYPE_SDF_OCTREE);
+  m_bvhOffsets.push_back(m_allNodePairs.size());
+
+  //fill octree-specific data arrays
+  m_SdfOctreeRoots.push_back(m_SdfOctreeNodes.size());
+  m_SdfOctreeNodes.insert(m_SdfOctreeNodes.end(), octree.nodes, octree.nodes + octree.size);
+  for (int i=m_SdfOctreeRoots.back();i<m_SdfOctreeNodes.size();i++)
+    m_SdfOctreeNodes[i].offset += m_SdfOctreeRoots.back();
+
+  //create BLAS for grid
+  //TODO: do it properly
+  std::vector<BVHNode> orig_nodes;
+  orig_nodes.resize(2);
+  orig_nodes[0].boxMin = float3(-1,-1,-1);
+  orig_nodes[0].boxMax = float3(1,1,0);
+  orig_nodes[1].boxMin = float3(-1,-1,0);
+  orig_nodes[1].boxMax = float3(1,1,1);
+
+  // Build BVH for each geom and append it to big buffer;
+  // append data to global arrays and fix offsets
+  auto presets = BuilderPresetsFromString(m_buildName.c_str());
+  auto layout  = LayoutPresetsFromString(m_layoutName.c_str());
+  auto bvhData = BuildBVHFatCustom(orig_nodes.data(), orig_nodes.size(), presets, layout);
+
+  for (auto &i : bvhData.indices)
+    printf("octree ind %d\n",(int)i);
 
   m_allNodePairs.insert(m_allNodePairs.end(), bvhData.nodes.begin(), bvhData.nodes.end());
 

@@ -48,6 +48,7 @@ struct BVHRT : public ISceneObject
 #ifndef KERNEL_SLICER  
   uint32_t AddGeom_SdfScene(SdfSceneView scene, BuildQuality a_qualityLevel = BUILD_HIGH) override;
   uint32_t AddGeom_SdfGrid(SdfGridView grid, BuildQuality a_qualityLevel = BUILD_HIGH) override;
+  uint32_t AddGeom_SdfOctree(SdfOctreeView octree, BuildQuality a_qualityLevel = BUILD_HIGH) override;
 #endif
   void ClearScene() override;
   virtual void CommitScene(BuildQuality a_qualityLevel) override;
@@ -79,6 +80,11 @@ struct BVHRT : public ISceneObject
                                   uint32_t a_start, uint32_t a_count,
                                   CRT_Hit *pHit);
 
+  void IntersectAllSdfOctreesInLeaf(const float3 ray_pos, const float3 ray_dir,
+                                    float tNear, uint32_t instId, uint32_t geomId,
+                                    uint32_t a_start, uint32_t a_count,
+                                    CRT_Hit *pHit);
+
   void IntersectAllTrianglesInLeaf(const float3 ray_pos, const float3 ray_dir,
                                    float tNear, uint32_t instId, uint32_t geomId,
                                    uint32_t a_start, uint32_t a_count,
@@ -103,7 +109,13 @@ struct BVHRT : public ISceneObject
   virtual float eval_distance_sdf_grid(unsigned grid_id, float3 p);
   virtual SdfHit sdf_grid_sphere_tracing(unsigned grid_id, const float3 &min_pos, const float3 &max_pos,
                                          const float3 &pos, const float3 &dir, bool need_norm);
-  
+
+  virtual bool is_leaf(unsigned offset);
+  virtual float sample_neighborhood(const SDONeighbor neighbors[27], float3 n_pos);
+  virtual float eval_distance_sdf_octree(unsigned octree_id, float3 p);
+  virtual SdfHit sdf_octree_sphere_tracing(unsigned octree_id, const float3 &min_pos, const float3 &max_pos,
+                                           const float3 &pos, const float3 &dir, bool need_norm);
+
   //for each model in scene  
   std::vector<Box4f>    m_geomBoxes;
   std::vector<uint2>    m_geomOffsets; //means different things for different types of geometry
@@ -121,6 +133,10 @@ struct BVHRT : public ISceneObject
   std::vector<float> m_SdfGridData;       //raw data for all SDF grids
   std::vector<uint32_t> m_SdfGridOffsets; //offset in m_SdfGridData for each SDF grid
   std::vector<uint3> m_SdfGridSizes;      //size for each SDF grid
+
+  //SDF octree data
+  std::vector<SdfOctreeNode> m_SdfOctreeNodes;//nodes for all SDF octrees
+  std::vector<uint32_t> m_SdfOctreeRoots;     //root node ids for each SDF octree
 
   //for each instance in scene
   std::vector<Box4f> m_instBoxes;

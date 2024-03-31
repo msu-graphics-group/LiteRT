@@ -120,6 +120,11 @@ struct SdfHit
   vec4 hit_pos;  // hit_pos.w < 0 if no hit, hit_pos.w > 0 otherwise
   vec4 hit_norm; // hit_norm.w is not used
 };
+struct SdfOctreeNode
+{
+  float value;
+  uint offset; // offset for children (they are stored together). 0 offset means it's a leaf
+};
 const uint BUILD_LOW = 0;
 const uint BUILD_MEDIUM = 1;
 const uint BUILD_HIGH = 2;
@@ -136,6 +141,19 @@ struct CRT_Hit
 const uint TYPE_MESH_TRIANGLE = 0;
 const uint TYPE_SDF_PRIMITIVE = 1;
 const uint TYPE_SDF_GRID = 2;
+const uint TYPE_SDF_OCTREE = 3;
+const uint X_L = 1<<0;
+const uint X_H = 1<<1;
+const uint Y_L = 1<<2;
+const uint Y_H = 1<<3;
+const uint Z_L = 1<<4;
+const uint Z_H = 1<<5;
+const uint INVALID_IDX = 1u<<31u;
+struct SDONeighbor
+{
+  SdfOctreeNode node;
+  uint overshoot;
+};
 struct RenderPreset
 {
   bool  isAORadiusInMeters;
@@ -234,6 +252,8 @@ mat3 make_float3x3(vec3 a, vec3 b, vec3 c) { // different way than mat3(a,b,c)
               a.z, b.z, c.z);
 }
 
+uint EXTRACT_COUNT(uint a_leftOffset) { return (a_leftOffset & SIZE_MASK) >> 24; }
+
 vec3 SafeInverse(vec3 d) {
   const float ooeps = 1.0e-36f; // Avoid div by zero.
   vec3 res;
@@ -242,6 +262,8 @@ vec3 SafeInverse(vec3 d) {
   res.z = 1.0f / (abs(d.z) > ooeps ? d.z : copysign(ooeps, d.z));
   return res;
 }
+
+uint EXTRACT_START(uint a_leftOffset) { return  a_leftOffset & START_MASK; }
 
 vec2 RayBoxIntersection2(vec3 rayOrigin, vec3 rayDirInv, vec3 boxMin, vec3 boxMax) {
   const float lo  = rayDirInv.x * (boxMin.x - rayOrigin.x);
@@ -257,25 +279,21 @@ vec2 RayBoxIntersection2(vec3 rayOrigin, vec3 rayDirInv, vec3 boxMin, vec3 boxMa
   return vec2(max(tmin, min(lo2, hi2)),min(tmax, max(lo2, hi2)));
 }
 
-uint EXTRACT_START(uint a_leftOffset) { return  a_leftOffset & START_MASK; }
-
-uint EXTRACT_COUNT(uint a_leftOffset) { return (a_leftOffset & SIZE_MASK) >> 24; }
-
 bool isLeafAndIntersect(uint flags) { return (flags == (LEAF_BIT | 0x1 )); }
+
+bool notLeafAndIntersect(uint flags) { return (flags != (LEAF_BIT | 0x1)); }
 
 vec3 mymul4x3(mat4 m, vec3 v) {
   return (m*vec4(v, 1.0f)).xyz;
-}
-
-vec3 matmul3x3(mat4 m, vec3 v) { 
-  return (m*vec4(v, 0.0f)).xyz;
 }
 
 vec3 matmul4x3(mat4 m, vec3 v) {
   return (m*vec4(v, 1.0f)).xyz;
 }
 
-bool notLeafAndIntersect(uint flags) { return (flags != (LEAF_BIT | 0x1)); }
+vec3 matmul3x3(mat4 m, vec3 v) { 
+  return (m*vec4(v, 0.0f)).xyz;
+}
 
 bool isLeafOrNotIntersect(uint flags) { return (flags & LEAF_BIT) !=0 || (flags & 0x1) == 0; }
 
@@ -321,6 +339,6 @@ uint fakeOffset(uint x, uint y, uint pitch) { return y*pitch + x; }  // RTV patt
 #define KGEN_FLAG_DONT_SET_EXIT     4
 #define KGEN_FLAG_SET_EXIT_NEGATIVE 8
 #define KGEN_REDUCTION_LAST_STEP    16
-#define MAXFLOAT FLT_MAX
 #define CFLOAT_GUARDIAN 
+#define MAXFLOAT FLT_MAX
 

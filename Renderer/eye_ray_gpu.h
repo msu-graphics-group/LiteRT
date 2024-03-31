@@ -68,6 +68,8 @@ public:
       m_pAccelStruct_m_SdfGridSizes = &pUnderlyingImpl->m_SdfGridSizes;
       m_pAccelStruct_m_SdfNeuralProperties = &pUnderlyingImpl->m_SdfNeuralProperties;
       m_pAccelStruct_m_SdfObjects = &pUnderlyingImpl->m_SdfObjects;
+      m_pAccelStruct_m_SdfOctreeNodes = &pUnderlyingImpl->m_SdfOctreeNodes;
+      m_pAccelStruct_m_SdfOctreeRoots = &pUnderlyingImpl->m_SdfOctreeRoots;
       m_pAccelStruct_m_SdfParameters = &pUnderlyingImpl->m_SdfParameters;
       m_pAccelStruct_m_allNodePairs = &pUnderlyingImpl->m_allNodePairs;
       m_pAccelStruct_m_bvhOffsets = &pUnderlyingImpl->m_bvhOffsets;
@@ -186,6 +188,10 @@ protected:
     size_t   m_pAccelStruct_m_SdfNeuralPropertiesOffset = 0;
     VkBuffer m_pAccelStruct_m_SdfObjectsBuffer = VK_NULL_HANDLE;
     size_t   m_pAccelStruct_m_SdfObjectsOffset = 0;
+    VkBuffer m_pAccelStruct_m_SdfOctreeNodesBuffer = VK_NULL_HANDLE;
+    size_t   m_pAccelStruct_m_SdfOctreeNodesOffset = 0;
+    VkBuffer m_pAccelStruct_m_SdfOctreeRootsBuffer = VK_NULL_HANDLE;
+    size_t   m_pAccelStruct_m_SdfOctreeRootsOffset = 0;
     VkBuffer m_pAccelStruct_m_SdfParametersBuffer = VK_NULL_HANDLE;
     size_t   m_pAccelStruct_m_SdfParametersOffset = 0;
     VkBuffer m_pAccelStruct_m_allNodePairsBuffer = VK_NULL_HANDLE;
@@ -219,6 +225,8 @@ protected:
   std::vector<uint3>* m_pAccelStruct_m_SdfGridSizes = nullptr;
   std::vector<NeuralProperties>* m_pAccelStruct_m_SdfNeuralProperties = nullptr;
   std::vector<SdfObject>* m_pAccelStruct_m_SdfObjects = nullptr;
+  std::vector<SdfOctreeNode>* m_pAccelStruct_m_SdfOctreeNodes = nullptr;
+  std::vector<uint32_t>* m_pAccelStruct_m_SdfOctreeRoots = nullptr;
   std::vector<float>* m_pAccelStruct_m_SdfParameters = nullptr;
   std::vector<BVHNodePair>* m_pAccelStruct_m_allNodePairs = nullptr;
   std::vector<uint32_t>* m_pAccelStruct_m_bvhOffsets = nullptr;

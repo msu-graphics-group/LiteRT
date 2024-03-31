@@ -293,6 +293,9 @@ void BVHRT::IntersectAllPrimitivesInLeaf(const float3 ray_pos, const float3 ray_
   case TYPE_SDF_GRID:
     IntersectAllSdfGridsInLeaf(ray_pos, ray_dir, tNear, instId, geomId, a_start, a_count, pHit);
     break;
+  case TYPE_SDF_OCTREE:
+    IntersectAllSdfOctreesInLeaf(ray_pos, ray_dir, tNear, instId, geomId, a_start, a_count, pHit);
+    break;
   default:
     break;
   }
@@ -475,6 +478,188 @@ void BVHRT::IntersectAllSdfGridsInLeaf(const float3 ray_pos, const float3 ray_di
   float3 dir = ray_dir/l;
 
   SdfHit hit = sdf_grid_sphere_tracing(gridId, float3(-1,-1,-1), float3( 1, 1, 1), ray_pos, dir, true);
+  if (hit.hit_pos.w > 0)
+  {
+    float t = length(to_float3(hit.hit_pos)-ray_pos)/l;
+    if (t > tNear && t < pHit->t)
+    {
+      pHit->t         = t;
+      pHit->primId    = 0;
+      pHit->instId    = instId;
+      pHit->geomId    = geomId;  
+      pHit->coords[0] = 0;
+      pHit->coords[1] = 0;
+      pHit->coords[2] = hit.hit_norm.x;
+      pHit->coords[3] = hit.hit_norm.y;
+    }
+  }
+}
+
+bool BVHRT::is_leaf(unsigned offset)
+{
+  return (offset == 0) || ((offset & INVALID_IDX) > 0);
+}
+
+float BVHRT::sample_neighborhood(const SDONeighbor neighbors[27], float3 n_pos)
+{
+  float3 qx = clamp(float3(0.5-n_pos.x,std::min(0.5f + n_pos.x, 1.5f - n_pos.x),-0.5+n_pos.x),0.0f,1.0f);
+  float3 qy = clamp(float3(0.5-n_pos.y,std::min(0.5f + n_pos.y, 1.5f - n_pos.y),-0.5+n_pos.y),0.0f,1.0f);
+  float3 qz = clamp(float3(0.5-n_pos.z,std::min(0.5f + n_pos.z, 1.5f - n_pos.z),-0.5+n_pos.z),0.0f,1.0f);
+
+  float res = 0.0;
+  for (int i=0;i<3;i++)
+    for (int j=0;j<3;j++)
+      for (int k=0;k<3;k++)
+        res += qx[i]*qy[j]*qz[k]*neighbors[9*i + 3*j + k].node.value;
+  return res;
+}
+
+float BVHRT::eval_distance_sdf_octree(unsigned octree_id, float3 position)
+{
+  unsigned CENTER = 9 + 3 + 1;
+  float EPS = 1e-6;
+  SDONeighbor neighbors[27];
+  SDONeighbor new_neighbors[27];
+
+
+  float3 n_pos = clamp(0.5f*(position + 1.0f), EPS, 1.0f-EPS);//position in current neighborhood
+  float d = 1;//size of current neighborhood
+  unsigned level = 0;
+  unsigned root_id = m_SdfOctreeRoots[octree_id];
+  for (int i=0;i<27;i++)
+  {
+    neighbors[i].node = m_SdfOctreeNodes[root_id];
+    neighbors[i].overshoot = 0;
+    if (i/9 == 0) neighbors[i].overshoot |= X_L;
+    else if (i/9 == 2) neighbors[i].overshoot |= X_H;
+    if (i/3%3 == 0) neighbors[i].overshoot |= Y_L;
+    else if (i/3%3 == 2) neighbors[i].overshoot |= Y_H;
+    if (i%3 == 0) neighbors[i].overshoot |= Z_L;
+    else if (i%3 == 2) neighbors[i].overshoot |= Z_H;
+  }
+  neighbors[CENTER].overshoot = 0;
+
+  while (!is_leaf(neighbors[CENTER].node.offset))
+  {
+    int3 ch_shift = int3(n_pos.x >= 0.5, n_pos.y >= 0.5, n_pos.z >= 0.5);
+
+    for (int i=0;i<27;i++)
+    {
+      int3 n_offset = int3(i/9, i/3%3, i%3); //[0,2]^3
+      int3 p_idx = (n_offset + ch_shift + 1) / 2;
+      int3 ch_idx = (n_offset + ch_shift + 1) - 2*p_idx;
+      unsigned p_offset = 9*p_idx.x + 3*p_idx.y + p_idx.z;
+    
+      if (is_leaf(neighbors[p_offset].node.offset)) //resample
+      {
+        float3 rs_pos = 0.5f*float3(2*p_idx + ch_idx) - 1.0f + 0.25f;//in [-1,2]^3
+        new_neighbors[i].node.value = sample_neighborhood(neighbors, rs_pos);
+        new_neighbors[i].node.offset = 0;
+        new_neighbors[i].overshoot = 0;
+      }
+      else if (is_leaf(neighbors[p_offset].overshoot)) //pick child node
+      {
+        unsigned ch_offset = 4*ch_idx.x + 2*ch_idx.y + ch_idx.z;
+        unsigned off = neighbors[p_offset].node.offset;
+        new_neighbors[i].node = m_SdfOctreeNodes[off + ch_offset];
+        new_neighbors[i].overshoot = 0;
+      }
+      else //pick child node, but mind the overshoot
+      {
+        /**/
+        int3 ch_idx_overshoot = ch_idx;
+        unsigned osh = neighbors[p_offset].overshoot;
+        unsigned new_osh = 0;
+        if (((osh&X_L) > 0) && p_idx.x == 0) 
+          {ch_idx_overshoot.x = 0; new_osh |= X_L; }
+        else if (((osh&X_H) > 0) && p_idx.x == 2) 
+          {ch_idx_overshoot.x = 1; new_osh |= X_H; }
+        if (((osh&Y_L) > 0) && p_idx.y == 0) 
+          {ch_idx_overshoot.y = 0; new_osh |= Y_L; }
+        else if (((osh&Y_H) > 0) && p_idx.y == 2) 
+          {ch_idx_overshoot.y = 1; new_osh |= Y_H; }
+        if (((osh&Z_L) > 0) && p_idx.z == 0) 
+          {ch_idx_overshoot.z = 0; new_osh |= Z_L; }
+        else if (((osh&Z_H) > 0) && p_idx.z == 2) 
+          {ch_idx_overshoot.z = 1; new_osh |= Z_H; }
+
+        unsigned ch_offset = 4*ch_idx_overshoot.x + 2*ch_idx_overshoot.y + ch_idx_overshoot.z;
+        unsigned off = neighbors[p_offset].node.offset;
+        new_neighbors[i].node = m_SdfOctreeNodes[off + ch_offset];
+        new_neighbors[i].overshoot = new_osh;
+      }
+    }
+
+    for (int i=0;i<27;i++)
+      neighbors[i] = new_neighbors[i];
+
+    n_pos = fract(2.0f*(n_pos - 0.5f*float3(ch_shift)));
+    d /= 2;
+    level++;
+  }
+
+  return sample_neighborhood(neighbors, n_pos);
+}
+
+SdfHit BVHRT::sdf_octree_sphere_tracing(unsigned octree_id, const float3 &min_pos, const float3 &max_pos,
+                                        const float3 &pos, const float3 &dir, bool need_norm)
+{
+  const float EPS = 1e-5;
+
+  SdfHit hit;
+  hit.hit_pos = float4(0,0,0,-1);
+  float2 tNear_tFar = box_intersects(min_pos, max_pos, pos, dir);
+  float t = tNear_tFar.x;
+  float tFar = tNear_tFar.y;
+  if (t > tFar)
+    return hit;
+  
+  int iter = 0;
+  float d = eval_distance_sdf_octree(octree_id, pos + t * dir);
+  while (iter < 1000 && d > EPS && t < tFar)
+  {
+    t += d + EPS;
+    d = eval_distance_sdf_octree(octree_id, pos + t * dir);
+    iter++;
+  }
+
+  if (d > EPS)
+    return hit;
+
+  float3 p0 = pos + t * dir;
+  float3 norm = float3(1,0,0);
+  if (need_norm)
+  {
+    const float h = 0.001;
+    float ddx = (eval_distance_sdf_octree(octree_id, p0 + float3(h, 0, 0)) -
+                 eval_distance_sdf_octree(octree_id, p0 + float3(-h, 0, 0))) /
+                (2 * h);
+    float ddy = (eval_distance_sdf_octree(octree_id, p0 + float3(0, h, 0)) -
+                 eval_distance_sdf_octree(octree_id, p0 + float3(0, -h, 0))) /
+                (2 * h);
+    float ddz = (eval_distance_sdf_octree(octree_id, p0 + float3(0, 0, h)) -
+                 eval_distance_sdf_octree(octree_id, p0 + float3(0, 0, -h))) /
+                (2 * h);
+
+    norm = normalize(float3(ddx, ddy, ddz));
+    // fprintf(stderr, "st %d (%f %f %f)\n", iter, surface_normal->x, surface_normal->y, surface_normal->z);
+  }
+  // fprintf(stderr, "st %d (%f %f %f)", iter, p0.x, p0.y, p0.z);
+  hit.hit_pos = to_float4(p0, 1);
+  hit.hit_norm = to_float4(norm, 1.0f);
+  return hit;
+}
+
+void BVHRT::IntersectAllSdfOctreesInLeaf(const float3 ray_pos, const float3 ray_dir,
+                                        float tNear, uint32_t instId, uint32_t geomId,
+                                        uint32_t a_start, uint32_t a_count,
+                                        CRT_Hit *pHit)
+{
+  unsigned octreeId = m_geomOffsets[geomId].x;
+  float l = length(ray_dir);
+  float3 dir = ray_dir/l;
+
+  SdfHit hit = sdf_octree_sphere_tracing(octreeId, float3(-1,-1,-1), float3( 1, 1, 1), ray_pos, dir, true);
   if (hit.hit_pos.w > 0)
   {
     float t = length(to_float3(hit.hit_pos)-ray_pos)/l;

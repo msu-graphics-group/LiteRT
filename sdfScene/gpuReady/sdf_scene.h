@@ -77,6 +77,12 @@ struct SdfHit
   float4 hit_norm; // hit_norm.w is not used
 };
 
+struct SdfOctreeNode
+{
+  float value;
+  unsigned offset; // offset for children (they are stored together). 0 offset means it's a leaf
+};
+
 static float2 box_intersects(const float3 &min_pos, const float3 &max_pos, const float3 &origin, const float3 &dir)
 {
   float3 safe_dir = sign(dir) * max(float3(1e-9f), abs(dir));

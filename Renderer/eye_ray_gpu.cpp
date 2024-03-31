@@ -52,6 +52,10 @@ void EyeRayCaster_GPU::UpdatePlainMembers(std::shared_ptr<vk_utils::ICopyEngine>
   m_uboData.m_pAccelStruct_m_SdfNeuralProperties_capacity = uint32_t( m_pAccelStruct_m_SdfNeuralProperties->capacity() ); assert( m_pAccelStruct_m_SdfNeuralProperties->capacity() < maxAllowedSize );
   m_uboData.m_pAccelStruct_m_SdfObjects_size     = uint32_t( m_pAccelStruct_m_SdfObjects->size() );     assert( m_pAccelStruct_m_SdfObjects->size() < maxAllowedSize );
   m_uboData.m_pAccelStruct_m_SdfObjects_capacity = uint32_t( m_pAccelStruct_m_SdfObjects->capacity() ); assert( m_pAccelStruct_m_SdfObjects->capacity() < maxAllowedSize );
+  m_uboData.m_pAccelStruct_m_SdfOctreeNodes_size     = uint32_t( m_pAccelStruct_m_SdfOctreeNodes->size() );     assert( m_pAccelStruct_m_SdfOctreeNodes->size() < maxAllowedSize );
+  m_uboData.m_pAccelStruct_m_SdfOctreeNodes_capacity = uint32_t( m_pAccelStruct_m_SdfOctreeNodes->capacity() ); assert( m_pAccelStruct_m_SdfOctreeNodes->capacity() < maxAllowedSize );
+  m_uboData.m_pAccelStruct_m_SdfOctreeRoots_size     = uint32_t( m_pAccelStruct_m_SdfOctreeRoots->size() );     assert( m_pAccelStruct_m_SdfOctreeRoots->size() < maxAllowedSize );
+  m_uboData.m_pAccelStruct_m_SdfOctreeRoots_capacity = uint32_t( m_pAccelStruct_m_SdfOctreeRoots->capacity() ); assert( m_pAccelStruct_m_SdfOctreeRoots->capacity() < maxAllowedSize );
   m_uboData.m_pAccelStruct_m_SdfParameters_size     = uint32_t( m_pAccelStruct_m_SdfParameters->size() );     assert( m_pAccelStruct_m_SdfParameters->size() < maxAllowedSize );
   m_uboData.m_pAccelStruct_m_SdfParameters_capacity = uint32_t( m_pAccelStruct_m_SdfParameters->capacity() ); assert( m_pAccelStruct_m_SdfParameters->capacity() < maxAllowedSize );
   m_uboData.m_pAccelStruct_m_allNodePairs_size     = uint32_t( m_pAccelStruct_m_allNodePairs->size() );     assert( m_pAccelStruct_m_allNodePairs->size() < maxAllowedSize );
@@ -94,6 +98,8 @@ void EyeRayCaster_GPU::ReadPlainMembers(std::shared_ptr<vk_utils::ICopyEngine> a
   m_pAccelStruct_m_SdfGridSizes->resize(m_uboData.m_pAccelStruct_m_SdfGridSizes_size);
   m_pAccelStruct_m_SdfNeuralProperties->resize(m_uboData.m_pAccelStruct_m_SdfNeuralProperties_size);
   m_pAccelStruct_m_SdfObjects->resize(m_uboData.m_pAccelStruct_m_SdfObjects_size);
+  m_pAccelStruct_m_SdfOctreeNodes->resize(m_uboData.m_pAccelStruct_m_SdfOctreeNodes_size);
+  m_pAccelStruct_m_SdfOctreeRoots->resize(m_uboData.m_pAccelStruct_m_SdfOctreeRoots_size);
   m_pAccelStruct_m_SdfParameters->resize(m_uboData.m_pAccelStruct_m_SdfParameters_size);
   m_pAccelStruct_m_allNodePairs->resize(m_uboData.m_pAccelStruct_m_allNodePairs_size);
   m_pAccelStruct_m_bvhOffsets->resize(m_uboData.m_pAccelStruct_m_bvhOffsets_size);
@@ -124,6 +130,10 @@ void EyeRayCaster_GPU::UpdateVectorMembers(std::shared_ptr<vk_utils::ICopyEngine
     a_pCopyEngine->UpdateBuffer(m_vdata.m_pAccelStruct_m_SdfNeuralPropertiesBuffer, 0, m_pAccelStruct_m_SdfNeuralProperties->data(), m_pAccelStruct_m_SdfNeuralProperties->size()*sizeof(struct NeuralProperties) );
   if(m_pAccelStruct_m_SdfObjects->size() > 0)
     a_pCopyEngine->UpdateBuffer(m_vdata.m_pAccelStruct_m_SdfObjectsBuffer, 0, m_pAccelStruct_m_SdfObjects->data(), m_pAccelStruct_m_SdfObjects->size()*sizeof(struct SdfObject) );
+  if(m_pAccelStruct_m_SdfOctreeNodes->size() > 0)
+    a_pCopyEngine->UpdateBuffer(m_vdata.m_pAccelStruct_m_SdfOctreeNodesBuffer, 0, m_pAccelStruct_m_SdfOctreeNodes->data(), m_pAccelStruct_m_SdfOctreeNodes->size()*sizeof(struct SdfOctreeNode) );
+  if(m_pAccelStruct_m_SdfOctreeRoots->size() > 0)
+    a_pCopyEngine->UpdateBuffer(m_vdata.m_pAccelStruct_m_SdfOctreeRootsBuffer, 0, m_pAccelStruct_m_SdfOctreeRoots->data(), m_pAccelStruct_m_SdfOctreeRoots->size()*sizeof(unsigned int) );
   if(m_pAccelStruct_m_SdfParameters->size() > 0)
     a_pCopyEngine->UpdateBuffer(m_vdata.m_pAccelStruct_m_SdfParametersBuffer, 0, m_pAccelStruct_m_SdfParameters->data(), m_pAccelStruct_m_SdfParameters->size()*sizeof(float) );
   if(m_pAccelStruct_m_allNodePairs->size() > 0)

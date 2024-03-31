@@ -43,6 +43,10 @@ struct EyeRayCaster_GPU_UBO_Data
   uint m_pAccelStruct_m_SdfNeuralProperties_size; 
   uint m_pAccelStruct_m_SdfObjects_capacity; 
   uint m_pAccelStruct_m_SdfObjects_size; 
+  uint m_pAccelStruct_m_SdfOctreeNodes_capacity; 
+  uint m_pAccelStruct_m_SdfOctreeNodes_size; 
+  uint m_pAccelStruct_m_SdfOctreeRoots_capacity; 
+  uint m_pAccelStruct_m_SdfOctreeRoots_size; 
   uint m_pAccelStruct_m_SdfParameters_capacity; 
   uint m_pAccelStruct_m_SdfParameters_size; 
   uint m_pAccelStruct_m_allNodePairs_capacity; 
