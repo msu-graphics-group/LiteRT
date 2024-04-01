@@ -70,20 +70,10 @@ struct BVHRT : public ISceneObject
                                     uint32_t a_start, uint32_t a_count,
                                     CRT_Hit *pHit);
 
-  void IntersectAllSdfPrimitivesInLeaf(const float3 ray_pos, const float3 ray_dir,
-                                       float tNear, uint32_t instId, uint32_t geomId,
-                                       uint32_t a_start, uint32_t a_count,
-                                       CRT_Hit *pHit);
-
-  void IntersectAllSdfGridsInLeaf(const float3 ray_pos, const float3 ray_dir,
-                                  float tNear, uint32_t instId, uint32_t geomId,
-                                  uint32_t a_start, uint32_t a_count,
-                                  CRT_Hit *pHit);
-
-  void IntersectAllSdfOctreesInLeaf(const float3 ray_pos, const float3 ray_dir,
-                                    float tNear, uint32_t instId, uint32_t geomId,
-                                    uint32_t a_start, uint32_t a_count,
-                                    CRT_Hit *pHit);
+  void IntersectAllSdfsInLeaf(const float3 ray_pos, const float3 ray_dir,
+                              float tNear, uint32_t instId, uint32_t geomId,
+                              uint32_t a_start, uint32_t a_count,
+                              CRT_Hit *pHit);
 
   void IntersectAllTrianglesInLeaf(const float3 ray_pos, const float3 ray_dir,
                                    float tNear, uint32_t instId, uint32_t geomId,
@@ -102,20 +92,15 @@ struct BVHRT : public ISceneObject
   //Slicer is weak and can't handle calling external functions  ¯\_(ツ)_/¯
   virtual float2 box_intersects(const float3 &min_pos, const float3 &max_pos, const float3 &origin, const float3 &dir);
   virtual float eval_dist_prim(unsigned prim_id, float3 p);
-  virtual float eval_dist_conjunction(unsigned conj_id, float3 p);
-  virtual SdfHit sdf_conjunction_sphere_tracing(unsigned conj_id, const float3 &min_pos, const float3 &max_pos,
-                                                const float3 &pos, const float3 &dir, bool need_norm);
-  
-  virtual float eval_distance_sdf_grid(unsigned grid_id, float3 p);
-  virtual SdfHit sdf_grid_sphere_tracing(unsigned grid_id, const float3 &min_pos, const float3 &max_pos,
-                                         const float3 &pos, const float3 &dir, bool need_norm);
-
   virtual bool is_leaf(unsigned offset);
-  virtual float sample_neighborhood(const SDONeighbor neighbors[27], float3 n_pos);
-  virtual float eval_distance_sdf_octree(unsigned octree_id, float3 p);
-  virtual SdfHit sdf_octree_sphere_tracing(unsigned octree_id, const float3 &min_pos, const float3 &max_pos,
-                                           const float3 &pos, const float3 &dir, bool need_norm);
 
+  virtual float eval_dist_sdf_conjunction(unsigned conj_id, float3 p);
+  virtual float eval_distance_sdf_grid(unsigned grid_id, float3 p);
+  virtual float eval_distance_sdf_octree(unsigned octree_id, float3 p);
+
+  virtual float eval_distance_sdf(unsigned type, unsigned prim_id, float3 p);
+  virtual SdfHit sdf_sphere_tracing(unsigned type, unsigned prim_id, const float3 &min_pos, const float3 &max_pos,
+                                    const float3 &pos, const float3 &dir, bool need_norm);    
   //for each model in scene  
   std::vector<Box4f>    m_geomBoxes;
   std::vector<uint2>    m_geomOffsets; //means different things for different types of geometry

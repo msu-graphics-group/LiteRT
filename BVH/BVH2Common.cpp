@@ -90,7 +90,7 @@ float BVHRT::eval_dist_prim(unsigned prim_id, float3 p)
   return -1000;
 }
 
-float BVHRT::eval_dist_conjunction(unsigned conj_id, float3 p)
+float BVHRT::eval_dist_sdf_conjunction(unsigned conj_id, float3 p)
 {
   SdfConjunction conj = m_SdfConjunctions[conj_id];
   float conj_d = -1e6;
@@ -115,21 +115,73 @@ void BVHRT::IntersectAllPrimitivesInLeaf(const float3 ray_pos, const float3 ray_
     IntersectAllTrianglesInLeaf(ray_pos, ray_dir, tNear, instId, geomId, a_start, a_count, pHit);
     break;
   case TYPE_SDF_PRIMITIVE:
-    IntersectAllSdfPrimitivesInLeaf(ray_pos, ray_dir, tNear, instId, geomId, a_start, a_count, pHit);
-    break;
   case TYPE_SDF_GRID:
-    IntersectAllSdfGridsInLeaf(ray_pos, ray_dir, tNear, instId, geomId, a_start, a_count, pHit);
-    break;
   case TYPE_SDF_OCTREE:
-    IntersectAllSdfOctreesInLeaf(ray_pos, ray_dir, tNear, instId, geomId, a_start, a_count, pHit);
+    IntersectAllSdfsInLeaf(ray_pos, ray_dir, tNear, instId, geomId, a_start, a_count, pHit);
     break;
   default:
     break;
   }
 }
 
-SdfHit BVHRT::sdf_conjunction_sphere_tracing(unsigned conj_id, const float3 &min_pos, const float3 &max_pos,
-                                             const float3 &pos, const float3 &dir, bool need_norm)
+void BVHRT::IntersectAllSdfsInLeaf(const float3 ray_pos, const float3 ray_dir,
+                                   float tNear, uint32_t instId, uint32_t geomId,
+                                   uint32_t a_start, uint32_t a_count,
+                                   CRT_Hit *pHit)
+{
+
+  unsigned type = m_geomTypeByGeomId[geomId];
+  unsigned sdfId = 0;
+  unsigned primId = 0;
+
+  float3 min_pos = float3(0,0,0), max_pos = float3(0,0,0);
+
+  switch (type)
+  {
+  case TYPE_SDF_PRIMITIVE:
+    sdfId = m_ConjIndices[m_geomOffsets[geomId].x + a_start];
+    primId = sdfId;
+    min_pos = to_float3(m_SdfConjunctions[sdfId].min_pos);
+    max_pos = to_float3(m_SdfConjunctions[sdfId].max_pos);
+    break;
+  case TYPE_SDF_GRID:
+    sdfId = m_ConjIndices[m_geomOffsets[geomId].x];
+    primId = 0;
+    min_pos = float3(-1,-1,-1);
+    max_pos = float3( 1, 1, 1);
+    break;
+  case TYPE_SDF_OCTREE:
+    sdfId = m_ConjIndices[m_geomOffsets[geomId].x];
+    primId = 0;
+    min_pos = float3(-1,-1,-1);
+    max_pos = float3( 1, 1, 1);
+    break;
+  default:
+    break;
+  }
+
+  float l = length(ray_dir);
+  float3 dir = ray_dir/l;
+  SdfHit hit = sdf_sphere_tracing(type, sdfId, min_pos, max_pos, ray_pos, dir, true);
+  if (hit.hit_pos.w > 0)
+  {
+    float t = length(to_float3(hit.hit_pos)-ray_pos)/l;
+    if (t > tNear && t < pHit->t)
+    {
+      pHit->t         = t;
+      pHit->primId    = primId;
+      pHit->instId    = instId;
+      pHit->geomId    = geomId;  
+      pHit->coords[0] = 0;
+      pHit->coords[1] = 0;
+      pHit->coords[2] = hit.hit_norm.x;
+      pHit->coords[3] = hit.hit_norm.y;
+    }
+  }
+}
+
+SdfHit BVHRT::sdf_sphere_tracing(unsigned type, unsigned sdf_id, const float3 &min_pos, const float3 &max_pos,
+                                 const float3 &pos, const float3 &dir, bool need_norm)
 {
   const float EPS = 1e-5;
 
@@ -142,11 +194,11 @@ SdfHit BVHRT::sdf_conjunction_sphere_tracing(unsigned conj_id, const float3 &min
     return hit;
   
   int iter = 0;
-  float d = eval_dist_conjunction(conj_id, pos + t * dir);
+  float d = eval_distance_sdf(type, sdf_id, pos + t * dir);
   while (iter < 1000 && d > EPS && t < tFar)
   {
     t += d + EPS;
-    d = eval_dist_conjunction(conj_id, pos + t * dir);
+    d = eval_distance_sdf(type, sdf_id, pos + t * dir);
     iter++;
   }
 
@@ -158,14 +210,14 @@ SdfHit BVHRT::sdf_conjunction_sphere_tracing(unsigned conj_id, const float3 &min
   if (need_norm)
   {
     const float h = 0.001;
-    float ddx = (eval_dist_conjunction(conj_id, p0 + float3(h, 0, 0)) -
-                 eval_dist_conjunction(conj_id, p0 + float3(-h, 0, 0))) /
+    float ddx = (eval_distance_sdf(type, sdf_id, p0 + float3(h, 0, 0)) -
+                 eval_distance_sdf(type, sdf_id, p0 + float3(-h, 0, 0))) /
                 (2 * h);
-    float ddy = (eval_dist_conjunction(conj_id, p0 + float3(0, h, 0)) -
-                 eval_dist_conjunction(conj_id, p0 + float3(0, -h, 0))) /
+    float ddy = (eval_distance_sdf(type, sdf_id, p0 + float3(0, h, 0)) -
+                 eval_distance_sdf(type, sdf_id, p0 + float3(0, -h, 0))) /
                 (2 * h);
-    float ddz = (eval_dist_conjunction(conj_id, p0 + float3(0, 0, h)) -
-                 eval_dist_conjunction(conj_id, p0 + float3(0, 0, -h))) /
+    float ddz = (eval_distance_sdf(type, sdf_id, p0 + float3(0, 0, h)) -
+                 eval_distance_sdf(type, sdf_id, p0 + float3(0, 0, -h))) /
                 (2 * h);
 
     norm = normalize(float3(ddx, ddy, ddz));
@@ -177,35 +229,24 @@ SdfHit BVHRT::sdf_conjunction_sphere_tracing(unsigned conj_id, const float3 &min
   return hit;
 }
 
-void BVHRT::IntersectAllSdfPrimitivesInLeaf(const float3 ray_pos, const float3 ray_dir,
-                                                float tNear, uint32_t instId, uint32_t geomId,
-                                                uint32_t a_start, uint32_t a_count,
-                                                CRT_Hit *pHit)
+float BVHRT::eval_distance_sdf(unsigned type, unsigned sdf_id, float3 pos)
 {
-  //assert(a_count == 1);
-  unsigned conjId = m_ConjIndices[m_geomOffsets[geomId].x + a_start];
-  float l = length(ray_dir);
-  float3 dir = ray_dir/l;
-
-  SdfHit hit = sdf_conjunction_sphere_tracing(conjId, 
-                                              to_float3(m_SdfConjunctions[conjId].min_pos), 
-                                              to_float3(m_SdfConjunctions[conjId].max_pos),
-                                              ray_pos, dir, true);
-  if (hit.hit_pos.w > 0)
+  float val = 1000;
+  switch (type)
   {
-    float t = length(to_float3(hit.hit_pos)-ray_pos)/l;
-    if (t > tNear && t < pHit->t)
-    {
-      pHit->t         = t;
-      pHit->primId    = conjId;
-      pHit->instId    = instId;
-      pHit->geomId    = geomId;  
-      pHit->coords[0] = 0;
-      pHit->coords[1] = 0;
-      pHit->coords[2] = hit.hit_norm.x;
-      pHit->coords[3] = hit.hit_norm.y;
-    }
+  case TYPE_SDF_PRIMITIVE:
+    val = eval_dist_sdf_conjunction(sdf_id, pos);
+    break;
+  case TYPE_SDF_GRID:
+    val = eval_distance_sdf_grid(sdf_id, pos);
+    break;
+  case TYPE_SDF_OCTREE:
+    val = eval_distance_sdf_octree(sdf_id, pos);
+    break;
+  default:
+    break;
   }
+  return val;
 }
 
 float BVHRT::eval_distance_sdf_grid(unsigned grid_id, float3 pos)
@@ -245,100 +286,9 @@ float BVHRT::eval_distance_sdf_grid(unsigned grid_id, float3 pos)
   return res;
 }
 
-SdfHit BVHRT::sdf_grid_sphere_tracing(unsigned grid_id, const float3 &min_pos, const float3 &max_pos,
-                                      const float3 &pos, const float3 &dir, bool need_norm)
-{
-  const float EPS = 1e-5;
-
-  SdfHit hit;
-  hit.hit_pos = float4(0,0,0,-1);
-  float2 tNear_tFar = box_intersects(min_pos, max_pos, pos, dir);
-  float t = tNear_tFar.x;
-  float tFar = tNear_tFar.y;
-  if (t > tFar)
-    return hit;
-  
-  int iter = 0;
-  float d = eval_distance_sdf_grid(grid_id, pos + t * dir);
-  while (iter < 1000 && d > EPS && t < tFar)
-  {
-    t += d + EPS;
-    d = eval_distance_sdf_grid(grid_id, pos + t * dir);
-    iter++;
-  }
-
-  if (d > EPS)
-    return hit;
-
-  float3 p0 = pos + t * dir;
-  float3 norm = float3(1,0,0);
-  if (need_norm)
-  {
-    const float h = 0.001;
-    float ddx = (eval_distance_sdf_grid(grid_id, p0 + float3(h, 0, 0)) -
-                 eval_distance_sdf_grid(grid_id, p0 + float3(-h, 0, 0))) /
-                (2 * h);
-    float ddy = (eval_distance_sdf_grid(grid_id, p0 + float3(0, h, 0)) -
-                 eval_distance_sdf_grid(grid_id, p0 + float3(0, -h, 0))) /
-                (2 * h);
-    float ddz = (eval_distance_sdf_grid(grid_id, p0 + float3(0, 0, h)) -
-                 eval_distance_sdf_grid(grid_id, p0 + float3(0, 0, -h))) /
-                (2 * h);
-
-    norm = normalize(float3(ddx, ddy, ddz));
-    // fprintf(stderr, "st %d (%f %f %f)\n", iter, surface_normal->x, surface_normal->y, surface_normal->z);
-  }
-  // fprintf(stderr, "st %d (%f %f %f)", iter, p0.x, p0.y, p0.z);
-  hit.hit_pos = to_float4(p0, 1);
-  hit.hit_norm = to_float4(norm, 1.0f);
-  return hit;
-}
-
-void BVHRT::IntersectAllSdfGridsInLeaf(const float3 ray_pos, const float3 ray_dir,
-                                       float tNear, uint32_t instId, uint32_t geomId,
-                                       uint32_t a_start, uint32_t a_count,
-                                       CRT_Hit *pHit)
-{
-  //assert(a_count == 1);
-  unsigned gridId = m_geomOffsets[geomId].x;
-  float l = length(ray_dir);
-  float3 dir = ray_dir/l;
-
-  SdfHit hit = sdf_grid_sphere_tracing(gridId, float3(-1,-1,-1), float3( 1, 1, 1), ray_pos, dir, true);
-  if (hit.hit_pos.w > 0)
-  {
-    float t = length(to_float3(hit.hit_pos)-ray_pos)/l;
-    if (t > tNear && t < pHit->t)
-    {
-      pHit->t         = t;
-      pHit->primId    = 0;
-      pHit->instId    = instId;
-      pHit->geomId    = geomId;  
-      pHit->coords[0] = 0;
-      pHit->coords[1] = 0;
-      pHit->coords[2] = hit.hit_norm.x;
-      pHit->coords[3] = hit.hit_norm.y;
-    }
-  }
-}
-
 bool BVHRT::is_leaf(unsigned offset)
 {
   return (offset == 0) || ((offset & INVALID_IDX) > 0);
-}
-
-float BVHRT::sample_neighborhood(const SDONeighbor neighbors[27], float3 n_pos)
-{
-  float3 qx = clamp(float3(0.5-n_pos.x,std::min(0.5f + n_pos.x, 1.5f - n_pos.x),-0.5+n_pos.x),0.0f,1.0f);
-  float3 qy = clamp(float3(0.5-n_pos.y,std::min(0.5f + n_pos.y, 1.5f - n_pos.y),-0.5+n_pos.y),0.0f,1.0f);
-  float3 qz = clamp(float3(0.5-n_pos.z,std::min(0.5f + n_pos.z, 1.5f - n_pos.z),-0.5+n_pos.z),0.0f,1.0f);
-
-  float res = 0.0;
-  for (int i=0;i<3;i++)
-    for (int j=0;j<3;j++)
-      for (int k=0;k<3;k++)
-        res += qx[i]*qy[j]*qz[k]*neighbors[9*i + 3*j + k].node.value;
-  return res;
 }
 
 float BVHRT::eval_distance_sdf_octree(unsigned octree_id, float3 position)
@@ -380,7 +330,20 @@ float BVHRT::eval_distance_sdf_octree(unsigned octree_id, float3 position)
       if (is_leaf(neighbors[p_offset].node.offset)) //resample
       {
         float3 rs_pos = 0.5f*float3(2*p_idx + ch_idx) - 1.0f + 0.25f;//in [-1,2]^3
-        new_neighbors[i].node.value = sample_neighborhood(neighbors, rs_pos);
+
+        //sample neighborhood
+        float3 qx = clamp(float3(0.5-rs_pos.x,std::min(0.5f + rs_pos.x, 1.5f - rs_pos.x),-0.5+rs_pos.x),0.0f,1.0f);
+        float3 qy = clamp(float3(0.5-rs_pos.y,std::min(0.5f + rs_pos.y, 1.5f - rs_pos.y),-0.5+rs_pos.y),0.0f,1.0f);
+        float3 qz = clamp(float3(0.5-rs_pos.z,std::min(0.5f + rs_pos.z, 1.5f - rs_pos.z),-0.5+rs_pos.z),0.0f,1.0f);
+
+        float res = 0.0;
+        for (int i=0;i<3;i++)
+          for (int j=0;j<3;j++)
+            for (int k=0;k<3;k++)
+              res += qx[i]*qy[j]*qz[k]*neighbors[9*i + 3*j + k].node.value;
+        //sample neighborhood end
+
+        new_neighbors[i].node.value = res;
         new_neighbors[i].node.offset = 0;
         new_neighbors[i].overshoot = 0;
       }
@@ -425,89 +388,24 @@ float BVHRT::eval_distance_sdf_octree(unsigned octree_id, float3 position)
     level++;
   }
 
-  return sample_neighborhood(neighbors, n_pos);
-}
+  //sample neighborhood
+  float3 qx = clamp(float3(0.5-n_pos.x,std::min(0.5f + n_pos.x, 1.5f - n_pos.x),-0.5+n_pos.x),0.0f,1.0f);
+  float3 qy = clamp(float3(0.5-n_pos.y,std::min(0.5f + n_pos.y, 1.5f - n_pos.y),-0.5+n_pos.y),0.0f,1.0f);
+  float3 qz = clamp(float3(0.5-n_pos.z,std::min(0.5f + n_pos.z, 1.5f - n_pos.z),-0.5+n_pos.z),0.0f,1.0f);
 
-SdfHit BVHRT::sdf_octree_sphere_tracing(unsigned octree_id, const float3 &min_pos, const float3 &max_pos,
-                                        const float3 &pos, const float3 &dir, bool need_norm)
-{
-  const float EPS = 1e-5;
-
-  SdfHit hit;
-  hit.hit_pos = float4(0,0,0,-1);
-  float2 tNear_tFar = box_intersects(min_pos, max_pos, pos, dir);
-  float t = tNear_tFar.x;
-  float tFar = tNear_tFar.y;
-  if (t > tFar)
-    return hit;
-  
-  int iter = 0;
-  float d = eval_distance_sdf_octree(octree_id, pos + t * dir);
-  while (iter < 1000 && d > EPS && t < tFar)
-  {
-    t += d + EPS;
-    d = eval_distance_sdf_octree(octree_id, pos + t * dir);
-    iter++;
-  }
-
-  if (d > EPS)
-    return hit;
-
-  float3 p0 = pos + t * dir;
-  float3 norm = float3(1,0,0);
-  if (need_norm)
-  {
-    const float h = 0.001;
-    float ddx = (eval_distance_sdf_octree(octree_id, p0 + float3(h, 0, 0)) -
-                 eval_distance_sdf_octree(octree_id, p0 + float3(-h, 0, 0))) /
-                (2 * h);
-    float ddy = (eval_distance_sdf_octree(octree_id, p0 + float3(0, h, 0)) -
-                 eval_distance_sdf_octree(octree_id, p0 + float3(0, -h, 0))) /
-                (2 * h);
-    float ddz = (eval_distance_sdf_octree(octree_id, p0 + float3(0, 0, h)) -
-                 eval_distance_sdf_octree(octree_id, p0 + float3(0, 0, -h))) /
-                (2 * h);
-
-    norm = normalize(float3(ddx, ddy, ddz));
-    // fprintf(stderr, "st %d (%f %f %f)\n", iter, surface_normal->x, surface_normal->y, surface_normal->z);
-  }
-  // fprintf(stderr, "st %d (%f %f %f)", iter, p0.x, p0.y, p0.z);
-  hit.hit_pos = to_float4(p0, 1);
-  hit.hit_norm = to_float4(norm, 1.0f);
-  return hit;
-}
-
-void BVHRT::IntersectAllSdfOctreesInLeaf(const float3 ray_pos, const float3 ray_dir,
-                                        float tNear, uint32_t instId, uint32_t geomId,
-                                        uint32_t a_start, uint32_t a_count,
-                                        CRT_Hit *pHit)
-{
-  unsigned octreeId = m_geomOffsets[geomId].x;
-  float l = length(ray_dir);
-  float3 dir = ray_dir/l;
-
-  SdfHit hit = sdf_octree_sphere_tracing(octreeId, float3(-1,-1,-1), float3( 1, 1, 1), ray_pos, dir, true);
-  if (hit.hit_pos.w > 0)
-  {
-    float t = length(to_float3(hit.hit_pos)-ray_pos)/l;
-    if (t > tNear && t < pHit->t)
-    {
-      pHit->t         = t;
-      pHit->primId    = 0;
-      pHit->instId    = instId;
-      pHit->geomId    = geomId;  
-      pHit->coords[0] = 0;
-      pHit->coords[1] = 0;
-      pHit->coords[2] = hit.hit_norm.x;
-      pHit->coords[3] = hit.hit_norm.y;
-    }
-  }
+  float res = 0.0;
+  for (int i=0;i<3;i++)
+    for (int j=0;j<3;j++)
+      for (int k=0;k<3;k++)
+        res += qx[i]*qy[j]*qz[k]*neighbors[9*i + 3*j + k].node.value;
+  return res;
+  //sample neighborhood end
 }
 
 void BVHRT::IntersectAllTrianglesInLeaf(const float3 ray_pos, const float3 ray_dir,
-                                            float tNear, uint32_t instId, uint32_t geomId,
-                                            uint32_t a_start, uint32_t a_count,
-                                            CRT_Hit *pHit)
+                                        float tNear, uint32_t instId, uint32_t geomId,
+                                        uint32_t a_start, uint32_t a_count,
+                                        CRT_Hit *pHit)
 {
   const uint2 a_geomOffsets = m_geomOffsets[geomId];
 
