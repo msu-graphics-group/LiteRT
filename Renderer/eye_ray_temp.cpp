@@ -318,13 +318,13 @@ void BVHRT::IntersectAllSdfsInLeaf(const float3 ray_pos, const float3 ray_dir,
     max_pos = to_float3(m_SdfConjunctions[sdfId].max_pos);
     break;
   case TYPE_SDF_GRID:
-    sdfId = m_ConjIndices[m_geomOffsets[geomId].x];
+    sdfId = m_geomOffsets[geomId].x;
     primId = 0;
     min_pos = float3(-1,-1,-1);
     max_pos = float3( 1, 1, 1);
     break;
   case TYPE_SDF_OCTREE:
-    sdfId = m_ConjIndices[m_geomOffsets[geomId].x];
+    sdfId = m_geomOffsets[geomId].x;
     primId = 0;
     min_pos = float3(-1,-1,-1);
     max_pos = float3( 1, 1, 1);
@@ -489,7 +489,8 @@ float BVHRT::eval_distance_sdf_octree(unsigned octree_id, float3 position)
   }
   neighbors[CENTER].overshoot = 0;
 
-  while (!is_leaf(neighbors[CENTER].node.offset))
+  bool no_leaves = true;
+  while (no_leaves && !is_leaf(neighbors[CENTER].node.offset))
   {
     int3 ch_shift = int3(n_pos.x >= 0.5, n_pos.y >= 0.5, n_pos.z >= 0.5);
 
@@ -502,6 +503,8 @@ float BVHRT::eval_distance_sdf_octree(unsigned octree_id, float3 position)
     
       if (is_leaf(neighbors[p_offset].node.offset)) //resample
       {
+        no_leaves = false;
+        break;
         float3 rs_pos = 0.5f*float3(2*p_idx + ch_idx) - 1.0f + 0.25f;//in [-1,2]^3
 
         //sample neighborhood
@@ -520,7 +523,7 @@ float BVHRT::eval_distance_sdf_octree(unsigned octree_id, float3 position)
         new_neighbors[i].node.offset = 0;
         new_neighbors[i].overshoot = 0;
       }
-      else if (is_leaf(neighbors[p_offset].overshoot)) //pick child node
+      else if (neighbors[p_offset].overshoot == 0) //pick child node
       {
         unsigned ch_offset = 4*ch_idx.x + 2*ch_idx.y + ch_idx.z;
         unsigned off = neighbors[p_offset].node.offset;
@@ -553,12 +556,15 @@ float BVHRT::eval_distance_sdf_octree(unsigned octree_id, float3 position)
       }
     }
 
-    for (int i=0;i<27;i++)
-      neighbors[i] = new_neighbors[i];
+    if (no_leaves)
+    {
+      for (int i=0;i<27;i++)
+        neighbors[i] = new_neighbors[i];
 
-    n_pos = fract(2.0f*(n_pos - 0.5f*float3(ch_shift)));
-    d /= 2;
-    level++;
+      n_pos = fract(2.0f*(n_pos - 0.5f*float3(ch_shift)));
+      d /= 2;
+      level++;
+    }
   }
 
   //sample neighborhood
