@@ -4,7 +4,7 @@
 start_dir=$PWD
 cd $1
 
-$2 $start_dir/Renderer/eye_ray.cpp $start_dir/BVH/BVH2Common.cpp $start_dir/sdfScene/gpuReady/sdf_scene.cpp \
+$2 $start_dir/Renderer/eye_ray.cpp $start_dir/BVH/BVH2Common.cpp \
 -mainClass EyeRayCaster \
 -composInterface ISceneObject \
 -composImplementation BVHRT \
@@ -16,7 +16,7 @@ $2 $start_dir/Renderer/eye_ray.cpp $start_dir/BVH/BVH2Common.cpp $start_dir/sdfS
 -I$start_dir                   process \
 -I$start_dir/Renderer          process \
 -I$start_dir/BVH               process \
--I$start_dir/sdfScene/gpuReady process \
+-I$start_dir/sdfScene           ignore \
 -shaderCC glsl \
 -suffix _GPU \
 -megakernel 1 \
