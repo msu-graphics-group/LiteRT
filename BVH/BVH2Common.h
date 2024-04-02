@@ -34,6 +34,7 @@ using LiteMath::Box4f;
 struct BVHRT : public ISceneObject
 #ifndef KERNEL_SLICER  
 , public ISdfSceneFunction
+, public ISdfOctreeFunction
 #endif
 {
   //overiding ISceneObject interface
@@ -55,10 +56,21 @@ struct BVHRT : public ISceneObject
   uint32_t AddGeom_SdfOctree(SdfOctreeView octree, BuildQuality a_qualityLevel = BUILD_HIGH) override;
 #endif
 
+  //common functions for a few Sdf...Function interfaces
+#ifndef KERNEL_SLICER 
+  float eval_distance(float3 pos) override;
+#endif
   //overiding SdfSceneFunction interface
 #ifndef KERNEL_SLICER 
   void init(SdfSceneView scene) override; 
-  float eval_distance(float3 pos) override;
+#endif
+
+  //overiding SdfOctreeFunction interface
+#ifndef KERNEL_SLICER
+  void init(SdfOctreeView octree) override; 
+  float eval_distance_level(float3 pos, unsigned max_level) override;
+  std::vector<SdfOctreeNode> &get_nodes() override;
+  const std::vector<SdfOctreeNode> &get_nodes() const override;
 #endif
 
   void ClearScene() override;
@@ -107,7 +119,7 @@ struct BVHRT : public ISceneObject
 
   virtual float eval_dist_sdf_conjunction(unsigned conj_id, float3 p);
   virtual float eval_distance_sdf_grid(unsigned grid_id, float3 p);
-  virtual float eval_distance_sdf_octree(unsigned octree_id, float3 p);
+  virtual float eval_distance_sdf_octree(unsigned octree_id, float3 p, unsigned max_level);
 
   virtual float eval_distance_sdf(unsigned type, unsigned prim_id, float3 p);
   virtual SdfHit sdf_sphere_tracing(unsigned type, unsigned prim_id, const float3 &min_pos, const float3 &max_pos,

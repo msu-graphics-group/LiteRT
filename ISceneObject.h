@@ -33,21 +33,6 @@ static constexpr unsigned TYPE_SDF_PRIMITIVE = 1;
 static constexpr unsigned TYPE_SDF_GRID      = 2;
 static constexpr unsigned TYPE_SDF_OCTREE    = 3;
 
-static constexpr unsigned X_L = 1<<0;
-static constexpr unsigned X_H = 1<<1;
-static constexpr unsigned Y_L = 1<<2;
-static constexpr unsigned Y_H = 1<<3;
-static constexpr unsigned Z_L = 1<<4;
-static constexpr unsigned Z_H = 1<<5;
-
-constexpr unsigned INVALID_IDX = 1u<<31u;
-
-struct SDONeighbor
-{
-  SdfOctreeNode node;
-  unsigned overshoot;
-};
-
 /**
 \brief API to ray-scene intersection on CPU
 */

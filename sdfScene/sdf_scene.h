@@ -168,6 +168,19 @@ public:
 };
 std::shared_ptr<ISdfSceneFunction> get_SdfSceneFunction(SdfSceneView scene);
 
+// interface to evaluate SdfOctree out of context of rendering
+class ISdfOctreeFunction
+{
+public:
+  //copies data from octree
+  virtual void init(SdfOctreeView octree) = 0; 
+  virtual float eval_distance(float3 pos) = 0;
+  virtual float eval_distance_level(float3 pos, unsigned max_level) = 0;
+  virtual std::vector<SdfOctreeNode> &get_nodes() = 0;
+  virtual const std::vector<SdfOctreeNode> &get_nodes() const = 0;
+};
+std::shared_ptr<ISdfOctreeFunction> get_SdfOctreeFunction(SdfOctreeView scene);
+
 // save/load scene
 void save_sdf_scene_hydra(const SdfScene &scene, const std::string &folder, const std::string &name);
 void save_sdf_scene(const SdfScene &scene, const std::string &path);

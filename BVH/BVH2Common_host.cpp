@@ -405,6 +405,7 @@ void BVHRT::UpdateInstance(uint32_t a_instanceId, const float4x4 &a_matrix)
   m_instMatricesInv[a_instanceId] = inverse4x4(a_matrix);
 }
 
+//SdfSceneFunction interface implementation
 void BVHRT::init(SdfSceneView scene)
 {
   m_SdfParameters.insert(m_SdfParameters.end(), scene.parameters, scene.parameters + scene.parameters_count);
@@ -415,11 +416,39 @@ void BVHRT::init(SdfSceneView scene)
   
 float BVHRT::eval_distance(float3 pos)
 {
-  float dist = 1e6;
-  for (int i=0; i<m_SdfConjunctions.size(); i++)
-    dist = std::min(dist, eval_dist_sdf_conjunction(i, pos));
-  
-  return dist;
+  if (!m_SdfConjunctions.empty())
+  {
+    float dist = 1e6;
+    for (int i=0; i<m_SdfConjunctions.size(); i++)
+      dist = std::min(dist, eval_dist_sdf_conjunction(i, pos));
+    return dist;
+  }
+  else if (!m_SdfOctreeNodes.empty())
+    return eval_distance_sdf_octree(0, pos, 1000);
+
+  return 1e6; 
+}
+
+//SdfOctreeFunction interface implementation
+void BVHRT::init(SdfOctreeView octree)
+{
+  m_SdfOctreeRoots.push_back(m_SdfOctreeNodes.size());
+  m_SdfOctreeNodes.insert(m_SdfOctreeNodes.end(), octree.nodes, octree.nodes + octree.size);  
+}
+
+float BVHRT::eval_distance_level(float3 pos, unsigned max_level)
+{
+  return eval_distance_sdf_octree(0, pos, max_level);
+}
+
+std::vector<SdfOctreeNode> &BVHRT::get_nodes()
+{
+  return m_SdfOctreeNodes;
+}
+
+const std::vector<SdfOctreeNode> &BVHRT::get_nodes() const
+{
+  return m_SdfOctreeNodes;
 }
 
 //implementation of different constructor-like functions
@@ -429,6 +458,13 @@ std::shared_ptr<ISdfSceneFunction> get_SdfSceneFunction(SdfSceneView scene)
   std::shared_ptr<ISdfSceneFunction> rt(new BVHRT("", "")); 
   rt->init(scene);
   return rt;
+}
+
+std::shared_ptr<ISdfOctreeFunction> get_SdfOctreeFunction(SdfOctreeView scene)
+{
+  std::shared_ptr<ISdfOctreeFunction> rt(new BVHRT("", "")); 
+  rt->init(scene);
+  return rt;  
 }
 
 ISceneObject* MakeBruteForceRT(const char* a_implName);

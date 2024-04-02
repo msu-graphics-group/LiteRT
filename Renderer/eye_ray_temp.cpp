@@ -414,7 +414,7 @@ float BVHRT::eval_distance_sdf(unsigned type, unsigned sdf_id, float3 pos)
     val = eval_distance_sdf_grid(sdf_id, pos);
     break;
   case TYPE_SDF_OCTREE:
-    val = eval_distance_sdf_octree(sdf_id, pos);
+    val = eval_distance_sdf_octree(sdf_id, pos, 1000);
     break;
   default:
     break;
@@ -459,12 +459,27 @@ float BVHRT::eval_distance_sdf_grid(unsigned grid_id, float3 pos)
   return res;
 }
 
+static constexpr unsigned X_L = 1<<0;
+static constexpr unsigned X_H = 1<<1;
+static constexpr unsigned Y_L = 1<<2;
+static constexpr unsigned Y_H = 1<<3;
+static constexpr unsigned Z_L = 1<<4;
+static constexpr unsigned Z_H = 1<<5;
+
+constexpr unsigned INVALID_IDX = 1u<<31u;
+
+struct SDONeighbor
+{
+  SdfOctreeNode node;
+  unsigned overshoot;
+};
+
 bool BVHRT::is_leaf(unsigned offset)
 {
   return (offset == 0) || ((offset & INVALID_IDX) > 0);
 }
 
-float BVHRT::eval_distance_sdf_octree(unsigned octree_id, float3 position)
+float BVHRT::eval_distance_sdf_octree(unsigned octree_id, float3 position, unsigned max_level)
 {
   unsigned CENTER = 9 + 3 + 1;
   float EPS = 1e-6;
@@ -490,7 +505,7 @@ float BVHRT::eval_distance_sdf_octree(unsigned octree_id, float3 position)
   neighbors[CENTER].overshoot = 0;
 
   bool no_leaves = true;
-  while (no_leaves && !is_leaf(neighbors[CENTER].node.offset))
+  while (no_leaves && !is_leaf(neighbors[CENTER].node.offset) && level < max_level)
   {
     int3 ch_shift = int3(n_pos.x >= 0.5, n_pos.y >= 0.5, n_pos.z >= 0.5);
 
