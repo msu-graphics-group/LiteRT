@@ -251,8 +251,6 @@ mat3 make_float3x3(vec3 a, vec3 b, vec3 c) { // different way than mat3(a,b,c)
               a.z, b.z, c.z);
 }
 
-uint EXTRACT_COUNT(uint a_leftOffset) { return (a_leftOffset & SIZE_MASK) >> 24; }
-
 vec3 SafeInverse(vec3 d) {
   const float ooeps = 1.0e-36f; // Avoid div by zero.
   vec3 res;
@@ -278,13 +276,13 @@ vec2 RayBoxIntersection2(vec3 rayOrigin, vec3 rayDirInv, vec3 boxMin, vec3 boxMa
   return vec2(max(tmin, min(lo2, hi2)),min(tmax, max(lo2, hi2)));
 }
 
+uint EXTRACT_COUNT(uint a_leftOffset) { return (a_leftOffset & SIZE_MASK) >> 24; }
+
 bool isLeafAndIntersect(uint flags) { return (flags == (LEAF_BIT | 0x1 )); }
 
 vec3 mymul4x3(mat4 m, vec3 v) {
   return (m*vec4(v, 1.0f)).xyz;
 }
-
-bool notLeafAndIntersect(uint flags) { return (flags != (LEAF_BIT | 0x1)); }
 
 vec3 matmul4x3(mat4 m, vec3 v) {
   return (m*vec4(v, 1.0f)).xyz;
@@ -293,6 +291,8 @@ vec3 matmul4x3(mat4 m, vec3 v) {
 vec3 matmul3x3(mat4 m, vec3 v) { 
   return (m*vec4(v, 0.0f)).xyz;
 }
+
+bool notLeafAndIntersect(uint flags) { return (flags != (LEAF_BIT | 0x1)); }
 
 bool isLeafOrNotIntersect(uint flags) { return (flags & LEAF_BIT) !=0 || (flags & 0x1) == 0; }
 
@@ -338,6 +338,6 @@ uint fakeOffset(uint x, uint y, uint pitch) { return y*pitch + x; }  // RTV patt
 #define KGEN_FLAG_DONT_SET_EXIT     4
 #define KGEN_FLAG_SET_EXIT_NEGATIVE 8
 #define KGEN_REDUCTION_LAST_STEP    16
-#define CFLOAT_GUARDIAN 
 #define MAXFLOAT FLT_MAX
+#define CFLOAT_GUARDIAN 
 

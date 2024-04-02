@@ -2,42 +2,6 @@
 #include <cassert>
 #include <fstream>
 
-using namespace LiteMath;
-
-float eval_dist_scene(const SdfSceneView &sdf, float3 p)
-{
-  float d = 1e6;
-  for (unsigned i = 0; i < sdf.conjunctions_count; i++)
-    d = min(d, eval_dist_conjunction(sdf.parameters, sdf.objects, sdf.conjunctions, sdf.neural_properties,
-                                     sdf.parameters_count, sdf.objects_count, sdf.conjunctions_count, sdf.neural_properties_count,
-                                     i, p));
-  return d;
-}
-
-bool sdf_sphere_tracing(const SdfSceneView &sdf, const float3 &min_pos, const float3 &max_pos, const float3 &pos, const float3 &dir,
-                        float3 *surface_pos)
-{
-  constexpr float EPS = 1e-5;
-  float2 tNear_tFar = box_intersects(min_pos, max_pos, pos, dir);
-  float t = tNear_tFar.x;
-  float tFar = tNear_tFar.y;
-  if (t > tFar)
-    return false;
-
-  int iter = 0;
-  float d = eval_dist_scene(sdf, pos + t * dir);
-  while (iter < 1000 && d > EPS && t < tFar)
-  {
-    t += d + EPS;
-    d = eval_dist_scene(sdf, pos + t * dir);
-    iter++;
-  }
-  if (surface_pos)
-    *surface_pos = pos + t * dir;
-
-  return d <= EPS;
-}
-
 void save_sdf_scene(const SdfScene &scene, const std::string &path)
 {
   std::ofstream fs(path, std::ios::binary);

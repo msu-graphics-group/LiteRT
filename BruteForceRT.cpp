@@ -55,11 +55,6 @@ protected:
                                     uint32_t a_start, uint32_t a_count,
                                     CRT_Hit *pHit);
 
-  void IntersectAllSdfPrimitivesInLeaf(const float3 ray_pos, const float3 ray_dir,
-                                       float tNear, uint32_t instId, uint32_t geomId,
-                                       uint32_t a_start, uint32_t a_count,
-                                       CRT_Hit *pHit);
-
   void IntersectAllTrianglesInLeaf(const float3 ray_pos, const float3 ray_dir,
                                    float tNear, uint32_t instId, uint32_t geomId,
                                    uint32_t a_start, uint32_t a_count,
@@ -289,29 +284,6 @@ void BruteForceRT::IntersectAllTrianglesInLeaf(const float3 ray_pos, const float
     }
 }
 
-void BruteForceRT::IntersectAllSdfPrimitivesInLeaf(const float3 ray_pos, const float3 ray_dir,
-                                                   float tNear, uint32_t instId, uint32_t geomId,
-                                                   uint32_t a_start, uint32_t a_count,
-                                                   CRT_Hit *pHit)
-{
-  auto &sdf = m_SdfScenes[m_SdfSceneIdByGeomId[geomId]];
-  float3 p0;
-  float l = LiteMath::length(ray_dir);
-  float3 dir = ray_dir/l;
-  float3 n = float3(1,0,0);
-  if (sdf_sphere_tracing(sdf, LiteMath::to_float3(m_geomBoxes[geomId].boxMin), LiteMath::to_float3(m_geomBoxes[geomId].boxMax), ray_pos, dir, &p0))
-  {
-    pHit->t         = LiteMath::length(p0-ray_pos)/l;
-    pHit->primId    = 0;
-    pHit->instId    = instId;
-    pHit->geomId    = geomId;  
-    pHit->coords[0] = 0;
-    pHit->coords[1] = 0;
-    pHit->coords[2] = n.x;
-    pHit->coords[3] = n.y;
-  }
-}
-
 void BruteForceRT::IntersectAllPrimitivesInLeaf(const float3 ray_pos, const float3 ray_dir,
                                                 float tNear, uint32_t instId, uint32_t geomId,
                                                 uint32_t a_start, uint32_t a_count,
@@ -320,8 +292,6 @@ void BruteForceRT::IntersectAllPrimitivesInLeaf(const float3 ray_pos, const floa
   unsigned type = m_geomTypeByGeomId[geomId];
   if (type == TYPE_MESH_TRIANGLE)
     IntersectAllTrianglesInLeaf(ray_pos, ray_dir, tNear, instId, geomId, a_start, a_count, pHit);
-  else if (type == TYPE_SDF_PRIMITIVE)
-    IntersectAllSdfPrimitivesInLeaf(ray_pos, ray_dir, tNear, instId, geomId, a_start, a_count, pHit);
 }
 
 CRT_Hit BruteForceRT::RayQuery_NearestHit(float4 posAndNear, float4 dirAndFar)
