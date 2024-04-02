@@ -32,7 +32,11 @@ using LiteMath::Box4f;
 // main class
 //
 struct BVHRT : public ISceneObject
+#ifndef KERNEL_SLICER  
+, public ISdfSceneFunction
+#endif
 {
+  //overiding ISceneObject interface
   BVHRT(const char* a_buildName = nullptr, const char* a_layoutName = nullptr) : 
     m_buildName(a_buildName != nullptr ? a_buildName : ""), 
     m_layoutName(a_layoutName != nullptr ? a_layoutName : "") { }
@@ -50,6 +54,13 @@ struct BVHRT : public ISceneObject
   uint32_t AddGeom_SdfGrid(SdfGridView grid, BuildQuality a_qualityLevel = BUILD_HIGH) override;
   uint32_t AddGeom_SdfOctree(SdfOctreeView octree, BuildQuality a_qualityLevel = BUILD_HIGH) override;
 #endif
+
+  //overiding SdfSceneFunction interface
+#ifndef KERNEL_SLICER 
+  void init(SdfSceneView scene) override; 
+  float eval_distance(float3 pos) override;
+#endif
+
   void ClearScene() override;
   virtual void CommitScene(BuildQuality a_qualityLevel) override;
 

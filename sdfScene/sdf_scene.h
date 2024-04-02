@@ -2,6 +2,7 @@
 #include "LiteMath/LiteMath.h"
 #include <vector>
 #include <string>
+#include <memory>
 
 using LiteMath::float2;
 using LiteMath::float3;
@@ -23,6 +24,10 @@ using LiteMath::to_float3;
 using LiteMath::max;
 using LiteMath::min;
 
+//################################################################################
+// Constants and plain data structures definitions. Used both on GPU with slicer 
+// and on CPU.
+//################################################################################
 // enum SdfPrimitiveType
 static constexpr unsigned SDF_PRIM_SPHERE = 0;
 static constexpr unsigned SDF_PRIM_BOX = 1;
@@ -83,6 +88,9 @@ struct SdfOctreeNode
   unsigned offset; // offset for children (they are stored together). 0 offset means it's a leaf
 };
 
+//################################################################################
+// CPU-specific functions and data structures
+//################################################################################
 #ifndef KERNEL_SLICER
 
 struct SdfGridView
@@ -97,6 +105,7 @@ struct SdfOctreeView
   const SdfOctreeNode *nodes;
 };
 
+// structure to actually store SdfScene data
 struct SdfScene
 {
   std::vector<float> parameters;
@@ -105,8 +114,8 @@ struct SdfScene
   std::vector<NeuralProperties> neural_properties;
 };
 
-// all interfaces use SdfSceneView to be independant of how exactly
-// SDF scenes are stored
+// structure to access and transfer SdfScene data
+// all interfaces use SdfSceneView to be independant of how exactly SDF scenes are stored
 struct SdfSceneView
 {
   SdfSceneView() = default;
@@ -148,6 +157,16 @@ struct SdfSceneView
   unsigned conjunctions_count;
   unsigned neural_properties_count;
 };
+
+// interface to evaluate SdfScene out of context of rendering
+class ISdfSceneFunction
+{
+public:
+  //copies data from scene
+  virtual void init(SdfSceneView scene) = 0; 
+  virtual float eval_distance(float3 pos) = 0;
+};
+std::shared_ptr<ISdfSceneFunction> get_SdfSceneFunction(SdfSceneView scene);
 
 // save/load scene
 void save_sdf_scene_hydra(const SdfScene &scene, const std::string &folder, const std::string &name);

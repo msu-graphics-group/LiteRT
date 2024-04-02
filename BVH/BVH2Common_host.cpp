@@ -405,6 +405,32 @@ void BVHRT::UpdateInstance(uint32_t a_instanceId, const float4x4 &a_matrix)
   m_instMatricesInv[a_instanceId] = inverse4x4(a_matrix);
 }
 
+void BVHRT::init(SdfSceneView scene)
+{
+  m_SdfParameters.insert(m_SdfParameters.end(), scene.parameters, scene.parameters + scene.parameters_count);
+  m_SdfObjects.insert(m_SdfObjects.end(), scene.objects, scene.objects + scene.objects_count);
+  m_SdfConjunctions.insert(m_SdfConjunctions.end(), scene.conjunctions, scene.conjunctions + scene.conjunctions_count);
+  m_SdfNeuralProperties.insert(m_SdfNeuralProperties.end(), scene.neural_properties, scene.neural_properties + scene.neural_properties_count);
+} 
+  
+float BVHRT::eval_distance(float3 pos)
+{
+  float dist = 1e6;
+  for (int i=0; i<m_SdfConjunctions.size(); i++)
+    dist = std::min(dist, eval_dist_sdf_conjunction(i, pos));
+  
+  return dist;
+}
+
+//implementation of different constructor-like functions
+
+std::shared_ptr<ISdfSceneFunction> get_SdfSceneFunction(SdfSceneView scene)
+{
+  std::shared_ptr<ISdfSceneFunction> rt(new BVHRT("", "")); 
+  rt->init(scene);
+  return rt;
+}
+
 ISceneObject* MakeBruteForceRT(const char* a_implName);
 ISceneObject* MakeBVH2CommonRT(const char* a_implName, const char* a_buildName, const char* a_layoutName) 
 {
