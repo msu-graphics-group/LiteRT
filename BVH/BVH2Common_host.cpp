@@ -425,6 +425,8 @@ float BVHRT::eval_distance(float3 pos)
   }
   else if (!m_SdfOctreeNodes.empty())
     return eval_distance_sdf_octree(0, pos, 1000);
+  else if (!m_SdfGridData.empty())
+    return eval_distance_sdf_grid(0, pos);
 
   return 1e6; 
 }
@@ -450,6 +452,14 @@ const std::vector<SdfOctreeNode> &BVHRT::get_nodes() const
 {
   return m_SdfOctreeNodes;
 }
+
+//SdfGridFunction interface implementation
+void BVHRT::init(SdfGridView grid)
+{
+  m_SdfGridOffsets.push_back(m_SdfGridData.size());
+  m_SdfGridSizes.push_back(grid.size);
+  m_SdfGridData.insert(m_SdfGridData.end(), grid.data, grid.data + grid.size.x*grid.size.y*grid.size.z);
+} 
 
 //implementation of different constructor-like functions
 

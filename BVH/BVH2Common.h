@@ -35,6 +35,7 @@ struct BVHRT : public ISceneObject
 #ifndef KERNEL_SLICER  
 , public ISdfSceneFunction
 , public ISdfOctreeFunction
+, public ISdfGridFunction
 #endif
 {
   //overiding ISceneObject interface
@@ -71,6 +72,11 @@ struct BVHRT : public ISceneObject
   float eval_distance_level(float3 pos, unsigned max_level) override;
   std::vector<SdfOctreeNode> &get_nodes() override;
   const std::vector<SdfOctreeNode> &get_nodes() const override;
+#endif
+
+  //overiding SdfGridFunction interface
+#ifndef KERNEL_SLICER 
+  void init(SdfGridView scene) override; 
 #endif
 
   void ClearScene() override;

@@ -181,6 +181,14 @@ public:
 };
 std::shared_ptr<ISdfOctreeFunction> get_SdfOctreeFunction(SdfOctreeView scene);
 
+// interface to evaluate SdfGrid out of context of rendering
+class ISdfGridFunction
+{
+  virtual void init(SdfGridView octree) = 0; 
+  virtual float eval_distance(float3 pos) = 0;
+};
+std::shared_ptr<ISdfGridFunction> get_ISdfGridFunction(SdfGridView scene);
+
 // save/load scene
 void save_sdf_scene_hydra(const SdfScene &scene, const std::string &folder, const std::string &name);
 void save_sdf_scene(const SdfScene &scene, const std::string &path);

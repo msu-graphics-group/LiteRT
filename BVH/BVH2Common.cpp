@@ -256,7 +256,8 @@ float BVHRT::eval_distance_sdf_grid(unsigned grid_id, float3 pos)
 
   //bbox for grid is a unit cube
   float3 grid_size_f = float3(size);
-  float3 vox_f = grid_size_f*min(max((pos-float3(-1,-1,-1))/float3(2,2,2), float3(0.0f)), float3(1.0f-1e-5f));
+  float3 vox_f = grid_size_f*((pos-float3(-1,-1,-1))/float3(2,2,2)) - float3(0.5, 0.5, 0.5);
+  vox_f = min(max(vox_f, float3(0.0f)), grid_size_f - float3(1e-5f));
   uint3 vox_u = uint3(vox_f);
   float3 dp = vox_f - float3(vox_u);
 
