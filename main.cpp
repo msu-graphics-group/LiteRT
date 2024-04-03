@@ -20,79 +20,14 @@ int main(int argc, const char** argv)
   uint32_t HEIGHT = 1024;
   
   const char* scenePath   = "scenes/02_sdf_scenes/csg_new.xml"; // 02_sdf_scenes/csg_new.xml bunny_cornell.xml, instanced_objects.xml
-  const char* meshPath    = "scenes/meshes/bunny.vsgf";///helix_mid.vsgf";
-  const char* renderName  = "eye"; // "RT", "RTAO" or just "AO"
-
   const char* accelStruct  = "BVH2Common"; // BruteForce BVH2Common
   const char* buildFormat  = "cbvh_embree2";///"NanoRT";  // BVH2Common
   const char* layout       = "SuperTreeletAlignedMerged4"; ///"opt";
 
   const char* outImageFile = "z_out.bmp";
-  const char* outStatsFile = "z_stats.csv";
-  
-  bool onGPU          = false;
-  bool testMode       = false;
-  int  implId         = 0;
-  int  NFrames        = 100;
-  // how many times should we run
-  //
   int NUM_LAUNCHES = 1;
 
   RenderPreset presets {};
-  presets.isAORadiusInMeters = false;
-  presets.aoRaysNum       = 16;
-  presets.aoRayLength     = 0.1f; //
-  presets.measureOverhead = false;
-  presets.numBounces      = 3;
-
-  //you may overrride some input parameters
-  if(argc > 2)
-  {
-    for(int i=1;i<argc;i++) 
-    {
-      std::string currArg(argv[i]);
-      if(currArg == "-scene" && i+1 < argc)
-        scenePath = argv[i+1];
-      else if(currArg == "-render" && i+1 < argc) 
-        renderName = argv[i+1];
-      else if(currArg == "-accel" && i+1 < argc) 
-        accelStruct = argv[i+1];
-      else if(currArg == "-build" && i+1 < argc) 
-        buildFormat = argv[i+1];
-      else if(currArg == "-out" && i+1 < argc) 
-        outImageFile = argv[i+1];
-      else if(currArg == "-layout" && i+1 < argc) 
-        layout = argv[i+1];
-      else if(currArg == "-stats" && i+1 < argc) 
-        outStatsFile = argv[i+1];
-      else if(currArg == "-width" && i+1 < argc)
-        WIDTH = std::atoi(argv[i+1]);
-      else if(currArg == "-height" && i+1 < argc)
-        HEIGHT = std::atoi(argv[i+1]);
-      else if((currArg == "-run_num" || currArg == "-num_launches")  && i+1 < argc)
-        NUM_LAUNCHES = std::atoi(argv[i+1]);
-      else if(currArg == "-aoraynum" && i+1 < argc)
-        presets.aoRaysNum = std::atoi(argv[i+1]);
-      else if(currArg == "-aoraylen" && i+1 < argc)
-        presets.aoRayLength = std::atof(argv[i+1]);
-      else if(currArg == "-ao_radius_in_meters")
-        presets.isAORadiusInMeters = true;
-      else if(currArg == "-gpu" && i+1 < argc)
-        onGPU = (std::atoi(argv[i+1]) != 0);
-      else if(currArg == "-test" && i+1 < argc)
-        testMode = (std::atoi(argv[i+1]) != 0);
-      else if(currArg == "-launch_id" && i+1 < argc)
-        implId = std::atoi(argv[i+1]);
-      else if(currArg == "-frames" && i+1 < argc)
-        NFrames = std::atoi(argv[i+1]);
-    }
-  }
-
-  if(std::string(accelStruct) == "overhead" || std::string(accelStruct) == "Overhead") //
-  {
-    accelStruct = "BVH2Fat32";
-    presets.measureOverhead = true;
-  }
 
   Image2D<uint32_t> image(WIDTH, HEIGHT);
   std::shared_ptr<IRenderer> pRender = nullptr;
@@ -128,27 +63,9 @@ int main(int argc, const char** argv)
   //pImpl->UpdateMembersPlainData();
   
   float timings[4] = {0,0,0,0}; 
-  
-  LiteImage::Image2D<uint32_t> imgRef;
-  float psnr = 100.0f;
-  if(implId != 0)                      // load reference image if we are not in reference impl.
-  {
-    std::string pathRef = std::string(outImageFile);
-                pathRef = pathRef.substr(0, pathRef.size() - 6) + "00.bmp";
-    imgRef = LiteImage::LoadImage<uint32_t>(pathRef.c_str());
-  } 
-
   float timeAvg = 0.0f;
   float timeMin = 100000000000000.0f;
-  
   std::vector<float> allTimes;
-  const char* raysType = "eye";
-  if(presets.aoRayLength >= 0.5f)
-    raysType = "diffuse";
-  else if(presets.aoRayLength >= 0.1f)
-    raysType = "ao_long";
-  else
-    raysType = "ao_short";
 
   const int NUM_ITERS  = MEASURE_FRAMES ? 1 : NUM_LAUNCHES;
   const int NUM_FRAMES = MEASURE_FRAMES ? NUM_LAUNCHES : 1;
@@ -159,38 +76,8 @@ int main(int argc, const char** argv)
     pRender->Render(image.data(), WIDTH, HEIGHT, "color", NUM_FRAMES); 
     std::cout << std::endl;
 
-    if(implId != 0 && testMode) // estimate PSNR
-    {
-      auto mseVal = LiteImage::MSE(imgRef, image);
-      psnr        = 20.0f * std::log10(255.0f / std::sqrt(mseVal));
-    } 
-
-    if(std::string(renderName) == "ao" || std::string(renderName) == "AO" || std::string(renderName) == "rtao" || std::string(renderName) == "RTAO") 
-    {
-      pRender->GetExecutionTime("CalcAOBlock", timings);
-      std::cout << "CalcAOBlock(exec) = " << timings[0] << " ms; (runId = " << launchId << ", PSNR = " << psnr << ")" << std::endl;
-    }
-    else if(std::string(renderName) == "bfrt" || std::string(renderName) == "BFRT" || 
-            std::string(renderName) == "bfrt32" || std::string(renderName) == "BFRT32")
-    {
-      pRender->GetExecutionTime("BFRT_ReadAndCompute32", timings);
-      std::cout << "BFRT_ReadAndCompute32(exec) = " << timings[0] << " ms; (runId = " << launchId << ", PSNR = " << psnr << ")" << std::endl;
-    }
-    else if(std::string(renderName) == "bfrt16" || std::string(renderName) == "BFRT16")
-    {
-      pRender->GetExecutionTime("BFRT_ReadAndCompute16", timings);
-      std::cout << "BFRT_ReadAndCompute16(exec) = " << timings[0] << " ms; (runId = " << launchId << ", PSNR = " << psnr << ")" << std::endl;
-    }
-    else if(std::string(renderName) == "BFRT_Compute" || std::string(renderName) == "BFRT_ComputeOnly")
-    {
-      pRender->GetExecutionTime("BFRT_ComputeBlock", timings);
-      std::cout << "BFRT_ComputeBlock(exec) = " << timings[0] << " ms; (runId = " << launchId << ", PSNR = " << psnr << ")" << std::endl;
-    }
-    else
-    {
-      pRender->GetExecutionTime("CastRaySingleBlock", timings);
-      std::cout << "CastRaySingleBlock(exec) = " << timings[0] << " ms; (runId = " << launchId << ", PSNR = " << psnr << ")" << std::endl;
-    }
+    pRender->GetExecutionTime("CastRaySingleBlock", timings);
+    std::cout << "CastRaySingleBlock(exec) = " << timings[0] << " ms" << std::endl;
     
     allTimes.push_back(timings[0]); 
     timeAvg += timings[0];
@@ -235,13 +122,6 @@ int main(int argc, const char** argv)
     fin.close();
     fout.open(timeFileName, std::ios::app);
   }
-
-  std::string acStr = std::string(accelStruct);
-  if(onGPU)
-    acStr += "(GPU)";
-
-  std::string tstMsg = (psnr <= 40.0f) ? "FAILED" : "PASSED";
-  fout << std::setprecision(4) << renderName << ";" << WIDTH << ";" << sceneName << ";" << g_buildTris << ";" << buildFormat << ";" << acStr.c_str() << ";" << layout << ";" << timeMin << ";" << timeAvg << ";" << timeErr << ";" << float(g_buildTime) << ";" << psnr << ";" << tstMsg.c_str() << ";" << std::endl;
 
   return 0;
 }

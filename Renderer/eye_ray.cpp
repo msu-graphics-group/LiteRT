@@ -156,12 +156,3 @@ void EyeRayCaster::Clear(uint32_t a_width, uint32_t a_height, const char* a_what
 {
   PackXYBlock(a_width, a_height, 1);
 }
-
-void EyeRayCaster::SetPresets(const RenderPreset& a_presets)
-{
-  m_presets = a_presets;
-  if(a_presets.measureOverhead)
-    m_measureOverhead = 1;
-  else
-    m_measureOverhead = 0;
-}

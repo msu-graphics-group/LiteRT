@@ -137,7 +137,7 @@ const char* EyeRayCaster::Name() const
 {
   std::stringstream strout;
   strout << "EyeRayCaster(" << m_pAccelStruct->Name() << ")";
-  m_tempName = strout.str();
+  std::string m_tempName = strout.str();
   return m_tempName.c_str();
 }
 
