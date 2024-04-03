@@ -15,18 +15,56 @@
 
 using LiteMath::uint;
 
+//enum SdfRenderMode
+static constexpr unsigned RENDER_MODE_SDF_MASK = 0; //white object, black background
+static constexpr unsigned RENDER_MODE_SDF_LAMBERT = 1;
+static constexpr unsigned RENDER_MODE_SDF_DEPTH = 2;
+static constexpr unsigned RENDER_MODE_SDF_LINEAR_DEPTH = 3;
+static constexpr unsigned RENDER_MODE_SDF_INVERSE_LINEAR_DEPTH = 4;
+
+//enum MeshRenderMode
+static constexpr unsigned RENDER_MODE_MESH_MASK = 0;
+static constexpr unsigned RENDER_MODE_MESH_LAMBERT = 1;
+static constexpr unsigned RENDER_MODE_MESH_TRIANGLES = 2; //each triangle has distinct color from palette
+
+//enum SdfOctreeSampler
+static constexpr unsigned SDF_OCTREE_SAMPLER_3L_DEEP = 0; //go to the deepest level possible, resampling larger nodes
+static constexpr unsigned SDF_OCTREE_SAMPLER_3L_SHALLOW = 1; //go deeper while resampling is not needed, then sample
+
 struct RenderPreset
 {
-  bool  isAORadiusInMeters;
-  float aoRayLength; // in meters if isAORadiusInMeters is true else in percent of max box size
-  int   aoRaysNum;
-  int   numBounces;
-  bool  measureOverhead;
+  unsigned mode_sdf;
+  unsigned mode_mesh;
+  unsigned sdf_octree_sampler;
+  unsigned spp; //samples per pixel, should be a square (1, 4, 9, 16 etc.)
 };
+
+static RenderPreset getDefaultPreset()
+{
+  RenderPreset p;
+  p.mode_sdf = RENDER_MODE_SDF_LAMBERT;
+  p.mode_mesh = RENDER_MODE_MESH_LAMBERT;
+  p.sdf_octree_sampler = SDF_OCTREE_SAMPLER_3L_SHALLOW;
+  p.spp = 1;
+
+  return p;
+}
 
 class MultiRenderer : public IRenderer
 {
 public:
+
+  //a bunch of functions extending IRenderer to make working with MultiRenderer easier
+#ifndef KERNEL_SLICER 
+  void SetScene(SdfSceneView scene);
+  void SetScene(SdfGridView scene);
+  void SetScene(SdfOctreeView scene);
+#endif
+  void Render(uint32_t* imageData, uint32_t a_width, uint32_t a_height, 
+              const LiteMath::float4x4& a_worldView, const LiteMath::float4x4& a_proj,
+              RenderPreset preset = getDefaultPreset());
+
+  //functions implementing IRenderer interface
   MultiRenderer(); 
   const char* Name() const override;
   

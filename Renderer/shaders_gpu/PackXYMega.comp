@@ -4,26 +4,26 @@
 #include "common_gpu.h"
 
 layout(binding = 0, set = 0) buffer data0 { uint m_packedXY[]; }; //
-layout(binding = 1, set = 0) buffer data1 { uint m_pAccelStruct_m_ConjIndices[]; }; //
-layout(binding = 2, set = 0) buffer data2 { BVHNode m_pAccelStruct_m_nodesTLAS[]; }; //
-layout(binding = 3, set = 0) buffer data3 { uvec2 m_pAccelStruct_m_geomOffsets[]; }; //
-layout(binding = 4, set = 0) buffer data4 { SdfOctreeNode m_pAccelStruct_m_SdfOctreeNodes[]; }; //
-layout(binding = 5, set = 0) buffer data5 { uint m_pAccelStruct_m_geomIdByInstId[]; }; //
-layout(binding = 6, set = 0) buffer data6 { vec4 m_pAccelStruct_m_vertPos[]; }; //
+layout(binding = 1, set = 0) buffer data1 { vec4 m_pAccelStruct_m_vertPos[]; }; //
+layout(binding = 2, set = 0) buffer data2 { uint m_pAccelStruct_m_ConjIndices[]; }; //
+layout(binding = 3, set = 0) buffer data3 { BVHNode m_pAccelStruct_m_nodesTLAS[]; }; //
+layout(binding = 4, set = 0) buffer data4 { uvec2 m_pAccelStruct_m_geomOffsets[]; }; //
+layout(binding = 5, set = 0) buffer data5 { SdfOctreeNode m_pAccelStruct_m_SdfOctreeNodes[]; }; //
+layout(binding = 6, set = 0) buffer data6 { uint m_pAccelStruct_m_geomIdByInstId[]; }; //
 layout(binding = 7, set = 0) buffer data7 { SdfConjunction m_pAccelStruct_m_SdfConjunctions[]; }; //
 layout(binding = 8, set = 0) buffer data8 { uint m_pAccelStruct_m_primIndices[]; }; //
 layout(binding = 9, set = 0) buffer data9 { uint m_pAccelStruct_m_bvhOffsets[]; }; //
-layout(binding = 10, set = 0) buffer data10 { NeuralProperties m_pAccelStruct_m_SdfNeuralProperties[]; }; //
-layout(binding = 11, set = 0) buffer data11 { uint m_pAccelStruct_m_SdfGridOffsets[]; }; //
-layout(binding = 12, set = 0) buffer data12 { float m_pAccelStruct_m_SdfGridData[]; }; //
-layout(binding = 13, set = 0) buffer data13 { mat4 m_pAccelStruct_m_instMatricesInv[]; }; //
-layout(binding = 14, set = 0) buffer data14 { float m_pAccelStruct_m_SdfParameters[]; }; //
-layout(binding = 15, set = 0) buffer data15 { BVHNodePair m_pAccelStruct_m_allNodePairs[]; }; //
-layout(binding = 16, set = 0) buffer data16 { SdfObject m_pAccelStruct_m_SdfObjects[]; }; //
-layout(binding = 17, set = 0) buffer data17 { uvec3 m_pAccelStruct_m_SdfGridSizes[]; }; //
-layout(binding = 18, set = 0) buffer data18 { uint m_pAccelStruct_m_geomTypeByGeomId[]; }; //
-layout(binding = 19, set = 0) buffer data19 { uint m_pAccelStruct_m_SdfOctreeRoots[]; }; //
-layout(binding = 20, set = 0) buffer data20 { uint m_pAccelStruct_m_indices[]; }; //
+layout(binding = 10, set = 0) buffer data10 { uint m_pAccelStruct_m_indices[]; }; //
+layout(binding = 11, set = 0) buffer data11 { uint m_pAccelStruct_m_SdfOctreeRoots[]; }; //
+layout(binding = 12, set = 0) buffer data12 { uint m_pAccelStruct_m_geomTypeByGeomId[]; }; //
+layout(binding = 13, set = 0) buffer data13 { NeuralProperties m_pAccelStruct_m_SdfNeuralProperties[]; }; //
+layout(binding = 14, set = 0) buffer data14 { uint m_pAccelStruct_m_SdfGridOffsets[]; }; //
+layout(binding = 15, set = 0) buffer data15 { float m_pAccelStruct_m_SdfGridData[]; }; //
+layout(binding = 16, set = 0) buffer data16 { mat4 m_pAccelStruct_m_instMatricesInv[]; }; //
+layout(binding = 17, set = 0) buffer data17 { float m_pAccelStruct_m_SdfParameters[]; }; //
+layout(binding = 18, set = 0) buffer data18 { BVHNodePair m_pAccelStruct_m_allNodePairs[]; }; //
+layout(binding = 19, set = 0) buffer data19 { SdfObject m_pAccelStruct_m_SdfObjects[]; }; //
+layout(binding = 20, set = 0) buffer data20 { uvec3 m_pAccelStruct_m_SdfGridSizes[]; }; //
 layout(binding = 21, set = 0) buffer dataUBO { MultiRenderer_GPU_UBO_Data ubo; };
 
 bool m_pAccelStruct_is_leaf(uint offset) {
@@ -338,46 +338,6 @@ SdfHit m_pAccelStruct_sdf_sphere_tracing(uint type, uint sdf_id, in vec3 min_pos
   return hit;
 }
 
-void m_pAccelStruct_IntersectAllTrianglesInLeaf(const vec3 ray_pos, const vec3 ray_dir, float tNear, uint instId, uint geomId, uint a_start, uint a_count, inout CRT_Hit pHit) {
-  const uvec2 a_geomOffsets = m_pAccelStruct_m_geomOffsets[geomId];
-
-  for (uint triId = a_start; triId < a_start + a_count; triId++)
-  {
-    const uint A = m_pAccelStruct_m_indices[a_geomOffsets.x + triId*3 + 0];
-    const uint B = m_pAccelStruct_m_indices[a_geomOffsets.x + triId*3 + 1];
-    const uint C = m_pAccelStruct_m_indices[a_geomOffsets.x + triId*3 + 2];
-
-    const vec3 A_pos = m_pAccelStruct_m_vertPos[a_geomOffsets.y + A].xyz;
-    const vec3 B_pos = m_pAccelStruct_m_vertPos[a_geomOffsets.y + B].xyz;
-    const vec3 C_pos = m_pAccelStruct_m_vertPos[a_geomOffsets.y + C].xyz;
-
-    const vec3 edge1 = B_pos - A_pos;
-    const vec3 edge2 = C_pos - A_pos;
-    const vec3 pvec = cross(ray_dir, edge2);
-    const vec3 tvec = ray_pos - A_pos;
-    const vec3 qvec = cross(tvec, edge1);
-
-    const float invDet = 1.0f / dot(edge1, pvec);
-    const float v = dot(tvec, pvec) * invDet;
-    const float u = dot(qvec, ray_dir) * invDet;
-    const float t = dot(edge2, qvec) * invDet;
-
-    if (v >= -1e-6f && u >= -1e-6f && (u + v <= 1.0f + 1e-6f) && t > tNear && t < pHit.t) 
-    {
-      vec3 n = normalize(cross(edge1, edge2));
-
-      pHit.t = t;
-      pHit.primId = triId;
-      pHit.instId = instId;
-      pHit.geomId = geomId;
-      pHit.coords[0] = u;
-      pHit.coords[1] = v;
-      pHit.coords[2] = n.x;
-      pHit.coords[3] = n.y;
-    }
-  }
-}
-
 void m_pAccelStruct_IntersectAllSdfsInLeaf(const vec3 ray_pos, const vec3 ray_dir, float tNear, uint instId, uint geomId, uint a_start, uint a_count, inout CRT_Hit pHit) {
 
   uint type = m_pAccelStruct_m_geomTypeByGeomId[geomId];
@@ -426,6 +386,46 @@ void m_pAccelStruct_IntersectAllSdfsInLeaf(const vec3 ray_pos, const vec3 ray_di
       pHit.coords[1] = 0;
       pHit.coords[2] = hit.hit_norm.x;
       pHit.coords[3] = hit.hit_norm.y;
+    }
+  }
+}
+
+void m_pAccelStruct_IntersectAllTrianglesInLeaf(const vec3 ray_pos, const vec3 ray_dir, float tNear, uint instId, uint geomId, uint a_start, uint a_count, inout CRT_Hit pHit) {
+  const uvec2 a_geomOffsets = m_pAccelStruct_m_geomOffsets[geomId];
+
+  for (uint triId = a_start; triId < a_start + a_count; triId++)
+  {
+    const uint A = m_pAccelStruct_m_indices[a_geomOffsets.x + triId*3 + 0];
+    const uint B = m_pAccelStruct_m_indices[a_geomOffsets.x + triId*3 + 1];
+    const uint C = m_pAccelStruct_m_indices[a_geomOffsets.x + triId*3 + 2];
+
+    const vec3 A_pos = m_pAccelStruct_m_vertPos[a_geomOffsets.y + A].xyz;
+    const vec3 B_pos = m_pAccelStruct_m_vertPos[a_geomOffsets.y + B].xyz;
+    const vec3 C_pos = m_pAccelStruct_m_vertPos[a_geomOffsets.y + C].xyz;
+
+    const vec3 edge1 = B_pos - A_pos;
+    const vec3 edge2 = C_pos - A_pos;
+    const vec3 pvec = cross(ray_dir, edge2);
+    const vec3 tvec = ray_pos - A_pos;
+    const vec3 qvec = cross(tvec, edge1);
+
+    const float invDet = 1.0f / dot(edge1, pvec);
+    const float v = dot(tvec, pvec) * invDet;
+    const float u = dot(qvec, ray_dir) * invDet;
+    const float t = dot(edge2, qvec) * invDet;
+
+    if (v >= -1e-6f && u >= -1e-6f && (u + v <= 1.0f + 1e-6f) && t > tNear && t < pHit.t) 
+    {
+      vec3 n = normalize(cross(edge1, edge2));
+
+      pHit.t = t;
+      pHit.primId = triId;
+      pHit.instId = instId;
+      pHit.geomId = geomId;
+      pHit.coords[0] = u;
+      pHit.coords[1] = v;
+      pHit.coords[2] = n.x;
+      pHit.coords[3] = n.y;
     }
   }
 }

@@ -146,6 +146,51 @@ void MultiRenderer::GetExecutionTime(const char* a_funcName, float a_out[4])
   a_out[0] = p->second;
 }
 
+void MultiRenderer::SetScene(SdfSceneView scene)
+{
+  SetAccelStruct(CreateSceneRT("BVH2Common", "cbvh_embree2", "SuperTreeletAlignedMerged4"));
+  GetAccelStruct()->ClearGeom();
+  GetAccelStruct()->AddGeom_SdfScene(scene);
+  GetAccelStruct()->ClearScene();
+  GetAccelStruct()->AddInstance(0, LiteMath::float4x4());
+  GetAccelStruct()->AddInstance(0, LiteMath::translate4x4(float3(-100,-100,-100)));
+  GetAccelStruct()->CommitScene();
+}
+
+void MultiRenderer::SetScene(SdfGridView scene)
+{
+  SetAccelStruct(CreateSceneRT("BVH2Common", "cbvh_embree2", "SuperTreeletAlignedMerged4"));
+  GetAccelStruct()->ClearGeom();
+  GetAccelStruct()->AddGeom_SdfGrid(scene);
+  GetAccelStruct()->ClearScene();
+  GetAccelStruct()->AddInstance(0, LiteMath::float4x4());
+  GetAccelStruct()->AddInstance(0, LiteMath::translate4x4(float3(-100,-100,-100)));
+  GetAccelStruct()->CommitScene();
+}
+
+void MultiRenderer::SetScene(SdfOctreeView scene)
+{
+  SetAccelStruct(CreateSceneRT("BVH2Common", "cbvh_embree2", "SuperTreeletAlignedMerged4"));
+  GetAccelStruct()->ClearGeom();
+  GetAccelStruct()->AddGeom_SdfOctree(scene);
+  GetAccelStruct()->ClearScene();
+  GetAccelStruct()->AddInstance(0, LiteMath::float4x4());
+  GetAccelStruct()->AddInstance(0, LiteMath::translate4x4(float3(-100,-100,-100)));
+  GetAccelStruct()->CommitScene();
+}
+
+void MultiRenderer::Render(uint32_t* imageData, uint32_t a_width, uint32_t a_height, 
+                           const LiteMath::float4x4& a_worldView, const LiteMath::float4x4& a_proj,
+                           RenderPreset preset)
+{
+  SetViewport(0,0, a_width, a_height);
+  UpdateCamera(a_worldView, a_proj);
+  SetPresets(preset);
+  CommitDeviceData();
+  Clear(a_width, a_height, "color");
+  Render(imageData, a_width, a_height, "color"); 
+}
+
 #if defined(USE_GPU)
 #include "eye_ray_gpu.h"
 std::shared_ptr<MultiRenderer> CreateMultiRenderer_GPU(vk_utils::VulkanContext a_ctx, size_t a_maxThreadsGenerated);
