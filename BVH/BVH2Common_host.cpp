@@ -477,6 +477,13 @@ std::shared_ptr<ISdfOctreeFunction> get_SdfOctreeFunction(SdfOctreeView scene)
   return rt;  
 }
 
+std::shared_ptr<ISdfGridFunction> get_SdfGridFunction(SdfGridView scene)
+{
+  std::shared_ptr<ISdfGridFunction> rt(new BVHRT("", "")); 
+  rt->init(scene);
+  return rt;    
+}
+
 ISceneObject* MakeBruteForceRT(const char* a_implName);
 ISceneObject* MakeBVH2CommonRT(const char* a_implName, const char* a_buildName, const char* a_layoutName) 
 {
