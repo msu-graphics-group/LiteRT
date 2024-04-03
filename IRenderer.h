@@ -4,15 +4,6 @@
 
 #include "ISceneObject.h"
 
-struct RenderPreset
-{
-  bool  isAORadiusInMeters;
-  float aoRayLength; // in meters if isAORadiusInMeters is true else in percent of max box size
-  int   aoRaysNum;
-  int   numBounces;
-  bool  measureOverhead;
-};
-
 struct IRenderer
 {
   IRenderer(){ }
@@ -25,7 +16,6 @@ struct IRenderer
   virtual void Render(uint32_t* imageData, uint32_t a_width, uint32_t a_height, const char* a_what, int a_passNum = 1) = 0;
 
   virtual void SetViewport(int a_xStart, int a_yStart, int a_width, int a_height){}
-  virtual void SetPresets(const RenderPreset& a_presets){ m_presets = a_presets;}
   virtual void SetAccelStruct(std::shared_ptr<ISceneObject> a_customAccelStruct) {}
   virtual std::shared_ptr<ISceneObject> GetAccelStruct() { return nullptr; }
   
@@ -45,8 +35,6 @@ struct IRenderer
 
 protected:
 
-  RenderPreset m_presets;
-
   IRenderer(const IRenderer& rhs) {}
   IRenderer& operator=(const IRenderer& rhs) { return *this;}
   
@@ -55,5 +43,4 @@ protected:
   virtual const LiteMath::float4* GetGeomBoxes() const { return nullptr; };
 };
 
-std::shared_ptr<IRenderer> MakeEyeRayShooterRenderer(const char* a_name);
 std::shared_ptr<ISceneObject> CreateSceneRT(const char* a_implName, const char* a_buildName, const char* a_layoutName);

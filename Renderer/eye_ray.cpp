@@ -7,7 +7,7 @@
 #include "../render_common.h"
 
 
-void EyeRayCaster::CastRaySingle(uint32_t tidX, uint32_t* out_color)
+void MultiRenderer::CastRaySingle(uint32_t tidX, uint32_t* out_color)
 {
   //const uint XY = m_pakedXY[tidX];
   //const uint x  = (XY & 0x0000FFFF);
@@ -23,7 +23,7 @@ void EyeRayCaster::CastRaySingle(uint32_t tidX, uint32_t* out_color)
 
 //bool g_debugPrint = false;
 
-void EyeRayCaster::kernel_InitEyeRay(uint32_t tidX, float4* rayPosAndNear, float4* rayDirAndFar)
+void MultiRenderer::kernel_InitEyeRay(uint32_t tidX, float4* rayPosAndNear, float4* rayDirAndFar)
 {
   const uint XY = m_packedXY[tidX];
   const uint x  = (XY & 0x0000FFFF);
@@ -46,7 +46,7 @@ void EyeRayCaster::kernel_InitEyeRay(uint32_t tidX, float4* rayPosAndNear, float
   *rayDirAndFar  = to_float4(rayDir, 1e9f);
 }
 
-void EyeRayCaster::kernel_RayTrace(uint32_t tidX, const float4* rayPosAndNear,
+void MultiRenderer::kernel_RayTrace(uint32_t tidX, const float4* rayPosAndNear,
                                    const float4* rayDirAndFar, uint32_t* out_color)
 {
   const float4 rayPos = *rayPosAndNear;
@@ -125,19 +125,19 @@ static inline uint SuperBlockIndex2DOpt(uint tidX, uint tidY, uint a_width)
   return (blockHX + blockHY*wBlocksH)*64 + localIndexH*16 + localIndex;
 }
 
-void EyeRayCaster::kernel_PackXY(uint tidX, uint tidY, uint* out_pakedXY)
+void MultiRenderer::kernel_PackXY(uint tidX, uint tidY, uint* out_pakedXY)
 {
   //const uint offset   = BlockIndex2D(tidX, tidY, m_width);
   const uint offset   = SuperBlockIndex2DOpt(tidX, tidY, m_width);
   out_pakedXY[offset] = ((tidY << 16) & 0xFFFF0000) | (tidX & 0x0000FFFF);
 }
 
-void EyeRayCaster::PackXY(uint tidX, uint tidY)
+void MultiRenderer::PackXY(uint tidX, uint tidY)
 {
   kernel_PackXY(tidX, tidY, m_packedXY.data());
 }
 
-void EyeRayCaster::PackXYBlock(uint tidX, uint tidY, uint a_passNum)
+void MultiRenderer::PackXYBlock(uint tidX, uint tidY, uint a_passNum)
 {
   //for(int y=0; y < 16; y++) {
   //  for(int x = 0; x < 16; x++) {
@@ -152,7 +152,7 @@ void EyeRayCaster::PackXYBlock(uint tidX, uint tidY, uint a_passNum)
       PackXY(x, y);
 }
 
-void EyeRayCaster::Clear(uint32_t a_width, uint32_t a_height, const char* a_what)
+void MultiRenderer::Clear(uint32_t a_width, uint32_t a_height, const char* a_what)
 {
   PackXYBlock(a_width, a_height, 1);
 }

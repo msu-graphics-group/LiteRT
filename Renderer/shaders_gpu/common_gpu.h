@@ -142,14 +142,6 @@ const uint TYPE_MESH_TRIANGLE = 0;
 const uint TYPE_SDF_PRIMITIVE = 1;
 const uint TYPE_SDF_GRID = 2;
 const uint TYPE_SDF_OCTREE = 3;
-struct RenderPreset
-{
-  bool  isAORadiusInMeters;
-  float aoRayLength; // in meters if isAORadiusInMeters is true else in percent of max box size
-  int   aoRaysNum;
-  int   numBounces;
-  bool  measureOverhead;
-};
 const uint LEAF_NORMAL = 0xFFFFFFFF;
 const uint LEAF_EMPTY = 0xFFFFFFFD;
 const uint ESCAPE_ROOT = 0xFFFFFFFE;
@@ -177,6 +169,14 @@ const uint END_MASK = 0xFF000000;
 const uint SIZE_MASK = 0x7F000000;
 const uint LEAF_BIT = 0x80000000;
 const uint EMPTY_NODE = 0x7fffffff;
+struct RenderPreset
+{
+  bool  isAORadiusInMeters;
+  float aoRayLength; // in meters if isAORadiusInMeters is true else in percent of max box size
+  int   aoRaysNum;
+  int   numBounces;
+  bool  measureOverhead;
+};
 const uint palette_size = 20;
 const uint m_palette[20] = {
     0xffe6194b, 0xff3cb44b, 0xffffe119, 0xff0082c8,
@@ -201,7 +201,7 @@ struct SDONeighbor
 };
 
 #ifndef SKIP_UBO_INCLUDE
-#include "include/EyeRayCaster_gpu_ubo.h"
+#include "include/MultiRenderer_gpu_ubo.h"
 #endif
 
 /////////////////////////////////////////////////////////////////////
@@ -266,6 +266,8 @@ vec2 RayBoxIntersection2(vec3 rayOrigin, vec3 rayDirInv, vec3 boxMin, vec3 boxMa
   return vec2(max(tmin, min(lo2, hi2)),min(tmax, max(lo2, hi2)));
 }
 
+uint EXTRACT_COUNT(uint a_leftOffset) { return (a_leftOffset & SIZE_MASK) >> 24; }
+
 vec3 SafeInverse(vec3 d) {
   const float ooeps = 1.0e-36f; // Avoid div by zero.
   vec3 res;
@@ -275,23 +277,21 @@ vec3 SafeInverse(vec3 d) {
   return res;
 }
 
-uint EXTRACT_COUNT(uint a_leftOffset) { return (a_leftOffset & SIZE_MASK) >> 24; }
-
-bool isLeafOrNotIntersect(uint flags) { return (flags & LEAF_BIT) !=0 || (flags & 0x1) == 0; }
-
-bool notLeafAndIntersect(uint flags) { return (flags != (LEAF_BIT | 0x1)); }
+vec3 matmul4x3(mat4 m, vec3 v) {
+  return (m*vec4(v, 1.0f)).xyz;
+}
 
 vec3 matmul3x3(mat4 m, vec3 v) { 
   return (m*vec4(v, 0.0f)).xyz;
 }
 
-vec3 matmul4x3(mat4 m, vec3 v) {
-  return (m*vec4(v, 1.0f)).xyz;
-}
-
 vec3 mymul4x3(mat4 m, vec3 v) {
   return (m*vec4(v, 1.0f)).xyz;
 }
+
+bool notLeafAndIntersect(uint flags) { return (flags != (LEAF_BIT | 0x1)); }
+
+bool isLeafOrNotIntersect(uint flags) { return (flags & LEAF_BIT) !=0 || (flags & 0x1) == 0; }
 
 bool isLeafAndIntersect(uint flags) { return (flags == (LEAF_BIT | 0x1 )); }
 
@@ -337,6 +337,6 @@ uint fakeOffset(uint x, uint y, uint pitch) { return y*pitch + x; }  // RTV patt
 #define KGEN_FLAG_DONT_SET_EXIT     4
 #define KGEN_FLAG_SET_EXIT_NEGATIVE 8
 #define KGEN_REDUCTION_LAST_STEP    16
-#define MAXFLOAT FLT_MAX
 #define CFLOAT_GUARDIAN 
+#define MAXFLOAT FLT_MAX
 

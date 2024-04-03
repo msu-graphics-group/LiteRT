@@ -1,5 +1,5 @@
-#ifndef EyeRayCaster_UBO_H
-#define EyeRayCaster_UBO_H
+#ifndef MultiRenderer_UBO_H
+#define MultiRenderer_UBO_H
 
 #ifndef GLSL
 #define LAYOUT_STD140
@@ -22,7 +22,7 @@ typedef LiteMath::uint4    uvec4;
 #define INV_TWOPI     0.15915494309189533577f
 #endif
 
-struct EyeRayCaster_GPU_UBO_Data
+struct MultiRenderer_GPU_UBO_Data
 {
   mat4 m_projInv; 
   mat4 m_worldViewInv; 

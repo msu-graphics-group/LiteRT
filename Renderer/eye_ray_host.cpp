@@ -16,31 +16,31 @@ using LiteMath::perspectiveMatrix;
 using LiteMath::lookAt;
 using LiteMath::inverse4x4;
 
-EyeRayCaster::EyeRayCaster() 
+MultiRenderer::MultiRenderer() 
 { 
   m_pAccelStruct = nullptr;
 }
 
-void EyeRayCaster::SetViewport(int a_xStart, int a_yStart, int a_width, int a_height)
+void MultiRenderer::SetViewport(int a_xStart, int a_yStart, int a_width, int a_height)
 {
   m_width  = a_width;
   m_height = a_height;
   m_packedXY.resize(m_width*m_height);
 }
 
-bool EyeRayCaster::LoadScene(const char* a_scenePath)
+bool MultiRenderer::LoadScene(const char* a_scenePath)
 {
   m_pAccelStruct->ClearGeom();
   return LoadSceneHydra(std::string(a_scenePath));
 }
 
-void EyeRayCaster::UpdateCamera(const LiteMath::float4x4& worldView, const LiteMath::float4x4& proj)
+void MultiRenderer::UpdateCamera(const LiteMath::float4x4& worldView, const LiteMath::float4x4& proj)
 {
   m_projInv      = inverse4x4(proj);
   m_worldViewInv = inverse4x4(worldView);
 }
 
-bool EyeRayCaster::LoadSceneHydra(const std::string& a_path)
+bool MultiRenderer::LoadSceneHydra(const std::string& a_path)
 {
   hydra_xml::HydraScene scene;
   if(scene.LoadState(a_path) < 0)
@@ -115,12 +115,12 @@ bool EyeRayCaster::LoadSceneHydra(const std::string& a_path)
 ////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////
 
-void EyeRayCaster::Render(uint32_t* a_outColor, uint32_t a_width, uint32_t a_height, const char* a_what, int a_passNum)
+void MultiRenderer::Render(uint32_t* a_outColor, uint32_t a_width, uint32_t a_height, const char* a_what, int a_passNum)
 {
   CastRaySingleBlock(a_width*a_height, a_outColor, a_passNum);
 }
 
-void EyeRayCaster::CastRaySingleBlock(uint32_t tidX, uint32_t * out_color, uint32_t a_numPasses)
+void MultiRenderer::CastRaySingleBlock(uint32_t tidX, uint32_t * out_color, uint32_t a_numPasses)
 {
   profiling::Timer timer;
   
@@ -133,15 +133,12 @@ void EyeRayCaster::CastRaySingleBlock(uint32_t tidX, uint32_t * out_color, uint3
   timeDataByName["CastRaySingleBlock"] = timer.getElapsedTime().asMilliseconds();
 }
 
-const char* EyeRayCaster::Name() const
+const char* MultiRenderer::Name() const
 {
-  std::stringstream strout;
-  strout << "EyeRayCaster(" << m_pAccelStruct->Name() << ")";
-  std::string m_tempName = strout.str();
-  return m_tempName.c_str();
+  return m_pAccelStruct->Name();
 }
 
-void EyeRayCaster::GetExecutionTime(const char* a_funcName, float a_out[4])
+void MultiRenderer::GetExecutionTime(const char* a_funcName, float a_out[4])
 {
   auto p = timeDataByName.find(a_funcName);
   if(p == timeDataByName.end())
@@ -151,17 +148,17 @@ void EyeRayCaster::GetExecutionTime(const char* a_funcName, float a_out[4])
 
 #if defined(USE_GPU)
 #include "eye_ray_gpu.h"
-std::shared_ptr<EyeRayCaster> CreateEyeRayCaster_GPU(vk_utils::VulkanContext a_ctx, size_t a_maxThreadsGenerated);
-std::shared_ptr<IRenderer> MakeEyeRayShooterRenderer(const char* a_name) 
+std::shared_ptr<MultiRenderer> CreateMultiRenderer_GPU(vk_utils::VulkanContext a_ctx, size_t a_maxThreadsGenerated);
+std::shared_ptr<MultiRenderer> CreateMultiRenderer(const char* a_name) 
 { 
   if (std::string(a_name) == "GPU")
-    return CreateEyeRayCaster_GPU(vk_utils::globalContextGet(true, 0u), 256); 
+    return CreateMultiRenderer_GPU(vk_utils::globalContextGet(true, 0u), 256); 
   else
-    return std::shared_ptr<IRenderer>(new EyeRayCaster());
+    return std::shared_ptr<MultiRenderer>(new MultiRenderer());
 }
 #else
-std::shared_ptr<IRenderer> MakeEyeRayShooterRenderer(const char* a_name) 
+std::shared_ptr<MultiRenderer> CreateMultiRenderer(const char* a_name) 
 { 
-  return std::shared_ptr<IRenderer>(new EyeRayCaster()); 
+  return std::shared_ptr<MultiRenderer>(new MultiRenderer()); 
 }
 #endif

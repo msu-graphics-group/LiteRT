@@ -5,7 +5,7 @@ start_dir=$PWD
 cd $1
 
 $2 $start_dir/Renderer/eye_ray.cpp $start_dir/BVH/BVH2Common.cpp \
--mainClass EyeRayCaster \
+-mainClass MultiRenderer \
 -composInterface ISceneObject \
 -composImplementation BVHRT \
 -stdlibfolder $PWD/TINYSTL \

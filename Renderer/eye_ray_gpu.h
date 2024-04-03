@@ -15,17 +15,17 @@
 
 #include "eye_ray.h"
 
-#include "include/EyeRayCaster_gpu_ubo.h"
-class EyeRayCaster_GPU : public EyeRayCaster
+#include "include/MultiRenderer_gpu_ubo.h"
+class MultiRenderer_GPU : public MultiRenderer
 {
 public:
 
-  EyeRayCaster_GPU() 
+  MultiRenderer_GPU() 
   {
     if(m_pAccelStruct == nullptr)
       m_pAccelStruct = std::make_shared<BVHRT>();
   }
-  const char* Name() const override { return "EyeRayCaster_GPU";}
+  const char* Name() const override { return "MultiRenderer_GPU";}
   virtual void InitVulkanObjects(VkDevice a_device, VkPhysicalDevice a_physicalDevice, size_t a_maxThreadsCount);
   
   virtual void SetVulkanContext(vk_utils::VulkanContext a_ctx) { m_ctx = a_ctx; }
@@ -45,7 +45,7 @@ public:
     InitAllGeneratedDescriptorSets_CastRaySingle();
   }
 
-  virtual ~EyeRayCaster_GPU();
+  virtual ~MultiRenderer_GPU();
 
   
   virtual void InitMemberBuffers();
@@ -265,7 +265,7 @@ protected:
   VkDescriptorPool m_dsPool = VK_NULL_HANDLE;
   VkDescriptorSet  m_allGeneratedDS[2];
 
-  EyeRayCaster_GPU_UBO_Data m_uboData;
+  MultiRenderer_GPU_UBO_Data m_uboData;
   
   constexpr static uint32_t MEMCPY_BLOCK_SIZE = 256;
   constexpr static uint32_t REDUCTION_BLOCK_SIZE = 256;

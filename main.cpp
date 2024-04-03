@@ -27,20 +27,17 @@ int main(int argc, const char** argv)
   const char* outImageFile = "z_out.bmp";
   int NUM_LAUNCHES = 1;
 
-  RenderPreset presets {};
-
   Image2D<uint32_t> image(WIDTH, HEIGHT);
   std::shared_ptr<IRenderer> pRender = nullptr;
 
   std::cout << "[main]: init renderer ..." << std::endl; 
   {
-    pRender = MakeEyeRayShooterRenderer("GPU");  
+    pRender = CreateMultiRenderer("GPU");  
     auto accelStructImpl = CreateSceneRT(accelStruct, buildFormat, layout);
     pRender->SetAccelStruct(accelStructImpl);
   }
 
   pRender->SetViewport(0,0,WIDTH,HEIGHT);
-  pRender->SetPresets(presets);
   
   g_buildTime = 0.0;
   bool loaded = false; 

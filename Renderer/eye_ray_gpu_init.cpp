@@ -6,18 +6,18 @@
 #include "vk_copy.h"
 #include "vk_context.h"
 #include "eye_ray_gpu.h"
-#include "include/EyeRayCaster_gpu_ubo.h"
+#include "include/MultiRenderer_gpu_ubo.h"
 
 
-std::shared_ptr<EyeRayCaster> CreateEyeRayCaster_GPU(vk_utils::VulkanContext a_ctx, size_t a_maxThreadsGenerated) 
+std::shared_ptr<MultiRenderer> CreateMultiRenderer_GPU(vk_utils::VulkanContext a_ctx, size_t a_maxThreadsGenerated) 
 { 
-  auto pObj = std::make_shared<EyeRayCaster_GPU>(); 
+  auto pObj = std::make_shared<MultiRenderer_GPU>(); 
   pObj->SetVulkanContext(a_ctx);
   pObj->InitVulkanObjects(a_ctx.device, a_ctx.physicalDevice, a_maxThreadsGenerated); 
   return pObj;
 }
 
-void EyeRayCaster_GPU::InitVulkanObjects(VkDevice a_device, VkPhysicalDevice a_physicalDevice, size_t a_maxThreadsCount) 
+void MultiRenderer_GPU::InitVulkanObjects(VkDevice a_device, VkPhysicalDevice a_physicalDevice, size_t a_maxThreadsCount) 
 {
   physicalDevice = a_physicalDevice;
   device         = a_device;
@@ -41,14 +41,14 @@ static uint32_t ComputeReductionAuxBufferElements(uint32_t whole_size, uint32_t 
   return sizeTotal;
 }
 
-VkBufferUsageFlags EyeRayCaster_GPU::GetAdditionalFlagsForUBO() const
+VkBufferUsageFlags MultiRenderer_GPU::GetAdditionalFlagsForUBO() const
 {
   return VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
 }
 
-uint32_t EyeRayCaster_GPU::GetDefaultMaxTextures() const { return 256; }
+uint32_t MultiRenderer_GPU::GetDefaultMaxTextures() const { return 256; }
 
-void EyeRayCaster_GPU::MakeComputePipelineAndLayout(const char* a_shaderPath, const char* a_mainName, const VkSpecializationInfo *a_specInfo, const VkDescriptorSetLayout a_dsLayout, VkPipelineLayout* pPipelineLayout, VkPipeline* pPipeline)
+void MultiRenderer_GPU::MakeComputePipelineAndLayout(const char* a_shaderPath, const char* a_mainName, const VkSpecializationInfo *a_specInfo, const VkDescriptorSetLayout a_dsLayout, VkPipelineLayout* pPipelineLayout, VkPipeline* pPipeline)
 {
   VkPipelineShaderStageCreateInfo shaderStageInfo = {};
   shaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -101,7 +101,7 @@ void EyeRayCaster_GPU::MakeComputePipelineAndLayout(const char* a_shaderPath, co
     vkDestroyShaderModule(device, shaderModule, VK_NULL_HANDLE);
 }
 
-void EyeRayCaster_GPU::MakeComputePipelineOnly(const char* a_shaderPath, const char* a_mainName, const VkSpecializationInfo *a_specInfo, const VkDescriptorSetLayout a_dsLayout, VkPipelineLayout pipelineLayout, VkPipeline* pPipeline)
+void MultiRenderer_GPU::MakeComputePipelineOnly(const char* a_shaderPath, const char* a_mainName, const VkSpecializationInfo *a_specInfo, const VkDescriptorSetLayout a_dsLayout, VkPipelineLayout pipelineLayout, VkPipeline* pPipeline)
 {
   VkPipelineShaderStageCreateInfo shaderStageInfo = {};
   shaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -133,7 +133,7 @@ void EyeRayCaster_GPU::MakeComputePipelineOnly(const char* a_shaderPath, const c
     vkDestroyShaderModule(device, shaderModule, VK_NULL_HANDLE);
 }
 
-EyeRayCaster_GPU::~EyeRayCaster_GPU()
+MultiRenderer_GPU::~MultiRenderer_GPU()
 {
   for(size_t i=0;i<m_allCreatedPipelines.size();i++)
     vkDestroyPipeline(device, m_allCreatedPipelines[i], nullptr);
@@ -173,13 +173,13 @@ EyeRayCaster_GPU::~EyeRayCaster_GPU()
   FreeAllAllocations(m_allMems);
 }
 
-void EyeRayCaster_GPU::InitHelpers()
+void MultiRenderer_GPU::InitHelpers()
 {
   vkGetPhysicalDeviceProperties(physicalDevice, &m_devProps);
 }
 
 
-void EyeRayCaster_GPU::InitKernel_PackXYMega(const char* a_filePath)
+void MultiRenderer_GPU::InitKernel_PackXYMega(const char* a_filePath)
 {
   std::string shaderPath = AlterShaderPath("shaders_gpu/PackXYMega.comp.spv"); 
   const VkSpecializationInfo* kspec = nullptr;
@@ -195,7 +195,7 @@ void EyeRayCaster_GPU::InitKernel_PackXYMega(const char* a_filePath)
   }
 }
 
-void EyeRayCaster_GPU::InitKernel_CastRaySingleMega(const char* a_filePath)
+void MultiRenderer_GPU::InitKernel_CastRaySingleMega(const char* a_filePath)
 {
   std::string shaderPath = AlterShaderPath("shaders_gpu/CastRaySingleMega.comp.spv"); 
   const VkSpecializationInfo* kspec = nullptr;
@@ -212,13 +212,13 @@ void EyeRayCaster_GPU::InitKernel_CastRaySingleMega(const char* a_filePath)
 }
 
 
-void EyeRayCaster_GPU::InitKernels(const char* a_filePath)
+void MultiRenderer_GPU::InitKernels(const char* a_filePath)
 {
   InitKernel_PackXYMega(a_filePath);
   InitKernel_CastRaySingleMega(a_filePath);
 }
 
-void EyeRayCaster_GPU::InitBuffers(size_t a_maxThreadsCount, bool a_tempBuffersOverlay)
+void MultiRenderer_GPU::InitBuffers(size_t a_maxThreadsCount, bool a_tempBuffersOverlay)
 {
   ReserveEmptyVectors();
   
@@ -274,7 +274,7 @@ void EyeRayCaster_GPU::InitBuffers(size_t a_maxThreadsCount, bool a_tempBuffersO
   }
 }
 
-void EyeRayCaster_GPU::ReserveEmptyVectors()
+void MultiRenderer_GPU::ReserveEmptyVectors()
 {
   if(m_pAccelStruct_m_ConjIndices != nullptr && m_pAccelStruct_m_ConjIndices->capacity() == 0)
     m_pAccelStruct_m_ConjIndices->reserve(4);
@@ -320,7 +320,7 @@ void EyeRayCaster_GPU::ReserveEmptyVectors()
     m_packedXY.reserve(4);
 }
 
-void EyeRayCaster_GPU::InitMemberBuffers()
+void MultiRenderer_GPU::InitMemberBuffers()
 {
   std::vector<VkBuffer> memberVectors;
   std::vector<VkImage>  memberTextures;
@@ -375,7 +375,7 @@ void EyeRayCaster_GPU::InitMemberBuffers()
 
 
 
-void EyeRayCaster_GPU::AssignBuffersToMemory(const std::vector<VkBuffer>& a_buffers, VkDeviceMemory a_mem)
+void MultiRenderer_GPU::AssignBuffersToMemory(const std::vector<VkBuffer>& a_buffers, VkDeviceMemory a_mem)
 {
   if(a_buffers.size() == 0 || a_mem == VK_NULL_HANDLE)
     return;
@@ -396,7 +396,7 @@ void EyeRayCaster_GPU::AssignBuffersToMemory(const std::vector<VkBuffer>& a_buff
   {
     if(memInfos[i].memoryTypeBits != memInfos[0].memoryTypeBits)
     {
-      std::cout << "[EyeRayCaster_GPU::AssignBuffersToMemory]: error, input buffers has different 'memReq.memoryTypeBits'" << std::endl;
+      std::cout << "[MultiRenderer_GPU::AssignBuffersToMemory]: error, input buffers has different 'memReq.memoryTypeBits'" << std::endl;
       return;
     }
   }
@@ -409,7 +409,7 @@ void EyeRayCaster_GPU::AssignBuffersToMemory(const std::vector<VkBuffer>& a_buff
   }
 }
 
-EyeRayCaster_GPU::MemLoc EyeRayCaster_GPU::AllocAndBind(const std::vector<VkBuffer>& a_buffers)
+MultiRenderer_GPU::MemLoc MultiRenderer_GPU::AllocAndBind(const std::vector<VkBuffer>& a_buffers)
 {
   MemLoc currLoc;
   if(a_buffers.size() > 0)
@@ -421,7 +421,7 @@ EyeRayCaster_GPU::MemLoc EyeRayCaster_GPU::AllocAndBind(const std::vector<VkBuff
   return currLoc;
 }
 
-EyeRayCaster_GPU::MemLoc EyeRayCaster_GPU::AllocAndBind(const std::vector<VkImage>& a_images)
+MultiRenderer_GPU::MemLoc MultiRenderer_GPU::AllocAndBind(const std::vector<VkImage>& a_images)
 {
   MemLoc currLoc;
   if(a_images.size() > 0)
@@ -434,7 +434,7 @@ EyeRayCaster_GPU::MemLoc EyeRayCaster_GPU::AllocAndBind(const std::vector<VkImag
     {
       if(reqs[i].memoryTypeBits != reqs[0].memoryTypeBits)
       {
-        std::cout << "EyeRayCaster_GPU::AllocAndBind(textures): memoryTypeBits warning, need to split mem allocation (override me)" << std::endl;
+        std::cout << "MultiRenderer_GPU::AllocAndBind(textures): memoryTypeBits warning, need to split mem allocation (override me)" << std::endl;
         break;
       }
     } 
@@ -459,7 +459,7 @@ EyeRayCaster_GPU::MemLoc EyeRayCaster_GPU::AllocAndBind(const std::vector<VkImag
   return currLoc;
 }
 
-void EyeRayCaster_GPU::FreeAllAllocations(std::vector<MemLoc>& a_memLoc)
+void MultiRenderer_GPU::FreeAllAllocations(std::vector<MemLoc>& a_memLoc)
 {
   // in general you may check 'mem.allocId' for unique to be sure you dont free mem twice
   // for default implementation this is not needed
@@ -468,7 +468,7 @@ void EyeRayCaster_GPU::FreeAllAllocations(std::vector<MemLoc>& a_memLoc)
   a_memLoc.resize(0);
 }     
 
-void EyeRayCaster_GPU::AllocMemoryForMemberBuffersAndImages(const std::vector<VkBuffer>& a_buffers, const std::vector<VkImage>& a_images)
+void MultiRenderer_GPU::AllocMemoryForMemberBuffersAndImages(const std::vector<VkBuffer>& a_buffers, const std::vector<VkImage>& a_images)
 {
   std::vector<VkMemoryRequirements> bufMemReqs(a_buffers.size()); // we must check that all buffers have same memoryTypeBits;
   for(size_t i = 0; i < a_buffers.size(); ++i)                    // if not, split to multiple allocations
@@ -514,7 +514,7 @@ void EyeRayCaster_GPU::AllocMemoryForMemberBuffersAndImages(const std::vector<Vk
 
 }
 
-VkPhysicalDeviceFeatures2 EyeRayCaster_GPU::ListRequiredDeviceFeatures(std::vector<const char*>& deviceExtensions)
+VkPhysicalDeviceFeatures2 MultiRenderer_GPU::ListRequiredDeviceFeatures(std::vector<const char*>& deviceExtensions)
 {
   static VkPhysicalDeviceFeatures2 features2 = {};
   features2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
@@ -526,5 +526,5 @@ VkPhysicalDeviceFeatures2 EyeRayCaster_GPU::ListRequiredDeviceFeatures(std::vect
   return features2;
 }
 
-EyeRayCaster_GPU::MegaKernelIsEnabled EyeRayCaster_GPU::m_megaKernelFlags;
+MultiRenderer_GPU::MegaKernelIsEnabled MultiRenderer_GPU::m_megaKernelFlags;
 

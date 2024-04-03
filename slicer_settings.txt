@@ -6,7 +6,7 @@
             "args"   : ["/home/sammael/LiteRT/Renderer/eye_ray.cpp",
                         "/home/sammael/LiteRT/BVH/BVH2Common.cpp",
                         "/home/sammael/LiteRT/sdfScene/gpuReady/sdf_scene.cpp",
-                        "-mainClass", "EyeRayCaster", 
+                        "-mainClass", "MultiRenderer", 
                         "-composInterface", "ISceneObject",
                         "-composImplementation","BVHRT", 
                         "-stdlibfolder", "${workspaceFolder}/TINYSTL",
