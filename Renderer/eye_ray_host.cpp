@@ -186,7 +186,8 @@ void MultiRenderer::SetPreset(const MultiRenderPreset& a_preset)
   if (m_pAccelStruct)
   {
     TracerPreset tp;
-    tp.need_normal = (a_preset.mode == MULTI_RENDER_MODE_LAMBERT) ? 1 : 0;
+    tp.need_normal = (a_preset.mode == MULTI_RENDER_MODE_LAMBERT | 
+                      a_preset.mode == MULTI_RENDER_MODE_NORMAL) ? 1 : 0;
     tp.sdf_octree_sampler = m_preset.sdf_octree_sampler;
 
     m_pAccelStruct->SetPreset(tp);

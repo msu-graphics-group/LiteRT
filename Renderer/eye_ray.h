@@ -23,6 +23,9 @@ static constexpr unsigned MULTI_RENDER_MODE_LINEAR_DEPTH = 3;
 static constexpr unsigned MULTI_RENDER_MODE_INVERSE_LINEAR_DEPTH = 4;
 static constexpr unsigned MULTI_RENDER_MODE_PRIMIVIVE = 5; //each primitive has distinct color from palette
 static constexpr unsigned MULTI_RENDER_MODE_TYPE = 6; //each type has distinct color from palette
+static constexpr unsigned MULTI_RENDER_MODE_GEOM = 7; //each geodId has distinct color from palette
+static constexpr unsigned MULTI_RENDER_MODE_NORMAL = 8; //visualize normals (abs for each coordinate)
+static constexpr unsigned MULTI_RENDER_MODE_BARYCENTRIC = 9; //visualize barycentric coordinates for triangle mesh
 
 struct MultiRenderPreset
 {

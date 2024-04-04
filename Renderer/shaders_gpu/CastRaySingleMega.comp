@@ -656,10 +656,31 @@ void kernel_RayTrace_out_color(uint tidX, in vec4 rayPosAndNear, in vec4 rayDirA
     case MULTI_RENDER_MODE_TYPE:
     {
     uint type = hit.geomId >> SH_TYPE;
-    out_color[y * ubo.m_width + x + out_colorOffset] = m_palette[type % palette_size];
+      out_color[y * ubo.m_width + x + out_colorOffset] = m_palette[type % palette_size];
     }
     break;
 
+    case MULTI_RENDER_MODE_GEOM:
+    {
+      uint geomId = hit.geomId & 0x0FFFFFFF;
+      out_color[y * ubo.m_width + x + out_colorOffset] = m_palette[geomId % palette_size];
+    }
+    break;
+
+    case MULTI_RENDER_MODE_NORMAL:
+    {
+      vec3 norm = vec3(hit.coords[2],hit.coords[3],sqrt(max(0.0f, 1-hit.coords[2]*hit.coords[2] - hit.coords[3]*hit.coords[3])));
+      uvec3 col = uvec3(255*abs(norm));
+      out_color[y * ubo.m_width + x + out_colorOffset] = 0xFF000000 | (col.z<<16) | (col.x<<8) | col.y; 
+    }
+    break;
+
+    case MULTI_RENDER_MODE_BARYCENTRIC:
+    {
+      uvec3 col = uvec3(255*vec3(hit.coords[0],hit.coords[1],1-hit.coords[0]-hit.coords[1]));
+      out_color[y * ubo.m_width + x + out_colorOffset] = 0xFF000000 | (col.z<<16) | (col.x<<8) | col.y; 
+    }
+    break;
     default:
     break;
   }

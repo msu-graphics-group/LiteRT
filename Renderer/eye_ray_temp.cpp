@@ -124,10 +124,31 @@ void MultiRenderer::kernel_RayTrace(uint32_t tidX, const float4* rayPosAndNear,
     case MULTI_RENDER_MODE_TYPE:
     {
     unsigned type = hit.geomId >> SH_TYPE;
-    out_color[y * m_width + x] = m_palette[type % palette_size];
+      out_color[y * m_width + x] = m_palette[type % palette_size];
     }
     break;
 
+    case MULTI_RENDER_MODE_GEOM:
+    {
+      unsigned geomId = hit.geomId & 0x0FFFFFFF;
+      out_color[y * m_width + x] = m_palette[geomId % palette_size];
+    }
+    break;
+
+    case MULTI_RENDER_MODE_NORMAL:
+    {
+      float3 norm(hit.coords[2], hit.coords[3], sqrt(max(0.0f, 1-hit.coords[2]*hit.coords[2] - hit.coords[3]*hit.coords[3])));
+      uint3 col = uint3(255*abs(norm));
+      out_color[y * m_width + x] = 0xFF000000 | (col.z<<16) | (col.x<<8) | col.y; 
+    }
+    break;
+
+    case MULTI_RENDER_MODE_BARYCENTRIC:
+    {
+      uint3 col = uint3(255*float3(hit.coords[0], hit.coords[1], 1-hit.coords[0]-hit.coords[1]));
+      out_color[y * m_width + x] = 0xFF000000 | (col.z<<16) | (col.x<<8) | col.y; 
+    }
+    break;
     default:
     break;
   }
