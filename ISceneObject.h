@@ -35,6 +35,15 @@ static constexpr unsigned TYPE_SDF_PRIMITIVE = 1;
 static constexpr unsigned TYPE_SDF_GRID      = 2;
 static constexpr unsigned TYPE_SDF_OCTREE    = 3;
 
+//enum SdfOctreeSampler
+static constexpr unsigned SDF_OCTREE_SAMPLER_3L_DEEP = 0; //go to the deepest level possible, resampling larger nodes
+static constexpr unsigned SDF_OCTREE_SAMPLER_3L_SHALLOW = 1; //go deeper while resampling is not needed, then sample
+
+struct TracerPreset
+{
+  unsigned need_normal;
+  unsigned sdf_octree_sampler;
+};
 /**
 \brief API to ray-scene intersection on CPU
 */
@@ -136,4 +145,8 @@ struct ISceneObject
   virtual uint32_t GetGeomNum() const  { return 0; };
   virtual uint32_t GetInstNum() const  { return 0; };
   virtual const LiteMath::float4* GetGeomBoxes() const { return nullptr; };
+
+  void SetPreset(const TracerPreset& a_preset){ m_preset = a_preset; }
+
+  TracerPreset m_preset;
 };

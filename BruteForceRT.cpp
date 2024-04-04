@@ -270,16 +270,24 @@ void BruteForceRT::IntersectAllTrianglesInLeaf(const float3 ray_pos, const float
     
       if (v >= -1e-6f && u >= -1e-6f && (u + v <= 1.0f+1e-6f) && t > tNear && t < pHit->t) // if (v > -1e-6f && u > -1e-6f && (u + v < 1.0f+1e-6f) && t > tMin && t < hit.t)
       {
-        float3 n = normalize(cross(edge1, edge2));
-
         pHit->t         = t;
         pHit->primId    = (triAddress-a_start)/3;
         pHit->instId    = instId;
         pHit->geomId    = geomId | (TYPE_MESH_TRIANGLE << SH_TYPE);  
         pHit->coords[0] = u;
         pHit->coords[1] = v;
-        pHit->coords[2] = n.x;
-        pHit->coords[3] = n.y;
+
+        if (m_preset.need_normal > 0)
+        {
+          float3 n = normalize(cross(edge1, edge2));
+          pHit->coords[2] = n.x;
+          pHit->coords[3] = n.y;
+        }
+        else
+        {
+          pHit->coords[2] = 0;
+          pHit->coords[3] = 0;          
+        }
       }
     }
 }

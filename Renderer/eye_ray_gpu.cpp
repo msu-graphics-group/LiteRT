@@ -36,7 +36,8 @@ void MultiRenderer_GPU::UpdatePlainMembers(std::shared_ptr<vk_utils::ICopyEngine
   auto pUnderlyingImpl = dynamic_cast<BVHRT*>(m_pAccelStruct.get());
   m_uboData.m_projInv = m_projInv;
   m_uboData.m_worldViewInv = m_worldViewInv;
-  m_uboData.m_presets = m_presets;
+  m_uboData.m_preset = m_preset;
+  m_uboData.m_pAccelStruct_m_preset = pUnderlyingImpl->m_preset;
   m_uboData.m_height = m_height;
   m_uboData.m_width = m_width;
   m_uboData.m_pAccelStruct_m_ConjIndices_size     = uint32_t( m_pAccelStruct_m_ConjIndices->size() );     assert( m_pAccelStruct_m_ConjIndices->size() < maxAllowedSize );
@@ -90,7 +91,8 @@ void MultiRenderer_GPU::ReadPlainMembers(std::shared_ptr<vk_utils::ICopyEngine> 
   auto pUnderlyingImpl = dynamic_cast<BVHRT*>(m_pAccelStruct.get());
   m_projInv = m_uboData.m_projInv;
   m_worldViewInv = m_uboData.m_worldViewInv;
-  m_presets = m_uboData.m_presets;
+  m_preset = m_uboData.m_preset;
+  pUnderlyingImpl->m_preset = m_uboData.m_pAccelStruct_m_preset;
   m_height = m_uboData.m_height;
   m_width = m_uboData.m_width;
   m_pAccelStruct_m_ConjIndices->resize(m_uboData.m_pAccelStruct_m_ConjIndices_size);

@@ -75,7 +75,7 @@ void MultiRenderer::kernel_RayTrace(uint32_t tidX, const float4* rayPosAndNear,
   float z_near = 0.1;
   float z_far = 10;
   out_color[y * m_width + x] = 0xFFFF00FF; //if pixel is purple at the end, then something gone wrong!
-  switch (m_presets.mode)
+  switch (m_preset.mode)
   {
     case MULTI_RENDER_MODE_MASK:
     out_color[y * m_width + x] = 0xFFFFFFFF;

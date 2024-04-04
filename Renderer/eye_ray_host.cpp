@@ -179,13 +179,27 @@ void MultiRenderer::SetScene(SdfOctreeView scene)
   GetAccelStruct()->CommitScene();
 }
 
+void MultiRenderer::SetPreset(const MultiRenderPreset& a_preset)
+{
+  m_preset = a_preset;
+
+  if (m_pAccelStruct)
+  {
+    TracerPreset tp;
+    tp.need_normal = (a_preset.mode == MULTI_RENDER_MODE_LAMBERT) ? 1 : 0;
+    tp.sdf_octree_sampler = m_preset.sdf_octree_sampler;
+
+    m_pAccelStruct->SetPreset(tp);
+  }
+}
+
 void MultiRenderer::Render(uint32_t* imageData, uint32_t a_width, uint32_t a_height, 
                            const LiteMath::float4x4& a_worldView, const LiteMath::float4x4& a_proj,
                            MultiRenderPreset preset)
 {
   SetViewport(0,0, a_width, a_height);
   UpdateCamera(a_worldView, a_proj);
-  SetPresets(preset);
+  SetPreset(preset);
   CommitDeviceData();
   Clear(a_width, a_height, "color");
   Render(imageData, a_width, a_height, "color"); 

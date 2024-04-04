@@ -10,20 +10,20 @@ layout(binding = 3, set = 0) buffer data3 { uvec2 m_pAccelStruct_m_geomOffsets[]
 layout(binding = 4, set = 0) buffer data4 { SdfOctreeNode m_pAccelStruct_m_SdfOctreeNodes[]; }; //
 layout(binding = 5, set = 0) buffer data5 { uint m_pAccelStruct_m_geomIdByInstId[]; }; //
 layout(binding = 6, set = 0) buffer data6 { vec4 m_pAccelStruct_m_vertPos[]; }; //
-layout(binding = 7, set = 0) buffer data7 { uint m_pAccelStruct_m_primIndices[]; }; //
-layout(binding = 8, set = 0) buffer data8 { uint m_pAccelStruct_m_bvhOffsets[]; }; //
-layout(binding = 9, set = 0) buffer data9 { NeuralProperties m_pAccelStruct_m_SdfNeuralProperties[]; }; //
-layout(binding = 10, set = 0) buffer data10 { float m_pAccelStruct_m_SdfGridData[]; }; //
+layout(binding = 7, set = 0) buffer data7 { uint m_pAccelStruct_m_indices[]; }; //
+layout(binding = 8, set = 0) buffer data8 { uint m_pAccelStruct_m_primIndices[]; }; //
+layout(binding = 9, set = 0) buffer data9 { uint m_pAccelStruct_m_bvhOffsets[]; }; //
+layout(binding = 10, set = 0) buffer data10 { NeuralProperties m_pAccelStruct_m_SdfNeuralProperties[]; }; //
 layout(binding = 11, set = 0) buffer data11 { uint m_pAccelStruct_m_SdfGridOffsets[]; }; //
-layout(binding = 12, set = 0) buffer data12 { mat4 m_pAccelStruct_m_instMatricesInv[]; }; //
-layout(binding = 13, set = 0) buffer data13 { float m_pAccelStruct_m_SdfParameters[]; }; //
-layout(binding = 14, set = 0) buffer data14 { BVHNodePair m_pAccelStruct_m_allNodePairs[]; }; //
-layout(binding = 15, set = 0) buffer data15 { SdfObject m_pAccelStruct_m_SdfObjects[]; }; //
-layout(binding = 16, set = 0) buffer data16 { uvec3 m_pAccelStruct_m_SdfGridSizes[]; }; //
-layout(binding = 17, set = 0) buffer data17 { SdfConjunction m_pAccelStruct_m_SdfConjunctions[]; }; //
-layout(binding = 18, set = 0) buffer data18 { uint m_pAccelStruct_m_geomTypeByGeomId[]; }; //
-layout(binding = 19, set = 0) buffer data19 { uint m_pAccelStruct_m_SdfOctreeRoots[]; }; //
-layout(binding = 20, set = 0) buffer data20 { uint m_pAccelStruct_m_indices[]; }; //
+layout(binding = 12, set = 0) buffer data12 { float m_pAccelStruct_m_SdfGridData[]; }; //
+layout(binding = 13, set = 0) buffer data13 { mat4 m_pAccelStruct_m_instMatricesInv[]; }; //
+layout(binding = 14, set = 0) buffer data14 { float m_pAccelStruct_m_SdfParameters[]; }; //
+layout(binding = 15, set = 0) buffer data15 { BVHNodePair m_pAccelStruct_m_allNodePairs[]; }; //
+layout(binding = 16, set = 0) buffer data16 { SdfObject m_pAccelStruct_m_SdfObjects[]; }; //
+layout(binding = 17, set = 0) buffer data17 { uvec3 m_pAccelStruct_m_SdfGridSizes[]; }; //
+layout(binding = 18, set = 0) buffer data18 { SdfConjunction m_pAccelStruct_m_SdfConjunctions[]; }; //
+layout(binding = 19, set = 0) buffer data19 { uint m_pAccelStruct_m_geomTypeByGeomId[]; }; //
+layout(binding = 20, set = 0) buffer data20 { uint m_pAccelStruct_m_SdfOctreeRoots[]; }; //
 layout(binding = 21, set = 0) buffer dataUBO { MultiRenderer_GPU_UBO_Data ubo; };
 
 float m_pAccelStruct_eval_dist_prim(uint prim_id, vec3 p) {
@@ -93,6 +93,43 @@ float m_pAccelStruct_eval_dist_prim(uint prim_id, vec3 p) {
 
 bool m_pAccelStruct_is_leaf(uint offset) {
   return (offset == 0) || ((offset & INVALID_IDX) > 0);
+}
+
+float m_pAccelStruct_eval_distance_sdf_grid(uint grid_id, vec3 pos) {
+  uint off = m_pAccelStruct_m_SdfGridOffsets[grid_id];
+  uvec3 size = m_pAccelStruct_m_SdfGridSizes[grid_id];
+
+  //bbox for grid is a unit cube
+  vec3 grid_size_f = vec3(size);
+  vec3 vox_f = grid_size_f*((pos-vec3(-1,-1,-1))/vec3(2,2,2)) - vec3(0.5,0.5,0.5);
+  vox_f = min(max(vox_f, vec3(0.0f)), grid_size_f - vec3(1e-5f));
+  uvec3 vox_u = uvec3(vox_f);
+  vec3 dp = vox_f - vec3(vox_u);
+
+  //trilinear sampling
+  float res = 0.0;
+  if (vox_u.x < size.x-1 && vox_u.y < size.y-1 && vox_u.z < size.z-1)
+  {
+    for (int i=0;i<2;i++)
+    {
+      for (int j=0;j<2;j++)
+      {
+        for (int k=0;k<2;k++)
+        {
+          float qx = (1 - dp.x + float(i)*(2*dp.x-1));
+          float qy = (1 - dp.y + float(j)*(2*dp.y-1));
+          float qz = (1 - dp.z + float(k)*(2*dp.z-1));   
+          res += qx*qy*qz*m_pAccelStruct_m_SdfGridData[off + (vox_u.z + uint(k))*size.x*size.y + (vox_u.y + uint(j))*size.x + (vox_u.x + uint(i))];   
+        }      
+      }
+    }
+  }
+  else
+  {
+    res += m_pAccelStruct_m_SdfGridData[off + (vox_u.z)*size.x*size.y + (vox_u.y)*size.x + (vox_u.x)]; 
+  }
+  
+  return res;
 }
 
 float m_pAccelStruct_eval_dist_sdf_conjunction(uint conj_id, vec3 p) {
@@ -223,43 +260,6 @@ float m_pAccelStruct_eval_distance_sdf_octree(uint octree_id, vec3 position, uin
   //sample neighborhood end
 }
 
-float m_pAccelStruct_eval_distance_sdf_grid(uint grid_id, vec3 pos) {
-  uint off = m_pAccelStruct_m_SdfGridOffsets[grid_id];
-  uvec3 size = m_pAccelStruct_m_SdfGridSizes[grid_id];
-
-  //bbox for grid is a unit cube
-  vec3 grid_size_f = vec3(size);
-  vec3 vox_f = grid_size_f*((pos-vec3(-1,-1,-1))/vec3(2,2,2)) - vec3(0.5,0.5,0.5);
-  vox_f = min(max(vox_f, vec3(0.0f)), grid_size_f - vec3(1e-5f));
-  uvec3 vox_u = uvec3(vox_f);
-  vec3 dp = vox_f - vec3(vox_u);
-
-  //trilinear sampling
-  float res = 0.0;
-  if (vox_u.x < size.x-1 && vox_u.y < size.y-1 && vox_u.z < size.z-1)
-  {
-    for (int i=0;i<2;i++)
-    {
-      for (int j=0;j<2;j++)
-      {
-        for (int k=0;k<2;k++)
-        {
-          float qx = (1 - dp.x + float(i)*(2*dp.x-1));
-          float qy = (1 - dp.y + float(j)*(2*dp.y-1));
-          float qz = (1 - dp.z + float(k)*(2*dp.z-1));   
-          res += qx*qy*qz*m_pAccelStruct_m_SdfGridData[off + (vox_u.z + uint(k))*size.x*size.y + (vox_u.y + uint(j))*size.x + (vox_u.x + uint(i))];   
-        }      
-      }
-    }
-  }
-  else
-  {
-    res += m_pAccelStruct_m_SdfGridData[off + (vox_u.z)*size.x*size.y + (vox_u.y)*size.x + (vox_u.x)]; 
-  }
-  
-  return res;
-}
-
 vec2 m_pAccelStruct_box_intersects(in vec3 min_pos, in vec3 max_pos, in vec3 origin, in vec3 dir) {
   vec3 safe_dir = sign(dir) * max(vec3(1e-9f), abs(dir));
   vec3 tMin = (min_pos - origin) / safe_dir;
@@ -315,7 +315,7 @@ SdfHit m_pAccelStruct_sdf_sphere_tracing(uint type, uint sdf_id, in vec3 min_pos
     return hit;
 
   vec3 p0 = pos + t * dir;
-  vec3 norm = vec3(1,0,0);
+  vec3 norm = vec3(0,0,1);
   if (need_norm)
   {
     const float h = 0.001;
@@ -364,16 +364,24 @@ void m_pAccelStruct_IntersectAllTrianglesInLeaf(const vec3 ray_pos, const vec3 r
 
     if (v >= -1e-6f && u >= -1e-6f && (u + v <= 1.0f + 1e-6f) && t > tNear && t < pHit.t) 
     {
-      vec3 n = normalize(cross(edge1, edge2));
-
       pHit.t = t;
       pHit.primId = triId;
       pHit.instId = instId;
       pHit.geomId = geomId | (TYPE_MESH_TRIANGLE << SH_TYPE);
       pHit.coords[0] = u;
       pHit.coords[1] = v;
-      pHit.coords[2] = n.x;
-      pHit.coords[3] = n.y;
+
+      if (ubo.m_pAccelStruct_m_preset.need_normal > 0)
+      {
+        vec3 n = normalize(cross(edge1, edge2));
+        pHit.coords[2] = n.x;
+        pHit.coords[3] = n.y;
+      }
+      else
+      {
+        pHit.coords[2] = 0;
+        pHit.coords[3] = 0;
+      }
     }
   }
 }
@@ -412,7 +420,7 @@ void m_pAccelStruct_IntersectAllSdfsInLeaf(const vec3 ray_pos, const vec3 ray_di
 
   float l = length(ray_dir);
   vec3 dir = ray_dir/l;
-  SdfHit hit = m_pAccelStruct_sdf_sphere_tracing(type, sdfId, min_pos, max_pos, ray_pos, dir, true);
+  SdfHit hit = m_pAccelStruct_sdf_sphere_tracing(type, sdfId, min_pos, max_pos, ray_pos, dir, ubo.m_pAccelStruct_m_preset.need_normal > 0);
   if (hit.hit_pos.w > 0)
   {
     float t = length(hit.hit_pos.xyz-ray_pos)/l;

@@ -162,7 +162,7 @@ void BVHRT::IntersectAllSdfsInLeaf(const float3 ray_pos, const float3 ray_dir,
 
   float l = length(ray_dir);
   float3 dir = ray_dir/l;
-  SdfHit hit = sdf_sphere_tracing(type, sdfId, min_pos, max_pos, ray_pos, dir, true);
+  SdfHit hit = sdf_sphere_tracing(type, sdfId, min_pos, max_pos, ray_pos, dir, m_preset.need_normal > 0);
   if (hit.hit_pos.w > 0)
   {
     float t = length(to_float3(hit.hit_pos)-ray_pos)/l;
@@ -206,7 +206,7 @@ SdfHit BVHRT::sdf_sphere_tracing(unsigned type, unsigned sdf_id, const float3 &m
     return hit;
 
   float3 p0 = pos + t * dir;
-  float3 norm = float3(1,0,0);
+  float3 norm = float3(0,0,1);
   if (need_norm)
   {
     const float h = 0.001;
@@ -454,16 +454,24 @@ void BVHRT::IntersectAllTrianglesInLeaf(const float3 ray_pos, const float3 ray_d
 
     if (v >= -1e-6f && u >= -1e-6f && (u + v <= 1.0f + 1e-6f) && t > tNear && t < pHit->t) 
     {
-      float3 n = normalize(cross(edge1, edge2));
-
       pHit->t = t;
       pHit->primId = triId;
       pHit->instId = instId;
       pHit->geomId = geomId | (TYPE_MESH_TRIANGLE << SH_TYPE);
       pHit->coords[0] = u;
       pHit->coords[1] = v;
-      pHit->coords[2] = n.x;
-      pHit->coords[3] = n.y;
+
+      if (m_preset.need_normal > 0)
+      {
+        float3 n = normalize(cross(edge1, edge2));
+        pHit->coords[2] = n.x;
+        pHit->coords[3] = n.y;
+      }
+      else
+      {
+        pHit->coords[2] = 0;
+        pHit->coords[3] = 0;
+      }
     }
   }
 }

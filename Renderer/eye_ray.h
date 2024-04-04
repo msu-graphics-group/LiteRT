@@ -24,14 +24,10 @@ static constexpr unsigned MULTI_RENDER_MODE_INVERSE_LINEAR_DEPTH = 4;
 static constexpr unsigned MULTI_RENDER_MODE_PRIMIVIVE = 5; //each primitive has distinct color from palette
 static constexpr unsigned MULTI_RENDER_MODE_TYPE = 6; //each type has distinct color from palette
 
-//enum SdfOctreeSampler
-static constexpr unsigned SDF_OCTREE_SAMPLER_3L_DEEP = 0; //go to the deepest level possible, resampling larger nodes
-static constexpr unsigned SDF_OCTREE_SAMPLER_3L_SHALLOW = 1; //go deeper while resampling is not needed, then sample
-
 struct MultiRenderPreset
 {
-  unsigned mode;
-  unsigned sdf_octree_sampler;
+  unsigned mode; //enum MultiRenderMode
+  unsigned sdf_octree_sampler; //enum SdfOctreeSampler
   unsigned spp; //samples per pixel, should be a square (1, 4, 9, 16 etc.)
 };
 
@@ -59,6 +55,8 @@ public:
               const LiteMath::float4x4& a_worldView, const LiteMath::float4x4& a_proj,
               MultiRenderPreset preset = getDefaultPreset());
 
+  void SetPreset(const MultiRenderPreset& a_preset);
+
   //functions implementing IRenderer interface
   MultiRenderer(); 
   const char* Name() const override;
@@ -85,7 +83,6 @@ public:
 
   void SetAccelStruct(std::shared_ptr<ISceneObject> a_customAccelStruct) override { m_pAccelStruct = a_customAccelStruct;}
   std::shared_ptr<ISceneObject> GetAccelStruct() override { return m_pAccelStruct; }
-  void SetPresets(const MultiRenderPreset& a_presets){ m_presets = a_presets;}
 
   void GetExecutionTime(const char* a_funcName, float a_out[4]) override;
 
@@ -109,7 +106,7 @@ protected:
 
   uint32_t m_width;
   uint32_t m_height;
-  MultiRenderPreset m_presets;
+  MultiRenderPreset m_preset;
 
   LiteMath::float4x4 m_projInv;
   LiteMath::float4x4 m_worldViewInv;
