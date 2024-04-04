@@ -26,6 +26,7 @@ struct MultiRenderer_GPU_UBO_Data
 {
   mat4 m_projInv; 
   mat4 m_worldViewInv; 
+  RenderPreset m_presets; 
   uint m_height; 
   uint m_width; 
   uint m_pAccelStruct_capacity; 

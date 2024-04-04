@@ -275,7 +275,7 @@ void BruteForceRT::IntersectAllTrianglesInLeaf(const float3 ray_pos, const float
         pHit->t         = t;
         pHit->primId    = (triAddress-a_start)/3;
         pHit->instId    = instId;
-        pHit->geomId    = geomId;  
+        pHit->geomId    = geomId | (TYPE_MESH_TRIANGLE << SH_TYPE);  
         pHit->coords[0] = u;
         pHit->coords[1] = v;
         pHit->coords[2] = n.x;

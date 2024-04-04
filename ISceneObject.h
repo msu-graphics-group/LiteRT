@@ -28,6 +28,8 @@ struct CRT_Hit
                       // coords[2] and coords[3] stores normal.xy
 };
 
+static constexpr unsigned SH_TYPE = 28; //4 bits for type
+
 static constexpr unsigned TYPE_MESH_TRIANGLE = 0;
 static constexpr unsigned TYPE_SDF_PRIMITIVE = 1;
 static constexpr unsigned TYPE_SDF_GRID      = 2;

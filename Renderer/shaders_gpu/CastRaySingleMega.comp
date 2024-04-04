@@ -9,9 +9,9 @@ layout(binding = 2, set = 0) buffer data2 { BVHNode m_pAccelStruct_m_nodesTLAS[]
 layout(binding = 3, set = 0) buffer data3 { uvec2 m_pAccelStruct_m_geomOffsets[]; }; //
 layout(binding = 4, set = 0) buffer data4 { SdfOctreeNode m_pAccelStruct_m_SdfOctreeNodes[]; }; //
 layout(binding = 5, set = 0) buffer data5 { uint m_pAccelStruct_m_geomIdByInstId[]; }; //
-layout(binding = 6, set = 0) buffer data6 { SdfConjunction m_pAccelStruct_m_SdfConjunctions[]; }; //
-layout(binding = 7, set = 0) buffer data7 { float m_pAccelStruct_m_SdfGridData[]; }; //
-layout(binding = 8, set = 0) buffer data8 { uint m_pAccelStruct_m_SdfGridOffsets[]; }; //
+layout(binding = 6, set = 0) buffer data6 { float m_pAccelStruct_m_SdfGridData[]; }; //
+layout(binding = 7, set = 0) buffer data7 { uint m_pAccelStruct_m_SdfGridOffsets[]; }; //
+layout(binding = 8, set = 0) buffer data8 { SdfConjunction m_pAccelStruct_m_SdfConjunctions[]; }; //
 layout(binding = 9, set = 0) buffer data9 { uint m_pAccelStruct_m_primIndices[]; }; //
 layout(binding = 10, set = 0) buffer data10 { uint m_pAccelStruct_m_bvhOffsets[]; }; //
 layout(binding = 11, set = 0) buffer data11 { uint m_pAccelStruct_m_indices[]; }; //
@@ -26,10 +26,6 @@ layout(binding = 19, set = 0) buffer data19 { BVHNodePair m_pAccelStruct_m_allNo
 layout(binding = 20, set = 0) buffer data20 { SdfObject m_pAccelStruct_m_SdfObjects[]; }; //
 layout(binding = 21, set = 0) buffer data21 { uvec3 m_pAccelStruct_m_SdfGridSizes[]; }; //
 layout(binding = 22, set = 0) buffer dataUBO { MultiRenderer_GPU_UBO_Data ubo; };
-
-bool m_pAccelStruct_is_leaf(uint offset) {
-  return (offset == 0) || ((offset & INVALID_IDX) > 0);
-}
 
 float m_pAccelStruct_eval_dist_prim(uint prim_id, vec3 p) {
   SdfObject prim = m_pAccelStruct_m_SdfObjects[prim_id];
@@ -94,6 +90,10 @@ float m_pAccelStruct_eval_dist_prim(uint prim_id, vec3 p) {
     break;
   }
   return -1000;
+}
+
+bool m_pAccelStruct_is_leaf(uint offset) {
+  return (offset == 0) || ((offset & INVALID_IDX) > 0);
 }
 
 float m_pAccelStruct_eval_distance_sdf_octree(uint octree_id, vec3 position, uint max_level) {
@@ -212,6 +212,18 @@ float m_pAccelStruct_eval_distance_sdf_octree(uint octree_id, vec3 position, uin
   //sample neighborhood end
 }
 
+float m_pAccelStruct_eval_dist_sdf_conjunction(uint conj_id, vec3 p) {
+  SdfConjunction conj = m_pAccelStruct_m_SdfConjunctions[conj_id];
+  float conj_d = -1e6;
+  for (uint pid = conj.offset; pid < conj.offset + conj.size; pid++)
+  {
+    float prim_d = m_pAccelStruct_m_SdfObjects[pid].distance_mult * m_pAccelStruct_eval_dist_prim(pid, p) +
+                   m_pAccelStruct_m_SdfObjects[pid].distance_add;
+    conj_d = max(conj_d, m_pAccelStruct_m_SdfObjects[pid].complement == 1 ? -prim_d : prim_d);
+  }
+  return conj_d;
+}
+
 float m_pAccelStruct_eval_distance_sdf_grid(uint grid_id, vec3 pos) {
   uint off = m_pAccelStruct_m_SdfGridOffsets[grid_id];
   uvec3 size = m_pAccelStruct_m_SdfGridSizes[grid_id];
@@ -247,18 +259,6 @@ float m_pAccelStruct_eval_distance_sdf_grid(uint grid_id, vec3 pos) {
   }
   
   return res;
-}
-
-float m_pAccelStruct_eval_dist_sdf_conjunction(uint conj_id, vec3 p) {
-  SdfConjunction conj = m_pAccelStruct_m_SdfConjunctions[conj_id];
-  float conj_d = -1e6;
-  for (uint pid = conj.offset; pid < conj.offset + conj.size; pid++)
-  {
-    float prim_d = m_pAccelStruct_m_SdfObjects[pid].distance_mult * m_pAccelStruct_eval_dist_prim(pid, p) +
-                   m_pAccelStruct_m_SdfObjects[pid].distance_add;
-    conj_d = max(conj_d, m_pAccelStruct_m_SdfObjects[pid].complement == 1 ? -prim_d : prim_d);
-  }
-  return conj_d;
 }
 
 vec2 m_pAccelStruct_box_intersects(in vec3 min_pos, in vec3 max_pos, in vec3 origin, in vec3 dir) {
@@ -382,7 +382,7 @@ void m_pAccelStruct_IntersectAllSdfsInLeaf(const vec3 ray_pos, const vec3 ray_di
       pHit.t         = t;
       pHit.primId    = primId;
       pHit.instId    = instId;
-      pHit.geomId    = geomId;  
+      pHit.geomId    = geomId | (type << SH_TYPE);  
       pHit.coords[0] = 0;
       pHit.coords[1] = 0;
       pHit.coords[2] = hit.hit_norm.x;
@@ -422,7 +422,7 @@ void m_pAccelStruct_IntersectAllTrianglesInLeaf(const vec3 ray_pos, const vec3 r
       pHit.t = t;
       pHit.primId = triId;
       pHit.instId = instId;
-      pHit.geomId = geomId;
+      pHit.geomId = geomId | (TYPE_MESH_TRIANGLE << SH_TYPE);
       pHit.coords[0] = u;
       pHit.coords[1] = v;
       pHit.coords[2] = n.x;
@@ -585,7 +585,10 @@ void kernel_RayTrace_out_color(uint tidX, in vec4 rayPosAndNear, in vec4 rayDirA
   const uint y  = (XY & 0xFFFF0000) >> 16;
 
   if (hit.primId == 0xFFFFFFFF) //no hit
+  {
     out_color[y * ubo.m_width + x + out_colorOffset] = 0;
+    return;
+  }
   else
   {
     vec3 norm = vec3(hit.coords[2],hit.coords[3],sqrt(max(0.0f, 1-hit.coords[2]*hit.coords[2] - hit.coords[3]*hit.coords[3])));
@@ -594,6 +597,66 @@ void kernel_RayTrace_out_color(uint tidX, in vec4 rayPosAndNear, in vec4 rayDirA
     out_color[y * ubo.m_width + x + out_colorOffset] = 0xFF000000 | (col<<16) | (col<<8) | col;
     //out_color[y * m_width + x] = m_palette[(hit.primId) % palette_size];
   } 
+
+
+  uint type = hit.geomId >> SH_TYPE;
+  float z = hit.t;
+  float z_near = 0.1;
+  float z_far = 10;
+  out_color[y * ubo.m_width + x + out_colorOffset] = 0xFFFF00FF; //if pixel is purple at the end, then something gone wrong!
+  switch (type)
+  {
+  case TYPE_MESH_TRIANGLE:
+  {
+    if (ubo.m_presets.mode_mesh == RENDER_MODE_MESH_MASK) 
+      out_color[y * ubo.m_width + x + out_colorOffset] = 0xFFFFFFFF;
+    else if (ubo.m_presets.mode_mesh == RENDER_MODE_MESH_TRIANGLES)
+      out_color[y * ubo.m_width + x + out_colorOffset] = m_palette[(hit.primId) % palette_size];
+    else if (ubo.m_presets.mode_mesh == RENDER_MODE_MESH_LAMBERT)
+    {
+      vec3 norm = vec3(hit.coords[2],hit.coords[3],sqrt(max(0.0f, 1-hit.coords[2]*hit.coords[2] - hit.coords[3]*hit.coords[3])));
+      float q = max(0.1f, dot(norm, normalize(vec3(1,1,1))));
+      uint col = uint32_t(255*q);
+      out_color[y * ubo.m_width + x + out_colorOffset] = 0xFF000000 | (col<<16) | (col<<8) | col;      
+    }
+  }
+    break;
+  case TYPE_SDF_PRIMITIVE:
+  case TYPE_SDF_GRID:
+  case TYPE_SDF_OCTREE:
+  {
+    if (ubo.m_presets.mode_sdf == RENDER_MODE_SDF_MASK) 
+      out_color[y * ubo.m_width + x + out_colorOffset] = 0xFFFFFFFF;
+    else if (ubo.m_presets.mode_sdf == RENDER_MODE_SDF_DEPTH) 
+    {
+      float d = (1 / z - 1 / z_near) / (1 / z_far - 1 / z_near);
+      uint col = uint32_t(255*d);
+      out_color[y * ubo.m_width + x + out_colorOffset] = 0xFF000000 | (col<<16) | (col<<8) | col;   
+    }
+    else if (ubo.m_presets.mode_sdf == RENDER_MODE_SDF_LINEAR_DEPTH) 
+    {
+      float d = ((z - z_near) / (z_far - z_near));
+      uint col = uint32_t(255*d);
+      out_color[y * ubo.m_width + x + out_colorOffset] = 0xFF000000 | (col<<16) | (col<<8) | col;   
+    }
+    else if (ubo.m_presets.mode_sdf == RENDER_MODE_SDF_INVERSE_LINEAR_DEPTH) 
+    {
+      float d = 1 - ((z - z_near) / (z_far - z_near));
+      uint col = uint32_t(255*d);
+      out_color[y * ubo.m_width + x + out_colorOffset] = 0xFF000000 | (col<<16) | (col<<8) | col;   
+    }
+    else if (ubo.m_presets.mode_sdf == RENDER_MODE_SDF_LAMBERT)
+    {
+      vec3 norm = vec3(hit.coords[2],hit.coords[3],sqrt(max(0.0f, 1-hit.coords[2]*hit.coords[2] - hit.coords[3]*hit.coords[3])));
+      float q = max(0.1f, dot(norm, normalize(vec3(1,1,1))));
+      uint col = uint32_t(255*q);
+      out_color[y * ubo.m_width + x + out_colorOffset] = 0xFF000000 | (col<<16) | (col<<8) | col;          
+    }
+  }
+    break;
+  default:
+    break;
+  }
 
 }
 

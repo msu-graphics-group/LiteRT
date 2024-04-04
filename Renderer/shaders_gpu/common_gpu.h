@@ -138,6 +138,7 @@ struct CRT_Hit
   float    coords[4]; ///< custom intersection data; for triangles coords[0] and coords[1] stores baricentric coords (u,v)
                       // coords[2] and coords[3] stores normal.xy
 };
+const uint SH_TYPE = 28;
 const uint TYPE_MESH_TRIANGLE = 0;
 const uint TYPE_SDF_PRIMITIVE = 1;
 const uint TYPE_SDF_GRID = 2;
@@ -261,17 +262,6 @@ mat3 make_float3x3(vec3 a, vec3 b, vec3 c) { // different way than mat3(a,b,c)
 
 uint EXTRACT_COUNT(uint a_leftOffset) { return (a_leftOffset & SIZE_MASK) >> 24; }
 
-vec3 SafeInverse(vec3 d) {
-  const float ooeps = 1.0e-36f; // Avoid div by zero.
-  vec3 res;
-  res.x = 1.0f / (abs(d.x) > ooeps ? d.x : copysign(ooeps, d.x));
-  res.y = 1.0f / (abs(d.y) > ooeps ? d.y : copysign(ooeps, d.y));
-  res.z = 1.0f / (abs(d.z) > ooeps ? d.z : copysign(ooeps, d.z));
-  return res;
-}
-
-uint EXTRACT_START(uint a_leftOffset) { return  a_leftOffset & START_MASK; }
-
 vec2 RayBoxIntersection2(vec3 rayOrigin, vec3 rayDirInv, vec3 boxMin, vec3 boxMax) {
   const float lo  = rayDirInv.x * (boxMin.x - rayOrigin.x);
   const float hi  = rayDirInv.x * (boxMax.x - rayOrigin.x);
@@ -286,11 +276,22 @@ vec2 RayBoxIntersection2(vec3 rayOrigin, vec3 rayDirInv, vec3 boxMin, vec3 boxMa
   return vec2(max(tmin, min(lo2, hi2)),min(tmax, max(lo2, hi2)));
 }
 
+uint EXTRACT_START(uint a_leftOffset) { return  a_leftOffset & START_MASK; }
+
+vec3 SafeInverse(vec3 d) {
+  const float ooeps = 1.0e-36f; // Avoid div by zero.
+  vec3 res;
+  res.x = 1.0f / (abs(d.x) > ooeps ? d.x : copysign(ooeps, d.x));
+  res.y = 1.0f / (abs(d.y) > ooeps ? d.y : copysign(ooeps, d.y));
+  res.z = 1.0f / (abs(d.z) > ooeps ? d.z : copysign(ooeps, d.z));
+  return res;
+}
+
+bool notLeafAndIntersect(uint flags) { return (flags != (LEAF_BIT | 0x1)); }
+
 vec3 matmul4x3(mat4 m, vec3 v) {
   return (m*vec4(v, 1.0f)).xyz;
 }
-
-bool isLeafAndIntersect(uint flags) { return (flags == (LEAF_BIT | 0x1 )); }
 
 vec3 mymul4x3(mat4 m, vec3 v) {
   return (m*vec4(v, 1.0f)).xyz;
@@ -300,9 +301,9 @@ vec3 matmul3x3(mat4 m, vec3 v) {
   return (m*vec4(v, 0.0f)).xyz;
 }
 
-bool notLeafAndIntersect(uint flags) { return (flags != (LEAF_BIT | 0x1)); }
-
 bool isLeafOrNotIntersect(uint flags) { return (flags & LEAF_BIT) !=0 || (flags & 0x1) == 0; }
+
+bool isLeafAndIntersect(uint flags) { return (flags == (LEAF_BIT | 0x1 )); }
 
 uint SuperBlockIndex2DOpt(uint tidX, uint tidY, uint a_width) {
   const uint inBlockIdX = tidX & 0x00000003; // 4x4 blocks
