@@ -15,35 +15,30 @@
 
 using LiteMath::uint;
 
-//enum SdfRenderMode
-static constexpr unsigned RENDER_MODE_SDF_MASK = 0; //white object, black background
-static constexpr unsigned RENDER_MODE_SDF_LAMBERT = 1;
-static constexpr unsigned RENDER_MODE_SDF_DEPTH = 2;
-static constexpr unsigned RENDER_MODE_SDF_LINEAR_DEPTH = 3;
-static constexpr unsigned RENDER_MODE_SDF_INVERSE_LINEAR_DEPTH = 4;
-
-//enum MeshRenderMode
-static constexpr unsigned RENDER_MODE_MESH_MASK = 0;
-static constexpr unsigned RENDER_MODE_MESH_LAMBERT = 1;
-static constexpr unsigned RENDER_MODE_MESH_TRIANGLES = 2; //each triangle has distinct color from palette
+//enum MultiRenderMode
+static constexpr unsigned MULTI_RENDER_MODE_MASK = 0; //white object, black background
+static constexpr unsigned MULTI_RENDER_MODE_LAMBERT = 1;
+static constexpr unsigned MULTI_RENDER_MODE_DEPTH = 2;
+static constexpr unsigned MULTI_RENDER_MODE_LINEAR_DEPTH = 3;
+static constexpr unsigned MULTI_RENDER_MODE_INVERSE_LINEAR_DEPTH = 4;
+static constexpr unsigned MULTI_RENDER_MODE_PRIMIVIVE = 5; //each primitive has distinct color from palette
+static constexpr unsigned MULTI_RENDER_MODE_TYPE = 6; //each type has distinct color from palette
 
 //enum SdfOctreeSampler
 static constexpr unsigned SDF_OCTREE_SAMPLER_3L_DEEP = 0; //go to the deepest level possible, resampling larger nodes
 static constexpr unsigned SDF_OCTREE_SAMPLER_3L_SHALLOW = 1; //go deeper while resampling is not needed, then sample
 
-struct RenderPreset
+struct MultiRenderPreset
 {
-  unsigned mode_sdf;
-  unsigned mode_mesh;
+  unsigned mode;
   unsigned sdf_octree_sampler;
   unsigned spp; //samples per pixel, should be a square (1, 4, 9, 16 etc.)
 };
 
-static RenderPreset getDefaultPreset()
+static MultiRenderPreset getDefaultPreset()
 {
-  RenderPreset p;
-  p.mode_sdf = RENDER_MODE_SDF_LAMBERT;
-  p.mode_mesh = RENDER_MODE_MESH_LAMBERT;
+  MultiRenderPreset p;
+  p.mode = MULTI_RENDER_MODE_LAMBERT;
   p.sdf_octree_sampler = SDF_OCTREE_SAMPLER_3L_SHALLOW;
   p.spp = 1;
 
@@ -62,7 +57,7 @@ public:
 #endif
   void Render(uint32_t* imageData, uint32_t a_width, uint32_t a_height, 
               const LiteMath::float4x4& a_worldView, const LiteMath::float4x4& a_proj,
-              RenderPreset preset = getDefaultPreset());
+              MultiRenderPreset preset = getDefaultPreset());
 
   //functions implementing IRenderer interface
   MultiRenderer(); 
@@ -90,7 +85,7 @@ public:
 
   void SetAccelStruct(std::shared_ptr<ISceneObject> a_customAccelStruct) override { m_pAccelStruct = a_customAccelStruct;}
   std::shared_ptr<ISceneObject> GetAccelStruct() override { return m_pAccelStruct; }
-  void SetPresets(const RenderPreset& a_presets){ m_presets = a_presets;}
+  void SetPresets(const MultiRenderPreset& a_presets){ m_presets = a_presets;}
 
   void GetExecutionTime(const char* a_funcName, float a_out[4]) override;
 
@@ -114,7 +109,7 @@ protected:
 
   uint32_t m_width;
   uint32_t m_height;
-  RenderPreset m_presets;
+  MultiRenderPreset m_presets;
 
   LiteMath::float4x4 m_projInv;
   LiteMath::float4x4 m_worldViewInv;

@@ -71,63 +71,61 @@ void MultiRenderer::kernel_RayTrace(uint32_t tidX, const float4* rayPosAndNear,
     //out_color[y * m_width + x] = m_palette[(hit.primId) % palette_size];
   } 
 
-
-  unsigned type = hit.geomId >> SH_TYPE;
   float z = hit.t;
   float z_near = 0.1;
   float z_far = 10;
   out_color[y * m_width + x] = 0xFFFF00FF; //if pixel is purple at the end, then something gone wrong!
-  switch (type)
+  switch (m_presets.mode)
   {
-  case TYPE_MESH_TRIANGLE:
-  {
-    if (m_presets.mode_mesh == RENDER_MODE_MESH_MASK) 
-      out_color[y * m_width + x] = 0xFFFFFFFF;
-    else if (m_presets.mode_mesh == RENDER_MODE_MESH_TRIANGLES)
-      out_color[y * m_width + x] = m_palette[(hit.primId) % palette_size];
-    else if (m_presets.mode_mesh == RENDER_MODE_MESH_LAMBERT)
+    case MULTI_RENDER_MODE_MASK:
+    out_color[y * m_width + x] = 0xFFFFFFFF;
+    break;
+
+    case MULTI_RENDER_MODE_LAMBERT:
     {
       float3 norm(hit.coords[2], hit.coords[3], sqrt(max(0.0f, 1-hit.coords[2]*hit.coords[2] - hit.coords[3]*hit.coords[3])));
       float q = max(0.1f, dot(norm, normalize(float3(1,1,1))));
       uint32_t col= uint32_t(255*q);
       out_color[y * m_width + x] = 0xFF000000 | (col<<16) | (col<<8) | col;      
     }
-  }
     break;
-  case TYPE_SDF_PRIMITIVE:
-  case TYPE_SDF_GRID:
-  case TYPE_SDF_OCTREE:
-  {
-    if (m_presets.mode_sdf == RENDER_MODE_SDF_MASK) 
-      out_color[y * m_width + x] = 0xFFFFFFFF;
-    else if (m_presets.mode_sdf == RENDER_MODE_SDF_DEPTH) 
+
+    case MULTI_RENDER_MODE_DEPTH:
     {
       float d = (1 / z - 1 / z_near) / (1 / z_far - 1 / z_near);
       uint32_t col= uint32_t(255*d);
       out_color[y * m_width + x] = 0xFF000000 | (col<<16) | (col<<8) | col;   
     }
-    else if (m_presets.mode_sdf == RENDER_MODE_SDF_LINEAR_DEPTH) 
+    break;
+
+    case MULTI_RENDER_MODE_LINEAR_DEPTH:
     {
       float d = ((z - z_near) / (z_far - z_near));
       uint32_t col= uint32_t(255*d);
       out_color[y * m_width + x] = 0xFF000000 | (col<<16) | (col<<8) | col;   
     }
-    else if (m_presets.mode_sdf == RENDER_MODE_SDF_INVERSE_LINEAR_DEPTH) 
+    break;
+
+    case MULTI_RENDER_MODE_INVERSE_LINEAR_DEPTH:
     {
       float d = 1 - ((z - z_near) / (z_far - z_near));
       uint32_t col= uint32_t(255*d);
       out_color[y * m_width + x] = 0xFF000000 | (col<<16) | (col<<8) | col;   
     }
-    else if (m_presets.mode_sdf == RENDER_MODE_SDF_LAMBERT)
-    {
-      float3 norm(hit.coords[2], hit.coords[3], sqrt(max(0.0f, 1-hit.coords[2]*hit.coords[2] - hit.coords[3]*hit.coords[3])));
-      float q = max(0.1f, dot(norm, normalize(float3(1,1,1))));
-      uint32_t col= uint32_t(255*q);
-      out_color[y * m_width + x] = 0xFF000000 | (col<<16) | (col<<8) | col;          
-    }
-  }
     break;
-  default:
+
+    case MULTI_RENDER_MODE_PRIMIVIVE:
+    out_color[y * m_width + x] = m_palette[(hit.primId) % palette_size];
+    break;
+
+    case MULTI_RENDER_MODE_TYPE:
+    {
+    unsigned type = hit.geomId >> SH_TYPE;
+    out_color[y * m_width + x] = m_palette[type % palette_size];
+    }
+    break;
+
+    default:
     break;
   }
 }

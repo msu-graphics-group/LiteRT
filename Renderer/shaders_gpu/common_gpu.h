@@ -170,20 +170,18 @@ const uint END_MASK = 0xFF000000;
 const uint SIZE_MASK = 0x7F000000;
 const uint LEAF_BIT = 0x80000000;
 const uint EMPTY_NODE = 0x7fffffff;
-const uint RENDER_MODE_SDF_MASK = 0;
-const uint RENDER_MODE_SDF_LAMBERT = 1;
-const uint RENDER_MODE_SDF_DEPTH = 2;
-const uint RENDER_MODE_SDF_LINEAR_DEPTH = 3;
-const uint RENDER_MODE_SDF_INVERSE_LINEAR_DEPTH = 4;
-const uint RENDER_MODE_MESH_MASK = 0;
-const uint RENDER_MODE_MESH_LAMBERT = 1;
-const uint RENDER_MODE_MESH_TRIANGLES = 2;
+const uint MULTI_RENDER_MODE_MASK = 0;
+const uint MULTI_RENDER_MODE_LAMBERT = 1;
+const uint MULTI_RENDER_MODE_DEPTH = 2;
+const uint MULTI_RENDER_MODE_LINEAR_DEPTH = 3;
+const uint MULTI_RENDER_MODE_INVERSE_LINEAR_DEPTH = 4;
+const uint MULTI_RENDER_MODE_PRIMIVIVE = 5;
+const uint MULTI_RENDER_MODE_TYPE = 6;
 const uint SDF_OCTREE_SAMPLER_3L_DEEP = 0;
 const uint SDF_OCTREE_SAMPLER_3L_SHALLOW = 1;
-struct RenderPreset
+struct MultiRenderPreset
 {
-  uint mode_sdf;
-  uint mode_mesh;
+  uint mode;
   uint sdf_octree_sampler;
   uint spp; //samples per pixel, should be a square (1, 4, 9, 16 etc.)
 };
@@ -260,7 +258,7 @@ mat3 make_float3x3(vec3 a, vec3 b, vec3 c) { // different way than mat3(a,b,c)
               a.z, b.z, c.z);
 }
 
-uint EXTRACT_COUNT(uint a_leftOffset) { return (a_leftOffset & SIZE_MASK) >> 24; }
+uint EXTRACT_START(uint a_leftOffset) { return  a_leftOffset & START_MASK; }
 
 vec2 RayBoxIntersection2(vec3 rayOrigin, vec3 rayDirInv, vec3 boxMin, vec3 boxMax) {
   const float lo  = rayDirInv.x * (boxMin.x - rayOrigin.x);
@@ -276,8 +274,6 @@ vec2 RayBoxIntersection2(vec3 rayOrigin, vec3 rayDirInv, vec3 boxMin, vec3 boxMa
   return vec2(max(tmin, min(lo2, hi2)),min(tmax, max(lo2, hi2)));
 }
 
-uint EXTRACT_START(uint a_leftOffset) { return  a_leftOffset & START_MASK; }
-
 vec3 SafeInverse(vec3 d) {
   const float ooeps = 1.0e-36f; // Avoid div by zero.
   vec3 res;
@@ -287,13 +283,17 @@ vec3 SafeInverse(vec3 d) {
   return res;
 }
 
-bool notLeafAndIntersect(uint flags) { return (flags != (LEAF_BIT | 0x1)); }
+uint EXTRACT_COUNT(uint a_leftOffset) { return (a_leftOffset & SIZE_MASK) >> 24; }
 
-vec3 matmul4x3(mat4 m, vec3 v) {
+bool isLeafAndIntersect(uint flags) { return (flags == (LEAF_BIT | 0x1 )); }
+
+vec3 mymul4x3(mat4 m, vec3 v) {
   return (m*vec4(v, 1.0f)).xyz;
 }
 
-vec3 mymul4x3(mat4 m, vec3 v) {
+bool notLeafAndIntersect(uint flags) { return (flags != (LEAF_BIT | 0x1)); }
+
+vec3 matmul4x3(mat4 m, vec3 v) {
   return (m*vec4(v, 1.0f)).xyz;
 }
 
@@ -302,8 +302,6 @@ vec3 matmul3x3(mat4 m, vec3 v) {
 }
 
 bool isLeafOrNotIntersect(uint flags) { return (flags & LEAF_BIT) !=0 || (flags & 0x1) == 0; }
-
-bool isLeafAndIntersect(uint flags) { return (flags == (LEAF_BIT | 0x1 )); }
 
 uint SuperBlockIndex2DOpt(uint tidX, uint tidY, uint a_width) {
   const uint inBlockIdX = tidX & 0x00000003; // 4x4 blocks
