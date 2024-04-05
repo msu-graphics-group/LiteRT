@@ -55,6 +55,7 @@ struct BVHRT : public ISceneObject
   uint32_t AddGeom_SdfScene(SdfSceneView scene, BuildQuality a_qualityLevel = BUILD_HIGH) override;
   uint32_t AddGeom_SdfGrid(SdfGridView grid, BuildQuality a_qualityLevel = BUILD_HIGH) override;
   uint32_t AddGeom_SdfOctree(SdfOctreeView octree, BuildQuality a_qualityLevel = BUILD_HIGH) override;
+  uint32_t AddGeom_SdfFrameOctree(SdfFrameOctreeView octree, BuildQuality a_qualityLevel = BUILD_HIGH) override;
 #endif
 
   //common functions for a few Sdf...Function interfaces
@@ -130,6 +131,7 @@ struct BVHRT : public ISceneObject
   virtual float eval_dist_sdf_conjunction(unsigned conj_id, float3 p);
   virtual float eval_distance_sdf_grid(unsigned grid_id, float3 p);
   virtual float eval_distance_sdf_octree(unsigned octree_id, float3 p, unsigned max_level);
+  virtual float eval_distance_sdf_frame_octree(unsigned octree_id, float3 p);
 
   virtual float eval_distance_sdf(unsigned type, unsigned prim_id, float3 p);
   virtual SdfHit sdf_sphere_tracing(unsigned type, unsigned prim_id, const float3 &min_pos, const float3 &max_pos,
@@ -155,6 +157,10 @@ struct BVHRT : public ISceneObject
   //SDF octree data
   std::vector<SdfOctreeNode> m_SdfOctreeNodes;//nodes for all SDF octrees
   std::vector<uint32_t> m_SdfOctreeRoots;     //root node ids for each SDF octree
+
+  //SDF frame octree data
+  std::vector<SdfFrameOctreeNode> m_SdfFrameOctreeNodes;//nodes for all SDF octrees
+  std::vector<uint32_t> m_SdfFrameOctreeRoots;     //root node ids for each SDF octree
 
   //for each instance in scene
   std::vector<Box4f> m_instBoxes;

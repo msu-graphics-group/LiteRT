@@ -34,6 +34,7 @@ struct BruteForceRT : public ISceneObject
   uint32_t AddGeom_SdfScene(SdfSceneView scene, BuildQuality a_qualityLevel = BUILD_HIGH) override;
   uint32_t AddGeom_SdfGrid(SdfGridView grid, BuildQuality a_qualityLevel = BUILD_HIGH) override;
   uint32_t AddGeom_SdfOctree(SdfOctreeView octree, BuildQuality a_qualityLevel = BUILD_HIGH) override;
+  uint32_t AddGeom_SdfFrameOctree(SdfFrameOctreeView octree, BuildQuality a_qualityLevel = BUILD_HIGH) override;
 
   void ClearScene() override; 
   void CommitScene  (BuildQuality a_qualityLevel) override; 
@@ -193,7 +194,14 @@ uint32_t BruteForceRT::AddGeom_SdfGrid(SdfGridView grid, BuildQuality a_qualityL
 
 uint32_t BruteForceRT::AddGeom_SdfOctree(SdfOctreeView octree, BuildQuality a_qualityLevel)
 {
-  printf("AddGeom_SdfGrid not implemented!!!\n");
+  printf("AddGeom_SdfOctree not implemented!!!\n");
+  return 0u;
+}
+
+
+uint32_t BruteForceRT::AddGeom_SdfFrameOctree(SdfFrameOctreeView octree, BuildQuality a_qualityLevel)
+{
+  printf("AddGeom_SdfFrameOctree not implemented!!!\n");
   return 0u;
 }
 

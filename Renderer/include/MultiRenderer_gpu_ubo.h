@@ -35,6 +35,10 @@ struct MultiRenderer_GPU_UBO_Data
   uint m_pAccelStruct_m_ConjIndices_size; 
   uint m_pAccelStruct_m_SdfConjunctions_capacity; 
   uint m_pAccelStruct_m_SdfConjunctions_size; 
+  uint m_pAccelStruct_m_SdfFrameOctreeNodes_capacity; 
+  uint m_pAccelStruct_m_SdfFrameOctreeNodes_size; 
+  uint m_pAccelStruct_m_SdfFrameOctreeRoots_capacity; 
+  uint m_pAccelStruct_m_SdfFrameOctreeRoots_size; 
   uint m_pAccelStruct_m_SdfGridData_capacity; 
   uint m_pAccelStruct_m_SdfGridData_size; 
   uint m_pAccelStruct_m_SdfGridOffsets_capacity; 

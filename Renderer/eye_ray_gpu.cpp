@@ -44,6 +44,10 @@ void MultiRenderer_GPU::UpdatePlainMembers(std::shared_ptr<vk_utils::ICopyEngine
   m_uboData.m_pAccelStruct_m_ConjIndices_capacity = uint32_t( m_pAccelStruct_m_ConjIndices->capacity() ); assert( m_pAccelStruct_m_ConjIndices->capacity() < maxAllowedSize );
   m_uboData.m_pAccelStruct_m_SdfConjunctions_size     = uint32_t( m_pAccelStruct_m_SdfConjunctions->size() );     assert( m_pAccelStruct_m_SdfConjunctions->size() < maxAllowedSize );
   m_uboData.m_pAccelStruct_m_SdfConjunctions_capacity = uint32_t( m_pAccelStruct_m_SdfConjunctions->capacity() ); assert( m_pAccelStruct_m_SdfConjunctions->capacity() < maxAllowedSize );
+  m_uboData.m_pAccelStruct_m_SdfFrameOctreeNodes_size     = uint32_t( m_pAccelStruct_m_SdfFrameOctreeNodes->size() );     assert( m_pAccelStruct_m_SdfFrameOctreeNodes->size() < maxAllowedSize );
+  m_uboData.m_pAccelStruct_m_SdfFrameOctreeNodes_capacity = uint32_t( m_pAccelStruct_m_SdfFrameOctreeNodes->capacity() ); assert( m_pAccelStruct_m_SdfFrameOctreeNodes->capacity() < maxAllowedSize );
+  m_uboData.m_pAccelStruct_m_SdfFrameOctreeRoots_size     = uint32_t( m_pAccelStruct_m_SdfFrameOctreeRoots->size() );     assert( m_pAccelStruct_m_SdfFrameOctreeRoots->size() < maxAllowedSize );
+  m_uboData.m_pAccelStruct_m_SdfFrameOctreeRoots_capacity = uint32_t( m_pAccelStruct_m_SdfFrameOctreeRoots->capacity() ); assert( m_pAccelStruct_m_SdfFrameOctreeRoots->capacity() < maxAllowedSize );
   m_uboData.m_pAccelStruct_m_SdfGridData_size     = uint32_t( m_pAccelStruct_m_SdfGridData->size() );     assert( m_pAccelStruct_m_SdfGridData->size() < maxAllowedSize );
   m_uboData.m_pAccelStruct_m_SdfGridData_capacity = uint32_t( m_pAccelStruct_m_SdfGridData->capacity() ); assert( m_pAccelStruct_m_SdfGridData->capacity() < maxAllowedSize );
   m_uboData.m_pAccelStruct_m_SdfGridOffsets_size     = uint32_t( m_pAccelStruct_m_SdfGridOffsets->size() );     assert( m_pAccelStruct_m_SdfGridOffsets->size() < maxAllowedSize );
@@ -97,6 +101,8 @@ void MultiRenderer_GPU::ReadPlainMembers(std::shared_ptr<vk_utils::ICopyEngine> 
   m_width = m_uboData.m_width;
   m_pAccelStruct_m_ConjIndices->resize(m_uboData.m_pAccelStruct_m_ConjIndices_size);
   m_pAccelStruct_m_SdfConjunctions->resize(m_uboData.m_pAccelStruct_m_SdfConjunctions_size);
+  m_pAccelStruct_m_SdfFrameOctreeNodes->resize(m_uboData.m_pAccelStruct_m_SdfFrameOctreeNodes_size);
+  m_pAccelStruct_m_SdfFrameOctreeRoots->resize(m_uboData.m_pAccelStruct_m_SdfFrameOctreeRoots_size);
   m_pAccelStruct_m_SdfGridData->resize(m_uboData.m_pAccelStruct_m_SdfGridData_size);
   m_pAccelStruct_m_SdfGridOffsets->resize(m_uboData.m_pAccelStruct_m_SdfGridOffsets_size);
   m_pAccelStruct_m_SdfGridSizes->resize(m_uboData.m_pAccelStruct_m_SdfGridSizes_size);
@@ -124,6 +130,10 @@ void MultiRenderer_GPU::UpdateVectorMembers(std::shared_ptr<vk_utils::ICopyEngin
     a_pCopyEngine->UpdateBuffer(m_vdata.m_pAccelStruct_m_ConjIndicesBuffer, 0, m_pAccelStruct_m_ConjIndices->data(), m_pAccelStruct_m_ConjIndices->size()*sizeof(unsigned int) );
   if(m_pAccelStruct_m_SdfConjunctions->size() > 0)
     a_pCopyEngine->UpdateBuffer(m_vdata.m_pAccelStruct_m_SdfConjunctionsBuffer, 0, m_pAccelStruct_m_SdfConjunctions->data(), m_pAccelStruct_m_SdfConjunctions->size()*sizeof(struct SdfConjunction) );
+  if(m_pAccelStruct_m_SdfFrameOctreeNodes->size() > 0)
+    a_pCopyEngine->UpdateBuffer(m_vdata.m_pAccelStruct_m_SdfFrameOctreeNodesBuffer, 0, m_pAccelStruct_m_SdfFrameOctreeNodes->data(), m_pAccelStruct_m_SdfFrameOctreeNodes->size()*sizeof(struct SdfFrameOctreeNode) );
+  if(m_pAccelStruct_m_SdfFrameOctreeRoots->size() > 0)
+    a_pCopyEngine->UpdateBuffer(m_vdata.m_pAccelStruct_m_SdfFrameOctreeRootsBuffer, 0, m_pAccelStruct_m_SdfFrameOctreeRoots->data(), m_pAccelStruct_m_SdfFrameOctreeRoots->size()*sizeof(unsigned int) );
   if(m_pAccelStruct_m_SdfGridData->size() > 0)
     a_pCopyEngine->UpdateBuffer(m_vdata.m_pAccelStruct_m_SdfGridDataBuffer, 0, m_pAccelStruct_m_SdfGridData->data(), m_pAccelStruct_m_SdfGridData->size()*sizeof(float) );
   if(m_pAccelStruct_m_SdfGridOffsets->size() > 0)

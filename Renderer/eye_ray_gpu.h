@@ -63,6 +63,8 @@ public:
     {
       m_pAccelStruct_m_ConjIndices = &pUnderlyingImpl->m_ConjIndices;
       m_pAccelStruct_m_SdfConjunctions = &pUnderlyingImpl->m_SdfConjunctions;
+      m_pAccelStruct_m_SdfFrameOctreeNodes = &pUnderlyingImpl->m_SdfFrameOctreeNodes;
+      m_pAccelStruct_m_SdfFrameOctreeRoots = &pUnderlyingImpl->m_SdfFrameOctreeRoots;
       m_pAccelStruct_m_SdfGridData = &pUnderlyingImpl->m_SdfGridData;
       m_pAccelStruct_m_SdfGridOffsets = &pUnderlyingImpl->m_SdfGridOffsets;
       m_pAccelStruct_m_SdfGridSizes = &pUnderlyingImpl->m_SdfGridSizes;
@@ -178,6 +180,10 @@ protected:
     size_t   m_pAccelStruct_m_ConjIndicesOffset = 0;
     VkBuffer m_pAccelStruct_m_SdfConjunctionsBuffer = VK_NULL_HANDLE;
     size_t   m_pAccelStruct_m_SdfConjunctionsOffset = 0;
+    VkBuffer m_pAccelStruct_m_SdfFrameOctreeNodesBuffer = VK_NULL_HANDLE;
+    size_t   m_pAccelStruct_m_SdfFrameOctreeNodesOffset = 0;
+    VkBuffer m_pAccelStruct_m_SdfFrameOctreeRootsBuffer = VK_NULL_HANDLE;
+    size_t   m_pAccelStruct_m_SdfFrameOctreeRootsOffset = 0;
     VkBuffer m_pAccelStruct_m_SdfGridDataBuffer = VK_NULL_HANDLE;
     size_t   m_pAccelStruct_m_SdfGridDataOffset = 0;
     VkBuffer m_pAccelStruct_m_SdfGridOffsetsBuffer = VK_NULL_HANDLE;
@@ -220,6 +226,8 @@ protected:
   
   std::vector<uint32_t>* m_pAccelStruct_m_ConjIndices = nullptr;
   std::vector<SdfConjunction>* m_pAccelStruct_m_SdfConjunctions = nullptr;
+  std::vector<SdfFrameOctreeNode>* m_pAccelStruct_m_SdfFrameOctreeNodes = nullptr;
+  std::vector<uint32_t>* m_pAccelStruct_m_SdfFrameOctreeRoots = nullptr;
   std::vector<float>* m_pAccelStruct_m_SdfGridData = nullptr;
   std::vector<uint32_t>* m_pAccelStruct_m_SdfGridOffsets = nullptr;
   std::vector<uint3>* m_pAccelStruct_m_SdfGridSizes = nullptr;

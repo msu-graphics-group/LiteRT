@@ -179,6 +179,17 @@ void MultiRenderer::SetScene(SdfOctreeView scene)
   GetAccelStruct()->CommitScene();
 }
 
+void MultiRenderer::SetScene(SdfFrameOctreeView scene)
+{
+  SetAccelStruct(CreateSceneRT("BVH2Common", "cbvh_embree2", "SuperTreeletAlignedMerged4"));
+  GetAccelStruct()->ClearGeom();
+  GetAccelStruct()->AddGeom_SdfFrameOctree(scene);
+  GetAccelStruct()->ClearScene();
+  GetAccelStruct()->AddInstance(0, LiteMath::float4x4());
+  GetAccelStruct()->AddInstance(0, LiteMath::translate4x4(float3(-100,-100,-100)));
+  GetAccelStruct()->CommitScene();
+}
+
 void MultiRenderer::SetPreset(const MultiRenderPreset& a_preset)
 {
   m_preset = a_preset;

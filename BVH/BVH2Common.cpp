@@ -119,6 +119,7 @@ void BVHRT::IntersectAllPrimitivesInLeaf(const float3 ray_pos, const float3 ray_
   case TYPE_SDF_PRIMITIVE:
   case TYPE_SDF_GRID:
   case TYPE_SDF_OCTREE:
+  case TYPE_SDF_FRAME_OCTREE:
     IntersectAllSdfsInLeaf(ray_pos, ray_dir, tNear, instId, geomId, a_start, a_count, pHit);
     break;
   default:
@@ -147,12 +148,8 @@ void BVHRT::IntersectAllSdfsInLeaf(const float3 ray_pos, const float3 ray_dir,
     max_pos = to_float3(m_SdfConjunctions[sdfId].max_pos);
     break;
   case TYPE_SDF_GRID:
-    sdfId = m_geomOffsets[geomId].x;
-    primId = 0;
-    min_pos = float3(-1,-1,-1);
-    max_pos = float3( 1, 1, 1);
-    break;
   case TYPE_SDF_OCTREE:
+  case TYPE_SDF_FRAME_OCTREE:
     sdfId = m_geomOffsets[geomId].x;
     primId = 0;
     min_pos = float3(-1,-1,-1);
@@ -248,6 +245,9 @@ float BVHRT::eval_distance_sdf(uint32_t type, uint32_t sdf_id, float3 pos)
     break;
   case TYPE_SDF_OCTREE:
     val = eval_distance_sdf_octree(sdf_id, pos, 1000);
+    break;
+  case TYPE_SDF_FRAME_OCTREE:
+    val = eval_distance_sdf_frame_octree(sdf_id, pos);
     break;
   default:
     break;
@@ -555,6 +555,36 @@ float BVHRT::sdf_octree_sample_mipskip_3x3(uint32_t octree_id, float3 position, 
         res += qx[i]*qy[j]*qz[k]*neighbors[9*i + 3*j + k].node.value;
   return res;
   //sample neighborhood end
+}
+
+float BVHRT::eval_distance_sdf_frame_octree(uint32_t octree_id, float3 position)
+{
+  float3 pos = clamp(0.5f*(position + 1.0f), 0.0f, 1.0f);
+  uint32_t idx = m_SdfFrameOctreeRoots[octree_id];
+  float d = 1;
+  float3 p = float3(0,0,0);
+  float3 dp = pos;
+  while (m_SdfFrameOctreeNodes[idx].offset != 0)
+  {
+    uint32_t ch_index = 4*uint32_t(dp.x >= 0.5) + 2*uint32_t(dp.y >= 0.5) + uint32_t(dp.z >= 0.5);
+    //printf("%u dp %f %f %f %u\n",idx, dp.x, dp.y, dp.z, ch_index);
+    idx = m_SdfFrameOctreeNodes[idx].offset + ch_index;
+    d = d/2;
+    p = 2*p + float3((ch_index & 4) >> 2, (ch_index & 2) >> 1, ch_index & 1);
+    dp = pos/d - p;
+  }
+  //printf("\n");
+  //printf("%u last dp \n",idx);
+
+  //bilinear sampling
+  return (1-dp.x)*(1-dp.y)*(1-dp.z)*m_SdfFrameOctreeNodes[idx].values[0] + 
+         (1-dp.x)*(1-dp.y)*(  dp.z)*m_SdfFrameOctreeNodes[idx].values[1] + 
+         (1-dp.x)*(  dp.y)*(1-dp.z)*m_SdfFrameOctreeNodes[idx].values[2] + 
+         (1-dp.x)*(  dp.y)*(  dp.z)*m_SdfFrameOctreeNodes[idx].values[3] + 
+         (  dp.x)*(1-dp.y)*(1-dp.z)*m_SdfFrameOctreeNodes[idx].values[4] + 
+         (  dp.x)*(1-dp.y)*(  dp.z)*m_SdfFrameOctreeNodes[idx].values[5] + 
+         (  dp.x)*(  dp.y)*(1-dp.z)*m_SdfFrameOctreeNodes[idx].values[6] + 
+         (  dp.x)*(  dp.y)*(  dp.z)*m_SdfFrameOctreeNodes[idx].values[7];
 }
 
 void BVHRT::IntersectAllTrianglesInLeaf(const float3 ray_pos, const float3 ray_dir,

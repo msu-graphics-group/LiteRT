@@ -88,6 +88,12 @@ struct SdfOctreeNode
   unsigned offset; // offset for children (they are stored together). 0 offset means it's a leaf
 };
 
+struct SdfFrameOctreeNode
+{
+  float values[8];
+  unsigned offset; // offset for children (they are stored together). 0 offset means it's a leaf  
+};
+
 //################################################################################
 // CPU-specific functions and data structures
 //################################################################################
@@ -103,6 +109,12 @@ struct SdfOctreeView
 {
   unsigned size;
   const SdfOctreeNode *nodes;
+};
+
+struct SdfFrameOctreeView
+{
+  unsigned size;
+  const SdfFrameOctreeNode *nodes;
 };
 
 // structure to actually store SdfScene data

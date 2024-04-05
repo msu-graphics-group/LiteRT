@@ -151,6 +151,8 @@ MultiRenderer_GPU::~MultiRenderer_GPU()
 
   vkDestroyBuffer(device, m_vdata.m_pAccelStruct_m_ConjIndicesBuffer, nullptr);
   vkDestroyBuffer(device, m_vdata.m_pAccelStruct_m_SdfConjunctionsBuffer, nullptr);
+  vkDestroyBuffer(device, m_vdata.m_pAccelStruct_m_SdfFrameOctreeNodesBuffer, nullptr);
+  vkDestroyBuffer(device, m_vdata.m_pAccelStruct_m_SdfFrameOctreeRootsBuffer, nullptr);
   vkDestroyBuffer(device, m_vdata.m_pAccelStruct_m_SdfGridDataBuffer, nullptr);
   vkDestroyBuffer(device, m_vdata.m_pAccelStruct_m_SdfGridOffsetsBuffer, nullptr);
   vkDestroyBuffer(device, m_vdata.m_pAccelStruct_m_SdfGridSizesBuffer, nullptr);
@@ -280,6 +282,10 @@ void MultiRenderer_GPU::ReserveEmptyVectors()
     m_pAccelStruct_m_ConjIndices->reserve(4);
   if(m_pAccelStruct_m_SdfConjunctions != nullptr && m_pAccelStruct_m_SdfConjunctions->capacity() == 0)
     m_pAccelStruct_m_SdfConjunctions->reserve(4);
+  if(m_pAccelStruct_m_SdfFrameOctreeNodes != nullptr && m_pAccelStruct_m_SdfFrameOctreeNodes->capacity() == 0)
+    m_pAccelStruct_m_SdfFrameOctreeNodes->reserve(4);
+  if(m_pAccelStruct_m_SdfFrameOctreeRoots != nullptr && m_pAccelStruct_m_SdfFrameOctreeRoots->capacity() == 0)
+    m_pAccelStruct_m_SdfFrameOctreeRoots->reserve(4);
   if(m_pAccelStruct_m_SdfGridData != nullptr && m_pAccelStruct_m_SdfGridData->capacity() == 0)
     m_pAccelStruct_m_SdfGridData->reserve(4);
   if(m_pAccelStruct_m_SdfGridOffsets != nullptr && m_pAccelStruct_m_SdfGridOffsets->capacity() == 0)
@@ -329,6 +335,10 @@ void MultiRenderer_GPU::InitMemberBuffers()
   memberVectors.push_back(m_vdata.m_pAccelStruct_m_ConjIndicesBuffer);
   m_vdata.m_pAccelStruct_m_SdfConjunctionsBuffer = vk_utils::createBuffer(device, m_pAccelStruct_m_SdfConjunctions->capacity()*sizeof(struct SdfConjunction), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
   memberVectors.push_back(m_vdata.m_pAccelStruct_m_SdfConjunctionsBuffer);
+  m_vdata.m_pAccelStruct_m_SdfFrameOctreeNodesBuffer = vk_utils::createBuffer(device, m_pAccelStruct_m_SdfFrameOctreeNodes->capacity()*sizeof(struct SdfFrameOctreeNode), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
+  memberVectors.push_back(m_vdata.m_pAccelStruct_m_SdfFrameOctreeNodesBuffer);
+  m_vdata.m_pAccelStruct_m_SdfFrameOctreeRootsBuffer = vk_utils::createBuffer(device, m_pAccelStruct_m_SdfFrameOctreeRoots->capacity()*sizeof(unsigned int), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
+  memberVectors.push_back(m_vdata.m_pAccelStruct_m_SdfFrameOctreeRootsBuffer);
   m_vdata.m_pAccelStruct_m_SdfGridDataBuffer = vk_utils::createBuffer(device, m_pAccelStruct_m_SdfGridData->capacity()*sizeof(float), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
   memberVectors.push_back(m_vdata.m_pAccelStruct_m_SdfGridDataBuffer);
   m_vdata.m_pAccelStruct_m_SdfGridOffsetsBuffer = vk_utils::createBuffer(device, m_pAccelStruct_m_SdfGridOffsets->capacity()*sizeof(unsigned int), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);

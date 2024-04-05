@@ -125,6 +125,11 @@ struct SdfOctreeNode
   float value;
   uint offset; // offset for children (they are stored together). 0 offset means it's a leaf
 };
+struct SdfFrameOctreeNode
+{
+  float values[8];
+  uint offset; // offset for children (they are stored together). 0 offset means it's a leaf  
+};
 const uint BUILD_LOW = 0;
 const uint BUILD_MEDIUM = 1;
 const uint BUILD_HIGH = 2;
@@ -143,6 +148,7 @@ const uint TYPE_MESH_TRIANGLE = 0;
 const uint TYPE_SDF_PRIMITIVE = 1;
 const uint TYPE_SDF_GRID = 2;
 const uint TYPE_SDF_OCTREE = 3;
+const uint TYPE_SDF_FRAME_OCTREE = 4;
 const uint SDF_OCTREE_SAMPLER_MIPSKIP_3X3 = 0;
 const uint SDF_OCTREE_SAMPLER_MIPSKIP_CLOSEST = 1;
 const uint SDF_OCTREE_SAMPLER_CLOSEST = 2;
@@ -271,17 +277,6 @@ mat3 make_float3x3(vec3 a, vec3 b, vec3 c) { // different way than mat3(a,b,c)
               a.z, b.z, c.z);
 }
 
-uint EXTRACT_COUNT(uint a_leftOffset) { return (a_leftOffset & SIZE_MASK) >> 24; }
-
-vec3 SafeInverse(vec3 d) {
-  const float ooeps = 1.0e-36f; // Avoid div by zero.
-  vec3 res;
-  res.x = 1.0f / (abs(d.x) > ooeps ? d.x : copysign(ooeps, d.x));
-  res.y = 1.0f / (abs(d.y) > ooeps ? d.y : copysign(ooeps, d.y));
-  res.z = 1.0f / (abs(d.z) > ooeps ? d.z : copysign(ooeps, d.z));
-  return res;
-}
-
 uint EXTRACT_START(uint a_leftOffset) { return  a_leftOffset & START_MASK; }
 
 vec2 RayBoxIntersection2(vec3 rayOrigin, vec3 rayDirInv, vec3 boxMin, vec3 boxMax) {
@@ -298,13 +293,16 @@ vec2 RayBoxIntersection2(vec3 rayOrigin, vec3 rayDirInv, vec3 boxMin, vec3 boxMa
   return vec2(max(tmin, min(lo2, hi2)),min(tmax, max(lo2, hi2)));
 }
 
-bool isLeafAndIntersect(uint flags) { return (flags == (LEAF_BIT | 0x1 )); }
+uint EXTRACT_COUNT(uint a_leftOffset) { return (a_leftOffset & SIZE_MASK) >> 24; }
 
-vec3 mymul4x3(mat4 m, vec3 v) {
-  return (m*vec4(v, 1.0f)).xyz;
+vec3 SafeInverse(vec3 d) {
+  const float ooeps = 1.0e-36f; // Avoid div by zero.
+  vec3 res;
+  res.x = 1.0f / (abs(d.x) > ooeps ? d.x : copysign(ooeps, d.x));
+  res.y = 1.0f / (abs(d.y) > ooeps ? d.y : copysign(ooeps, d.y));
+  res.z = 1.0f / (abs(d.z) > ooeps ? d.z : copysign(ooeps, d.z));
+  return res;
 }
-
-bool isLeafOrNotIntersect(uint flags) { return (flags & LEAF_BIT) !=0 || (flags & 0x1) == 0; }
 
 vec3 matmul4x3(mat4 m, vec3 v) {
   return (m*vec4(v, 1.0f)).xyz;
@@ -314,7 +312,15 @@ vec3 matmul3x3(mat4 m, vec3 v) {
   return (m*vec4(v, 0.0f)).xyz;
 }
 
+vec3 mymul4x3(mat4 m, vec3 v) {
+  return (m*vec4(v, 1.0f)).xyz;
+}
+
+bool isLeafOrNotIntersect(uint flags) { return (flags & LEAF_BIT) !=0 || (flags & 0x1) == 0; }
+
 bool notLeafAndIntersect(uint flags) { return (flags != (LEAF_BIT | 0x1)); }
+
+bool isLeafAndIntersect(uint flags) { return (flags == (LEAF_BIT | 0x1 )); }
 
 uint SuperBlockIndex2DOpt(uint tidX, uint tidY, uint a_width) {
   const uint inBlockIdX = tidX & 0x00000003; // 4x4 blocks
@@ -358,6 +364,6 @@ uint fakeOffset(uint x, uint y, uint pitch) { return y*pitch + x; }  // RTV patt
 #define KGEN_FLAG_DONT_SET_EXIT     4
 #define KGEN_FLAG_SET_EXIT_NEGATIVE 8
 #define KGEN_REDUCTION_LAST_STEP    16
-#define MAXFLOAT FLT_MAX
 #define CFLOAT_GUARDIAN 
+#define MAXFLOAT FLT_MAX
 
