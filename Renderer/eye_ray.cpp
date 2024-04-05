@@ -136,14 +136,23 @@ void MultiRenderer::kernel_RayTrace(uint32_t tidX, const float4* rayPosAndNear,
     {
       float3 norm(hit.coords[2], hit.coords[3], sqrt(max(0.0f, 1-hit.coords[2]*hit.coords[2] - hit.coords[3]*hit.coords[3])));
       uint3 col = uint3(255*abs(norm));
-      out_color[y * m_width + x] = 0xFF000000 | (col.z<<16) | (col.x<<8) | col.y; 
+      out_color[y * m_width + x] = 0xFF000000 | (col.z<<16) | (col.y<<8) | col.x; 
     }
     break;
 
     case MULTI_RENDER_MODE_BARYCENTRIC:
     {
       uint3 col = uint3(255*float3(hit.coords[0], hit.coords[1], 1-hit.coords[0]-hit.coords[1]));
-      out_color[y * m_width + x] = 0xFF000000 | (col.z<<16) | (col.x<<8) | col.y; 
+      out_color[y * m_width + x] = 0xFF000000 | (col.z<<16) | (col.y<<8) | col.x; 
+    }
+    break;
+    case MULTI_RENDER_MODE_SPHERE_TRACE_ITERATIONS:
+    {
+      float3 c1 = float3(0,1,0);
+      float3 c2 = float3(1,0,0);
+      float q = clamp(0.2*log2(float(hit.primId)), 0.0f,1.0f);
+      uint3 col = uint3(255*(q*c1 + (1-q)*c2));
+      out_color[y * m_width + x] = 0xFF000000 | (col.z<<16) | (col.y<<8) | col.x; 
     }
     break;
     default:

@@ -39,10 +39,14 @@ static constexpr unsigned TYPE_SDF_OCTREE    = 3;
 static constexpr unsigned SDF_OCTREE_SAMPLER_3L_DEEP = 0; //go to the deepest level possible, resampling larger nodes
 static constexpr unsigned SDF_OCTREE_SAMPLER_3L_SHALLOW = 1; //go deeper while resampling is not needed, then sample
 
+//enum VisualizeStatType 
+static constexpr unsigned VISUALIZE_STAT_NONE = 0;
+static constexpr unsigned VISUALIZE_STAT_SPHERE_TRACE_ITERATIONS = 1;
 struct TracerPreset
 {
   unsigned need_normal;
-  unsigned sdf_octree_sampler;
+  unsigned sdf_octree_sampler; //enum SdfOctreeSampler
+  unsigned visualize_stat; //enum VisualizeStatType 
 };
 /**
 \brief API to ray-scene intersection on CPU

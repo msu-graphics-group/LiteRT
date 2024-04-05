@@ -186,9 +186,20 @@ void MultiRenderer::SetPreset(const MultiRenderPreset& a_preset)
   if (m_pAccelStruct)
   {
     TracerPreset tp;
-    tp.need_normal = (a_preset.mode == MULTI_RENDER_MODE_LAMBERT | 
+    tp.need_normal = (a_preset.mode == MULTI_RENDER_MODE_LAMBERT || 
                       a_preset.mode == MULTI_RENDER_MODE_NORMAL) ? 1 : 0;
     tp.sdf_octree_sampler = m_preset.sdf_octree_sampler;
+
+    switch (a_preset.mode)
+    {
+    case MULTI_RENDER_MODE_SPHERE_TRACE_ITERATIONS:
+      tp.visualize_stat = VISUALIZE_STAT_SPHERE_TRACE_ITERATIONS;
+      break;
+    
+    default:
+      tp.visualize_stat = VISUALIZE_STAT_NONE;
+      break;
+    }
 
     m_pAccelStruct->SetPreset(tp);
   }

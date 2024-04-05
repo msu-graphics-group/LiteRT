@@ -118,7 +118,7 @@ struct NeuralProperties
 struct SdfHit
 {
   vec4 hit_pos;  // hit_pos.w < 0 if no hit, hit_pos.w > 0 otherwise
-  vec4 hit_norm; // hit_norm.w is not used
+  vec4 hit_norm; // hit_norm.w can store different types of things for debug/visualization purposes
 };
 struct SdfOctreeNode
 {
@@ -145,10 +145,13 @@ const uint TYPE_SDF_GRID = 2;
 const uint TYPE_SDF_OCTREE = 3;
 const uint SDF_OCTREE_SAMPLER_3L_DEEP = 0;
 const uint SDF_OCTREE_SAMPLER_3L_SHALLOW = 1;
+const uint VISUALIZE_STAT_NONE = 0;
+const uint VISUALIZE_STAT_SPHERE_TRACE_ITERATIONS = 1;
 struct TracerPreset
 {
   uint need_normal;
-  uint sdf_octree_sampler;
+  uint sdf_octree_sampler; //enum SdfOctreeSampler
+  uint visualize_stat; //enum VisualizeStatType 
 };
 const uint LEAF_NORMAL = 0xFFFFFFFF;
 const uint LEAF_EMPTY = 0xFFFFFFFD;
@@ -187,6 +190,7 @@ const uint MULTI_RENDER_MODE_TYPE = 6;
 const uint MULTI_RENDER_MODE_GEOM = 7;
 const uint MULTI_RENDER_MODE_NORMAL = 8;
 const uint MULTI_RENDER_MODE_BARYCENTRIC = 9;
+const uint MULTI_RENDER_MODE_SPHERE_TRACE_ITERATIONS = 10;
 struct MultiRenderPreset
 {
   uint mode; //enum MultiRenderMode
@@ -266,7 +270,18 @@ mat3 make_float3x3(vec3 a, vec3 b, vec3 c) { // different way than mat3(a,b,c)
               a.z, b.z, c.z);
 }
 
+vec3 SafeInverse(vec3 d) {
+  const float ooeps = 1.0e-36f; // Avoid div by zero.
+  vec3 res;
+  res.x = 1.0f / (abs(d.x) > ooeps ? d.x : copysign(ooeps, d.x));
+  res.y = 1.0f / (abs(d.y) > ooeps ? d.y : copysign(ooeps, d.y));
+  res.z = 1.0f / (abs(d.z) > ooeps ? d.z : copysign(ooeps, d.z));
+  return res;
+}
+
 uint EXTRACT_COUNT(uint a_leftOffset) { return (a_leftOffset & SIZE_MASK) >> 24; }
+
+uint EXTRACT_START(uint a_leftOffset) { return  a_leftOffset & START_MASK; }
 
 vec2 RayBoxIntersection2(vec3 rayOrigin, vec3 rayDirInv, vec3 boxMin, vec3 boxMax) {
   const float lo  = rayDirInv.x * (boxMin.x - rayOrigin.x);
@@ -282,16 +297,7 @@ vec2 RayBoxIntersection2(vec3 rayOrigin, vec3 rayDirInv, vec3 boxMin, vec3 boxMa
   return vec2(max(tmin, min(lo2, hi2)),min(tmax, max(lo2, hi2)));
 }
 
-uint EXTRACT_START(uint a_leftOffset) { return  a_leftOffset & START_MASK; }
-
-vec3 SafeInverse(vec3 d) {
-  const float ooeps = 1.0e-36f; // Avoid div by zero.
-  vec3 res;
-  res.x = 1.0f / (abs(d.x) > ooeps ? d.x : copysign(ooeps, d.x));
-  res.y = 1.0f / (abs(d.y) > ooeps ? d.y : copysign(ooeps, d.y));
-  res.z = 1.0f / (abs(d.z) > ooeps ? d.z : copysign(ooeps, d.z));
-  return res;
-}
+bool isLeafAndIntersect(uint flags) { return (flags == (LEAF_BIT | 0x1 )); }
 
 vec3 matmul4x3(mat4 m, vec3 v) {
   return (m*vec4(v, 1.0f)).xyz;
@@ -300,8 +306,6 @@ vec3 matmul4x3(mat4 m, vec3 v) {
 vec3 mymul4x3(mat4 m, vec3 v) {
   return (m*vec4(v, 1.0f)).xyz;
 }
-
-bool isLeafAndIntersect(uint flags) { return (flags == (LEAF_BIT | 0x1 )); }
 
 vec3 matmul3x3(mat4 m, vec3 v) { 
   return (m*vec4(v, 0.0f)).xyz;

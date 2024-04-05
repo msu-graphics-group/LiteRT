@@ -79,7 +79,7 @@ struct NeuralProperties
 struct SdfHit
 {
   float4 hit_pos;  // hit_pos.w < 0 if no hit, hit_pos.w > 0 otherwise
-  float4 hit_norm; // hit_norm.w is not used
+  float4 hit_norm; // hit_norm.w can store different types of things for debug/visualization purposes
 };
 
 struct SdfOctreeNode

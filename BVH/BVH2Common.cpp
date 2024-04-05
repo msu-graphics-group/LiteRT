@@ -176,6 +176,9 @@ void BVHRT::IntersectAllSdfsInLeaf(const float3 ray_pos, const float3 ray_dir,
       pHit->coords[1] = 0;
       pHit->coords[2] = hit.hit_norm.x;
       pHit->coords[3] = hit.hit_norm.y;
+
+      if (m_preset.visualize_stat == VISUALIZE_STAT_SPHERE_TRACE_ITERATIONS)
+        pHit->primId = uint32_t(hit.hit_norm.w);
     }
   }
 }
@@ -187,6 +190,7 @@ SdfHit BVHRT::sdf_sphere_tracing(unsigned type, unsigned sdf_id, const float3 &m
 
   SdfHit hit;
   hit.hit_pos = float4(0,0,0,-1);
+  hit.hit_norm = float4(1,0,0,0);
   float2 tNear_tFar = box_intersects(min_pos, max_pos, pos, dir);
   float t = tNear_tFar.x;
   float tFar = tNear_tFar.y;
@@ -225,7 +229,7 @@ SdfHit BVHRT::sdf_sphere_tracing(unsigned type, unsigned sdf_id, const float3 &m
   }
   // fprintf(stderr, "st %d (%f %f %f)", iter, p0.x, p0.y, p0.z);
   hit.hit_pos = to_float4(p0, 1);
-  hit.hit_norm = to_float4(norm, 1.0f);
+  hit.hit_norm = to_float4(norm, float(iter));
   return hit;
 }
 
@@ -584,9 +588,9 @@ CRT_Hit BVHRT::RayQuery_NearestHit(float4 posAndNear, float4 dirAndFar)
 
   } while (nodeIdx < 0xFFFFFFFE && !(stopOnFirstHit && hit.primId != uint32_t(-1))); //
 
-  if(hit.geomId < uint32_t(-1)) 
+  if(hit.geomId < uint32_t(-1) && ((hit.geomId >> SH_TYPE) == TYPE_MESH_TRIANGLE)) 
   {
-    const uint2 geomOffsets = m_geomOffsets[hit.geomId];
+    const uint2 geomOffsets = m_geomOffsets[hit.geomId & 0x0FFFFFFF];
     hit.primId = m_primIndices[geomOffsets.x/3 + hit.primId];
   }
   

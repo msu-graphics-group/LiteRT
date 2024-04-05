@@ -26,6 +26,10 @@ layout(binding = 19, set = 0) buffer data19 { uint m_pAccelStruct_m_geomTypeByGe
 layout(binding = 20, set = 0) buffer data20 { uint m_pAccelStruct_m_SdfOctreeRoots[]; }; //
 layout(binding = 21, set = 0) buffer dataUBO { MultiRenderer_GPU_UBO_Data ubo; };
 
+bool m_pAccelStruct_is_leaf(uint offset) {
+  return (offset == 0) || ((offset & INVALID_IDX) > 0);
+}
+
 float m_pAccelStruct_eval_dist_prim(uint prim_id, vec3 p) {
   SdfObject prim = m_pAccelStruct_m_SdfObjects[prim_id];
   vec3 pos = (prim.transform * vec4(p, 1)).xyz;
@@ -89,10 +93,6 @@ float m_pAccelStruct_eval_dist_prim(uint prim_id, vec3 p) {
     break;
   }
   return -1000;
-}
-
-bool m_pAccelStruct_is_leaf(uint offset) {
-  return (offset == 0) || ((offset & INVALID_IDX) > 0);
 }
 
 float m_pAccelStruct_eval_distance_sdf_grid(uint grid_id, vec3 pos) {
@@ -296,6 +296,7 @@ SdfHit m_pAccelStruct_sdf_sphere_tracing(uint type, uint sdf_id, in vec3 min_pos
 
   SdfHit hit;
   hit.hit_pos = vec4(0,0,0,-1);
+  hit.hit_norm = vec4(1,0,0,0);
   vec2 tNear_tFar = m_pAccelStruct_box_intersects(min_pos, max_pos, pos, dir);
   float t = tNear_tFar.x;
   float tFar = tNear_tFar.y;
@@ -334,7 +335,7 @@ SdfHit m_pAccelStruct_sdf_sphere_tracing(uint type, uint sdf_id, in vec3 min_pos
   }
   // fprintf(stderr, "st %d (%f %f %f)", iter, p0.x, p0.y, p0.z);
   hit.hit_pos = vec4(p0, 1);
-  hit.hit_norm = vec4(norm, 1.0f);
+  hit.hit_norm = vec4(norm, float(iter));
   return hit;
 }
 
@@ -434,6 +435,9 @@ void m_pAccelStruct_IntersectAllSdfsInLeaf(const vec3 ray_pos, const vec3 ray_di
       pHit.coords[1] = 0;
       pHit.coords[2] = hit.hit_norm.x;
       pHit.coords[3] = hit.hit_norm.y;
+
+      if (ubo.m_pAccelStruct_m_preset.visualize_stat == VISUALIZE_STAT_SPHERE_TRACE_ITERATIONS)
+        pHit.primId = uint32_t(hit.hit_norm.w);
     }
   }
 }
@@ -559,9 +563,9 @@ CRT_Hit m_pAccelStruct_RayQuery_NearestHit(vec4 posAndNear, vec4 dirAndFar) {
 
   } while (nodeIdx < 0xFFFFFFFE && !(stopOnFirstHit && hit.primId != uint32_t(-1))); //
 
-  if(hit.geomId < uint32_t(-1)) 
+  if(hit.geomId < uint32_t(-1) && ((hit.geomId >> SH_TYPE) == TYPE_MESH_TRIANGLE)) 
   {
-    const uvec2 geomOffsets = m_pAccelStruct_m_geomOffsets[hit.geomId];
+    const uvec2 geomOffsets = m_pAccelStruct_m_geomOffsets[hit.geomId & 0x0FFFFFFF];
     hit.primId = m_pAccelStruct_m_primIndices[geomOffsets.x/3 + hit.primId];
   }
   
