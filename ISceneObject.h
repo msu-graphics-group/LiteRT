@@ -36,8 +36,9 @@ static constexpr unsigned TYPE_SDF_GRID      = 2;
 static constexpr unsigned TYPE_SDF_OCTREE    = 3;
 
 //enum SdfOctreeSampler
-static constexpr unsigned SDF_OCTREE_SAMPLER_3L_DEEP = 0; //go to the deepest level possible, resampling larger nodes
-static constexpr unsigned SDF_OCTREE_SAMPLER_3L_SHALLOW = 1; //go deeper while resampling is not needed, then sample
+static constexpr unsigned SDF_OCTREE_SAMPLER_MIPSKIP_3X3 = 0; //go to the deepest level possible, resampling larger nodes
+static constexpr unsigned SDF_OCTREE_SAMPLER_MIPSKIP_CLOSEST = 1; //go deeper while resampling is not needed, then sample
+static constexpr unsigned SDF_OCTREE_SAMPLER_CLOSEST = 2;
 
 //enum VisualizeStatType 
 static constexpr unsigned VISUALIZE_STAT_NONE = 0;

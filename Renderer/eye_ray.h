@@ -39,7 +39,7 @@ static MultiRenderPreset getDefaultPreset()
 {
   MultiRenderPreset p;
   p.mode = MULTI_RENDER_MODE_LAMBERT;
-  p.sdf_octree_sampler = SDF_OCTREE_SAMPLER_3L_SHALLOW;
+  p.sdf_octree_sampler = SDF_OCTREE_SAMPLER_MIPSKIP_3X3;
   p.spp = 1;
 
   return p;

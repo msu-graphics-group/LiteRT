@@ -123,6 +123,10 @@ struct BVHRT : public ISceneObject
   virtual float eval_dist_prim(unsigned prim_id, float3 p);
   virtual bool is_leaf(unsigned offset);
 
+  virtual float sdf_octree_sample_mipskip_3x3(unsigned octree_id, float3 p, unsigned max_level);
+  virtual float sdf_octree_sample_mipskip_closest(unsigned octree_id, float3 p, unsigned max_level);
+  virtual float sdf_octree_sample_closest(unsigned octree_id, float3 p, unsigned max_level);
+
   virtual float eval_dist_sdf_conjunction(unsigned conj_id, float3 p);
   virtual float eval_distance_sdf_grid(unsigned grid_id, float3 p);
   virtual float eval_distance_sdf_octree(unsigned octree_id, float3 p, unsigned max_level);
