@@ -636,7 +636,7 @@ BVHTree BuildBVH(const BVHNode *a_nodes, size_t a_objNum, BuilderPresets a_prese
     if (int(lbvh.nodes[i].leftOffset) < 0 && lbvh.nodes[i].leftOffset != 0x80000000)
     {
       const uint32_t objectId = lbvh.indicesReordered[lbvh.intervals[i].start];
-      printf("%d obj interval %d %d\n", (int)i, (int)objectId, (int)lbvh.intervals[i].count);
+      //printf("%d obj interval %d %d\n", (int)i, (int)objectId, (int)lbvh.intervals[i].count);
       lbvh.nodes[i].leftOffset = PackOffsetAndSize(objectId, lbvh.intervals[i].count);
       if (lbvh.intervals[i].count > 1)
         isNotOne = true;

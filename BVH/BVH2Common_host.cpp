@@ -227,14 +227,8 @@ uint32_t BVHRT::AddGeom_SdfGrid(SdfGridView grid, BuildQuality a_qualityLevel)
   m_SdfGridSizes.push_back(grid.size);
   m_SdfGridData.insert(m_SdfGridData.end(), grid.data, grid.data + grid.size.x*grid.size.y*grid.size.z);
 
-  //create BLAS for grid
-  //TODO: do it properly
-  std::vector<BVHNode> orig_nodes;
-  orig_nodes.resize(2);
-  orig_nodes[0].boxMin = float3(-1,-1,-1);
-  orig_nodes[0].boxMax = float3(1,1,0);
-  orig_nodes[1].boxMin = float3(-1,-1,0);
-  orig_nodes[1].boxMax = float3(1,1,1);
+  //create list of bboxes for BLAS
+  std::vector<BVHNode> orig_nodes = GetBoxes_SdfGrid(grid);
 
   // Build BVH for each geom and append it to big buffer;
   // append data to global arrays and fix offsets
@@ -270,14 +264,8 @@ uint32_t BVHRT::AddGeom_SdfOctree(SdfOctreeView octree, BuildQuality a_qualityLe
   for (int i=m_SdfOctreeRoots.back();i<m_SdfOctreeNodes.size();i++)
     m_SdfOctreeNodes[i].offset += m_SdfOctreeRoots.back();
 
-  //create BLAS for grid
-  //TODO: do it properly
-  std::vector<BVHNode> orig_nodes;
-  orig_nodes.resize(2);
-  orig_nodes[0].boxMin = float3(-1,-1,-1);
-  orig_nodes[0].boxMax = float3(1,1,0);
-  orig_nodes[1].boxMin = float3(-1,-1,0);
-  orig_nodes[1].boxMax = float3(1,1,1);
+  //create list of bboxes for BLAS
+  std::vector<BVHNode> orig_nodes = GetBoxes_SdfOctree(octree);
 
   // Build BVH for each geom and append it to big buffer;
   // append data to global arrays and fix offsets
@@ -308,28 +296,21 @@ uint32_t BVHRT::AddGeom_SdfFrameOctree(SdfFrameOctreeView octree, BuildQuality a
   m_bvhOffsets.push_back(m_allNodePairs.size());
 
   //fill octree-specific data arrays
-  m_SdfFrameOctreeRoots.push_back(m_SdfFrameOctreeNodes.size());
+  unsigned n_offset = m_SdfFrameOctreeNodes.size();
+  m_SdfFrameOctreeRoots.push_back(n_offset);
   m_SdfFrameOctreeNodes.insert(m_SdfFrameOctreeNodes.end(), octree.nodes, octree.nodes + octree.size);
-  for (int i=m_SdfFrameOctreeRoots.back();i<m_SdfFrameOctreeNodes.size();i++)
-    m_SdfFrameOctreeNodes[i].offset += m_SdfFrameOctreeRoots.back();
+  for (int i=n_offset;i<m_SdfFrameOctreeNodes.size();i++)
+    m_SdfFrameOctreeNodes[i].offset += n_offset;
 
-  //create BLAS for grid
-  //TODO: do it properly
-  std::vector<BVHNode> orig_nodes;
-  orig_nodes.resize(2);
-  orig_nodes[0].boxMin = float3(-1,-1,-1);
-  orig_nodes[0].boxMax = float3(1,1,0);
-  orig_nodes[1].boxMin = float3(-1,-1,0);
-  orig_nodes[1].boxMax = float3(1,1,1);
+  //create list of bboxes for BLAS
+  std::vector<BVHNode> orig_nodes = GetBoxes_SdfFrameOctree(octree);
+  m_origNodes = orig_nodes;
 
   // Build BVH for each geom and append it to big buffer;
   // append data to global arrays and fix offsets
   auto presets = BuilderPresetsFromString(m_buildName.c_str());
   auto layout  = LayoutPresetsFromString(m_layoutName.c_str());
   auto bvhData = BuildBVHFatCustom(orig_nodes.data(), orig_nodes.size(), presets, layout);
-
-  for (auto &i : bvhData.indices)
-    printf("frame octree ind %d\n",(int)i);
 
   m_allNodePairs.insert(m_allNodePairs.end(), bvhData.nodes.begin(), bvhData.nodes.end());
 
@@ -452,6 +433,78 @@ void BVHRT::UpdateInstance(uint32_t a_instanceId, const float4x4 &a_matrix)
   m_instBoxes      [a_instanceId] = newBox;
   m_instMatricesFwd[a_instanceId] = a_matrix;
   m_instMatricesInv[a_instanceId] = inverse4x4(a_matrix);
+}
+
+std::vector<BVHNode> BVHRT::GetBoxes_SdfGrid(SdfGridView grid)
+{
+  std::vector<BVHNode> nodes;
+  nodes.resize(2);
+  nodes[0].boxMin = float3(-1,-1,-1);
+  nodes[0].boxMax = float3(1,1,0);
+  nodes[1].boxMin = float3(-1,-1,0);
+  nodes[1].boxMax = float3(1,1,1);
+  return nodes;
+}
+
+std::vector<BVHNode> BVHRT::GetBoxes_SdfOctree(SdfOctreeView octree)
+{
+  std::vector<BVHNode> nodes;
+  nodes.resize(2);
+  nodes[0].boxMin = float3(-1,-1,-1);
+  nodes[0].boxMax = float3(1,1,0);
+  nodes[1].boxMin = float3(-1,-1,0);
+  nodes[1].boxMax = float3(1,1,1);
+  return nodes;
+}
+
+void add_border_nodes_rec(const SdfFrameOctreeView &octree, std::vector<BVHNode> &nodes,
+                          unsigned idx, float3 p, float d)
+{
+  unsigned ofs = octree.nodes[idx].offset;
+  if (ofs == 0) 
+  {
+    bool less = false;
+    bool more = false;
+    for (int i=0;i<8;i++)
+    {
+      if (octree.nodes[idx].values[i] <= 0)
+        less = true;
+      else if (octree.nodes[idx].values[i] >= 0)
+        more = true;
+    }
+
+    if (less && more)
+    {
+      float3 min_pos = 2.0f*(d*p) - 1.0f;
+      float3 max_pos = min_pos + 2.0f*d*float3(1,1,1);
+      nodes.emplace_back();
+      nodes.back().boxMax = max_pos;
+      nodes.back().boxMin = min_pos;
+      nodes.back().leftOffset = idx; //just store idx here, it will be later replaced by real offset in BVHBuilder anyway
+    }
+  }
+  else
+  {
+    for (int i = 0; i < 8; i++)
+    {
+      float ch_d = d / 2;
+      float3 ch_p = 2 * p + float3((i & 4) >> 2, (i & 2) >> 1, i & 1);
+      add_border_nodes_rec(octree, nodes, ofs + i, ch_p, ch_d);
+    }
+  }
+}
+
+std::vector<BVHNode> BVHRT::GetBoxes_SdfFrameOctree(SdfFrameOctreeView octree)
+{
+  std::vector<BVHNode> nodes;
+  /*  nodes.resize(2);
+  nodes[0].boxMin = float3(-1,-1,-1);
+  nodes[0].boxMax = float3(1,1,0);
+  nodes[1].boxMin = float3(-1,-1,0);
+  nodes[1].boxMax = float3(1,1,1);
+  return nodes;*/
+  add_border_nodes_rec(octree, nodes, 0, float3(0,0,0), 1);
+  return nodes;
 }
 
 //SdfSceneFunction interface implementation

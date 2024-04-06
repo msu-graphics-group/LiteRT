@@ -81,6 +81,7 @@ public:
       m_pAccelStruct_m_indices = &pUnderlyingImpl->m_indices;
       m_pAccelStruct_m_instMatricesInv = &pUnderlyingImpl->m_instMatricesInv;
       m_pAccelStruct_m_nodesTLAS = &pUnderlyingImpl->m_nodesTLAS;
+      m_pAccelStruct_m_origNodes = &pUnderlyingImpl->m_origNodes;
       m_pAccelStruct_m_primIndices = &pUnderlyingImpl->m_primIndices;
       m_pAccelStruct_m_vertPos = &pUnderlyingImpl->m_vertPos;
     }
@@ -216,6 +217,8 @@ protected:
     size_t   m_pAccelStruct_m_instMatricesInvOffset = 0;
     VkBuffer m_pAccelStruct_m_nodesTLASBuffer = VK_NULL_HANDLE;
     size_t   m_pAccelStruct_m_nodesTLASOffset = 0;
+    VkBuffer m_pAccelStruct_m_origNodesBuffer = VK_NULL_HANDLE;
+    size_t   m_pAccelStruct_m_origNodesOffset = 0;
     VkBuffer m_pAccelStruct_m_primIndicesBuffer = VK_NULL_HANDLE;
     size_t   m_pAccelStruct_m_primIndicesOffset = 0;
     VkBuffer m_pAccelStruct_m_vertPosBuffer = VK_NULL_HANDLE;
@@ -244,6 +247,7 @@ protected:
   std::vector<uint32_t>* m_pAccelStruct_m_indices = nullptr;
   std::vector<float4x4>* m_pAccelStruct_m_instMatricesInv = nullptr;
   std::vector<BVHNode>* m_pAccelStruct_m_nodesTLAS = nullptr;
+  std::vector<BVHNode>* m_pAccelStruct_m_origNodes = nullptr;
   std::vector<uint32_t>* m_pAccelStruct_m_primIndices = nullptr;
   std::vector<float4>* m_pAccelStruct_m_vertPos = nullptr;
   

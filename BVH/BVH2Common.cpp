@@ -149,11 +149,16 @@ void BVHRT::IntersectAllSdfsInLeaf(const float3 ray_pos, const float3 ray_dir,
     break;
   case TYPE_SDF_GRID:
   case TYPE_SDF_OCTREE:
-  case TYPE_SDF_FRAME_OCTREE:
     sdfId = m_geomOffsets[geomId].x;
     primId = 0;
     min_pos = float3(-1,-1,-1);
     max_pos = float3( 1, 1, 1);
+    break;
+  case TYPE_SDF_FRAME_OCTREE:
+    sdfId =  m_geomOffsets[geomId].x;
+    primId = m_origNodes[a_start].leftOffset;
+    min_pos = m_origNodes[a_start].boxMin;
+    max_pos = m_origNodes[a_start].boxMax;
     break;
   default:
     break;

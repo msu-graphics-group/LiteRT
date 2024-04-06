@@ -71,6 +71,8 @@ struct MultiRenderer_GPU_UBO_Data
   uint m_pAccelStruct_m_instMatricesInv_size; 
   uint m_pAccelStruct_m_nodesTLAS_capacity; 
   uint m_pAccelStruct_m_nodesTLAS_size; 
+  uint m_pAccelStruct_m_origNodes_capacity; 
+  uint m_pAccelStruct_m_origNodes_size; 
   uint m_pAccelStruct_m_primIndices_capacity; 
   uint m_pAccelStruct_m_primIndices_size; 
   uint m_pAccelStruct_m_vertPos_capacity; 

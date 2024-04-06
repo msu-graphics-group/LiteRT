@@ -80,6 +80,8 @@ void MultiRenderer_GPU::UpdatePlainMembers(std::shared_ptr<vk_utils::ICopyEngine
   m_uboData.m_pAccelStruct_m_instMatricesInv_capacity = uint32_t( m_pAccelStruct_m_instMatricesInv->capacity() ); assert( m_pAccelStruct_m_instMatricesInv->capacity() < maxAllowedSize );
   m_uboData.m_pAccelStruct_m_nodesTLAS_size     = uint32_t( m_pAccelStruct_m_nodesTLAS->size() );     assert( m_pAccelStruct_m_nodesTLAS->size() < maxAllowedSize );
   m_uboData.m_pAccelStruct_m_nodesTLAS_capacity = uint32_t( m_pAccelStruct_m_nodesTLAS->capacity() ); assert( m_pAccelStruct_m_nodesTLAS->capacity() < maxAllowedSize );
+  m_uboData.m_pAccelStruct_m_origNodes_size     = uint32_t( m_pAccelStruct_m_origNodes->size() );     assert( m_pAccelStruct_m_origNodes->size() < maxAllowedSize );
+  m_uboData.m_pAccelStruct_m_origNodes_capacity = uint32_t( m_pAccelStruct_m_origNodes->capacity() ); assert( m_pAccelStruct_m_origNodes->capacity() < maxAllowedSize );
   m_uboData.m_pAccelStruct_m_primIndices_size     = uint32_t( m_pAccelStruct_m_primIndices->size() );     assert( m_pAccelStruct_m_primIndices->size() < maxAllowedSize );
   m_uboData.m_pAccelStruct_m_primIndices_capacity = uint32_t( m_pAccelStruct_m_primIndices->capacity() ); assert( m_pAccelStruct_m_primIndices->capacity() < maxAllowedSize );
   m_uboData.m_pAccelStruct_m_vertPos_size     = uint32_t( m_pAccelStruct_m_vertPos->size() );     assert( m_pAccelStruct_m_vertPos->size() < maxAllowedSize );
@@ -119,6 +121,7 @@ void MultiRenderer_GPU::ReadPlainMembers(std::shared_ptr<vk_utils::ICopyEngine> 
   m_pAccelStruct_m_indices->resize(m_uboData.m_pAccelStruct_m_indices_size);
   m_pAccelStruct_m_instMatricesInv->resize(m_uboData.m_pAccelStruct_m_instMatricesInv_size);
   m_pAccelStruct_m_nodesTLAS->resize(m_uboData.m_pAccelStruct_m_nodesTLAS_size);
+  m_pAccelStruct_m_origNodes->resize(m_uboData.m_pAccelStruct_m_origNodes_size);
   m_pAccelStruct_m_primIndices->resize(m_uboData.m_pAccelStruct_m_primIndices_size);
   m_pAccelStruct_m_vertPos->resize(m_uboData.m_pAccelStruct_m_vertPos_size);
   m_packedXY.resize(m_uboData.m_packedXY_size);
@@ -166,6 +169,8 @@ void MultiRenderer_GPU::UpdateVectorMembers(std::shared_ptr<vk_utils::ICopyEngin
     a_pCopyEngine->UpdateBuffer(m_vdata.m_pAccelStruct_m_instMatricesInvBuffer, 0, m_pAccelStruct_m_instMatricesInv->data(), m_pAccelStruct_m_instMatricesInv->size()*sizeof(struct LiteMath::float4x4) );
   if(m_pAccelStruct_m_nodesTLAS->size() > 0)
     a_pCopyEngine->UpdateBuffer(m_vdata.m_pAccelStruct_m_nodesTLASBuffer, 0, m_pAccelStruct_m_nodesTLAS->data(), m_pAccelStruct_m_nodesTLAS->size()*sizeof(struct BVHNode) );
+  if(m_pAccelStruct_m_origNodes->size() > 0)
+    a_pCopyEngine->UpdateBuffer(m_vdata.m_pAccelStruct_m_origNodesBuffer, 0, m_pAccelStruct_m_origNodes->data(), m_pAccelStruct_m_origNodes->size()*sizeof(struct BVHNode) );
   if(m_pAccelStruct_m_primIndices->size() > 0)
     a_pCopyEngine->UpdateBuffer(m_vdata.m_pAccelStruct_m_primIndicesBuffer, 0, m_pAccelStruct_m_primIndices->data(), m_pAccelStruct_m_primIndices->size()*sizeof(unsigned int) );
   if(m_pAccelStruct_m_vertPos->size() > 0)

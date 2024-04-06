@@ -117,6 +117,12 @@ struct BVHRT : public ISceneObject
   virtual void AppendTreeData(const std::vector<BVHNodePair>& a_nodes, const std::vector<uint32_t>& a_indices, 
                               const uint32_t *a_triIndices, size_t a_indNumber);
 
+#ifndef KERNEL_SLICER  
+  std::vector<BVHNode> GetBoxes_SdfGrid(SdfGridView grid);
+  std::vector<BVHNode> GetBoxes_SdfOctree(SdfOctreeView octree);
+  std::vector<BVHNode> GetBoxes_SdfFrameOctree(SdfFrameOctreeView octree);
+#endif
+
   //helper functions to calculate SDF
   //It is a copy-past of sdfScene functions with the same names
   //Slicer is weak and can't handle calling external functions  ¯\_(ツ)_/¯
@@ -161,6 +167,7 @@ struct BVHRT : public ISceneObject
   //SDF frame octree data
   std::vector<SdfFrameOctreeNode> m_SdfFrameOctreeNodes;//nodes for all SDF octrees
   std::vector<uint32_t> m_SdfFrameOctreeRoots;     //root node ids for each SDF octree
+  std::vector<BVHNode> m_origNodes;
 
   //for each instance in scene
   std::vector<Box4f> m_instBoxes;

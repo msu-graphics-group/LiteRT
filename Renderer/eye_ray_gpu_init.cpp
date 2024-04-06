@@ -169,6 +169,7 @@ MultiRenderer_GPU::~MultiRenderer_GPU()
   vkDestroyBuffer(device, m_vdata.m_pAccelStruct_m_indicesBuffer, nullptr);
   vkDestroyBuffer(device, m_vdata.m_pAccelStruct_m_instMatricesInvBuffer, nullptr);
   vkDestroyBuffer(device, m_vdata.m_pAccelStruct_m_nodesTLASBuffer, nullptr);
+  vkDestroyBuffer(device, m_vdata.m_pAccelStruct_m_origNodesBuffer, nullptr);
   vkDestroyBuffer(device, m_vdata.m_pAccelStruct_m_primIndicesBuffer, nullptr);
   vkDestroyBuffer(device, m_vdata.m_pAccelStruct_m_vertPosBuffer, nullptr);
   vkDestroyBuffer(device, m_vdata.m_packedXYBuffer, nullptr);
@@ -318,6 +319,8 @@ void MultiRenderer_GPU::ReserveEmptyVectors()
     m_pAccelStruct_m_instMatricesInv->reserve(4);
   if(m_pAccelStruct_m_nodesTLAS != nullptr && m_pAccelStruct_m_nodesTLAS->capacity() == 0)
     m_pAccelStruct_m_nodesTLAS->reserve(4);
+  if(m_pAccelStruct_m_origNodes != nullptr && m_pAccelStruct_m_origNodes->capacity() == 0)
+    m_pAccelStruct_m_origNodes->reserve(4);
   if(m_pAccelStruct_m_primIndices != nullptr && m_pAccelStruct_m_primIndices->capacity() == 0)
     m_pAccelStruct_m_primIndices->reserve(4);
   if(m_pAccelStruct_m_vertPos != nullptr && m_pAccelStruct_m_vertPos->capacity() == 0)
@@ -371,6 +374,8 @@ void MultiRenderer_GPU::InitMemberBuffers()
   memberVectors.push_back(m_vdata.m_pAccelStruct_m_instMatricesInvBuffer);
   m_vdata.m_pAccelStruct_m_nodesTLASBuffer = vk_utils::createBuffer(device, m_pAccelStruct_m_nodesTLAS->capacity()*sizeof(struct BVHNode), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
   memberVectors.push_back(m_vdata.m_pAccelStruct_m_nodesTLASBuffer);
+  m_vdata.m_pAccelStruct_m_origNodesBuffer = vk_utils::createBuffer(device, m_pAccelStruct_m_origNodes->capacity()*sizeof(struct BVHNode), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
+  memberVectors.push_back(m_vdata.m_pAccelStruct_m_origNodesBuffer);
   m_vdata.m_pAccelStruct_m_primIndicesBuffer = vk_utils::createBuffer(device, m_pAccelStruct_m_primIndices->capacity()*sizeof(unsigned int), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
   memberVectors.push_back(m_vdata.m_pAccelStruct_m_primIndicesBuffer);
   m_vdata.m_pAccelStruct_m_vertPosBuffer = vk_utils::createBuffer(device, m_pAccelStruct_m_vertPos->capacity()*sizeof(struct LiteMath::float4), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
