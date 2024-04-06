@@ -46,6 +46,9 @@ int main(int argc, const char** argv)
 
   std::cout << "Implementation:  " << pRender->Name() << "; builder = '" << buildFormat << "'" << std::endl;
 
+  MultiRenderPreset preset;
+  preset.mode = MULTI_RENDER_MODE_LAMBERT;
+  dynamic_cast<MultiRenderer*>(pRender.get())->SetPreset(preset);
   pRender->CommitDeviceData();
   pRender->Clear(WIDTH, HEIGHT, "color");
 

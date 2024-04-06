@@ -73,6 +73,9 @@ void BVHRT::ClearGeom()
   m_SdfFrameOctreeRoots.reserve(16);
   m_SdfFrameOctreeRoots.resize(0);  
 
+  m_origNodes.reserve(16);
+  m_origNodes.resize(0); 
+
   ClearScene();
 }
 
