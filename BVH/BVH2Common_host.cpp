@@ -211,6 +211,40 @@ uint32_t BVHRT::AddGeom_SdfScene(SdfSceneView scene, BuildQuality a_qualityLevel
   return m_geomTypeByGeomId.size()-1;
 }
 
+uint32_t BVHRT::AddGeom_RFScene(RFScene grid, BuildQuality a_qualityLevel)
+{
+  //RF grid is always a unit cube
+  float4 mn = float4(0, 0, 0,1);
+  float4 mx = float4( 1, 1, 1,1);
+
+  //fill common data arrays
+  m_geomOffsets.push_back(uint2(m_RFGridOffsets.size(), 0));
+  m_geomBoxes.push_back(Box4f(mn, mx));
+  m_geomTypeByGeomId.push_back(TYPE_RF_GRID);
+  m_bvhOffsets.push_back(m_allNodePairs.size());
+
+  //fill grid-specific data arrays
+  m_RFGridOffsets.push_back(m_RFGridData.size());
+  m_RFGridSizes.push_back(grid.size);
+  m_RFGridData.insert(m_RFGridData.end(), grid.data.data(), grid.data.data() + grid.size*grid.size*grid.size*CellSize);
+
+  //create list of bboxes for BLAS
+  std::vector<BVHNode> orig_nodes = GetBoxes_RFGrid(grid);
+
+  // Build BVH for each geom and append it to big buffer;
+  // append data to global arrays and fix offsets
+  auto presets = BuilderPresetsFromString(m_buildName.c_str());
+  auto layout  = LayoutPresetsFromString(m_layoutName.c_str());
+  auto bvhData = BuildBVHFatCustom(orig_nodes.data(), orig_nodes.size(), presets, layout);
+
+  for (auto &i : bvhData.indices)
+    printf("grid ind %d\n",(int)i);
+
+  m_allNodePairs.insert(m_allNodePairs.end(), bvhData.nodes.begin(), bvhData.nodes.end());
+
+  return m_geomTypeByGeomId.size()-1;
+}
+
 uint32_t BVHRT::AddGeom_SdfGrid(SdfGridView grid, BuildQuality a_qualityLevel)
 {
   assert(grid.size.x*grid.size.y*grid.size.z > 0);
@@ -446,6 +480,24 @@ std::vector<BVHNode> BVHRT::GetBoxes_SdfGrid(SdfGridView grid)
   nodes[0].boxMax = float3(1,1,0);
   nodes[1].boxMin = float3(-1,-1,0);
   nodes[1].boxMax = float3(1,1,1);
+  return nodes;
+}
+
+std::vector<BVHNode> BVHRT::GetBoxes_RFGrid(RFScene grid)
+{
+  std::vector<BVHNode> nodes;
+  nodes.resize((grid.size - 1) * (grid.size - 1) * (grid.size - 1));
+
+  for (size_t z = 0; z < grid.size - 1; z++)
+    for (size_t y = 0; y < grid.size - 1; y++)
+      for (size_t x = 0; x < grid.size - 1; x++)
+      {
+        size_t i = x + y * (grid.size - 1) + z * (grid.size - 1) * (grid.size - 1);
+
+        nodes[i].boxMin = float3((float)x / (float)grid.size, (float)y / (float)grid.size, (float)z / (float)grid.size);
+        nodes[i].boxMax = float3((float)(x + 1) / (float)grid.size, (float)(y + 1) / (float)grid.size, (float)(z + 1) / (float)grid.size);
+      }
+
   return nodes;
 }
 

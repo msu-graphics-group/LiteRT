@@ -35,6 +35,7 @@ static constexpr unsigned TYPE_SDF_PRIMITIVE       = 1;
 static constexpr unsigned TYPE_SDF_GRID            = 2;
 static constexpr unsigned TYPE_SDF_OCTREE          = 3;
 static constexpr unsigned TYPE_SDF_FRAME_OCTREE    = 4;
+static constexpr unsigned TYPE_RF_GRID             = 5;
 
 //enum SdfOctreeSampler
 static constexpr unsigned SDF_OCTREE_SAMPLER_MIPSKIP_3X3 = 0; //go to the deepest level possible, resampling larger nodes
@@ -99,6 +100,7 @@ struct ISceneObject
 #ifndef KERNEL_SLICER 
   virtual uint32_t AddGeom_SdfScene(SdfSceneView scene, BuildQuality a_qualityLevel = BUILD_HIGH) = 0;
   virtual uint32_t AddGeom_SdfGrid(SdfGridView grid, BuildQuality a_qualityLevel = BUILD_HIGH) = 0;
+  virtual uint32_t AddGeom_RFScene(RFScene grid, BuildQuality a_qualityLevel = BUILD_HIGH) = 0;
   virtual uint32_t AddGeom_SdfOctree(SdfOctreeView octree, BuildQuality a_qualityLevel = BUILD_HIGH) = 0;
   virtual uint32_t AddGeom_SdfFrameOctree(SdfFrameOctreeView octree, BuildQuality a_qualityLevel = BUILD_HIGH) = 0;
 #endif

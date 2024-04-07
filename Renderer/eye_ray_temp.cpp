@@ -1,5 +1,5 @@
 ////////////////////////////////////////////////////
-//// input file: /home/sammael/grade/modules/LiteRT/Renderer/eye_ray.cpp
+//// input file: /home/egorf/LiteRT/Renderer/eye_ray.cpp
 ////////////////////////////////////////////////////
 #include <cfloat>
 #include <cstring>
@@ -251,7 +251,7 @@ void MultiRenderer::Clear(uint32_t a_width, uint32_t a_height, const char* a_wha
   PackXYBlock(a_width, a_height, 1);
 }
 ////////////////////////////////////////////////////
-//// input file: /home/sammael/grade/modules/LiteRT/BVH/BVH2Common.cpp
+//// input file: /home/egorf/LiteRT/BVH/BVH2Common.cpp
 ////////////////////////////////////////////////////
 #include <iostream>
 #include <fstream>

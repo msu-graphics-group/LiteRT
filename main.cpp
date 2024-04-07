@@ -19,7 +19,7 @@ int main(int argc, const char** argv)
   uint32_t WIDTH  = 1024;
   uint32_t HEIGHT = 1024;
   
-  const char* scenePath   = "scenes/02_sdf_scenes/csg_new.xml"; // 02_sdf_scenes/csg_new.xml bunny_cornell.xml, instanced_objects.xml
+  const char* scenePath   = "scenes/02_sdf_scenes/relu_fields.xml"; // 02_sdf_scenes/csg_new.xml bunny_cornell.xml, instanced_objects.xml
   const char* accelStruct  = "BVH2Common"; // BruteForce BVH2Common
   const char* buildFormat  = "cbvh_embree2";///"NanoRT";  // BVH2Common
   const char* layout       = "SuperTreeletAlignedMerged4"; ///"opt";
@@ -29,7 +29,6 @@ int main(int argc, const char** argv)
 
   Image2D<uint32_t> image(WIDTH, HEIGHT);
   std::shared_ptr<IRenderer> pRender = nullptr;
-
   std::cout << "[main]: init renderer ..." << std::endl; 
   {
     pRender = CreateMultiRenderer("GPU");  

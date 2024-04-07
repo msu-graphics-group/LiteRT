@@ -54,6 +54,7 @@ struct BVHRT : public ISceneObject
 #ifndef KERNEL_SLICER  
   uint32_t AddGeom_SdfScene(SdfSceneView scene, BuildQuality a_qualityLevel = BUILD_HIGH) override;
   uint32_t AddGeom_SdfGrid(SdfGridView grid, BuildQuality a_qualityLevel = BUILD_HIGH) override;
+  uint32_t AddGeom_RFScene(RFScene grid, BuildQuality a_qualityLevel = BUILD_HIGH) override;
   uint32_t AddGeom_SdfOctree(SdfOctreeView octree, BuildQuality a_qualityLevel = BUILD_HIGH) override;
   uint32_t AddGeom_SdfFrameOctree(SdfFrameOctreeView octree, BuildQuality a_qualityLevel = BUILD_HIGH) override;
 #endif
@@ -118,6 +119,7 @@ struct BVHRT : public ISceneObject
                               const uint32_t *a_triIndices, size_t a_indNumber);
 
 #ifndef KERNEL_SLICER  
+  std::vector<BVHNode> GetBoxes_RFGrid(RFScene grid);
   std::vector<BVHNode> GetBoxes_SdfGrid(SdfGridView grid);
   std::vector<BVHNode> GetBoxes_SdfOctree(SdfOctreeView octree);
   std::vector<BVHNode> GetBoxes_SdfFrameOctree(SdfFrameOctreeView octree);
@@ -159,6 +161,11 @@ struct BVHRT : public ISceneObject
   std::vector<float> m_SdfGridData;       //raw data for all SDF grids
   std::vector<uint32_t> m_SdfGridOffsets; //offset in m_SdfGridData for each SDF grid
   std::vector<uint3> m_SdfGridSizes;      //size for each SDF grid
+
+  // RF grid data
+  std::vector<float> m_RFGridData;       //raw data for all RF grids
+  std::vector<uint32_t> m_RFGridOffsets; //offset in m_SdfGridData for each RF grid
+  std::vector<size_t> m_RFGridSizes;      //size for each RF grid
 
   //SDF octree data
   std::vector<SdfOctreeNode> m_SdfOctreeNodes;//nodes for all SDF octrees
