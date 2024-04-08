@@ -119,12 +119,94 @@ void BVHRT::IntersectAllPrimitivesInLeaf(const float3 ray_pos, const float3 ray_
   case TYPE_SDF_PRIMITIVE:
   case TYPE_SDF_GRID:
   case TYPE_SDF_OCTREE:
-  case TYPE_SDF_FRAME_OCTREE:
     IntersectAllSdfsInLeaf(ray_pos, ray_dir, tNear, instId, geomId, a_start, a_count, pHit);
+    break;
+  case TYPE_SDF_FRAME_OCTREE:
+    if (m_preset.sdf_frame_octree_intersect == SDF_FRAME_OCTREE_INTERSECT_DEFAULT)
+      IntersectAllSdfsInLeaf(ray_pos, ray_dir, tNear, instId, geomId, a_start, a_count, pHit);
+    else if (m_preset.sdf_frame_octree_intersect == SDF_FRAME_OCTREE_INTERSECT_ST)
+      FrameNodeIntersect(ray_pos, ray_dir, tNear, instId, geomId, a_start, a_count, pHit);
     break;
   default:
     break;
   }
+}
+
+float BVHRT::eval_dist_frame_octree_node(unsigned idx, float3 dp)
+{
+  return (1-dp.x)*(1-dp.y)*(1-dp.z)*m_SdfFrameOctreeNodes[idx].values[0] + 
+         (1-dp.x)*(1-dp.y)*(  dp.z)*m_SdfFrameOctreeNodes[idx].values[1] + 
+         (1-dp.x)*(  dp.y)*(1-dp.z)*m_SdfFrameOctreeNodes[idx].values[2] + 
+         (1-dp.x)*(  dp.y)*(  dp.z)*m_SdfFrameOctreeNodes[idx].values[3] + 
+         (  dp.x)*(1-dp.y)*(1-dp.z)*m_SdfFrameOctreeNodes[idx].values[4] + 
+         (  dp.x)*(1-dp.y)*(  dp.z)*m_SdfFrameOctreeNodes[idx].values[5] + 
+         (  dp.x)*(  dp.y)*(1-dp.z)*m_SdfFrameOctreeNodes[idx].values[6] + 
+         (  dp.x)*(  dp.y)*(  dp.z)*m_SdfFrameOctreeNodes[idx].values[7];
+}
+
+void BVHRT::FrameNodeIntersect(const float3 ray_pos, const float3 ray_dir,
+                               float tNear, uint32_t instId, uint32_t geomId,
+                               uint32_t a_start, uint32_t a_count,
+                               CRT_Hit *pHit)
+{
+  uint32_t sdfId =  m_geomOffsets[geomId].x;
+  uint32_t nodeId = m_origNodes[a_start].leftOffset + m_SdfFrameOctreeRoots[sdfId];
+  float3 min_pos = m_origNodes[a_start].boxMin;
+  float3 max_pos = m_origNodes[a_start].boxMax;
+  float3 size = max_pos - min_pos;
+
+  float d = std::max(size.x, std::max(size.y, size.z));
+  float2 fNearFar = RayBoxIntersection2(ray_pos, SafeInverse(ray_dir), min_pos, max_pos);
+  float3 start_pos = ray_pos + fNearFar.x*ray_dir;
+  float3 end_pos = ray_pos + fNearFar.y*ray_dir;
+  float3 start_q = (start_pos - min_pos)/(2.0f*d);
+  float3 end_q = (end_pos - min_pos)/(2.0f*d);
+
+float t = 0;
+      float t_max = (fNearFar.y - fNearFar.x)/(2.0f*d);
+      float EPS = 1e-5;
+      float dist = eval_dist_frame_octree_node(nodeId, start_q);
+      float3 pp0 = start_q + t*ray_dir;
+      //printf("AA %f %f %f -- %f %f %f\n",min_pos.x, min_pos.y, min_pos.z, max_pos.x, max_pos.y, max_pos.z);
+      //printf("%f->%f %f->%f pp0 %f %f %f\n",fNearFar.x, fNearFar.y, t, t_max, pp0.x, pp0.y, pp0.z);
+      while (t < t_max && dist > EPS)
+      {
+        t += dist/(2.0f*d);
+        dist = eval_dist_frame_octree_node(nodeId, start_q + t*ray_dir);
+        float3 pp = start_q + t*ray_dir;
+        //printf("%f->%f pp %f %f %f\n",t, t_max, pp.x, pp.y, pp.z);
+      }
+
+      float tReal = fNearFar.x + 2.0f*d*t;
+
+      if (t <= t_max && dist <= EPS && tReal < pHit->t)
+      {
+        float3 norm = float3(0,0,1);
+        if (m_preset.need_normal > 0)
+        {
+          float3 p0 = start_q + t*ray_dir;
+          const float h = 0.001;
+          float ddx = (eval_dist_frame_octree_node(nodeId, p0 + float3(h, 0, 0)) -
+                       eval_dist_frame_octree_node(nodeId, p0 + float3(-h, 0, 0))) /
+                      (2 * h);
+          float ddy = (eval_dist_frame_octree_node(nodeId, p0 + float3(0, h, 0)) -
+                       eval_dist_frame_octree_node(nodeId, p0 + float3(0, -h, 0))) /
+                      (2 * h);
+          float ddz = (eval_dist_frame_octree_node(nodeId, p0 + float3(0, 0, h)) -
+                       eval_dist_frame_octree_node(nodeId, p0 + float3(0, 0, -h))) /
+                      (2 * h);
+
+          norm = normalize(float3(ddx, ddy, ddz));
+        }
+        pHit->t         = tReal;
+        pHit->primId    = m_origNodes[a_start].leftOffset;
+        pHit->instId    = instId;
+        pHit->geomId    = geomId | (TYPE_SDF_FRAME_OCTREE << SH_TYPE);  
+        pHit->coords[0] = 0;
+        pHit->coords[1] = 0;
+        pHit->coords[2] = norm.x;
+        pHit->coords[3] = norm.y;
+      }
 }
 
 void BVHRT::IntersectAllSdfsInLeaf(const float3 ray_pos, const float3 ray_dir,
@@ -156,9 +238,19 @@ void BVHRT::IntersectAllSdfsInLeaf(const float3 ray_pos, const float3 ray_dir,
     break;
   case TYPE_SDF_FRAME_OCTREE:
     sdfId =  m_geomOffsets[geomId].x;
-    primId = m_origNodes[a_start].leftOffset;
-    min_pos = m_origNodes[a_start].boxMin;
-    max_pos = m_origNodes[a_start].boxMax;
+
+    if (m_preset.sdf_frame_octree_blas == SDF_FRAME_OCTREE_BLAS_NO)
+    {
+      primId = 0;
+      min_pos = float3(-1,-1,-1);
+      max_pos = float3( 1, 1, 1);
+    }
+    else if (m_preset.sdf_frame_octree_blas == SDF_FRAME_OCTREE_BLAS_DEFAULT)
+    {
+      primId = m_origNodes[a_start].leftOffset;
+      min_pos = m_origNodes[a_start].boxMin;
+      max_pos = m_origNodes[a_start].boxMax;
+    }
     break;
   default:
     break;

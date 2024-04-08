@@ -109,6 +109,11 @@ struct BVHRT : public ISceneObject
                                    float tNear, uint32_t instId, uint32_t geomId,
                                    uint32_t a_start, uint32_t a_count,
                                    CRT_Hit *pHit);
+  
+  void FrameNodeIntersect(const float3 ray_pos, const float3 ray_dir,
+                          float tNear, uint32_t instId, uint32_t geomId,
+                          uint32_t a_start, uint32_t a_count,
+                          CRT_Hit *pHit);
                                    
   virtual void BVH2TraverseF32(const float3 ray_pos, const float3 ray_dir, float tNear, 
                                uint32_t instId, uint32_t geomId, uint32_t stack[STACK_SIZE], bool stopOnFirstHit,
@@ -129,6 +134,7 @@ struct BVHRT : public ISceneObject
   virtual float2 box_intersects(const float3 &min_pos, const float3 &max_pos, const float3 &origin, const float3 &dir);
   virtual float eval_dist_prim(unsigned prim_id, float3 p);
   virtual bool is_leaf(unsigned offset);
+  virtual float eval_dist_frame_octree_node(unsigned idx, float3 dpp);
 
   virtual float sdf_octree_sample_mipskip_3x3(unsigned octree_id, float3 p, unsigned max_level);
   virtual float sdf_octree_sample_mipskip_closest(unsigned octree_id, float3 p, unsigned max_level);

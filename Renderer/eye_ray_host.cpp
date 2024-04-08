@@ -19,6 +19,7 @@ using LiteMath::inverse4x4;
 MultiRenderer::MultiRenderer() 
 { 
   m_pAccelStruct = nullptr;
+  m_preset = getDefaultPreset();
 }
 
 void MultiRenderer::SetViewport(int a_xStart, int a_yStart, int a_width, int a_height)
@@ -182,6 +183,7 @@ void MultiRenderer::SetScene(SdfOctreeView scene)
 void MultiRenderer::SetScene(SdfFrameOctreeView scene)
 {
   SetAccelStruct(CreateSceneRT("BVH2Common", "cbvh_embree2", "SuperTreeletAlignedMerged4"));
+  SetPreset(m_preset);
   GetAccelStruct()->ClearGeom();
   GetAccelStruct()->AddGeom_SdfFrameOctree(scene);
   GetAccelStruct()->ClearScene();
@@ -200,6 +202,8 @@ void MultiRenderer::SetPreset(const MultiRenderPreset& a_preset)
     tp.need_normal = (a_preset.mode == MULTI_RENDER_MODE_LAMBERT || 
                       a_preset.mode == MULTI_RENDER_MODE_NORMAL) ? 1 : 0;
     tp.sdf_octree_sampler = m_preset.sdf_octree_sampler;
+    tp.sdf_frame_octree_blas = m_preset.sdf_frame_octree_blas;
+    tp.sdf_frame_octree_intersect = m_preset.sdf_frame_octree_intersect;
 
     switch (a_preset.mode)
     {

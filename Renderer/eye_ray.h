@@ -33,6 +33,8 @@ struct MultiRenderPreset
   unsigned mode; //enum MultiRenderMode
   unsigned sdf_octree_sampler; //enum SdfOctreeSampler
   unsigned spp; //samples per pixel, should be a square (1, 4, 9, 16 etc.)
+  unsigned sdf_frame_octree_blas; //enum SdfFrameOctreeBLAS
+  unsigned sdf_frame_octree_intersect; //enum SdfFrameOctreeIntersect
 };
 
 static MultiRenderPreset getDefaultPreset()
@@ -41,6 +43,8 @@ static MultiRenderPreset getDefaultPreset()
   p.mode = MULTI_RENDER_MODE_LAMBERT;
   p.sdf_octree_sampler = SDF_OCTREE_SAMPLER_MIPSKIP_3X3;
   p.spp = 1;
+  p.sdf_frame_octree_blas = SDF_FRAME_OCTREE_BLAS_DEFAULT;
+  p.sdf_frame_octree_intersect = SDF_FRAME_OCTREE_INTERSECT_DEFAULT;
 
   return p;
 }

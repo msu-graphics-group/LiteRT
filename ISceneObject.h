@@ -41,6 +41,14 @@ static constexpr unsigned SDF_OCTREE_SAMPLER_MIPSKIP_3X3 = 0; //go to the deepes
 static constexpr unsigned SDF_OCTREE_SAMPLER_MIPSKIP_CLOSEST = 1; //go deeper while resampling is not needed, then sample
 static constexpr unsigned SDF_OCTREE_SAMPLER_CLOSEST = 2;
 
+//enum SdfFrameOctreeBLAS
+static constexpr unsigned SDF_FRAME_OCTREE_BLAS_NO = 0; //use trivial BLAS with 2 bboxes and full sphere tracing later on
+static constexpr unsigned SDF_FRAME_OCTREE_BLAS_DEFAULT = 1; //use BVH with one leaf for every non-empty leaf node of octree
+
+//enum SdfFrameOctreeIntersect
+static constexpr unsigned SDF_FRAME_OCTREE_INTERSECT_DEFAULT = 0; //sphere tracing + octree traversal
+static constexpr unsigned SDF_FRAME_OCTREE_INTERSECT_ST = 1;// onnly with SDF_FRAME_OCTREE_BLAS_DEFAULT! Sphere tracing inside node
+
 //enum VisualizeStatType 
 static constexpr unsigned VISUALIZE_STAT_NONE = 0;
 static constexpr unsigned VISUALIZE_STAT_SPHERE_TRACE_ITERATIONS = 1;
@@ -49,6 +57,8 @@ struct TracerPreset
   unsigned need_normal;
   unsigned sdf_octree_sampler; //enum SdfOctreeSampler
   unsigned visualize_stat; //enum VisualizeStatType 
+  unsigned sdf_frame_octree_blas; //enum SdfFrameOctreeBLAS
+  unsigned sdf_frame_octree_intersect; //enum SdfFrameOctreeIntersect
 };
 /**
 \brief API to ray-scene intersection on CPU
