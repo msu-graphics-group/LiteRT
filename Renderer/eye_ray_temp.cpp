@@ -382,6 +382,9 @@ void BVHRT::IntersectAllPrimitivesInLeaf(const float3 ray_pos, const float3 ray_
     else if (m_preset.sdf_frame_octree_intersect == SDF_FRAME_OCTREE_INTERSECT_ST)
       FrameNodeIntersect(ray_pos, ray_dir, tNear, instId, geomId, a_start, a_count, pHit);
     break;
+  //case TYPE_RF_GRID:
+  //  IntersectRFInLeaf(ray_pos, ray_dir, tNear, instId, geomId, a_start, a_count, pHit);
+  //  break;
   default:
     break;
   }
@@ -533,6 +536,132 @@ void BVHRT::IntersectAllSdfsInLeaf(const float3 ray_pos, const float3 ray_dir,
     }
   }
 }
+
+/*
+size_t indexGrid(size_t x, size_t y, size_t z, size_t gridSize) {
+    return x + y * gridSize + z * gridSize * gridSize;
+}
+
+inline std::array<float, CellSize> lerpCell(const float* v0, const float* v1, const float t)
+{
+  std::array<float, CellSize> ret = {};
+
+  for (size_t i = 0; i < CellSize; i++)
+    ret[i] = LiteMath::lerp(v0[i], v1[i], t);
+
+  return ret;
+}
+
+// From Mitsuba 3
+void sh_eval_2(const float3 &d, float *out)
+{
+  float x = d.x, y = d.y, z = d.z, z2 = z * z;
+  float c0, c1, s0, s1, tmp_a, tmp_b, tmp_c;
+
+  out[0] = 0.28209479177387814;
+  out[2] = z * 0.488602511902919923;
+  out[6] = z2 * 0.94617469575756008 + -0.315391565252520045;
+  c0 = x;
+  s0 = y;
+
+  tmp_a = -0.488602511902919978;
+  out[3] = tmp_a * c0;
+  out[1] = tmp_a * s0;
+  tmp_b = z * -1.09254843059207896;
+  out[7] = tmp_b * c0;
+  out[5] = tmp_b * s0;
+  c1 = x * c0 - y * s0;
+  s1 = x * s0 + y * c0;
+
+  tmp_c = 0.546274215296039478;
+  out[8] = tmp_c * c1;
+  out[4] = tmp_c * s1;
+}
+
+float eval_sh(float *sh, float3 rayDir)
+{
+  float sh_coeffs[9];
+  sh_eval_2(rayDir, sh_coeffs);
+
+  float sum = 0.0f;
+  for (int i = 0; i < 9; i++)
+    sum += sh[i] * sh_coeffs[i];
+
+  return sum;
+}
+
+float3 RayGridIntersection(float3 ray_pos, float3 ray_dir, double step, float2 boxFarNear, float3 bbMin, float3 bbMax, float* grid, size_t gridSize, float &throughput, float3 &colour)
+{
+  float3 p = ray_pos + t * ray_dir;
+
+  float3 coords01 = (p - bbMin) / (bbMax - bbMin);
+  float3 coords = coords01 * (float)(gridSize);
+
+  int3 nearCoords = clamp((int3)coords, int3(0), int3(gridSize - 1));
+  int3 farCoords = clamp((int3)coords + int3(1), int3(0), int3(gridSize - 1));
+
+  float3 lerpFactors = coords - (float3)nearCoords;
+
+  auto xy00 = lerpCell(&grid[indexGrid(nearCoords[0], nearCoords[1], nearCoords[2], gridSize)], &grid[indexGrid(farCoords[0], nearCoords[1], nearCoords[2], gridSize)], lerpFactors.x);
+  auto xy10 = lerpCell(&grid[indexGrid(nearCoords[0], farCoords[1], nearCoords[2], gridSize)], &grid[indexGrid(farCoords[0], farCoords[1], nearCoords[2], gridSize)], lerpFactors.x);
+  auto xy01 = lerpCell(&grid[indexGrid(nearCoords[0], nearCoords[1], farCoords[2], gridSize)], &grid[indexGrid(farCoords[0], nearCoords[1], farCoords[2], gridSize)], lerpFactors.x);
+  auto xy11 = lerpCell(&grid[indexGrid(nearCoords[0], farCoords[1], farCoords[2], gridSize)], &grid[indexGrid(farCoords[0], farCoords[1], farCoords[2], gridSize)], lerpFactors.x);
+
+  auto xyz0 = lerpCell(xy00.data(), xy10.data(), lerpFactors.y);
+  auto xyz1 = lerpCell(xy01.data(), xy11.data(), lerpFactors.y);
+
+  auto gridVal = lerpCell(xyz0.data(), xyz1.data(), lerpFactors.z);
+
+  // relu
+  if (gridVal[0] < 0.0)
+    gridVal[0] = 0.0;
+
+  float tr = exp(-gridVal[0] * step);
+
+  // float3 RGB = float3(1.0, 1.0, 1.0);
+  float3 RGB = float3(LiteMath::clamp(eval_sh(&gridVal[1], ray_dir), 0.0f, 1.0f), LiteMath::clamp(eval_sh(&gridVal[10], ray_dir), 0.0f, 1.0f), LiteMath::clamp(eval_sh(&gridVal[19], ray_dir), 0.0f, 1.0f));
+  colour = colour + throughput * (1 - tr) * RGB;
+  
+  throughput *= tr;
+}
+
+void BVHRT::IntersectRFInLeaf(const float3 ray_pos, const float3 ray_dir,
+                                   float tNear, uint32_t instId, uint32_t geomId,
+                                   uint32_t a_start, uint32_t a_count,
+                                   CRT_Hit *pHit)
+{
+
+  uint32_t type = m_geomTypeByGeomId[geomId];
+  uint32_t sdfId = 0;
+  uint32_t primId = 0;
+
+  float3 min_pos = float3(0,0,0), max_pos = float3(1,1,1);
+
+  float l = length(ray_dir);
+  float3 dir = ray_dir/l;
+
+  SdfHit hit = sdf_sphere_tracing(type, sdfId, min_pos, max_pos, ray_pos, dir, m_preset.need_normal > 0);
+  
+  if (hit.hit_pos.w > 0)
+  {
+    float t = length(to_float3(hit.hit_pos)-ray_pos)/l;
+    if (t > tNear && t < pHit->t)
+    {
+      pHit->t         = t;
+      pHit->primId    = primId;
+      pHit->instId    = instId;
+      pHit->geomId    = geomId | (type << SH_TYPE);  
+      pHit->coords[0] = 0;
+      pHit->coords[1] = 0;
+      pHit->coords[2] = hit.hit_norm.x;
+      pHit->coords[3] = hit.hit_norm.y;
+
+      if (m_preset.visualize_stat == VISUALIZE_STAT_SPHERE_TRACE_ITERATIONS)
+        pHit->primId = uint32_t(hit.hit_norm.w);
+    }
+  }
+}
+*/
 
 SdfHit BVHRT::sdf_sphere_tracing(uint32_t type, uint32_t sdf_id, const float3 &min_pos, const float3 &max_pos,
                                  const float3 &pos, const float3 &dir, bool need_norm)
