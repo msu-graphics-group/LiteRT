@@ -1,5 +1,5 @@
 ////////////////////////////////////////////////////
-//// input file: /home/sammael/grade/modules/LiteRT/Renderer/eye_ray.cpp
+//// input file: /home/egorf/LiteRT/Renderer/eye_ray.cpp
 ////////////////////////////////////////////////////
 #include <cfloat>
 #include <cstring>
@@ -158,6 +158,12 @@ void MultiRenderer::kernel_RayTrace(uint32_t tidX, const float4* rayPosAndNear,
       out_color[y * m_width + x] = 0xFF000000 | (col.z<<16) | (col.y<<8) | col.x; 
     }
     break;
+    case MULTI_RENDER_MODE_RF:
+    {
+      uint3 col = uint3(255 * float3(hit.coords[1], hit.coords[2], hit.coords[3]));
+      out_color[y * m_width + x] = 0xFF000000 | (col.z<<16) | (col.y<<8) | col.x;
+    }
+    break;
     default:
     break;
   }
@@ -251,7 +257,7 @@ void MultiRenderer::Clear(uint32_t a_width, uint32_t a_height, const char* a_wha
   PackXYBlock(a_width, a_height, 1);
 }
 ////////////////////////////////////////////////////
-//// input file: /home/sammael/grade/modules/LiteRT/BVH/BVH2Common.cpp
+//// input file: /home/egorf/LiteRT/BVH/BVH2Common.cpp
 ////////////////////////////////////////////////////
 #include <iostream>
 #include <fstream>
@@ -388,6 +394,7 @@ void BVHRT::IntersectAllPrimitivesInLeaf(const float3 ray_pos, const float3 ray_
     case SDF_FRAME_OCTREE_INTERSECT_ANALYTIC:
     case SDF_FRAME_OCTREE_INTERSECT_NEWTON:
       FrameNodeIntersect(ray_pos, ray_dir, tNear, instId, geomId, a_start, a_count, pHit);
+<<<<<<< HEAD
       break;
     default:
       break;
@@ -395,6 +402,12 @@ void BVHRT::IntersectAllPrimitivesInLeaf(const float3 ray_pos, const float3 ray_
   //case TYPE_RF_GRID:
   //  IntersectRFInLeaf(ray_pos, ray_dir, tNear, instId, geomId, a_start, a_count, pHit);
   //  break;
+=======
+    break;
+  case TYPE_RF_GRID:
+   IntersectRFInLeaf(ray_pos, ray_dir, tNear, instId, geomId, a_start, a_count, pHit);
+   break;
+>>>>>>> 83386d6 (Almost done)
   default:
     break;
   }
@@ -771,16 +784,15 @@ void BVHRT::IntersectAllSdfsInLeaf(const float3 ray_pos, const float3 ray_dir,
   }
 }
 
-/*
 size_t indexGrid(size_t x, size_t y, size_t z, size_t gridSize) {
     return x + y * gridSize + z * gridSize * gridSize;
 }
 
-inline std::array<float, CellSize> lerpCell(const float* v0, const float* v1, const float t)
+inline std::array<float, 28> lerpCell(const float* v0, const float* v1, const float t)
 {
-  std::array<float, CellSize> ret = {};
+  std::array<float, 28> ret = {};
 
-  for (size_t i = 0; i < CellSize; i++)
+  for (size_t i = 0; i < 28; i++)
     ret[i] = LiteMath::lerp(v0[i], v1[i], t);
 
   return ret;
@@ -824,10 +836,8 @@ float eval_sh(float *sh, float3 rayDir)
   return sum;
 }
 
-float3 RayGridIntersection(float3 ray_pos, float3 ray_dir, double step, float2 boxFarNear, float3 bbMin, float3 bbMax, float* grid, size_t gridSize, float &throughput, float3 &colour)
+void RayGridIntersection(float3 ray_pos, float3 ray_dir, float3 bbMin, float3 bbMax, float* grid, size_t gridSize, float3 p, float3 lastP, float &throughput, float3 &colour)
 {
-  float3 p = ray_pos + t * ray_dir;
-
   float3 coords01 = (p - bbMin) / (bbMax - bbMin);
   float3 coords = coords01 * (float)(gridSize);
 
@@ -850,13 +860,39 @@ float3 RayGridIntersection(float3 ray_pos, float3 ray_dir, double step, float2 b
   if (gridVal[0] < 0.0)
     gridVal[0] = 0.0;
 
-  float tr = exp(-gridVal[0] * step);
+  float tr = exp(-gridVal[0] * length(p - lastP));
 
-  // float3 RGB = float3(1.0, 1.0, 1.0);
   float3 RGB = float3(LiteMath::clamp(eval_sh(&gridVal[1], ray_dir), 0.0f, 1.0f), LiteMath::clamp(eval_sh(&gridVal[10], ray_dir), 0.0f, 1.0f), LiteMath::clamp(eval_sh(&gridVal[19], ray_dir), 0.0f, 1.0f));
   colour = colour + throughput * (1 - tr) * RGB;
   
   throughput *= tr;
+}
+
+float2 RayBoxIntersection(float3 ray_pos, float3 ray_dir, float3 boxMin, float3 boxMax)
+{
+  ray_dir.x = 1.0f / ray_dir.x; // may precompute if intersect many boxes
+  ray_dir.y = 1.0f / ray_dir.y; // may precompute if intersect many boxes
+  ray_dir.z = 1.0f / ray_dir.z; // may precompute if intersect many boxes
+
+  float lo = ray_dir.x * (boxMin.x - ray_pos.x);
+  float hi = ray_dir.x * (boxMax.x - ray_pos.x);
+
+  float tmin = std::min(lo, hi);
+  float tmax = std::max(lo, hi);
+
+  float lo1 = ray_dir.y * (boxMin.y - ray_pos.y);
+  float hi1 = ray_dir.y * (boxMax.y - ray_pos.y);
+
+  tmin = std::max(tmin, std::min(lo1, hi1));
+  tmax = std::min(tmax, std::max(lo1, hi1));
+
+  float lo2 = ray_dir.z * (boxMin.z - ray_pos.z);
+  float hi2 = ray_dir.z * (boxMax.z - ray_pos.z);
+
+  tmin = std::max(tmin, std::min(lo2, hi2));
+  tmax = std::min(tmax, std::max(lo2, hi2));
+
+  return float2(tmin, tmax);
 }
 
 void BVHRT::IntersectRFInLeaf(const float3 ray_pos, const float3 ray_dir,
@@ -874,28 +910,28 @@ void BVHRT::IntersectRFInLeaf(const float3 ray_pos, const float3 ray_dir,
   float l = length(ray_dir);
   float3 dir = ray_dir/l;
 
-  SdfHit hit = sdf_sphere_tracing(type, sdfId, min_pos, max_pos, ray_pos, dir, m_preset.need_normal > 0);
-  
-  if (hit.hit_pos.w > 0)
-  {
-    float t = length(to_float3(hit.hit_pos)-ray_pos)/l;
-    if (t > tNear && t < pHit->t)
-    {
-      pHit->t         = t;
-      pHit->primId    = primId;
-      pHit->instId    = instId;
-      pHit->geomId    = geomId | (type << SH_TYPE);  
-      pHit->coords[0] = 0;
-      pHit->coords[1] = 0;
-      pHit->coords[2] = hit.hit_norm.x;
-      pHit->coords[3] = hit.hit_norm.y;
+  auto bbox = m_origNodes[a_start];
+  float2 zNearAndFar = RayBoxIntersection(ray_pos, dir, bbox.boxMin, bbox.boxMax);
+  float3 p = ray_pos + dir * (zNearAndFar.x + zNearAndFar.y) / 2.0f;
 
-      if (m_preset.visualize_stat == VISUALIZE_STAT_SPHERE_TRACE_ITERATIONS)
-        pHit->primId = uint32_t(hit.hit_norm.w);
-    }
-  }
+  float3 lastP = float3(pHit->adds[0], pHit->adds[1], pHit->adds[2]);
+  float throughput = pHit->coords[0];
+  float3 colour = float3(pHit->coords[1], pHit->coords[2], pHit->coords[3]);
+
+  RayGridIntersection(ray_pos, dir, min_pos, max_pos, m_RFGridData.data(), m_RFGridSizes[0], p, lastP, throughput, colour);
+  
+  pHit->t         = zNearAndFar.x;
+  pHit->primId    = (throughput < 0.001) ? -1 : primId;
+  pHit->instId    = instId;
+  pHit->geomId    = geomId | (type << SH_TYPE);  
+  pHit->coords[0] = throughput;
+  pHit->coords[1] = colour[1];
+  pHit->coords[2] = colour[2];
+  pHit->coords[3] = colour[3];
+  pHit->adds[0] = p[0];
+  pHit->adds[1] = p[1];
+  pHit->adds[2] = p[2];
 }
-*/
 
 SdfHit BVHRT::sdf_sphere_tracing(uint32_t type, uint32_t sdf_id, const float3 &min_pos, const float3 &max_pos,
                                  const float3 &pos, const float3 &dir, bool need_norm)
@@ -1417,7 +1453,7 @@ void BVHRT::BVH2TraverseF32(const float3 ray_pos, const float3 ray_dir, float tN
 
 CRT_Hit BVHRT::RayQuery_NearestHit(float4 posAndNear, float4 dirAndFar)
 {
-  bool stopOnFirstHit = (dirAndFar.w <= 0.0f);
+  bool stopOnFirstHit = false;
   if(stopOnFirstHit)
     dirAndFar.w *= -1.0f;
 

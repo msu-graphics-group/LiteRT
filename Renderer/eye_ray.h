@@ -27,6 +27,7 @@ static constexpr unsigned MULTI_RENDER_MODE_GEOM = 7; //each geodId has distinct
 static constexpr unsigned MULTI_RENDER_MODE_NORMAL = 8; //visualize normals (abs for each coordinate)
 static constexpr unsigned MULTI_RENDER_MODE_BARYCENTRIC = 9; //visualize barycentric coordinates for triangle mesh
 static constexpr unsigned MULTI_RENDER_MODE_SPHERE_TRACE_ITERATIONS = 10; //for SDFs replace primId with number of iterations for sphere tracing
+static constexpr unsigned MULTI_RENDER_MODE_RF = 11;
 
 struct MultiRenderPreset
 {

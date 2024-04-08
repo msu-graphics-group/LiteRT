@@ -229,13 +229,13 @@ uint32_t BVHRT::AddGeom_RFScene(RFScene grid, BuildQuality a_qualityLevel)
   m_RFGridData.insert(m_RFGridData.end(), grid.data.data(), grid.data.data() + grid.size*grid.size*grid.size*CellSize);
 
   //create list of bboxes for BLAS
-  std::vector<BVHNode> orig_nodes = GetBoxes_RFGrid(grid);
+  m_origNodes = GetBoxes_RFGrid(grid);
 
   // Build BVH for each geom and append it to big buffer;
   // append data to global arrays and fix offsets
   auto presets = BuilderPresetsFromString(m_buildName.c_str());
   auto layout  = LayoutPresetsFromString(m_layoutName.c_str());
-  auto bvhData = BuildBVHFatCustom(orig_nodes.data(), orig_nodes.size(), presets, layout);
+  auto bvhData = BuildBVHFatCustom(m_origNodes.data(), m_origNodes.size(), presets, layout);
 
   for (auto &i : bvhData.indices)
     printf("grid ind %d\n",(int)i);
