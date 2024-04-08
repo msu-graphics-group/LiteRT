@@ -93,6 +93,15 @@ bool MultiRenderer::LoadSceneHydra(const std::string& a_path)
       load_neural_sdf_scene_SIREN(scene, dir);
       m_pAccelStruct->AddGeom_SdfScene(scene);
     }
+    else if (name == "rf")
+    {
+      std::cout << "[LoadScene]: radiance fields = " << dir.c_str() << std::endl;
+      RFScene scene;
+      std::cout << "Mew!\n";
+      load_rf_scene(scene, dir);
+      std::cout << "Mew!\n";
+      m_pAccelStruct->AddGeom_RFScene(scene);
+    }
     else
     {
       std::cout << "[LoadScene]: unknown geometry node type: " << name.c_str() << std::endl;

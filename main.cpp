@@ -29,7 +29,6 @@ int main(int argc, const char** argv)
 
   Image2D<uint32_t> image(WIDTH, HEIGHT);
   std::shared_ptr<IRenderer> pRender = nullptr;
-
   std::cout << "[main]: init renderer ..." << std::endl; 
   {
     pRender = CreateMultiRenderer("GPU");  
