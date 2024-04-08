@@ -425,14 +425,14 @@ float t = 0;
       float EPS = 1e-5;
       float dist = eval_dist_frame_octree_node(nodeId, start_q);
       float3 pp0 = start_q + t*ray_dir;
-      //printf("AA %f %f %f -- %f %f %f\n",min_pos.x, min_pos.y, min_pos.z, max_pos.x, max_pos.y, max_pos.z);
-      //printf("%f->%f %f->%f pp0 %f %f %f\n",fNearFar.x, fNearFar.y, t, t_max, pp0.x, pp0.y, pp0.z);
-      while (t < t_max && dist > EPS)
+      
+      unsigned iter = 0;
+      while (t < t_max && dist > EPS && iter < 100)
       {
-        t += dist/(2.0f*d);
+        t += (dist+0.5f*EPS)/(2.0f*d);
         dist = eval_dist_frame_octree_node(nodeId, start_q + t*ray_dir);
         float3 pp = start_q + t*ray_dir;
-        //printf("%f->%f pp %f %f %f\n",t, t_max, pp.x, pp.y, pp.z);
+        iter++;
       }
 
       float tReal = fNearFar.x + 2.0f*d*t;
@@ -464,6 +464,9 @@ float t = 0;
         pHit->coords[1] = 0;
         pHit->coords[2] = norm.x;
         pHit->coords[3] = norm.y;
+
+        if (m_preset.visualize_stat == VISUALIZE_STAT_SPHERE_TRACE_ITERATIONS)
+          pHit->primId = iter;
       }
 }
 
