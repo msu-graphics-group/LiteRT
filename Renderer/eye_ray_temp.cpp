@@ -153,7 +153,7 @@ void MultiRenderer::kernel_RayTrace(uint32_t tidX, const float4* rayPosAndNear,
     {
       float3 c1 = float3(0,1,0);
       float3 c2 = float3(1,0,0);
-      float q = clamp(0.2*log2(float(hit.primId)), 0.0f,1.0f);
+      float q = clamp(0.01f*float(hit.primId), 0.0f,1.0f);
       uint3 col = uint3(255*(q*c1 + (1-q)*c2));
       out_color[y * m_width + x] = 0xFF000000 | (col.z<<16) | (col.y<<8) | col.x; 
     }
@@ -427,15 +427,18 @@ float t = 0;
       float3 pp0 = start_q + t*ray_dir;
       
       unsigned iter = 0;
-      while (t < t_max && dist > EPS && iter < 100)
+      while (t < t_max && dist > EPS && iter < 256)
       {
-        t += (dist+0.5f*EPS)/(2.0f*d);
+        t += dist/(2.0f*d);
         dist = eval_dist_frame_octree_node(nodeId, start_q + t*ray_dir);
         float3 pp = start_q + t*ray_dir;
         iter++;
       }
 
       float tReal = fNearFar.x + 2.0f*d*t;
+      //float di = 100;
+      //for (int i=0;i<8;i++)
+      //  di = std::min(di, m_SdfFrameOctreeNodes[nodeId].values[i]);
 
       if (t <= t_max && dist <= EPS && tReal < pHit->t)
       {
