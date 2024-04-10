@@ -49,6 +49,7 @@ static constexpr unsigned SDF_FRAME_OCTREE_BLAS_DEFAULT = 1; //use BVH with one 
 //enum SdfFrameOctreeIntersect
 static constexpr unsigned SDF_FRAME_OCTREE_INTERSECT_DEFAULT = 0; //sphere tracing + octree traversal
 static constexpr unsigned SDF_FRAME_OCTREE_INTERSECT_ST = 1;// onnly with SDF_FRAME_OCTREE_BLAS_DEFAULT! Sphere tracing inside node
+static constexpr unsigned SDF_FRAME_OCTREE_INTERSECT_ANALYTIC = 2;// onnly with SDF_FRAME_OCTREE_BLAS_DEFAULT! Explicitly finding ray/sdf intersection inside node
 
 //enum VisualizeStatType 
 static constexpr unsigned VISUALIZE_STAT_NONE = 0;
