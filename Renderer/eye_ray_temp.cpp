@@ -266,6 +266,7 @@ void MultiRenderer::Clear(uint32_t a_width, uint32_t a_height, const char* a_wha
 
 using uvec3 = uint3;
 using LiteMath::M_PI;
+using LiteMath::clamp;
 
 float2 BVHRT::box_intersects(const float3 &min_pos, const float3 &max_pos, const float3 &origin, const float3 &dir)
 {
@@ -385,6 +386,7 @@ void BVHRT::IntersectAllPrimitivesInLeaf(const float3 ray_pos, const float3 ray_
       break;
     case SDF_FRAME_OCTREE_INTERSECT_ST:
     case SDF_FRAME_OCTREE_INTERSECT_ANALYTIC:
+    case SDF_FRAME_OCTREE_INTERSECT_NEWTON:
       FrameNodeIntersect(ray_pos, ray_dir, tNear, instId, geomId, a_start, a_count, pHit);
       break;
     default:
@@ -456,7 +458,8 @@ void BVHRT::FrameNodeIntersect(const float3 ray_pos, const float3 ray_dir,
     }
     hit = (dist <= EPS);
   }
-  else //if (m_preset.sdf_frame_octree_intersect == SDF_FRAME_OCTREE_INTERSECT_ANALYTIC)
+  else //if (m_preset.sdf_frame_octree_intersect == SDF_FRAME_OCTREE_INTERSECT_ANALYTIC ||
+       //    m_preset.sdf_frame_octree_intersect == SDF_FRAME_OCTREE_INTERSECT_NEWTON)
   {
     //finding exact intersection between surface sdf(x,y,z) = 0 and ray
     // based on paper "Ray Tracing of Signed Distance Function Grids, 
@@ -500,76 +503,164 @@ void BVHRT::FrameNodeIntersect(const float3 ray_pos, const float3 ray_dir,
     float c3 = k7*m1*d.z;
 
     // the surface is defined by equation c3*t^3 + c2*t^2 + c1*t + c0 = 0;
-    // and solve this equation analytically
+    // solve this equation analytically or numerically using the Newton's method
     // see "Numerical Recipes - The Art of Scientific Computing - 3rd Edition" for details
 
-    float x1 = 1000;
-    float x2 = 1000;
-    float x3 = 1000;
-    unsigned type = 0;
-    if (std::abs(c3) > 1e-2)
+    if (m_preset.sdf_frame_octree_intersect == SDF_FRAME_OCTREE_INTERSECT_ANALYTIC)
     {
-      type = 3;
-      //it is a cubic equation, transform it to x^3 + a*x^2 + b*x + c = 0
-      //use Vieta method to obtain 3 or 1 real roots
-      float a = c2/c3;
-      float b = c1/c3;
-      float c = c0/c3;   
-
-      float Q = (a*a - 3*b)/9;
-      float R = (2*a*a - 9*a*b + 27*c)/54;
-      float Q3 = Q*Q*Q;
-
-      if (R*R < Q3) //equation has three real roots
+      float x1 = 1000;
+      float x2 = 1000;
+      float x3 = 1000;
+      unsigned type = 0;
+      if (std::abs(c3) > 1e-2)
       {
-        float theta = std::acos(R/sqrt(Q3));
-        x1 = -2*sqrt(Q)*std::cos(theta/3) - a/3;
-        x2 = -2*sqrt(Q)*std::cos((theta+2*M_PI)/3) - a/3;
-        x3 = -2*sqrt(Q)*std::cos((theta-2*M_PI)/3) - a/3;
+        type = 3;
+        //it is a cubic equation, transform it to x^3 + a*x^2 + b*x + c = 0
+        //use Vieta method to obtain 3 or 1 real roots
+        float a = c2/c3;
+        float b = c1/c3;
+        float c = c0/c3;   
+
+        float Q = (a*a - 3*b)/9;
+        float R = (2*a*a - 9*a*b + 27*c)/54;
+        float Q3 = Q*Q*Q;
+
+        if (R*R < Q3) //equation has three real roots
+        {
+          float theta = std::acos(R/sqrt(Q3));
+          x1 = -2*sqrt(Q)*std::cos(theta/3) - a/3;
+          x2 = -2*sqrt(Q)*std::cos((theta+2*M_PI)/3) - a/3;
+          x3 = -2*sqrt(Q)*std::cos((theta-2*M_PI)/3) - a/3;
+        }
+        else //equation has only one real roots
+        {
+          float A = -sign(R)*std::pow(std::abs(R) + sqrt(R*R - Q3), 1.0f/3.0f);
+          float B = std::abs(A) > EPS ? Q/A : 0;
+          x1 = A+B - a/3;
+        }
       }
-      else //equation has only one real roots
+      else if (std::abs(c2) > 1e-4)
       {
-        float A = -sign(R)*std::pow(std::abs(R) + sqrt(R*R - Q3), 1.0f/3.0f);
-        float B = std::abs(A) > EPS ? Q/A : 0;
-        x1 = A+B - a/3;
+        type = 2;
+        //it is a quadratic equation a*x^2 + b*x + c = 0
+        float a = c2;
+        float b = c1;
+        float c = c0;
+
+        float D = b*b - 4*a*c;
+        if (D > 0)
+        {
+          float q = -0.5f*(b + sign(b)*std::sqrt(D));
+          x1 = q/a;
+          if (std::abs(q) > EPS)
+            x2 = c/q; 
+        }
       }
+      else if (std::abs(c1) > EPS)
+      {
+        type = 1;
+        //it is a linear equation c1*x + c0 = 0
+        x1 = -c0/c1;
+      }
+      //else
+      //no roots or inf roots, something's fucked up so just drop it
+
+      x1 = x1 < 0 ? 1000 : x1;
+      x2 = x2 < 0 ? 1000 : x2;
+      x3 = x3 < 0 ? 1000 : x3;
+
+      //bool prev_hit = hit;
+      //float nt = std::min(x1, std::min(x2,x3));
+      //if (prev_hit && std::abs(t - nt) > 0.1)
+      //  printf("%f-%f -- %f %f %f %f -- %f %f %f, type %u\n",t, nt, c3,c2,c1,c0, x1,x2,x3, type);
+      t = std::min(x1, std::min(x2,x3));
+      hit = (t >= 0 && t <= tFar);
     }
-    else if (std::abs(c2) > 1e-4)
+    else
     {
-      type = 2;
-      //it is a quadratic equation a*x^2 + b*x + c = 0
-      float a = c2;
-      float b = c1;
-      float c = c0;
+      // our polynom is c3*t^3 + c2*t^2 + c1*t + c0 = 0;
+      // it's derivative is  3*c3*t^2 + 2*c2*t + c1 = 0; 
+      // find where it equals 0 to determine interval where the root is located
+      // by solving a quadratic equation a*x^2 + b*x + c = 0
+      float a = 3*c3;
+      float b = 2*c2;
+      float c = c1;
+
+      float t0 = 0;
+      float t1 = tFar;
+      float t2 = tFar;
+      float t3 = tFar;
 
       float D = b*b - 4*a*c;
-      if (D > 0)
+      if (D >= 0)
       {
         float q = -0.5f*(b + sign(b)*std::sqrt(D));
-        x1 = q/a;
-        if (std::abs(q) > EPS)
-          x2 = c/q; 
+        t1 = std::abs(a) > EPS ? q/a : t0;
+        t2 = std::abs(q) > EPS ? c/q : tFar;
+
+        float tmp = std::min(t1,t2);
+        t2 = std::max(t1, t2);
+        t1 = tmp;
+
+        t1 = clamp(t1, t0, t3);
+        t2 = clamp(t2, t0, t3);
       }
-    }
-    else if (std::abs(c1) > EPS)
-    {
-      type = 1;
-      //it is a linear equation c1*x + c0 = 0
-      x1 = -c0/c1;
-    }
-    //else
-    //no roots or inf roots, something's fucked up so just drop it
+      
+      //calculate sign of initial polynom at each critical point
+      bool s0 = c0 > 0;
+      bool s1 = (c0 + t1*(c1 + t1*(c2 + t1*c3))) > 0;
+      bool s2 = (c0 + t2*(c1 + t2*(c2 + t2*c3))) > 0;
+      bool s3 = (c0 + t3*(c1 + t3*(c2 + t3*c3))) > 0;
 
-    x1 = x1 < 0 ? 1000 : x1;
-    x2 = x2 < 0 ? 1000 : x2;
-    x3 = x3 < 0 ? 1000 : x3;
+      //determine the range to apply Newton's method
+      float nwt_min = t0;
+      float nwt_max = t0;
+      if (s0 != s1)
+      {
+        nwt_min = t0;
+        nwt_max = t1;
+      }
+      else if (s1 != s2)
+      {
+        nwt_min = t1;
+        nwt_max = t2;
+      }
+      else if (s2 != s3)
+      {
+        nwt_min = t2;
+        nwt_max = t3;
+      }
 
-    //bool prev_hit = hit;
-    //float nt = std::min(x1, std::min(x2,x3));
-    //if (prev_hit && std::abs(t - nt) > 0.1)
-    //  printf("%f-%f -- %f %f %f %f -- %f %f %f, type %u\n",t, nt, c3,c2,c1,c0, x1,x2,x3, type);
-    t = std::min(x1, std::min(x2,x3));
-    hit = (t >= 0 && t <= tFar);
+      float rtn = -100;
+
+      if (nwt_min < nwt_max)
+      {
+        //perform Newton's method
+        const unsigned max_iters = 10;
+        unsigned iter = 0;
+        rtn = 0.5f*(nwt_min + nwt_max);
+        float f = 1000;
+        while (iter < max_iters && std::abs(f) >= EPS)
+        {
+          f = c0 + rtn*(c1 + rtn*(c2 + rtn*c3));
+          float df = c1 + rtn*(2*c2 + rtn*3*c3);
+          float dx = f/(df + sign(df)*1e-9f);
+          rtn -= dx;
+        }
+        t = rtn;
+        hit = (t >= 0 && t <= tFar && std::abs(f) < EPS);
+      }
+      else
+      {
+        //no hit
+        hit = false;
+      }
+
+      //bool prev_hit = hit;
+      //float nt = rtn;
+      //if (prev_hit && std::abs(t - nt) > 0.1)
+      //  printf("%f-%f -- %f %f %f %f -- %f -- %f %f %f %f %d %d %d %d\n",t, nt, c3,c2,c1,c0, rtn, t0, t1, t2, t3, s0, s1, s2, s3);
+    }
   }
 
   float tReal = fNearFar.x + 2.0f * d * t;
