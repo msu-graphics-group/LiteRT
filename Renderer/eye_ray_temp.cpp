@@ -265,6 +265,7 @@ void MultiRenderer::Clear(uint32_t a_width, uint32_t a_height, const char* a_wha
 #include "BVH2Common.h"
 
 using uvec3 = uint3;
+using LiteMath::M_PI;
 
 float2 BVHRT::box_intersects(const float3 &min_pos, const float3 &max_pos, const float3 &origin, const float3 &dir)
 {
@@ -414,6 +415,8 @@ void BVHRT::FrameNodeIntersect(const float3 ray_pos, const float3 ray_dir,
                                uint32_t a_start, uint32_t a_count,
                                CRT_Hit *pHit)
 {
+  const float EPS = 1e-6;
+
   uint32_t sdfId =  m_geomOffsets[geomId].x;
   uint32_t primId = m_origNodes[a_start].leftOffset;
   uint32_t nodeId = primId + m_SdfFrameOctreeRoots[sdfId];
@@ -433,9 +436,13 @@ void BVHRT::FrameNodeIntersect(const float3 ray_pos, const float3 ray_dir,
   bool hit = false;
   unsigned iter = 0;
 
-  if (m_preset.sdf_frame_octree_intersect == SDF_FRAME_OCTREE_INTERSECT_ST)
+  float start_dist = eval_dist_frame_octree_node(nodeId, start_q);
+  if (start_dist <= EPS)
   {
-    const float EPS = 1e-5;
+    hit = true;
+  }
+  else if (m_preset.sdf_frame_octree_intersect == SDF_FRAME_OCTREE_INTERSECT_ST)
+  {
     const unsigned max_iters = 256;
     float dist = eval_dist_frame_octree_node(nodeId, start_q);
     float3 pp0 = start_q + t * ray_dir;
@@ -451,7 +458,118 @@ void BVHRT::FrameNodeIntersect(const float3 ray_pos, const float3 ray_dir,
   }
   else //if (m_preset.sdf_frame_octree_intersect == SDF_FRAME_OCTREE_INTERSECT_ANALYTIC)
   {
+    //finding exact intersection between surface sdf(x,y,z) = 0 and ray
+    // based on paper "Ray Tracing of Signed Distance Function Grids, 
+    // Journal of Computer Graphics Techniques (JCGT), vol. 11, no. 3, 94-113, 2022"
+    // http://jcgt.org/published/0011/03/06/
 
+    // define values and constants as proposed in paper
+    float s000 = m_SdfFrameOctreeNodes[nodeId].values[0]/d;
+    float s001 = m_SdfFrameOctreeNodes[nodeId].values[1]/d;
+    float s010 = m_SdfFrameOctreeNodes[nodeId].values[2]/d;
+    float s011 = m_SdfFrameOctreeNodes[nodeId].values[3]/d;
+    float s100 = m_SdfFrameOctreeNodes[nodeId].values[4]/d;
+    float s101 = m_SdfFrameOctreeNodes[nodeId].values[5]/d;
+    float s110 = m_SdfFrameOctreeNodes[nodeId].values[6]/d;
+    float s111 = m_SdfFrameOctreeNodes[nodeId].values[7]/d;
+
+    float a = s101-s001;
+
+    float k0 = s000;
+    float k1 = s100-s000;
+    float k2 = s010-s000;
+    float k3 = s110-s010-k1;
+    float k4 = k0-s001;
+    float k5 = k1-a;
+    float k6 = k2-(s011-s001);
+    float k7 = k3-(s111-s011-a);
+
+    float3 o = start_q;
+    float3 d = ray_dir;
+
+    float m0 = o.x*o.y;
+    float m1 = d.x*d.y;
+    float m2 = o.x*d.y + o.y*d.x;
+    float m3 = k5*o.z - k1;
+    float m4 = k6*o.z - k2;
+    float m5 = k7*o.z - k3;
+
+    float c0 = (k4*o.z - k0) + o.x*m3 + o.y*m4 + m0*m5;
+    float c1 = d.x*m3 + d.y*m4 + m2*m5 + d.z*(k4 + k5*o.x + k6*o.y + k7*m0);
+    float c2 = m1*m5 + d.z*(k5*d.x + k6*d.y + k7*m2);
+    float c3 = k7*m1*d.z;
+
+    // the surface is defined by equation c3*t^3 + c2*t^2 + c1*t + c0 = 0;
+    // and solve this equation analytically
+    // see "Numerical Recipes - The Art of Scientific Computing - 3rd Edition" for details
+
+    float x1 = 1000;
+    float x2 = 1000;
+    float x3 = 1000;
+    unsigned type = 0;
+    if (std::abs(c3) > 1e-2)
+    {
+      type = 3;
+      //it is a cubic equation, transform it to x^3 + a*x^2 + b*x + c = 0
+      //use Vieta method to obtain 3 or 1 real roots
+      float a = c2/c3;
+      float b = c1/c3;
+      float c = c0/c3;   
+
+      float Q = (a*a - 3*b)/9;
+      float R = (2*a*a - 9*a*b + 27*c)/54;
+      float Q3 = Q*Q*Q;
+
+      if (R*R < Q3) //equation has three real roots
+      {
+        float theta = std::acos(R/sqrt(Q3));
+        x1 = -2*sqrt(Q)*std::cos(theta/3) - a/3;
+        x2 = -2*sqrt(Q)*std::cos((theta+2*M_PI)/3) - a/3;
+        x3 = -2*sqrt(Q)*std::cos((theta-2*M_PI)/3) - a/3;
+      }
+      else //equation has only one real roots
+      {
+        float A = -sign(R)*std::pow(std::abs(R) + sqrt(R*R - Q3), 1.0f/3.0f);
+        float B = std::abs(A) > EPS ? Q/A : 0;
+        x1 = A+B - a/3;
+      }
+    }
+    else if (std::abs(c2) > 1e-4)
+    {
+      type = 2;
+      //it is a quadratic equation a*x^2 + b*x + c = 0
+      float a = c2;
+      float b = c1;
+      float c = c0;
+
+      float D = b*b - 4*a*c;
+      if (D > 0)
+      {
+        float q = -0.5f*(b + sign(b)*std::sqrt(D));
+        x1 = q/a;
+        if (std::abs(q) > EPS)
+          x2 = c/q; 
+      }
+    }
+    else if (std::abs(c1) > EPS)
+    {
+      type = 1;
+      //it is a linear equation c1*x + c0 = 0
+      x1 = -c0/c1;
+    }
+    //else
+    //no roots or inf roots, something's fucked up so just drop it
+
+    x1 = x1 < 0 ? 1000 : x1;
+    x2 = x2 < 0 ? 1000 : x2;
+    x3 = x3 < 0 ? 1000 : x3;
+
+    //bool prev_hit = hit;
+    //float nt = std::min(x1, std::min(x2,x3));
+    //if (prev_hit && std::abs(t - nt) > 0.1)
+    //  printf("%f-%f -- %f %f %f %f -- %f %f %f, type %u\n",t, nt, c3,c2,c1,c0, x1,x2,x3, type);
+    t = std::min(x1, std::min(x2,x3));
+    hit = (t >= 0 && t <= tFar);
   }
 
   float tReal = fNearFar.x + 2.0f * d * t;
