@@ -1159,7 +1159,7 @@ void BVHRT::BVH2TraverseF32(const float3 ray_pos, const float3 ray_dir, float tN
   uint32_t leftNodeOffset = 0;
 
   const float3 rayDirInv = SafeInverse(ray_dir);
-  while (top >= 0 && !(stopOnFirstHit && pHit->primId != uint32_t(-1)))
+  while (top >= 0 && !(stopOnFirstHit && pHit->primId != uint32_t(-1) && pHit->coords[0] > 0.01f))
   {
     while (top >= 0 && ((leftNodeOffset & LEAF_BIT) == 0))
     {
@@ -1212,7 +1212,7 @@ void BVHRT::BVH2TraverseF32(const float3 ray_pos, const float3 ray_dir, float tN
 
 CRT_Hit BVHRT::RayQuery_NearestHit(float4 posAndNear, float4 dirAndFar)
 {
-  bool stopOnFirstHit = false;
+  bool stopOnFirstHit = (dirAndFar.w <= 0.0f);
   if(stopOnFirstHit)
     dirAndFar.w *= -1.0f;
 
@@ -1266,7 +1266,7 @@ CRT_Hit BVHRT::RayQuery_NearestHit(float4 posAndNear, float4 dirAndFar)
       BVH2TraverseF32(ray_pos, ray_dir, posAndNear.w, instId, geomId, stack, stopOnFirstHit, &hit);
     }
 
-  } while (nodeIdx < 0xFFFFFFFE && !(stopOnFirstHit && hit.primId != uint32_t(-1))); //
+  } while (nodeIdx < 0xFFFFFFFE && !(stopOnFirstHit && hit.primId != uint32_t(-1) && hit.coords[0] > 0.01f)); //
 
   if(hit.geomId < uint32_t(-1) && ((hit.geomId >> SH_TYPE) == TYPE_MESH_TRIANGLE)) 
   {
