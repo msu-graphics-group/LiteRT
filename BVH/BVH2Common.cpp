@@ -134,12 +134,12 @@ void BVHRT::IntersectAllPrimitivesInLeaf(const float3 ray_pos, const float3 ray_
     case SDF_FRAME_OCTREE_INTERSECT_NEWTON:
       FrameNodeIntersect(ray_pos, ray_dir, tNear, instId, geomId, a_start, a_count, pHit);
       break;
-    case TYPE_RF_GRID:
-      IntersectRFInLeaf(ray_pos, ray_dir, tNear, instId, geomId, a_start, a_count, pHit);
-      break;
     default:
       break;
     }
+    break;
+  case TYPE_RF_GRID:
+    IntersectRFInLeaf(ray_pos, ray_dir, tNear, instId, geomId, a_start, a_count, pHit);
     break;
   default:
     break;
