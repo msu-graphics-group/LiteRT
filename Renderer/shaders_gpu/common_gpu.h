@@ -290,61 +290,48 @@ mat3 make_float3x3(vec3 a, vec3 b, vec3 c) { // different way than mat3(a,b,c)
               a.z, b.z, c.z);
 }
 
-void sh_eval_2(in vec3 d, inout float out) {
+void sh_eval_2(in vec3 d, inout float fout[9]) {
   float x = d.x, y = d.y, z = d.z, z2 = z * z;
   float c0, c1, s0, s1, tmp_a, tmp_b, tmp_c;
 
-  out[0] = 0.28209479177387814;
-  out[2] = z * 0.488602511902919923;
-  out[6] = z2 * 0.94617469575756008 + -0.315391565252520045;
+  fout[0] = 0.28209479177387814;
+  fout[2] = z * 0.488602511902919923;
+  fout[6] = z2 * 0.94617469575756008 + -0.315391565252520045;
   c0 = x;
   s0 = y;
 
   tmp_a = -0.488602511902919978;
-  out[3] = tmp_a * c0;
-  out[1] = tmp_a * s0;
+  fout[3] = tmp_a * c0;
+  fout[1] = tmp_a * s0;
   tmp_b = z * -1.09254843059207896;
-  out[7] = tmp_b * c0;
-  out[5] = tmp_b * s0;
+  fout[7] = tmp_b * c0;
+  fout[5] = tmp_b * s0;
   c1 = x * c0 - y * s0;
   s1 = x * s0 + y * c0;
 
   tmp_c = 0.546274215296039478;
-  out[8] = tmp_c * c1;
-  out[4] = tmp_c * s1;
+  fout[8] = tmp_c * c1;
+  fout[4] = tmp_c * s1;
 }
 
-array<float, 28> lerpCell(in float v0, in float v1, const float t) {
-  std::array<float, 28> ret = {};
-
-  for (uint64_t i = 0; i < 28; i++)
-    ret[i] = mix(v0[i], v1[i], t);
-
-  return ret;
+int indexGrid(int x, int y, int z, int gridSize) {
+    return (x + y * gridSize + z * gridSize * gridSize) * 28;
 }
 
-uint64_t indexGrid(uint64_t x, uint64_t y, uint64_t z, uint64_t gridSize) {
-    return x + y * gridSize + z * gridSize * gridSize;
+void lerpCellf(const float v0[28], const float v1[28], const float t, inout float memory[28]) {
+  for (int i = 0; i < 28; i++)
+    memory[i] = mix(v0[i], v1[i], t);
 }
 
-float eval_sh(inout float sh, vec3 rayDir) {
+float eval_sh(inout float sh[28], vec3 rayDir, const int offset) {
   float sh_coeffs[9];
   sh_eval_2(rayDir, sh_coeffs);
 
   float sum = 0.0f;
   for (int i = 0; i < 9; i++)
-    sum += sh[i] * sh_coeffs[i];
+    sum += sh[offset + i] * sh_coeffs[i];
 
   return sum;
-}
-
-vec3 SafeInverse(vec3 d) {
-  const float ooeps = 1.0e-36f; // Avoid div by zero.
-  vec3 res;
-  res.x = 1.0f / (abs(d.x) > ooeps ? d.x : copysign(ooeps, d.x));
-  res.y = 1.0f / (abs(d.y) > ooeps ? d.y : copysign(ooeps, d.y));
-  res.z = 1.0f / (abs(d.z) > ooeps ? d.z : copysign(ooeps, d.z));
-  return res;
 }
 
 vec2 RayBoxIntersection(vec3 ray_pos, vec3 ray_dir, vec3 boxMin, vec3 boxMax) {
@@ -373,35 +360,13 @@ vec2 RayBoxIntersection(vec3 ray_pos, vec3 ray_dir, vec3 boxMin, vec3 boxMax) {
   return vec2(tmin,tmax);
 }
 
-void RayGridIntersection(vec3 ray_pos, vec3 ray_dir, vec3 bbMin, vec3 bbMax, inout float grid, uint64_t gridSize, vec3 p, vec3 lastP, inout float throughput, inout vec3 colour) {
-  vec3 coords01 = (p - bbMin) / (bbMax - bbMin);
-  vec3 coords = coords01 * float((gridSize));
-
-  ivec3 nearCoords = clamp(ivec3(ivec3(coords)), ivec3(0), ivec3(gridSize - 1));
-  ivec3 farCoords = clamp(ivec3(ivec3(coords)) + ivec3(1), ivec3(0), ivec3(gridSize - 1));
-
-  vec3 lerpFactors = coords - vec3(vec3(nearCoords));
-
-  array<float, 28> xy00 = lerpCell(grid[indexGrid(nearCoords[0], nearCoords[1], nearCoords[2], gridSize)], grid[indexGrid(farCoords[0], nearCoords[1], nearCoords[2], gridSize)], lerpFactors.x);
-  array<float, 28> xy10 = lerpCell(grid[indexGrid(nearCoords[0], farCoords[1], nearCoords[2], gridSize)], grid[indexGrid(farCoords[0], farCoords[1], nearCoords[2], gridSize)], lerpFactors.x);
-  array<float, 28> xy01 = lerpCell(grid[indexGrid(nearCoords[0], nearCoords[1], farCoords[2], gridSize)], grid[indexGrid(farCoords[0], nearCoords[1], farCoords[2], gridSize)], lerpFactors.x);
-  array<float, 28> xy11 = lerpCell(grid[indexGrid(nearCoords[0], farCoords[1], farCoords[2], gridSize)], grid[indexGrid(farCoords[0], farCoords[1], farCoords[2], gridSize)], lerpFactors.x);
-
-  array<float, 28> xyz0 = lerpCell(xy00.data(), xy10.data(), lerpFactors.y);
-  array<float, 28> xyz1 = lerpCell(xy01.data(), xy11.data(), lerpFactors.y);
-
-  array<float, 28> gridVal = lerpCell(xyz0.data(), xyz1.data(), lerpFactors.z);
-
-  // relu
-  if (gridVal[0] < 0.0)
-    gridVal[0] = 0.0;
-
-  float tr = exp(-gridVal[0] * length(p - lastP));
-
-  vec3 RGB = vec3(LiteMath::clamp(eval_sh(gridVal[1], ray_dir), 0.0f, 1.0f),LiteMath::clamp(eval_sh(gridVal[10], ray_dir), 0.0f, 1.0f),LiteMath::clamp(eval_sh(gridVal[19], ray_dir), 0.0f, 1.0f));
-  colour = colour + throughput * (1 - tr) * RGB;
-  
-  throughput *= tr;
+vec3 SafeInverse(vec3 d) {
+  const float ooeps = 1.0e-36f; // Avoid div by zero.
+  vec3 res;
+  res.x = 1.0f / (abs(d.x) > ooeps ? d.x : copysign(ooeps, d.x));
+  res.y = 1.0f / (abs(d.y) > ooeps ? d.y : copysign(ooeps, d.y));
+  res.z = 1.0f / (abs(d.z) > ooeps ? d.z : copysign(ooeps, d.z));
+  return res;
 }
 
 vec2 RayBoxIntersection2(vec3 rayOrigin, vec3 rayDirInv, vec3 boxMin, vec3 boxMax) {
@@ -418,9 +383,14 @@ vec2 RayBoxIntersection2(vec3 rayOrigin, vec3 rayDirInv, vec3 boxMin, vec3 boxMa
   return vec2(max(tmin, min(lo2, hi2)),min(tmax, max(lo2, hi2)));
 }
 
+uint EXTRACT_START(uint a_leftOffset) { return  a_leftOffset & START_MASK; }
+
 uint EXTRACT_COUNT(uint a_leftOffset) { return (a_leftOffset & SIZE_MASK) >> 24; }
 
-<<<<<<< HEAD
+vec3 matmul3x3(mat4 m, vec3 v) { 
+  return (m*vec4(v, 0.0f)).xyz;
+}
+
 bool notLeafAndIntersect(uint flags) { return (flags != (LEAF_BIT | 0x1)); }
 
 bool isLeafAndIntersect(uint flags) { return (flags == (LEAF_BIT | 0x1 )); }
@@ -429,37 +399,11 @@ vec3 mymul4x3(mat4 m, vec3 v) {
   return (m*vec4(v, 1.0f)).xyz;
 }
 
-=======
-uint EXTRACT_START(uint a_leftOffset) { return  a_leftOffset & START_MASK; }
-
-bool isLeafAndIntersect(uint flags) { return (flags == (LEAF_BIT | 0x1 )); }
-
->>>>>>> 83386d6 (Almost done)
 vec3 matmul4x3(mat4 m, vec3 v) {
   return (m*vec4(v, 1.0f)).xyz;
 }
 
 bool isLeafOrNotIntersect(uint flags) { return (flags & LEAF_BIT) !=0 || (flags & 0x1) == 0; }
-
-vec3 matmul3x3(mat4 m, vec3 v) { 
-  return (m*vec4(v, 0.0f)).xyz;
-}
-<<<<<<< HEAD
-=======
-
-bool notLeafAndIntersect(uint flags) { return (flags != (LEAF_BIT | 0x1)); }
->>>>>>> 83386d6 (Almost done)
-
-vec3 mymul4x3(mat4 m, vec3 v) {
-  return (m*vec4(v, 1.0f)).xyz;
-}
-
-vec3 EyeRayDirNormalized(float x, float y, mat4 a_mViewProjInv) {
-  vec4 pos = vec4(2.0f*x - 1.0f,-2.0f*y + 1.0f,0.0f,1.0f);
-  pos = a_mViewProjInv * pos;
-  pos /= pos.w;
-  return normalize(pos.xyz);
-}
 
 uint SuperBlockIndex2DOpt(uint tidX, uint tidY, uint a_width) {
   const uint inBlockIdX = tidX & 0x00000003; // 4x4 blocks
@@ -489,6 +433,13 @@ void transform_ray3f(mat4 a_mWorldViewInv, inout vec3 ray_pos, inout vec3 ray_di
   (ray_dir)  = normalize(diff);
 }
 
+vec3 EyeRayDirNormalized(float x, float y, mat4 a_mViewProjInv) {
+  vec4 pos = vec4(2.0f*x - 1.0f,-2.0f*y + 1.0f,0.0f,1.0f);
+  pos = a_mViewProjInv * pos;
+  pos /= pos.w;
+  return normalize(pos.xyz);
+}
+
 uint fakeOffset(uint x, uint y, uint pitch) { return y*pitch + x; }  // RTV pattern, for 2D threading
 
 #define KGEN_FLAG_RETURN            1
@@ -496,6 +447,6 @@ uint fakeOffset(uint x, uint y, uint pitch) { return y*pitch + x; }  // RTV patt
 #define KGEN_FLAG_DONT_SET_EXIT     4
 #define KGEN_FLAG_SET_EXIT_NEGATIVE 8
 #define KGEN_REDUCTION_LAST_STEP    16
-#define CFLOAT_GUARDIAN 
 #define MAXFLOAT FLT_MAX
+#define CFLOAT_GUARDIAN 
 

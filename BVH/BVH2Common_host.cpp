@@ -226,7 +226,7 @@ uint32_t BVHRT::AddGeom_RFScene(RFScene grid, BuildQuality a_qualityLevel)
   //fill grid-specific data arrays
   m_RFGridOffsets.push_back(m_RFGridData.size());
   m_RFGridSizes.push_back(grid.size);
-  m_RFGridData.insert(m_RFGridData.end(), grid.data.data(), grid.data.data() + grid.size*grid.size*grid.size*CellSize);
+  m_RFGridData.insert(m_RFGridData.end(), grid.data.begin(), grid.data.end());
 
   //create list of bboxes for BLAS
   m_origNodes = GetBoxes_RFGrid(grid);
