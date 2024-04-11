@@ -47,6 +47,7 @@ set(SCENE_LOADER_SRC
     ${CMAKE_SOURCE_DIR}/sdfScene/sdf_scene.cpp
     ${CMAKE_SOURCE_DIR}/utils/mesh_bvh.cpp
     ${CMAKE_SOURCE_DIR}/utils/mesh.cpp
+    ${CMAKE_SOURCE_DIR}/utils/sparse_octree.cpp
     )
 
 set(CORE_SRC
