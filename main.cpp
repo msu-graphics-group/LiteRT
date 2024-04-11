@@ -19,11 +19,8 @@ int main(int argc, const char** argv)
   uint32_t WIDTH  = 1024;
   uint32_t HEIGHT = 1024;
   
-<<<<<<< HEAD
-  const char* scenePath   = "scenes/01_simple_scenes/bunny_plane.xml"; // 02_sdf_scenes/csg_new.xml bunny_cornell.xml, instanced_objects.xml
-=======
+
   const char* scenePath   = "scenes/02_sdf_scenes/relu_fields.xml"; // 02_sdf_scenes/csg_new.xml bunny_cornell.xml, instanced_objects.xml
->>>>>>> 83386d6 (Almost done)
   const char* accelStruct  = "BVH2Common"; // BruteForce BVH2Common
   const char* buildFormat  = "cbvh_embree2";///"NanoRT";  // BVH2Common
   const char* layout       = "SuperTreeletAlignedMerged4"; ///"opt";
