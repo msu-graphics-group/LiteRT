@@ -45,3 +45,4 @@ sdf_auto.*
 _deps/*
 dependencies/*
 math_tests
+scenes/02_sdf_scenes/model.dat
