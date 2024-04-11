@@ -180,6 +180,7 @@ struct BVHRT : public ISceneObject
   std::vector<float> m_RFGridData;       //raw data for all RF grids
   std::vector<uint32_t> m_RFGridOffsets; //offset in m_SdfGridData for each RF grid
   std::vector<size_t> m_RFGridSizes;      //size for each RF grid
+  std::vector<float> m_RFGridScales;      //size for each RF grid
 
   //SDF octree data
   std::vector<SdfOctreeNode> m_SdfOctreeNodes;//nodes for all SDF octrees
