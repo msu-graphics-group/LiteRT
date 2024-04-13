@@ -106,12 +106,13 @@ struct BVHRT : public ISceneObject
                               uint32_t a_start, uint32_t a_count,
                               CRT_Hit *pHit);
 
-/*
   void IntersectRFInLeaf(const float3 ray_pos, const float3 ray_dir,
                               float tNear, uint32_t instId, uint32_t geomId,
                               uint32_t a_start, uint32_t a_count,
                               CRT_Hit *pHit);
-*/
+
+  void RayGridIntersection(float3 ray_pos, float3 ray_dir, float3 bbMin, float3 bbMax, uint gridSize, float3 p, float3 lastP, float &throughput, float3 &colour);
+  void lerpCell(const int idx0, const int idx1, const float t, float memory[28]);
 
   void IntersectAllTrianglesInLeaf(const float3 ray_pos, const float3 ray_dir,
                                    float tNear, uint32_t instId, uint32_t geomId,
@@ -179,6 +180,7 @@ struct BVHRT : public ISceneObject
   std::vector<float> m_RFGridData;       //raw data for all RF grids
   std::vector<uint32_t> m_RFGridOffsets; //offset in m_SdfGridData for each RF grid
   std::vector<size_t> m_RFGridSizes;      //size for each RF grid
+  std::vector<float> m_RFGridScales;      //size for each RF grid
 
   //SDF octree data
   std::vector<SdfOctreeNode> m_SdfOctreeNodes;//nodes for all SDF octrees

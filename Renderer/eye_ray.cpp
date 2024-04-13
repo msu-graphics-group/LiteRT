@@ -155,6 +155,12 @@ void MultiRenderer::kernel_RayTrace(uint32_t tidX, const float4* rayPosAndNear,
       out_color[y * m_width + x] = 0xFF000000 | (col.z<<16) | (col.y<<8) | col.x; 
     }
     break;
+    case MULTI_RENDER_MODE_RF:
+    {
+      uint3 col = uint3(255 * float3(hit.coords[1], hit.coords[2], hit.coords[3]));
+      out_color[y * m_width + x] = 0xFF000000 | (col.z<<16) | (col.y<<8) | col.x;
+    }
+    break;
     default:
     break;
   }

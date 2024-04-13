@@ -226,16 +226,17 @@ uint32_t BVHRT::AddGeom_RFScene(RFScene grid, BuildQuality a_qualityLevel)
   //fill grid-specific data arrays
   m_RFGridOffsets.push_back(m_RFGridData.size());
   m_RFGridSizes.push_back(grid.size);
-  m_RFGridData.insert(m_RFGridData.end(), grid.data.data(), grid.data.data() + grid.size*grid.size*grid.size*CellSize);
+  m_RFGridScales.push_back(grid.scale);
+  m_RFGridData.insert(m_RFGridData.end(), grid.data.begin(), grid.data.end());
 
   //create list of bboxes for BLAS
-  std::vector<BVHNode> orig_nodes = GetBoxes_RFGrid(grid);
+  m_origNodes = GetBoxes_RFGrid(grid);
 
   // Build BVH for each geom and append it to big buffer;
   // append data to global arrays and fix offsets
   auto presets = BuilderPresetsFromString(m_buildName.c_str());
   auto layout  = LayoutPresetsFromString(m_layoutName.c_str());
-  auto bvhData = BuildBVHFatCustom(orig_nodes.data(), orig_nodes.size(), presets, layout);
+  auto bvhData = BuildBVHFatCustom(m_origNodes.data(), m_origNodes.size(), presets, layout);
 
   for (auto &i : bvhData.indices)
     printf("grid ind %d\n",(int)i);
@@ -483,10 +484,57 @@ std::vector<BVHNode> BVHRT::GetBoxes_SdfGrid(SdfGridView grid)
   return nodes;
 }
 
+std::array<float, CellSize> lerpCell(const float* v0, const float* v1, const float t)
+{
+  std::array<float, CellSize> ret = {};
+
+  for (size_t i = 0; i < CellSize; i++)
+    ((float*)ret.data())[i] = LiteMath::lerp(((float*)v0)[i], ((float*)v1)[i], t);
+
+  return ret;
+}
+
+size_t indexGrid(size_t x, size_t y, size_t z, size_t gridSize)
+{
+  return x + y * gridSize + z * gridSize * gridSize;
+}
+
+std::array<float, CellSize> interpolate(float* grid, int3 nearCoords, int3 farCoords, float3 lerpFactors, size_t gridSize) {
+  auto xy00 = lerpCell((float*)&grid[indexGrid(nearCoords[0], nearCoords[1], nearCoords[2], gridSize) * CellSize],
+    (float*)&grid[indexGrid(farCoords[0], nearCoords[1], nearCoords[2], gridSize) * CellSize], lerpFactors.x);
+  auto xy10 = lerpCell((float*)&grid[indexGrid(nearCoords[0], farCoords[1], nearCoords[2], gridSize) * CellSize],
+    (float*)&grid[indexGrid(farCoords[0], farCoords[1], nearCoords[2], gridSize) * CellSize], lerpFactors.x);
+  auto xy01 = lerpCell((float*)&grid[indexGrid(nearCoords[0], nearCoords[1], farCoords[2], gridSize) * CellSize],
+    (float*)&grid[indexGrid(farCoords[0], nearCoords[1], farCoords[2], gridSize) * CellSize], lerpFactors.x);
+  auto xy11 = lerpCell((float*)&grid[indexGrid(nearCoords[0], farCoords[1], farCoords[2], gridSize) * CellSize],
+    (float*)&grid[indexGrid(farCoords[0], farCoords[1], farCoords[2], gridSize) * CellSize], lerpFactors.x);
+
+  auto xyz0 = lerpCell(xy00.data(), xy10.data(), lerpFactors.y);
+  auto xyz1 = lerpCell(xy01.data(), xy11.data(), lerpFactors.y);
+
+  return lerpCell(xyz0.data(), xyz1.data(), lerpFactors.z);
+}
+
 std::vector<BVHNode> BVHRT::GetBoxes_RFGrid(RFScene grid)
 {
   std::vector<BVHNode> nodes;
-  nodes.resize((grid.size - 1) * (grid.size - 1) * (grid.size - 1));
+  nodes.reserve((grid.size - 1) * (grid.size - 1) * (grid.size - 1));
+
+  auto getDensity = [&](BVHNode box)
+  {
+    float3 bbMin = float3(box.boxMin[0], box.boxMin[1], box.boxMin[2]);
+    float3 bbMax = float3(box.boxMax[0], box.boxMax[1], box.boxMax[2]);
+
+    float3 p = (bbMin + bbMax) / 2.0f;
+
+    float3 lerpFactors = (p - bbMin) / (bbMax - bbMin);
+
+    int3 nearCoords = LiteMath::clamp((int3)(bbMin * grid.size), 0, grid.size - 1);
+    int3 farCoords = LiteMath::clamp(nearCoords + 1, 0, grid.size - 1);
+
+    auto gridVal = interpolate((float*)grid.data.data(), nearCoords, farCoords, lerpFactors, grid.size);
+    return gridVal[0];
+  };
 
   for (size_t z = 0; z < grid.size - 1; z++)
     for (size_t y = 0; y < grid.size - 1; y++)
@@ -494,8 +542,12 @@ std::vector<BVHNode> BVHRT::GetBoxes_RFGrid(RFScene grid)
       {
         size_t i = x + y * (grid.size - 1) + z * (grid.size - 1) * (grid.size - 1);
 
-        nodes[i].boxMin = float3((float)x / (float)grid.size, (float)y / (float)grid.size, (float)z / (float)grid.size);
-        nodes[i].boxMax = float3((float)(x + 1) / (float)grid.size, (float)(y + 1) / (float)grid.size, (float)(z + 1) / (float)grid.size);
+        BVHNode node;
+        node.boxMin = float3((float)x / (float)grid.size, (float)y / (float)grid.size, (float)z / (float)grid.size);
+        node.boxMax = float3((float)(x + 1) / (float)grid.size, (float)(y + 1) / (float)grid.size, (float)(z + 1) / (float)grid.size);
+
+        if (getDensity(node) > 0.0)
+          nodes.push_back(node);
       }
 
   return nodes;

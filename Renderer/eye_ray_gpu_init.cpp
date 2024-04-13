@@ -150,6 +150,8 @@ MultiRenderer_GPU::~MultiRenderer_GPU()
   vkDestroyBuffer(device, m_classDataBuffer, nullptr);
 
   vkDestroyBuffer(device, m_vdata.m_pAccelStruct_m_ConjIndicesBuffer, nullptr);
+  vkDestroyBuffer(device, m_vdata.m_pAccelStruct_m_RFGridDataBuffer, nullptr);
+  vkDestroyBuffer(device, m_vdata.m_pAccelStruct_m_RFGridSizesBuffer, nullptr);
   vkDestroyBuffer(device, m_vdata.m_pAccelStruct_m_SdfConjunctionsBuffer, nullptr);
   vkDestroyBuffer(device, m_vdata.m_pAccelStruct_m_SdfFrameOctreeNodesBuffer, nullptr);
   vkDestroyBuffer(device, m_vdata.m_pAccelStruct_m_SdfFrameOctreeRootsBuffer, nullptr);
@@ -281,6 +283,10 @@ void MultiRenderer_GPU::ReserveEmptyVectors()
 {
   if(m_pAccelStruct_m_ConjIndices != nullptr && m_pAccelStruct_m_ConjIndices->capacity() == 0)
     m_pAccelStruct_m_ConjIndices->reserve(4);
+  if(m_pAccelStruct_m_RFGridData != nullptr && m_pAccelStruct_m_RFGridData->capacity() == 0)
+    m_pAccelStruct_m_RFGridData->reserve(4);
+  if(m_pAccelStruct_m_RFGridSizes != nullptr && m_pAccelStruct_m_RFGridSizes->capacity() == 0)
+    m_pAccelStruct_m_RFGridSizes->reserve(4);
   if(m_pAccelStruct_m_SdfConjunctions != nullptr && m_pAccelStruct_m_SdfConjunctions->capacity() == 0)
     m_pAccelStruct_m_SdfConjunctions->reserve(4);
   if(m_pAccelStruct_m_SdfFrameOctreeNodes != nullptr && m_pAccelStruct_m_SdfFrameOctreeNodes->capacity() == 0)
@@ -336,6 +342,10 @@ void MultiRenderer_GPU::InitMemberBuffers()
 
   m_vdata.m_pAccelStruct_m_ConjIndicesBuffer = vk_utils::createBuffer(device, m_pAccelStruct_m_ConjIndices->capacity()*sizeof(unsigned int), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
   memberVectors.push_back(m_vdata.m_pAccelStruct_m_ConjIndicesBuffer);
+  m_vdata.m_pAccelStruct_m_RFGridDataBuffer = vk_utils::createBuffer(device, m_pAccelStruct_m_RFGridData->capacity()*sizeof(float), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
+  memberVectors.push_back(m_vdata.m_pAccelStruct_m_RFGridDataBuffer);
+  m_vdata.m_pAccelStruct_m_RFGridSizesBuffer = vk_utils::createBuffer(device, m_pAccelStruct_m_RFGridSizes->capacity()*sizeof(unsigned long), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
+  memberVectors.push_back(m_vdata.m_pAccelStruct_m_RFGridSizesBuffer);
   m_vdata.m_pAccelStruct_m_SdfConjunctionsBuffer = vk_utils::createBuffer(device, m_pAccelStruct_m_SdfConjunctions->capacity()*sizeof(struct SdfConjunction), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
   memberVectors.push_back(m_vdata.m_pAccelStruct_m_SdfConjunctionsBuffer);
   m_vdata.m_pAccelStruct_m_SdfFrameOctreeNodesBuffer = vk_utils::createBuffer(device, m_pAccelStruct_m_SdfFrameOctreeNodes->capacity()*sizeof(struct SdfFrameOctreeNode), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
