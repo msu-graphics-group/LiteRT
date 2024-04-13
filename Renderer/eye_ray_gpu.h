@@ -62,6 +62,8 @@ public:
     if(pUnderlyingImpl != nullptr)
     {
       m_pAccelStruct_m_ConjIndices = &pUnderlyingImpl->m_ConjIndices;
+      m_pAccelStruct_m_RFGridData = &pUnderlyingImpl->m_RFGridData;
+      m_pAccelStruct_m_RFGridSizes = &pUnderlyingImpl->m_RFGridSizes;
       m_pAccelStruct_m_SdfConjunctions = &pUnderlyingImpl->m_SdfConjunctions;
       m_pAccelStruct_m_SdfFrameOctreeNodes = &pUnderlyingImpl->m_SdfFrameOctreeNodes;
       m_pAccelStruct_m_SdfFrameOctreeRoots = &pUnderlyingImpl->m_SdfFrameOctreeRoots;
@@ -179,6 +181,10 @@ protected:
   {
     VkBuffer m_pAccelStruct_m_ConjIndicesBuffer = VK_NULL_HANDLE;
     size_t   m_pAccelStruct_m_ConjIndicesOffset = 0;
+    VkBuffer m_pAccelStruct_m_RFGridDataBuffer = VK_NULL_HANDLE;
+    size_t   m_pAccelStruct_m_RFGridDataOffset = 0;
+    VkBuffer m_pAccelStruct_m_RFGridSizesBuffer = VK_NULL_HANDLE;
+    size_t   m_pAccelStruct_m_RFGridSizesOffset = 0;
     VkBuffer m_pAccelStruct_m_SdfConjunctionsBuffer = VK_NULL_HANDLE;
     size_t   m_pAccelStruct_m_SdfConjunctionsOffset = 0;
     VkBuffer m_pAccelStruct_m_SdfFrameOctreeNodesBuffer = VK_NULL_HANDLE;
@@ -228,6 +234,8 @@ protected:
   } m_vdata;
   
   std::vector<uint32_t>* m_pAccelStruct_m_ConjIndices = nullptr;
+  std::vector<float>* m_pAccelStruct_m_RFGridData = nullptr;
+  std::vector<size_t>* m_pAccelStruct_m_RFGridSizes = nullptr;
   std::vector<SdfConjunction>* m_pAccelStruct_m_SdfConjunctions = nullptr;
   std::vector<SdfFrameOctreeNode>* m_pAccelStruct_m_SdfFrameOctreeNodes = nullptr;
   std::vector<uint32_t>* m_pAccelStruct_m_SdfFrameOctreeRoots = nullptr;

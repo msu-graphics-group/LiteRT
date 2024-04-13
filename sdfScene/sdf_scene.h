@@ -131,7 +131,8 @@ const size_t CellSize = 28;
 // structure to actually store SdfScene data
 struct RFScene
 {
-  size_t size;
+  int size;
+  float scale;
   std::vector<float> data; //size.x*size.y*size.z*CellSize values
 };
 

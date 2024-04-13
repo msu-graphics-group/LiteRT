@@ -142,6 +142,7 @@ struct CRT_Hit
   uint geomId;    ///< use 4 most significant bits for geometry type; thay are zero for triangles 
   float    coords[4]; ///< custom intersection data; for triangles coords[0] and coords[1] stores baricentric coords (u,v)
                       // coords[2] and coords[3] stores normal.xy
+  float    adds[4];
 };
 const uint SH_TYPE = 28;
 const uint TYPE_MESH_TRIANGLE = 0;
@@ -207,6 +208,7 @@ const uint MULTI_RENDER_MODE_GEOM = 7;
 const uint MULTI_RENDER_MODE_NORMAL = 8;
 const uint MULTI_RENDER_MODE_BARYCENTRIC = 9;
 const uint MULTI_RENDER_MODE_SPHERE_TRACE_ITERATIONS = 10;
+const uint MULTI_RENDER_MODE_RF = 11;
 struct MultiRenderPreset
 {
   uint mode; //enum MultiRenderMode
@@ -288,13 +290,48 @@ mat3 make_float3x3(vec3 a, vec3 b, vec3 c) { // different way than mat3(a,b,c)
               a.z, b.z, c.z);
 }
 
-vec3 SafeInverse(vec3 d) {
-  const float ooeps = 1.0e-36f; // Avoid div by zero.
-  vec3 res;
-  res.x = 1.0f / (abs(d.x) > ooeps ? d.x : copysign(ooeps, d.x));
-  res.y = 1.0f / (abs(d.y) > ooeps ? d.y : copysign(ooeps, d.y));
-  res.z = 1.0f / (abs(d.z) > ooeps ? d.z : copysign(ooeps, d.z));
-  return res;
+void sh_eval_2(in vec3 d, inout float fout[9]) {
+  float x = d.x, y = d.y, z = d.z, z2 = z * z;
+  float c0, c1, s0, s1, tmp_a, tmp_b, tmp_c;
+
+  fout[0] = 0.28209479177387814;
+  fout[2] = z * 0.488602511902919923;
+  fout[6] = z2 * 0.94617469575756008 + -0.315391565252520045;
+  c0 = x;
+  s0 = y;
+
+  tmp_a = -0.488602511902919978;
+  fout[3] = tmp_a * c0;
+  fout[1] = tmp_a * s0;
+  tmp_b = z * -1.09254843059207896;
+  fout[7] = tmp_b * c0;
+  fout[5] = tmp_b * s0;
+  c1 = x * c0 - y * s0;
+  s1 = x * s0 + y * c0;
+
+  tmp_c = 0.546274215296039478;
+  fout[8] = tmp_c * c1;
+  fout[4] = tmp_c * s1;
+}
+
+int indexGrid(int x, int y, int z, int gridSize) {
+    return (x + y * gridSize + z * gridSize * gridSize) * 28;
+}
+
+void lerpCellf(const float v0[28], const float v1[28], const float t, inout float memory[28]) {
+  for (int i = 0; i < 28; i++)
+    memory[i] = mix(v0[i], v1[i], t);
+}
+
+float eval_sh(inout float sh[28], vec3 rayDir, const int offset) {
+  float sh_coeffs[9];
+  sh_eval_2(rayDir, sh_coeffs);
+
+  float sum = 0.0f;
+  for (int i = 0; i < 9; i++)
+    sum += sh[offset + i] * sh_coeffs[i];
+
+  return sum;
 }
 
 vec2 RayBoxIntersection2(vec3 rayOrigin, vec3 rayDirInv, vec3 boxMin, vec3 boxMax) {
@@ -311,11 +348,50 @@ vec2 RayBoxIntersection2(vec3 rayOrigin, vec3 rayDirInv, vec3 boxMin, vec3 boxMa
   return vec2(max(tmin, min(lo2, hi2)),min(tmax, max(lo2, hi2)));
 }
 
+vec2 RayBoxIntersection(vec3 ray_pos, vec3 ray_dir, vec3 boxMin, vec3 boxMax) {
+  ray_dir.x = 1.0f / ray_dir.x; // may precompute if intersect many boxes
+  ray_dir.y = 1.0f / ray_dir.y; // may precompute if intersect many boxes
+  ray_dir.z = 1.0f / ray_dir.z; // may precompute if intersect many boxes
+
+  float lo = ray_dir.x * (boxMin.x - ray_pos.x);
+  float hi = ray_dir.x * (boxMax.x - ray_pos.x);
+
+  float tmin = min(lo, hi);
+  float tmax = max(lo, hi);
+
+  float lo1 = ray_dir.y * (boxMin.y - ray_pos.y);
+  float hi1 = ray_dir.y * (boxMax.y - ray_pos.y);
+
+  tmin = max(tmin, min(lo1, hi1));
+  tmax = min(tmax, max(lo1, hi1));
+
+  float lo2 = ray_dir.z * (boxMin.z - ray_pos.z);
+  float hi2 = ray_dir.z * (boxMax.z - ray_pos.z);
+
+  tmin = max(tmin, min(lo2, hi2));
+  tmax = min(tmax, max(lo2, hi2));
+
+  return vec2(tmin,tmax);
+}
+
+vec3 SafeInverse(vec3 d) {
+  const float ooeps = 1.0e-36f; // Avoid div by zero.
+  vec3 res;
+  res.x = 1.0f / (abs(d.x) > ooeps ? d.x : copysign(ooeps, d.x));
+  res.y = 1.0f / (abs(d.y) > ooeps ? d.y : copysign(ooeps, d.y));
+  res.z = 1.0f / (abs(d.z) > ooeps ? d.z : copysign(ooeps, d.z));
+  return res;
+}
+
 uint EXTRACT_START(uint a_leftOffset) { return  a_leftOffset & START_MASK; }
 
 uint EXTRACT_COUNT(uint a_leftOffset) { return (a_leftOffset & SIZE_MASK) >> 24; }
 
 bool notLeafAndIntersect(uint flags) { return (flags != (LEAF_BIT | 0x1)); }
+
+vec3 matmul4x3(mat4 m, vec3 v) {
+  return (m*vec4(v, 1.0f)).xyz;
+}
 
 bool isLeafAndIntersect(uint flags) { return (flags == (LEAF_BIT | 0x1 )); }
 
@@ -323,14 +399,27 @@ vec3 mymul4x3(mat4 m, vec3 v) {
   return (m*vec4(v, 1.0f)).xyz;
 }
 
-vec3 matmul4x3(mat4 m, vec3 v) {
-  return (m*vec4(v, 1.0f)).xyz;
+vec3 matmul3x3(mat4 m, vec3 v) { 
+  return (m*vec4(v, 0.0f)).xyz;
 }
 
 bool isLeafOrNotIntersect(uint flags) { return (flags & LEAF_BIT) !=0 || (flags & 0x1) == 0; }
 
-vec3 matmul3x3(mat4 m, vec3 v) { 
-  return (m*vec4(v, 0.0f)).xyz;
+void transform_ray3f(mat4 a_mWorldViewInv, inout vec3 ray_pos, inout vec3 ray_dir) {
+  vec3 pos = mymul4x3(a_mWorldViewInv, (ray_pos));
+  vec3 pos2 = mymul4x3(a_mWorldViewInv, ((ray_pos) + 100.0f*(ray_dir)));
+
+  vec3 diff = pos2 - pos;
+
+  (ray_pos)  = pos;
+  (ray_dir)  = normalize(diff);
+}
+
+vec3 EyeRayDirNormalized(float x, float y, mat4 a_mViewProjInv) {
+  vec4 pos = vec4(2.0f*x - 1.0f,-2.0f*y + 1.0f,0.0f,1.0f);
+  pos = a_mViewProjInv * pos;
+  pos /= pos.w;
+  return normalize(pos.xyz);
 }
 
 uint SuperBlockIndex2DOpt(uint tidX, uint tidY, uint a_width) {
@@ -351,23 +440,6 @@ uint SuperBlockIndex2DOpt(uint tidX, uint tidY, uint a_width) {
   return (blockHX + blockHY*wBlocksH)*64 + localIndexH*16 + localIndex;
 }
 
-vec3 EyeRayDirNormalized(float x, float y, mat4 a_mViewProjInv) {
-  vec4 pos = vec4(2.0f*x - 1.0f,-2.0f*y + 1.0f,0.0f,1.0f);
-  pos = a_mViewProjInv * pos;
-  pos /= pos.w;
-  return normalize(pos.xyz);
-}
-
-void transform_ray3f(mat4 a_mWorldViewInv, inout vec3 ray_pos, inout vec3 ray_dir) {
-  vec3 pos = mymul4x3(a_mWorldViewInv, (ray_pos));
-  vec3 pos2 = mymul4x3(a_mWorldViewInv, ((ray_pos) + 100.0f*(ray_dir)));
-
-  vec3 diff = pos2 - pos;
-
-  (ray_pos)  = pos;
-  (ray_dir)  = normalize(diff);
-}
-
 uint fakeOffset(uint x, uint y, uint pitch) { return y*pitch + x; }  // RTV pattern, for 2D threading
 
 #define KGEN_FLAG_RETURN            1
@@ -375,6 +447,6 @@ uint fakeOffset(uint x, uint y, uint pitch) { return y*pitch + x; }  // RTV patt
 #define KGEN_FLAG_DONT_SET_EXIT     4
 #define KGEN_FLAG_SET_EXIT_NEGATIVE 8
 #define KGEN_REDUCTION_LAST_STEP    16
-#define MAXFLOAT FLT_MAX
 #define CFLOAT_GUARDIAN 
+#define MAXFLOAT FLT_MAX
 

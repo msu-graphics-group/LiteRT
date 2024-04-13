@@ -97,9 +97,7 @@ bool MultiRenderer::LoadSceneHydra(const std::string& a_path)
     {
       std::cout << "[LoadScene]: radiance fields = " << dir.c_str() << std::endl;
       RFScene scene;
-      std::cout << "Mew!\n";
       load_rf_scene(scene, dir);
-      std::cout << "Mew!\n";
       m_pAccelStruct->AddGeom_RFScene(scene);
     }
     else
