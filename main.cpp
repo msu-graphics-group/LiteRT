@@ -6,6 +6,7 @@
 
 #include "Image2d.h"
 #include "Renderer/eye_ray.h"
+#include "tests/tests.h"
 
 using LiteImage::Image2D;
 
@@ -16,6 +17,9 @@ constexpr bool MEASURE_FRAMES = false;
 
 int main(int argc, const char** argv)
 {
+  benchmark_framed_octree_intersection();
+  return 0;
+
   uint32_t WIDTH  = 1024;
   uint32_t HEIGHT = 1024;
   

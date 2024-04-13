@@ -48,6 +48,8 @@ set(SCENE_LOADER_SRC
     ${CMAKE_SOURCE_DIR}/utils/mesh_bvh.cpp
     ${CMAKE_SOURCE_DIR}/utils/mesh.cpp
     ${CMAKE_SOURCE_DIR}/utils/sparse_octree.cpp
+    ${CMAKE_SOURCE_DIR}/tests/tests.cpp
+    ${CMAKE_SOURCE_DIR}/tests/benchmark.cpp
     )
 
 set(CORE_SRC
