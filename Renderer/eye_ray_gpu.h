@@ -63,6 +63,7 @@ public:
     {
       m_pAccelStruct_m_ConjIndices = &pUnderlyingImpl->m_ConjIndices;
       m_pAccelStruct_m_RFGridData = &pUnderlyingImpl->m_RFGridData;
+      m_pAccelStruct_m_RFGridScales = &pUnderlyingImpl->m_RFGridScales;
       m_pAccelStruct_m_RFGridSizes = &pUnderlyingImpl->m_RFGridSizes;
       m_pAccelStruct_m_SdfConjunctions = &pUnderlyingImpl->m_SdfConjunctions;
       m_pAccelStruct_m_SdfFrameOctreeNodes = &pUnderlyingImpl->m_SdfFrameOctreeNodes;
@@ -75,6 +76,8 @@ public:
       m_pAccelStruct_m_SdfOctreeNodes = &pUnderlyingImpl->m_SdfOctreeNodes;
       m_pAccelStruct_m_SdfOctreeRoots = &pUnderlyingImpl->m_SdfOctreeRoots;
       m_pAccelStruct_m_SdfParameters = &pUnderlyingImpl->m_SdfParameters;
+      m_pAccelStruct_m_SdfSVSNodes = &pUnderlyingImpl->m_SdfSVSNodes;
+      m_pAccelStruct_m_SdfSVSRoots = &pUnderlyingImpl->m_SdfSVSRoots;
       m_pAccelStruct_m_allNodePairs = &pUnderlyingImpl->m_allNodePairs;
       m_pAccelStruct_m_bvhOffsets = &pUnderlyingImpl->m_bvhOffsets;
       m_pAccelStruct_m_geomIdByInstId = &pUnderlyingImpl->m_geomIdByInstId;
@@ -183,6 +186,8 @@ protected:
     size_t   m_pAccelStruct_m_ConjIndicesOffset = 0;
     VkBuffer m_pAccelStruct_m_RFGridDataBuffer = VK_NULL_HANDLE;
     size_t   m_pAccelStruct_m_RFGridDataOffset = 0;
+    VkBuffer m_pAccelStruct_m_RFGridScalesBuffer = VK_NULL_HANDLE;
+    size_t   m_pAccelStruct_m_RFGridScalesOffset = 0;
     VkBuffer m_pAccelStruct_m_RFGridSizesBuffer = VK_NULL_HANDLE;
     size_t   m_pAccelStruct_m_RFGridSizesOffset = 0;
     VkBuffer m_pAccelStruct_m_SdfConjunctionsBuffer = VK_NULL_HANDLE;
@@ -207,6 +212,10 @@ protected:
     size_t   m_pAccelStruct_m_SdfOctreeRootsOffset = 0;
     VkBuffer m_pAccelStruct_m_SdfParametersBuffer = VK_NULL_HANDLE;
     size_t   m_pAccelStruct_m_SdfParametersOffset = 0;
+    VkBuffer m_pAccelStruct_m_SdfSVSNodesBuffer = VK_NULL_HANDLE;
+    size_t   m_pAccelStruct_m_SdfSVSNodesOffset = 0;
+    VkBuffer m_pAccelStruct_m_SdfSVSRootsBuffer = VK_NULL_HANDLE;
+    size_t   m_pAccelStruct_m_SdfSVSRootsOffset = 0;
     VkBuffer m_pAccelStruct_m_allNodePairsBuffer = VK_NULL_HANDLE;
     size_t   m_pAccelStruct_m_allNodePairsOffset = 0;
     VkBuffer m_pAccelStruct_m_bvhOffsetsBuffer = VK_NULL_HANDLE;
@@ -235,6 +244,7 @@ protected:
   
   std::vector<uint32_t>* m_pAccelStruct_m_ConjIndices = nullptr;
   std::vector<float>* m_pAccelStruct_m_RFGridData = nullptr;
+  std::vector<float>* m_pAccelStruct_m_RFGridScales = nullptr;
   std::vector<size_t>* m_pAccelStruct_m_RFGridSizes = nullptr;
   std::vector<SdfConjunction>* m_pAccelStruct_m_SdfConjunctions = nullptr;
   std::vector<SdfFrameOctreeNode>* m_pAccelStruct_m_SdfFrameOctreeNodes = nullptr;
@@ -247,6 +257,8 @@ protected:
   std::vector<SdfOctreeNode>* m_pAccelStruct_m_SdfOctreeNodes = nullptr;
   std::vector<uint32_t>* m_pAccelStruct_m_SdfOctreeRoots = nullptr;
   std::vector<float>* m_pAccelStruct_m_SdfParameters = nullptr;
+  std::vector<SdfSVSNode>* m_pAccelStruct_m_SdfSVSNodes = nullptr;
+  std::vector<uint32_t>* m_pAccelStruct_m_SdfSVSRoots = nullptr;
   std::vector<BVHNodePair>* m_pAccelStruct_m_allNodePairs = nullptr;
   std::vector<uint32_t>* m_pAccelStruct_m_bvhOffsets = nullptr;
   std::vector<uint32_t>* m_pAccelStruct_m_geomIdByInstId = nullptr;

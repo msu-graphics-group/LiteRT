@@ -57,6 +57,7 @@ struct BVHRT : public ISceneObject
   uint32_t AddGeom_RFScene(RFScene grid, BuildQuality a_qualityLevel = BUILD_HIGH) override;
   uint32_t AddGeom_SdfOctree(SdfOctreeView octree, BuildQuality a_qualityLevel = BUILD_HIGH) override;
   uint32_t AddGeom_SdfFrameOctree(SdfFrameOctreeView octree, BuildQuality a_qualityLevel = BUILD_HIGH) override;
+  uint32_t AddGeom_SdfSVS(SdfSVSView octree, BuildQuality a_qualityLevel = BUILD_HIGH) override;
 #endif
 
   //common functions for a few Sdf...Function interfaces
@@ -124,6 +125,11 @@ struct BVHRT : public ISceneObject
                           uint32_t a_start, uint32_t a_count,
                           CRT_Hit *pHit);
                                    
+  void SVSNodeIntersect(const float3 ray_pos, const float3 ray_dir,
+                        float tNear, uint32_t instId, uint32_t geomId,
+                        uint32_t a_start, uint32_t a_count,
+                        CRT_Hit *pHit);
+
   virtual void BVH2TraverseF32(const float3 ray_pos, const float3 ray_dir, float tNear, 
                                uint32_t instId, uint32_t geomId, uint32_t stack[STACK_SIZE], bool stopOnFirstHit,
                                CRT_Hit *pHit);
@@ -144,7 +150,8 @@ struct BVHRT : public ISceneObject
   virtual float2 box_intersects(const float3 &min_pos, const float3 &max_pos, const float3 &origin, const float3 &dir);
   virtual float eval_dist_prim(unsigned prim_id, float3 p);
   virtual bool is_leaf(unsigned offset);
-  virtual float eval_dist_frame_octree_node(unsigned idx, float3 dpp);
+  virtual float eval_dist_frame_octree_node(unsigned idx, float3 dp);
+  virtual float eval_dist_trilinear(const float values[8], float3 dp);
 
   virtual float sdf_octree_sample_mipskip_3x3(unsigned octree_id, float3 p, unsigned max_level);
   virtual float sdf_octree_sample_mipskip_closest(unsigned octree_id, float3 p, unsigned max_level);
@@ -190,6 +197,10 @@ struct BVHRT : public ISceneObject
   std::vector<SdfFrameOctreeNode> m_SdfFrameOctreeNodes;//nodes for all SDF octrees
   std::vector<uint32_t> m_SdfFrameOctreeRoots;     //root node ids for each SDF octree
   std::vector<BVHNode> m_origNodes;
+
+  //SDF Sparse Voxel Sets
+  std::vector<SdfSVSNode> m_SdfSVSNodes;//nodes for all SDF Sparse Voxel Sets
+  std::vector<uint32_t> m_SdfSVSRoots;     //root node ids for each SDF Sparse Voxel Set
 
   //for each instance in scene
   std::vector<Box4f> m_instBoxes;

@@ -108,6 +108,7 @@ public:
                                  std::vector<SdfFrameOctreeNode> &out_frame);
   
   void convert_to_frame_octree(std::vector<SdfFrameOctreeNode> &out_frame);
+  void convert_to_sparse_voxel_set(std::vector<SdfSVSNode> &out_nodes);
 
   T sample(const float3 &pos, unsigned max_level = 1000) const;
   T sample_closest(const float3 &pos) const;

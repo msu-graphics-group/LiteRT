@@ -781,3 +781,60 @@ std::chrono::steady_clock::time_point t4 = std::chrono::steady_clock::now();
   printf("SDF octree created with %lu (%5.2lf%%) nodes (dense one would have %lu)\n", n_real, 100.0*n_real/n_max, n_max);
   printf("time spent (ms) %.1f %.1f %.1f\n", time_1, time_2, time_3);
 }
+
+void frame_octree_to_SVS_rec(const std::vector<SdfFrameOctreeNode> &frame,
+                             std::vector<SdfSVSNode> &nodes,
+                             unsigned idx, uint3 p, unsigned lod_size)
+{
+  unsigned ofs = frame[idx].offset;
+  if (is_leaf(ofs)) 
+  {
+    bool border_node = false;
+    for (int i=0;i<8;i++)
+      border_node = border_node || (frame[idx].values[i] <= 0);
+    
+    if (border_node)
+    {
+      nodes.emplace_back();
+      nodes.back().pos_xy = (p.x << 16) | p.y;
+      nodes.back().pos_z_lod_size = (p.z << 16) | lod_size;
+
+      nodes.back().values[0] = 0u;
+      nodes.back().values[1] = 0u;
+      for (int i=0;i<8;i++)
+      {
+        float d_max = 2*sqrt(2)/lod_size;
+        unsigned d_compressed = std::max(0.0f, 255*((frame[idx].values[i]+d_max)/(2*d_max)));
+        d_compressed = std::min(d_compressed, 255u);
+        //assert(d_compressed < 256);
+        nodes.back().values[i/4] |= d_compressed << (8*(i%4));
+      }
+      /*
+      for (int i=0;i<8;i++)
+      {
+      if (nodes.size() < 293000 && nodes.size() > 292000)
+        printf("[%u][%10X %10X %10X %10X] %u %u %u (%u) %f -> %u\n", (unsigned)nodes.size(),
+              nodes.back().pos_xy, nodes.back().pos_z_lod_size,
+      nodes.back().values[0], nodes.back().values[1],
+        p.x, p.y, p.z, lod_size, frame[idx].values[i], (nodes.back().values[i/4] >> (8*(i%4))) & 0xFF);
+      }
+      */
+    }
+  }
+  else
+  {
+    for (int i = 0; i < 8; i++)
+    {
+      uint3 ch_p = 2 * p + uint3((i & 4) >> 2, (i & 2) >> 1, i & 1);
+      frame_octree_to_SVS_rec(frame, nodes, ofs + i, ch_p, 2*lod_size);
+    }
+  }
+}
+
+void SparseOctreeBuilder::convert_to_sparse_voxel_set(std::vector<SdfSVSNode> &out_nodes)
+{
+  auto &nodes = get_nodes();
+  std::vector<SdfFrameOctreeNode> frame(nodes.size());
+  fill_octree_frame_rec(sdf, nodes, frame, 0, float3(0,0,0), 1);
+  frame_octree_to_SVS_rec(frame, out_nodes, 0, uint3(0,0,0), 1);
+}

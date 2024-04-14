@@ -60,6 +60,7 @@ public:
   void SetScene(SdfGridView scene);
   void SetScene(SdfOctreeView scene);
   void SetScene(SdfFrameOctreeView scene);
+  void SetScene(SdfSVSView scene);
 #endif
   void Render(uint32_t* imageData, uint32_t a_width, uint32_t a_height, 
               const LiteMath::float4x4& a_worldView, const LiteMath::float4x4& a_proj,

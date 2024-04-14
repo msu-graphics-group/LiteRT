@@ -77,6 +77,24 @@ void BVHRT::ClearGeom()
   m_origNodes.reserve(16);
   m_origNodes.resize(0); 
 
+  m_SdfSVSNodes.reserve(16);
+  m_SdfSVSNodes.resize(0);
+
+  m_SdfSVSRoots.reserve(16);
+  m_SdfSVSRoots.resize(0);
+
+  m_RFGridData.reserve(16);
+  m_RFGridData.resize(0);
+
+  m_RFGridOffsets.reserve(16);
+  m_RFGridOffsets.resize(0);
+
+  m_RFGridSizes.reserve(16);
+  m_RFGridSizes.resize(0);
+
+  m_RFGridScales.reserve(16);  
+  m_RFGridScales.resize(0);
+
   ClearScene();
 }
 
@@ -344,6 +362,48 @@ uint32_t BVHRT::AddGeom_SdfFrameOctree(SdfFrameOctreeView octree, BuildQuality a
   //create list of bboxes for BLAS
   std::vector<BVHNode> orig_nodes = GetBoxes_SdfFrameOctree(octree);
   m_origNodes = orig_nodes;
+
+  // Build BVH for each geom and append it to big buffer;
+  // append data to global arrays and fix offsets
+  auto presets = BuilderPresetsFromString(m_buildName.c_str());
+  auto layout  = LayoutPresetsFromString(m_layoutName.c_str());
+  auto bvhData = BuildBVHFatCustom(orig_nodes.data(), orig_nodes.size(), presets, layout);
+
+  m_allNodePairs.insert(m_allNodePairs.end(), bvhData.nodes.begin(), bvhData.nodes.end());
+
+  return m_geomTypeByGeomId.size()-1;
+}
+
+uint32_t BVHRT::AddGeom_SdfSVS(SdfSVSView octree, BuildQuality a_qualityLevel)
+{
+  assert(octree.size > 0);
+  assert(octree.size < (1u<<28)); //huge grids shouldn't be here
+  //SDF octree is always a unit cube
+  float4 mn = float4(-1,-1,-1,1);
+  float4 mx = float4( 1, 1, 1,1);
+
+  //fill common data arrays
+  m_geomOffsets.push_back(uint2(m_SdfSVSRoots.size(), 0));
+  m_geomBoxes.push_back(Box4f(mn, mx));
+  m_geomTypeByGeomId.push_back(TYPE_SDF_SVS);
+  m_bvhOffsets.push_back(m_allNodePairs.size());
+
+  //fill octree-specific data arrays
+  unsigned n_offset = m_SdfSVSNodes.size();
+  m_SdfSVSRoots.push_back(n_offset);
+  m_SdfSVSNodes.insert(m_SdfSVSNodes.end(), octree.nodes, octree.nodes + octree.size);
+
+  //create list of bboxes for BLAS
+  std::vector<BVHNode> orig_nodes(octree.size);
+  for (int i=0;i<octree.size;i++)
+  {
+    float px = octree.nodes[i].pos_xy >> 16;
+    float py = octree.nodes[i].pos_xy & 0x0000FFFF;
+    float pz = octree.nodes[i].pos_z_lod_size >> 16;
+    float sz = octree.nodes[i].pos_z_lod_size & 0x0000FFFF;
+    orig_nodes[i].boxMin = float3(-1,-1,-1) + 2.0f*float3(px,py,pz)/sz;
+    orig_nodes[i].boxMax = orig_nodes[i].boxMin + 2.0f*float3(1,1,1)/sz;
+  }
 
   // Build BVH for each geom and append it to big buffer;
   // append data to global arrays and fix offsets

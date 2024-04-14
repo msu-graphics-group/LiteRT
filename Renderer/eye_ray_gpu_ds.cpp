@@ -16,7 +16,7 @@ void MultiRenderer_GPU::AllocateAllDescriptorSets()
   //
   VkDescriptorPoolSize buffersSize, combinedImageSamSize, imageStorageSize;
   buffersSize.type                     = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-  buffersSize.descriptorCount          = 53 + 64; // + 64 for reserve
+  buffersSize.descriptorCount          = 59 + 64; // + 64 for reserve
 
   std::vector<VkDescriptorPoolSize> poolSizes = {buffersSize};
 
@@ -57,7 +57,7 @@ void MultiRenderer_GPU::AllocateAllDescriptorSets()
 
 VkDescriptorSetLayout MultiRenderer_GPU::CreatePackXYMegaDSLayout()
 {
-  std::array<VkDescriptorSetLayoutBinding, 26+1> dsBindings;
+  std::array<VkDescriptorSetLayoutBinding, 29+1> dsBindings;
 
   const auto stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
@@ -68,35 +68,35 @@ VkDescriptorSetLayout MultiRenderer_GPU::CreatePackXYMegaDSLayout()
   dsBindings[0].stageFlags         = stageFlags;
   dsBindings[0].pImmutableSamplers = nullptr;
 
-  // binding for m_pAccelStruct_m_vertPos
+  // binding for m_pAccelStruct_m_RFGridScales
   dsBindings[1].binding            = 1;
   dsBindings[1].descriptorType     = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
   dsBindings[1].descriptorCount    = 1;
   dsBindings[1].stageFlags         = stageFlags;
   dsBindings[1].pImmutableSamplers = nullptr;
 
-  // binding for m_pAccelStruct_m_RFGridSizes
+  // binding for m_pAccelStruct_m_vertPos
   dsBindings[2].binding            = 2;
   dsBindings[2].descriptorType     = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
   dsBindings[2].descriptorCount    = 1;
   dsBindings[2].stageFlags         = stageFlags;
   dsBindings[2].pImmutableSamplers = nullptr;
 
-  // binding for m_pAccelStruct_m_SdfFrameOctreeRoots
+  // binding for m_pAccelStruct_m_RFGridSizes
   dsBindings[3].binding            = 3;
   dsBindings[3].descriptorType     = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
   dsBindings[3].descriptorCount    = 1;
   dsBindings[3].stageFlags         = stageFlags;
   dsBindings[3].pImmutableSamplers = nullptr;
 
-  // binding for m_pAccelStruct_m_bvhOffsets
+  // binding for m_pAccelStruct_m_SdfFrameOctreeRoots
   dsBindings[4].binding            = 4;
   dsBindings[4].descriptorType     = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
   dsBindings[4].descriptorCount    = 1;
   dsBindings[4].stageFlags         = stageFlags;
   dsBindings[4].pImmutableSamplers = nullptr;
 
-  // binding for m_pAccelStruct_m_SdfConjunctions
+  // binding for m_pAccelStruct_m_bvhOffsets
   dsBindings[5].binding            = 5;
   dsBindings[5].descriptorType     = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
   dsBindings[5].descriptorCount    = 1;
@@ -117,138 +117,159 @@ VkDescriptorSetLayout MultiRenderer_GPU::CreatePackXYMegaDSLayout()
   dsBindings[7].stageFlags         = stageFlags;
   dsBindings[7].pImmutableSamplers = nullptr;
 
-  // binding for m_pAccelStruct_m_SdfFrameOctreeNodes
+  // binding for m_pAccelStruct_m_SdfConjunctions
   dsBindings[8].binding            = 8;
   dsBindings[8].descriptorType     = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
   dsBindings[8].descriptorCount    = 1;
   dsBindings[8].stageFlags         = stageFlags;
   dsBindings[8].pImmutableSamplers = nullptr;
 
-  // binding for m_pAccelStruct_m_SdfOctreeRoots
+  // binding for m_pAccelStruct_m_RFGridData
   dsBindings[9].binding            = 9;
   dsBindings[9].descriptorType     = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
   dsBindings[9].descriptorCount    = 1;
   dsBindings[9].stageFlags         = stageFlags;
   dsBindings[9].pImmutableSamplers = nullptr;
 
-  // binding for m_pAccelStruct_m_geomTypeByGeomId
+  // binding for m_pAccelStruct_m_SdfGridSizes
   dsBindings[10].binding            = 10;
   dsBindings[10].descriptorType     = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
   dsBindings[10].descriptorCount    = 1;
   dsBindings[10].stageFlags         = stageFlags;
   dsBindings[10].pImmutableSamplers = nullptr;
 
-  // binding for m_pAccelStruct_m_primIndices
+  // binding for m_pAccelStruct_m_SdfObjects
   dsBindings[11].binding            = 11;
   dsBindings[11].descriptorType     = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
   dsBindings[11].descriptorCount    = 1;
   dsBindings[11].stageFlags         = stageFlags;
   dsBindings[11].pImmutableSamplers = nullptr;
 
-  // binding for m_pAccelStruct_m_origNodes
+  // binding for m_pAccelStruct_m_allNodePairs
   dsBindings[12].binding            = 12;
   dsBindings[12].descriptorType     = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
   dsBindings[12].descriptorCount    = 1;
   dsBindings[12].stageFlags         = stageFlags;
   dsBindings[12].pImmutableSamplers = nullptr;
 
-  // binding for m_pAccelStruct_m_SdfNeuralProperties
+  // binding for m_pAccelStruct_m_SdfParameters
   dsBindings[13].binding            = 13;
   dsBindings[13].descriptorType     = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
   dsBindings[13].descriptorCount    = 1;
   dsBindings[13].stageFlags         = stageFlags;
   dsBindings[13].pImmutableSamplers = nullptr;
 
-  // binding for m_pAccelStruct_m_nodesTLAS
+  // binding for m_pAccelStruct_m_SdfSVSRoots
   dsBindings[14].binding            = 14;
   dsBindings[14].descriptorType     = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
   dsBindings[14].descriptorCount    = 1;
   dsBindings[14].stageFlags         = stageFlags;
   dsBindings[14].pImmutableSamplers = nullptr;
 
-  // binding for m_pAccelStruct_m_ConjIndices
+  // binding for m_pAccelStruct_m_instMatricesInv
   dsBindings[15].binding            = 15;
   dsBindings[15].descriptorType     = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
   dsBindings[15].descriptorCount    = 1;
   dsBindings[15].stageFlags         = stageFlags;
   dsBindings[15].pImmutableSamplers = nullptr;
 
-  // binding for m_pAccelStruct_m_indices
+  // binding for m_pAccelStruct_m_primIndices
   dsBindings[16].binding            = 16;
   dsBindings[16].descriptorType     = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
   dsBindings[16].descriptorCount    = 1;
   dsBindings[16].stageFlags         = stageFlags;
   dsBindings[16].pImmutableSamplers = nullptr;
 
-  // binding for m_pAccelStruct_m_instMatricesInv
+  // binding for m_pAccelStruct_m_indices
   dsBindings[17].binding            = 17;
   dsBindings[17].descriptorType     = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
   dsBindings[17].descriptorCount    = 1;
   dsBindings[17].stageFlags         = stageFlags;
   dsBindings[17].pImmutableSamplers = nullptr;
 
-  // binding for m_pAccelStruct_m_SdfParameters
+  // binding for m_pAccelStruct_m_geomTypeByGeomId
   dsBindings[18].binding            = 18;
   dsBindings[18].descriptorType     = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
   dsBindings[18].descriptorCount    = 1;
   dsBindings[18].stageFlags         = stageFlags;
   dsBindings[18].pImmutableSamplers = nullptr;
 
-  // binding for m_pAccelStruct_m_allNodePairs
+  // binding for m_pAccelStruct_m_SdfOctreeRoots
   dsBindings[19].binding            = 19;
   dsBindings[19].descriptorType     = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
   dsBindings[19].descriptorCount    = 1;
   dsBindings[19].stageFlags         = stageFlags;
   dsBindings[19].pImmutableSamplers = nullptr;
 
-  // binding for m_pAccelStruct_m_SdfObjects
+  // binding for m_pAccelStruct_m_SdfFrameOctreeNodes
   dsBindings[20].binding            = 20;
   dsBindings[20].descriptorType     = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
   dsBindings[20].descriptorCount    = 1;
   dsBindings[20].stageFlags         = stageFlags;
   dsBindings[20].pImmutableSamplers = nullptr;
 
-  // binding for m_pAccelStruct_m_SdfGridSizes
+  // binding for m_pAccelStruct_m_SdfSVSNodes
   dsBindings[21].binding            = 21;
   dsBindings[21].descriptorType     = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
   dsBindings[21].descriptorCount    = 1;
   dsBindings[21].stageFlags         = stageFlags;
   dsBindings[21].pImmutableSamplers = nullptr;
 
-  // binding for m_pAccelStruct_m_RFGridData
+  // binding for m_pAccelStruct_m_nodesTLAS
   dsBindings[22].binding            = 22;
   dsBindings[22].descriptorType     = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
   dsBindings[22].descriptorCount    = 1;
   dsBindings[22].stageFlags         = stageFlags;
   dsBindings[22].pImmutableSamplers = nullptr;
 
-  // binding for m_pAccelStruct_m_SdfOctreeNodes
+  // binding for m_pAccelStruct_m_ConjIndices
   dsBindings[23].binding            = 23;
   dsBindings[23].descriptorType     = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
   dsBindings[23].descriptorCount    = 1;
   dsBindings[23].stageFlags         = stageFlags;
   dsBindings[23].pImmutableSamplers = nullptr;
 
-  // binding for m_pAccelStruct_m_geomOffsets
+  // binding for m_pAccelStruct_m_origNodes
   dsBindings[24].binding            = 24;
   dsBindings[24].descriptorType     = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
   dsBindings[24].descriptorCount    = 1;
   dsBindings[24].stageFlags         = stageFlags;
   dsBindings[24].pImmutableSamplers = nullptr;
 
-  // binding for m_pAccelStruct_m_geomIdByInstId
+  // binding for m_pAccelStruct_m_SdfNeuralProperties
   dsBindings[25].binding            = 25;
   dsBindings[25].descriptorType     = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
   dsBindings[25].descriptorCount    = 1;
   dsBindings[25].stageFlags         = stageFlags;
   dsBindings[25].pImmutableSamplers = nullptr;
 
-  // binding for POD members stored in m_classDataBuffer
+  // binding for m_pAccelStruct_m_geomOffsets
   dsBindings[26].binding            = 26;
   dsBindings[26].descriptorType     = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
   dsBindings[26].descriptorCount    = 1;
   dsBindings[26].stageFlags         = stageFlags;
   dsBindings[26].pImmutableSamplers = nullptr;
+
+  // binding for m_pAccelStruct_m_geomIdByInstId
+  dsBindings[27].binding            = 27;
+  dsBindings[27].descriptorType     = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+  dsBindings[27].descriptorCount    = 1;
+  dsBindings[27].stageFlags         = stageFlags;
+  dsBindings[27].pImmutableSamplers = nullptr;
+
+  // binding for m_pAccelStruct_m_SdfOctreeNodes
+  dsBindings[28].binding            = 28;
+  dsBindings[28].descriptorType     = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+  dsBindings[28].descriptorCount    = 1;
+  dsBindings[28].stageFlags         = stageFlags;
+  dsBindings[28].pImmutableSamplers = nullptr;
+
+  // binding for POD members stored in m_classDataBuffer
+  dsBindings[29].binding            = 29;
+  dsBindings[29].descriptorType     = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+  dsBindings[29].descriptorCount    = 1;
+  dsBindings[29].stageFlags         = stageFlags;
+  dsBindings[29].pImmutableSamplers = nullptr;
   
   VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo = {};
   descriptorSetLayoutCreateInfo.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
@@ -261,7 +282,7 @@ VkDescriptorSetLayout MultiRenderer_GPU::CreatePackXYMegaDSLayout()
 }
 VkDescriptorSetLayout MultiRenderer_GPU::CreateCastRaySingleMegaDSLayout()
 {
-  std::array<VkDescriptorSetLayoutBinding, 27+1> dsBindings;
+  std::array<VkDescriptorSetLayoutBinding, 30+1> dsBindings;
 
   const auto stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
@@ -286,180 +307,201 @@ VkDescriptorSetLayout MultiRenderer_GPU::CreateCastRaySingleMegaDSLayout()
   dsBindings[2].stageFlags         = stageFlags;
   dsBindings[2].pImmutableSamplers = nullptr;
 
-  // binding for m_pAccelStruct_m_SdfConjunctions
+  // binding for m_pAccelStruct_m_SdfGridData
   dsBindings[3].binding            = 3;
   dsBindings[3].descriptorType     = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
   dsBindings[3].descriptorCount    = 1;
   dsBindings[3].stageFlags         = stageFlags;
   dsBindings[3].pImmutableSamplers = nullptr;
 
-  // binding for m_pAccelStruct_m_SdfGridData
+  // binding for m_pAccelStruct_m_SdfGridOffsets
   dsBindings[4].binding            = 4;
   dsBindings[4].descriptorType     = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
   dsBindings[4].descriptorCount    = 1;
   dsBindings[4].stageFlags         = stageFlags;
   dsBindings[4].pImmutableSamplers = nullptr;
 
-  // binding for m_pAccelStruct_m_SdfGridOffsets
+  // binding for m_pAccelStruct_m_SdfConjunctions
   dsBindings[5].binding            = 5;
   dsBindings[5].descriptorType     = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
   dsBindings[5].descriptorCount    = 1;
   dsBindings[5].stageFlags         = stageFlags;
   dsBindings[5].pImmutableSamplers = nullptr;
 
-  // binding for m_pAccelStruct_m_SdfFrameOctreeNodes
+  // binding for m_pAccelStruct_m_RFGridData
   dsBindings[6].binding            = 6;
   dsBindings[6].descriptorType     = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
   dsBindings[6].descriptorCount    = 1;
   dsBindings[6].stageFlags         = stageFlags;
   dsBindings[6].pImmutableSamplers = nullptr;
 
-  // binding for m_pAccelStruct_m_SdfOctreeRoots
+  // binding for m_pAccelStruct_m_SdfGridSizes
   dsBindings[7].binding            = 7;
   dsBindings[7].descriptorType     = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
   dsBindings[7].descriptorCount    = 1;
   dsBindings[7].stageFlags         = stageFlags;
   dsBindings[7].pImmutableSamplers = nullptr;
 
-  // binding for m_pAccelStruct_m_geomTypeByGeomId
+  // binding for m_pAccelStruct_m_SdfObjects
   dsBindings[8].binding            = 8;
   dsBindings[8].descriptorType     = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
   dsBindings[8].descriptorCount    = 1;
   dsBindings[8].stageFlags         = stageFlags;
   dsBindings[8].pImmutableSamplers = nullptr;
 
-  // binding for m_pAccelStruct_m_SdfOctreeNodes
+  // binding for m_pAccelStruct_m_allNodePairs
   dsBindings[9].binding            = 9;
   dsBindings[9].descriptorType     = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
   dsBindings[9].descriptorCount    = 1;
   dsBindings[9].stageFlags         = stageFlags;
   dsBindings[9].pImmutableSamplers = nullptr;
 
-  // binding for m_pAccelStruct_m_geomOffsets
+  // binding for m_pAccelStruct_m_SdfNeuralProperties
   dsBindings[10].binding            = 10;
   dsBindings[10].descriptorType     = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
   dsBindings[10].descriptorCount    = 1;
   dsBindings[10].stageFlags         = stageFlags;
   dsBindings[10].pImmutableSamplers = nullptr;
 
-  // binding for m_pAccelStruct_m_geomIdByInstId
+  // binding for m_pAccelStruct_m_SdfFrameOctreeNodes
   dsBindings[11].binding            = 11;
   dsBindings[11].descriptorType     = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
   dsBindings[11].descriptorCount    = 1;
   dsBindings[11].stageFlags         = stageFlags;
   dsBindings[11].pImmutableSamplers = nullptr;
 
-  // binding for m_pAccelStruct_m_RFGridData
+  // binding for m_pAccelStruct_m_SdfOctreeRoots
   dsBindings[12].binding            = 12;
   dsBindings[12].descriptorType     = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
   dsBindings[12].descriptorCount    = 1;
   dsBindings[12].stageFlags         = stageFlags;
   dsBindings[12].pImmutableSamplers = nullptr;
 
-  // binding for m_pAccelStruct_m_SdfGridSizes
+  // binding for m_pAccelStruct_m_geomTypeByGeomId
   dsBindings[13].binding            = 13;
   dsBindings[13].descriptorType     = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
   dsBindings[13].descriptorCount    = 1;
   dsBindings[13].stageFlags         = stageFlags;
   dsBindings[13].pImmutableSamplers = nullptr;
 
-  // binding for m_pAccelStruct_m_primIndices
+  // binding for m_pAccelStruct_m_SdfOctreeNodes
   dsBindings[14].binding            = 14;
   dsBindings[14].descriptorType     = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
   dsBindings[14].descriptorCount    = 1;
   dsBindings[14].stageFlags         = stageFlags;
   dsBindings[14].pImmutableSamplers = nullptr;
 
-  // binding for m_pAccelStruct_m_origNodes
+  // binding for m_pAccelStruct_m_geomOffsets
   dsBindings[15].binding            = 15;
   dsBindings[15].descriptorType     = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
   dsBindings[15].descriptorCount    = 1;
   dsBindings[15].stageFlags         = stageFlags;
   dsBindings[15].pImmutableSamplers = nullptr;
 
-  // binding for m_pAccelStruct_m_SdfNeuralProperties
+  // binding for m_pAccelStruct_m_geomIdByInstId
   dsBindings[16].binding            = 16;
   dsBindings[16].descriptorType     = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
   dsBindings[16].descriptorCount    = 1;
   dsBindings[16].stageFlags         = stageFlags;
   dsBindings[16].pImmutableSamplers = nullptr;
 
-  // binding for m_pAccelStruct_m_nodesTLAS
+  // binding for m_pAccelStruct_m_primIndices
   dsBindings[17].binding            = 17;
   dsBindings[17].descriptorType     = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
   dsBindings[17].descriptorCount    = 1;
   dsBindings[17].stageFlags         = stageFlags;
   dsBindings[17].pImmutableSamplers = nullptr;
 
-  // binding for m_pAccelStruct_m_ConjIndices
+  // binding for m_pAccelStruct_m_indices
   dsBindings[18].binding            = 18;
   dsBindings[18].descriptorType     = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
   dsBindings[18].descriptorCount    = 1;
   dsBindings[18].stageFlags         = stageFlags;
   dsBindings[18].pImmutableSamplers = nullptr;
 
-  // binding for m_pAccelStruct_m_indices
+  // binding for m_pAccelStruct_m_SdfSVSNodes
   dsBindings[19].binding            = 19;
   dsBindings[19].descriptorType     = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
   dsBindings[19].descriptorCount    = 1;
   dsBindings[19].stageFlags         = stageFlags;
   dsBindings[19].pImmutableSamplers = nullptr;
 
-  // binding for m_pAccelStruct_m_RFGridSizes
+  // binding for m_pAccelStruct_m_nodesTLAS
   dsBindings[20].binding            = 20;
   dsBindings[20].descriptorType     = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
   dsBindings[20].descriptorCount    = 1;
   dsBindings[20].stageFlags         = stageFlags;
   dsBindings[20].pImmutableSamplers = nullptr;
 
-  // binding for m_pAccelStruct_m_vertPos
+  // binding for m_pAccelStruct_m_ConjIndices
   dsBindings[21].binding            = 21;
   dsBindings[21].descriptorType     = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
   dsBindings[21].descriptorCount    = 1;
   dsBindings[21].stageFlags         = stageFlags;
   dsBindings[21].pImmutableSamplers = nullptr;
 
-  // binding for m_packedXY
+  // binding for m_pAccelStruct_m_origNodes
   dsBindings[22].binding            = 22;
   dsBindings[22].descriptorType     = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
   dsBindings[22].descriptorCount    = 1;
   dsBindings[22].stageFlags         = stageFlags;
   dsBindings[22].pImmutableSamplers = nullptr;
 
-  // binding for m_pAccelStruct_m_SdfParameters
+  // binding for m_pAccelStruct_m_RFGridSizes
   dsBindings[23].binding            = 23;
   dsBindings[23].descriptorType     = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
   dsBindings[23].descriptorCount    = 1;
   dsBindings[23].stageFlags         = stageFlags;
   dsBindings[23].pImmutableSamplers = nullptr;
 
-  // binding for m_pAccelStruct_m_instMatricesInv
+  // binding for m_pAccelStruct_m_vertPos
   dsBindings[24].binding            = 24;
   dsBindings[24].descriptorType     = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
   dsBindings[24].descriptorCount    = 1;
   dsBindings[24].stageFlags         = stageFlags;
   dsBindings[24].pImmutableSamplers = nullptr;
 
-  // binding for m_pAccelStruct_m_allNodePairs
+  // binding for m_pAccelStruct_m_RFGridScales
   dsBindings[25].binding            = 25;
   dsBindings[25].descriptorType     = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
   dsBindings[25].descriptorCount    = 1;
   dsBindings[25].stageFlags         = stageFlags;
   dsBindings[25].pImmutableSamplers = nullptr;
 
-  // binding for m_pAccelStruct_m_SdfObjects
+  // binding for m_packedXY
   dsBindings[26].binding            = 26;
   dsBindings[26].descriptorType     = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
   dsBindings[26].descriptorCount    = 1;
   dsBindings[26].stageFlags         = stageFlags;
   dsBindings[26].pImmutableSamplers = nullptr;
 
-  // binding for POD members stored in m_classDataBuffer
+  // binding for m_pAccelStruct_m_SdfSVSRoots
   dsBindings[27].binding            = 27;
   dsBindings[27].descriptorType     = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
   dsBindings[27].descriptorCount    = 1;
   dsBindings[27].stageFlags         = stageFlags;
   dsBindings[27].pImmutableSamplers = nullptr;
+
+  // binding for m_pAccelStruct_m_SdfParameters
+  dsBindings[28].binding            = 28;
+  dsBindings[28].descriptorType     = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+  dsBindings[28].descriptorCount    = 1;
+  dsBindings[28].stageFlags         = stageFlags;
+  dsBindings[28].pImmutableSamplers = nullptr;
+
+  // binding for m_pAccelStruct_m_instMatricesInv
+  dsBindings[29].binding            = 29;
+  dsBindings[29].descriptorType     = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+  dsBindings[29].descriptorCount    = 1;
+  dsBindings[29].stageFlags         = stageFlags;
+  dsBindings[29].pImmutableSamplers = nullptr;
+
+  // binding for POD members stored in m_classDataBuffer
+  dsBindings[30].binding            = 30;
+  dsBindings[30].descriptorType     = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+  dsBindings[30].descriptorCount    = 1;
+  dsBindings[30].stageFlags         = stageFlags;
+  dsBindings[30].pImmutableSamplers = nullptr;
   
   VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo = {};
   descriptorSetLayoutCreateInfo.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
@@ -501,13 +543,13 @@ void MultiRenderer_GPU::InitAllGeneratedDescriptorSets_PackXY()
 {
   // now create actual bindings
   //
-  // descriptor set #0: PackXYMegaCmd (["m_packedXY","m_pAccelStruct_m_vertPos","m_pAccelStruct_m_RFGridSizes","m_pAccelStruct_m_SdfFrameOctreeRoots","m_pAccelStruct_m_bvhOffsets","m_pAccelStruct_m_SdfConjunctions","m_pAccelStruct_m_SdfGridData","m_pAccelStruct_m_SdfGridOffsets","m_pAccelStruct_m_SdfFrameOctreeNodes","m_pAccelStruct_m_SdfOctreeRoots","m_pAccelStruct_m_geomTypeByGeomId","m_pAccelStruct_m_primIndices","m_pAccelStruct_m_origNodes","m_pAccelStruct_m_SdfNeuralProperties","m_pAccelStruct_m_nodesTLAS","m_pAccelStruct_m_ConjIndices","m_pAccelStruct_m_indices","m_pAccelStruct_m_instMatricesInv","m_pAccelStruct_m_SdfParameters","m_pAccelStruct_m_allNodePairs","m_pAccelStruct_m_SdfObjects","m_pAccelStruct_m_SdfGridSizes","m_pAccelStruct_m_RFGridData","m_pAccelStruct_m_SdfOctreeNodes","m_pAccelStruct_m_geomOffsets","m_pAccelStruct_m_geomIdByInstId"])
+  // descriptor set #0: PackXYMegaCmd (["m_packedXY","m_pAccelStruct_m_RFGridScales","m_pAccelStruct_m_vertPos","m_pAccelStruct_m_RFGridSizes","m_pAccelStruct_m_SdfFrameOctreeRoots","m_pAccelStruct_m_bvhOffsets","m_pAccelStruct_m_SdfGridData","m_pAccelStruct_m_SdfGridOffsets","m_pAccelStruct_m_SdfConjunctions","m_pAccelStruct_m_RFGridData","m_pAccelStruct_m_SdfGridSizes","m_pAccelStruct_m_SdfObjects","m_pAccelStruct_m_allNodePairs","m_pAccelStruct_m_SdfParameters","m_pAccelStruct_m_SdfSVSRoots","m_pAccelStruct_m_instMatricesInv","m_pAccelStruct_m_primIndices","m_pAccelStruct_m_indices","m_pAccelStruct_m_geomTypeByGeomId","m_pAccelStruct_m_SdfOctreeRoots","m_pAccelStruct_m_SdfFrameOctreeNodes","m_pAccelStruct_m_SdfSVSNodes","m_pAccelStruct_m_nodesTLAS","m_pAccelStruct_m_ConjIndices","m_pAccelStruct_m_origNodes","m_pAccelStruct_m_SdfNeuralProperties","m_pAccelStruct_m_geomOffsets","m_pAccelStruct_m_geomIdByInstId","m_pAccelStruct_m_SdfOctreeNodes"])
   {
     constexpr uint additionalSize = 1;
 
-    std::array<VkDescriptorBufferInfo, 26 + additionalSize> descriptorBufferInfo;
-    std::array<VkDescriptorImageInfo,  26 + additionalSize> descriptorImageInfo;
-    std::array<VkWriteDescriptorSet,   26 + additionalSize> writeDescriptorSet;
+    std::array<VkDescriptorBufferInfo, 29 + additionalSize> descriptorBufferInfo;
+    std::array<VkDescriptorImageInfo,  29 + additionalSize> descriptorImageInfo;
+    std::array<VkWriteDescriptorSet,   29 + additionalSize> writeDescriptorSet;
 
     descriptorBufferInfo[0]        = VkDescriptorBufferInfo{};
     descriptorBufferInfo[0].buffer = m_vdata.m_packedXYBuffer;
@@ -524,8 +566,8 @@ void MultiRenderer_GPU::InitAllGeneratedDescriptorSets_PackXY()
     writeDescriptorSet[0].pTexelBufferView = nullptr; 
 
     descriptorBufferInfo[1]        = VkDescriptorBufferInfo{};
-    descriptorBufferInfo[1].buffer = m_vdata.m_pAccelStruct_m_vertPosBuffer;
-    descriptorBufferInfo[1].offset = m_vdata.m_pAccelStruct_m_vertPosOffset;
+    descriptorBufferInfo[1].buffer = m_vdata.m_pAccelStruct_m_RFGridScalesBuffer;
+    descriptorBufferInfo[1].offset = m_vdata.m_pAccelStruct_m_RFGridScalesOffset;
     descriptorBufferInfo[1].range  = VK_WHOLE_SIZE;  
     writeDescriptorSet[1]                  = VkWriteDescriptorSet{};
     writeDescriptorSet[1].sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -538,8 +580,8 @@ void MultiRenderer_GPU::InitAllGeneratedDescriptorSets_PackXY()
     writeDescriptorSet[1].pTexelBufferView = nullptr; 
 
     descriptorBufferInfo[2]        = VkDescriptorBufferInfo{};
-    descriptorBufferInfo[2].buffer = m_vdata.m_pAccelStruct_m_RFGridSizesBuffer;
-    descriptorBufferInfo[2].offset = m_vdata.m_pAccelStruct_m_RFGridSizesOffset;
+    descriptorBufferInfo[2].buffer = m_vdata.m_pAccelStruct_m_vertPosBuffer;
+    descriptorBufferInfo[2].offset = m_vdata.m_pAccelStruct_m_vertPosOffset;
     descriptorBufferInfo[2].range  = VK_WHOLE_SIZE;  
     writeDescriptorSet[2]                  = VkWriteDescriptorSet{};
     writeDescriptorSet[2].sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -552,8 +594,8 @@ void MultiRenderer_GPU::InitAllGeneratedDescriptorSets_PackXY()
     writeDescriptorSet[2].pTexelBufferView = nullptr; 
 
     descriptorBufferInfo[3]        = VkDescriptorBufferInfo{};
-    descriptorBufferInfo[3].buffer = m_vdata.m_pAccelStruct_m_SdfFrameOctreeRootsBuffer;
-    descriptorBufferInfo[3].offset = m_vdata.m_pAccelStruct_m_SdfFrameOctreeRootsOffset;
+    descriptorBufferInfo[3].buffer = m_vdata.m_pAccelStruct_m_RFGridSizesBuffer;
+    descriptorBufferInfo[3].offset = m_vdata.m_pAccelStruct_m_RFGridSizesOffset;
     descriptorBufferInfo[3].range  = VK_WHOLE_SIZE;  
     writeDescriptorSet[3]                  = VkWriteDescriptorSet{};
     writeDescriptorSet[3].sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -566,8 +608,8 @@ void MultiRenderer_GPU::InitAllGeneratedDescriptorSets_PackXY()
     writeDescriptorSet[3].pTexelBufferView = nullptr; 
 
     descriptorBufferInfo[4]        = VkDescriptorBufferInfo{};
-    descriptorBufferInfo[4].buffer = m_vdata.m_pAccelStruct_m_bvhOffsetsBuffer;
-    descriptorBufferInfo[4].offset = m_vdata.m_pAccelStruct_m_bvhOffsetsOffset;
+    descriptorBufferInfo[4].buffer = m_vdata.m_pAccelStruct_m_SdfFrameOctreeRootsBuffer;
+    descriptorBufferInfo[4].offset = m_vdata.m_pAccelStruct_m_SdfFrameOctreeRootsOffset;
     descriptorBufferInfo[4].range  = VK_WHOLE_SIZE;  
     writeDescriptorSet[4]                  = VkWriteDescriptorSet{};
     writeDescriptorSet[4].sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -580,8 +622,8 @@ void MultiRenderer_GPU::InitAllGeneratedDescriptorSets_PackXY()
     writeDescriptorSet[4].pTexelBufferView = nullptr; 
 
     descriptorBufferInfo[5]        = VkDescriptorBufferInfo{};
-    descriptorBufferInfo[5].buffer = m_vdata.m_pAccelStruct_m_SdfConjunctionsBuffer;
-    descriptorBufferInfo[5].offset = m_vdata.m_pAccelStruct_m_SdfConjunctionsOffset;
+    descriptorBufferInfo[5].buffer = m_vdata.m_pAccelStruct_m_bvhOffsetsBuffer;
+    descriptorBufferInfo[5].offset = m_vdata.m_pAccelStruct_m_bvhOffsetsOffset;
     descriptorBufferInfo[5].range  = VK_WHOLE_SIZE;  
     writeDescriptorSet[5]                  = VkWriteDescriptorSet{};
     writeDescriptorSet[5].sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -622,8 +664,8 @@ void MultiRenderer_GPU::InitAllGeneratedDescriptorSets_PackXY()
     writeDescriptorSet[7].pTexelBufferView = nullptr; 
 
     descriptorBufferInfo[8]        = VkDescriptorBufferInfo{};
-    descriptorBufferInfo[8].buffer = m_vdata.m_pAccelStruct_m_SdfFrameOctreeNodesBuffer;
-    descriptorBufferInfo[8].offset = m_vdata.m_pAccelStruct_m_SdfFrameOctreeNodesOffset;
+    descriptorBufferInfo[8].buffer = m_vdata.m_pAccelStruct_m_SdfConjunctionsBuffer;
+    descriptorBufferInfo[8].offset = m_vdata.m_pAccelStruct_m_SdfConjunctionsOffset;
     descriptorBufferInfo[8].range  = VK_WHOLE_SIZE;  
     writeDescriptorSet[8]                  = VkWriteDescriptorSet{};
     writeDescriptorSet[8].sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -636,8 +678,8 @@ void MultiRenderer_GPU::InitAllGeneratedDescriptorSets_PackXY()
     writeDescriptorSet[8].pTexelBufferView = nullptr; 
 
     descriptorBufferInfo[9]        = VkDescriptorBufferInfo{};
-    descriptorBufferInfo[9].buffer = m_vdata.m_pAccelStruct_m_SdfOctreeRootsBuffer;
-    descriptorBufferInfo[9].offset = m_vdata.m_pAccelStruct_m_SdfOctreeRootsOffset;
+    descriptorBufferInfo[9].buffer = m_vdata.m_pAccelStruct_m_RFGridDataBuffer;
+    descriptorBufferInfo[9].offset = m_vdata.m_pAccelStruct_m_RFGridDataOffset;
     descriptorBufferInfo[9].range  = VK_WHOLE_SIZE;  
     writeDescriptorSet[9]                  = VkWriteDescriptorSet{};
     writeDescriptorSet[9].sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -650,8 +692,8 @@ void MultiRenderer_GPU::InitAllGeneratedDescriptorSets_PackXY()
     writeDescriptorSet[9].pTexelBufferView = nullptr; 
 
     descriptorBufferInfo[10]        = VkDescriptorBufferInfo{};
-    descriptorBufferInfo[10].buffer = m_vdata.m_pAccelStruct_m_geomTypeByGeomIdBuffer;
-    descriptorBufferInfo[10].offset = m_vdata.m_pAccelStruct_m_geomTypeByGeomIdOffset;
+    descriptorBufferInfo[10].buffer = m_vdata.m_pAccelStruct_m_SdfGridSizesBuffer;
+    descriptorBufferInfo[10].offset = m_vdata.m_pAccelStruct_m_SdfGridSizesOffset;
     descriptorBufferInfo[10].range  = VK_WHOLE_SIZE;  
     writeDescriptorSet[10]                  = VkWriteDescriptorSet{};
     writeDescriptorSet[10].sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -664,8 +706,8 @@ void MultiRenderer_GPU::InitAllGeneratedDescriptorSets_PackXY()
     writeDescriptorSet[10].pTexelBufferView = nullptr; 
 
     descriptorBufferInfo[11]        = VkDescriptorBufferInfo{};
-    descriptorBufferInfo[11].buffer = m_vdata.m_pAccelStruct_m_primIndicesBuffer;
-    descriptorBufferInfo[11].offset = m_vdata.m_pAccelStruct_m_primIndicesOffset;
+    descriptorBufferInfo[11].buffer = m_vdata.m_pAccelStruct_m_SdfObjectsBuffer;
+    descriptorBufferInfo[11].offset = m_vdata.m_pAccelStruct_m_SdfObjectsOffset;
     descriptorBufferInfo[11].range  = VK_WHOLE_SIZE;  
     writeDescriptorSet[11]                  = VkWriteDescriptorSet{};
     writeDescriptorSet[11].sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -678,8 +720,8 @@ void MultiRenderer_GPU::InitAllGeneratedDescriptorSets_PackXY()
     writeDescriptorSet[11].pTexelBufferView = nullptr; 
 
     descriptorBufferInfo[12]        = VkDescriptorBufferInfo{};
-    descriptorBufferInfo[12].buffer = m_vdata.m_pAccelStruct_m_origNodesBuffer;
-    descriptorBufferInfo[12].offset = m_vdata.m_pAccelStruct_m_origNodesOffset;
+    descriptorBufferInfo[12].buffer = m_vdata.m_pAccelStruct_m_allNodePairsBuffer;
+    descriptorBufferInfo[12].offset = m_vdata.m_pAccelStruct_m_allNodePairsOffset;
     descriptorBufferInfo[12].range  = VK_WHOLE_SIZE;  
     writeDescriptorSet[12]                  = VkWriteDescriptorSet{};
     writeDescriptorSet[12].sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -692,8 +734,8 @@ void MultiRenderer_GPU::InitAllGeneratedDescriptorSets_PackXY()
     writeDescriptorSet[12].pTexelBufferView = nullptr; 
 
     descriptorBufferInfo[13]        = VkDescriptorBufferInfo{};
-    descriptorBufferInfo[13].buffer = m_vdata.m_pAccelStruct_m_SdfNeuralPropertiesBuffer;
-    descriptorBufferInfo[13].offset = m_vdata.m_pAccelStruct_m_SdfNeuralPropertiesOffset;
+    descriptorBufferInfo[13].buffer = m_vdata.m_pAccelStruct_m_SdfParametersBuffer;
+    descriptorBufferInfo[13].offset = m_vdata.m_pAccelStruct_m_SdfParametersOffset;
     descriptorBufferInfo[13].range  = VK_WHOLE_SIZE;  
     writeDescriptorSet[13]                  = VkWriteDescriptorSet{};
     writeDescriptorSet[13].sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -706,8 +748,8 @@ void MultiRenderer_GPU::InitAllGeneratedDescriptorSets_PackXY()
     writeDescriptorSet[13].pTexelBufferView = nullptr; 
 
     descriptorBufferInfo[14]        = VkDescriptorBufferInfo{};
-    descriptorBufferInfo[14].buffer = m_vdata.m_pAccelStruct_m_nodesTLASBuffer;
-    descriptorBufferInfo[14].offset = m_vdata.m_pAccelStruct_m_nodesTLASOffset;
+    descriptorBufferInfo[14].buffer = m_vdata.m_pAccelStruct_m_SdfSVSRootsBuffer;
+    descriptorBufferInfo[14].offset = m_vdata.m_pAccelStruct_m_SdfSVSRootsOffset;
     descriptorBufferInfo[14].range  = VK_WHOLE_SIZE;  
     writeDescriptorSet[14]                  = VkWriteDescriptorSet{};
     writeDescriptorSet[14].sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -720,8 +762,8 @@ void MultiRenderer_GPU::InitAllGeneratedDescriptorSets_PackXY()
     writeDescriptorSet[14].pTexelBufferView = nullptr; 
 
     descriptorBufferInfo[15]        = VkDescriptorBufferInfo{};
-    descriptorBufferInfo[15].buffer = m_vdata.m_pAccelStruct_m_ConjIndicesBuffer;
-    descriptorBufferInfo[15].offset = m_vdata.m_pAccelStruct_m_ConjIndicesOffset;
+    descriptorBufferInfo[15].buffer = m_vdata.m_pAccelStruct_m_instMatricesInvBuffer;
+    descriptorBufferInfo[15].offset = m_vdata.m_pAccelStruct_m_instMatricesInvOffset;
     descriptorBufferInfo[15].range  = VK_WHOLE_SIZE;  
     writeDescriptorSet[15]                  = VkWriteDescriptorSet{};
     writeDescriptorSet[15].sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -734,8 +776,8 @@ void MultiRenderer_GPU::InitAllGeneratedDescriptorSets_PackXY()
     writeDescriptorSet[15].pTexelBufferView = nullptr; 
 
     descriptorBufferInfo[16]        = VkDescriptorBufferInfo{};
-    descriptorBufferInfo[16].buffer = m_vdata.m_pAccelStruct_m_indicesBuffer;
-    descriptorBufferInfo[16].offset = m_vdata.m_pAccelStruct_m_indicesOffset;
+    descriptorBufferInfo[16].buffer = m_vdata.m_pAccelStruct_m_primIndicesBuffer;
+    descriptorBufferInfo[16].offset = m_vdata.m_pAccelStruct_m_primIndicesOffset;
     descriptorBufferInfo[16].range  = VK_WHOLE_SIZE;  
     writeDescriptorSet[16]                  = VkWriteDescriptorSet{};
     writeDescriptorSet[16].sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -748,8 +790,8 @@ void MultiRenderer_GPU::InitAllGeneratedDescriptorSets_PackXY()
     writeDescriptorSet[16].pTexelBufferView = nullptr; 
 
     descriptorBufferInfo[17]        = VkDescriptorBufferInfo{};
-    descriptorBufferInfo[17].buffer = m_vdata.m_pAccelStruct_m_instMatricesInvBuffer;
-    descriptorBufferInfo[17].offset = m_vdata.m_pAccelStruct_m_instMatricesInvOffset;
+    descriptorBufferInfo[17].buffer = m_vdata.m_pAccelStruct_m_indicesBuffer;
+    descriptorBufferInfo[17].offset = m_vdata.m_pAccelStruct_m_indicesOffset;
     descriptorBufferInfo[17].range  = VK_WHOLE_SIZE;  
     writeDescriptorSet[17]                  = VkWriteDescriptorSet{};
     writeDescriptorSet[17].sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -762,8 +804,8 @@ void MultiRenderer_GPU::InitAllGeneratedDescriptorSets_PackXY()
     writeDescriptorSet[17].pTexelBufferView = nullptr; 
 
     descriptorBufferInfo[18]        = VkDescriptorBufferInfo{};
-    descriptorBufferInfo[18].buffer = m_vdata.m_pAccelStruct_m_SdfParametersBuffer;
-    descriptorBufferInfo[18].offset = m_vdata.m_pAccelStruct_m_SdfParametersOffset;
+    descriptorBufferInfo[18].buffer = m_vdata.m_pAccelStruct_m_geomTypeByGeomIdBuffer;
+    descriptorBufferInfo[18].offset = m_vdata.m_pAccelStruct_m_geomTypeByGeomIdOffset;
     descriptorBufferInfo[18].range  = VK_WHOLE_SIZE;  
     writeDescriptorSet[18]                  = VkWriteDescriptorSet{};
     writeDescriptorSet[18].sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -776,8 +818,8 @@ void MultiRenderer_GPU::InitAllGeneratedDescriptorSets_PackXY()
     writeDescriptorSet[18].pTexelBufferView = nullptr; 
 
     descriptorBufferInfo[19]        = VkDescriptorBufferInfo{};
-    descriptorBufferInfo[19].buffer = m_vdata.m_pAccelStruct_m_allNodePairsBuffer;
-    descriptorBufferInfo[19].offset = m_vdata.m_pAccelStruct_m_allNodePairsOffset;
+    descriptorBufferInfo[19].buffer = m_vdata.m_pAccelStruct_m_SdfOctreeRootsBuffer;
+    descriptorBufferInfo[19].offset = m_vdata.m_pAccelStruct_m_SdfOctreeRootsOffset;
     descriptorBufferInfo[19].range  = VK_WHOLE_SIZE;  
     writeDescriptorSet[19]                  = VkWriteDescriptorSet{};
     writeDescriptorSet[19].sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -790,8 +832,8 @@ void MultiRenderer_GPU::InitAllGeneratedDescriptorSets_PackXY()
     writeDescriptorSet[19].pTexelBufferView = nullptr; 
 
     descriptorBufferInfo[20]        = VkDescriptorBufferInfo{};
-    descriptorBufferInfo[20].buffer = m_vdata.m_pAccelStruct_m_SdfObjectsBuffer;
-    descriptorBufferInfo[20].offset = m_vdata.m_pAccelStruct_m_SdfObjectsOffset;
+    descriptorBufferInfo[20].buffer = m_vdata.m_pAccelStruct_m_SdfFrameOctreeNodesBuffer;
+    descriptorBufferInfo[20].offset = m_vdata.m_pAccelStruct_m_SdfFrameOctreeNodesOffset;
     descriptorBufferInfo[20].range  = VK_WHOLE_SIZE;  
     writeDescriptorSet[20]                  = VkWriteDescriptorSet{};
     writeDescriptorSet[20].sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -804,8 +846,8 @@ void MultiRenderer_GPU::InitAllGeneratedDescriptorSets_PackXY()
     writeDescriptorSet[20].pTexelBufferView = nullptr; 
 
     descriptorBufferInfo[21]        = VkDescriptorBufferInfo{};
-    descriptorBufferInfo[21].buffer = m_vdata.m_pAccelStruct_m_SdfGridSizesBuffer;
-    descriptorBufferInfo[21].offset = m_vdata.m_pAccelStruct_m_SdfGridSizesOffset;
+    descriptorBufferInfo[21].buffer = m_vdata.m_pAccelStruct_m_SdfSVSNodesBuffer;
+    descriptorBufferInfo[21].offset = m_vdata.m_pAccelStruct_m_SdfSVSNodesOffset;
     descriptorBufferInfo[21].range  = VK_WHOLE_SIZE;  
     writeDescriptorSet[21]                  = VkWriteDescriptorSet{};
     writeDescriptorSet[21].sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -818,8 +860,8 @@ void MultiRenderer_GPU::InitAllGeneratedDescriptorSets_PackXY()
     writeDescriptorSet[21].pTexelBufferView = nullptr; 
 
     descriptorBufferInfo[22]        = VkDescriptorBufferInfo{};
-    descriptorBufferInfo[22].buffer = m_vdata.m_pAccelStruct_m_RFGridDataBuffer;
-    descriptorBufferInfo[22].offset = m_vdata.m_pAccelStruct_m_RFGridDataOffset;
+    descriptorBufferInfo[22].buffer = m_vdata.m_pAccelStruct_m_nodesTLASBuffer;
+    descriptorBufferInfo[22].offset = m_vdata.m_pAccelStruct_m_nodesTLASOffset;
     descriptorBufferInfo[22].range  = VK_WHOLE_SIZE;  
     writeDescriptorSet[22]                  = VkWriteDescriptorSet{};
     writeDescriptorSet[22].sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -832,8 +874,8 @@ void MultiRenderer_GPU::InitAllGeneratedDescriptorSets_PackXY()
     writeDescriptorSet[22].pTexelBufferView = nullptr; 
 
     descriptorBufferInfo[23]        = VkDescriptorBufferInfo{};
-    descriptorBufferInfo[23].buffer = m_vdata.m_pAccelStruct_m_SdfOctreeNodesBuffer;
-    descriptorBufferInfo[23].offset = m_vdata.m_pAccelStruct_m_SdfOctreeNodesOffset;
+    descriptorBufferInfo[23].buffer = m_vdata.m_pAccelStruct_m_ConjIndicesBuffer;
+    descriptorBufferInfo[23].offset = m_vdata.m_pAccelStruct_m_ConjIndicesOffset;
     descriptorBufferInfo[23].range  = VK_WHOLE_SIZE;  
     writeDescriptorSet[23]                  = VkWriteDescriptorSet{};
     writeDescriptorSet[23].sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -846,8 +888,8 @@ void MultiRenderer_GPU::InitAllGeneratedDescriptorSets_PackXY()
     writeDescriptorSet[23].pTexelBufferView = nullptr; 
 
     descriptorBufferInfo[24]        = VkDescriptorBufferInfo{};
-    descriptorBufferInfo[24].buffer = m_vdata.m_pAccelStruct_m_geomOffsetsBuffer;
-    descriptorBufferInfo[24].offset = m_vdata.m_pAccelStruct_m_geomOffsetsOffset;
+    descriptorBufferInfo[24].buffer = m_vdata.m_pAccelStruct_m_origNodesBuffer;
+    descriptorBufferInfo[24].offset = m_vdata.m_pAccelStruct_m_origNodesOffset;
     descriptorBufferInfo[24].range  = VK_WHOLE_SIZE;  
     writeDescriptorSet[24]                  = VkWriteDescriptorSet{};
     writeDescriptorSet[24].sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -860,8 +902,8 @@ void MultiRenderer_GPU::InitAllGeneratedDescriptorSets_PackXY()
     writeDescriptorSet[24].pTexelBufferView = nullptr; 
 
     descriptorBufferInfo[25]        = VkDescriptorBufferInfo{};
-    descriptorBufferInfo[25].buffer = m_vdata.m_pAccelStruct_m_geomIdByInstIdBuffer;
-    descriptorBufferInfo[25].offset = m_vdata.m_pAccelStruct_m_geomIdByInstIdOffset;
+    descriptorBufferInfo[25].buffer = m_vdata.m_pAccelStruct_m_SdfNeuralPropertiesBuffer;
+    descriptorBufferInfo[25].offset = m_vdata.m_pAccelStruct_m_SdfNeuralPropertiesOffset;
     descriptorBufferInfo[25].range  = VK_WHOLE_SIZE;  
     writeDescriptorSet[25]                  = VkWriteDescriptorSet{};
     writeDescriptorSet[25].sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -874,10 +916,9 @@ void MultiRenderer_GPU::InitAllGeneratedDescriptorSets_PackXY()
     writeDescriptorSet[25].pTexelBufferView = nullptr; 
 
     descriptorBufferInfo[26]        = VkDescriptorBufferInfo{};
-    descriptorBufferInfo[26].buffer = m_classDataBuffer;
-    descriptorBufferInfo[26].offset = 0;
+    descriptorBufferInfo[26].buffer = m_vdata.m_pAccelStruct_m_geomOffsetsBuffer;
+    descriptorBufferInfo[26].offset = m_vdata.m_pAccelStruct_m_geomOffsetsOffset;
     descriptorBufferInfo[26].range  = VK_WHOLE_SIZE;  
-
     writeDescriptorSet[26]                  = VkWriteDescriptorSet{};
     writeDescriptorSet[26].sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     writeDescriptorSet[26].dstSet           = m_allGeneratedDS[0];
@@ -886,7 +927,50 @@ void MultiRenderer_GPU::InitAllGeneratedDescriptorSets_PackXY()
     writeDescriptorSet[26].descriptorType   = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
     writeDescriptorSet[26].pBufferInfo      = &descriptorBufferInfo[26];
     writeDescriptorSet[26].pImageInfo       = nullptr;
-    writeDescriptorSet[26].pTexelBufferView = nullptr;
+    writeDescriptorSet[26].pTexelBufferView = nullptr; 
+
+    descriptorBufferInfo[27]        = VkDescriptorBufferInfo{};
+    descriptorBufferInfo[27].buffer = m_vdata.m_pAccelStruct_m_geomIdByInstIdBuffer;
+    descriptorBufferInfo[27].offset = m_vdata.m_pAccelStruct_m_geomIdByInstIdOffset;
+    descriptorBufferInfo[27].range  = VK_WHOLE_SIZE;  
+    writeDescriptorSet[27]                  = VkWriteDescriptorSet{};
+    writeDescriptorSet[27].sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    writeDescriptorSet[27].dstSet           = m_allGeneratedDS[0];
+    writeDescriptorSet[27].dstBinding       = 27;
+    writeDescriptorSet[27].descriptorCount  = 1;
+    writeDescriptorSet[27].descriptorType   = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    writeDescriptorSet[27].pBufferInfo      = &descriptorBufferInfo[27];
+    writeDescriptorSet[27].pImageInfo       = nullptr;
+    writeDescriptorSet[27].pTexelBufferView = nullptr; 
+
+    descriptorBufferInfo[28]        = VkDescriptorBufferInfo{};
+    descriptorBufferInfo[28].buffer = m_vdata.m_pAccelStruct_m_SdfOctreeNodesBuffer;
+    descriptorBufferInfo[28].offset = m_vdata.m_pAccelStruct_m_SdfOctreeNodesOffset;
+    descriptorBufferInfo[28].range  = VK_WHOLE_SIZE;  
+    writeDescriptorSet[28]                  = VkWriteDescriptorSet{};
+    writeDescriptorSet[28].sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    writeDescriptorSet[28].dstSet           = m_allGeneratedDS[0];
+    writeDescriptorSet[28].dstBinding       = 28;
+    writeDescriptorSet[28].descriptorCount  = 1;
+    writeDescriptorSet[28].descriptorType   = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    writeDescriptorSet[28].pBufferInfo      = &descriptorBufferInfo[28];
+    writeDescriptorSet[28].pImageInfo       = nullptr;
+    writeDescriptorSet[28].pTexelBufferView = nullptr; 
+
+    descriptorBufferInfo[29]        = VkDescriptorBufferInfo{};
+    descriptorBufferInfo[29].buffer = m_classDataBuffer;
+    descriptorBufferInfo[29].offset = 0;
+    descriptorBufferInfo[29].range  = VK_WHOLE_SIZE;  
+
+    writeDescriptorSet[29]                  = VkWriteDescriptorSet{};
+    writeDescriptorSet[29].sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    writeDescriptorSet[29].dstSet           = m_allGeneratedDS[0];
+    writeDescriptorSet[29].dstBinding       = 29;
+    writeDescriptorSet[29].descriptorCount  = 1;
+    writeDescriptorSet[29].descriptorType   = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    writeDescriptorSet[29].pBufferInfo      = &descriptorBufferInfo[29];
+    writeDescriptorSet[29].pImageInfo       = nullptr;
+    writeDescriptorSet[29].pTexelBufferView = nullptr;
 
     vkUpdateDescriptorSets(device, uint32_t(writeDescriptorSet.size()), writeDescriptorSet.data(), 0, NULL);
   }
@@ -896,13 +980,13 @@ void MultiRenderer_GPU::InitAllGeneratedDescriptorSets_CastRaySingle()
 {
   // now create actual bindings
   //
-  // descriptor set #1: CastRaySingleMegaCmd (["out_color","m_pAccelStruct_m_SdfFrameOctreeRoots","m_pAccelStruct_m_bvhOffsets","m_pAccelStruct_m_SdfConjunctions","m_pAccelStruct_m_SdfGridData","m_pAccelStruct_m_SdfGridOffsets","m_pAccelStruct_m_SdfFrameOctreeNodes","m_pAccelStruct_m_SdfOctreeRoots","m_pAccelStruct_m_geomTypeByGeomId","m_pAccelStruct_m_SdfOctreeNodes","m_pAccelStruct_m_geomOffsets","m_pAccelStruct_m_geomIdByInstId","m_pAccelStruct_m_RFGridData","m_pAccelStruct_m_SdfGridSizes","m_pAccelStruct_m_primIndices","m_pAccelStruct_m_origNodes","m_pAccelStruct_m_SdfNeuralProperties","m_pAccelStruct_m_nodesTLAS","m_pAccelStruct_m_ConjIndices","m_pAccelStruct_m_indices","m_pAccelStruct_m_RFGridSizes","m_pAccelStruct_m_vertPos","m_packedXY","m_pAccelStruct_m_SdfParameters","m_pAccelStruct_m_instMatricesInv","m_pAccelStruct_m_allNodePairs","m_pAccelStruct_m_SdfObjects"])
+  // descriptor set #1: CastRaySingleMegaCmd (["out_color","m_pAccelStruct_m_SdfFrameOctreeRoots","m_pAccelStruct_m_bvhOffsets","m_pAccelStruct_m_SdfGridData","m_pAccelStruct_m_SdfGridOffsets","m_pAccelStruct_m_SdfConjunctions","m_pAccelStruct_m_RFGridData","m_pAccelStruct_m_SdfGridSizes","m_pAccelStruct_m_SdfObjects","m_pAccelStruct_m_allNodePairs","m_pAccelStruct_m_SdfNeuralProperties","m_pAccelStruct_m_SdfFrameOctreeNodes","m_pAccelStruct_m_SdfOctreeRoots","m_pAccelStruct_m_geomTypeByGeomId","m_pAccelStruct_m_SdfOctreeNodes","m_pAccelStruct_m_geomOffsets","m_pAccelStruct_m_geomIdByInstId","m_pAccelStruct_m_primIndices","m_pAccelStruct_m_indices","m_pAccelStruct_m_SdfSVSNodes","m_pAccelStruct_m_nodesTLAS","m_pAccelStruct_m_ConjIndices","m_pAccelStruct_m_origNodes","m_pAccelStruct_m_RFGridSizes","m_pAccelStruct_m_vertPos","m_pAccelStruct_m_RFGridScales","m_packedXY","m_pAccelStruct_m_SdfSVSRoots","m_pAccelStruct_m_SdfParameters","m_pAccelStruct_m_instMatricesInv"])
   {
     constexpr uint additionalSize = 1;
 
-    std::array<VkDescriptorBufferInfo, 27 + additionalSize> descriptorBufferInfo;
-    std::array<VkDescriptorImageInfo,  27 + additionalSize> descriptorImageInfo;
-    std::array<VkWriteDescriptorSet,   27 + additionalSize> writeDescriptorSet;
+    std::array<VkDescriptorBufferInfo, 30 + additionalSize> descriptorBufferInfo;
+    std::array<VkDescriptorImageInfo,  30 + additionalSize> descriptorImageInfo;
+    std::array<VkWriteDescriptorSet,   30 + additionalSize> writeDescriptorSet;
 
     descriptorBufferInfo[0]        = VkDescriptorBufferInfo{};
     descriptorBufferInfo[0].buffer = CastRaySingle_local.out_colorBuffer;
@@ -947,8 +1031,8 @@ void MultiRenderer_GPU::InitAllGeneratedDescriptorSets_CastRaySingle()
     writeDescriptorSet[2].pTexelBufferView = nullptr; 
 
     descriptorBufferInfo[3]        = VkDescriptorBufferInfo{};
-    descriptorBufferInfo[3].buffer = m_vdata.m_pAccelStruct_m_SdfConjunctionsBuffer;
-    descriptorBufferInfo[3].offset = m_vdata.m_pAccelStruct_m_SdfConjunctionsOffset;
+    descriptorBufferInfo[3].buffer = m_vdata.m_pAccelStruct_m_SdfGridDataBuffer;
+    descriptorBufferInfo[3].offset = m_vdata.m_pAccelStruct_m_SdfGridDataOffset;
     descriptorBufferInfo[3].range  = VK_WHOLE_SIZE;  
     writeDescriptorSet[3]                  = VkWriteDescriptorSet{};
     writeDescriptorSet[3].sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -961,8 +1045,8 @@ void MultiRenderer_GPU::InitAllGeneratedDescriptorSets_CastRaySingle()
     writeDescriptorSet[3].pTexelBufferView = nullptr; 
 
     descriptorBufferInfo[4]        = VkDescriptorBufferInfo{};
-    descriptorBufferInfo[4].buffer = m_vdata.m_pAccelStruct_m_SdfGridDataBuffer;
-    descriptorBufferInfo[4].offset = m_vdata.m_pAccelStruct_m_SdfGridDataOffset;
+    descriptorBufferInfo[4].buffer = m_vdata.m_pAccelStruct_m_SdfGridOffsetsBuffer;
+    descriptorBufferInfo[4].offset = m_vdata.m_pAccelStruct_m_SdfGridOffsetsOffset;
     descriptorBufferInfo[4].range  = VK_WHOLE_SIZE;  
     writeDescriptorSet[4]                  = VkWriteDescriptorSet{};
     writeDescriptorSet[4].sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -975,8 +1059,8 @@ void MultiRenderer_GPU::InitAllGeneratedDescriptorSets_CastRaySingle()
     writeDescriptorSet[4].pTexelBufferView = nullptr; 
 
     descriptorBufferInfo[5]        = VkDescriptorBufferInfo{};
-    descriptorBufferInfo[5].buffer = m_vdata.m_pAccelStruct_m_SdfGridOffsetsBuffer;
-    descriptorBufferInfo[5].offset = m_vdata.m_pAccelStruct_m_SdfGridOffsetsOffset;
+    descriptorBufferInfo[5].buffer = m_vdata.m_pAccelStruct_m_SdfConjunctionsBuffer;
+    descriptorBufferInfo[5].offset = m_vdata.m_pAccelStruct_m_SdfConjunctionsOffset;
     descriptorBufferInfo[5].range  = VK_WHOLE_SIZE;  
     writeDescriptorSet[5]                  = VkWriteDescriptorSet{};
     writeDescriptorSet[5].sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -989,8 +1073,8 @@ void MultiRenderer_GPU::InitAllGeneratedDescriptorSets_CastRaySingle()
     writeDescriptorSet[5].pTexelBufferView = nullptr; 
 
     descriptorBufferInfo[6]        = VkDescriptorBufferInfo{};
-    descriptorBufferInfo[6].buffer = m_vdata.m_pAccelStruct_m_SdfFrameOctreeNodesBuffer;
-    descriptorBufferInfo[6].offset = m_vdata.m_pAccelStruct_m_SdfFrameOctreeNodesOffset;
+    descriptorBufferInfo[6].buffer = m_vdata.m_pAccelStruct_m_RFGridDataBuffer;
+    descriptorBufferInfo[6].offset = m_vdata.m_pAccelStruct_m_RFGridDataOffset;
     descriptorBufferInfo[6].range  = VK_WHOLE_SIZE;  
     writeDescriptorSet[6]                  = VkWriteDescriptorSet{};
     writeDescriptorSet[6].sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -1003,8 +1087,8 @@ void MultiRenderer_GPU::InitAllGeneratedDescriptorSets_CastRaySingle()
     writeDescriptorSet[6].pTexelBufferView = nullptr; 
 
     descriptorBufferInfo[7]        = VkDescriptorBufferInfo{};
-    descriptorBufferInfo[7].buffer = m_vdata.m_pAccelStruct_m_SdfOctreeRootsBuffer;
-    descriptorBufferInfo[7].offset = m_vdata.m_pAccelStruct_m_SdfOctreeRootsOffset;
+    descriptorBufferInfo[7].buffer = m_vdata.m_pAccelStruct_m_SdfGridSizesBuffer;
+    descriptorBufferInfo[7].offset = m_vdata.m_pAccelStruct_m_SdfGridSizesOffset;
     descriptorBufferInfo[7].range  = VK_WHOLE_SIZE;  
     writeDescriptorSet[7]                  = VkWriteDescriptorSet{};
     writeDescriptorSet[7].sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -1017,8 +1101,8 @@ void MultiRenderer_GPU::InitAllGeneratedDescriptorSets_CastRaySingle()
     writeDescriptorSet[7].pTexelBufferView = nullptr; 
 
     descriptorBufferInfo[8]        = VkDescriptorBufferInfo{};
-    descriptorBufferInfo[8].buffer = m_vdata.m_pAccelStruct_m_geomTypeByGeomIdBuffer;
-    descriptorBufferInfo[8].offset = m_vdata.m_pAccelStruct_m_geomTypeByGeomIdOffset;
+    descriptorBufferInfo[8].buffer = m_vdata.m_pAccelStruct_m_SdfObjectsBuffer;
+    descriptorBufferInfo[8].offset = m_vdata.m_pAccelStruct_m_SdfObjectsOffset;
     descriptorBufferInfo[8].range  = VK_WHOLE_SIZE;  
     writeDescriptorSet[8]                  = VkWriteDescriptorSet{};
     writeDescriptorSet[8].sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -1031,8 +1115,8 @@ void MultiRenderer_GPU::InitAllGeneratedDescriptorSets_CastRaySingle()
     writeDescriptorSet[8].pTexelBufferView = nullptr; 
 
     descriptorBufferInfo[9]        = VkDescriptorBufferInfo{};
-    descriptorBufferInfo[9].buffer = m_vdata.m_pAccelStruct_m_SdfOctreeNodesBuffer;
-    descriptorBufferInfo[9].offset = m_vdata.m_pAccelStruct_m_SdfOctreeNodesOffset;
+    descriptorBufferInfo[9].buffer = m_vdata.m_pAccelStruct_m_allNodePairsBuffer;
+    descriptorBufferInfo[9].offset = m_vdata.m_pAccelStruct_m_allNodePairsOffset;
     descriptorBufferInfo[9].range  = VK_WHOLE_SIZE;  
     writeDescriptorSet[9]                  = VkWriteDescriptorSet{};
     writeDescriptorSet[9].sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -1045,8 +1129,8 @@ void MultiRenderer_GPU::InitAllGeneratedDescriptorSets_CastRaySingle()
     writeDescriptorSet[9].pTexelBufferView = nullptr; 
 
     descriptorBufferInfo[10]        = VkDescriptorBufferInfo{};
-    descriptorBufferInfo[10].buffer = m_vdata.m_pAccelStruct_m_geomOffsetsBuffer;
-    descriptorBufferInfo[10].offset = m_vdata.m_pAccelStruct_m_geomOffsetsOffset;
+    descriptorBufferInfo[10].buffer = m_vdata.m_pAccelStruct_m_SdfNeuralPropertiesBuffer;
+    descriptorBufferInfo[10].offset = m_vdata.m_pAccelStruct_m_SdfNeuralPropertiesOffset;
     descriptorBufferInfo[10].range  = VK_WHOLE_SIZE;  
     writeDescriptorSet[10]                  = VkWriteDescriptorSet{};
     writeDescriptorSet[10].sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -1059,8 +1143,8 @@ void MultiRenderer_GPU::InitAllGeneratedDescriptorSets_CastRaySingle()
     writeDescriptorSet[10].pTexelBufferView = nullptr; 
 
     descriptorBufferInfo[11]        = VkDescriptorBufferInfo{};
-    descriptorBufferInfo[11].buffer = m_vdata.m_pAccelStruct_m_geomIdByInstIdBuffer;
-    descriptorBufferInfo[11].offset = m_vdata.m_pAccelStruct_m_geomIdByInstIdOffset;
+    descriptorBufferInfo[11].buffer = m_vdata.m_pAccelStruct_m_SdfFrameOctreeNodesBuffer;
+    descriptorBufferInfo[11].offset = m_vdata.m_pAccelStruct_m_SdfFrameOctreeNodesOffset;
     descriptorBufferInfo[11].range  = VK_WHOLE_SIZE;  
     writeDescriptorSet[11]                  = VkWriteDescriptorSet{};
     writeDescriptorSet[11].sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -1073,8 +1157,8 @@ void MultiRenderer_GPU::InitAllGeneratedDescriptorSets_CastRaySingle()
     writeDescriptorSet[11].pTexelBufferView = nullptr; 
 
     descriptorBufferInfo[12]        = VkDescriptorBufferInfo{};
-    descriptorBufferInfo[12].buffer = m_vdata.m_pAccelStruct_m_RFGridDataBuffer;
-    descriptorBufferInfo[12].offset = m_vdata.m_pAccelStruct_m_RFGridDataOffset;
+    descriptorBufferInfo[12].buffer = m_vdata.m_pAccelStruct_m_SdfOctreeRootsBuffer;
+    descriptorBufferInfo[12].offset = m_vdata.m_pAccelStruct_m_SdfOctreeRootsOffset;
     descriptorBufferInfo[12].range  = VK_WHOLE_SIZE;  
     writeDescriptorSet[12]                  = VkWriteDescriptorSet{};
     writeDescriptorSet[12].sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -1087,8 +1171,8 @@ void MultiRenderer_GPU::InitAllGeneratedDescriptorSets_CastRaySingle()
     writeDescriptorSet[12].pTexelBufferView = nullptr; 
 
     descriptorBufferInfo[13]        = VkDescriptorBufferInfo{};
-    descriptorBufferInfo[13].buffer = m_vdata.m_pAccelStruct_m_SdfGridSizesBuffer;
-    descriptorBufferInfo[13].offset = m_vdata.m_pAccelStruct_m_SdfGridSizesOffset;
+    descriptorBufferInfo[13].buffer = m_vdata.m_pAccelStruct_m_geomTypeByGeomIdBuffer;
+    descriptorBufferInfo[13].offset = m_vdata.m_pAccelStruct_m_geomTypeByGeomIdOffset;
     descriptorBufferInfo[13].range  = VK_WHOLE_SIZE;  
     writeDescriptorSet[13]                  = VkWriteDescriptorSet{};
     writeDescriptorSet[13].sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -1101,8 +1185,8 @@ void MultiRenderer_GPU::InitAllGeneratedDescriptorSets_CastRaySingle()
     writeDescriptorSet[13].pTexelBufferView = nullptr; 
 
     descriptorBufferInfo[14]        = VkDescriptorBufferInfo{};
-    descriptorBufferInfo[14].buffer = m_vdata.m_pAccelStruct_m_primIndicesBuffer;
-    descriptorBufferInfo[14].offset = m_vdata.m_pAccelStruct_m_primIndicesOffset;
+    descriptorBufferInfo[14].buffer = m_vdata.m_pAccelStruct_m_SdfOctreeNodesBuffer;
+    descriptorBufferInfo[14].offset = m_vdata.m_pAccelStruct_m_SdfOctreeNodesOffset;
     descriptorBufferInfo[14].range  = VK_WHOLE_SIZE;  
     writeDescriptorSet[14]                  = VkWriteDescriptorSet{};
     writeDescriptorSet[14].sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -1115,8 +1199,8 @@ void MultiRenderer_GPU::InitAllGeneratedDescriptorSets_CastRaySingle()
     writeDescriptorSet[14].pTexelBufferView = nullptr; 
 
     descriptorBufferInfo[15]        = VkDescriptorBufferInfo{};
-    descriptorBufferInfo[15].buffer = m_vdata.m_pAccelStruct_m_origNodesBuffer;
-    descriptorBufferInfo[15].offset = m_vdata.m_pAccelStruct_m_origNodesOffset;
+    descriptorBufferInfo[15].buffer = m_vdata.m_pAccelStruct_m_geomOffsetsBuffer;
+    descriptorBufferInfo[15].offset = m_vdata.m_pAccelStruct_m_geomOffsetsOffset;
     descriptorBufferInfo[15].range  = VK_WHOLE_SIZE;  
     writeDescriptorSet[15]                  = VkWriteDescriptorSet{};
     writeDescriptorSet[15].sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -1129,8 +1213,8 @@ void MultiRenderer_GPU::InitAllGeneratedDescriptorSets_CastRaySingle()
     writeDescriptorSet[15].pTexelBufferView = nullptr; 
 
     descriptorBufferInfo[16]        = VkDescriptorBufferInfo{};
-    descriptorBufferInfo[16].buffer = m_vdata.m_pAccelStruct_m_SdfNeuralPropertiesBuffer;
-    descriptorBufferInfo[16].offset = m_vdata.m_pAccelStruct_m_SdfNeuralPropertiesOffset;
+    descriptorBufferInfo[16].buffer = m_vdata.m_pAccelStruct_m_geomIdByInstIdBuffer;
+    descriptorBufferInfo[16].offset = m_vdata.m_pAccelStruct_m_geomIdByInstIdOffset;
     descriptorBufferInfo[16].range  = VK_WHOLE_SIZE;  
     writeDescriptorSet[16]                  = VkWriteDescriptorSet{};
     writeDescriptorSet[16].sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -1143,8 +1227,8 @@ void MultiRenderer_GPU::InitAllGeneratedDescriptorSets_CastRaySingle()
     writeDescriptorSet[16].pTexelBufferView = nullptr; 
 
     descriptorBufferInfo[17]        = VkDescriptorBufferInfo{};
-    descriptorBufferInfo[17].buffer = m_vdata.m_pAccelStruct_m_nodesTLASBuffer;
-    descriptorBufferInfo[17].offset = m_vdata.m_pAccelStruct_m_nodesTLASOffset;
+    descriptorBufferInfo[17].buffer = m_vdata.m_pAccelStruct_m_primIndicesBuffer;
+    descriptorBufferInfo[17].offset = m_vdata.m_pAccelStruct_m_primIndicesOffset;
     descriptorBufferInfo[17].range  = VK_WHOLE_SIZE;  
     writeDescriptorSet[17]                  = VkWriteDescriptorSet{};
     writeDescriptorSet[17].sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -1157,8 +1241,8 @@ void MultiRenderer_GPU::InitAllGeneratedDescriptorSets_CastRaySingle()
     writeDescriptorSet[17].pTexelBufferView = nullptr; 
 
     descriptorBufferInfo[18]        = VkDescriptorBufferInfo{};
-    descriptorBufferInfo[18].buffer = m_vdata.m_pAccelStruct_m_ConjIndicesBuffer;
-    descriptorBufferInfo[18].offset = m_vdata.m_pAccelStruct_m_ConjIndicesOffset;
+    descriptorBufferInfo[18].buffer = m_vdata.m_pAccelStruct_m_indicesBuffer;
+    descriptorBufferInfo[18].offset = m_vdata.m_pAccelStruct_m_indicesOffset;
     descriptorBufferInfo[18].range  = VK_WHOLE_SIZE;  
     writeDescriptorSet[18]                  = VkWriteDescriptorSet{};
     writeDescriptorSet[18].sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -1171,8 +1255,8 @@ void MultiRenderer_GPU::InitAllGeneratedDescriptorSets_CastRaySingle()
     writeDescriptorSet[18].pTexelBufferView = nullptr; 
 
     descriptorBufferInfo[19]        = VkDescriptorBufferInfo{};
-    descriptorBufferInfo[19].buffer = m_vdata.m_pAccelStruct_m_indicesBuffer;
-    descriptorBufferInfo[19].offset = m_vdata.m_pAccelStruct_m_indicesOffset;
+    descriptorBufferInfo[19].buffer = m_vdata.m_pAccelStruct_m_SdfSVSNodesBuffer;
+    descriptorBufferInfo[19].offset = m_vdata.m_pAccelStruct_m_SdfSVSNodesOffset;
     descriptorBufferInfo[19].range  = VK_WHOLE_SIZE;  
     writeDescriptorSet[19]                  = VkWriteDescriptorSet{};
     writeDescriptorSet[19].sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -1185,8 +1269,8 @@ void MultiRenderer_GPU::InitAllGeneratedDescriptorSets_CastRaySingle()
     writeDescriptorSet[19].pTexelBufferView = nullptr; 
 
     descriptorBufferInfo[20]        = VkDescriptorBufferInfo{};
-    descriptorBufferInfo[20].buffer = m_vdata.m_pAccelStruct_m_RFGridSizesBuffer;
-    descriptorBufferInfo[20].offset = m_vdata.m_pAccelStruct_m_RFGridSizesOffset;
+    descriptorBufferInfo[20].buffer = m_vdata.m_pAccelStruct_m_nodesTLASBuffer;
+    descriptorBufferInfo[20].offset = m_vdata.m_pAccelStruct_m_nodesTLASOffset;
     descriptorBufferInfo[20].range  = VK_WHOLE_SIZE;  
     writeDescriptorSet[20]                  = VkWriteDescriptorSet{};
     writeDescriptorSet[20].sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -1199,8 +1283,8 @@ void MultiRenderer_GPU::InitAllGeneratedDescriptorSets_CastRaySingle()
     writeDescriptorSet[20].pTexelBufferView = nullptr; 
 
     descriptorBufferInfo[21]        = VkDescriptorBufferInfo{};
-    descriptorBufferInfo[21].buffer = m_vdata.m_pAccelStruct_m_vertPosBuffer;
-    descriptorBufferInfo[21].offset = m_vdata.m_pAccelStruct_m_vertPosOffset;
+    descriptorBufferInfo[21].buffer = m_vdata.m_pAccelStruct_m_ConjIndicesBuffer;
+    descriptorBufferInfo[21].offset = m_vdata.m_pAccelStruct_m_ConjIndicesOffset;
     descriptorBufferInfo[21].range  = VK_WHOLE_SIZE;  
     writeDescriptorSet[21]                  = VkWriteDescriptorSet{};
     writeDescriptorSet[21].sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -1213,8 +1297,8 @@ void MultiRenderer_GPU::InitAllGeneratedDescriptorSets_CastRaySingle()
     writeDescriptorSet[21].pTexelBufferView = nullptr; 
 
     descriptorBufferInfo[22]        = VkDescriptorBufferInfo{};
-    descriptorBufferInfo[22].buffer = m_vdata.m_packedXYBuffer;
-    descriptorBufferInfo[22].offset = m_vdata.m_packedXYOffset;
+    descriptorBufferInfo[22].buffer = m_vdata.m_pAccelStruct_m_origNodesBuffer;
+    descriptorBufferInfo[22].offset = m_vdata.m_pAccelStruct_m_origNodesOffset;
     descriptorBufferInfo[22].range  = VK_WHOLE_SIZE;  
     writeDescriptorSet[22]                  = VkWriteDescriptorSet{};
     writeDescriptorSet[22].sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -1227,8 +1311,8 @@ void MultiRenderer_GPU::InitAllGeneratedDescriptorSets_CastRaySingle()
     writeDescriptorSet[22].pTexelBufferView = nullptr; 
 
     descriptorBufferInfo[23]        = VkDescriptorBufferInfo{};
-    descriptorBufferInfo[23].buffer = m_vdata.m_pAccelStruct_m_SdfParametersBuffer;
-    descriptorBufferInfo[23].offset = m_vdata.m_pAccelStruct_m_SdfParametersOffset;
+    descriptorBufferInfo[23].buffer = m_vdata.m_pAccelStruct_m_RFGridSizesBuffer;
+    descriptorBufferInfo[23].offset = m_vdata.m_pAccelStruct_m_RFGridSizesOffset;
     descriptorBufferInfo[23].range  = VK_WHOLE_SIZE;  
     writeDescriptorSet[23]                  = VkWriteDescriptorSet{};
     writeDescriptorSet[23].sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -1241,8 +1325,8 @@ void MultiRenderer_GPU::InitAllGeneratedDescriptorSets_CastRaySingle()
     writeDescriptorSet[23].pTexelBufferView = nullptr; 
 
     descriptorBufferInfo[24]        = VkDescriptorBufferInfo{};
-    descriptorBufferInfo[24].buffer = m_vdata.m_pAccelStruct_m_instMatricesInvBuffer;
-    descriptorBufferInfo[24].offset = m_vdata.m_pAccelStruct_m_instMatricesInvOffset;
+    descriptorBufferInfo[24].buffer = m_vdata.m_pAccelStruct_m_vertPosBuffer;
+    descriptorBufferInfo[24].offset = m_vdata.m_pAccelStruct_m_vertPosOffset;
     descriptorBufferInfo[24].range  = VK_WHOLE_SIZE;  
     writeDescriptorSet[24]                  = VkWriteDescriptorSet{};
     writeDescriptorSet[24].sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -1255,8 +1339,8 @@ void MultiRenderer_GPU::InitAllGeneratedDescriptorSets_CastRaySingle()
     writeDescriptorSet[24].pTexelBufferView = nullptr; 
 
     descriptorBufferInfo[25]        = VkDescriptorBufferInfo{};
-    descriptorBufferInfo[25].buffer = m_vdata.m_pAccelStruct_m_allNodePairsBuffer;
-    descriptorBufferInfo[25].offset = m_vdata.m_pAccelStruct_m_allNodePairsOffset;
+    descriptorBufferInfo[25].buffer = m_vdata.m_pAccelStruct_m_RFGridScalesBuffer;
+    descriptorBufferInfo[25].offset = m_vdata.m_pAccelStruct_m_RFGridScalesOffset;
     descriptorBufferInfo[25].range  = VK_WHOLE_SIZE;  
     writeDescriptorSet[25]                  = VkWriteDescriptorSet{};
     writeDescriptorSet[25].sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -1269,8 +1353,8 @@ void MultiRenderer_GPU::InitAllGeneratedDescriptorSets_CastRaySingle()
     writeDescriptorSet[25].pTexelBufferView = nullptr; 
 
     descriptorBufferInfo[26]        = VkDescriptorBufferInfo{};
-    descriptorBufferInfo[26].buffer = m_vdata.m_pAccelStruct_m_SdfObjectsBuffer;
-    descriptorBufferInfo[26].offset = m_vdata.m_pAccelStruct_m_SdfObjectsOffset;
+    descriptorBufferInfo[26].buffer = m_vdata.m_packedXYBuffer;
+    descriptorBufferInfo[26].offset = m_vdata.m_packedXYOffset;
     descriptorBufferInfo[26].range  = VK_WHOLE_SIZE;  
     writeDescriptorSet[26]                  = VkWriteDescriptorSet{};
     writeDescriptorSet[26].sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -1283,10 +1367,9 @@ void MultiRenderer_GPU::InitAllGeneratedDescriptorSets_CastRaySingle()
     writeDescriptorSet[26].pTexelBufferView = nullptr; 
 
     descriptorBufferInfo[27]        = VkDescriptorBufferInfo{};
-    descriptorBufferInfo[27].buffer = m_classDataBuffer;
-    descriptorBufferInfo[27].offset = 0;
+    descriptorBufferInfo[27].buffer = m_vdata.m_pAccelStruct_m_SdfSVSRootsBuffer;
+    descriptorBufferInfo[27].offset = m_vdata.m_pAccelStruct_m_SdfSVSRootsOffset;
     descriptorBufferInfo[27].range  = VK_WHOLE_SIZE;  
-
     writeDescriptorSet[27]                  = VkWriteDescriptorSet{};
     writeDescriptorSet[27].sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     writeDescriptorSet[27].dstSet           = m_allGeneratedDS[1];
@@ -1295,7 +1378,50 @@ void MultiRenderer_GPU::InitAllGeneratedDescriptorSets_CastRaySingle()
     writeDescriptorSet[27].descriptorType   = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
     writeDescriptorSet[27].pBufferInfo      = &descriptorBufferInfo[27];
     writeDescriptorSet[27].pImageInfo       = nullptr;
-    writeDescriptorSet[27].pTexelBufferView = nullptr;
+    writeDescriptorSet[27].pTexelBufferView = nullptr; 
+
+    descriptorBufferInfo[28]        = VkDescriptorBufferInfo{};
+    descriptorBufferInfo[28].buffer = m_vdata.m_pAccelStruct_m_SdfParametersBuffer;
+    descriptorBufferInfo[28].offset = m_vdata.m_pAccelStruct_m_SdfParametersOffset;
+    descriptorBufferInfo[28].range  = VK_WHOLE_SIZE;  
+    writeDescriptorSet[28]                  = VkWriteDescriptorSet{};
+    writeDescriptorSet[28].sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    writeDescriptorSet[28].dstSet           = m_allGeneratedDS[1];
+    writeDescriptorSet[28].dstBinding       = 28;
+    writeDescriptorSet[28].descriptorCount  = 1;
+    writeDescriptorSet[28].descriptorType   = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    writeDescriptorSet[28].pBufferInfo      = &descriptorBufferInfo[28];
+    writeDescriptorSet[28].pImageInfo       = nullptr;
+    writeDescriptorSet[28].pTexelBufferView = nullptr; 
+
+    descriptorBufferInfo[29]        = VkDescriptorBufferInfo{};
+    descriptorBufferInfo[29].buffer = m_vdata.m_pAccelStruct_m_instMatricesInvBuffer;
+    descriptorBufferInfo[29].offset = m_vdata.m_pAccelStruct_m_instMatricesInvOffset;
+    descriptorBufferInfo[29].range  = VK_WHOLE_SIZE;  
+    writeDescriptorSet[29]                  = VkWriteDescriptorSet{};
+    writeDescriptorSet[29].sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    writeDescriptorSet[29].dstSet           = m_allGeneratedDS[1];
+    writeDescriptorSet[29].dstBinding       = 29;
+    writeDescriptorSet[29].descriptorCount  = 1;
+    writeDescriptorSet[29].descriptorType   = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    writeDescriptorSet[29].pBufferInfo      = &descriptorBufferInfo[29];
+    writeDescriptorSet[29].pImageInfo       = nullptr;
+    writeDescriptorSet[29].pTexelBufferView = nullptr; 
+
+    descriptorBufferInfo[30]        = VkDescriptorBufferInfo{};
+    descriptorBufferInfo[30].buffer = m_classDataBuffer;
+    descriptorBufferInfo[30].offset = 0;
+    descriptorBufferInfo[30].range  = VK_WHOLE_SIZE;  
+
+    writeDescriptorSet[30]                  = VkWriteDescriptorSet{};
+    writeDescriptorSet[30].sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    writeDescriptorSet[30].dstSet           = m_allGeneratedDS[1];
+    writeDescriptorSet[30].dstBinding       = 30;
+    writeDescriptorSet[30].descriptorCount  = 1;
+    writeDescriptorSet[30].descriptorType   = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    writeDescriptorSet[30].pBufferInfo      = &descriptorBufferInfo[30];
+    writeDescriptorSet[30].pImageInfo       = nullptr;
+    writeDescriptorSet[30].pTexelBufferView = nullptr;
 
     vkUpdateDescriptorSets(device, uint32_t(writeDescriptorSet.size()), writeDescriptorSet.data(), 0, NULL);
   }

@@ -94,6 +94,14 @@ struct SdfFrameOctreeNode
   unsigned offset; // offset for children (they are stored together). 0 offset means it's a leaf  
 };
 
+//node for SparseVoxelSet, basically the same as SdfFrameOctree, but more compact
+struct SdfSVSNode
+{
+  uint32_t pos_xy; //position of voxel in it's LOD
+  uint32_t pos_z_lod_size; //size of it's LOD, (i.e. 2^LOD)
+  uint32_t values[2]; //compressed distance values, 1 byte per value
+};
+
 //################################################################################
 // CPU-specific functions and data structures
 //################################################################################
@@ -115,6 +123,12 @@ struct SdfFrameOctreeView
 {
   unsigned size;
   const SdfFrameOctreeNode *nodes;
+};
+
+struct SdfSVSView
+{
+  unsigned size;
+  const SdfSVSNode *nodes;
 };
 
 // structure to actually store SdfScene data

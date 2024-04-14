@@ -37,6 +37,7 @@ static constexpr unsigned TYPE_SDF_GRID            = 2;
 static constexpr unsigned TYPE_SDF_OCTREE          = 3;
 static constexpr unsigned TYPE_SDF_FRAME_OCTREE    = 4;
 static constexpr unsigned TYPE_RF_GRID             = 5;
+static constexpr unsigned TYPE_SDF_SVS             = 6;
 
 //enum SdfOctreeSampler
 static constexpr unsigned SDF_OCTREE_SAMPLER_MIPSKIP_3X3 = 0; //go to the deepest level possible, resampling larger nodes
@@ -52,6 +53,7 @@ static constexpr unsigned SDF_FRAME_OCTREE_INTERSECT_DEFAULT = 0; //sphere traci
 static constexpr unsigned SDF_FRAME_OCTREE_INTERSECT_ST = 1;// only with SDF_FRAME_OCTREE_BLAS_DEFAULT! Sphere tracing inside node
 static constexpr unsigned SDF_FRAME_OCTREE_INTERSECT_ANALYTIC = 2;// only with SDF_FRAME_OCTREE_BLAS_DEFAULT! Explicitly finding ray/sdf intersection inside node
 static constexpr unsigned SDF_FRAME_OCTREE_INTERSECT_NEWTON = 3;// only with SDF_FRAME_OCTREE_BLAS_DEFAULT! Using Newton method to find ray/sdf intersection inside node
+static constexpr unsigned SDF_FRAME_OCTREE_INTERSECT_BBOX = 4;// only with SDF_FRAME_OCTREE_BLAS_DEFAULT! Intersect with node bbox for debug purposes
 
 //enum VisualizeStatType 
 static constexpr unsigned VISUALIZE_STAT_NONE = 0;
@@ -116,6 +118,7 @@ struct ISceneObject
   virtual uint32_t AddGeom_RFScene(RFScene grid, BuildQuality a_qualityLevel = BUILD_HIGH) = 0;
   virtual uint32_t AddGeom_SdfOctree(SdfOctreeView octree, BuildQuality a_qualityLevel = BUILD_HIGH) = 0;
   virtual uint32_t AddGeom_SdfFrameOctree(SdfFrameOctreeView octree, BuildQuality a_qualityLevel = BUILD_HIGH) = 0;
+  virtual uint32_t AddGeom_SdfSVS(SdfSVSView octree, BuildQuality a_qualityLevel = BUILD_HIGH) = 0;
 #endif
 
   /**

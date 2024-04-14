@@ -44,6 +44,8 @@ void MultiRenderer_GPU::UpdatePlainMembers(std::shared_ptr<vk_utils::ICopyEngine
   m_uboData.m_pAccelStruct_m_ConjIndices_capacity = uint32_t( m_pAccelStruct_m_ConjIndices->capacity() ); assert( m_pAccelStruct_m_ConjIndices->capacity() < maxAllowedSize );
   m_uboData.m_pAccelStruct_m_RFGridData_size     = uint32_t( m_pAccelStruct_m_RFGridData->size() );     assert( m_pAccelStruct_m_RFGridData->size() < maxAllowedSize );
   m_uboData.m_pAccelStruct_m_RFGridData_capacity = uint32_t( m_pAccelStruct_m_RFGridData->capacity() ); assert( m_pAccelStruct_m_RFGridData->capacity() < maxAllowedSize );
+  m_uboData.m_pAccelStruct_m_RFGridScales_size     = uint32_t( m_pAccelStruct_m_RFGridScales->size() );     assert( m_pAccelStruct_m_RFGridScales->size() < maxAllowedSize );
+  m_uboData.m_pAccelStruct_m_RFGridScales_capacity = uint32_t( m_pAccelStruct_m_RFGridScales->capacity() ); assert( m_pAccelStruct_m_RFGridScales->capacity() < maxAllowedSize );
   m_uboData.m_pAccelStruct_m_RFGridSizes_size     = uint32_t( m_pAccelStruct_m_RFGridSizes->size() );     assert( m_pAccelStruct_m_RFGridSizes->size() < maxAllowedSize );
   m_uboData.m_pAccelStruct_m_RFGridSizes_capacity = uint32_t( m_pAccelStruct_m_RFGridSizes->capacity() ); assert( m_pAccelStruct_m_RFGridSizes->capacity() < maxAllowedSize );
   m_uboData.m_pAccelStruct_m_SdfConjunctions_size     = uint32_t( m_pAccelStruct_m_SdfConjunctions->size() );     assert( m_pAccelStruct_m_SdfConjunctions->size() < maxAllowedSize );
@@ -68,6 +70,10 @@ void MultiRenderer_GPU::UpdatePlainMembers(std::shared_ptr<vk_utils::ICopyEngine
   m_uboData.m_pAccelStruct_m_SdfOctreeRoots_capacity = uint32_t( m_pAccelStruct_m_SdfOctreeRoots->capacity() ); assert( m_pAccelStruct_m_SdfOctreeRoots->capacity() < maxAllowedSize );
   m_uboData.m_pAccelStruct_m_SdfParameters_size     = uint32_t( m_pAccelStruct_m_SdfParameters->size() );     assert( m_pAccelStruct_m_SdfParameters->size() < maxAllowedSize );
   m_uboData.m_pAccelStruct_m_SdfParameters_capacity = uint32_t( m_pAccelStruct_m_SdfParameters->capacity() ); assert( m_pAccelStruct_m_SdfParameters->capacity() < maxAllowedSize );
+  m_uboData.m_pAccelStruct_m_SdfSVSNodes_size     = uint32_t( m_pAccelStruct_m_SdfSVSNodes->size() );     assert( m_pAccelStruct_m_SdfSVSNodes->size() < maxAllowedSize );
+  m_uboData.m_pAccelStruct_m_SdfSVSNodes_capacity = uint32_t( m_pAccelStruct_m_SdfSVSNodes->capacity() ); assert( m_pAccelStruct_m_SdfSVSNodes->capacity() < maxAllowedSize );
+  m_uboData.m_pAccelStruct_m_SdfSVSRoots_size     = uint32_t( m_pAccelStruct_m_SdfSVSRoots->size() );     assert( m_pAccelStruct_m_SdfSVSRoots->size() < maxAllowedSize );
+  m_uboData.m_pAccelStruct_m_SdfSVSRoots_capacity = uint32_t( m_pAccelStruct_m_SdfSVSRoots->capacity() ); assert( m_pAccelStruct_m_SdfSVSRoots->capacity() < maxAllowedSize );
   m_uboData.m_pAccelStruct_m_allNodePairs_size     = uint32_t( m_pAccelStruct_m_allNodePairs->size() );     assert( m_pAccelStruct_m_allNodePairs->size() < maxAllowedSize );
   m_uboData.m_pAccelStruct_m_allNodePairs_capacity = uint32_t( m_pAccelStruct_m_allNodePairs->capacity() ); assert( m_pAccelStruct_m_allNodePairs->capacity() < maxAllowedSize );
   m_uboData.m_pAccelStruct_m_bvhOffsets_size     = uint32_t( m_pAccelStruct_m_bvhOffsets->size() );     assert( m_pAccelStruct_m_bvhOffsets->size() < maxAllowedSize );
@@ -107,6 +113,7 @@ void MultiRenderer_GPU::ReadPlainMembers(std::shared_ptr<vk_utils::ICopyEngine> 
   m_width = m_uboData.m_width;
   m_pAccelStruct_m_ConjIndices->resize(m_uboData.m_pAccelStruct_m_ConjIndices_size);
   m_pAccelStruct_m_RFGridData->resize(m_uboData.m_pAccelStruct_m_RFGridData_size);
+  m_pAccelStruct_m_RFGridScales->resize(m_uboData.m_pAccelStruct_m_RFGridScales_size);
   m_pAccelStruct_m_RFGridSizes->resize(m_uboData.m_pAccelStruct_m_RFGridSizes_size);
   m_pAccelStruct_m_SdfConjunctions->resize(m_uboData.m_pAccelStruct_m_SdfConjunctions_size);
   m_pAccelStruct_m_SdfFrameOctreeNodes->resize(m_uboData.m_pAccelStruct_m_SdfFrameOctreeNodes_size);
@@ -119,6 +126,8 @@ void MultiRenderer_GPU::ReadPlainMembers(std::shared_ptr<vk_utils::ICopyEngine> 
   m_pAccelStruct_m_SdfOctreeNodes->resize(m_uboData.m_pAccelStruct_m_SdfOctreeNodes_size);
   m_pAccelStruct_m_SdfOctreeRoots->resize(m_uboData.m_pAccelStruct_m_SdfOctreeRoots_size);
   m_pAccelStruct_m_SdfParameters->resize(m_uboData.m_pAccelStruct_m_SdfParameters_size);
+  m_pAccelStruct_m_SdfSVSNodes->resize(m_uboData.m_pAccelStruct_m_SdfSVSNodes_size);
+  m_pAccelStruct_m_SdfSVSRoots->resize(m_uboData.m_pAccelStruct_m_SdfSVSRoots_size);
   m_pAccelStruct_m_allNodePairs->resize(m_uboData.m_pAccelStruct_m_allNodePairs_size);
   m_pAccelStruct_m_bvhOffsets->resize(m_uboData.m_pAccelStruct_m_bvhOffsets_size);
   m_pAccelStruct_m_geomIdByInstId->resize(m_uboData.m_pAccelStruct_m_geomIdByInstId_size);
@@ -139,6 +148,8 @@ void MultiRenderer_GPU::UpdateVectorMembers(std::shared_ptr<vk_utils::ICopyEngin
     a_pCopyEngine->UpdateBuffer(m_vdata.m_pAccelStruct_m_ConjIndicesBuffer, 0, m_pAccelStruct_m_ConjIndices->data(), m_pAccelStruct_m_ConjIndices->size()*sizeof(unsigned int) );
   if(m_pAccelStruct_m_RFGridData->size() > 0)
     a_pCopyEngine->UpdateBuffer(m_vdata.m_pAccelStruct_m_RFGridDataBuffer, 0, m_pAccelStruct_m_RFGridData->data(), m_pAccelStruct_m_RFGridData->size()*sizeof(float) );
+  if(m_pAccelStruct_m_RFGridScales->size() > 0)
+    a_pCopyEngine->UpdateBuffer(m_vdata.m_pAccelStruct_m_RFGridScalesBuffer, 0, m_pAccelStruct_m_RFGridScales->data(), m_pAccelStruct_m_RFGridScales->size()*sizeof(float) );
   if(m_pAccelStruct_m_RFGridSizes->size() > 0)
     a_pCopyEngine->UpdateBuffer(m_vdata.m_pAccelStruct_m_RFGridSizesBuffer, 0, m_pAccelStruct_m_RFGridSizes->data(), m_pAccelStruct_m_RFGridSizes->size()*sizeof(unsigned long) );
   if(m_pAccelStruct_m_SdfConjunctions->size() > 0)
@@ -163,6 +174,10 @@ void MultiRenderer_GPU::UpdateVectorMembers(std::shared_ptr<vk_utils::ICopyEngin
     a_pCopyEngine->UpdateBuffer(m_vdata.m_pAccelStruct_m_SdfOctreeRootsBuffer, 0, m_pAccelStruct_m_SdfOctreeRoots->data(), m_pAccelStruct_m_SdfOctreeRoots->size()*sizeof(unsigned int) );
   if(m_pAccelStruct_m_SdfParameters->size() > 0)
     a_pCopyEngine->UpdateBuffer(m_vdata.m_pAccelStruct_m_SdfParametersBuffer, 0, m_pAccelStruct_m_SdfParameters->data(), m_pAccelStruct_m_SdfParameters->size()*sizeof(float) );
+  if(m_pAccelStruct_m_SdfSVSNodes->size() > 0)
+    a_pCopyEngine->UpdateBuffer(m_vdata.m_pAccelStruct_m_SdfSVSNodesBuffer, 0, m_pAccelStruct_m_SdfSVSNodes->data(), m_pAccelStruct_m_SdfSVSNodes->size()*sizeof(struct SdfSVSNode) );
+  if(m_pAccelStruct_m_SdfSVSRoots->size() > 0)
+    a_pCopyEngine->UpdateBuffer(m_vdata.m_pAccelStruct_m_SdfSVSRootsBuffer, 0, m_pAccelStruct_m_SdfSVSRoots->data(), m_pAccelStruct_m_SdfSVSRoots->size()*sizeof(unsigned int) );
   if(m_pAccelStruct_m_allNodePairs->size() > 0)
     a_pCopyEngine->UpdateBuffer(m_vdata.m_pAccelStruct_m_allNodePairsBuffer, 0, m_pAccelStruct_m_allNodePairs->data(), m_pAccelStruct_m_allNodePairs->size()*sizeof(struct BVHNodePair) );
   if(m_pAccelStruct_m_bvhOffsets->size() > 0)

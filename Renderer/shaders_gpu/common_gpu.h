@@ -130,6 +130,12 @@ struct SdfFrameOctreeNode
   float values[8];
   uint offset; // offset for children (they are stored together). 0 offset means it's a leaf  
 };
+struct SdfSVSNode
+{
+  uint pos_xy; //position of voxel in it's LOD
+  uint pos_z_lod_size; //size of it's LOD, (i.e. 2^LOD)
+  uint values[2]; //compressed distance values, 1 byte per value
+};
 const uint BUILD_LOW = 0;
 const uint BUILD_MEDIUM = 1;
 const uint BUILD_HIGH = 2;
@@ -151,6 +157,7 @@ const uint TYPE_SDF_GRID = 2;
 const uint TYPE_SDF_OCTREE = 3;
 const uint TYPE_SDF_FRAME_OCTREE = 4;
 const uint TYPE_RF_GRID = 5;
+const uint TYPE_SDF_SVS = 6;
 const uint SDF_OCTREE_SAMPLER_MIPSKIP_3X3 = 0;
 const uint SDF_OCTREE_SAMPLER_MIPSKIP_CLOSEST = 1;
 const uint SDF_OCTREE_SAMPLER_CLOSEST = 2;
@@ -160,6 +167,7 @@ const uint SDF_FRAME_OCTREE_INTERSECT_DEFAULT = 0;
 const uint SDF_FRAME_OCTREE_INTERSECT_ST = 1;
 const uint SDF_FRAME_OCTREE_INTERSECT_ANALYTIC = 2;
 const uint SDF_FRAME_OCTREE_INTERSECT_NEWTON = 3;
+const uint SDF_FRAME_OCTREE_INTERSECT_BBOX = 4;
 const uint VISUALIZE_STAT_NONE = 0;
 const uint VISUALIZE_STAT_SPHERE_TRACE_ITERATIONS = 1;
 struct TracerPreset
@@ -318,11 +326,6 @@ int indexGrid(int x, int y, int z, int gridSize) {
     return (x + y * gridSize + z * gridSize * gridSize) * 28;
 }
 
-void lerpCellf(const float v0[28], const float v1[28], const float t, inout float memory[28]) {
-  for (int i = 0; i < 28; i++)
-    memory[i] = mix(v0[i], v1[i], t);
-}
-
 float eval_sh(inout float sh[28], vec3 rayDir, const int offset) {
   float sh_coeffs[9];
   sh_eval_2(rayDir, sh_coeffs);
@@ -332,6 +335,11 @@ float eval_sh(inout float sh[28], vec3 rayDir, const int offset) {
     sum += sh[offset + i] * sh_coeffs[i];
 
   return sum;
+}
+
+void lerpCellf(const float v0[28], const float v1[28], const float t, inout float memory[28]) {
+  for (int i = 0; i < 28; i++)
+    memory[i] = mix(v0[i], v1[i], t);
 }
 
 vec2 RayBoxIntersection2(vec3 rayOrigin, vec3 rayDirInv, vec3 boxMin, vec3 boxMax) {
@@ -383,27 +391,27 @@ vec3 SafeInverse(vec3 d) {
   return res;
 }
 
-uint EXTRACT_START(uint a_leftOffset) { return  a_leftOffset & START_MASK; }
-
 uint EXTRACT_COUNT(uint a_leftOffset) { return (a_leftOffset & SIZE_MASK) >> 24; }
 
+uint EXTRACT_START(uint a_leftOffset) { return  a_leftOffset & START_MASK; }
+
 bool notLeafAndIntersect(uint flags) { return (flags != (LEAF_BIT | 0x1)); }
+
+vec3 matmul3x3(mat4 m, vec3 v) { 
+  return (m*vec4(v, 0.0f)).xyz;
+}
+
+vec3 mymul4x3(mat4 m, vec3 v) {
+  return (m*vec4(v, 1.0f)).xyz;
+}
+
+bool isLeafOrNotIntersect(uint flags) { return (flags & LEAF_BIT) !=0 || (flags & 0x1) == 0; }
 
 vec3 matmul4x3(mat4 m, vec3 v) {
   return (m*vec4(v, 1.0f)).xyz;
 }
 
 bool isLeafAndIntersect(uint flags) { return (flags == (LEAF_BIT | 0x1 )); }
-
-vec3 mymul4x3(mat4 m, vec3 v) {
-  return (m*vec4(v, 1.0f)).xyz;
-}
-
-vec3 matmul3x3(mat4 m, vec3 v) { 
-  return (m*vec4(v, 0.0f)).xyz;
-}
-
-bool isLeafOrNotIntersect(uint flags) { return (flags & LEAF_BIT) !=0 || (flags & 0x1) == 0; }
 
 void transform_ray3f(mat4 a_mWorldViewInv, inout vec3 ray_pos, inout vec3 ray_dir) {
   vec3 pos = mymul4x3(a_mWorldViewInv, (ray_pos));
@@ -413,13 +421,6 @@ void transform_ray3f(mat4 a_mWorldViewInv, inout vec3 ray_pos, inout vec3 ray_di
 
   (ray_pos)  = pos;
   (ray_dir)  = normalize(diff);
-}
-
-vec3 EyeRayDirNormalized(float x, float y, mat4 a_mViewProjInv) {
-  vec4 pos = vec4(2.0f*x - 1.0f,-2.0f*y + 1.0f,0.0f,1.0f);
-  pos = a_mViewProjInv * pos;
-  pos /= pos.w;
-  return normalize(pos.xyz);
 }
 
 uint SuperBlockIndex2DOpt(uint tidX, uint tidY, uint a_width) {
@@ -440,6 +441,13 @@ uint SuperBlockIndex2DOpt(uint tidX, uint tidY, uint a_width) {
   return (blockHX + blockHY*wBlocksH)*64 + localIndexH*16 + localIndex;
 }
 
+vec3 EyeRayDirNormalized(float x, float y, mat4 a_mViewProjInv) {
+  vec4 pos = vec4(2.0f*x - 1.0f,-2.0f*y + 1.0f,0.0f,1.0f);
+  pos = a_mViewProjInv * pos;
+  pos /= pos.w;
+  return normalize(pos.xyz);
+}
+
 uint fakeOffset(uint x, uint y, uint pitch) { return y*pitch + x; }  // RTV pattern, for 2D threading
 
 #define KGEN_FLAG_RETURN            1
@@ -447,6 +455,6 @@ uint fakeOffset(uint x, uint y, uint pitch) { return y*pitch + x; }  // RTV patt
 #define KGEN_FLAG_DONT_SET_EXIT     4
 #define KGEN_FLAG_SET_EXIT_NEGATIVE 8
 #define KGEN_REDUCTION_LAST_STEP    16
-#define CFLOAT_GUARDIAN 
 #define MAXFLOAT FLT_MAX
+#define CFLOAT_GUARDIAN 
 
