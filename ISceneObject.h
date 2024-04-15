@@ -45,15 +45,15 @@ static constexpr unsigned SDF_OCTREE_SAMPLER_MIPSKIP_CLOSEST = 1; //go deeper wh
 static constexpr unsigned SDF_OCTREE_SAMPLER_CLOSEST = 2;
 
 //enum SdfFrameOctreeBLAS
-static constexpr unsigned SDF_FRAME_OCTREE_BLAS_NO = 0; //use trivial BLAS with 2 bboxes and full sphere tracing later on
-static constexpr unsigned SDF_FRAME_OCTREE_BLAS_DEFAULT = 1; //use BVH with one leaf for every non-empty leaf node of octree
+static constexpr unsigned SDF_OCTREE_BLAS_NO = 0; //use trivial BLAS with 2 bboxes and full sphere tracing later on
+static constexpr unsigned SDF_OCTREE_BLAS_DEFAULT = 1; //use BVH with one leaf for every non-empty leaf node of octree
 
 //enum SdfFrameOctreeIntersect
-static constexpr unsigned SDF_FRAME_OCTREE_INTERSECT_DEFAULT = 0; //sphere tracing + octree traversal
-static constexpr unsigned SDF_FRAME_OCTREE_INTERSECT_ST = 1;// only with SDF_FRAME_OCTREE_BLAS_DEFAULT! Sphere tracing inside node
-static constexpr unsigned SDF_FRAME_OCTREE_INTERSECT_ANALYTIC = 2;// only with SDF_FRAME_OCTREE_BLAS_DEFAULT! Explicitly finding ray/sdf intersection inside node
-static constexpr unsigned SDF_FRAME_OCTREE_INTERSECT_NEWTON = 3;// only with SDF_FRAME_OCTREE_BLAS_DEFAULT! Using Newton method to find ray/sdf intersection inside node
-static constexpr unsigned SDF_FRAME_OCTREE_INTERSECT_BBOX = 4;// only with SDF_FRAME_OCTREE_BLAS_DEFAULT! Intersect with node bbox for debug purposes
+static constexpr unsigned SDF_OCTREE_NODE_INTERSECT_DEFAULT = 0; //sphere tracing + octree traversal
+static constexpr unsigned SDF_OCTREE_NODE_INTERSECT_ST = 1;// only with SDF_OCTREE_BLAS_DEFAULT! Sphere tracing inside node
+static constexpr unsigned SDF_OCTREE_NODE_INTERSECT_ANALYTIC = 2;// only with SDF_OCTREE_BLAS_DEFAULT! Explicitly finding ray/sdf intersection inside node
+static constexpr unsigned SDF_OCTREE_NODE_INTERSECT_NEWTON = 3;// only with SDF_OCTREE_BLAS_DEFAULT! Using Newton method to find ray/sdf intersection inside node
+static constexpr unsigned SDF_OCTREE_NODE_INTERSECT_BBOX = 4;// only with SDF_OCTREE_BLAS_DEFAULT! Intersect with node bbox for debug purposes
 
 //enum VisualizeStatType 
 static constexpr unsigned VISUALIZE_STAT_NONE = 0;

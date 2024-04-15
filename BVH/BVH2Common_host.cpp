@@ -671,7 +671,7 @@ std::vector<BVHNode> BVHRT::GetBoxes_SdfFrameOctree(SdfFrameOctreeView octree)
   nodes[1].boxMin = float3(-1,-1,0);
   nodes[1].boxMax = float3(1,1,1);
   return nodes;*/
-  if (m_preset.sdf_frame_octree_blas == SDF_FRAME_OCTREE_BLAS_NO)
+  if (m_preset.sdf_frame_octree_blas == SDF_OCTREE_BLAS_NO)
   {
     nodes.resize(2);
     nodes[0].boxMin = float3(-1,-1,-1);
@@ -679,7 +679,7 @@ std::vector<BVHNode> BVHRT::GetBoxes_SdfFrameOctree(SdfFrameOctreeView octree)
     nodes[1].boxMin = float3(-1,-1,0);
     nodes[1].boxMax = float3(1,1,1);
   }
-  else if (m_preset.sdf_frame_octree_blas == SDF_FRAME_OCTREE_BLAS_DEFAULT)
+  else if (m_preset.sdf_frame_octree_blas == SDF_OCTREE_BLAS_DEFAULT)
   {
     add_border_nodes_rec(octree, nodes, 0, float3(0,0,0), 1);
   }

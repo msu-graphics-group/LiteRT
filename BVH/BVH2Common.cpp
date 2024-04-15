@@ -124,7 +124,7 @@ void BVHRT::IntersectAllPrimitivesInLeaf(const float3 ray_pos, const float3 ray_
     IntersectAllSdfsInLeaf(ray_pos, ray_dir, tNear, instId, geomId, a_start, a_count, pHit);
     break;
   case TYPE_SDF_FRAME_OCTREE:
-    if (m_preset.sdf_frame_octree_intersect == SDF_FRAME_OCTREE_INTERSECT_DEFAULT)
+    if (m_preset.sdf_frame_octree_intersect == SDF_OCTREE_NODE_INTERSECT_DEFAULT)
       IntersectAllSdfsInLeaf(ray_pos, ray_dir, tNear, instId, geomId, a_start, a_count, pHit);
     else
       FrameNodeIntersect(ray_pos, ray_dir, tNear, instId, geomId, a_start, a_count, pHit);
@@ -179,11 +179,11 @@ void BVHRT::FrameNodeIntersect(const float3 ray_pos, const float3 ray_dir,
   unsigned iter = 0;
 
   float start_dist = eval_dist_frame_octree_node(nodeId, start_q);
-  if (start_dist <= EPS || m_preset.sdf_frame_octree_intersect == SDF_FRAME_OCTREE_INTERSECT_BBOX)
+  if (start_dist <= EPS || m_preset.sdf_frame_octree_intersect == SDF_OCTREE_NODE_INTERSECT_BBOX)
   {
     hit = true;
   }
-  else if (m_preset.sdf_frame_octree_intersect == SDF_FRAME_OCTREE_INTERSECT_ST)
+  else if (m_preset.sdf_frame_octree_intersect == SDF_OCTREE_NODE_INTERSECT_ST)
   {
     const unsigned max_iters = 256;
     float dist = start_dist;
@@ -198,8 +198,8 @@ void BVHRT::FrameNodeIntersect(const float3 ray_pos, const float3 ray_dir,
     }
     hit = (dist <= EPS);
   }
-  else //if (m_preset.sdf_frame_octree_intersect == SDF_FRAME_OCTREE_INTERSECT_ANALYTIC ||
-       //    m_preset.sdf_frame_octree_intersect == SDF_FRAME_OCTREE_INTERSECT_NEWTON)
+  else //if (m_preset.sdf_frame_octree_intersect == SDF_OCTREE_NODE_INTERSECT_ANALYTIC ||
+       //    m_preset.sdf_frame_octree_intersect == SDF_OCTREE_NODE_INTERSECT_NEWTON)
   {
     //finding exact intersection between surface sdf(x,y,z) = 0 and ray
     // based on paper "Ray Tracing of Signed Distance Function Grids, 
@@ -246,7 +246,7 @@ void BVHRT::FrameNodeIntersect(const float3 ray_pos, const float3 ray_dir,
     // solve this equation analytically or numerically using the Newton's method
     // see "Numerical Recipes - The Art of Scientific Computing - 3rd Edition" for details
 
-    if (m_preset.sdf_frame_octree_intersect == SDF_FRAME_OCTREE_INTERSECT_ANALYTIC)
+    if (m_preset.sdf_frame_octree_intersect == SDF_OCTREE_NODE_INTERSECT_ANALYTIC)
     {
       float x1 = 1000;
       float x2 = 1000;
@@ -316,7 +316,7 @@ void BVHRT::FrameNodeIntersect(const float3 ray_pos, const float3 ray_dir,
       t = std::min(x1, std::min(x2,x3));
       hit = (t >= 0 && t <= tFar);
     }
-    else //if (m_preset.sdf_frame_octree_intersect == SDF_FRAME_OCTREE_INTERSECT_NEWTON)
+    else //if (m_preset.sdf_frame_octree_intersect == SDF_OCTREE_NODE_INTERSECT_NEWTON)
     {
       // our polynom is c3*t^3 + c2*t^2 + c1*t + c0 = 0;
       // it's derivative is  3*c3*t^2 + 2*c2*t + c1 = 0; 
@@ -503,11 +503,11 @@ void BVHRT::SVSNodeIntersect(const float3 ray_pos, const float3 ray_dir,
   unsigned iter = 0;
 
   float start_dist = eval_dist_trilinear(values, start_q);
-  if (start_dist <= EPS || m_preset.sdf_frame_octree_intersect == SDF_FRAME_OCTREE_INTERSECT_BBOX)
+  if (start_dist <= EPS || m_preset.sdf_frame_octree_intersect == SDF_OCTREE_NODE_INTERSECT_BBOX)
   {
     hit = true;
   }
-  else if (m_preset.sdf_frame_octree_intersect == SDF_FRAME_OCTREE_INTERSECT_ST)
+  else if (m_preset.sdf_frame_octree_intersect == SDF_OCTREE_NODE_INTERSECT_ST)
   {
     const unsigned max_iters = 256;
     float dist = start_dist;
@@ -522,8 +522,8 @@ void BVHRT::SVSNodeIntersect(const float3 ray_pos, const float3 ray_dir,
     }
     hit = (dist <= EPS);
   }
-  else //if (m_preset.sdf_frame_octree_intersect == SDF_FRAME_OCTREE_INTERSECT_ANALYTIC ||
-       //    m_preset.sdf_frame_octree_intersect == SDF_FRAME_OCTREE_INTERSECT_NEWTON)
+  else //if (m_preset.sdf_frame_octree_intersect == SDF_OCTREE_NODE_INTERSECT_ANALYTIC ||
+       //    m_preset.sdf_frame_octree_intersect == SDF_OCTREE_NODE_INTERSECT_NEWTON)
   {
     //finding exact intersection between surface sdf(x,y,z) = 0 and ray
     // based on paper "Ray Tracing of Signed Distance Function Grids, 
@@ -570,7 +570,7 @@ void BVHRT::SVSNodeIntersect(const float3 ray_pos, const float3 ray_dir,
     // solve this equation analytically or numerically using the Newton's method
     // see "Numerical Recipes - The Art of Scientific Computing - 3rd Edition" for details
 
-    if (m_preset.sdf_frame_octree_intersect == SDF_FRAME_OCTREE_INTERSECT_ANALYTIC)
+    if (m_preset.sdf_frame_octree_intersect == SDF_OCTREE_NODE_INTERSECT_ANALYTIC)
     {
       float x1 = 1000;
       float x2 = 1000;
@@ -640,7 +640,7 @@ void BVHRT::SVSNodeIntersect(const float3 ray_pos, const float3 ray_dir,
       t = std::min(x1, std::min(x2,x3));
       hit = (t >= 0 && t <= tFar);
     }
-    else //if (m_preset.sdf_frame_octree_intersect == SDF_FRAME_OCTREE_INTERSECT_NEWTON)
+    else //if (m_preset.sdf_frame_octree_intersect == SDF_OCTREE_NODE_INTERSECT_NEWTON)
     {
       // our polynom is c3*t^3 + c2*t^2 + c1*t + c0 = 0;
       // it's derivative is  3*c3*t^2 + 2*c2*t + c1 = 0; 
@@ -792,13 +792,13 @@ void BVHRT::IntersectAllSdfsInLeaf(const float3 ray_pos, const float3 ray_dir,
   case TYPE_SDF_FRAME_OCTREE:
     sdfId =  m_geomOffsets[geomId].x;
 
-    if (m_preset.sdf_frame_octree_blas == SDF_FRAME_OCTREE_BLAS_NO)
+    if (m_preset.sdf_frame_octree_blas == SDF_OCTREE_BLAS_NO)
     {
       primId = 0;
       min_pos = float3(-1,-1,-1);
       max_pos = float3( 1, 1, 1);
     }
-    else if (m_preset.sdf_frame_octree_blas == SDF_FRAME_OCTREE_BLAS_DEFAULT)
+    else if (m_preset.sdf_frame_octree_blas == SDF_OCTREE_BLAS_DEFAULT)
     {
       primId = m_origNodes[a_start].leftOffset;
       min_pos = m_origNodes[a_start].boxMin;

@@ -33,13 +33,13 @@ void benchmark_framed_octree_intersection()
   std::vector<std::string> scene_paths = {"scenes/01_simple_scenes/data/teapot.vsgf"}; 
 
 
-  std::vector<unsigned> presets_ob = {SDF_FRAME_OCTREE_BLAS_NO, SDF_FRAME_OCTREE_BLAS_DEFAULT,
-                                      SDF_FRAME_OCTREE_BLAS_DEFAULT, SDF_FRAME_OCTREE_BLAS_DEFAULT,
-                                      SDF_FRAME_OCTREE_BLAS_DEFAULT};
+  std::vector<unsigned> presets_ob = {SDF_OCTREE_BLAS_NO, SDF_OCTREE_BLAS_DEFAULT,
+                                      SDF_OCTREE_BLAS_DEFAULT, SDF_OCTREE_BLAS_DEFAULT,
+                                      SDF_OCTREE_BLAS_DEFAULT};
 
-  std::vector<unsigned> presets_oi = {SDF_FRAME_OCTREE_INTERSECT_DEFAULT, SDF_FRAME_OCTREE_INTERSECT_DEFAULT, 
-                                      SDF_FRAME_OCTREE_INTERSECT_ST, SDF_FRAME_OCTREE_INTERSECT_ANALYTIC, 
-                                      SDF_FRAME_OCTREE_INTERSECT_NEWTON};
+  std::vector<unsigned> presets_oi = {SDF_OCTREE_NODE_INTERSECT_DEFAULT, SDF_OCTREE_NODE_INTERSECT_DEFAULT, 
+                                      SDF_OCTREE_NODE_INTERSECT_ST, SDF_OCTREE_NODE_INTERSECT_ANALYTIC, 
+                                      SDF_OCTREE_NODE_INTERSECT_NEWTON};
 
   std::vector<std::string> preset_names = {"no_bvh_traversal", "bvh_traversal", "bvh_sphere_tracing", "bvh_analytic", "bvh_newton"};
 
@@ -56,13 +56,13 @@ void benchmark_framed_octree_intersection()
     mesh_bvh.init(mesh);
 
     SparseOctreeBuilder builder;
-    SparseOctreeSettings settings{9, 4, 0.0f};
+    SparseOctreeSettings settings{8, 4, 0.0f};
     std::vector<SdfFrameOctreeNode> frame_nodes;
 
     builder.construct([&mesh_bvh](const float3 &p) { return mesh_bvh.get_signed_distance(p); }, settings);
     builder.convert_to_frame_octree(frame_nodes);
 
-    unsigned W = 2048, H = 2048;
+    unsigned W = 1024, H = 1024;
     LiteImage::Image2D<uint32_t> image(W, H);
 
     for (int i=0; i<presets_ob.size(); i++)

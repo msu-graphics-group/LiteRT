@@ -44,8 +44,8 @@ static MultiRenderPreset getDefaultPreset()
   p.mode = MULTI_RENDER_MODE_LAMBERT;
   p.sdf_octree_sampler = SDF_OCTREE_SAMPLER_MIPSKIP_3X3;
   p.spp = 1;
-  p.sdf_frame_octree_blas = SDF_FRAME_OCTREE_BLAS_DEFAULT;
-  p.sdf_frame_octree_intersect = SDF_FRAME_OCTREE_INTERSECT_DEFAULT;
+  p.sdf_frame_octree_blas = SDF_OCTREE_BLAS_DEFAULT;
+  p.sdf_frame_octree_intersect = SDF_OCTREE_NODE_INTERSECT_DEFAULT;
 
   return p;
 }

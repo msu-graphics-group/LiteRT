@@ -53,13 +53,13 @@ void litert_test_1_framed_octree()
     LiteImage::Image2D<uint32_t> image(W, H);
     float timings[4] = {0,0,0,0};
 
-    std::vector<unsigned> presets_ob = {SDF_FRAME_OCTREE_BLAS_NO, SDF_FRAME_OCTREE_BLAS_DEFAULT,
-                                        SDF_FRAME_OCTREE_BLAS_DEFAULT, SDF_FRAME_OCTREE_BLAS_DEFAULT,
-                                        SDF_FRAME_OCTREE_BLAS_DEFAULT, SDF_FRAME_OCTREE_BLAS_DEFAULT};
+    std::vector<unsigned> presets_ob = {SDF_OCTREE_BLAS_NO, SDF_OCTREE_BLAS_DEFAULT,
+                                        SDF_OCTREE_BLAS_DEFAULT, SDF_OCTREE_BLAS_DEFAULT,
+                                        SDF_OCTREE_BLAS_DEFAULT, SDF_OCTREE_BLAS_DEFAULT};
 
-    std::vector<unsigned> presets_oi = {SDF_FRAME_OCTREE_INTERSECT_DEFAULT, SDF_FRAME_OCTREE_INTERSECT_DEFAULT, 
-                                        SDF_FRAME_OCTREE_INTERSECT_ST, SDF_FRAME_OCTREE_INTERSECT_ANALYTIC, 
-                                        SDF_FRAME_OCTREE_INTERSECT_NEWTON, SDF_FRAME_OCTREE_INTERSECT_BBOX};
+    std::vector<unsigned> presets_oi = {SDF_OCTREE_NODE_INTERSECT_DEFAULT, SDF_OCTREE_NODE_INTERSECT_DEFAULT, 
+                                        SDF_OCTREE_NODE_INTERSECT_ST, SDF_OCTREE_NODE_INTERSECT_ANALYTIC, 
+                                        SDF_OCTREE_NODE_INTERSECT_NEWTON, SDF_OCTREE_NODE_INTERSECT_BBOX};
 
     std::vector<std::string> names = {"no_bvh_traversal", "bvh_traversal", "bvh_sphere_tracing", "bvh_analytic", "bvh_newton", "bvh_bboxes"};
 
@@ -114,13 +114,13 @@ void litert_test_2_SVS()
     LiteImage::Image2D<uint32_t> image(W, H);
     float timings[4] = {0,0,0,0};
 
-    std::vector<unsigned> presets_ob = {SDF_FRAME_OCTREE_BLAS_NO, SDF_FRAME_OCTREE_BLAS_DEFAULT,
-                                        SDF_FRAME_OCTREE_BLAS_DEFAULT, SDF_FRAME_OCTREE_BLAS_DEFAULT,
-                                        SDF_FRAME_OCTREE_BLAS_DEFAULT, SDF_FRAME_OCTREE_BLAS_DEFAULT};
+    std::vector<unsigned> presets_ob = {SDF_OCTREE_BLAS_NO, SDF_OCTREE_BLAS_DEFAULT,
+                                        SDF_OCTREE_BLAS_DEFAULT, SDF_OCTREE_BLAS_DEFAULT,
+                                        SDF_OCTREE_BLAS_DEFAULT, SDF_OCTREE_BLAS_DEFAULT};
 
-    std::vector<unsigned> presets_oi = {SDF_FRAME_OCTREE_INTERSECT_DEFAULT, SDF_FRAME_OCTREE_INTERSECT_DEFAULT, 
-                                        SDF_FRAME_OCTREE_INTERSECT_ST, SDF_FRAME_OCTREE_INTERSECT_ANALYTIC, 
-                                        SDF_FRAME_OCTREE_INTERSECT_NEWTON, SDF_FRAME_OCTREE_INTERSECT_BBOX};
+    std::vector<unsigned> presets_oi = {SDF_OCTREE_NODE_INTERSECT_DEFAULT, SDF_OCTREE_NODE_INTERSECT_DEFAULT, 
+                                        SDF_OCTREE_NODE_INTERSECT_ST, SDF_OCTREE_NODE_INTERSECT_ANALYTIC, 
+                                        SDF_OCTREE_NODE_INTERSECT_NEWTON, SDF_OCTREE_NODE_INTERSECT_BBOX};
 
     std::vector<std::string> names = {"no_bvh_traversal", "bvh_traversal", "bvh_sphere_tracing", "bvh_analytic", "bvh_newton", "bvh_bboxes"};
 
