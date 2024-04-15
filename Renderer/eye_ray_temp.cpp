@@ -388,317 +388,16 @@ void BVHRT::IntersectAllPrimitivesInLeaf(const float3 ray_pos, const float3 ray_
     if (m_preset.sdf_frame_octree_intersect == SDF_OCTREE_NODE_INTERSECT_DEFAULT)
       IntersectAllSdfsInLeaf(ray_pos, ray_dir, tNear, instId, geomId, a_start, a_count, pHit);
     else
-      FrameNodeIntersect(ray_pos, ray_dir, tNear, instId, geomId, a_start, a_count, pHit);
+      OctreeNodeIntersect(type, ray_pos, ray_dir, tNear, instId, geomId, a_start, a_count, pHit);
     break;
   case TYPE_RF_GRID:
     IntersectRFInLeaf(ray_pos, ray_dir, tNear, instId, geomId, a_start, a_count, pHit);
     break;
   case TYPE_SDF_SVS:
-    SVSNodeIntersect(ray_pos, ray_dir, tNear, instId, geomId, a_start, a_count, pHit);
+    OctreeNodeIntersect(type, ray_pos, ray_dir, tNear, instId, geomId, a_start, a_count, pHit);
     break;
   default:
     break;
-  }
-}
-
-float BVHRT::eval_dist_frame_octree_node(unsigned idx, float3 dp)
-{
-  return (1-dp.x)*(1-dp.y)*(1-dp.z)*m_SdfFrameOctreeNodes[idx].values[0] + 
-         (1-dp.x)*(1-dp.y)*(  dp.z)*m_SdfFrameOctreeNodes[idx].values[1] + 
-         (1-dp.x)*(  dp.y)*(1-dp.z)*m_SdfFrameOctreeNodes[idx].values[2] + 
-         (1-dp.x)*(  dp.y)*(  dp.z)*m_SdfFrameOctreeNodes[idx].values[3] + 
-         (  dp.x)*(1-dp.y)*(1-dp.z)*m_SdfFrameOctreeNodes[idx].values[4] + 
-         (  dp.x)*(1-dp.y)*(  dp.z)*m_SdfFrameOctreeNodes[idx].values[5] + 
-         (  dp.x)*(  dp.y)*(1-dp.z)*m_SdfFrameOctreeNodes[idx].values[6] + 
-         (  dp.x)*(  dp.y)*(  dp.z)*m_SdfFrameOctreeNodes[idx].values[7];
-}
-
-void BVHRT::FrameNodeIntersect(const float3 ray_pos, const float3 ray_dir,
-                               float tNear, uint32_t instId, uint32_t geomId,
-                               uint32_t a_start, uint32_t a_count,
-                               CRT_Hit *pHit)
-{
-  const float EPS = 1e-6;
-
-  uint32_t sdfId =  m_geomOffsets[geomId].x;
-  uint32_t primId = m_origNodes[a_start].leftOffset;
-  uint32_t nodeId = primId + m_SdfFrameOctreeRoots[sdfId];
-  float3 min_pos = m_origNodes[a_start].boxMin;
-  float3 max_pos = m_origNodes[a_start].boxMax;
-  float3 size = max_pos - min_pos;
-
-  float2 fNearFar = RayBoxIntersection2(ray_pos, SafeInverse(ray_dir), min_pos, max_pos);
-  float3 start_pos = ray_pos + fNearFar.x*ray_dir;
-  float3 end_pos = ray_pos + fNearFar.y*ray_dir;
-  float d = std::max(size.x, std::max(size.y, size.z));
-  float3 start_q = (start_pos - min_pos)/(2.0f*d);
-  float3 end_q = (end_pos - min_pos)/(2.0f*d);
-  float tFar = (fNearFar.y - fNearFar.x) / (2.0f * d);
-
-  float t = 0;
-  bool hit = false;
-  unsigned iter = 0;
-
-  float start_dist = eval_dist_frame_octree_node(nodeId, start_q);
-  if (start_dist <= EPS || m_preset.sdf_frame_octree_intersect == SDF_OCTREE_NODE_INTERSECT_BBOX)
-  {
-    hit = true;
-  }
-  else if (m_preset.sdf_frame_octree_intersect == SDF_OCTREE_NODE_INTERSECT_ST)
-  {
-    const unsigned max_iters = 256;
-    float dist = start_dist;
-    float3 pp0 = start_q + t * ray_dir;
-
-    while (t < tFar && dist > EPS && iter < max_iters)
-    {
-      t += dist / (2.0f * d);
-      dist = eval_dist_frame_octree_node(nodeId, start_q + t * ray_dir);
-      float3 pp = start_q + t * ray_dir;
-      iter++;
-    }
-    hit = (dist <= EPS);
-  }
-  else //if (m_preset.sdf_frame_octree_intersect == SDF_OCTREE_NODE_INTERSECT_ANALYTIC ||
-       //    m_preset.sdf_frame_octree_intersect == SDF_OCTREE_NODE_INTERSECT_NEWTON)
-  {
-    //finding exact intersection between surface sdf(x,y,z) = 0 and ray
-    // based on paper "Ray Tracing of Signed Distance Function Grids, 
-    // Journal of Computer Graphics Techniques (JCGT), vol. 11, no. 3, 94-113, 2022"
-    // http://jcgt.org/published/0011/03/06/
-
-    // define values and constants as proposed in paper
-    float s000 = m_SdfFrameOctreeNodes[nodeId].values[0]/d;
-    float s001 = m_SdfFrameOctreeNodes[nodeId].values[1]/d;
-    float s010 = m_SdfFrameOctreeNodes[nodeId].values[2]/d;
-    float s011 = m_SdfFrameOctreeNodes[nodeId].values[3]/d;
-    float s100 = m_SdfFrameOctreeNodes[nodeId].values[4]/d;
-    float s101 = m_SdfFrameOctreeNodes[nodeId].values[5]/d;
-    float s110 = m_SdfFrameOctreeNodes[nodeId].values[6]/d;
-    float s111 = m_SdfFrameOctreeNodes[nodeId].values[7]/d;
-
-    float a = s101-s001;
-
-    float k0 = s000;
-    float k1 = s100-s000;
-    float k2 = s010-s000;
-    float k3 = s110-s010-k1;
-    float k4 = k0-s001;
-    float k5 = k1-a;
-    float k6 = k2-(s011-s001);
-    float k7 = k3-(s111-s011-a);
-
-    float3 o = start_q;
-    float3 d = ray_dir;
-
-    float m0 = o.x*o.y;
-    float m1 = d.x*d.y;
-    float m2 = o.x*d.y + o.y*d.x;
-    float m3 = k5*o.z - k1;
-    float m4 = k6*o.z - k2;
-    float m5 = k7*o.z - k3;
-
-    float c0 = (k4*o.z - k0) + o.x*m3 + o.y*m4 + m0*m5;
-    float c1 = d.x*m3 + d.y*m4 + m2*m5 + d.z*(k4 + k5*o.x + k6*o.y + k7*m0);
-    float c2 = m1*m5 + d.z*(k5*d.x + k6*d.y + k7*m2);
-    float c3 = k7*m1*d.z;
-
-    // the surface is defined by equation c3*t^3 + c2*t^2 + c1*t + c0 = 0;
-    // solve this equation analytically or numerically using the Newton's method
-    // see "Numerical Recipes - The Art of Scientific Computing - 3rd Edition" for details
-
-    if (m_preset.sdf_frame_octree_intersect == SDF_OCTREE_NODE_INTERSECT_ANALYTIC)
-    {
-      float x1 = 1000;
-      float x2 = 1000;
-      float x3 = 1000;
-      unsigned type = 0;
-      if (std::abs(c3) > 1e-2)
-      {
-        type = 3;
-        //it is a cubic equation, transform it to x^3 + a*x^2 + b*x + c = 0
-        //use Vieta method to obtain 3 or 1 real roots
-        float a = c2/c3;
-        float b = c1/c3;
-        float c = c0/c3;   
-
-        float Q = (a*a - 3*b)/9;
-        float R = (2*a*a - 9*a*b + 27*c)/54;
-        float Q3 = Q*Q*Q;
-
-        if (R*R < Q3) //equation has three real roots
-        {
-          float theta = std::acos(R/sqrt(Q3));
-          x1 = -2*sqrt(Q)*std::cos(theta/3) - a/3;
-          x2 = -2*sqrt(Q)*std::cos((theta+2*M_PI)/3) - a/3;
-          x3 = -2*sqrt(Q)*std::cos((theta-2*M_PI)/3) - a/3;
-        }
-        else //equation has only one real roots
-        {
-          float A = -sign(R)*std::pow(std::abs(R) + sqrt(R*R - Q3), 1.0f/3.0f);
-          float B = std::abs(A) > EPS ? Q/A : 0;
-          x1 = A+B - a/3;
-        }
-      }
-      else if (std::abs(c2) > 1e-4)
-      {
-        type = 2;
-        //it is a quadratic equation a*x^2 + b*x + c = 0
-        float a = c2;
-        float b = c1;
-        float c = c0;
-
-        float D = b*b - 4*a*c;
-        if (D > 0)
-        {
-          float q = -0.5f*(b + sign(b)*std::sqrt(D));
-          x1 = q/a;
-          if (std::abs(q) > EPS)
-            x2 = c/q; 
-        }
-      }
-      else if (std::abs(c1) > EPS)
-      {
-        type = 1;
-        //it is a linear equation c1*x + c0 = 0
-        x1 = -c0/c1;
-      }
-      //else
-      //no roots or inf roots, something's fucked up so just drop it
-
-      x1 = x1 < 0 ? 1000 : x1;
-      x2 = x2 < 0 ? 1000 : x2;
-      x3 = x3 < 0 ? 1000 : x3;
-
-      //bool prev_hit = hit;
-      //float nt = std::min(x1, std::min(x2,x3));
-      //if (prev_hit && std::abs(t - nt) > 0.1)
-      //  printf("%f-%f -- %f %f %f %f -- %f %f %f, type %u\n",t, nt, c3,c2,c1,c0, x1,x2,x3, type);
-      t = std::min(x1, std::min(x2,x3));
-      hit = (t >= 0 && t <= tFar);
-    }
-    else //if (m_preset.sdf_frame_octree_intersect == SDF_OCTREE_NODE_INTERSECT_NEWTON)
-    {
-      // our polynom is c3*t^3 + c2*t^2 + c1*t + c0 = 0;
-      // it's derivative is  3*c3*t^2 + 2*c2*t + c1 = 0; 
-      // find where it equals 0 to determine interval where the root is located
-      // by solving a quadratic equation a*x^2 + b*x + c = 0
-      float a = 3*c3;
-      float b = 2*c2;
-      float c = c1;
-
-      float t0 = 0;
-      float t1 = tFar;
-      float t2 = tFar;
-      float t3 = tFar;
-
-      float D = b*b - 4*a*c;
-      if (D >= 0)
-      {
-        float q = -0.5f*(b + sign(b)*std::sqrt(D));
-        t1 = std::abs(a) > EPS ? q/a : t0;
-        t2 = std::abs(q) > EPS ? c/q : tFar;
-
-        float tmp = std::min(t1,t2);
-        t2 = std::max(t1, t2);
-        t1 = tmp;
-
-        t1 = clamp(t1, t0, t3);
-        t2 = clamp(t2, t0, t3);
-      }
-      
-      //calculate sign of initial polynom at each critical point
-      bool s0 = c0 > 0;
-      bool s1 = (c0 + t1*(c1 + t1*(c2 + t1*c3))) > 0;
-      bool s2 = (c0 + t2*(c1 + t2*(c2 + t2*c3))) > 0;
-      bool s3 = (c0 + t3*(c1 + t3*(c2 + t3*c3))) > 0;
-
-      //determine the range to apply Newton's method
-      float nwt_min = t0;
-      float nwt_max = t0;
-      if (s0 != s1)
-      {
-        nwt_min = t0;
-        nwt_max = t1;
-      }
-      else if (s1 != s2)
-      {
-        nwt_min = t1;
-        nwt_max = t2;
-      }
-      else if (s2 != s3)
-      {
-        nwt_min = t2;
-        nwt_max = t3;
-      }
-
-      float rtn = -100;
-
-      if (nwt_min < nwt_max)
-      {
-        //perform Newton's method
-        const unsigned max_iters = 10;
-        unsigned iter = 0;
-        rtn = 0.5f*(nwt_min + nwt_max);
-        float f = 1000;
-        while (iter < max_iters && std::abs(f) >= EPS)
-        {
-          f = c0 + rtn*(c1 + rtn*(c2 + rtn*c3));
-          float df = c1 + rtn*(2*c2 + rtn*3*c3);
-          float dx = f/(df + sign(df)*1e-9f);
-          rtn -= dx;
-        }
-        t = rtn;
-        hit = (t >= 0 && t <= tFar && std::abs(f) < EPS);
-      }
-      else
-      {
-        //no hit
-        hit = false;
-      }
-
-      //bool prev_hit = hit;
-      //float nt = rtn;
-      //if (prev_hit && std::abs(t - nt) > 0.1)
-      //  printf("%f-%f -- %f %f %f %f -- %f -- %f %f %f %f %d %d %d %d\n",t, nt, c3,c2,c1,c0, rtn, t0, t1, t2, t3, s0, s1, s2, s3);
-    }
-  }
-
-  float tReal = fNearFar.x + 2.0f * d * t;
-  // float di = 100;
-  // for (int i=0;i<8;i++)
-  //   di = std::min(di, m_SdfFrameOctreeNodes[nodeId].values[i]);
-
-  if (t <= tFar && hit && tReal < pHit->t)
-  {
-    float3 norm = float3(0, 0, 1);
-    if (m_preset.need_normal > 0)
-    {
-      float3 p0 = start_q + t * ray_dir;
-      const float h = 0.001;
-      float ddx = (eval_dist_frame_octree_node(nodeId, p0 + float3(h, 0, 0)) -
-                   eval_dist_frame_octree_node(nodeId, p0 + float3(-h, 0, 0))) /
-                  (2 * h);
-      float ddy = (eval_dist_frame_octree_node(nodeId, p0 + float3(0, h, 0)) -
-                   eval_dist_frame_octree_node(nodeId, p0 + float3(0, -h, 0))) /
-                  (2 * h);
-      float ddz = (eval_dist_frame_octree_node(nodeId, p0 + float3(0, 0, h)) -
-                   eval_dist_frame_octree_node(nodeId, p0 + float3(0, 0, -h))) /
-                  (2 * h);
-
-      norm = normalize(float3(ddx, ddy, ddz));
-    }
-    pHit->t = tReal;
-    pHit->primId = primId;
-    pHit->instId = instId;
-    pHit->geomId = geomId | (TYPE_SDF_FRAME_OCTREE << SH_TYPE);
-    pHit->coords[0] = 0;
-    pHit->coords[1] = 0;
-    pHit->coords[2] = norm.x;
-    pHit->coords[3] = norm.y;
-
-    if (m_preset.visualize_stat == VISUALIZE_STAT_SPHERE_TRACE_ITERATIONS)
-      pHit->primId = iter;
   }
 }
 
@@ -714,50 +413,63 @@ float BVHRT::eval_dist_trilinear(const float values[8], float3 dp)
          (  dp.x)*(  dp.y)*(  dp.z)*values[7];
 }
 
-void BVHRT::SVSNodeIntersect(const float3 ray_pos, const float3 ray_dir,
-                             float tNear, uint32_t instId, uint32_t geomId,
-                             uint32_t a_start, uint32_t a_count,
-                             CRT_Hit *pHit)
+void BVHRT::OctreeNodeIntersect(uint32_t type, const float3 ray_pos, const float3 ray_dir,
+                                float tNear, uint32_t instId, uint32_t geomId,
+                                uint32_t a_start, uint32_t a_count,
+                                CRT_Hit *pHit)
 {
   const float EPS = 1e-6;
+  const unsigned ST_max_iters = 256;
 
-  uint32_t sdfId =  m_geomOffsets[geomId].x;
-  uint32_t primId = a_start;
-  uint32_t nodeId = primId + m_SdfSVSRoots[sdfId];
+  float values[8];
+  uint32_t nodeId, primId;
+  float d, qFar;
+  float2 fNearFar;
+  float3 start_q;
+
+  if (type == TYPE_SDF_FRAME_OCTREE)
+  {
+    uint32_t sdfId =  m_geomOffsets[geomId].x;
+    primId = m_origNodes[a_start].leftOffset;
+    nodeId = primId + m_SdfFrameOctreeRoots[sdfId];
+    float3 min_pos = m_origNodes[a_start].boxMin;
+    float3 max_pos = m_origNodes[a_start].boxMax;
+    float3 size = max_pos - min_pos;
+
+    for (int i=0;i<8;i++)
+      values[i] = m_SdfFrameOctreeNodes[nodeId].values[i];
+
+    fNearFar = RayBoxIntersection2(ray_pos, SafeInverse(ray_dir), min_pos, max_pos);
+    float3 start_pos = ray_pos + fNearFar.x*ray_dir;
+    d = std::max(size.x, std::max(size.y, size.z));
+    start_q = (start_pos - min_pos)/(2.0f*d);
+    qFar = (fNearFar.y - fNearFar.x) / (2.0f * d);
+  }
+  else //if (type == TYPE_SDF_SVS)
+  {
+    uint32_t sdfId =  m_geomOffsets[geomId].x;
+    primId = a_start;
+    nodeId = primId + m_SdfSVSRoots[sdfId];
 
     float px = m_SdfSVSNodes[nodeId].pos_xy >> 16;
     float py = m_SdfSVSNodes[nodeId].pos_xy & 0x0000FFFF;
     float pz = m_SdfSVSNodes[nodeId].pos_z_lod_size >> 16;
     float sz = m_SdfSVSNodes[nodeId].pos_z_lod_size & 0x0000FFFF;
-  float d_max = 2*1.41421356f/sz;
+    float d_max = 2*1.41421356f/sz;
 
-  float3 min_pos = float3(-1,-1,-1) + 2.0f*float3(px,py,pz)/sz;
-  float3 max_pos = min_pos + 2.0f*float3(1,1,1)/sz;
-  float3 size = max_pos - min_pos;
+    float3 min_pos = float3(-1,-1,-1) + 2.0f*float3(px,py,pz)/sz;
+    float3 max_pos = min_pos + 2.0f*float3(1,1,1)/sz;
+    float3 size = max_pos - min_pos;
 
-  float values[8];
-
-  for (int i=0;i<8;i++)
-    values[i] = -d_max + 2*d_max*(1.0/255.0f)*((m_SdfSVSNodes[nodeId].values[i/4] >> (8*(i%4))) & 0xFF);
-/*
-  if (primId < 293000 && primId > 292000)
-  {
     for (int i=0;i<8;i++)
-      printf("[%u][%10X %10X %10X %10X] %u %lu %f %f %f (%f) %f -> %u\n",
-      primId,
-      m_SdfSVSNodes[nodeId].pos_xy, m_SdfSVSNodes[nodeId].pos_z_lod_size,
-      m_SdfSVSNodes[nodeId].values[0], m_SdfSVSNodes[nodeId].values[1],
-      primId, m_SdfSVSNodes.size(), 
-      px, py, pz, sz, values[i], (m_SdfSVSNodes[nodeId].values[i/4] >> (8*(i%4))) & 0xFF);
+      values[i] = -d_max + 2*d_max*(1.0/255.0f)*((m_SdfSVSNodes[nodeId].values[i/4] >> (8*(i%4))) & 0xFF);
+
+    fNearFar = RayBoxIntersection2(ray_pos, SafeInverse(ray_dir), min_pos, max_pos);
+    float3 start_pos = ray_pos + fNearFar.x*ray_dir;
+    d = std::max(size.x, std::max(size.y, size.z));
+    start_q = (start_pos - min_pos)/(2.0f*d);
+    qFar = (fNearFar.y - fNearFar.x) / (2.0f * d);
   }
-*/
-  float2 fNearFar = RayBoxIntersection2(ray_pos, SafeInverse(ray_dir), min_pos, max_pos);
-  float3 start_pos = ray_pos + fNearFar.x*ray_dir;
-  float3 end_pos = ray_pos + fNearFar.y*ray_dir;
-  float d = std::max(size.x, std::max(size.y, size.z));
-  float3 start_q = (start_pos - min_pos)/(2.0f*d);
-  float3 end_q = (end_pos - min_pos)/(2.0f*d);
-  float tFar = (fNearFar.y - fNearFar.x) / (2.0f * d);
 
   float t = 0;
   bool hit = false;
@@ -770,11 +482,10 @@ void BVHRT::SVSNodeIntersect(const float3 ray_pos, const float3 ray_dir,
   }
   else if (m_preset.sdf_frame_octree_intersect == SDF_OCTREE_NODE_INTERSECT_ST)
   {
-    const unsigned max_iters = 256;
     float dist = start_dist;
     float3 pp0 = start_q + t * ray_dir;
 
-    while (t < tFar && dist > EPS && iter < max_iters)
+    while (t < qFar && dist > EPS && iter < ST_max_iters)
     {
       t += dist / (2.0f * d);
       dist = eval_dist_trilinear(values, start_q + t * ray_dir);
@@ -899,7 +610,7 @@ void BVHRT::SVSNodeIntersect(const float3 ray_pos, const float3 ray_dir,
       //if (prev_hit && std::abs(t - nt) > 0.1)
       //  printf("%f-%f -- %f %f %f %f -- %f %f %f, type %u\n",t, nt, c3,c2,c1,c0, x1,x2,x3, type);
       t = std::min(x1, std::min(x2,x3));
-      hit = (t >= 0 && t <= tFar);
+      hit = (t >= 0 && t <= qFar);
     }
     else //if (m_preset.sdf_frame_octree_intersect == SDF_OCTREE_NODE_INTERSECT_NEWTON)
     {
@@ -912,16 +623,16 @@ void BVHRT::SVSNodeIntersect(const float3 ray_pos, const float3 ray_dir,
       float c = c1;
 
       float t0 = 0;
-      float t1 = tFar;
-      float t2 = tFar;
-      float t3 = tFar;
+      float t1 = qFar;
+      float t2 = qFar;
+      float t3 = qFar;
 
       float D = b*b - 4*a*c;
       if (D >= 0)
       {
         float q = -0.5f*(b + sign(b)*std::sqrt(D));
         t1 = std::abs(a) > EPS ? q/a : t0;
-        t2 = std::abs(q) > EPS ? c/q : tFar;
+        t2 = std::abs(q) > EPS ? c/q : qFar;
 
         float tmp = std::min(t1,t2);
         t2 = std::max(t1, t2);
@@ -973,7 +684,7 @@ void BVHRT::SVSNodeIntersect(const float3 ray_pos, const float3 ray_dir,
           rtn -= dx;
         }
         t = rtn;
-        hit = (t >= 0 && t <= tFar && std::abs(f) < EPS);
+        hit = (t >= 0 && t <= qFar && std::abs(f) < EPS);
       }
       else
       {
@@ -990,7 +701,7 @@ void BVHRT::SVSNodeIntersect(const float3 ray_pos, const float3 ray_dir,
 
   float tReal = fNearFar.x + 2.0f * d * t;
 
-  if (t <= tFar && hit && tReal < pHit->t)
+  if (t <= qFar && hit && tReal < pHit->t)
   {
     float3 norm = float3(0, 0, 1);
     if (m_preset.need_normal > 0)
@@ -1012,7 +723,7 @@ void BVHRT::SVSNodeIntersect(const float3 ray_pos, const float3 ray_dir,
     pHit->t = tReal;
     pHit->primId = primId;
     pHit->instId = instId;
-    pHit->geomId = geomId | (TYPE_SDF_SVS << SH_TYPE);
+    pHit->geomId = geomId | (type << SH_TYPE);
     pHit->coords[0] = 0;
     pHit->coords[1] = 0;
     pHit->coords[2] = norm.x;
