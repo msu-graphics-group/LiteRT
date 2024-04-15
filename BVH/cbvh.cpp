@@ -487,7 +487,6 @@ BVHTreeCommon BuildBVH(const float *a_vpos3f, size_t a_vertNum, size_t a_vByteSt
   }
 
   BVHTree bvhData;
-  printf("params %d %d (%d < %d)\n",(int)presets1.quality, (int)presets1.childrenNum, (int)a_indexNum/3, (int)size_t(presets1.primsInLeaf));
   if (a_indexNum/3 <= size_t(a_presets.primsInLeaf))
     bvhData = BuildBVHSmall(inVertices, a_vertNum, a_indices, a_indexNum, presets1);
   else 
@@ -622,7 +621,7 @@ BVHTree BuildBVH(const BVHNode *a_nodes, size_t a_objNum, BuilderPresets a_prese
     quality = RTC_BUILD_QUALITY_MEDIUM;
   else if (a_presets.quality == BVHQuality::HIGH)
     quality = RTC_BUILD_QUALITY_HIGH;
-  printf("Build !!!\n");
+
   embree::g_recommendedPrimsInLeaf = a_presets.primsInLeaf;
   BVHTree lbvh;
   embree::build(quality, primBoxData, (a_objNum / 2), lbvh);

@@ -286,7 +286,6 @@ namespace embree
 
   void build(RTCBuildQuality quality, std::vector<RTCBuildPrimitive>& prims_i, size_t extraSpace, BVHTree& a_res)
   {
-    printf("ITS ALIVE\n");
     auto a_device = rtcNewDevice("");
     rtcSetDeviceMemoryMonitorFunction(a_device,memoryMonitor,nullptr);
 

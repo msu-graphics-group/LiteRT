@@ -12,6 +12,7 @@
 #include "../ISceneObject.h"
 #include "../IRenderer.h"
 #include "../BVH/BVH2Common.h"
+#include "LiteScene/cmesh4.h"
 
 using LiteMath::uint;
 
@@ -56,6 +57,7 @@ public:
 
   //a bunch of functions extending IRenderer to make working with MultiRenderer easier
 #ifndef KERNEL_SLICER 
+  void SetScene(const cmesh4::SimpleMesh &scene);
   void SetScene(SdfSceneView scene);
   void SetScene(SdfGridView scene);
   void SetScene(SdfOctreeView scene);

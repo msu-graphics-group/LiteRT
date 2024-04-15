@@ -154,6 +154,18 @@ void MultiRenderer::GetExecutionTime(const char* a_funcName, float a_out[4])
   a_out[0] = p->second;
 }
 
+void MultiRenderer::SetScene(const cmesh4::SimpleMesh &scene)
+{
+  SetAccelStruct(CreateSceneRT("BVH2Common", "cbvh_embree2", "SuperTreeletAlignedMerged4"));
+  GetAccelStruct()->ClearGeom();
+  GetAccelStruct()->AddGeom_Triangles3f((const float*)scene.vPos4f.data(), scene.vPos4f.size(),
+                                        scene.indices.data(), scene.indices.size(), BUILD_HIGH, sizeof(float)*4);
+  GetAccelStruct()->ClearScene();
+  GetAccelStruct()->AddInstance(0, LiteMath::float4x4());
+  GetAccelStruct()->AddInstance(0, LiteMath::translate4x4(float3(-100,-100,-100)));
+  GetAccelStruct()->CommitScene();
+}
+
 void MultiRenderer::SetScene(SdfSceneView scene)
 {
   SetAccelStruct(CreateSceneRT("BVH2Common", "cbvh_embree2", "SuperTreeletAlignedMerged4"));

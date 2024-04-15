@@ -683,7 +683,7 @@ std::vector<BVHNode> BVHRT::GetBoxes_SdfFrameOctree(SdfFrameOctreeView octree)
   {
     add_border_nodes_rec(octree, nodes, 0, float3(0,0,0), 1);
   }
-  printf("total nodes %d\n",(int)nodes.size());
+
   return nodes;
 }
 
