@@ -406,26 +406,26 @@ vec3 SafeInverse(vec3 d) {
   return res;
 }
 
-uint EXTRACT_COUNT(uint a_leftOffset) { return (a_leftOffset & SIZE_MASK) >> 24; }
-
 uint EXTRACT_START(uint a_leftOffset) { return  a_leftOffset & START_MASK; }
 
-vec3 matmul4x3(mat4 m, vec3 v) {
-  return (m*vec4(v, 1.0f)).xyz;
-}
+uint EXTRACT_COUNT(uint a_leftOffset) { return (a_leftOffset & SIZE_MASK) >> 24; }
 
 vec3 mymul4x3(mat4 m, vec3 v) {
   return (m*vec4(v, 1.0f)).xyz;
 }
 
-bool isLeafAndIntersect(uint flags) { return (flags == (LEAF_BIT | 0x1 )); }
+bool notLeafAndIntersect(uint flags) { return (flags != (LEAF_BIT | 0x1)); }
 
 bool isLeafOrNotIntersect(uint flags) { return (flags & LEAF_BIT) !=0 || (flags & 0x1) == 0; }
 
-bool notLeafAndIntersect(uint flags) { return (flags != (LEAF_BIT | 0x1)); }
+bool isLeafAndIntersect(uint flags) { return (flags == (LEAF_BIT | 0x1 )); }
 
 vec3 matmul3x3(mat4 m, vec3 v) { 
   return (m*vec4(v, 0.0f)).xyz;
+}
+
+vec3 matmul4x3(mat4 m, vec3 v) {
+  return (m*vec4(v, 1.0f)).xyz;
 }
 
 uint SuperBlockIndex2DOpt(uint tidX, uint tidY, uint a_width) {
@@ -470,7 +470,7 @@ uint fakeOffset(uint x, uint y, uint pitch) { return y*pitch + x; }  // RTV patt
 #define KGEN_FLAG_DONT_SET_EXIT     4
 #define KGEN_FLAG_SET_EXIT_NEGATIVE 8
 #define KGEN_REDUCTION_LAST_STEP    16
-#define CFLOAT_GUARDIAN 
 #define MAXFLOAT FLT_MAX
 #define CMESH4_GEOM_H 
+#define CFLOAT_GUARDIAN 
 

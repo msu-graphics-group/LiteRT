@@ -202,7 +202,7 @@ struct BVHRT : public ISceneObject
   std::vector<uint32_t>     m_SdfSBSData;    //raw data for all Sparse Brick Sets
   std::vector<uint32_t>     m_SdfSBSRoots;   //root node ids for each SDF Sparse Voxel Set
   std::vector<SdfSBSHeader> m_SdfSBSHeaders; //header for each SDF Sparse Voxel Set
-  std::vector<uint32_t>     m_SdfSBSRemap;   //primId->nodeId, required as each SBS node can have >1 bbox in BLAS
+  std::vector<uint2>        m_SdfSBSRemap;   //primId->nodeId, required as each SBS node can have >1 bbox in BLAS
 
   //for each instance in scene
   std::vector<Box4f> m_instBoxes;

@@ -397,7 +397,7 @@ void MultiRenderer_GPU::InitMemberBuffers()
   memberVectors.push_back(m_vdata.m_pAccelStruct_m_SdfSBSHeadersBuffer);
   m_vdata.m_pAccelStruct_m_SdfSBSNodesBuffer = vk_utils::createBuffer(device, m_pAccelStruct_m_SdfSBSNodes->capacity()*sizeof(struct SdfSBSNode), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
   memberVectors.push_back(m_vdata.m_pAccelStruct_m_SdfSBSNodesBuffer);
-  m_vdata.m_pAccelStruct_m_SdfSBSRemapBuffer = vk_utils::createBuffer(device, m_pAccelStruct_m_SdfSBSRemap->capacity()*sizeof(unsigned int), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
+  m_vdata.m_pAccelStruct_m_SdfSBSRemapBuffer = vk_utils::createBuffer(device, m_pAccelStruct_m_SdfSBSRemap->capacity()*sizeof(struct LiteMath::uint2), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
   memberVectors.push_back(m_vdata.m_pAccelStruct_m_SdfSBSRemapBuffer);
   m_vdata.m_pAccelStruct_m_SdfSVSNodesBuffer = vk_utils::createBuffer(device, m_pAccelStruct_m_SdfSVSNodes->capacity()*sizeof(struct SdfSVSNode), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
   memberVectors.push_back(m_vdata.m_pAccelStruct_m_SdfSVSNodesBuffer);

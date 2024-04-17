@@ -457,7 +457,7 @@ uint32_t BVHRT::AddGeom_SdfSBS(SdfSBSView octree, BuildQuality a_qualityLevel)
     m_SdfSBSNodes[i].data_offset += v_offset;
 
   //create list of bboxes for BLAS
-  std::vector<BVHNode> orig_nodes(octree.size);
+  std::vector<BVHNode> orig_nodes;
   for (int i=0;i<octree.size;i++)
   {
     float px = octree.nodes[i].pos_xy >> 16;
@@ -465,17 +465,46 @@ uint32_t BVHRT::AddGeom_SdfSBS(SdfSBSView octree, BuildQuality a_qualityLevel)
     float pz = octree.nodes[i].pos_z_lod_size >> 16;
     float sz = octree.nodes[i].pos_z_lod_size & 0x0000FFFF;
 
-    //TODO: more than 1 bbox per brick 
-    orig_nodes[i].boxMin = float3(-1,-1,-1) + 2.0f*float3(px,py,pz)/sz;
-    orig_nodes[i].boxMax = orig_nodes[i].boxMin + 2.0f*float3(1,1,1)/sz;
-    orig_nodes[i].leftOffset = n_offset+i; //it will be later replaced by real offset in BVHBuilder anyway
-  }
+    for (int x=0; x<octree.header.brick_size; x++)
+    {
+      for (int y=0; y<octree.header.brick_size; y++)
+      {
+        for (int z=0; z<octree.header.brick_size; z++)
+        {
+          //check if this voxel is on the border, only border voxels became parts of BVH
+          uint3 voxelPos = uint3(x,y,z);
+          uint32_t voxelId = voxelPos.x*octree.header.v_size*octree.header.v_size + voxelPos.y*octree.header.v_size + voxelPos.z;
+          uint32_t v_off = m_SdfSBSNodes[n_offset + i].data_offset;
+          uint32_t vals_per_int = 4/octree.header.bytes_per_value; 
+          uint32_t bits = 8*octree.header.bytes_per_value;
+          uint32_t max_val = octree.header.bytes_per_value == 4 ? 0xFFFFFFFF : ((1 << bits) - 1);
+          float d_max = 2*1.41421356f/sz;
+          float mult = 2*d_max/max_val;
 
-  //update PrimId -> nodeId mapping
-  unsigned r_off = m_SdfSBSRemap.size();
-  m_SdfSBSRemap.resize(r_off + orig_nodes.size());
-  for (int i=0;i<orig_nodes.size();i++)
-    m_SdfSBSRemap[r_off + i] = orig_nodes[i].leftOffset;
+          float low = 1000;
+          float high = 1000;
+          for (int j=0;j<8;j++)
+          {
+            uint3 vPos = voxelPos + uint3((j & 4) >> 2, (j & 2) >> 1, j & 1);
+            uint32_t vId = vPos.x*octree.header.v_size*octree.header.v_size + vPos.y*octree.header.v_size + vPos.z;
+            float val = -d_max + mult*((m_SdfSBSData[v_off + vId/vals_per_int] >> (bits*(vId%vals_per_int))) & max_val);
+
+            low = std::min(low, val);
+            high = std::max(high, val);
+          }
+
+          if (low*high <= 0)
+          {
+            orig_nodes.emplace_back();
+            orig_nodes.back().boxMin = float3(-1,-1,-1) + 2.0f*(float3(px,py,pz)/sz + float3(voxelPos)/(sz*octree.header.brick_size));
+            orig_nodes.back().boxMax = orig_nodes.back().boxMin + 2.0f*float3(1,1,1)/(sz*octree.header.brick_size);
+
+            m_SdfSBSRemap.push_back(uint2(n_offset+i, voxelId));
+          }
+        }        
+      }      
+    }
+  }
 
   // Build BVH for each geom and append it to big buffer;
   // append data to global arrays and fix offsets

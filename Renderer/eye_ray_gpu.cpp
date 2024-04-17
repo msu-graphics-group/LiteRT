@@ -193,7 +193,7 @@ void MultiRenderer_GPU::UpdateVectorMembers(std::shared_ptr<vk_utils::ICopyEngin
   if(m_pAccelStruct_m_SdfSBSNodes->size() > 0)
     a_pCopyEngine->UpdateBuffer(m_vdata.m_pAccelStruct_m_SdfSBSNodesBuffer, 0, m_pAccelStruct_m_SdfSBSNodes->data(), m_pAccelStruct_m_SdfSBSNodes->size()*sizeof(struct SdfSBSNode) );
   if(m_pAccelStruct_m_SdfSBSRemap->size() > 0)
-    a_pCopyEngine->UpdateBuffer(m_vdata.m_pAccelStruct_m_SdfSBSRemapBuffer, 0, m_pAccelStruct_m_SdfSBSRemap->data(), m_pAccelStruct_m_SdfSBSRemap->size()*sizeof(unsigned int) );
+    a_pCopyEngine->UpdateBuffer(m_vdata.m_pAccelStruct_m_SdfSBSRemapBuffer, 0, m_pAccelStruct_m_SdfSBSRemap->data(), m_pAccelStruct_m_SdfSBSRemap->size()*sizeof(struct LiteMath::uint2) );
   if(m_pAccelStruct_m_SdfSVSNodes->size() > 0)
     a_pCopyEngine->UpdateBuffer(m_vdata.m_pAccelStruct_m_SdfSVSNodesBuffer, 0, m_pAccelStruct_m_SdfSVSNodes->data(), m_pAccelStruct_m_SdfSVSNodes->size()*sizeof(struct SdfSVSNode) );
   if(m_pAccelStruct_m_SdfSVSRoots->size() > 0)

@@ -272,7 +272,7 @@ protected:
   std::vector<uint32_t>* m_pAccelStruct_m_SdfSBSData = nullptr;
   std::vector<SdfSBSHeader>* m_pAccelStruct_m_SdfSBSHeaders = nullptr;
   std::vector<SdfSBSNode>* m_pAccelStruct_m_SdfSBSNodes = nullptr;
-  std::vector<uint32_t>* m_pAccelStruct_m_SdfSBSRemap = nullptr;
+  std::vector<uint2>* m_pAccelStruct_m_SdfSBSRemap = nullptr;
   std::vector<SdfSVSNode>* m_pAccelStruct_m_SdfSVSNodes = nullptr;
   std::vector<uint32_t>* m_pAccelStruct_m_SdfSVSRoots = nullptr;
   std::vector<BVHNodePair>* m_pAccelStruct_m_allNodePairs = nullptr;

@@ -214,23 +214,33 @@ void BVHRT::OctreeNodeIntersect(uint32_t type, const float3 ray_pos, const float
   {
     uint32_t sdfId =  m_geomOffsets[geomId].x;
     primId = a_start; //id of bbox in BLAS
-    nodeId = m_SdfSBSRemap[primId + m_geomOffsets[geomId].y]; //id of node (brick) in SBS
+    nodeId = m_SdfSBSRemap[primId + m_geomOffsets[geomId].y].x; //id of node (brick) in SBS
+    uint32_t voxelId = m_SdfSBSRemap[primId + m_geomOffsets[geomId].y].y;
     SdfSBSHeader header = m_SdfSBSHeaders[sdfId];
+    uint3 voxelPos = uint3(voxelId/(header.v_size*header.v_size), voxelId/header.v_size%header.v_size, voxelId%header.v_size);
 
     float px = m_SdfSBSNodes[nodeId].pos_xy >> 16;
     float py = m_SdfSBSNodes[nodeId].pos_xy & 0x0000FFFF;
     float pz = m_SdfSBSNodes[nodeId].pos_z_lod_size >> 16;
     float sz = m_SdfSBSNodes[nodeId].pos_z_lod_size & 0x0000FFFF;
-    float d_max = 2*1.41421356f*header.brick_size/sz;
 
-    float3 min_pos = float3(-1,-1,-1) + 2.0f*float3(px,py,pz)/sz;
-    float3 max_pos = min_pos + 2.0f*float3(1,1,1)/sz;
+    float3 min_pos = float3(-1,-1,-1) + 2.0f*(float3(px,py,pz)/sz + float3(voxelPos)/(sz*header.brick_size));
+    float3 max_pos = min_pos + 2.0f*float3(1,1,1)/(sz*header.brick_size);
     float3 size = max_pos - min_pos;
 
     //TODO: make it works with brick_size > 1
     uint32_t v_off = m_SdfSBSNodes[nodeId].data_offset;
+    uint32_t vals_per_int = 4/header.bytes_per_value; 
+    uint32_t bits = 8*header.bytes_per_value;
+    uint32_t max_val = header.bytes_per_value == 4 ? 0xFFFFFFFF : ((1 << bits) - 1);
+    float d_max = 2*1.41421356f/sz;
+    float mult = 2*d_max/max_val;
     for (int i=0;i<8;i++)
-      values[i] = -d_max + 2*d_max*(1.0/255.0f)*((m_SdfSBSData[v_off + i/4] >> (8*(i%4))) & 0xFF);
+    {
+      uint3 vPos = voxelPos + uint3((i & 4) >> 2, (i & 2) >> 1, i & 1);
+      uint32_t vId = vPos.x*header.v_size*header.v_size + vPos.y*header.v_size + vPos.z;
+      values[i] = -d_max + mult*((m_SdfSBSData[v_off + vId/vals_per_int] >> (bits*(vId%vals_per_int))) & max_val);
+    }
 
     fNearFar = RayBoxIntersection2(ray_pos, SafeInverse(ray_dir), min_pos, max_pos);
     float3 start_pos = ray_pos + fNearFar.x*ray_dir;
