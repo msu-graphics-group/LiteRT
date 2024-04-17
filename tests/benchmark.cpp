@@ -27,18 +27,18 @@ struct BenchmarkResult
 
 void benchmark_framed_octree_intersection()
 {
-  constexpr unsigned iters = 20;
+  constexpr unsigned iters = 200;
   std::vector<BenchmarkResult> results;
 
   std::vector<std::string> scene_names = {"Teapot", "Bunny"};
   std::vector<std::string> scene_paths = {"scenes/01_simple_scenes/data/teapot.vsgf", "scenes/01_simple_scenes/data/bunny.vsgf"}; 
 
-  std::vector<unsigned> AS_types = {TYPE_SDF_FRAME_OCTREE, TYPE_SDF_SVS, TYPE_MESH_TRIANGLE};
-  std::vector<std::string> AS_names = {"framed_octree", "sparse_voxel_set", "mesh"};
+  std::vector<unsigned> AS_types = {TYPE_SDF_FRAME_OCTREE, TYPE_SDF_SVS, TYPE_SDF_SBS, TYPE_MESH_TRIANGLE};
+  std::vector<std::string> AS_names = {"framed_octree", "sparse_voxel_set", "sparse_brick_set", "mesh"};
 
-  std::vector<std::vector<unsigned>> presets_ob(3);
-  std::vector<std::vector<unsigned>> presets_oi(3);
-  std::vector<std::vector<std::string>> preset_names(3);
+  std::vector<std::vector<unsigned>> presets_ob(4);
+  std::vector<std::vector<unsigned>> presets_oi(4);
+  std::vector<std::vector<std::string>> preset_names(4);
 
   presets_ob[0] = {SDF_OCTREE_BLAS_NO, 
                    SDF_OCTREE_BLAS_DEFAULT, 
@@ -73,9 +73,24 @@ void benchmark_framed_octree_intersection()
                      "bvh_analytic",
                      "bvh_newton"};
 
-  presets_ob[2] = {SDF_OCTREE_BLAS_DEFAULT};
-  presets_oi[2] = {SDF_OCTREE_NODE_INTERSECT_DEFAULT};
-  preset_names[2] = {"default"};
+  presets_ob[2] = {SDF_OCTREE_BLAS_DEFAULT, 
+                   SDF_OCTREE_BLAS_DEFAULT, 
+                   SDF_OCTREE_BLAS_DEFAULT, 
+                   SDF_OCTREE_BLAS_DEFAULT};
+
+  presets_oi[2] = {SDF_OCTREE_NODE_INTERSECT_DEFAULT, 
+                   SDF_OCTREE_NODE_INTERSECT_ST, 
+                   SDF_OCTREE_NODE_INTERSECT_ANALYTIC, 
+                   SDF_OCTREE_NODE_INTERSECT_NEWTON};
+
+  preset_names[2] = {"bvh_traversal",
+                     "bvh_sphere_tracing",
+                     "bvh_analytic",
+                     "bvh_newton"};
+
+  presets_ob[3] = {SDF_OCTREE_BLAS_DEFAULT};
+  presets_oi[3] = {SDF_OCTREE_NODE_INTERSECT_DEFAULT};
+  preset_names[3] = {"default"};
 
   assert(scene_names.size() > 0);
   assert(scene_names.size() == scene_paths.size());
@@ -98,12 +113,20 @@ void benchmark_framed_octree_intersection()
 
     SparseOctreeBuilder builder;
     SparseOctreeSettings settings{8, 4, 0.0f};
+    SdfSBSHeader header;
+    header.brick_size = 1;
+    header.brick_pad = 0;
+    header.bytes_per_value = 1;
+
     std::vector<SdfFrameOctreeNode> frame_nodes;
     std::vector<SdfSVSNode> svs_nodes;
+    std::vector<SdfSBSNode> sbs_nodes;
+    std::vector<uint32_t>   sbs_data;
 
     builder.construct([&mesh_bvh](const float3 &p) { return mesh_bvh.get_signed_distance(p); }, settings);
     builder.convert_to_frame_octree(frame_nodes);
     builder.convert_to_sparse_voxel_set(svs_nodes);
+    builder.convert_to_sparse_brick_set(header, sbs_nodes, sbs_data);
 
     unsigned W = 1024, H = 1024;
     LiteImage::Image2D<uint32_t> image(W, H);
@@ -125,6 +148,8 @@ void benchmark_framed_octree_intersection()
           pRender->SetScene({(unsigned)svs_nodes.size(), svs_nodes.data()});
         else if (AS_types[as_n] == TYPE_MESH_TRIANGLE) 
           pRender->SetScene(mesh);
+        else if (AS_types[as_n] == TYPE_SDF_SBS)
+          pRender->SetScene({header, (unsigned)sbs_nodes.size(), sbs_nodes.data(), (unsigned)sbs_data.size(), sbs_data.data()});
 
         double sum_ms = 0.0;
         render(image, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset);
@@ -158,7 +183,7 @@ void benchmark_framed_octree_intersection()
 
   for (auto &res : results)
   {
-    printf("[%20s + %20s + %20s] %.2f ms/frame \n", 
+    printf("[%20s + %20s + %20s] %5.2f ms/frame \n", 
            res.scene_name.c_str(), res.as_name.c_str(), res.preset_name.c_str(), 
            res.render_average_time_ms);
   }

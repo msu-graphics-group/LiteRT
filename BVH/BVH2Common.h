@@ -58,6 +58,7 @@ struct BVHRT : public ISceneObject
   uint32_t AddGeom_SdfOctree(SdfOctreeView octree, BuildQuality a_qualityLevel = BUILD_HIGH) override;
   uint32_t AddGeom_SdfFrameOctree(SdfFrameOctreeView octree, BuildQuality a_qualityLevel = BUILD_HIGH) override;
   uint32_t AddGeom_SdfSVS(SdfSVSView octree, BuildQuality a_qualityLevel = BUILD_HIGH) override;
+  uint32_t AddGeom_SdfSBS(SdfSBSView octree, BuildQuality a_qualityLevel = BUILD_HIGH) override;
 #endif
 
   //common functions for a few Sdf...Function interfaces
@@ -195,6 +196,13 @@ struct BVHRT : public ISceneObject
   //SDF Sparse Voxel Sets
   std::vector<SdfSVSNode> m_SdfSVSNodes;//nodes for all SDF Sparse Voxel Sets
   std::vector<uint32_t> m_SdfSVSRoots;     //root node ids for each SDF Sparse Voxel Set
+
+  //SDF Sparse Brick Sets
+  std::vector<SdfSBSNode>   m_SdfSBSNodes;   //nodes for all SDF Sparse Brick Sets
+  std::vector<uint32_t>     m_SdfSBSData;    //raw data for all Sparse Brick Sets
+  std::vector<uint32_t>     m_SdfSBSRoots;   //root node ids for each SDF Sparse Voxel Set
+  std::vector<SdfSBSHeader> m_SdfSBSHeaders; //header for each SDF Sparse Voxel Set
+  std::vector<uint32_t>     m_SdfSBSRemap;   //primId->nodeId, required as each SBS node can have >1 bbox in BLAS
 
   //for each instance in scene
   std::vector<Box4f> m_instBoxes;

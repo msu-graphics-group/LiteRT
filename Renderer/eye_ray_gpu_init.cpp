@@ -164,6 +164,10 @@ MultiRenderer_GPU::~MultiRenderer_GPU()
   vkDestroyBuffer(device, m_vdata.m_pAccelStruct_m_SdfOctreeNodesBuffer, nullptr);
   vkDestroyBuffer(device, m_vdata.m_pAccelStruct_m_SdfOctreeRootsBuffer, nullptr);
   vkDestroyBuffer(device, m_vdata.m_pAccelStruct_m_SdfParametersBuffer, nullptr);
+  vkDestroyBuffer(device, m_vdata.m_pAccelStruct_m_SdfSBSDataBuffer, nullptr);
+  vkDestroyBuffer(device, m_vdata.m_pAccelStruct_m_SdfSBSHeadersBuffer, nullptr);
+  vkDestroyBuffer(device, m_vdata.m_pAccelStruct_m_SdfSBSNodesBuffer, nullptr);
+  vkDestroyBuffer(device, m_vdata.m_pAccelStruct_m_SdfSBSRemapBuffer, nullptr);
   vkDestroyBuffer(device, m_vdata.m_pAccelStruct_m_SdfSVSNodesBuffer, nullptr);
   vkDestroyBuffer(device, m_vdata.m_pAccelStruct_m_SdfSVSRootsBuffer, nullptr);
   vkDestroyBuffer(device, m_vdata.m_pAccelStruct_m_allNodePairsBuffer, nullptr);
@@ -314,6 +318,14 @@ void MultiRenderer_GPU::ReserveEmptyVectors()
     m_pAccelStruct_m_SdfOctreeRoots->reserve(4);
   if(m_pAccelStruct_m_SdfParameters != nullptr && m_pAccelStruct_m_SdfParameters->capacity() == 0)
     m_pAccelStruct_m_SdfParameters->reserve(4);
+  if(m_pAccelStruct_m_SdfSBSData != nullptr && m_pAccelStruct_m_SdfSBSData->capacity() == 0)
+    m_pAccelStruct_m_SdfSBSData->reserve(4);
+  if(m_pAccelStruct_m_SdfSBSHeaders != nullptr && m_pAccelStruct_m_SdfSBSHeaders->capacity() == 0)
+    m_pAccelStruct_m_SdfSBSHeaders->reserve(4);
+  if(m_pAccelStruct_m_SdfSBSNodes != nullptr && m_pAccelStruct_m_SdfSBSNodes->capacity() == 0)
+    m_pAccelStruct_m_SdfSBSNodes->reserve(4);
+  if(m_pAccelStruct_m_SdfSBSRemap != nullptr && m_pAccelStruct_m_SdfSBSRemap->capacity() == 0)
+    m_pAccelStruct_m_SdfSBSRemap->reserve(4);
   if(m_pAccelStruct_m_SdfSVSNodes != nullptr && m_pAccelStruct_m_SdfSVSNodes->capacity() == 0)
     m_pAccelStruct_m_SdfSVSNodes->reserve(4);
   if(m_pAccelStruct_m_SdfSVSRoots != nullptr && m_pAccelStruct_m_SdfSVSRoots->capacity() == 0)
@@ -379,6 +391,14 @@ void MultiRenderer_GPU::InitMemberBuffers()
   memberVectors.push_back(m_vdata.m_pAccelStruct_m_SdfOctreeRootsBuffer);
   m_vdata.m_pAccelStruct_m_SdfParametersBuffer = vk_utils::createBuffer(device, m_pAccelStruct_m_SdfParameters->capacity()*sizeof(float), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
   memberVectors.push_back(m_vdata.m_pAccelStruct_m_SdfParametersBuffer);
+  m_vdata.m_pAccelStruct_m_SdfSBSDataBuffer = vk_utils::createBuffer(device, m_pAccelStruct_m_SdfSBSData->capacity()*sizeof(unsigned int), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
+  memberVectors.push_back(m_vdata.m_pAccelStruct_m_SdfSBSDataBuffer);
+  m_vdata.m_pAccelStruct_m_SdfSBSHeadersBuffer = vk_utils::createBuffer(device, m_pAccelStruct_m_SdfSBSHeaders->capacity()*sizeof(struct SdfSBSHeader), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
+  memberVectors.push_back(m_vdata.m_pAccelStruct_m_SdfSBSHeadersBuffer);
+  m_vdata.m_pAccelStruct_m_SdfSBSNodesBuffer = vk_utils::createBuffer(device, m_pAccelStruct_m_SdfSBSNodes->capacity()*sizeof(struct SdfSBSNode), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
+  memberVectors.push_back(m_vdata.m_pAccelStruct_m_SdfSBSNodesBuffer);
+  m_vdata.m_pAccelStruct_m_SdfSBSRemapBuffer = vk_utils::createBuffer(device, m_pAccelStruct_m_SdfSBSRemap->capacity()*sizeof(unsigned int), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
+  memberVectors.push_back(m_vdata.m_pAccelStruct_m_SdfSBSRemapBuffer);
   m_vdata.m_pAccelStruct_m_SdfSVSNodesBuffer = vk_utils::createBuffer(device, m_pAccelStruct_m_SdfSVSNodes->capacity()*sizeof(struct SdfSVSNode), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
   memberVectors.push_back(m_vdata.m_pAccelStruct_m_SdfSVSNodesBuffer);
   m_vdata.m_pAccelStruct_m_SdfSVSRootsBuffer = vk_utils::createBuffer(device, m_pAccelStruct_m_SdfSVSRoots->capacity()*sizeof(unsigned int), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);

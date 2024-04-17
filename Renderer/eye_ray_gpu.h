@@ -76,6 +76,10 @@ public:
       m_pAccelStruct_m_SdfOctreeNodes = &pUnderlyingImpl->m_SdfOctreeNodes;
       m_pAccelStruct_m_SdfOctreeRoots = &pUnderlyingImpl->m_SdfOctreeRoots;
       m_pAccelStruct_m_SdfParameters = &pUnderlyingImpl->m_SdfParameters;
+      m_pAccelStruct_m_SdfSBSData = &pUnderlyingImpl->m_SdfSBSData;
+      m_pAccelStruct_m_SdfSBSHeaders = &pUnderlyingImpl->m_SdfSBSHeaders;
+      m_pAccelStruct_m_SdfSBSNodes = &pUnderlyingImpl->m_SdfSBSNodes;
+      m_pAccelStruct_m_SdfSBSRemap = &pUnderlyingImpl->m_SdfSBSRemap;
       m_pAccelStruct_m_SdfSVSNodes = &pUnderlyingImpl->m_SdfSVSNodes;
       m_pAccelStruct_m_SdfSVSRoots = &pUnderlyingImpl->m_SdfSVSRoots;
       m_pAccelStruct_m_allNodePairs = &pUnderlyingImpl->m_allNodePairs;
@@ -212,6 +216,14 @@ protected:
     size_t   m_pAccelStruct_m_SdfOctreeRootsOffset = 0;
     VkBuffer m_pAccelStruct_m_SdfParametersBuffer = VK_NULL_HANDLE;
     size_t   m_pAccelStruct_m_SdfParametersOffset = 0;
+    VkBuffer m_pAccelStruct_m_SdfSBSDataBuffer = VK_NULL_HANDLE;
+    size_t   m_pAccelStruct_m_SdfSBSDataOffset = 0;
+    VkBuffer m_pAccelStruct_m_SdfSBSHeadersBuffer = VK_NULL_HANDLE;
+    size_t   m_pAccelStruct_m_SdfSBSHeadersOffset = 0;
+    VkBuffer m_pAccelStruct_m_SdfSBSNodesBuffer = VK_NULL_HANDLE;
+    size_t   m_pAccelStruct_m_SdfSBSNodesOffset = 0;
+    VkBuffer m_pAccelStruct_m_SdfSBSRemapBuffer = VK_NULL_HANDLE;
+    size_t   m_pAccelStruct_m_SdfSBSRemapOffset = 0;
     VkBuffer m_pAccelStruct_m_SdfSVSNodesBuffer = VK_NULL_HANDLE;
     size_t   m_pAccelStruct_m_SdfSVSNodesOffset = 0;
     VkBuffer m_pAccelStruct_m_SdfSVSRootsBuffer = VK_NULL_HANDLE;
@@ -257,6 +269,10 @@ protected:
   std::vector<SdfOctreeNode>* m_pAccelStruct_m_SdfOctreeNodes = nullptr;
   std::vector<uint32_t>* m_pAccelStruct_m_SdfOctreeRoots = nullptr;
   std::vector<float>* m_pAccelStruct_m_SdfParameters = nullptr;
+  std::vector<uint32_t>* m_pAccelStruct_m_SdfSBSData = nullptr;
+  std::vector<SdfSBSHeader>* m_pAccelStruct_m_SdfSBSHeaders = nullptr;
+  std::vector<SdfSBSNode>* m_pAccelStruct_m_SdfSBSNodes = nullptr;
+  std::vector<uint32_t>* m_pAccelStruct_m_SdfSBSRemap = nullptr;
   std::vector<SdfSVSNode>* m_pAccelStruct_m_SdfSVSNodes = nullptr;
   std::vector<uint32_t>* m_pAccelStruct_m_SdfSVSRoots = nullptr;
   std::vector<BVHNodePair>* m_pAccelStruct_m_allNodePairs = nullptr;

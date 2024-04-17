@@ -11,6 +11,7 @@
   using LiteMath::uint;
   using LiteMath::uint2;
   using LiteMath::uint4;
+  using LiteMath::Box4f;
   
   constexpr unsigned int LEAF_NORMAL = 0xFFFFFFFF; ///!<
   constexpr unsigned int LEAF_EMPTY  = 0xFFFFFFFD; ///!<

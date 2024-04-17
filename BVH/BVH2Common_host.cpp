@@ -95,6 +95,21 @@ void BVHRT::ClearGeom()
   m_RFGridScales.reserve(16);  
   m_RFGridScales.resize(0);
 
+  m_SdfSBSNodes.reserve(16);
+  m_SdfSBSNodes.resize(0);
+
+  m_SdfSBSData.reserve(16);
+  m_SdfSBSData.resize(0);
+
+  m_SdfSBSRoots.reserve(16);
+  m_SdfSBSRoots.resize(0);
+
+  m_SdfSBSHeaders.reserve(16);
+  m_SdfSBSHeaders.resize(0);
+
+  m_SdfSBSRemap.reserve(16);
+  m_SdfSBSRemap.resize(0);
+
   ClearScene();
 }
 
@@ -404,6 +419,63 @@ uint32_t BVHRT::AddGeom_SdfSVS(SdfSVSView octree, BuildQuality a_qualityLevel)
     orig_nodes[i].boxMin = float3(-1,-1,-1) + 2.0f*float3(px,py,pz)/sz;
     orig_nodes[i].boxMax = orig_nodes[i].boxMin + 2.0f*float3(1,1,1)/sz;
   }
+
+  // Build BVH for each geom and append it to big buffer;
+  // append data to global arrays and fix offsets
+  auto presets = BuilderPresetsFromString(m_buildName.c_str());
+  auto layout  = LayoutPresetsFromString(m_layoutName.c_str());
+  auto bvhData = BuildBVHFatCustom(orig_nodes.data(), orig_nodes.size(), presets, layout);
+
+  m_allNodePairs.insert(m_allNodePairs.end(), bvhData.nodes.begin(), bvhData.nodes.end());
+
+  return m_geomTypeByGeomId.size()-1;
+}
+
+uint32_t BVHRT::AddGeom_SdfSBS(SdfSBSView octree, BuildQuality a_qualityLevel)
+{
+  assert(octree.size > 0 && octree.values_count > 0);
+  assert(octree.size < (1u<<28) && octree.values_count < (1u<<28));
+  //SDF octree is always a unit cube
+  float4 mn = float4(-1,-1,-1,1);
+  float4 mx = float4( 1, 1, 1,1);
+
+  //fill common data arrays
+  m_geomOffsets.push_back(uint2(m_SdfSBSRoots.size(), m_SdfSBSRemap.size()));
+  m_geomBoxes.push_back(Box4f(mn, mx));
+  m_geomTypeByGeomId.push_back(TYPE_SDF_SBS);
+  m_bvhOffsets.push_back(m_allNodePairs.size());
+
+  //fill octree-specific data arrays
+  unsigned n_offset = m_SdfSBSNodes.size();
+  unsigned v_offset = m_SdfSBSData.size();
+  m_SdfSBSRoots.push_back(n_offset);
+  m_SdfSBSHeaders.push_back(octree.header);
+  m_SdfSBSNodes.insert(m_SdfSBSNodes.end(), octree.nodes, octree.nodes + octree.size);
+  m_SdfSBSData.insert(m_SdfSBSData.end(), octree.values, octree.values + octree.values_count);
+
+  for (int i=n_offset; i<m_SdfSBSNodes.size(); i++)
+    m_SdfSBSNodes[i].data_offset += v_offset;
+
+  //create list of bboxes for BLAS
+  std::vector<BVHNode> orig_nodes(octree.size);
+  for (int i=0;i<octree.size;i++)
+  {
+    float px = octree.nodes[i].pos_xy >> 16;
+    float py = octree.nodes[i].pos_xy & 0x0000FFFF;
+    float pz = octree.nodes[i].pos_z_lod_size >> 16;
+    float sz = octree.nodes[i].pos_z_lod_size & 0x0000FFFF;
+
+    //TODO: more than 1 bbox per brick 
+    orig_nodes[i].boxMin = float3(-1,-1,-1) + 2.0f*float3(px,py,pz)/sz;
+    orig_nodes[i].boxMax = orig_nodes[i].boxMin + 2.0f*float3(1,1,1)/sz;
+    orig_nodes[i].leftOffset = n_offset+i; //it will be later replaced by real offset in BVHBuilder anyway
+  }
+
+  //update PrimId -> nodeId mapping
+  unsigned r_off = m_SdfSBSRemap.size();
+  m_SdfSBSRemap.resize(r_off + orig_nodes.size());
+  for (int i=0;i<orig_nodes.size();i++)
+    m_SdfSBSRemap[r_off + i] = orig_nodes[i].leftOffset;
 
   // Build BVH for each geom and append it to big buffer;
   // append data to global arrays and fix offsets

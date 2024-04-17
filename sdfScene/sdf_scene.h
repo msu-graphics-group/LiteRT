@@ -102,6 +102,26 @@ struct SdfSVSNode
   uint32_t values[2]; //compressed distance values, 1 byte per value
 };
 
+//node for SparseBrickSet, similar idea to SparseVoxelSet, but values stored in bricks of KxKxK voxels,
+//and values are shared between voxels, which leads to smaller memory footprint
+struct SdfSBSNode
+{
+  uint32_t pos_xy; //position of start voxel of the block in it's LOD
+  uint32_t pos_z_lod_size; //size of it's LOD, (i.e. 2^LOD)
+  uint32_t data_offset; //offset in data vector for block with distance values, offset is in uint32_t, not bytes 
+  uint32_t _pad;
+};
+
+//headed contains some info about particular SBS, such as size of a brick, precision of stored values etc
+//and also some precomputed values based on them to reduce the number of calculations during rendering
+struct SdfSBSHeader
+{
+  uint32_t brick_size;      //number of voxels in each brick, 1 to 16
+  uint32_t brick_pad;       //how many additional voxels are stored on the borders, 0 is default, 1 is required for tricubic filtration
+  uint32_t v_size;          //brick_size + 2*brick_pad + 1
+  uint32_t bytes_per_value; //1, 2 or 4 bytes per value is allowed
+};
+
 //################################################################################
 // CPU-specific functions and data structures
 //################################################################################
@@ -129,6 +149,15 @@ struct SdfSVSView
 {
   unsigned size;
   const SdfSVSNode *nodes;
+};
+
+struct SdfSBSView
+{
+  SdfSBSHeader header;
+  unsigned size;
+  SdfSBSNode *nodes;
+  unsigned values_count;
+  uint32_t *values;
 };
 
 // structure to actually store SdfScene data

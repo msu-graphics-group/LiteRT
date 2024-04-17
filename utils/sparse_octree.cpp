@@ -809,16 +809,6 @@ void frame_octree_to_SVS_rec(const std::vector<SdfFrameOctreeNode> &frame,
         //assert(d_compressed < 256);
         nodes.back().values[i/4] |= d_compressed << (8*(i%4));
       }
-      /*
-      for (int i=0;i<8;i++)
-      {
-      if (nodes.size() < 293000 && nodes.size() > 292000)
-        printf("[%u][%10X %10X %10X %10X] %u %u %u (%u) %f -> %u\n", (unsigned)nodes.size(),
-              nodes.back().pos_xy, nodes.back().pos_z_lod_size,
-      nodes.back().values[0], nodes.back().values[1],
-        p.x, p.y, p.z, lod_size, frame[idx].values[i], (nodes.back().values[i/4] >> (8*(i%4))) & 0xFF);
-      }
-      */
     }
   }
   else
@@ -837,4 +827,92 @@ void SparseOctreeBuilder::convert_to_sparse_voxel_set(std::vector<SdfSVSNode> &o
   std::vector<SdfFrameOctreeNode> frame(nodes.size());
   fill_octree_frame_rec(sdf, nodes, frame, 0, float3(0,0,0), 1);
   frame_octree_to_SVS_rec(frame, out_nodes, 0, uint3(0,0,0), 1);
+}
+
+void frame_octree_to_SBS_rec(std::function<SparseOctreeBuilder::T(const float3 &)> sdf, 
+                             const std::vector<SdfOctreeNode> &nodes,
+                             const SdfSBSHeader &header,
+                             std::vector<SdfSBSNode> &out_nodes, 
+                             std::vector<uint32_t> &out_values,
+                             unsigned idx, uint3 p, unsigned level, float d)
+{
+  unsigned ofs = nodes[idx].offset;
+  if (is_leaf(ofs)) 
+  {
+    //early exit is we are sure that this node does not belong to a border
+    if (!SparseOctreeBuilder::is_border(nodes[idx].value, level))
+      return;
+    
+    std::vector<float> values(header.v_size*header.v_size*header.v_size, 1000.0f);
+    float min_val = 1000;
+    float max_val = 1000;
+    float3 p0 = 2.0f*(d*float3(p)) - 1.0f;
+    float dp = 2.0f*d/header.brick_size;
+
+    for (int i=-header.brick_pad; i<=header.brick_size + header.brick_pad; i++)
+    {
+      for (int j=-header.brick_pad; j<=header.brick_size + header.brick_pad; j++)
+      {
+        for (int k=-header.brick_pad; k<=header.brick_size + header.brick_pad; k++)
+        {
+          float3 p = p0 + dp*float3(i,j,k);
+          float val = sdf(p);
+          if (i >= 0 && i <= header.brick_size && j >= 0 && j <= header.brick_size && k >= 0 && k <= header.brick_size)
+          {
+            //max and min values inside the brick, not the padding
+            min_val = std::min(min_val, val);
+            max_val = std::max(max_val, val);
+          }
+          values[i*header.v_size*header.v_size + j*header.v_size + k] = val;
+        }
+      }      
+    }
+
+    //add not only if there is really a border
+    if (min_val <= 0 && max_val >= 0)
+    {
+      unsigned off = out_values.size();
+      out_nodes.emplace_back();
+
+      unsigned lod_size = 1.0f/d;
+      out_nodes.back().data_offset = off;
+      out_nodes.back().pos_xy = (p.x << 16) | p.y;
+      out_nodes.back().pos_z_lod_size = (p.z << 16) | lod_size;
+
+      float d_max = 2*sqrt(2)/lod_size;
+      unsigned bits = 8*header.bytes_per_value;
+      unsigned max_val = (1 << bits) - 1;
+      unsigned vals_per_int = 4/header.bytes_per_value;
+
+      out_values.resize(out_values.size() + (values.size()+vals_per_int-1)/vals_per_int);
+      for (int i=0;i<values.size();i++)
+      {
+        unsigned d_compressed = std::max(0.0f, max_val*((values[i]+d_max)/(2*d_max)));
+        d_compressed = std::min(d_compressed, max_val);
+        out_values[off + i/vals_per_int] |= d_compressed << (bits*(i%vals_per_int));
+      }
+    }
+  }
+  else
+  {
+    for (int i = 0; i < 8; i++)
+    {
+      uint3 ch_p = 2 * p + uint3((i & 4) >> 2, (i & 2) >> 1, i & 1);
+      frame_octree_to_SBS_rec(sdf, nodes, header, out_nodes, out_values, ofs + i, ch_p, level + 1, d/2);
+    }
+  }
+}
+
+void SparseOctreeBuilder::convert_to_sparse_brick_set(SdfSBSHeader &header, 
+                                                      std::vector<SdfSBSNode> &out_nodes, 
+                                                      std::vector<uint32_t> &out_values)
+{
+  assert(header.brick_size >= 1 && header.brick_size <= 16);
+  assert(header.brick_pad == 0 || header.brick_pad == 1);
+  assert(header.bytes_per_value == 1 || header.bytes_per_value == 2 || header.bytes_per_value == 4);
+
+  header.v_size = header.brick_size + 2*header.brick_pad + 1;
+
+  auto &nodes = get_nodes();
+  frame_octree_to_SBS_rec(sdf, nodes, header, out_nodes, out_values, 0, uint3(0,0,0), 0, 1);
 }

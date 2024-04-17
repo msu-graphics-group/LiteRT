@@ -394,6 +394,7 @@ void BVHRT::IntersectAllPrimitivesInLeaf(const float3 ray_pos, const float3 ray_
     IntersectRFInLeaf(ray_pos, ray_dir, tNear, instId, geomId, a_start, a_count, pHit);
     break;
   case TYPE_SDF_SVS:
+  case TYPE_SDF_SBS:
     OctreeNodeIntersect(type, ray_pos, ray_dir, tNear, instId, geomId, a_start, a_count, pHit);
     break;
   default:
@@ -445,7 +446,7 @@ void BVHRT::OctreeNodeIntersect(uint32_t type, const float3 ray_pos, const float
     start_q = (start_pos - min_pos)/(2.0f*d);
     qFar = (fNearFar.y - fNearFar.x) / (2.0f * d);
   }
-  else //if (type == TYPE_SDF_SVS)
+  else if (type == TYPE_SDF_SVS)
   {
     uint32_t sdfId =  m_geomOffsets[geomId].x;
     primId = a_start;
@@ -463,6 +464,34 @@ void BVHRT::OctreeNodeIntersect(uint32_t type, const float3 ray_pos, const float
 
     for (int i=0;i<8;i++)
       values[i] = -d_max + 2*d_max*(1.0/255.0f)*((m_SdfSVSNodes[nodeId].values[i/4] >> (8*(i%4))) & 0xFF);
+
+    fNearFar = RayBoxIntersection2(ray_pos, SafeInverse(ray_dir), min_pos, max_pos);
+    float3 start_pos = ray_pos + fNearFar.x*ray_dir;
+    d = std::max(size.x, std::max(size.y, size.z));
+    start_q = (start_pos - min_pos)/(2.0f*d);
+    qFar = (fNearFar.y - fNearFar.x) / (2.0f * d);
+  }
+  else //if (type == TYPE_SDF_SBS)
+  {
+    uint32_t sdfId =  m_geomOffsets[geomId].x;
+    primId = a_start; //id of bbox in BLAS
+    nodeId = m_SdfSBSRemap[primId + m_geomOffsets[geomId].y]; //id of node (brick) in SBS
+    SdfSBSHeader header = m_SdfSBSHeaders[sdfId];
+
+    float px = m_SdfSBSNodes[nodeId].pos_xy >> 16;
+    float py = m_SdfSBSNodes[nodeId].pos_xy & 0x0000FFFF;
+    float pz = m_SdfSBSNodes[nodeId].pos_z_lod_size >> 16;
+    float sz = m_SdfSBSNodes[nodeId].pos_z_lod_size & 0x0000FFFF;
+    float d_max = 2*1.41421356f*header.brick_size/sz;
+
+    float3 min_pos = float3(-1,-1,-1) + 2.0f*float3(px,py,pz)/sz;
+    float3 max_pos = min_pos + 2.0f*float3(1,1,1)/sz;
+    float3 size = max_pos - min_pos;
+
+    //TODO: make it works with brick_size > 1
+    uint32_t v_off = m_SdfSBSNodes[nodeId].data_offset;
+    for (int i=0;i<8;i++)
+      values[i] = -d_max + 2*d_max*(1.0/255.0f)*((m_SdfSBSData[v_off + i/4] >> (8*(i%4))) & 0xFF);
 
     fNearFar = RayBoxIntersection2(ray_pos, SafeInverse(ray_dir), min_pos, max_pos);
     float3 start_pos = ray_pos + fNearFar.x*ray_dir;

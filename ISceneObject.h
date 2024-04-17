@@ -38,6 +38,7 @@ static constexpr unsigned TYPE_SDF_OCTREE          = 3;
 static constexpr unsigned TYPE_SDF_FRAME_OCTREE    = 4;
 static constexpr unsigned TYPE_RF_GRID             = 5;
 static constexpr unsigned TYPE_SDF_SVS             = 6;
+static constexpr unsigned TYPE_SDF_SBS             = 7;
 
 //enum SdfOctreeSampler
 static constexpr unsigned SDF_OCTREE_SAMPLER_MIPSKIP_3X3 = 0; //go to the deepest level possible, resampling larger nodes
@@ -119,6 +120,7 @@ struct ISceneObject
   virtual uint32_t AddGeom_SdfOctree(SdfOctreeView octree, BuildQuality a_qualityLevel = BUILD_HIGH) = 0;
   virtual uint32_t AddGeom_SdfFrameOctree(SdfFrameOctreeView octree, BuildQuality a_qualityLevel = BUILD_HIGH) = 0;
   virtual uint32_t AddGeom_SdfSVS(SdfSVSView octree, BuildQuality a_qualityLevel = BUILD_HIGH) = 0;
+  virtual uint32_t AddGeom_SdfSBS(SdfSBSView octree, BuildQuality a_qualityLevel = BUILD_HIGH) = 0;
 #endif
 
   /**
