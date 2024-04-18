@@ -54,11 +54,18 @@ void MultiRenderer::kernel_RayTrace(uint32_t tidX, const float4* rayPosAndNear,
 {
   const float4 rayPos = *rayPosAndNear;
   const float4 rayDir = *rayDirAndFar ;
-  
-  CRT_Hit hit   = m_pAccelStruct->RayQuery_NearestHit(rayPos, rayDir);
   const uint XY = m_packedXY[tidX];
   const uint x  = (XY & 0x0000FFFF);
   const uint y  = (XY & 0xFFFF0000) >> 16;
+
+/*
+  if (x == 484 && y == 526)
+    m_pAccelStruct->set_debug_mode(true);
+  else
+    m_pAccelStruct->set_debug_mode(false);
+*/
+
+  CRT_Hit hit = m_pAccelStruct->RayQuery_NearestHit(rayPos, rayDir);
 
   if (hit.primId == 0xFFFFFFFF) //no hit
   {
@@ -427,14 +434,15 @@ void BVHRT::OctreeNodeIntersect(uint32_t type, const float3 ray_pos, const float
   float d, qFar;
   float2 fNearFar;
   float3 start_q;
+  float3 min_pos, max_pos;
 
   if (type == TYPE_SDF_FRAME_OCTREE)
   {
     uint32_t sdfId =  m_geomOffsets[geomId].x;
     primId = m_origNodes[a_start].leftOffset;
     nodeId = primId + m_SdfFrameOctreeRoots[sdfId];
-    float3 min_pos = m_origNodes[a_start].boxMin;
-    float3 max_pos = m_origNodes[a_start].boxMax;
+    min_pos = m_origNodes[a_start].boxMin;
+    max_pos = m_origNodes[a_start].boxMax;
     float3 size = max_pos - min_pos;
 
     for (int i=0;i<8;i++)
@@ -458,8 +466,8 @@ void BVHRT::OctreeNodeIntersect(uint32_t type, const float3 ray_pos, const float
     float sz = m_SdfSVSNodes[nodeId].pos_z_lod_size & 0x0000FFFF;
     float d_max = 2*1.41421356f/sz;
 
-    float3 min_pos = float3(-1,-1,-1) + 2.0f*float3(px,py,pz)/sz;
-    float3 max_pos = min_pos + 2.0f*float3(1,1,1)/sz;
+    min_pos = float3(-1,-1,-1) + 2.0f*float3(px,py,pz)/sz;
+    max_pos = min_pos + 2.0f*float3(1,1,1)/sz;
     float3 size = max_pos - min_pos;
 
     for (int i=0;i<8;i++)
@@ -485,8 +493,8 @@ void BVHRT::OctreeNodeIntersect(uint32_t type, const float3 ray_pos, const float
     float pz = m_SdfSBSNodes[nodeId].pos_z_lod_size >> 16;
     float sz = m_SdfSBSNodes[nodeId].pos_z_lod_size & 0x0000FFFF;
 
-    float3 min_pos = float3(-1,-1,-1) + 2.0f*(float3(px,py,pz)/sz + float3(voxelPos)/(sz*header.brick_size));
-    float3 max_pos = min_pos + 2.0f*float3(1,1,1)/(sz*header.brick_size);
+    min_pos = float3(-1,-1,-1) + 2.0f*(float3(px,py,pz)/sz + float3(voxelPos)/(sz*header.brick_size));
+    max_pos = min_pos + 2.0f*float3(1,1,1)/(sz*header.brick_size);
     float3 size = max_pos - min_pos;
 
     //TODO: make it works with brick_size > 1
@@ -739,6 +747,22 @@ void BVHRT::OctreeNodeIntersect(uint32_t type, const float3 ray_pos, const float
   }
 
   float tReal = fNearFar.x + 2.0f * d * t;
+
+/*
+#ifndef KERNEL_SLICER
+  if (debug_cur_pixel)
+  {
+    printf("\n");
+    printf("sdf type = %u\n", type);
+    printf("node bbox [(%f %f %f)-(%f %f %f)]\n", min_pos.x, min_pos.y, min_pos.z, max_pos.x, max_pos.y, max_pos.z);
+    printf("sdf values %f %f %f %f %f %f %f %f\n", 
+           values[0], values[1], values[2], values[3],
+           values[4], values[5], values[6], values[7]);
+    printf("t = %f in [0, %f], tReal = %f in [%f %f]\n",t,qFar,tReal,fNearFar.x,fNearFar.y);
+    printf("\n");
+  }
+#endif
+*/
 
   if (t <= qFar && hit && tReal < pHit->t)
   {

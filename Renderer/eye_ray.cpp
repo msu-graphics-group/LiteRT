@@ -51,11 +51,18 @@ void MultiRenderer::kernel_RayTrace(uint32_t tidX, const float4* rayPosAndNear,
 {
   const float4 rayPos = *rayPosAndNear;
   const float4 rayDir = *rayDirAndFar ;
-  
-  CRT_Hit hit   = m_pAccelStruct->RayQuery_NearestHit(rayPos, rayDir);
   const uint XY = m_packedXY[tidX];
   const uint x  = (XY & 0x0000FFFF);
   const uint y  = (XY & 0xFFFF0000) >> 16;
+
+/*
+  if (x == 484 && y == 526)
+    m_pAccelStruct->set_debug_mode(true);
+  else
+    m_pAccelStruct->set_debug_mode(false);
+*/
+
+  CRT_Hit hit = m_pAccelStruct->RayQuery_NearestHit(rayPos, rayDir);
 
   if (hit.primId == 0xFFFFFFFF) //no hit
   {

@@ -337,8 +337,9 @@ void sh_eval_2(in vec3 d, inout float fout[9]) {
   fout[4] = tmp_c * s1;
 }
 
-int indexGrid(int x, int y, int z, int gridSize) {
-    return (x + y * gridSize + z * gridSize * gridSize) * 28;
+void lerpCellf(const float v0[28], const float v1[28], const float t, inout float memory[28]) {
+  for (int i = 0; i < 28; i++)
+    memory[i] = mix(v0[i], v1[i], t);
 }
 
 float eval_sh(inout float sh[28], vec3 rayDir, const int offset) {
@@ -352,9 +353,8 @@ float eval_sh(inout float sh[28], vec3 rayDir, const int offset) {
   return sum;
 }
 
-void lerpCellf(const float v0[28], const float v1[28], const float t, inout float memory[28]) {
-  for (int i = 0; i < 28; i++)
-    memory[i] = mix(v0[i], v1[i], t);
+int indexGrid(int x, int y, int z, int gridSize) {
+    return (x + y * gridSize + z * gridSize * gridSize) * 28;
 }
 
 vec2 RayBoxIntersection(vec3 ray_pos, vec3 ray_dir, vec3 boxMin, vec3 boxMax) {
@@ -414,11 +414,11 @@ vec3 mymul4x3(mat4 m, vec3 v) {
   return (m*vec4(v, 1.0f)).xyz;
 }
 
-bool notLeafAndIntersect(uint flags) { return (flags != (LEAF_BIT | 0x1)); }
+bool isLeafAndIntersect(uint flags) { return (flags == (LEAF_BIT | 0x1 )); }
 
 bool isLeafOrNotIntersect(uint flags) { return (flags & LEAF_BIT) !=0 || (flags & 0x1) == 0; }
 
-bool isLeafAndIntersect(uint flags) { return (flags == (LEAF_BIT | 0x1 )); }
+bool notLeafAndIntersect(uint flags) { return (flags != (LEAF_BIT | 0x1)); }
 
 vec3 matmul3x3(mat4 m, vec3 v) { 
   return (m*vec4(v, 0.0f)).xyz;
@@ -470,7 +470,7 @@ uint fakeOffset(uint x, uint y, uint pitch) { return y*pitch + x; }  // RTV patt
 #define KGEN_FLAG_DONT_SET_EXIT     4
 #define KGEN_FLAG_SET_EXIT_NEGATIVE 8
 #define KGEN_REDUCTION_LAST_STEP    16
-#define MAXFLOAT FLT_MAX
 #define CMESH4_GEOM_H 
+#define MAXFLOAT FLT_MAX
 #define CFLOAT_GUARDIAN 
 

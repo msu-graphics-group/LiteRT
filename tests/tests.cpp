@@ -149,12 +149,75 @@ void litert_test_2_SVS()
     }
 }
 
+void litert_test_3_SBS_verify()
+{
+  MultiRenderPreset preset = getDefaultPreset();
+  preset.mode = MULTI_RENDER_MODE_LINEAR_DEPTH;
+  preset.sdf_frame_octree_blas = SDF_OCTREE_BLAS_DEFAULT;
+  preset.sdf_frame_octree_intersect = SDF_OCTREE_NODE_INTERSECT_ST;
+
+  auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path+"scenes/01_simple_scenes/data/teapot.vsgf").c_str());
+
+  float3 mb1, mb2, ma1, ma2;
+  cmesh4::get_bbox(mesh, &mb1, &mb2);
+  cmesh4::rescale_mesh(mesh, float3(-0.9, -0.9, -0.9), float3(0.9, 0.9, 0.9));
+  cmesh4::get_bbox(mesh, &ma1, &ma2);
+  MeshBVH mesh_bvh;
+  mesh_bvh.init(mesh);
+
+  SparseOctreeBuilder builder;
+  SparseOctreeSettings settings{8, 4, 0.0f};
+  SdfSBSHeader header;
+  header.brick_size = 1;
+  header.brick_pad = 0;
+  header.bytes_per_value = 1;
+
+  std::vector<SdfFrameOctreeNode> frame_nodes;
+  std::vector<SdfSVSNode> svs_nodes;
+  std::vector<SdfSBSNode> sbs_nodes;
+  std::vector<uint32_t> sbs_data;
+
+  builder.construct([&mesh_bvh](const float3 &p)
+                    { return mesh_bvh.get_signed_distance(p); },
+                    settings);
+  builder.convert_to_frame_octree(frame_nodes);
+  builder.convert_to_sparse_voxel_set(svs_nodes);
+  builder.convert_to_sparse_brick_set(header, sbs_nodes, sbs_data);
+
+  unsigned W = 1024, H = 1024;
+  LiteImage::Image2D<uint32_t> image(W, H);
+
+  {
+    auto pRender = CreateMultiRenderer("CPU");
+    pRender->SetPreset(preset);
+    pRender->SetScene(mesh);
+    render(image, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset);
+    LiteImage::SaveImage<uint32_t>("saves/test_3_reference.bmp", image); 
+  }
+  {
+    auto pRender = CreateMultiRenderer("CPU");
+    pRender->SetPreset(preset);
+    pRender->SetScene({(unsigned)svs_nodes.size(), svs_nodes.data()});
+
+    render(image, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset);
+    LiteImage::SaveImage<uint32_t>("saves/test_3_SVS.bmp", image); 
+  }
+  {
+    auto pRender = CreateMultiRenderer("CPU");
+    pRender->SetPreset(preset);
+    pRender->SetScene({header, (unsigned)sbs_nodes.size(), sbs_nodes.data(), (unsigned)sbs_data.size(), sbs_data.data()});
+
+    render(image, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset);
+    LiteImage::SaveImage<uint32_t>("saves/test_3_SBS.bmp", image); 
+  }
+}
+
 void perform_tests_litert(const std::vector<int> &test_ids)
 {
   std::vector<int> tests = test_ids;
 
   std::vector<std::function<void(void)>> test_functions = {
-      litert_test_1_framed_octree, litert_test_2_SVS};
+      litert_test_1_framed_octree, litert_test_2_SVS, litert_test_3_SBS_verify};
 
   if (tests.empty())
   {

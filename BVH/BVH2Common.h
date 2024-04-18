@@ -59,6 +59,8 @@ struct BVHRT : public ISceneObject
   uint32_t AddGeom_SdfFrameOctree(SdfFrameOctreeView octree, BuildQuality a_qualityLevel = BUILD_HIGH) override;
   uint32_t AddGeom_SdfSVS(SdfSVSView octree, BuildQuality a_qualityLevel = BUILD_HIGH) override;
   uint32_t AddGeom_SdfSBS(SdfSBSView octree, BuildQuality a_qualityLevel = BUILD_HIGH) override;
+
+  void set_debug_mode(bool enable) override;
 #endif
 
   //common functions for a few Sdf...Function interfaces
@@ -227,4 +229,8 @@ struct BVHRT : public ISceneObject
   const std::string m_layoutName;
 
   bool m_firstSceneCommit = true;
+
+#ifndef KERNEL_SLICER  
+  bool debug_cur_pixel = false;
+#endif
 };

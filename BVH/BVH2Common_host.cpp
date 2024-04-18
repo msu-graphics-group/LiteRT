@@ -517,6 +517,11 @@ uint32_t BVHRT::AddGeom_SdfSBS(SdfSBSView octree, BuildQuality a_qualityLevel)
   return m_geomTypeByGeomId.size()-1;
 }
 
+void BVHRT::set_debug_mode(bool enable)
+{
+  debug_cur_pixel = enable;
+}
+
 void BVHRT::ClearScene()
 {
   m_instBoxes.reserve(std::max(reserveSize, m_instBoxes.capacity()));
