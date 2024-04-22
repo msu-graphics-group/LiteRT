@@ -229,8 +229,5 @@ struct BVHRT : public ISceneObject
   const std::string m_layoutName;
 
   bool m_firstSceneCommit = true;
-
-#ifndef KERNEL_SLICER  
   bool debug_cur_pixel = false;
-#endif
 };

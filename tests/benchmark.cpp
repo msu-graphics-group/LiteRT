@@ -28,7 +28,7 @@ struct BenchmarkResult
 
 void benchmark_framed_octree_intersection()
 {
-  constexpr unsigned iters = 10;
+  constexpr unsigned iters = 100;
   std::vector<BenchmarkResult> results;
 
   std::vector<std::string> scene_paths = {"scenes/01_simple_scenes/data/teapot.vsgf"}; 

@@ -78,6 +78,8 @@ else()
   add_definitions(-DNDEBUG)
 endif()
 
+add_compile_definitions(ON_CPU=1)
+
 option(MODULE_VULKAN "include GPU support for neural networks" ON)
 
 set(MODULES_SRC "")

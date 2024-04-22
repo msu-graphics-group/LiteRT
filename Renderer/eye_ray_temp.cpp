@@ -58,12 +58,12 @@ void MultiRenderer::kernel_RayTrace(uint32_t tidX, const float4* rayPosAndNear,
   const uint x  = (XY & 0x0000FFFF);
   const uint y  = (XY & 0xFFFF0000) >> 16;
 
-/*
+#if ON_CPU==1
   if (x == 484 && y == 526)
     m_pAccelStruct->set_debug_mode(true);
   else
     m_pAccelStruct->set_debug_mode(false);
-*/
+#endif
 
   CRT_Hit hit = m_pAccelStruct->RayQuery_NearestHit(rayPos, rayDir);
 
@@ -748,8 +748,8 @@ void BVHRT::OctreeNodeIntersect(uint32_t type, const float3 ray_pos, const float
 
   float tReal = fNearFar.x + 2.0f * d * t;
 
-/*
-#ifndef KERNEL_SLICER
+
+#if ON_CPU==1
   if (debug_cur_pixel)
   {
     printf("\n");
@@ -762,7 +762,6 @@ void BVHRT::OctreeNodeIntersect(uint32_t type, const float3 ray_pos, const float
     printf("\n");
   }
 #endif
-*/
 
   if (t <= qFar && hit && tReal < pHit->t)
   {

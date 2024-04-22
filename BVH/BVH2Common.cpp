@@ -480,8 +480,8 @@ void BVHRT::OctreeNodeIntersect(uint32_t type, const float3 ray_pos, const float
 
   float tReal = fNearFar.x + 2.0f * d * t;
 
-/*
-#ifndef KERNEL_SLICER
+
+#if ON_CPU==1
   if (debug_cur_pixel)
   {
     printf("\n");
@@ -494,7 +494,6 @@ void BVHRT::OctreeNodeIntersect(uint32_t type, const float3 ray_pos, const float
     printf("\n");
   }
 #endif
-*/
 
   if (t <= qFar && hit && tReal < pHit->t)
   {

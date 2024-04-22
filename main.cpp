@@ -18,6 +18,7 @@ constexpr bool MEASURE_FRAMES = false;
 int main(int argc, const char** argv)
 {
   perform_tests_litert({3});
+  //benchmark_framed_octree_intersection();
   return 0;
 
   uint32_t WIDTH  = 1024;
