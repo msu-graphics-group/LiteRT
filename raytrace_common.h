@@ -59,9 +59,9 @@ static inline float3 SafeInverse(float3 d)
 {
   const float ooeps = 1.0e-36f; // Avoid div by zero.
   float3 res;
-  res.x = 1.0f / (std::abs(d.x) > ooeps ? d.x : std::copysign(ooeps, d.x));
-  res.y = 1.0f / (std::abs(d.y) > ooeps ? d.y : std::copysign(ooeps, d.y));
-  res.z = 1.0f / (std::abs(d.z) > ooeps ? d.z : std::copysign(ooeps, d.z));
+  res.x = 1.0f / (std::abs(d.x) > ooeps ? d.x : std::abs(ooeps)*sign(d.x));
+  res.y = 1.0f / (std::abs(d.y) > ooeps ? d.y : std::abs(ooeps)*sign(d.y));
+  res.z = 1.0f / (std::abs(d.z) > ooeps ? d.z : std::abs(ooeps)*sign(d.z));
   return res;
 }
 

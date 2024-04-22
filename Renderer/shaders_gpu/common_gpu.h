@@ -360,9 +360,9 @@ void lerpCellf(const float v0[28], const float v1[28], const float t, inout floa
 vec3 SafeInverse(vec3 d) {
   const float ooeps = 1.0e-36f; // Avoid div by zero.
   vec3 res;
-  res.x = 1.0f / (abs(d.x) > ooeps ? d.x : copysign(ooeps, d.x));
-  res.y = 1.0f / (abs(d.y) > ooeps ? d.y : copysign(ooeps, d.y));
-  res.z = 1.0f / (abs(d.z) > ooeps ? d.z : copysign(ooeps, d.z));
+  res.x = 1.0f / (abs(d.x) > ooeps ? d.x : abs(ooeps)*sign(d.x));
+  res.y = 1.0f / (abs(d.y) > ooeps ? d.y : abs(ooeps)*sign(d.y));
+  res.z = 1.0f / (abs(d.z) > ooeps ? d.z : abs(ooeps)*sign(d.z));
   return res;
 }
 
@@ -471,6 +471,6 @@ uint fakeOffset(uint x, uint y, uint pitch) { return y*pitch + x; }  // RTV patt
 #define KGEN_FLAG_SET_EXIT_NEGATIVE 8
 #define KGEN_REDUCTION_LAST_STEP    16
 #define CMESH4_GEOM_H 
-#define CFLOAT_GUARDIAN 
 #define MAXFLOAT FLT_MAX
+#define CFLOAT_GUARDIAN 
 
