@@ -38,6 +38,7 @@ void BVHRT::ClearGeom()
   m_bvhOffsets.reserve(std::max<size_t>(reserveSize, m_bvhOffsets.capacity()));
   m_bvhOffsets.resize(0);
 
+#ifndef LITERT_MINI
   m_SdfParameters.reserve(16);
   m_SdfParameters.resize(0);
 
@@ -52,6 +53,7 @@ void BVHRT::ClearGeom()
 
   m_ConjIndices.reserve(16);
   m_ConjIndices.resize(0);
+#endif
 
   m_SdfGridData.reserve(16);
   m_SdfGridData.resize(0);  
@@ -175,6 +177,7 @@ void BVHRT::UpdateGeom_Triangles3f(uint32_t a_geomId, const float *a_vpos3f, siz
 
 uint32_t BVHRT::AddGeom_SdfScene(SdfSceneView scene, BuildQuality a_qualityLevel)
 {
+#ifndef LITERT_MINI
   assert(scene.conjunctions_count > 0);
   assert(scene.objects_count > 0);
   assert(scene.parameters_count > 0);
@@ -241,6 +244,9 @@ uint32_t BVHRT::AddGeom_SdfScene(SdfSceneView scene, BuildQuality a_qualityLevel
     printf("ind %d\n",(int)i);
 
   m_allNodePairs.insert(m_allNodePairs.end(), bvhData.nodes.begin(), bvhData.nodes.end());
+#else
+  printf("Mini LiteRT does not support SdfScene!");
+#endif
 
   return m_geomTypeByGeomId.size()-1;
 }
@@ -796,14 +802,17 @@ std::vector<BVHNode> BVHRT::GetBoxes_SdfFrameOctree(SdfFrameOctreeView octree)
 //SdfSceneFunction interface implementation
 void BVHRT::init(SdfSceneView scene)
 {
+#ifndef LITERT_MINI
   m_SdfParameters.insert(m_SdfParameters.end(), scene.parameters, scene.parameters + scene.parameters_count);
   m_SdfObjects.insert(m_SdfObjects.end(), scene.objects, scene.objects + scene.objects_count);
   m_SdfConjunctions.insert(m_SdfConjunctions.end(), scene.conjunctions, scene.conjunctions + scene.conjunctions_count);
   m_SdfNeuralProperties.insert(m_SdfNeuralProperties.end(), scene.neural_properties, scene.neural_properties + scene.neural_properties_count);
+#endif
 } 
   
 float BVHRT::eval_distance(float3 pos)
 {
+#ifndef LITERT_MINI
   if (!m_SdfConjunctions.empty())
   {
     float dist = 1e6;
@@ -815,6 +824,7 @@ float BVHRT::eval_distance(float3 pos)
     return eval_distance_sdf_octree(0, pos, 1000);
   else if (!m_SdfGridData.empty())
     return eval_distance_sdf_grid(0, pos);
+#endif
 
   return 1e6; 
 }

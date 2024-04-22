@@ -294,6 +294,7 @@ float2 BVHRT::box_intersects(const float3 &min_pos, const float3 &max_pos, const
   return float2(tNear, tFar);
 }
 
+#ifndef LITERT_MINI
 float BVHRT::eval_dist_prim(uint32_t prim_id, float3 p)
 {
   SdfObject prim = m_SdfObjects[prim_id];
@@ -374,6 +375,7 @@ float BVHRT::eval_dist_sdf_conjunction(uint32_t conj_id, float3 p)
   }
   return conj_d;
 }
+#endif
 
 void BVHRT::IntersectAllPrimitivesInLeaf(const float3 ray_pos, const float3 ray_dir,
                                              float tNear, uint32_t instId, uint32_t geomId,
@@ -810,12 +812,14 @@ void BVHRT::IntersectAllSdfsInLeaf(const float3 ray_pos, const float3 ray_dir,
 
   switch (type)
   {
+#ifndef LITERT_MINI
   case TYPE_SDF_PRIMITIVE:
     sdfId = m_ConjIndices[m_geomOffsets[geomId].x + a_start];
     primId = sdfId;
     min_pos = to_float3(m_SdfConjunctions[sdfId].min_pos);
     max_pos = to_float3(m_SdfConjunctions[sdfId].max_pos);
     break;
+#endif
   case TYPE_SDF_GRID:
   case TYPE_SDF_OCTREE:
     sdfId = m_geomOffsets[geomId].x;
@@ -1097,9 +1101,11 @@ float BVHRT::eval_distance_sdf(uint32_t type, uint32_t sdf_id, float3 pos)
   float val = 1000;
   switch (type)
   {
+#ifndef LITERT_MINI
   case TYPE_SDF_PRIMITIVE:
     val = eval_dist_sdf_conjunction(sdf_id, pos);
     break;
+#endif
   case TYPE_SDF_GRID:
     val = eval_distance_sdf_grid(sdf_id, pos);
     break;

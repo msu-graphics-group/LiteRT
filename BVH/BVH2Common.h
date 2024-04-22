@@ -146,7 +146,9 @@ struct BVHRT : public ISceneObject
   //It is a copy-past of sdfScene functions with the same names
   //Slicer is weak and can't handle calling external functions  ¯\_(ツ)_/¯
   virtual float2 box_intersects(const float3 &min_pos, const float3 &max_pos, const float3 &origin, const float3 &dir);
+#ifndef LITERT_MINI
   virtual float eval_dist_prim(unsigned prim_id, float3 p);
+#endif
   virtual bool is_leaf(unsigned offset);
   virtual float eval_dist_trilinear(const float values[8], float3 dp);
 
@@ -154,7 +156,9 @@ struct BVHRT : public ISceneObject
   virtual float sdf_octree_sample_mipskip_closest(unsigned octree_id, float3 p, unsigned max_level);
   virtual float sdf_octree_sample_closest(unsigned octree_id, float3 p, unsigned max_level);
 
+#ifndef LITERT_MINI
   virtual float eval_dist_sdf_conjunction(unsigned conj_id, float3 p);
+#endif
   virtual float eval_distance_sdf_grid(unsigned grid_id, float3 p);
   virtual float eval_distance_sdf_octree(unsigned octree_id, float3 p, unsigned max_level);
   virtual float eval_distance_sdf_frame_octree(unsigned octree_id, float3 p);
@@ -169,11 +173,13 @@ struct BVHRT : public ISceneObject
   std::vector<uint32_t> m_geomTypeByGeomId;
 
   //SDFs data
+#ifndef LITERT_MINI
   std::vector<float> m_SdfParameters;
   std::vector<SdfObject> m_SdfObjects;
   std::vector<SdfConjunction> m_SdfConjunctions;
   std::vector<NeuralProperties> m_SdfNeuralProperties;
   std::vector<uint32_t> m_ConjIndices; //conjunction index for each leaf node in Fat BVH related to SDF
+#endif
 
   //SDF grid data
   std::vector<float> m_SdfGridData;       //raw data for all SDF grids
