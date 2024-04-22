@@ -839,10 +839,6 @@ void frame_octree_to_SBS_rec(std::function<SparseOctreeBuilder::T(const float3 &
   unsigned ofs = nodes[idx].offset;
   if (is_leaf(ofs)) 
   {
-    //early exit is we are sure that this node does not belong to a border
-    if (!SparseOctreeBuilder::is_border(nodes[idx].value, level))
-      return;
-    
     std::vector<float> values(header.v_size*header.v_size*header.v_size, 1000.0f);
     float min_val = 1000;
     float max_val = 1000;
