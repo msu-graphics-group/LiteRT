@@ -59,10 +59,10 @@ void MultiRenderer::kernel_RayTrace(uint32_t tidX, const float4* rayPosAndNear,
   const uint y  = (XY & 0xFFFF0000) >> 16;
 
 #if ON_CPU==1
-  if (x == 484 && y == 526)
-    m_pAccelStruct->set_debug_mode(true);
-  else
-    m_pAccelStruct->set_debug_mode(false);
+  //if (x == 484 && y == 526)
+  //  m_pAccelStruct->set_debug_mode(true);
+  //else
+  //  m_pAccelStruct->set_debug_mode(false);
 #endif
 
   CRT_Hit hit = m_pAccelStruct->RayQuery_NearestHit(rayPos, rayDir);

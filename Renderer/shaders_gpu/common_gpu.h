@@ -147,8 +147,8 @@ struct SdfSBSHeader
 {
   uint brick_size;      //number of voxels in each brick, 1 to 16
   uint brick_pad;       //how many additional voxels are stored on the borders, 0 is default, 1 is required for tricubic filtration
-  uint v_size;          //brick_size + 2*brick_pad + 1
   uint bytes_per_value; //1, 2 or 4 bytes per value is allowed
+  uint v_size;          //brick_size + 2*brick_pad + 1
 };
 const uint BUILD_LOW = 0;
 const uint BUILD_MEDIUM = 1;
@@ -470,7 +470,7 @@ uint fakeOffset(uint x, uint y, uint pitch) { return y*pitch + x; }  // RTV patt
 #define KGEN_FLAG_DONT_SET_EXIT     4
 #define KGEN_FLAG_SET_EXIT_NEGATIVE 8
 #define KGEN_REDUCTION_LAST_STEP    16
-#define CFLOAT_GUARDIAN 
-#define CMESH4_GEOM_H 
 #define MAXFLOAT FLT_MAX
+#define CMESH4_GEOM_H 
+#define CFLOAT_GUARDIAN 
 

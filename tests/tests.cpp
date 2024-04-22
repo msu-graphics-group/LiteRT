@@ -27,6 +27,26 @@ void render(LiteImage::Image2D<uint32_t> &image, std::shared_ptr<MultiRenderer> 
   pRender->Render(image.data(), image.width(), image.height(), worldView, proj, preset);
 }
 
+float PSNR(const LiteImage::Image2D<uint32_t> &image_1, const LiteImage::Image2D<uint32_t> &image_2)
+{
+  assert(image_1.vector().size() == image_2.vector().size());
+  unsigned sz = image_1.vector().size();
+  double sum = 0.0;
+  for (int i=0;i<sz;i++)
+  {
+    unsigned r1 = (image_1.vector()[i] & 0x000000FF);
+    unsigned g1 = (image_1.vector()[i] & 0x0000FF00) >> 8;
+    unsigned b1 = (image_1.vector()[i] & 0x00FF0000) >> 16;
+    unsigned r2 = (image_2.vector()[i] & 0x000000FF);
+    unsigned g2 = (image_2.vector()[i] & 0x0000FF00) >> 8;
+    unsigned b2 = (image_2.vector()[i] & 0x00FF0000) >> 16;
+    sum += ((r1-r2)*(r1-r2)+(g1-g2)*(g1-g2)+(b1-b2)*(b1-b2)) / (3.0f*255.0f*255.0f);
+  }
+  float mse = sum / sz;
+
+  return -10*log10(std::max<double>(1e-10, mse));
+}
+
 void litert_test_1_framed_octree()
 {
     auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path+"scenes/01_simple_scenes/data/teapot.vsgf").c_str());
@@ -167,32 +187,49 @@ void litert_test_3_SBS_verify()
 
   SparseOctreeBuilder builder;
   SparseOctreeSettings settings{8, 4, 0.0f};
-  SdfSBSHeader header;
-  header.brick_size = 1;
-  header.brick_pad = 0;
-  header.bytes_per_value = 1;
 
   std::vector<SdfFrameOctreeNode> frame_nodes;
   std::vector<SdfSVSNode> svs_nodes;
-  std::vector<SdfSBSNode> sbs_nodes;
-  std::vector<uint32_t> sbs_data;
+  std::vector<SdfSBSNode> sbs_nodes_1_1;
+  std::vector<SdfSBSNode> sbs_nodes_1_2;
+  std::vector<SdfSBSNode> sbs_nodes_2_1;
+  std::vector<SdfSBSNode> sbs_nodes_2_2;
+  std::vector<uint32_t> sbs_data_1_1;
+  std::vector<uint32_t> sbs_data_1_2;
+  std::vector<uint32_t> sbs_data_2_1;
+  std::vector<uint32_t> sbs_data_2_2;
 
   builder.construct([&mesh_bvh](const float3 &p)
                     { return mesh_bvh.get_signed_distance(p); },
                     settings);
   builder.convert_to_frame_octree(frame_nodes);
   builder.convert_to_sparse_voxel_set(svs_nodes);
-  builder.convert_to_sparse_brick_set(header, sbs_nodes, sbs_data);
+
+  SdfSBSHeader header_1_1{1,0,1,2};
+  builder.convert_to_sparse_brick_set(header_1_1, sbs_nodes_1_1, sbs_data_1_1);
+
+  SdfSBSHeader header_1_2{1,0,2,2};
+  builder.convert_to_sparse_brick_set(header_1_2, sbs_nodes_1_2, sbs_data_1_2);
+
+  SdfSBSHeader header_2_1{2,0,1,3};
+  builder.convert_to_sparse_brick_set(header_2_1, sbs_nodes_2_1, sbs_data_2_1);
+
+  SdfSBSHeader header_2_2{2,0,2,3};
+  builder.convert_to_sparse_brick_set(header_2_2, sbs_nodes_2_2, sbs_data_2_2);
 
   unsigned W = 1024, H = 1024;
   LiteImage::Image2D<uint32_t> image(W, H);
+  LiteImage::Image2D<uint32_t> ref_image(W, H);
+  LiteImage::Image2D<uint32_t> svs_image(W, H);
 
+  printf("TEST 3. SVS and SBS correctness\n");
   {
     auto pRender = CreateMultiRenderer("CPU");
     pRender->SetPreset(preset);
     pRender->SetScene(mesh);
     render(image, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset);
     LiteImage::SaveImage<uint32_t>("saves/test_3_reference.bmp", image); 
+    ref_image = image;
   }
   {
     auto pRender = CreateMultiRenderer("CPU");
@@ -201,14 +238,109 @@ void litert_test_3_SBS_verify()
 
     render(image, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset);
     LiteImage::SaveImage<uint32_t>("saves/test_3_SVS.bmp", image); 
+    svs_image = image;
+
+    float psnr = PSNR(ref_image, image);
+
+    printf("  3.1. %-64s", "[CPU] SVS and mesh PSNR > 40 ");
+    if (psnr >= 40)
+      printf("passed    (%.2f)\n", psnr);
+    else
+      printf("FAILED, psnr = %f\n", psnr);
   }
   {
     auto pRender = CreateMultiRenderer("CPU");
     pRender->SetPreset(preset);
-    pRender->SetScene({header, (unsigned)sbs_nodes.size(), sbs_nodes.data(), (unsigned)sbs_data.size(), sbs_data.data()});
+    pRender->SetScene({header_1_1, (unsigned)sbs_nodes_1_1.size(), sbs_nodes_1_1.data(), 
+                                   (unsigned)sbs_data_1_1.size(), sbs_data_1_1.data()});
 
     render(image, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset);
-    LiteImage::SaveImage<uint32_t>("saves/test_3_SBS.bmp", image); 
+    LiteImage::SaveImage<uint32_t>("saves/test_3_SBS_1_1.bmp", image); 
+
+    float psnr = PSNR(ref_image, image);
+    printf("  3.2. %-64s", "[CPU] 1-voxel,1-byte SBS and mesh PSNR > 40 ");
+    if (psnr >= 40)
+      printf("passed    (%.2f)\n", psnr);
+    else
+      printf("FAILED, psnr = %f\n", psnr);
+
+    float svs_psnr = PSNR(svs_image, image);
+    printf("  3.3. %-64s", "[CPU] 1-voxel,1-byte SBS matches SVS");
+    if (svs_psnr >= 90)
+      printf("passed\n");
+    else
+      printf("FAILED, psnr = %f\n", svs_psnr);
+  }
+  {
+    auto pRender = CreateMultiRenderer("GPU");
+    pRender->SetPreset(preset);
+    pRender->SetScene({header_1_1, (unsigned)sbs_nodes_1_1.size(), sbs_nodes_1_1.data(), 
+                                   (unsigned)sbs_data_1_1.size(), sbs_data_1_1.data()});
+
+    render(image, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset);
+    LiteImage::SaveImage<uint32_t>("saves/test_3_SBS_1_1.bmp", image); 
+
+    float psnr = PSNR(ref_image, image);
+    printf("  3.4. %-64s", "1-voxel,1-byte SBS and mesh PSNR > 40 ");
+    if (psnr >= 40)
+      printf("passed    (%.2f)\n", psnr);
+    else
+      printf("FAILED, psnr = %f\n", psnr);
+
+    float svs_psnr = PSNR(svs_image, image);
+    printf("  3.5. %-64s", "1-voxel,1-byte SBS matches SVS");
+    if (svs_psnr >= 90)
+      printf("passed\n");
+    else
+      printf("FAILED, psnr = %f\n", svs_psnr);
+  }
+  {
+    auto pRender = CreateMultiRenderer("GPU");
+    pRender->SetPreset(preset);
+    pRender->SetScene({header_1_2, (unsigned)sbs_nodes_1_2.size(), sbs_nodes_1_2.data(), 
+                                   (unsigned)sbs_data_1_2.size(), sbs_data_1_2.data()});
+
+    render(image, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset);
+    LiteImage::SaveImage<uint32_t>("saves/test_3_SBS_1_2.bmp", image); 
+
+    float psnr = PSNR(ref_image, image);
+    printf("  3.6. %-64s", "1-voxel,2-byte SBS and mesh PSNR > 40 ");
+    if (psnr >= 40)
+      printf("passed    (%.2f)\n", psnr);
+    else
+      printf("FAILED, psnr = %f\n", psnr);
+  }
+  {
+    auto pRender = CreateMultiRenderer("GPU");
+    pRender->SetPreset(preset);
+    pRender->SetScene({header_2_1, (unsigned)sbs_nodes_2_1.size(), sbs_nodes_2_1.data(), 
+                                   (unsigned)sbs_data_2_1.size(), sbs_data_2_1.data()});
+
+    render(image, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset);
+    LiteImage::SaveImage<uint32_t>("saves/test_3_SBS_2_1.bmp", image); 
+
+    float psnr = PSNR(ref_image, image);
+    printf("  3.7. %-64s", "8-voxel,1-byte SBS and mesh PSNR > 40 ");
+    if (psnr >= 40)
+      printf("passed    (%.2f)\n", psnr);
+    else
+      printf("FAILED, psnr = %f\n", psnr);
+  }
+  {
+    auto pRender = CreateMultiRenderer("GPU");
+    pRender->SetPreset(preset);
+    pRender->SetScene({header_2_2, (unsigned)sbs_nodes_2_2.size(), sbs_nodes_2_2.data(), 
+                                   (unsigned)sbs_data_2_2.size(), sbs_data_2_2.data()});
+
+    render(image, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset);
+    LiteImage::SaveImage<uint32_t>("saves/test_3_SBS_2_2.bmp", image); 
+
+    float psnr = PSNR(ref_image, image);
+    printf("  3.8. %-64s", "8-voxel,2-byte SBS and mesh PSNR > 40 ");
+    if (psnr >= 40)
+      printf("passed    (%.2f)\n", psnr);
+    else
+      printf("FAILED, psnr = %f\n", psnr);
   }
 }
 
