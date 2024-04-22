@@ -164,7 +164,6 @@ void MultiRenderer::SetScene(const cmesh4::SimpleMesh &scene)
                                         scene.indices.data(), scene.indices.size(), BUILD_HIGH, sizeof(float)*4);
   GetAccelStruct()->ClearScene();
   GetAccelStruct()->AddInstance(0, LiteMath::float4x4());
-  GetAccelStruct()->AddInstance(0, LiteMath::translate4x4(float3(-100,-100,-100)));
   GetAccelStruct()->CommitScene();
 }
 
@@ -175,7 +174,6 @@ void MultiRenderer::SetScene(SdfSceneView scene)
   GetAccelStruct()->AddGeom_SdfScene(scene);
   GetAccelStruct()->ClearScene();
   GetAccelStruct()->AddInstance(0, LiteMath::float4x4());
-  GetAccelStruct()->AddInstance(0, LiteMath::translate4x4(float3(-100,-100,-100)));
   GetAccelStruct()->CommitScene();
 }
 
@@ -186,7 +184,6 @@ void MultiRenderer::SetScene(SdfGridView scene)
   GetAccelStruct()->AddGeom_SdfGrid(scene);
   GetAccelStruct()->ClearScene();
   GetAccelStruct()->AddInstance(0, LiteMath::float4x4());
-  GetAccelStruct()->AddInstance(0, LiteMath::translate4x4(float3(-100,-100,-100)));
   GetAccelStruct()->CommitScene();
 }
 
@@ -197,7 +194,6 @@ void MultiRenderer::SetScene(SdfOctreeView scene)
   GetAccelStruct()->AddGeom_SdfOctree(scene);
   GetAccelStruct()->ClearScene();
   GetAccelStruct()->AddInstance(0, LiteMath::float4x4());
-  GetAccelStruct()->AddInstance(0, LiteMath::translate4x4(float3(-100,-100,-100)));
   GetAccelStruct()->CommitScene();
 }
 
@@ -209,7 +205,6 @@ void MultiRenderer::SetScene(SdfFrameOctreeView scene)
   GetAccelStruct()->AddGeom_SdfFrameOctree(scene);
   GetAccelStruct()->ClearScene();
   GetAccelStruct()->AddInstance(0, LiteMath::float4x4());
-  GetAccelStruct()->AddInstance(0, LiteMath::translate4x4(float3(-100,-100,-100)));
   GetAccelStruct()->CommitScene();
 }
 
@@ -221,7 +216,6 @@ void MultiRenderer::SetScene(SdfSVSView scene)
   GetAccelStruct()->AddGeom_SdfSVS(scene);
   GetAccelStruct()->ClearScene();
   GetAccelStruct()->AddInstance(0, LiteMath::float4x4());
-  GetAccelStruct()->AddInstance(0, LiteMath::translate4x4(float3(-100,-100,-100)));
   GetAccelStruct()->CommitScene();
 }
 
@@ -234,7 +228,6 @@ void MultiRenderer::SetScene(SdfSBSView scene)
   GetAccelStruct()->AddGeom_SdfSBS(scene);
   GetAccelStruct()->ClearScene();
   GetAccelStruct()->AddInstance(0, LiteMath::float4x4());
-  GetAccelStruct()->AddInstance(0, LiteMath::translate4x4(float3(-100,-100,-100)));
   GetAccelStruct()->CommitScene();
 }
 

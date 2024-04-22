@@ -572,8 +572,20 @@ void DebugPrintBoxes(const std::vector<Box4f>& nodes, const std::string& a_fileN
 
 void BVHRT::CommitScene(BuildQuality a_qualityLevel)
 {
-  BuilderPresets presets = {BVH2_LEFT_OFFSET, BVHQuality::HIGH, 1};
-  m_nodesTLAS = BuildBVH((const BVHNode *)m_instBoxes.data(), m_instBoxes.size(), presets).nodes;
+  assert(m_instBoxes.size() > 0);
+
+  //if there is only 1 instance, there is no need in TLAS
+  if (m_instBoxes.size() > 1)
+  {
+    BuilderPresets presets = {BVH2_LEFT_OFFSET, BVHQuality::HIGH, 1};
+    m_nodesTLAS = BuildBVH((const BVHNode *)m_instBoxes.data(), m_instBoxes.size(), presets).nodes;
+  }
+  else
+  {
+    m_nodesTLAS.emplace_back();
+    m_nodesTLAS[0].boxMin = to_float3(m_instBoxes[0].boxMin);
+    m_nodesTLAS[0].boxMax = to_float3(m_instBoxes[0].boxMax);
+  }
 
   // DebugPrintNodes(m_nodesTLAS, "z01_tlas.txt");
   // DebugPrintBoxes(m_instBoxes, "y01_boxes.txt");

@@ -1303,6 +1303,7 @@ CRT_Hit BVHRT::RayQuery_NearestHit(float4 posAndNear, float4 dirAndFar)
   bool stopOnFirstHit = (dirAndFar.w <= 0.0f);
   if(stopOnFirstHit)
     dirAndFar.w *= -1.0f;
+  const float3 rayDirInv = SafeInverse(to_float3(dirAndFar));
 
   uint32_t stack[STACK_SIZE];
 
@@ -1322,38 +1323,55 @@ CRT_Hit BVHRT::RayQuery_NearestHit(float4 posAndNear, float4 dirAndFar)
 
   // std::cout << "-----------------------------------------" << std::endl;
 
-
-  const float3 rayDirInv = SafeInverse(to_float3(dirAndFar));
-  uint32_t nodeIdx = 0;
-  do
+  //no TLAS, only one instance
+  if (m_nodesTLAS.size() == 1)
   {
-    uint32_t travFlags  = 0;
-    uint32_t leftOffset = 0;
-    do
+    const float2 boxHit    = RayBoxIntersection2(to_float3(posAndNear), rayDirInv, m_nodesTLAS[0].boxMin, m_nodesTLAS[0].boxMax);
+    const bool intersects  = (boxHit.x <= boxHit.y) && (boxHit.y > posAndNear.w);
+    if (intersects)
     {
-      const BVHNode currNode = m_nodesTLAS[nodeIdx];
-      const float2 boxHit    = RayBoxIntersection2(to_float3(posAndNear), rayDirInv, currNode.boxMin, currNode.boxMax);
-      const bool intersects  = (boxHit.x <= boxHit.y) && (boxHit.y > posAndNear.w) && (boxHit.x < hit.t); // (tmin <= tmax) && (tmax > 0.f) && (tmin < curr_t)
-
-      travFlags  = (currNode.leftOffset & LEAF_BIT) | uint32_t(intersects); // travFlags  = (((currNode.leftOffset & LEAF_BIT) == 0) ? 0 : LEAF_BIT) | (intersects ? 1 : 0);
-      leftOffset = currNode.leftOffset;
-      nodeIdx    = isLeafOrNotIntersect(travFlags) ? currNode.escapeIndex : leftOffset;
-
-    } while (notLeafAndIntersect(travFlags) && nodeIdx != 0 && nodeIdx < 0xFFFFFFFE); 
-     
-    if(isLeafAndIntersect(travFlags)) 
-    {
-      const uint32_t instId = EXTRACT_START(leftOffset);
+      const uint32_t instId = 0;
       const uint32_t geomId = m_geomIdByInstId[instId];
-  
+
       // transform ray with matrix to local space
-      //
-      const float3 ray_pos = matmul4x3(m_instMatricesInv[instId], to_float3(posAndNear));
-      const float3 ray_dir = matmul3x3(m_instMatricesInv[instId], to_float3(dirAndFar)); // DON'float NORMALIZE IT !!!! When we transform to local space of node, ray_dir must be unnormalized!!!
-  
+      const float3 ray_pos = matmul4x3(m_instMatricesInv[0], to_float3(posAndNear));
+      const float3 ray_dir = matmul3x3(m_instMatricesInv[0], to_float3(dirAndFar));
       BVH2TraverseF32(ray_pos, ray_dir, posAndNear.w, instId, geomId, stack, stopOnFirstHit, &hit);
     }
-  } while (nodeIdx < 0xFFFFFFFE && !(stopOnFirstHit && hit.primId != uint32_t(-1))); //
+  }
+  else
+  {
+    uint32_t nodeIdx = 0;
+    do
+    {
+      uint32_t travFlags  = 0;
+      uint32_t leftOffset = 0;
+      do
+      {
+        const BVHNode currNode = m_nodesTLAS[nodeIdx];
+        const float2 boxHit    = RayBoxIntersection2(to_float3(posAndNear), rayDirInv, currNode.boxMin, currNode.boxMax);
+        const bool intersects  = (boxHit.x <= boxHit.y) && (boxHit.y > posAndNear.w) && (boxHit.x < hit.t); // (tmin <= tmax) && (tmax > 0.f) && (tmin < curr_t)
+
+        travFlags  = (currNode.leftOffset & LEAF_BIT) | uint32_t(intersects); // travFlags  = (((currNode.leftOffset & LEAF_BIT) == 0) ? 0 : LEAF_BIT) | (intersects ? 1 : 0);
+        leftOffset = currNode.leftOffset;
+        nodeIdx    = isLeafOrNotIntersect(travFlags) ? currNode.escapeIndex : leftOffset;
+
+      } while (notLeafAndIntersect(travFlags) && nodeIdx != 0 && nodeIdx < 0xFFFFFFFE); 
+      
+      if(isLeafAndIntersect(travFlags)) 
+      {
+        const uint32_t instId = EXTRACT_START(leftOffset);
+        const uint32_t geomId = m_geomIdByInstId[instId];
+    
+        // transform ray with matrix to local space
+        //
+        const float3 ray_pos = matmul4x3(m_instMatricesInv[instId], to_float3(posAndNear));
+        const float3 ray_dir = matmul3x3(m_instMatricesInv[instId], to_float3(dirAndFar)); // DON'float NORMALIZE IT !!!! When we transform to local space of node, ray_dir must be unnormalized!!!
+    
+        BVH2TraverseF32(ray_pos, ray_dir, posAndNear.w, instId, geomId, stack, stopOnFirstHit, &hit);
+      }
+    } while (nodeIdx < 0xFFFFFFFE && !(stopOnFirstHit && hit.primId != uint32_t(-1))); //
+  }
 
   if(hit.geomId < uint32_t(-1) && ((hit.geomId >> SH_TYPE) == TYPE_MESH_TRIANGLE)) 
   {
