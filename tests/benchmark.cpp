@@ -20,6 +20,7 @@ struct BenchmarkResult
 {
   unsigned iters;
   float4 render_average_time_ms;
+  float4 render_min_time_ms;
   std::string scene_name;
   std::string render_name;
   std::string as_name;
@@ -158,6 +159,8 @@ void benchmark_framed_octree_intersection()
             pRender->SetScene({header, (unsigned)sbs_nodes.size(), sbs_nodes.data(), (unsigned)sbs_data.size(), sbs_data.data()});
 
           double sum_ms[4] = {0,0,0,0};
+          double min_ms[4] = {1e6,1e6,1e6,1e6};
+          double max_ms[4] = {0,0,0,0};
           render(image, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset);
           for (int iter = 0; iter<iters; iter++)
           {
@@ -175,7 +178,11 @@ void benchmark_framed_octree_intersection()
             if (iter == 0)
               LiteImage::SaveImage<uint32_t>(("saves/benchmark_"+scene_names[scene_n]+"_"+render_names[rm]+"_"+AS_names[as_n]+"_"+preset_names[as_n][i]+".bmp").c_str(), image); 
             for (int i=0;i<4;i++)
+            {
+              min_ms[i] = std::min(min_ms[i], (double)timings[i]);
+              max_ms[i] = std::max(max_ms[i], (double)timings[i]);
               sum_ms[i] += timings[i];
+            }
           }
 
           results.emplace_back();
@@ -185,6 +192,7 @@ void benchmark_framed_octree_intersection()
           results.back().preset_name = preset_names[as_n][i];
           results.back().iters = iters;
           results.back().render_average_time_ms = float4(sum_ms[0], sum_ms[1], sum_ms[2], sum_ms[3])/iters;
+          results.back().render_min_time_ms = float4(min_ms[0], min_ms[1], min_ms[2], min_ms[3]);
         }
       }
     }
@@ -192,9 +200,11 @@ void benchmark_framed_octree_intersection()
 
   for (auto &res : results)
   {
-    printf("[%10s + %10s + %20s + %20s] %5.2f + %5.2f + %5.2f + %5.2f ms/frame \n", 
+    printf("[%10s + %10s + %20s + %20s] min:%6.2f + %5.2f, av:%6.2f + %5.2f ms/frame \n", 
            res.scene_name.c_str(), res.render_name.c_str(), res.as_name.c_str(), res.preset_name.c_str(), 
-           res.render_average_time_ms.x, res.render_average_time_ms.y,
-           res.render_average_time_ms.z, res.render_average_time_ms.w);
+           res.render_min_time_ms.x,
+           res.render_min_time_ms.y + res.render_min_time_ms.z + res.render_min_time_ms.w,
+           res.render_average_time_ms.x,
+           res.render_average_time_ms.y + res.render_average_time_ms.z + res.render_average_time_ms.w);
   }
 }
