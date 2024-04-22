@@ -169,16 +169,6 @@ struct SdfScene
   std::vector<NeuralProperties> neural_properties;
 };
 
-const size_t CellSize = 28;
-
-// structure to actually store SdfScene data
-struct RFScene
-{
-  int size;
-  float scale;
-  std::vector<float> data; //size.x*size.y*size.z*CellSize values
-};
-
 // structure to access and transfer SdfScene data
 // all interfaces use SdfSceneView to be independant of how exactly SDF scenes are stored
 struct SdfSceneView
@@ -260,5 +250,4 @@ void save_sdf_scene_hydra(const SdfScene &scene, const std::string &folder, cons
 void save_sdf_scene(const SdfScene &scene, const std::string &path);
 void load_sdf_scene(SdfScene &scene, const std::string &path);
 void load_neural_sdf_scene_SIREN(SdfScene &scene, const std::string &path); // loads scene from raw SIREN weights file
-void load_rf_scene(RFScene &scene, const std::string &path); // loads scene from raw SIREN weights file
 #endif

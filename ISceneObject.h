@@ -6,6 +6,7 @@
 
 #include "LiteMath.h"
 #include "sdfScene/sdf_scene.h"
+#include "utils/radiance_field.h"
 
 enum BuildQuality
 {

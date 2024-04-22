@@ -44,20 +44,6 @@ void load_sdf_scene(SdfScene &scene, const std::string &path)
   fs.close();
 }
 
-
-void load_rf_scene(RFScene &scene, const std::string &path)
-{
-  std::ifstream fs(path, std::ios::binary);
-
-  fs.read((char *)&scene.size, sizeof(int));
-  fs.read((char *)&scene.scale, sizeof(float));
-  
-  scene.data.resize(scene.size *  scene.size * scene.size * CellSize);
-
-  fs.read((char *)(scene.data.data()), scene.size *  scene.size * scene.size * CellSize * sizeof(float));
-  fs.close();
-}
-
 void load_neural_sdf_scene_SIREN(SdfScene &scene, const std::string &path)
 {
   constexpr unsigned layers = 4;
