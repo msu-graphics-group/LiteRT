@@ -38,7 +38,6 @@ void BVHRT::ClearGeom()
   m_bvhOffsets.reserve(std::max<size_t>(reserveSize, m_bvhOffsets.capacity()));
   m_bvhOffsets.resize(0);
 
-#ifndef LITERT_MINI
   m_SdfParameters.reserve(16);
   m_SdfParameters.resize(0);
 
@@ -53,7 +52,6 @@ void BVHRT::ClearGeom()
 
   m_ConjIndices.reserve(16);
   m_ConjIndices.resize(0);
-#endif
 
   m_SdfGridData.reserve(16);
   m_SdfGridData.resize(0);  
@@ -288,6 +286,7 @@ uint32_t BVHRT::AddGeom_RFScene(RFScene grid, BuildQuality a_qualityLevel)
 
 uint32_t BVHRT::AddGeom_SdfGrid(SdfGridView grid, BuildQuality a_qualityLevel)
 {
+#ifndef LITERT_MINI
   assert(grid.size.x*grid.size.y*grid.size.z > 0);
   assert(grid.size.x*grid.size.y*grid.size.z < (1u<<28)); //huge grids shouldn't be here
   //SDF grid is always a unit cube
@@ -318,12 +317,16 @@ uint32_t BVHRT::AddGeom_SdfGrid(SdfGridView grid, BuildQuality a_qualityLevel)
     printf("grid ind %d\n",(int)i);
 
   m_allNodePairs.insert(m_allNodePairs.end(), bvhData.nodes.begin(), bvhData.nodes.end());
+#else
+  printf("Mini LiteRT does not support SdfGrid!");
+#endif
 
   return m_geomTypeByGeomId.size()-1;
 }
 
 uint32_t BVHRT::AddGeom_SdfOctree(SdfOctreeView octree, BuildQuality a_qualityLevel)
 {
+#ifndef LITERT_MINI
   assert(octree.size > 0);
   assert(octree.size < (1u<<28)); //huge grids shouldn't be here
   //SDF octree is always a unit cube
@@ -355,6 +358,9 @@ uint32_t BVHRT::AddGeom_SdfOctree(SdfOctreeView octree, BuildQuality a_qualityLe
     printf("octree ind %d\n",(int)i);
 
   m_allNodePairs.insert(m_allNodePairs.end(), bvhData.nodes.begin(), bvhData.nodes.end());
+#else
+  printf("Mini LiteRT does not support SdfOctree!");
+#endif
 
   return m_geomTypeByGeomId.size()-1;
 }
@@ -814,17 +820,14 @@ std::vector<BVHNode> BVHRT::GetBoxes_SdfFrameOctree(SdfFrameOctreeView octree)
 //SdfSceneFunction interface implementation
 void BVHRT::init(SdfSceneView scene)
 {
-#ifndef LITERT_MINI
   m_SdfParameters.insert(m_SdfParameters.end(), scene.parameters, scene.parameters + scene.parameters_count);
   m_SdfObjects.insert(m_SdfObjects.end(), scene.objects, scene.objects + scene.objects_count);
   m_SdfConjunctions.insert(m_SdfConjunctions.end(), scene.conjunctions, scene.conjunctions + scene.conjunctions_count);
   m_SdfNeuralProperties.insert(m_SdfNeuralProperties.end(), scene.neural_properties, scene.neural_properties + scene.neural_properties_count);
-#endif
 } 
   
 float BVHRT::eval_distance(float3 pos)
 {
-#ifndef LITERT_MINI
   if (!m_SdfConjunctions.empty())
   {
     float dist = 1e6;
@@ -836,7 +839,6 @@ float BVHRT::eval_distance(float3 pos)
     return eval_distance_sdf_octree(0, pos, 1000);
   else if (!m_SdfGridData.empty())
     return eval_distance_sdf_grid(0, pos);
-#endif
 
   return 1e6; 
 }

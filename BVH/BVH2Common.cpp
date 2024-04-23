@@ -855,6 +855,7 @@ float BVHRT::eval_distance_sdf(uint32_t type, uint32_t sdf_id, float3 pos)
 
 float BVHRT::eval_distance_sdf_grid(uint32_t grid_id, float3 pos)
 {
+#ifndef LITERT_MINI
   uint32_t off = m_SdfGridOffsets[grid_id];
   uint3 size = m_SdfGridSizes[grid_id];
 
@@ -889,6 +890,9 @@ float BVHRT::eval_distance_sdf_grid(uint32_t grid_id, float3 pos)
   }
   
   return res;
+#else
+  return 1000;
+#endif
 }
 
 static constexpr uint32_t X_L = 1<<0;
@@ -913,6 +917,7 @@ bool BVHRT::is_leaf(uint32_t offset)
 
 float BVHRT::eval_distance_sdf_octree(uint32_t octree_id, float3 position, uint32_t max_level)
 {
+#ifndef LITERT_MINI
   switch (m_preset.sdf_octree_sampler)
   {
   case SDF_OCTREE_SAMPLER_MIPSKIP_3X3:
@@ -928,9 +933,12 @@ float BVHRT::eval_distance_sdf_octree(uint32_t octree_id, float3 position, uint3
     return 1e6;
     break;
   }
+#else
+  return 1000;
+#endif
 }
 
-
+#ifndef LITERT_MINI
 float BVHRT::sdf_octree_sample_mipskip_closest(uint32_t octree_id, float3 position, uint32_t max_level)
 {
   float3 n_pos = clamp(0.5f*(position + 1.0f), 0.0f, 1.0f);//position in current neighborhood
@@ -1154,6 +1162,7 @@ float BVHRT::sdf_octree_sample_mipskip_3x3(uint32_t octree_id, float3 position, 
   return res;
   //sample neighborhood end
 }
+#endif
 
 float BVHRT::eval_distance_sdf_frame_octree(uint32_t octree_id, float3 position)
 {

@@ -146,19 +146,17 @@ struct BVHRT : public ISceneObject
   //It is a copy-past of sdfScene functions with the same names
   //Slicer is weak and can't handle calling external functions  ¯\_(ツ)_/¯
   virtual float2 box_intersects(const float3 &min_pos, const float3 &max_pos, const float3 &origin, const float3 &dir);
-#ifndef LITERT_MINI
-  virtual float eval_dist_prim(unsigned prim_id, float3 p);
-#endif
   virtual bool is_leaf(unsigned offset);
   virtual float eval_dist_trilinear(const float values[8], float3 dp);
 
+#ifndef LITERT_MINI
+  virtual float eval_dist_prim(unsigned prim_id, float3 p);
   virtual float sdf_octree_sample_mipskip_3x3(unsigned octree_id, float3 p, unsigned max_level);
   virtual float sdf_octree_sample_mipskip_closest(unsigned octree_id, float3 p, unsigned max_level);
   virtual float sdf_octree_sample_closest(unsigned octree_id, float3 p, unsigned max_level);
-
-#ifndef LITERT_MINI
   virtual float eval_dist_sdf_conjunction(unsigned conj_id, float3 p);
 #endif
+
   virtual float eval_distance_sdf_grid(unsigned grid_id, float3 p);
   virtual float eval_distance_sdf_octree(unsigned octree_id, float3 p, unsigned max_level);
   virtual float eval_distance_sdf_frame_octree(unsigned octree_id, float3 p);
@@ -182,9 +180,11 @@ struct BVHRT : public ISceneObject
 #endif
 
   //SDF grid data
+#ifndef LITERT_MINI
   std::vector<float> m_SdfGridData;       //raw data for all SDF grids
   std::vector<uint32_t> m_SdfGridOffsets; //offset in m_SdfGridData for each SDF grid
   std::vector<uint3> m_SdfGridSizes;      //size for each SDF grid
+#endif
 
   // RF grid data
   std::vector<float> m_RFGridData;       //raw data for all RF grids
@@ -193,8 +193,10 @@ struct BVHRT : public ISceneObject
   std::vector<float> m_RFGridScales;      //size for each RF grid
 
   //SDF octree data
+#ifndef LITERT_MINI
   std::vector<SdfOctreeNode> m_SdfOctreeNodes;//nodes for all SDF octrees
   std::vector<uint32_t> m_SdfOctreeRoots;     //root node ids for each SDF octree
+#endif
 
   //SDF frame octree data
   std::vector<SdfFrameOctreeNode> m_SdfFrameOctreeNodes;//nodes for all SDF octrees
