@@ -445,6 +445,7 @@ uint32_t BVHRT::AddGeom_SdfSVS(SdfSVSView octree, BuildQuality a_qualityLevel)
 
 uint32_t BVHRT::AddGeom_SdfSBS(SdfSBSView octree, BuildQuality a_qualityLevel)
 {
+#ifndef LITERT_MINI
   assert(octree.size > 0 && octree.values_count > 0);
   assert(octree.size < (1u<<28) && octree.values_count < (1u<<28));
   //SDF octree is always a unit cube
@@ -525,6 +526,9 @@ uint32_t BVHRT::AddGeom_SdfSBS(SdfSBSView octree, BuildQuality a_qualityLevel)
   auto bvhData = BuildBVHFatCustom(orig_nodes.data(), orig_nodes.size(), presets, layout);
 
   m_allNodePairs.insert(m_allNodePairs.end(), bvhData.nodes.begin(), bvhData.nodes.end());
+#else
+  printf("Mini LiteRT does not support Sparse Brick Sets!");
+#endif
 
   return m_geomTypeByGeomId.size()-1;
 }

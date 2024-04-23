@@ -20,14 +20,14 @@ class MultiRenderer_GPU : public MultiRenderer
 {
 public:
 
-  MultiRenderer_GPU() 
+  MultiRenderer_GPU()
   {
     if(m_pAccelStruct == nullptr)
       m_pAccelStruct = std::make_shared<BVHRT>();
   }
   const char* Name() const override { return "MultiRenderer_GPU";}
   virtual void InitVulkanObjects(VkDevice a_device, VkPhysicalDevice a_physicalDevice, size_t a_maxThreadsCount);
-  
+
   virtual void SetVulkanContext(vk_utils::VulkanContext a_ctx) { m_ctx = a_ctx; }
   virtual void SetVulkanInOutFor_PackXY(
     uint32_t dummyArgument = 0)
@@ -47,7 +47,7 @@ public:
 
   virtual ~MultiRenderer_GPU();
 
-  
+
   virtual void InitMemberBuffers();
   virtual void UpdateAll(std::shared_ptr<vk_utils::ICopyEngine> a_pCopyEngine)
   {
@@ -55,7 +55,7 @@ public:
     UpdateVectorMembers(a_pCopyEngine);
     UpdateTextureMembers(a_pCopyEngine);
   }
-  
+
   virtual void UpdatePrefixPointers()
   {
     auto pUnderlyingImpl = dynamic_cast<BVHRT*>(m_pAccelStruct.get());
@@ -97,13 +97,13 @@ public:
   }
   virtual void CommitDeviceData(std::shared_ptr<vk_utils::ICopyEngine> a_pCopyHelper) // you have to define this virtual function in the original imput class
   {
-    UpdatePrefixPointers(); 
+    UpdatePrefixPointers();
     InitMemberBuffers();
     UpdateAll(a_pCopyHelper);
-  }  
-  void CommitDeviceData() override { CommitDeviceData(m_ctx.pCopyHelper); }  
-  void GetExecutionTime(const char* a_funcName, float a_out[4]) override; 
-  
+  }
+  void CommitDeviceData() override { CommitDeviceData(m_ctx.pCopyHelper); }
+  void GetExecutionTime(const char* a_funcName, float a_out[4]) override;
+
 
   virtual void ReserveEmptyVectors();
   virtual void UpdatePlainMembers(std::shared_ptr<vk_utils::ICopyEngine> a_pCopyEngine);
@@ -111,7 +111,7 @@ public:
   virtual void UpdateTextureMembers(std::shared_ptr<vk_utils::ICopyEngine> a_pCopyEngine);
   virtual void ReadPlainMembers(std::shared_ptr<vk_utils::ICopyEngine> a_pCopyEngine);
   static VkPhysicalDeviceFeatures2 ListRequiredDeviceFeatures(std::vector<const char*>& deviceExtensions);
-  
+
   virtual void PackXYCmd(VkCommandBuffer a_commandBuffer, uint tidX, uint tidY);
   virtual void CastRaySingleCmd(VkCommandBuffer a_commandBuffer, uint32_t tidX, uint32_t* out_color);
 
@@ -125,10 +125,11 @@ public:
   vk_utils::ExecTime m_exTimeCastRaySingle;
 
   virtual void copyKernelFloatCmd(uint32_t length);
-  
+  virtual void matMulTransposeCmd(uint32_t A_offset, uint32_t B_offset, uint32_t C_offset, uint32_t A_col_len, uint32_t B_col_len, uint32_t A_row_len);
+
   virtual void PackXYMegaCmd(uint tidX, uint tidY);
   virtual void CastRaySingleMegaCmd(uint32_t tidX, uint32_t* out_color);
-  
+
   struct MemLoc
   {
     VkDeviceMemory memObject = VK_NULL_HANDLE;
@@ -253,7 +254,7 @@ protected:
     VkBuffer m_packedXYBuffer = VK_NULL_HANDLE;
     size_t   m_packedXYOffset = 0;
   } m_vdata;
-  
+
   std::vector<uint32_t>* m_pAccelStruct_m_ConjIndices = nullptr;
   std::vector<float>* m_pAccelStruct_m_RFGridData = nullptr;
   std::vector<float>* m_pAccelStruct_m_RFGridScales = nullptr;
@@ -286,17 +287,17 @@ protected:
   std::vector<BVHNode>* m_pAccelStruct_m_origNodes = nullptr;
   std::vector<uint32_t>* m_pAccelStruct_m_primIndices = nullptr;
   std::vector<float4>* m_pAccelStruct_m_vertPos = nullptr;
-  
+
   size_t m_maxThreadCount = 0;
   VkBuffer m_classDataBuffer = VK_NULL_HANDLE;
 
   VkPipelineLayout      PackXYMegaLayout   = VK_NULL_HANDLE;
-  VkPipeline            PackXYMegaPipeline = VK_NULL_HANDLE; 
+  VkPipeline            PackXYMegaPipeline = VK_NULL_HANDLE;
   VkDescriptorSetLayout PackXYMegaDSLayout = VK_NULL_HANDLE;
   VkDescriptorSetLayout CreatePackXYMegaDSLayout();
   virtual void InitKernel_PackXYMega(const char* a_filePath);
   VkPipelineLayout      CastRaySingleMegaLayout   = VK_NULL_HANDLE;
-  VkPipeline            CastRaySingleMegaPipeline = VK_NULL_HANDLE; 
+  VkPipeline            CastRaySingleMegaPipeline = VK_NULL_HANDLE;
   VkDescriptorSetLayout CastRaySingleMegaDSLayout = VK_NULL_HANDLE;
   VkDescriptorSetLayout CreateCastRaySingleMegaDSLayout();
   virtual void InitKernel_CastRaySingleMega(const char* a_filePath);
@@ -310,17 +311,22 @@ protected:
   VkDescriptorSetLayout copyKernelFloatDSLayout = VK_NULL_HANDLE;
   VkDescriptorSetLayout CreatecopyKernelFloatDSLayout();
 
+  VkPipelineLayout      matMulTransposeLayout   = VK_NULL_HANDLE;
+  VkPipeline            matMulTransposePipeline = VK_NULL_HANDLE;
+  VkDescriptorSetLayout matMulTransposeDSLayout = VK_NULL_HANDLE;
+  VkDescriptorSetLayout CreatematMulTransposeDSLayout();
+
   VkDescriptorPool m_dsPool = VK_NULL_HANDLE;
   VkDescriptorSet  m_allGeneratedDS[2];
 
   MultiRenderer_GPU_UBO_Data m_uboData;
-  
+
   constexpr static uint32_t MEMCPY_BLOCK_SIZE = 256;
   constexpr static uint32_t REDUCTION_BLOCK_SIZE = 256;
 
-  virtual void MakeComputePipelineAndLayout(const char* a_shaderPath, const char* a_mainName, const VkSpecializationInfo *a_specInfo, const VkDescriptorSetLayout a_dsLayout, 
+  virtual void MakeComputePipelineAndLayout(const char* a_shaderPath, const char* a_mainName, const VkSpecializationInfo *a_specInfo, const VkDescriptorSetLayout a_dsLayout,
                                             VkPipelineLayout* pPipelineLayout, VkPipeline* pPipeline);
-  virtual void MakeComputePipelineOnly(const char* a_shaderPath, const char* a_mainName, const VkSpecializationInfo *a_specInfo, const VkDescriptorSetLayout a_dsLayout, VkPipelineLayout pipelineLayout, 
+  virtual void MakeComputePipelineOnly(const char* a_shaderPath, const char* a_mainName, const VkSpecializationInfo *a_specInfo, const VkDescriptorSetLayout a_dsLayout, VkPipelineLayout pipelineLayout,
                                        VkPipeline* pPipeline);
 
   std::vector<VkPipelineLayout> m_allCreatedPipelineLayouts; ///<! remenber them here to delete later

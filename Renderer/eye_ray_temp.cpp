@@ -481,6 +481,7 @@ void BVHRT::OctreeNodeIntersect(uint32_t type, const float3 ray_pos, const float
     start_q = (start_pos - min_pos)/(2.0f*d);
     qFar = (fNearFar.y - fNearFar.x) / (2.0f * d);
   }
+#ifndef LITERT_MINI
   else //if (type == TYPE_SDF_SBS)
   {
     uint32_t sdfId =  m_geomOffsets[geomId].x;
@@ -519,6 +520,7 @@ void BVHRT::OctreeNodeIntersect(uint32_t type, const float3 ray_pos, const float
     start_q = (start_pos - min_pos)/(2.0f*d);
     qFar = (fNearFar.y - fNearFar.x) / (2.0f * d);
   }
+#endif
 
   float t = 0;
   bool hit = false;

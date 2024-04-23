@@ -9,15 +9,15 @@
 #include "include/MultiRenderer_gpu_ubo.h"
 
 
-std::shared_ptr<MultiRenderer> CreateMultiRenderer_GPU(vk_utils::VulkanContext a_ctx, size_t a_maxThreadsGenerated) 
-{ 
-  auto pObj = std::make_shared<MultiRenderer_GPU>(); 
+std::shared_ptr<MultiRenderer> CreateMultiRenderer_GPU(vk_utils::VulkanContext a_ctx, size_t a_maxThreadsGenerated)
+{
+  auto pObj = std::make_shared<MultiRenderer_GPU>();
   pObj->SetVulkanContext(a_ctx);
-  pObj->InitVulkanObjects(a_ctx.device, a_ctx.physicalDevice, a_maxThreadsGenerated); 
+  pObj->InitVulkanObjects(a_ctx.device, a_ctx.physicalDevice, a_maxThreadsGenerated);
   return pObj;
 }
 
-void MultiRenderer_GPU::InitVulkanObjects(VkDevice a_device, VkPhysicalDevice a_physicalDevice, size_t a_maxThreadsCount) 
+void MultiRenderer_GPU::InitVulkanObjects(VkDevice a_device, VkPhysicalDevice a_physicalDevice, size_t a_maxThreadsCount)
 {
   physicalDevice = a_physicalDevice;
   device         = a_device;
@@ -72,7 +72,7 @@ void MultiRenderer_GPU::MakeComputePipelineAndLayout(const char* a_shaderPath, c
   pipelineLayoutInfo.pPushConstantRanges    = &pcRange;
   pipelineLayoutInfo.pSetLayouts            = &a_dsLayout;
   pipelineLayoutInfo.setLayoutCount         = 1;
-   
+
   VkResult res = vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, pPipelineLayout);
   if(res != VK_SUCCESS)
   {
@@ -145,8 +145,8 @@ MultiRenderer_GPU::~MultiRenderer_GPU()
   vkDestroyDescriptorSetLayout(device, CastRaySingleMegaDSLayout, nullptr);
   CastRaySingleMegaDSLayout = VK_NULL_HANDLE;
   vkDestroyDescriptorPool(device, m_dsPool, NULL); m_dsPool = VK_NULL_HANDLE;
-  
- 
+
+
   vkDestroyBuffer(device, m_classDataBuffer, nullptr);
 
   vkDestroyBuffer(device, m_vdata.m_pAccelStruct_m_ConjIndicesBuffer, nullptr);
@@ -193,10 +193,10 @@ void MultiRenderer_GPU::InitHelpers()
 
 void MultiRenderer_GPU::InitKernel_PackXYMega(const char* a_filePath)
 {
-  std::string shaderPath = AlterShaderPath("shaders_gpu/PackXYMega.comp.spv"); 
+  std::string shaderPath = AlterShaderPath("shaders_gpu/PackXYMega.comp.spv");
   const VkSpecializationInfo* kspec = nullptr;
   PackXYMegaDSLayout = CreatePackXYMegaDSLayout();
-  if(m_megaKernelFlags.enablePackXYMega) 
+  if(m_megaKernelFlags.enablePackXYMega)
   {
     MakeComputePipelineAndLayout(shaderPath.c_str(), "main", kspec, PackXYMegaDSLayout, &PackXYMegaLayout, &PackXYMegaPipeline);
   }
@@ -209,10 +209,10 @@ void MultiRenderer_GPU::InitKernel_PackXYMega(const char* a_filePath)
 
 void MultiRenderer_GPU::InitKernel_CastRaySingleMega(const char* a_filePath)
 {
-  std::string shaderPath = AlterShaderPath("shaders_gpu/CastRaySingleMega.comp.spv"); 
+  std::string shaderPath = AlterShaderPath("shaders_gpu/CastRaySingleMega.comp.spv");
   const VkSpecializationInfo* kspec = nullptr;
   CastRaySingleMegaDSLayout = CreateCastRaySingleMegaDSLayout();
-  if(m_megaKernelFlags.enableCastRaySingleMega) 
+  if(m_megaKernelFlags.enableCastRaySingleMega)
   {
     MakeComputePipelineAndLayout(shaderPath.c_str(), "main", kspec, CastRaySingleMegaDSLayout, &CastRaySingleMegaLayout, &CastRaySingleMegaPipeline);
   }
@@ -233,7 +233,7 @@ void MultiRenderer_GPU::InitKernels(const char* a_filePath)
 void MultiRenderer_GPU::InitBuffers(size_t a_maxThreadsCount, bool a_tempBuffersOverlay)
 {
   ReserveEmptyVectors();
-  
+
   m_maxThreadCount = a_maxThreadsCount;
   std::vector<VkBuffer> allBuffers;
   allBuffers.reserve(64);
@@ -270,7 +270,7 @@ void MultiRenderer_GPU::InitBuffers(size_t a_maxThreadsCount, bool a_tempBuffers
     for(size_t j=0;j<groups[i].bufsClean.size();j++)
       groups[i].bufsClean[j] = groups[i].bufs[j].buf;
   }
-  
+
   auto& allBuffersRef = allBuffers;
 
   m_classDataBuffer = vk_utils::createBuffer(device, sizeof(m_uboData),  VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | GetAdditionalFlagsForUBO());
@@ -451,7 +451,7 @@ void MultiRenderer_GPU::AssignBuffersToMemory(const std::vector<VkBuffer>& a_buf
       memInfos[i].size = 0;
     }
   }
-  
+
   for(size_t i=1;i<memInfos.size();i++)
   {
     if(memInfos[i].memoryTypeBits != memInfos[0].memoryTypeBits)
@@ -486,7 +486,7 @@ MultiRenderer_GPU::MemLoc MultiRenderer_GPU::AllocAndBind(const std::vector<VkIm
   MemLoc currLoc;
   if(a_images.size() > 0)
   {
-    std::vector<VkMemoryRequirements> reqs(a_images.size()); 
+    std::vector<VkMemoryRequirements> reqs(a_images.size());
     for(size_t i=0; i<reqs.size(); i++)
       vkGetImageMemoryRequirements(device, a_images[i], &reqs[i]);
 
@@ -497,7 +497,7 @@ MultiRenderer_GPU::MemLoc MultiRenderer_GPU::AllocAndBind(const std::vector<VkIm
         std::cout << "MultiRenderer_GPU::AllocAndBind(textures): memoryTypeBits warning, need to split mem allocation (override me)" << std::endl;
         break;
       }
-    } 
+    }
 
     auto offsets  = vk_utils::calculateMemOffsets(reqs);
     auto memTotal = offsets[offsets.size() - 1];
@@ -508,7 +508,7 @@ MultiRenderer_GPU::MemLoc MultiRenderer_GPU::AllocAndBind(const std::vector<VkIm
     allocateInfo.allocationSize  = memTotal;
     allocateInfo.memoryTypeIndex = vk_utils::findMemoryType(reqs[0].memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, physicalDevice);
     VK_CHECK_RESULT(vkAllocateMemory(device, &allocateInfo, NULL, &currLoc.memObject));
-    
+
     for(size_t i=0;i<a_images.size();i++) {
       VK_CHECK_RESULT(vkBindImageMemory(device, a_images[i], currLoc.memObject, offsets[i]));
     }
@@ -526,7 +526,7 @@ void MultiRenderer_GPU::FreeAllAllocations(std::vector<MemLoc>& a_memLoc)
   for(auto mem : a_memLoc)
     vkFreeMemory(device, mem.memObject, nullptr);
   a_memLoc.resize(0);
-}     
+}
 
 void MultiRenderer_GPU::AllocMemoryForMemberBuffersAndImages(const std::vector<VkBuffer>& a_buffers, const std::vector<VkImage>& a_images)
 {
@@ -578,9 +578,9 @@ VkPhysicalDeviceFeatures2 MultiRenderer_GPU::ListRequiredDeviceFeatures(std::vec
 {
   static VkPhysicalDeviceFeatures2 features2 = {};
   features2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
-  features2.pNext = nullptr; 
+  features2.pNext = nullptr;
   features2.features.shaderInt64   = false;
-  features2.features.shaderFloat64 = false;  
+  features2.features.shaderFloat64 = false;
   features2.features.shaderInt16   = false;
   void** ppNext = &features2.pNext;
   return features2;

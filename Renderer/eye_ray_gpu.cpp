@@ -225,7 +225,7 @@ void MultiRenderer_GPU::UpdateVectorMembers(std::shared_ptr<vk_utils::ICopyEngin
 }
 
 void MultiRenderer_GPU::UpdateTextureMembers(std::shared_ptr<vk_utils::ICopyEngine> a_pCopyEngine)
-{ 
+{
 }
 
 void MultiRenderer_GPU::PackXYMegaCmd(uint tidX, uint tidY)
@@ -233,7 +233,7 @@ void MultiRenderer_GPU::PackXYMegaCmd(uint tidX, uint tidY)
   uint32_t blockSizeX = 256;
   uint32_t blockSizeY = 1;
   uint32_t blockSizeZ = 1;
-  
+
   struct KernelArgsPC
   {
     uint32_t m_sizeX;
@@ -241,11 +241,11 @@ void MultiRenderer_GPU::PackXYMegaCmd(uint tidX, uint tidY)
     uint32_t m_sizeZ;
     uint32_t m_tFlags;
   } pcData;
-  
+
   uint32_t sizeX  = uint32_t(tidX);
   uint32_t sizeY  = uint32_t(tidY);
   uint32_t sizeZ  = uint32_t(1);
-  
+
   pcData.m_sizeX  = tidX;
   pcData.m_sizeY  = tidY;
   pcData.m_sizeZ  = 1;
@@ -260,7 +260,7 @@ void MultiRenderer_GPU::CastRaySingleMegaCmd(uint32_t tidX, uint32_t* out_color)
   uint32_t blockSizeX = 256;
   uint32_t blockSizeY = 1;
   uint32_t blockSizeZ = 1;
-  
+
   struct KernelArgsPC
   {
     uint32_t m_sizeX;
@@ -268,11 +268,11 @@ void MultiRenderer_GPU::CastRaySingleMegaCmd(uint32_t tidX, uint32_t* out_color)
     uint32_t m_sizeZ;
     uint32_t m_tFlags;
   } pcData;
-  
+
   uint32_t sizeX  = uint32_t(tidX);
   uint32_t sizeY  = uint32_t(1);
   uint32_t sizeZ  = uint32_t(1);
-  
+
   pcData.m_sizeX  = tidX;
   pcData.m_sizeY  = 1;
   pcData.m_sizeZ  = 1;
@@ -290,6 +290,31 @@ void MultiRenderer_GPU::copyKernelFloatCmd(uint32_t length)
   vkCmdBindPipeline(m_currCmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, copyKernelFloatPipeline);
   vkCmdPushConstants(m_currCmdBuffer, copyKernelFloatLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(uint32_t), &length);
   vkCmdDispatch(m_currCmdBuffer, (length + blockSizeX - 1) / blockSizeX, 1, 1);
+}
+
+void MultiRenderer_GPU::matMulTransposeCmd(uint32_t A_offset, uint32_t B_offset, uint32_t C_offset, uint32_t A_col_len, uint32_t B_col_len, uint32_t A_row_len)
+{
+  const uint32_t blockSizeX = 8;
+  const uint32_t blockSizeY = 8;
+
+  vkCmdBindPipeline(m_currCmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, matMulTransposePipeline);
+  struct KernelArgsPC
+  {
+    uint32_t m_A_row_len;
+    uint32_t m_sizeX;
+    uint32_t m_sizeY;
+    uint32_t m_A_offset;
+    uint32_t m_B_offset;
+    uint32_t m_C_offset;
+  } pcData;
+  pcData.m_A_row_len = A_row_len;
+  pcData.m_sizeX = B_col_len;
+  pcData.m_sizeY = A_col_len;
+  pcData.m_A_offset = A_offset;
+  pcData.m_B_offset = B_offset;
+  pcData.m_C_offset = C_offset;
+  vkCmdPushConstants(m_currCmdBuffer, matMulTransposeLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(pcData), &pcData);
+  vkCmdDispatch(m_currCmdBuffer, (B_col_len + blockSizeX - 1) / blockSizeX, (A_col_len + blockSizeY - 1) / blockSizeY, 1);
 }
 
 VkBufferMemoryBarrier MultiRenderer_GPU::BarrierForClearFlags(VkBuffer a_buffer)
@@ -341,19 +366,19 @@ void MultiRenderer_GPU::BarriersForSeveralBuffers(VkBuffer* a_inBuffers, VkBuffe
 void MultiRenderer_GPU::PackXYCmd(VkCommandBuffer a_commandBuffer, uint tidX, uint tidY)
 {
   m_currCmdBuffer = a_commandBuffer;
-  VkMemoryBarrier memoryBarrier = { VK_STRUCTURE_TYPE_MEMORY_BARRIER, nullptr, VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT }; 
+  VkMemoryBarrier memoryBarrier = { VK_STRUCTURE_TYPE_MEMORY_BARRIER, nullptr, VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT };
   vkCmdBindDescriptorSets(a_commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, PackXYMegaLayout, 0, 1, &m_allGeneratedDS[0], 0, nullptr);
   PackXYMegaCmd(tidX, tidY);
-  vkCmdPipelineBarrier(m_currCmdBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 1, &memoryBarrier, 0, nullptr, 0, nullptr); 
+  vkCmdPipelineBarrier(m_currCmdBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 1, &memoryBarrier, 0, nullptr, 0, nullptr);
 }
 
 void MultiRenderer_GPU::CastRaySingleCmd(VkCommandBuffer a_commandBuffer, uint32_t tidX, uint32_t* out_color)
 {
   m_currCmdBuffer = a_commandBuffer;
-  VkMemoryBarrier memoryBarrier = { VK_STRUCTURE_TYPE_MEMORY_BARRIER, nullptr, VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT }; 
+  VkMemoryBarrier memoryBarrier = { VK_STRUCTURE_TYPE_MEMORY_BARRIER, nullptr, VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT };
   vkCmdBindDescriptorSets(a_commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, CastRaySingleMegaLayout, 0, 1, &m_allGeneratedDS[1], 0, nullptr);
   CastRaySingleMegaCmd(tidX, out_color);
-  vkCmdPipelineBarrier(m_currCmdBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 1, &memoryBarrier, 0, nullptr, 0, nullptr); 
+  vkCmdPipelineBarrier(m_currCmdBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 1, &memoryBarrier, 0, nullptr, 0, nullptr);
 }
 
 
@@ -365,8 +390,8 @@ void MultiRenderer_GPU::PackXYBlock(uint tidX, uint tidY, uint32_t a_numPasses)
   VkInstance       instance       = m_ctx.instance;
   VkPhysicalDevice physicalDevice = m_ctx.physicalDevice;
   VkDevice         device         = m_ctx.device;
-  VkCommandPool    commandPool    = m_ctx.commandPool; 
-  VkQueue          computeQueue   = m_ctx.computeQueue; 
+  VkCommandPool    commandPool    = m_ctx.commandPool;
+  VkQueue          computeQueue   = m_ctx.computeQueue;
   VkQueue          transferQueue  = m_ctx.transferQueue;
   auto             pCopyHelper    = m_ctx.pCopyHelper;
   auto             pAllocatorSpec = m_ctx.pAllocatorSpecial;
@@ -380,11 +405,11 @@ void MultiRenderer_GPU::PackXYBlock(uint tidX, uint tidY, uint32_t a_numPasses)
   std::vector<VkImage>  images2;
   std::vector<vk_utils::VulkanImageMem*> images;
   auto beforeCreateObjects = std::chrono::high_resolution_clock::now();
-  
+
 
   VkDeviceMemory buffersMem = VK_NULL_HANDLE; // vk_utils::allocateAndBindWithPadding(device, physicalDevice, buffers);
   VkDeviceMemory imagesMem  = VK_NULL_HANDLE; // vk_utils::allocateAndBindWithPadding(device, physicalDevice, std::vector<VkBuffer>(), images);
-  
+
   vk_utils::MemAllocInfo tempMemoryAllocInfo;
   tempMemoryAllocInfo.memUsage = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT; // TODO, select depending on device and sample/application (???)
   if(buffers.size() != 0)
@@ -408,17 +433,17 @@ void MultiRenderer_GPU::PackXYBlock(uint tidX, uint tidY, uint32_t a_numPasses)
       VK_CHECK_RESULT(vkCreateImageView(device, &imageView, nullptr, &imgMem->view));
     }
   }
-  
+
   auto afterCreateObjects = std::chrono::high_resolution_clock::now();
   m_exTimePackXY.msAPIOverhead = std::chrono::duration_cast<std::chrono::microseconds>(afterCreateObjects - beforeCreateObjects).count()/1000.f;
-  
+
   auto afterCopy2 = std::chrono::high_resolution_clock::now(); // just declare it here, replace value later
-  
+
   auto afterInitBuffers = std::chrono::high_resolution_clock::now();
   m_exTimePackXY.msAPIOverhead += std::chrono::duration_cast<std::chrono::microseconds>(afterInitBuffers - afterCreateObjects).count()/1000.f;
-  
+
   auto beforeSetInOut = std::chrono::high_resolution_clock::now();
-  this->SetVulkanInOutFor_PackXY(); 
+  this->SetVulkanInOutFor_PackXY();
 
   // (3) copy input data to GPU
   //
@@ -426,7 +451,7 @@ void MultiRenderer_GPU::PackXYBlock(uint tidX, uint tidY, uint32_t a_numPasses)
   m_exTimePackXY.msAPIOverhead += std::chrono::duration_cast<std::chrono::microseconds>(beforeCopy - beforeSetInOut).count()/1000.f;
   auto afterCopy = std::chrono::high_resolution_clock::now();
   m_exTimePackXY.msCopyToGPU = std::chrono::duration_cast<std::chrono::microseconds>(afterCopy - beforeCopy).count()/1000.f;
-  //  
+  //
   m_exTimePackXY.msExecuteOnGPU = 0;
   //// (3.1) clear all outputs if we are in RTV pattern
   //
@@ -437,7 +462,7 @@ void MultiRenderer_GPU::PackXYBlock(uint tidX, uint tidY, uint32_t a_numPasses)
     beginCommandBufferInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
     beginCommandBufferInfo.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
     vkBeginCommandBuffer(commandBuffer, &beginCommandBufferInfo);
-    vkEndCommandBuffer(commandBuffer);  
+    vkEndCommandBuffer(commandBuffer);
     auto start = std::chrono::high_resolution_clock::now();
     vk_utils::executeCommandBufferNow(commandBuffer, computeQueue, device);
     vkFreeCommandBuffers(device, commandPool, 1, &commandBuffer);
@@ -453,8 +478,8 @@ void MultiRenderer_GPU::PackXYBlock(uint tidX, uint tidY, uint32_t a_numPasses)
     beginCommandBufferInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
     beginCommandBufferInfo.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
     vkBeginCommandBuffer(commandBuffer, &beginCommandBufferInfo);
-    PackXYCmd(commandBuffer, tidX, tidY);      
-    vkEndCommandBuffer(commandBuffer);  
+    PackXYCmd(commandBuffer, tidX, tidY);
+    vkEndCommandBuffer(commandBuffer);
     auto start = std::chrono::high_resolution_clock::now();
     for(uint32_t pass = 0; pass < a_numPasses; pass++) {
       vk_utils::executeCommandBufferNow(commandBuffer, computeQueue, device);
@@ -463,7 +488,7 @@ void MultiRenderer_GPU::PackXYBlock(uint tidX, uint tidY, uint32_t a_numPasses)
     auto stop = std::chrono::high_resolution_clock::now();
     m_exTimePackXY.msExecuteOnGPU += std::chrono::duration_cast<std::chrono::microseconds>(stop - start).count()/1000.f;
   }
-  
+
   // (5) copy output data to CPU
   //
   auto beforeCopy2 = std::chrono::high_resolution_clock::now();
@@ -471,13 +496,13 @@ void MultiRenderer_GPU::PackXYBlock(uint tidX, uint tidY, uint32_t a_numPasses)
   afterCopy2 = std::chrono::high_resolution_clock::now();
   m_exTimePackXY.msCopyFromGPU = std::chrono::duration_cast<std::chrono::microseconds>(afterCopy2 - beforeCopy2).count()/1000.f;
 
-  // (6) free resources 
+  // (6) free resources
   //
   if(buffersMem != VK_NULL_HANDLE)
     vkFreeMemory(device, buffersMem, nullptr);
   if(imagesMem != VK_NULL_HANDLE)
     vkFreeMemory(device, imagesMem, nullptr);
-  
+
   m_exTimePackXY.msAPIOverhead += std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - afterCopy2).count()/1000.f;
 }
 
@@ -488,8 +513,8 @@ void MultiRenderer_GPU::CastRaySingleBlock(uint32_t tidX, uint32_t* out_color, u
   VkInstance       instance       = m_ctx.instance;
   VkPhysicalDevice physicalDevice = m_ctx.physicalDevice;
   VkDevice         device         = m_ctx.device;
-  VkCommandPool    commandPool    = m_ctx.commandPool; 
-  VkQueue          computeQueue   = m_ctx.computeQueue; 
+  VkCommandPool    commandPool    = m_ctx.commandPool;
+  VkQueue          computeQueue   = m_ctx.computeQueue;
   VkQueue          transferQueue  = m_ctx.transferQueue;
   auto             pCopyHelper    = m_ctx.pCopyHelper;
   auto             pAllocatorSpec = m_ctx.pAllocatorSpecial;
@@ -505,11 +530,11 @@ void MultiRenderer_GPU::CastRaySingleBlock(uint32_t tidX, uint32_t* out_color, u
   auto beforeCreateObjects = std::chrono::high_resolution_clock::now();
   VkBuffer out_colorGPU = vk_utils::createBuffer(device, tidX*sizeof(uint32_t ), outFlags);
   buffers.push_back(out_colorGPU);
-  
+
 
   VkDeviceMemory buffersMem = VK_NULL_HANDLE; // vk_utils::allocateAndBindWithPadding(device, physicalDevice, buffers);
   VkDeviceMemory imagesMem  = VK_NULL_HANDLE; // vk_utils::allocateAndBindWithPadding(device, physicalDevice, std::vector<VkBuffer>(), images);
-  
+
   vk_utils::MemAllocInfo tempMemoryAllocInfo;
   tempMemoryAllocInfo.memUsage = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT; // TODO, select depending on device and sample/application (???)
   if(buffers.size() != 0)
@@ -533,17 +558,17 @@ void MultiRenderer_GPU::CastRaySingleBlock(uint32_t tidX, uint32_t* out_color, u
       VK_CHECK_RESULT(vkCreateImageView(device, &imageView, nullptr, &imgMem->view));
     }
   }
-  
+
   auto afterCreateObjects = std::chrono::high_resolution_clock::now();
   m_exTimeCastRaySingle.msAPIOverhead = std::chrono::duration_cast<std::chrono::microseconds>(afterCreateObjects - beforeCreateObjects).count()/1000.f;
-  
+
   auto afterCopy2 = std::chrono::high_resolution_clock::now(); // just declare it here, replace value later
-  
+
   auto afterInitBuffers = std::chrono::high_resolution_clock::now();
   m_exTimeCastRaySingle.msAPIOverhead += std::chrono::duration_cast<std::chrono::microseconds>(afterInitBuffers - afterCreateObjects).count()/1000.f;
-  
+
   auto beforeSetInOut = std::chrono::high_resolution_clock::now();
-  this->SetVulkanInOutFor_CastRaySingle(out_colorGPU, 0); 
+  this->SetVulkanInOutFor_CastRaySingle(out_colorGPU, 0);
 
   // (3) copy input data to GPU
   //
@@ -551,7 +576,7 @@ void MultiRenderer_GPU::CastRaySingleBlock(uint32_t tidX, uint32_t* out_color, u
   m_exTimeCastRaySingle.msAPIOverhead += std::chrono::duration_cast<std::chrono::microseconds>(beforeCopy - beforeSetInOut).count()/1000.f;
   auto afterCopy = std::chrono::high_resolution_clock::now();
   m_exTimeCastRaySingle.msCopyToGPU = std::chrono::duration_cast<std::chrono::microseconds>(afterCopy - beforeCopy).count()/1000.f;
-  //  
+  //
   m_exTimeCastRaySingle.msExecuteOnGPU = 0;
   //// (3.1) clear all outputs if we are in RTV pattern
   //
@@ -563,7 +588,7 @@ void MultiRenderer_GPU::CastRaySingleBlock(uint32_t tidX, uint32_t* out_color, u
     beginCommandBufferInfo.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
     vkBeginCommandBuffer(commandBuffer, &beginCommandBufferInfo);
     vkCmdFillBuffer(commandBuffer, out_colorGPU, 0, VK_WHOLE_SIZE, 0); // zero output buffer out_colorGPU
-    vkEndCommandBuffer(commandBuffer);  
+    vkEndCommandBuffer(commandBuffer);
     auto start = std::chrono::high_resolution_clock::now();
     vk_utils::executeCommandBufferNow(commandBuffer, computeQueue, device);
     vkFreeCommandBuffers(device, commandPool, 1, &commandBuffer);
@@ -579,8 +604,8 @@ void MultiRenderer_GPU::CastRaySingleBlock(uint32_t tidX, uint32_t* out_color, u
     beginCommandBufferInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
     beginCommandBufferInfo.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
     vkBeginCommandBuffer(commandBuffer, &beginCommandBufferInfo);
-    CastRaySingleCmd(commandBuffer, tidX, out_color);      
-    vkEndCommandBuffer(commandBuffer);  
+    CastRaySingleCmd(commandBuffer, tidX, out_color);
+    vkEndCommandBuffer(commandBuffer);
     auto start = std::chrono::high_resolution_clock::now();
     for(uint32_t pass = 0; pass < a_numPasses; pass++) {
       vk_utils::executeCommandBufferNow(commandBuffer, computeQueue, device);
@@ -589,7 +614,7 @@ void MultiRenderer_GPU::CastRaySingleBlock(uint32_t tidX, uint32_t* out_color, u
     auto stop = std::chrono::high_resolution_clock::now();
     m_exTimeCastRaySingle.msExecuteOnGPU += std::chrono::duration_cast<std::chrono::microseconds>(stop - start).count()/1000.f;
   }
-  
+
   // (5) copy output data to CPU
   //
   auto beforeCopy2 = std::chrono::high_resolution_clock::now();
@@ -598,14 +623,14 @@ void MultiRenderer_GPU::CastRaySingleBlock(uint32_t tidX, uint32_t* out_color, u
   afterCopy2 = std::chrono::high_resolution_clock::now();
   m_exTimeCastRaySingle.msCopyFromGPU = std::chrono::duration_cast<std::chrono::microseconds>(afterCopy2 - beforeCopy2).count()/1000.f;
 
-  // (6) free resources 
+  // (6) free resources
   //
   vkDestroyBuffer(device, out_colorGPU, nullptr);
   if(buffersMem != VK_NULL_HANDLE)
     vkFreeMemory(device, buffersMem, nullptr);
   if(imagesMem != VK_NULL_HANDLE)
     vkFreeMemory(device, imagesMem, nullptr);
-  
+
   m_exTimeCastRaySingle.msAPIOverhead += std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - afterCopy2).count()/1000.f;
 }
 
@@ -619,6 +644,6 @@ void MultiRenderer_GPU::GetExecutionTime(const char* a_funcName, float a_out[4])
   a_out[0] = res.msExecuteOnGPU;
   a_out[1] = res.msCopyToGPU;
   a_out[2] = res.msCopyFromGPU;
-  a_out[3] = res.msAPIOverhead;             
+  a_out[3] = res.msAPIOverhead;
 }
 
