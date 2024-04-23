@@ -15,9 +15,9 @@
         <fov>60</fov>
         <nearClipPlane>0.01</nearClipPlane>
         <farClipPlane>100.0</farClipPlane>
-        <up>0 1 0</up>
-        <position>0 0 3</position>
-        <look_at>0 0 0</look_at>
+        <up>0 0 1</up>
+        <position>0 0 1</position>
+        <look_at>0.5 0.5 0.5</look_at>
       </camera>
     </cam_lib>
     <render_lib>
