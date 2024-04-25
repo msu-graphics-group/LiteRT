@@ -10,7 +10,7 @@
 #include <unordered_set>
 
 #include "cbvh.h"
-#include "embree3/rtcore.h"
+#include "embree4/rtcore.h"
 
 extern double g_buildTime;
 extern uint64_t g_buildTris;

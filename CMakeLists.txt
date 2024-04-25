@@ -29,7 +29,7 @@ include_directories(${CMAKE_SOURCE_DIR}/BVH)
 include_directories(${CMAKE_SOURCE_DIR}/Render)
 
 link_directories(${CMAKE_SOURCE_DIR}/dependencies/embree/lib)
-set(RAYTRACING_EMBREE_LIBS embree3 embree_sse42 embree_avx embree_avx2 lexers simd sys tasking) # embree_avx embree_avx2
+set(RAYTRACING_EMBREE_LIBS embree4 tbb tbbmalloc)
 
 find_package(Threads REQUIRED)
 find_package(OpenMP REQUIRED)

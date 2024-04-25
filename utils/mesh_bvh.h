@@ -1,6 +1,6 @@
 #pragma once
 #include "LiteScene/cmesh4.h"
-#include "embree3/rtcore.h"
+#include "embree4/rtcore.h"
 
 //an embree-based accelerated structure for a mesh to facilitate work with it
 class MeshBVH

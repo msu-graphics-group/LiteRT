@@ -17,7 +17,7 @@ using LiteMath::uint;
 using LiteMath::min;
 using LiteMath::max;
 
-#include "embree3/rtcore.h"
+#include "embree4/rtcore.h"
 
 extern double g_buildTime;
 
@@ -286,8 +286,8 @@ namespace embree
 
   void build(RTCBuildQuality quality, std::vector<RTCBuildPrimitive>& prims_i, size_t extraSpace, BVHTree& a_res)
   {
-    auto a_device = rtcNewDevice("");
-    rtcSetDeviceMemoryMonitorFunction(a_device,memoryMonitor,nullptr);
+    auto a_device = rtcNewDevice(nullptr);
+    //rtcSetDeviceMemoryMonitorFunction(a_device,memoryMonitor,nullptr);
 
     RTCBVH bvh = rtcNewBVH(a_device);
 
