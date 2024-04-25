@@ -962,8 +962,8 @@ void BVHRT::RayGridIntersection(float3 ray_pos, float3 ray_dir, float3 bbMin, fl
   // std::cout << std::endl;
 
   float dist = length(p - lastP);
-  if (dist > sqrt(3) / (float)gridSize)
-      dist -= ((int)(dist * (float)gridSize) - 1) / (float)gridSize;
+  // if (dist > sqrt(3) / (float)gridSize)
+  //     dist -= ((int)(dist * (float)gridSize) - 1) / (float)gridSize;
 
   float tr = exp(-gridVal[0] * m_RFGridScales[0] * dist);
 
