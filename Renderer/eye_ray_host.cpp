@@ -20,6 +20,8 @@ MultiRenderer::MultiRenderer()
 { 
   m_pAccelStruct = nullptr;
   m_preset = getDefaultPreset();
+  m_mainLightDir = normalize3(float4(1,0.5,0.5,1));
+  m_mainLightColor = 1.0f*normalize3(float4(1,1,0.98,1));
 }
 
 void MultiRenderer::SetViewport(int a_xStart, int a_yStart, int a_width, int a_height)
@@ -239,7 +241,8 @@ void MultiRenderer::SetPreset(const MultiRenderPreset& a_preset)
   {
     TracerPreset tp;
     tp.need_normal = (a_preset.mode == MULTI_RENDER_MODE_LAMBERT || 
-                      a_preset.mode == MULTI_RENDER_MODE_NORMAL) ? 1 : 0;
+                      a_preset.mode == MULTI_RENDER_MODE_NORMAL  ||
+                      a_preset.mode == MULTI_RENDER_MODE_PHONG) ? 1 : 0;
     tp.sdf_octree_sampler = m_preset.sdf_octree_sampler;
     tp.sdf_frame_octree_blas = m_preset.sdf_frame_octree_blas;
     tp.sdf_frame_octree_intersect = m_preset.sdf_frame_octree_intersect;

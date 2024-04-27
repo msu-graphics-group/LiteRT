@@ -183,6 +183,7 @@ void BVHRT::OctreeNodeIntersect(uint32_t type, const float3 ray_pos, const float
       values[i] = m_SdfFrameOctreeNodes[nodeId].values[i];
 
     fNearFar = RayBoxIntersection2(ray_pos, SafeInverse(ray_dir), min_pos, max_pos);
+    fNearFar.x = std::max(fNearFar.x, tNear);
     float3 start_pos = ray_pos + fNearFar.x*ray_dir;
     d = std::max(size.x, std::max(size.y, size.z));
     start_q = (start_pos - min_pos)/(2.0f*d);
@@ -208,6 +209,7 @@ void BVHRT::OctreeNodeIntersect(uint32_t type, const float3 ray_pos, const float
       values[i] = -d_max + 2*d_max*(1.0/255.0f)*((m_SdfSVSNodes[nodeId].values[i/4] >> (8*(i%4))) & 0xFF);
 
     fNearFar = RayBoxIntersection2(ray_pos, SafeInverse(ray_dir), min_pos, max_pos);
+    fNearFar.x = std::max(fNearFar.x, tNear);
     float3 start_pos = ray_pos + fNearFar.x*ray_dir;
     d = std::max(size.x, std::max(size.y, size.z));
     start_q = (start_pos - min_pos)/(2.0f*d);
@@ -247,6 +249,7 @@ void BVHRT::OctreeNodeIntersect(uint32_t type, const float3 ray_pos, const float
     }
 
     fNearFar = RayBoxIntersection2(ray_pos, SafeInverse(ray_dir), min_pos, max_pos);
+    fNearFar.x = std::max(fNearFar.x, tNear);
     float3 start_pos = ray_pos + fNearFar.x*ray_dir;
     d = std::max(size.x, std::max(size.y, size.z));
     start_q = (start_pos - min_pos)/(2.0f*d);

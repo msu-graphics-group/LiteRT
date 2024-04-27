@@ -168,6 +168,33 @@ void MultiRenderer::kernel_RayTrace(uint32_t tidX, const float4* rayPosAndNear,
       out_color[y * m_width + x] = 0xFF000000 | (col.z<<16) | (col.y<<8) | col.x;
     }
     break;
+    case MULTI_RENDER_MODE_PHONG:
+    {
+      const float3 ambient_light_color = float3(1,1,1);
+      const float Ka = 0.1;
+      const float Kd = 1;
+      const float Ks = 1;
+      const int spec_pow = 32;
+      const float BIAS = 0.02f;
+
+      float3 diffuse = float3(1,1,1);
+      float3 norm(hit.coords[2], hit.coords[3], sqrt(max(0.0f, 1-hit.coords[2]*hit.coords[2] - hit.coords[3]*hit.coords[3])));
+      float3 light_dir = -1.0f*to_float3(m_mainLightDir);
+      float3 light_color = to_float3(m_mainLightColor);
+
+      float3 surf_pos = to_float3(rayPos) + (hit.t-BIAS)*to_float3(rayDir);
+      CRT_Hit shadowHit = m_pAccelStruct->RayQuery_NearestHit(to_float4(surf_pos, rayPos.w), to_float4(-1.0f*light_dir, rayDir.w));
+      float shade = (shadowHit.primId == 0xFFFFFFFF) ? 1 : 0;
+      float3 view_dir = to_float3(rayDir);
+      float3 reflect = light_dir - 2.0f*dot(norm,light_dir)*norm;
+      float3 f_col = (shade*light_color*(Kd*std::max(0.0f,dot(norm,-1.0f*light_dir)) + 
+                      Ks*pow(std::max(0.0f,dot(norm,reflect)),spec_pow)) + 
+                      ambient_light_color*Ka)*diffuse;
+
+      uint3 col = uint3(255 * clamp(f_col, float3(0,0,0), float3(1,1,1)));
+      out_color[y * m_width + x] = 0xFF000000 | (col.z<<16) | (col.y<<8) | col.x;
+    }
+    break;
     default:
     break;
   }

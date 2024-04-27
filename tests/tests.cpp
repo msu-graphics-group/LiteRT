@@ -86,7 +86,7 @@ void litert_test_1_framed_octree()
     for (int i=0; i<presets_ob.size(); i++)
     {
       MultiRenderPreset preset = getDefaultPreset();
-      preset.mode = MULTI_RENDER_MODE_LAMBERT;
+      preset.mode = MULTI_RENDER_MODE_PHONG;
       preset.sdf_frame_octree_blas = presets_ob[i];
       preset.sdf_frame_octree_intersect = presets_oi[i];
 
@@ -147,7 +147,7 @@ void litert_test_2_SVS()
     for (int i=0; i<presets_ob.size(); i++)
     {
       MultiRenderPreset preset = getDefaultPreset();
-      preset.mode = MULTI_RENDER_MODE_LAMBERT;
+      preset.mode = MULTI_RENDER_MODE_PHONG;
       preset.sdf_frame_octree_blas = presets_ob[i];
       preset.sdf_frame_octree_intersect = presets_oi[i];
 

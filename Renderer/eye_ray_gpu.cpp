@@ -36,6 +36,8 @@ void MultiRenderer_GPU::UpdatePlainMembers(std::shared_ptr<vk_utils::ICopyEngine
   auto pUnderlyingImpl = dynamic_cast<BVHRT*>(m_pAccelStruct.get());
   m_uboData.m_projInv = m_projInv;
   m_uboData.m_worldViewInv = m_worldViewInv;
+  m_uboData.m_mainLightColor = m_mainLightColor;
+  m_uboData.m_mainLightDir = m_mainLightDir;
   m_uboData.m_pAccelStruct_m_preset = pUnderlyingImpl->m_preset;
   m_uboData.m_preset = m_preset;
   m_uboData.m_height = m_height;
@@ -115,6 +117,8 @@ void MultiRenderer_GPU::ReadPlainMembers(std::shared_ptr<vk_utils::ICopyEngine> 
   auto pUnderlyingImpl = dynamic_cast<BVHRT*>(m_pAccelStruct.get());
   m_projInv = m_uboData.m_projInv;
   m_worldViewInv = m_uboData.m_worldViewInv;
+  m_mainLightColor = m_uboData.m_mainLightColor;
+  m_mainLightDir = m_uboData.m_mainLightDir;
   pUnderlyingImpl->m_preset = m_uboData.m_pAccelStruct_m_preset;
   m_preset = m_uboData.m_preset;
   m_height = m_uboData.m_height;

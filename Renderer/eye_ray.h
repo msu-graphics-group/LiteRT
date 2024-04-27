@@ -29,6 +29,7 @@ static constexpr unsigned MULTI_RENDER_MODE_NORMAL = 8; //visualize normals (abs
 static constexpr unsigned MULTI_RENDER_MODE_BARYCENTRIC = 9; //visualize barycentric coordinates for triangle mesh
 static constexpr unsigned MULTI_RENDER_MODE_SPHERE_TRACE_ITERATIONS = 10; //for SDFs replace primId with number of iterations for sphere tracing
 static constexpr unsigned MULTI_RENDER_MODE_RF = 11;
+static constexpr unsigned MULTI_RENDER_MODE_PHONG = 12;
 
 struct MultiRenderPreset
 {
@@ -127,6 +128,9 @@ protected:
 
   std::shared_ptr<ISceneObject> m_pAccelStruct;
   std::vector<uint32_t>         m_packedXY;
+
+  float4 m_mainLightDir; //direction to main light, normalized
+  float4 m_mainLightColor; //color of main light, also intensity
 
   // color palette to select color for objects based on mesh/instance id
   static constexpr uint32_t palette_size = 20;

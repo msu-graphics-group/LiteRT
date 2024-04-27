@@ -26,6 +26,8 @@ struct MultiRenderer_GPU_UBO_Data
 {
   mat4 m_projInv; 
   mat4 m_worldViewInv; 
+  vec4 m_mainLightColor; 
+  vec4 m_mainLightDir; 
   TracerPreset m_pAccelStruct_m_preset; 
   MultiRenderPreset m_preset; 
   uint m_height; 
