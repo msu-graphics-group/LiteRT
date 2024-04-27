@@ -43,11 +43,11 @@ struct MultiRenderPreset
 static MultiRenderPreset getDefaultPreset()
 {
   MultiRenderPreset p;
-  p.mode = MULTI_RENDER_MODE_LAMBERT;
-  p.sdf_octree_sampler = SDF_OCTREE_SAMPLER_MIPSKIP_3X3;
+  p.mode = MULTI_RENDER_MODE_PHONG;
+  p.sdf_octree_sampler = SDF_OCTREE_SAMPLER_CLOSEST;
   p.spp = 1;
   p.sdf_frame_octree_blas = SDF_OCTREE_BLAS_DEFAULT;
-  p.sdf_frame_octree_intersect = SDF_OCTREE_NODE_INTERSECT_DEFAULT;
+  p.sdf_frame_octree_intersect = SDF_OCTREE_NODE_INTERSECT_ST;
 
   return p;
 }
@@ -105,8 +105,12 @@ public:
 
   void UpdateCamera(const LiteMath::float4x4& a_worldView, const LiteMath::float4x4& a_proj) override;
   
+  bool LoadSceneHydra(const std::string& a_path, unsigned type = TYPE_MESH_TRIANGLE);
+
+  LiteMath::float4x4 getProj() { return m_proj; }
+  LiteMath::float4x4 getWorldView() { return m_worldView; }
+
 protected:
-  bool LoadSceneHydra(const std::string& a_path);
 
   virtual void PackXYBlock(uint tidX, uint tidY, uint a_passNum);
   virtual void PackXY(uint tidX, uint tidY);
@@ -123,6 +127,8 @@ protected:
   uint32_t m_height;
   MultiRenderPreset m_preset;
 
+  LiteMath::float4x4 m_proj;
+  LiteMath::float4x4 m_worldView;
   LiteMath::float4x4 m_projInv;
   LiteMath::float4x4 m_worldViewInv;
 

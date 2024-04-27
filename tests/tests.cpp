@@ -344,12 +344,54 @@ void litert_test_3_SBS_verify()
   }
 }
 
+void litert_test_4_hydra_scene()
+{
+  //create renderers for SDF scene and mesh scene
+  MultiRenderPreset preset = getDefaultPreset();
+  preset.mode = MULTI_RENDER_MODE_LAMBERT;
+  preset.sdf_frame_octree_blas = SDF_OCTREE_BLAS_DEFAULT;
+  preset.sdf_frame_octree_intersect = SDF_OCTREE_NODE_INTERSECT_ST;
+  unsigned W = 1024, H = 1024;
+  LiteImage::Image2D<uint32_t> image(W, H);
+  LiteImage::Image2D<uint32_t> ref_image(W, H);
+
+  auto pRenderRef = CreateMultiRenderer("GPU");
+  pRenderRef->SetPreset(preset);
+  pRenderRef->SetViewport(0,0,W,H);
+  pRenderRef->LoadSceneHydra((scenes_folder_path+"scenes/01_simple_scenes/instanced_objects.xml").c_str());
+
+  auto pRender = CreateMultiRenderer("GPU");
+  pRender->SetPreset(preset);
+  pRender->SetViewport(0,0,W,H);
+  pRender->LoadSceneHydra((scenes_folder_path+"scenes/01_simple_scenes/instanced_objects.xml").c_str(), TYPE_SDF_SVS);
+
+  auto m1 = pRender->getWorldView();
+  auto m2 = pRender->getProj();
+
+  //render(image, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset);
+  //render(ref_image, pRenderRef, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset);
+  pRender->Render(image.data(), image.width(), image.height(), m1, m2, preset);
+  pRenderRef->Render(ref_image.data(), ref_image.width(), ref_image.height(), m1, m2, preset);
+
+  LiteImage::SaveImage<uint32_t>("saves/test_4_res.bmp", image); 
+  LiteImage::SaveImage<uint32_t>("saves/test_4_ref.bmp", ref_image);
+
+  float psnr = PSNR(ref_image, image);
+  printf("TEST 4. Rendering Hydra scene\n");
+  printf("  4.1. %-64s", "mesh and SDF PSNR > 40 ");
+  if (psnr >= 40)
+    printf("passed    (%.2f)\n", psnr);
+  else
+    printf("FAILED, psnr = %f\n", psnr);
+}
+
 void perform_tests_litert(const std::vector<int> &test_ids)
 {
   std::vector<int> tests = test_ids;
 
   std::vector<std::function<void(void)>> test_functions = {
-      litert_test_1_framed_octree, litert_test_2_SVS, litert_test_3_SBS_verify};
+      litert_test_1_framed_octree, litert_test_2_SVS, litert_test_3_SBS_verify,
+      litert_test_4_hydra_scene};
 
   if (tests.empty())
   {

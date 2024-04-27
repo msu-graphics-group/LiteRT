@@ -7,6 +7,9 @@
 #include "LiteScene/hydraxml.h"
 #include "LiteScene/cmesh4.h"
 #include "../Timer.h"
+#include "../utils/mesh.h"
+#include "../utils/mesh_bvh.h"
+#include "../utils/sparse_octree.h"
 
 using LiteMath::float2;
 using LiteMath::float3;
@@ -39,11 +42,13 @@ bool MultiRenderer::LoadScene(const char* a_scenePath)
 
 void MultiRenderer::UpdateCamera(const LiteMath::float4x4& worldView, const LiteMath::float4x4& proj)
 {
+  m_proj = proj;
+  m_worldView = worldView;
   m_projInv      = inverse4x4(proj);
   m_worldViewInv = inverse4x4(worldView);
 }
 
-bool MultiRenderer::LoadSceneHydra(const std::string& a_path)
+bool MultiRenderer::LoadSceneHydra(const std::string& a_path, unsigned type)
 {
   hydra_xml::HydraScene scene;
   if(scene.LoadState(a_path) < 0)
@@ -54,20 +59,17 @@ bool MultiRenderer::LoadSceneHydra(const std::string& a_path)
     float aspect   = float(m_width) / float(m_height);
     auto proj      = perspectiveMatrix(cam.fov, aspect, cam.nearPlane, cam.farPlane);
     auto worldView = lookAt(float3(cam.pos), float3(cam.lookAt), float3(cam.up));
-
-    m_projInv      = inverse4x4(proj);
-    m_worldViewInv = inverse4x4(worldView);
-
+    UpdateCamera(worldView, proj);
     break; // take first cam
   }
 
-  std::vector<uint64_t> trisPerObject;
-  trisPerObject.reserve(1000);
-  m_totalTris = 0;
   m_pAccelStruct->ClearGeom();
   auto mIter = scene.GeomNodes().begin();
   size_t pos = a_path.find_last_of('/');
   std::string root_dir = a_path.substr(0, pos);
+
+  std::vector<LiteMath::float4x4> addGeomTransform;
+
   while (mIter != scene.GeomNodes().end())
   {
     std::string dir = root_dir + "/" + hydra_xml::ws2s(std::wstring(mIter->attribute(L"loc").as_string()));
@@ -76,10 +78,42 @@ bool MultiRenderer::LoadSceneHydra(const std::string& a_path)
     {
       std::cout << "[LoadScene]: mesh = " << dir.c_str() << std::endl;
       auto currMesh = cmesh4::LoadMeshFromVSGF(dir.c_str());
-      m_pAccelStruct->AddGeom_Triangles3f((const float*)currMesh.vPos4f.data(), currMesh.vPos4f.size(),
-                                          currMesh.indices.data(), currMesh.indices.size(), BUILD_HIGH, sizeof(float)*4);
-      m_totalTris += currMesh.indices.size()/3;
-      trisPerObject.push_back(currMesh.indices.size()/3);
+
+      if (type == TYPE_MESH_TRIANGLE)
+      {
+        m_pAccelStruct->AddGeom_Triangles3f((const float*)currMesh.vPos4f.data(), currMesh.vPos4f.size(),
+                                            currMesh.indices.data(), currMesh.indices.size(), BUILD_HIGH, sizeof(float)*4);
+        addGeomTransform.push_back(float4x4());
+      }
+      else
+      {
+        float4x4 trans = cmesh4::rescale_mesh(currMesh, float3(-0.9, -0.9, -0.9), float3(0.9, 0.9, 0.9));
+        addGeomTransform.push_back(inverse4x4(trans));
+
+        MeshBVH mesh_bvh;
+        mesh_bvh.init(currMesh);
+
+        SparseOctreeBuilder builder;
+        SparseOctreeSettings settings{9, 4, 0.0f};
+        std::vector<SdfSVSNode> svs_nodes;
+
+        builder.construct([&mesh_bvh](const float3 &p)
+                          { return mesh_bvh.get_signed_distance(p); },
+                          settings);
+
+        switch (type)
+        {
+        case TYPE_SDF_SVS:
+        {
+          builder.convert_to_sparse_voxel_set(svs_nodes);
+          m_pAccelStruct->AddGeom_SdfSVS({(unsigned)svs_nodes.size(), svs_nodes.data()});
+        }
+          break;
+        default:
+          printf("cannot transform meshes from Hydra scene to type %u\n", type);
+          break;
+        }
+      }
     }
     else if (name == "sdf")
     {
@@ -109,13 +143,9 @@ bool MultiRenderer::LoadSceneHydra(const std::string& a_path)
     mIter++;
   }
   
-  m_totalTrisVisiable = 0;
   m_pAccelStruct->ClearScene();
   for(auto inst : scene.InstancesGeom())
-  {
-    m_pAccelStruct->AddInstance(inst.geomId, inst.matrix);
-    m_totalTrisVisiable += trisPerObject[inst.geomId];
-  }
+    m_pAccelStruct->AddInstance(inst.geomId, inst.matrix*addGeomTransform[inst.geomId]);
   m_pAccelStruct->CommitScene();
 
   return true;

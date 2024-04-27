@@ -17,7 +17,7 @@ constexpr bool MEASURE_FRAMES = false;
 
 int main(int argc, const char** argv)
 {
-  perform_tests_litert({});
+  perform_tests_litert({4});
   //benchmark_framed_octree_intersection();
   return 0;
 

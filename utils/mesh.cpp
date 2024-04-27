@@ -1,4 +1,5 @@
 #include "mesh.h"
+#include "LiteMath/LiteMath.h"
 
 namespace cmesh4
 {
@@ -16,7 +17,7 @@ namespace cmesh4
     }
   }
 
-  void rescale_mesh(cmesh4::SimpleMesh &mesh, float3 min_pos, float3 max_pos)
+  float4x4 rescale_mesh(cmesh4::SimpleMesh &mesh, float3 min_pos, float3 max_pos)
   {
     assert(mesh.vPos4f.size() >= 3);
 
@@ -37,5 +38,8 @@ namespace cmesh4
       p = min_4 + scale_4*(p - mesh_min_4);
 
     //it is only move and rescale, so now changes to normals are required
+
+    float4x4 trans = translate4x4(min_pos)*scale4x4(float3(scale))*translate4x4(-mesh_min);
+    return trans;
   }
 }

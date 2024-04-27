@@ -8,6 +8,6 @@ namespace cmesh4
 
   void get_bbox(const cmesh4::SimpleMesh &mesh, float3 *min_pos, float3 *max_pos);
 
-  //rescales mesh with constant scale to fit it inside the given box, 
-  void rescale_mesh(cmesh4::SimpleMesh &mesh, float3 min_pos, float3 max_pos);
+  //rescales mesh with constant scale to fit it inside the given box and returns transform that does it
+  LiteMath::float4x4 rescale_mesh(cmesh4::SimpleMesh &mesh, float3 min_pos, float3 max_pos);
 }

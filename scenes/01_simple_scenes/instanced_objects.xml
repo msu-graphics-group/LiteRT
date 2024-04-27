@@ -77,14 +77,6 @@
     <indices type="array1i" bytesize="307200" offset="814488" apply="tlist" />
     <matindices type="array1i" bytesize="102400" offset="1121688" apply="primitive" />
   </mesh>
-  <mesh id="2" name="my_plane" type="vsgf" bytesize="280" loc="data/large_plane.vsgf" offset="0" vertNum="4" triNum="2" dl="0" path="" bbox="  -100 100 0 0 -100 100">
-    <positions type="array4f" bytesize="64" offset="24" apply="vertex" />
-    <normals type="array4f" bytesize="64" offset="88" apply="vertex" />
-    <tangents type="array4f" bytesize="64" offset="152" apply="vertex" />
-    <texcoords type="array2f" bytesize="32" offset="216" apply="vertex" />
-    <indices type="array1i" bytesize="24" offset="248" apply="tlist" />
-    <matindices type="array1i" bytesize="8" offset="272" apply="primitive" />
-  </mesh>
 </geometry_lib>
 <lights_lib>
   <light id="0" name="sky" type="sky" shape="point" visible="1" mat_id="7">
@@ -734,7 +726,6 @@
     <instance id="597" mesh_id="0" rmap_id="10" scn_id="0" scn_sid="0" matrix="0.210391 0 1.97001 -8.49179 0 1.98122 0 -4 -1.97001 0 0.210391 0.25296 0 0 0 1 " />
     <instance id="598" mesh_id="0" rmap_id="9" scn_id="0" scn_sid="0" matrix="0.1268 0 1.01079 31.885 0 1.01872 0 -4 -1.01079 0 0.1268 -18.0666 0 0 0 1 " />
     <instance id="599" mesh_id="0" rmap_id="10" scn_id="0" scn_sid="0" matrix="1.15128 0 -0.641106 -8.75639 0 1.31775 0 -4 0.641106 0 1.15128 49.8195 0 0 0 1 " />
-    <instance id="600" mesh_id="2" rmap_id="-1" scn_id="0" scn_sid="0" matrix="1 0 0 0 0 1 0 -4 0 0 1 0 0 0 0 1 " />
     <instance_light id="0" light_id="0" matrix="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 " lgroup_id="-1" />
   </scene>
 </scenes>
