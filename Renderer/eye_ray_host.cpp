@@ -18,7 +18,7 @@ using LiteMath::inverse4x4;
 
 MultiRenderer::MultiRenderer() 
 { 
-  m_pAccelStruct = nullptr;
+  m_pAccelStruct = CreateSceneRT("BVH2Common", "cbvh_embree2", "SuperTreeletAlignedMerged4"); //default
   m_preset = getDefaultPreset();
   m_mainLightDir = normalize3(float4(1,0.5,0.5,1));
   m_mainLightColor = 1.0f*normalize3(float4(1,1,0.98,1));
@@ -160,7 +160,6 @@ void MultiRenderer::GetExecutionTime(const char* a_funcName, float a_out[4])
 
 void MultiRenderer::SetScene(const cmesh4::SimpleMesh &scene)
 {
-  SetAccelStruct(CreateSceneRT("BVH2Common", "cbvh_embree2", "SuperTreeletAlignedMerged4"));
   GetAccelStruct()->ClearGeom();
   GetAccelStruct()->AddGeom_Triangles3f((const float*)scene.vPos4f.data(), scene.vPos4f.size(),
                                         scene.indices.data(), scene.indices.size(), BUILD_HIGH, sizeof(float)*4);
@@ -171,7 +170,6 @@ void MultiRenderer::SetScene(const cmesh4::SimpleMesh &scene)
 
 void MultiRenderer::SetScene(SdfSceneView scene)
 {
-  SetAccelStruct(CreateSceneRT("BVH2Common", "cbvh_embree2", "SuperTreeletAlignedMerged4"));
   GetAccelStruct()->ClearGeom();
   GetAccelStruct()->AddGeom_SdfScene(scene);
   GetAccelStruct()->ClearScene();
@@ -181,7 +179,6 @@ void MultiRenderer::SetScene(SdfSceneView scene)
 
 void MultiRenderer::SetScene(SdfGridView scene)
 {
-  SetAccelStruct(CreateSceneRT("BVH2Common", "cbvh_embree2", "SuperTreeletAlignedMerged4"));
   GetAccelStruct()->ClearGeom();
   GetAccelStruct()->AddGeom_SdfGrid(scene);
   GetAccelStruct()->ClearScene();
@@ -191,7 +188,6 @@ void MultiRenderer::SetScene(SdfGridView scene)
 
 void MultiRenderer::SetScene(SdfOctreeView scene)
 {
-  SetAccelStruct(CreateSceneRT("BVH2Common", "cbvh_embree2", "SuperTreeletAlignedMerged4"));
   GetAccelStruct()->ClearGeom();
   GetAccelStruct()->AddGeom_SdfOctree(scene);
   GetAccelStruct()->ClearScene();
@@ -201,7 +197,6 @@ void MultiRenderer::SetScene(SdfOctreeView scene)
 
 void MultiRenderer::SetScene(SdfFrameOctreeView scene)
 {
-  SetAccelStruct(CreateSceneRT("BVH2Common", "cbvh_embree2", "SuperTreeletAlignedMerged4"));
   SetPreset(m_preset);
   GetAccelStruct()->ClearGeom();
   GetAccelStruct()->AddGeom_SdfFrameOctree(scene);
@@ -212,7 +207,6 @@ void MultiRenderer::SetScene(SdfFrameOctreeView scene)
 
 void MultiRenderer::SetScene(SdfSVSView scene)
 {
-  SetAccelStruct(CreateSceneRT("BVH2Common", "cbvh_embree2", "SuperTreeletAlignedMerged4"));
   SetPreset(m_preset);
   GetAccelStruct()->ClearGeom();
   GetAccelStruct()->AddGeom_SdfSVS(scene);
@@ -224,7 +218,6 @@ void MultiRenderer::SetScene(SdfSVSView scene)
 
 void MultiRenderer::SetScene(SdfSBSView scene)
 {
-  SetAccelStruct(CreateSceneRT("BVH2Common", "cbvh_embree2", "SuperTreeletAlignedMerged4"));
   SetPreset(m_preset);
   GetAccelStruct()->ClearGeom();
   GetAccelStruct()->AddGeom_SdfSBS(scene);
