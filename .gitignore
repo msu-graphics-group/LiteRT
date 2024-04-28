@@ -47,3 +47,4 @@ dependencies/*
 math_tests
 saves/*
 scenes/02_sdf_scenes/model.dat
+large_scenes/*

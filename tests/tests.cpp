@@ -347,23 +347,27 @@ void litert_test_3_SBS_verify()
 void litert_test_4_hydra_scene()
 {
   //create renderers for SDF scene and mesh scene
+  const char *scene_name = "scenes/01_simple_scenes/instanced_objects.xml";
+  //const char *scene_name = "large_scenes/02_casual_effects/dragon/change_00000.xml";
+  //const char *scene_name = "scenes/01_simple_scenes/bunny_cornell.xml";
+  unsigned W = 2048, H = 2048;
+
   MultiRenderPreset preset = getDefaultPreset();
   preset.mode = MULTI_RENDER_MODE_LAMBERT;
   preset.sdf_frame_octree_blas = SDF_OCTREE_BLAS_DEFAULT;
-  preset.sdf_frame_octree_intersect = SDF_OCTREE_NODE_INTERSECT_ST;
-  unsigned W = 1024, H = 1024;
+  preset.sdf_frame_octree_intersect = SDF_OCTREE_NODE_INTERSECT_ANALYTIC;
   LiteImage::Image2D<uint32_t> image(W, H);
   LiteImage::Image2D<uint32_t> ref_image(W, H);
 
   auto pRenderRef = CreateMultiRenderer("GPU");
   pRenderRef->SetPreset(preset);
   pRenderRef->SetViewport(0,0,W,H);
-  pRenderRef->LoadSceneHydra((scenes_folder_path+"scenes/01_simple_scenes/instanced_objects.xml").c_str());
+  pRenderRef->LoadSceneHydra((scenes_folder_path+scene_name).c_str());
 
   auto pRender = CreateMultiRenderer("GPU");
   pRender->SetPreset(preset);
   pRender->SetViewport(0,0,W,H);
-  pRender->LoadSceneHydra((scenes_folder_path+"scenes/01_simple_scenes/instanced_objects.xml").c_str(), TYPE_SDF_SVS);
+  pRender->LoadSceneHydra((scenes_folder_path+scene_name).c_str(), TYPE_SDF_SVS);
 
   auto m1 = pRender->getWorldView();
   auto m2 = pRender->getProj();

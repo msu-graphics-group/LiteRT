@@ -41,7 +41,7 @@ SparseOctreeBuilder::SparseOctreeBuilder()
 
 bool SparseOctreeBuilder::is_border(float distance, int level)
 {
-  return level < 2  ? true : std::abs(distance) < sqrt(2)*pow(2, -level);
+  return level < 2  ? true : std::abs(distance) < sqrt(3)*pow(2, -level);
 }
 
 constexpr unsigned INVALID_IDX = 1u<<31u;
@@ -637,14 +637,25 @@ void fill_octree_frame_rec(std::function<SparseOctreeBuilder::T(const float3 &)>
 {
   unsigned ofs = nodes[idx].offset;
   frame[idx].offset = ofs;
+  float min_val = nodes[idx].value;
+  float max_val = nodes[idx].value;
   if (is_leaf(ofs)) 
   {
+    bool inc_distance = false;
     float3 pos = 2.0f*(d*p) - 1.0f;
     for (int i = 0; i < 8; i++)
     {
       float3 ch_pos = pos + 2*d*float3((i & 4) >> 2, (i & 2) >> 1, i & 1);
       frame[idx].values[i] = f(ch_pos);
-      //frame[idx].values[i] = nodes[idx].value;
+      min_val = std::min(min_val, frame[idx].values[i]);
+      max_val = std::max(max_val, frame[idx].values[i]);
+    }
+
+    if (max_val - min_val > 2*sqrt(3)*d)
+    {
+      //printf("inconsistent distance %f - %f with d=%f\n", max_val, min_val, d);
+      for (int i = 0; i < 8; i++)
+        frame[idx].values[i] = LiteMath::sign(max_val)*std::abs(frame[idx].values[i]);
     }
   }
   else
@@ -677,6 +688,24 @@ struct LargeNode
   unsigned children_idx;
 };
 
+void check_and_fix_sdf_sign(std::vector<SparseOctreeBuilder::Node> &nodes, float d_thr, unsigned idx, float d)
+{
+  unsigned ofs = nodes[idx].offset;
+  if (!is_leaf(ofs))
+  {
+    for (int i=0;i<8;i++)
+    {
+      if (abs(nodes[ofs+i].value - nodes[idx].value)> 0.5*sqrt(3)*d)
+        nodes[ofs+i].value *= -1;
+      //if (nodes[idx].value < -d_thr)
+      //  printf("%u lol %f ch %d %f\n", idx, nodes[idx].value, i, nodes[ofs+i].value);
+    }
+
+    for (int i=0;i<8;i++)
+      check_and_fix_sdf_sign(nodes, d_thr, ofs+i, d/2);
+  }
+}
+
 void SparseOctreeBuilder::construct(std::function<T(const float3 &)> _sdf, SparseOctreeSettings _settings)
 {
   sdf = _sdf;
@@ -685,6 +714,8 @@ void SparseOctreeBuilder::construct(std::function<T(const float3 &)> _sdf, Spars
 std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
 
   std::vector<LargeNode> large_nodes;
+  int lg_size = pow(2, settings.min_remove_level);
+  std::vector<unsigned> large_grid(lg_size*lg_size*lg_size);
   large_nodes.push_back({float3(0,0,0), 1.0f, 0u, 0u, 0u});
 
   unsigned i = 0;
@@ -707,9 +738,40 @@ std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
   all_nodes.resize(large_nodes.size());
   for (int i=0;i<large_nodes.size();i++)
   {
+    float val = sdf(2.0f * ((large_nodes[i].p + float3(0.5, 0.5, 0.5)) * large_nodes[i].d) - float3(1, 1, 1));
     all_nodes[i].offset = large_nodes[i].children_idx;
-    all_nodes[i].value = sdf(2.0f * ((large_nodes[i].p + float3(0.5, 0.5, 0.5)) * large_nodes[i].d) - float3(1, 1, 1));
+    all_nodes[i].value = val;
+
+    if (large_nodes[i].level == settings.min_remove_level)
+      large_grid[large_nodes[i].p.x*lg_size*lg_size + large_nodes[i].p.y*lg_size + large_nodes[i].p.z] = i;
   }
+
+  for (int i=0;i<lg_size;i++)
+  {
+  for (int j=0;j<lg_size;j++)
+  {
+  for (int k=0;k<lg_size;k++)
+  {
+    float val = all_nodes[large_grid[i*lg_size*lg_size + j*lg_size + k]].value;
+    float max_val = val;
+    if (val < 0)
+    {
+      for (int i1=max(0,i-1);i1<min(lg_size,i+2);i1++)
+        for (int j1=max(0,j-1);j1<min(lg_size,j+2);j1++)
+          for (int k1=max(0,k-1);k1<min(lg_size,k+2);k1++)
+            max_val = max(max_val, all_nodes[large_grid[i1*lg_size*lg_size + j1*lg_size + k1]].value);
+    
+      if (max_val - val > sqrt(3)*2/lg_size)
+        all_nodes[large_grid[i*lg_size*lg_size + j*lg_size + k]].value *= -1;
+    }
+    //printf("(%5.2f %5.2f)", max_val, all_nodes[large_grid[i*lg_size*lg_size + j*lg_size + k]].value);
+  }    
+  //printf("\n");
+  }   
+  //printf("\n"); 
+  }
+
+  //printf("THRRRR %f\n",sqrtf(3)*2.0f/lg_size);
 
   for (int i=0;i<large_nodes.size();i++)
   {
@@ -735,6 +797,8 @@ std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
       }
     }
   }
+
+  check_and_fix_sdf_sign(all_nodes, pow(2,-1.0*settings.min_remove_level), 0, 1.0f);
 
   get_nodes() = all_nodes;
   
@@ -803,7 +867,7 @@ void frame_octree_to_SVS_rec(const std::vector<SdfFrameOctreeNode> &frame,
       nodes.back().values[1] = 0u;
       for (int i=0;i<8;i++)
       {
-        float d_max = 2*sqrt(2)/lod_size;
+        float d_max = 2*sqrt(3)/lod_size;
         unsigned d_compressed = std::max(0.0f, 255*((frame[idx].values[i]+d_max)/(2*d_max)));
         d_compressed = std::min(d_compressed, 255u);
         //assert(d_compressed < 256);
@@ -875,7 +939,7 @@ void frame_octree_to_SBS_rec(std::function<SparseOctreeBuilder::T(const float3 &
       out_nodes.back().pos_xy = (p.x << 16) | p.y;
       out_nodes.back().pos_z_lod_size = (p.z << 16) | lod_size;
 
-      float d_max = 2*sqrt(2)/lod_size;
+      float d_max = 2*sqrt(3)/lod_size;
       unsigned bits = 8*header.bytes_per_value;
       unsigned max_val = (1 << bits) - 1;
       unsigned vals_per_int = 4/header.bytes_per_value;
