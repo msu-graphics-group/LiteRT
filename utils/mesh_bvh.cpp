@@ -145,7 +145,7 @@ float MeshBVH::get_signed_distance(LiteMath::float3 p)
   float3 p1 = to_float3(mesh.vPos4f[idx1]);
   float3 p2 = to_float3(mesh.vPos4f[idx2]);
 
-  float3 n = normalize(cross(p1-p0, p2-p0));
+  float3 n = (1.0f/3.0f)*(to_float3(mesh.vNorm4f[idx0]) + to_float3(mesh.vNorm4f[idx1]) + to_float3(mesh.vNorm4f[idx2]));
   float3 dir = p-sdq_ctx.pt;
 
   if (dot(dir, n) < 0)

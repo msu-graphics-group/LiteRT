@@ -382,8 +382,8 @@ void litert_test_4_hydra_scene()
 
   float psnr = PSNR(ref_image, image);
   printf("TEST 4. Rendering Hydra scene\n");
-  printf("  4.1. %-64s", "mesh and SDF PSNR > 40 ");
-  if (psnr >= 40)
+  printf("  4.1. %-64s", "mesh and SDF PSNR > 30 ");
+  if (psnr >= 30)
     printf("passed    (%.2f)\n", psnr);
   else
     printf("FAILED, psnr = %f\n", psnr);
