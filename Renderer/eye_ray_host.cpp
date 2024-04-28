@@ -74,6 +74,7 @@ bool MultiRenderer::LoadSceneHydra(const std::string& a_path, unsigned type)
   {
     std::string dir = root_dir + "/" + hydra_xml::ws2s(std::wstring(mIter->attribute(L"loc").as_string()));
     std::string name = hydra_xml::ws2s(std::wstring(mIter->name()));
+    addGeomTransform.push_back(float4x4());
     if (name == "mesh")
     {
       std::cout << "[LoadScene]: mesh = " << dir.c_str() << std::endl;
@@ -83,12 +84,11 @@ bool MultiRenderer::LoadSceneHydra(const std::string& a_path, unsigned type)
       {
         m_pAccelStruct->AddGeom_Triangles3f((const float*)currMesh.vPos4f.data(), currMesh.vPos4f.size(),
                                             currMesh.indices.data(), currMesh.indices.size(), BUILD_HIGH, sizeof(float)*4);
-        addGeomTransform.push_back(float4x4());
       }
       else
       {
         float4x4 trans = cmesh4::rescale_mesh(currMesh, float3(-0.9, -0.9, -0.9), float3(0.9, 0.9, 0.9));
-        addGeomTransform.push_back(inverse4x4(trans));
+        addGeomTransform.back() = inverse4x4(trans);
 
         MeshBVH mesh_bvh;
         mesh_bvh.init(currMesh);
