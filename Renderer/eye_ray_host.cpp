@@ -157,13 +157,14 @@ bool MultiRenderer::LoadSceneHydra(const std::string& a_path, unsigned type)
 
 void MultiRenderer::Render(uint32_t* a_outColor, uint32_t a_width, uint32_t a_height, const char* a_what, int a_passNum)
 {
-  CastRaySingleBlock(a_width*a_height, a_outColor, a_passNum);
+  profiling::Timer timer;
+  for (int i=0;i<a_passNum;i++)
+    CastRaySingleBlock(a_width*a_height, a_outColor, a_passNum);
+  timeDataByName["CastRaySingleBlock"] = timer.getElapsedTime().asMilliseconds();
 }
 
 void MultiRenderer::CastRaySingleBlock(uint32_t tidX, uint32_t * out_color, uint32_t a_numPasses)
 {
-  profiling::Timer timer;
-  
   //CPU version is mostly used by debug, so better make it single-threaded
   //also per-pixel debug does not work with multithreading
   //#ifndef _DEBUG
@@ -171,8 +172,6 @@ void MultiRenderer::CastRaySingleBlock(uint32_t tidX, uint32_t * out_color, uint
   //#endif
   for(int i=0;i<tidX;i++)
     CastRaySingle(i, out_color);
-
-  timeDataByName["CastRaySingleBlock"] = timer.getElapsedTime().asMilliseconds();
 }
 
 const char* MultiRenderer::Name() const
@@ -287,14 +286,14 @@ void MultiRenderer::SetPreset(const MultiRenderPreset& a_preset)
 
 void MultiRenderer::Render(uint32_t* imageData, uint32_t a_width, uint32_t a_height, 
                            const LiteMath::float4x4& a_worldView, const LiteMath::float4x4& a_proj,
-                           MultiRenderPreset preset)
+                           MultiRenderPreset preset, int a_passNum)
 {
   SetViewport(0,0, a_width, a_height);
   UpdateCamera(a_worldView, a_proj);
   SetPreset(preset);
   CommitDeviceData();
   Clear(a_width, a_height, "color");
-  Render(imageData, a_width, a_height, "color"); 
+  Render(imageData, a_width, a_height, "color", a_passNum); 
 }
 
 #if defined(USE_GPU)

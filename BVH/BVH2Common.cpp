@@ -161,7 +161,6 @@ void BVHRT::OctreeNodeIntersect(uint32_t type, const float3 ray_pos, const float
                                 CRT_Hit *pHit)
 {
   const float EPS = 1e-6;
-  const unsigned ST_max_iters = 256;
 
   float values[8];
   uint32_t nodeId, primId;
@@ -268,6 +267,7 @@ void BVHRT::OctreeNodeIntersect(uint32_t type, const float3 ray_pos, const float
   }
   else if (m_preset.sdf_frame_octree_intersect == SDF_OCTREE_NODE_INTERSECT_ST)
   {
+    const unsigned ST_max_iters = 256;
     float dist = start_dist;
     float3 pp0 = start_q + t * ray_dir;
 
@@ -281,7 +281,8 @@ void BVHRT::OctreeNodeIntersect(uint32_t type, const float3 ray_pos, const float
     hit = (dist <= EPS);
   }
   else //if (m_preset.sdf_frame_octree_intersect == SDF_OCTREE_NODE_INTERSECT_ANALYTIC ||
-       //    m_preset.sdf_frame_octree_intersect == SDF_OCTREE_NODE_INTERSECT_NEWTON)
+       //    m_preset.sdf_frame_octree_intersect == SDF_OCTREE_NODE_INTERSECT_NEWTON ||
+       //    m_preset.sdf_frame_octree_intersect == SDF_OCTREE_NODE_INTERSECT_IT)
   {
     //finding exact intersection between surface sdf(x,y,z) = 0 and ray
     // based on paper "Ray Tracing of Signed Distance Function Grids, 
@@ -310,19 +311,19 @@ void BVHRT::OctreeNodeIntersect(uint32_t type, const float3 ray_pos, const float
     float k7 = k3-(s111-s011-a);
 
     float3 o = start_q;
-    float3 d = ray_dir;
+    float3 d3 = ray_dir;
 
     float m0 = o.x*o.y;
-    float m1 = d.x*d.y;
-    float m2 = o.x*d.y + o.y*d.x;
+    float m1 = d3.x*d3.y;
+    float m2 = o.x*d3.y + o.y*d3.x;
     float m3 = k5*o.z - k1;
     float m4 = k6*o.z - k2;
     float m5 = k7*o.z - k3;
 
     float c0 = (k4*o.z - k0) + o.x*m3 + o.y*m4 + m0*m5;
-    float c1 = d.x*m3 + d.y*m4 + m2*m5 + d.z*(k4 + k5*o.x + k6*o.y + k7*m0);
-    float c2 = m1*m5 + d.z*(k5*d.x + k6*d.y + k7*m2);
-    float c3 = k7*m1*d.z;
+    float c1 = d3.x*m3 + d3.y*m4 + m2*m5 + d3.z*(k4 + k5*o.x + k6*o.y + k7*m0);
+    float c2 = m1*m5 + d3.z*(k5*d3.x + k6*d3.y + k7*m2);
+    float c3 = k7*m1*d3.z;
 
     // the surface is defined by equation c3*t^3 + c2*t^2 + c1*t + c0 = 0;
     // solve this equation analytically or numerically using the Newton's method
@@ -398,7 +399,7 @@ void BVHRT::OctreeNodeIntersect(uint32_t type, const float3 ray_pos, const float
       t = std::min(x1, std::min(x2,x3));
       hit = (t >= 0 && t <= qFar);
     }
-    else //if (m_preset.sdf_frame_octree_intersect == SDF_OCTREE_NODE_INTERSECT_NEWTON)
+    else if (m_preset.sdf_frame_octree_intersect == SDF_OCTREE_NODE_INTERSECT_NEWTON)
     {
       // our polynom is c3*t^3 + c2*t^2 + c1*t + c0 = 0;
       // it's derivative is  3*c3*t^2 + 2*c2*t + c1 = 0; 
@@ -482,6 +483,34 @@ void BVHRT::OctreeNodeIntersect(uint32_t type, const float3 ray_pos, const float
       //float nt = rtn;
       //if (prev_hit && std::abs(t - nt) > 0.1)
       //  printf("%f-%f -- %f %f %f %f -- %f -- %f %f %f %f %d %d %d %d\n",t, nt, c3,c2,c1,c0, rtn, t0, t1, t2, t3, s0, s1, s2, s3);
+    }
+    else //if (m_preset.sdf_frame_octree_intersect == SDF_OCTREE_NODE_INTERSECT_IT)
+    {
+      const unsigned IT_max_iters = 256;
+      const float k = 2;
+
+      float e = 0.1f*qFar;
+      float t_max = abs(c3) < EPS ? 1e6 : -c2/(3*c3);
+      float df_max = 3*c3*t_max*t_max + 2*c2*t_max + c1;
+
+      float dist = start_dist;
+      float3 pp = start_q + t * ray_dir;
+
+      while (t < qFar && dist > EPS && iter < IT_max_iters)
+      {
+        float df_1 = 3*c3*t*t + 2*c2*t + c1;
+        float df_2 = 3*c3*(t+e)*(t+e) + 2*c2*(t+e) + c1;
+        float L = (t_max > t && t_max < t + e) ? std::max(df_max, std::max(df_1, df_2)) : std::max(df_1, df_2);
+        L = std::max(L, EPS);
+        float s = std::min((dist / (2.0f * d))/L, e);
+        t += s;
+        e = k*s;
+        dist = eval_dist_trilinear(values, start_q + t * ray_dir);
+        pp = start_q + t * ray_dir;
+        iter++;
+      }
+      hit = (dist <= EPS);
+     
     }
   }
 

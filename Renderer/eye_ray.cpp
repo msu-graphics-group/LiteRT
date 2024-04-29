@@ -155,10 +155,21 @@ void MultiRenderer::kernel_RayTrace(uint32_t tidX, const float4* rayPosAndNear,
     break;
     case MULTI_RENDER_MODE_SPHERE_TRACE_ITERATIONS:
     {
-      float3 c1 = float3(0,1,0);
-      float3 c2 = float3(1,0,0);
-      float q = clamp(0.01f*float(hit.primId), 0.0f,1.0f);
-      uint3 col = uint3(255*(q*c1 + (1-q)*c2));
+      uint3 col;
+      if (hit.primId == 0)
+      {
+        col = uint3(127, 127, 127);
+      }
+      else if (hit.primId <= 64)
+      {
+        float q = clamp(float(hit.primId)/64, 0.0f,1.0f);
+        col = uint3(255*(q*float3(0,0,1) + (1-q)*float3(0,1,0)));
+      } 
+      else
+      {
+        float q = clamp(float(hit.primId-64)/(256-64), 0.0f,1.0f);
+        col = uint3(255*(q*float3(1,0,0) + (1-q)*float3(0,0,1)));
+      }
       out_color[y * m_width + x] = 0xFF000000 | (col.z<<16) | (col.y<<8) | col.x; 
     }
     break;

@@ -56,6 +56,7 @@ static constexpr unsigned SDF_OCTREE_NODE_INTERSECT_ST = 1;// only with SDF_OCTR
 static constexpr unsigned SDF_OCTREE_NODE_INTERSECT_ANALYTIC = 2;// only with SDF_OCTREE_BLAS_DEFAULT! Explicitly finding ray/sdf intersection inside node
 static constexpr unsigned SDF_OCTREE_NODE_INTERSECT_NEWTON = 3;// only with SDF_OCTREE_BLAS_DEFAULT! Using Newton method to find ray/sdf intersection inside node
 static constexpr unsigned SDF_OCTREE_NODE_INTERSECT_BBOX = 4;// only with SDF_OCTREE_BLAS_DEFAULT! Intersect with node bbox for debug purposes
+static constexpr unsigned SDF_OCTREE_NODE_INTERSECT_IT = 5;// only with SDF_OCTREE_BLAS_DEFAULT! Interval tracing inside node
 
 //enum VisualizeStatType 
 static constexpr unsigned VISUALIZE_STAT_NONE = 0;

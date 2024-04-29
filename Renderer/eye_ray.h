@@ -68,7 +68,7 @@ public:
 #endif
   void Render(uint32_t* imageData, uint32_t a_width, uint32_t a_height, 
               const LiteMath::float4x4& a_worldView, const LiteMath::float4x4& a_proj,
-              MultiRenderPreset preset = getDefaultPreset());
+              MultiRenderPreset preset = getDefaultPreset(), int a_passNum = 1);
 
   void SetPreset(const MultiRenderPreset& a_preset);
 
