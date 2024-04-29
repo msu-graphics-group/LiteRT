@@ -88,6 +88,11 @@ set(MODULES_INCLUDE_DIRS "modules")
 set(MODULES_LIBRARIES "")
 set(MODULES_COMPILE_FLAGS "")
 
+set(OpenMP_CXX "${CMAKE_CXX_COMPILER}")
+set(OpenMP_CXX_FLAGS "-fopenmp=libomp")
+set(OpenMP_CXX_LIB_NAMES "libomp")
+set(OpenMP_libomp_LIBRARY ${OpenMP_CXX_LIB_NAMES})
+
 if (MODULE_VULKAN)
   list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}")
   set(SLICER_DIR "/home/sammael/kernel_slicer" CACHE STRING "Custom diff render location")
