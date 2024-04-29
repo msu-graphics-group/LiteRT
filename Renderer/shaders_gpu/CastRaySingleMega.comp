@@ -1535,6 +1535,8 @@ void main()
   //{
   //  int a = 2; // put debug breakpoint here
   //}
+  if (tidX >= ubo.m_packedXY_size)
+    return;
   vec4 rayPosAndNear,  rayDirAndFar;
   kernel_InitEyeRay(tidX, rayPosAndNear, rayDirAndFar);
   kernel_RayTrace_out_color(tidX, rayPosAndNear, rayDirAndFar, 0);

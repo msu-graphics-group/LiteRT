@@ -1330,6 +1330,8 @@ layout( push_constant ) uniform kernelArgs
 void kernel_PackXY_m_packedXY(uint tidX, uint tidY, uint out_pakedXYOffset) 
 {
   
+  if (tidX >= ubo.m_width || tidY >= ubo.m_height)
+    return;
   //const uint offset   = BlockIndex2D(tidX, tidY, m_width);
   const uint offset   = SuperBlockIndex2DOpt(tidX, tidY, ubo.m_width);
   m_packedXY[offset + out_pakedXYOffset] = ((tidY << 16) & 0xFFFF0000) | (tidX & 0x0000FFFF);

@@ -16,6 +16,8 @@ void MultiRenderer::CastRaySingle(uint32_t tidX, uint32_t* out_color)
   //{
   //  int a = 2; // put debug breakpoint here
   //}
+  if (tidX >= m_packedXY.size())
+    return;
   float4 rayPosAndNear, rayDirAndFar;
   kernel_InitEyeRay(tidX, &rayPosAndNear, &rayDirAndFar);
   kernel_RayTrace  (tidX, &rayPosAndNear, &rayDirAndFar, out_color);
@@ -269,6 +271,8 @@ static inline uint SuperBlockIndex2DOpt(uint tidX, uint tidY, uint a_width)
 
 void MultiRenderer::kernel_PackXY(uint tidX, uint tidY, uint* out_pakedXY)
 {
+  if (tidX >= m_width || tidY >= m_height)
+    return;
   //const uint offset   = BlockIndex2D(tidX, tidY, m_width);
   const uint offset   = SuperBlockIndex2DOpt(tidX, tidY, m_width);
   out_pakedXY[offset] = ((tidY << 16) & 0xFFFF0000) | (tidX & 0x0000FFFF);
