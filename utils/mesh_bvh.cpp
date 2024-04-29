@@ -1,4 +1,5 @@
 #include "mesh_bvh.h"
+#include "mesh.h"
 
 using namespace LiteMath;
 
@@ -31,57 +32,6 @@ MeshBVH::~MeshBVH()
   rtcReleaseDevice(m_device);
 }
 
-static float3 closest_point_triangle(const float3 &p, const float3 &a, const float3 &b, const float3 &c)
-{
-  // implementation taken from Embree library
-  const float3 ab = b - a;
-  const float3 ac = c - a;
-  const float3 ap = p - a;
-
-  const float d1 = dot(ab, ap);
-  const float d2 = dot(ac, ap);
-  if (d1 <= 0.f && d2 <= 0.f)
-    return a; // #1
-
-  const float3 bp = p - b;
-  const float d3 = dot(ab, bp);
-  const float d4 = dot(ac, bp);
-  if (d3 >= 0.f && d4 <= d3)
-    return b; // #2
-
-  const float3 cp = p - c;
-  const float d5 = dot(ab, cp);
-  const float d6 = dot(ac, cp);
-  if (d6 >= 0.f && d5 <= d6)
-    return c; // #3
-
-  const float vc = d1 * d4 - d3 * d2;
-  if (vc <= 0.f && d1 >= 0.f && d3 <= 0.f)
-  {
-    const float v = d1 / (d1 - d3);
-    return a + v * ab; // #4
-  }
-
-  const float vb = d5 * d2 - d1 * d6;
-  if (vb <= 0.f && d2 >= 0.f && d6 <= 0.f)
-  {
-    const float v = d2 / (d2 - d6);
-    return a + v * ac; // #5
-  }
-
-  const float va = d3 * d6 - d5 * d4;
-  if (va <= 0.f && (d4 - d3) >= 0.f && (d5 - d6) >= 0.f)
-  {
-    const float v = (d4 - d3) / ((d4 - d3) + (d5 - d6));
-    return b + v * (c - b); // #6
-  }
-
-  const float denom = 1.f / (va + vb + vc);
-  const float v = vb * denom;
-  const float w = vc * denom;
-  return a + v * ab + w * ac; // #0
-}
-
 struct SignedDistanceQueryCtx
 {
   cmesh4::SimpleMesh *mesh;
@@ -101,7 +51,7 @@ bool signed_distance_query_function(RTCPointQueryFunctionArguments *args)
   unsigned idx2 = mesh->indices[3*args->primID+2];
 
   float3 p = float3(args->query->x, args->query->y, args->query->z);
-  float3 pt = closest_point_triangle(p, to_float3(mesh->vPos4f[idx0]), to_float3(mesh->vPos4f[idx1]), to_float3(mesh->vPos4f[idx2]));
+  float3 pt = cmesh4::closest_point_triangle(p, to_float3(mesh->vPos4f[idx0]), to_float3(mesh->vPos4f[idx1]), to_float3(mesh->vPos4f[idx2]));
   float d = length(p - pt);
   
   //if (args->primID < 1000)

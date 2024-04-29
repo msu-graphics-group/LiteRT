@@ -7,6 +7,7 @@
 #include "Image2d.h"
 #include "Renderer/eye_ray.h"
 #include "tests/tests.h"
+#include "utils/mesh.h"
 
 using LiteImage::Image2D;
 
@@ -17,6 +18,9 @@ constexpr bool MEASURE_FRAMES = false;
 
 int main(int argc, const char** argv)
 {
+  //auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path+"scenes/01_simple_scenes/data/teapot.vsgf").c_str());
+  //cmesh4::create_triangle_list_grid(mesh, LiteMath::uint3(32,32,32));
+  //return 0;
   perform_tests_litert({4});
   //benchmark_framed_octree_intersection();
   return 0;
