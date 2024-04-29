@@ -15,7 +15,7 @@ std::string scenes_folder_path = "./";
 
 void render(LiteImage::Image2D<uint32_t> &image, std::shared_ptr<MultiRenderer> pRender, 
             float3 pos, float3 target, float3 up, 
-            MultiRenderPreset preset)
+            MultiRenderPreset preset, int a_passNum = 1)
 {
   float fov_degrees = 60;
   float z_near = 0.1f;
@@ -24,7 +24,7 @@ void render(LiteImage::Image2D<uint32_t> &image, std::shared_ptr<MultiRenderer> 
   auto proj      = LiteMath::perspectiveMatrix(fov_degrees, aspect, z_near, z_far);
   auto worldView = LiteMath::lookAt(pos, target, up);
 
-  pRender->Render(image.data(), image.width(), image.height(), worldView, proj, preset);
+  pRender->Render(image.data(), image.width(), image.height(), worldView, proj, preset, a_passNum);
 }
 
 float PSNR(const LiteImage::Image2D<uint32_t> &image_1, const LiteImage::Image2D<uint32_t> &image_2)
@@ -389,13 +389,67 @@ void litert_test_4_hydra_scene()
     printf("FAILED, psnr = %f\n", psnr);
 }
 
+void litert_test_5_interval_tracing()
+{
+  //create renderers for SDF scene and mesh scene
+  //const char *scene_name = "large_scenes/02_casual_effects/dragon/change_00000.xml";
+  const char *scene_name = "scenes/01_simple_scenes/instanced_objects.xml";
+  //const char *scene_name = "large_scenes/02_casual_effects/dragon/change_00000.xml";
+  //const char *scene_name = "scenes/01_simple_scenes/bunny_cornell.xml";
+  unsigned W = 2048, H = 2048;
+
+  MultiRenderPreset preset_ref = getDefaultPreset();
+  MultiRenderPreset preset_1 = getDefaultPreset();
+  preset_1.sdf_frame_octree_intersect = SDF_OCTREE_NODE_INTERSECT_ST;
+  MultiRenderPreset preset_2 = getDefaultPreset();
+  preset_2.sdf_frame_octree_intersect = SDF_OCTREE_NODE_INTERSECT_IT;
+  LiteImage::Image2D<uint32_t> image_1(W, H);
+  LiteImage::Image2D<uint32_t> image_2(W, H);
+  LiteImage::Image2D<uint32_t> ref_image(W, H);
+
+  auto pRenderRef = CreateMultiRenderer("GPU");
+  pRenderRef->SetPreset(preset_ref);
+  pRenderRef->SetViewport(0,0,W,H);
+  pRenderRef->LoadSceneHydra((scenes_folder_path+scene_name).c_str());
+
+  auto pRender = CreateMultiRenderer("GPU");
+  pRender->SetPreset(preset_1);
+  pRender->SetViewport(0,0,W,H);
+  pRender->LoadSceneHydra((scenes_folder_path+scene_name).c_str(), TYPE_SDF_SVS);
+
+  auto m1 = pRender->getWorldView();
+  auto m2 = pRender->getProj();
+
+  pRender->Render(image_1.data(), image_1.width(), image_1.height(), m1, m2, preset_1);
+  pRender->Render(image_2.data(), image_2.width(), image_2.height(), m1, m2, preset_2);
+  pRenderRef->Render(ref_image.data(), ref_image.width(), ref_image.height(), m1, m2, preset_ref);
+
+  LiteImage::SaveImage<uint32_t>("saves/test_5_ST.bmp", image_1); 
+  LiteImage::SaveImage<uint32_t>("saves/test_5_IT.bmp", image_2); 
+  LiteImage::SaveImage<uint32_t>("saves/test_5_ref.bmp", ref_image);
+
+  float psnr_1 = PSNR(image_1, image_2);
+  float psnr_2 = PSNR(ref_image, image_2);
+  printf("TEST 5. Interval tracing\n");
+  printf("  5.1. %-64s", "mesh and SDF PSNR > 30 ");
+  if (psnr_2 >= 30)
+    printf("passed    (%.2f)\n", psnr_2);
+  else
+    printf("FAILED, psnr = %f\n", psnr_2);
+  printf("  5.2. %-64s", "Interval and Sphere tracing PSNR > 45 ");
+  if (psnr_1 >= 45)
+    printf("passed    (%.2f)\n", psnr_1);
+  else
+    printf("FAILED, psnr = %f\n", psnr_1);
+}
+
 void perform_tests_litert(const std::vector<int> &test_ids)
 {
   std::vector<int> tests = test_ids;
 
   std::vector<std::function<void(void)>> test_functions = {
       litert_test_1_framed_octree, litert_test_2_SVS, litert_test_3_SBS_verify,
-      litert_test_4_hydra_scene};
+      litert_test_4_hydra_scene, litert_test_5_interval_tracing};
 
   if (tests.empty())
   {

@@ -14,7 +14,7 @@
 
 void render(LiteImage::Image2D<uint32_t> &image, std::shared_ptr<MultiRenderer> pRender, 
             float3 pos, float3 target, float3 up, 
-            MultiRenderPreset preset);
+            MultiRenderPreset preset, int a_passNum);
 
 struct BenchmarkResult
 {
@@ -29,7 +29,16 @@ struct BenchmarkResult
 
 void benchmark_framed_octree_intersection()
 {
-  constexpr unsigned iters = 100;
+  constexpr unsigned iters = 3;
+  constexpr unsigned pass_size = 50;
+  SparseOctreeSettings settings{8, 4, 0.0f};
+  SdfSBSHeader header;
+  header.brick_size = 1;
+  header.brick_pad = 0;
+  header.bytes_per_value = 1;
+  unsigned W = 1024, H = 1024;
+  bool save_images = true;
+
   std::vector<BenchmarkResult> results;
 
   std::vector<std::string> scene_paths = {"scenes/01_simple_scenes/data/teapot.vsgf"}; 
@@ -49,49 +58,67 @@ void benchmark_framed_octree_intersection()
                    SDF_OCTREE_BLAS_DEFAULT, 
                    SDF_OCTREE_BLAS_DEFAULT, 
                    SDF_OCTREE_BLAS_DEFAULT, 
+                   SDF_OCTREE_BLAS_DEFAULT,
+                   SDF_OCTREE_BLAS_DEFAULT,
                    SDF_OCTREE_BLAS_DEFAULT};
 
   presets_oi[0] = {SDF_OCTREE_NODE_INTERSECT_DEFAULT, 
                    SDF_OCTREE_NODE_INTERSECT_DEFAULT, 
                    SDF_OCTREE_NODE_INTERSECT_ST, 
                    SDF_OCTREE_NODE_INTERSECT_ANALYTIC, 
-                   SDF_OCTREE_NODE_INTERSECT_NEWTON};
+                   SDF_OCTREE_NODE_INTERSECT_NEWTON,
+                   SDF_OCTREE_NODE_INTERSECT_IT,
+                   SDF_OCTREE_NODE_INTERSECT_BBOX};
 
   preset_names[0] = {"no_bvh_traversal",
                      "bvh_traversal",
                      "bvh_sphere_tracing",
                      "bvh_analytic",
-                     "bvh_newton"};
+                     "bvh_newton",
+                     "bvh_interval_tracing",
+                     "bvh_nodes"};
 
   presets_ob[1] = {SDF_OCTREE_BLAS_DEFAULT, 
                    SDF_OCTREE_BLAS_DEFAULT, 
                    SDF_OCTREE_BLAS_DEFAULT, 
+                   SDF_OCTREE_BLAS_DEFAULT,
+                   SDF_OCTREE_BLAS_DEFAULT,
                    SDF_OCTREE_BLAS_DEFAULT};
 
   presets_oi[1] = {SDF_OCTREE_NODE_INTERSECT_DEFAULT, 
                    SDF_OCTREE_NODE_INTERSECT_ST, 
                    SDF_OCTREE_NODE_INTERSECT_ANALYTIC, 
-                   SDF_OCTREE_NODE_INTERSECT_NEWTON};
+                   SDF_OCTREE_NODE_INTERSECT_NEWTON,
+                   SDF_OCTREE_NODE_INTERSECT_IT,
+                   SDF_OCTREE_NODE_INTERSECT_BBOX};
 
   preset_names[1] = {"bvh_traversal",
                      "bvh_sphere_tracing",
                      "bvh_analytic",
-                     "bvh_newton"};
+                     "bvh_newton",
+                     "bvh_interval_tracing",
+                     "bvh_nodes"};
 
   presets_ob[2] = {SDF_OCTREE_BLAS_DEFAULT, 
                    SDF_OCTREE_BLAS_DEFAULT, 
                    SDF_OCTREE_BLAS_DEFAULT, 
+                   SDF_OCTREE_BLAS_DEFAULT,
+                   SDF_OCTREE_BLAS_DEFAULT,
                    SDF_OCTREE_BLAS_DEFAULT};
 
   presets_oi[2] = {SDF_OCTREE_NODE_INTERSECT_DEFAULT, 
                    SDF_OCTREE_NODE_INTERSECT_ST, 
                    SDF_OCTREE_NODE_INTERSECT_ANALYTIC, 
-                   SDF_OCTREE_NODE_INTERSECT_NEWTON};
+                   SDF_OCTREE_NODE_INTERSECT_NEWTON,
+                   SDF_OCTREE_NODE_INTERSECT_IT,
+                   SDF_OCTREE_NODE_INTERSECT_BBOX};
 
   preset_names[2] = {"bvh_traversal",
                      "bvh_sphere_tracing",
                      "bvh_analytic",
-                     "bvh_newton"};
+                     "bvh_newton",
+                     "bvh_interval_tracing",
+                     "bvh_nodes"};
 
   presets_ob[3] = {SDF_OCTREE_BLAS_DEFAULT};
   presets_oi[3] = {SDF_OCTREE_NODE_INTERSECT_DEFAULT};
@@ -117,11 +144,6 @@ void benchmark_framed_octree_intersection()
     mesh_bvh.init(mesh);
 
     SparseOctreeBuilder builder;
-    SparseOctreeSettings settings{8, 4, 0.0f};
-    SdfSBSHeader header;
-    header.brick_size = 1;
-    header.brick_pad = 0;
-    header.bytes_per_value = 1;
 
     std::vector<SdfFrameOctreeNode> frame_nodes;
     std::vector<SdfSVSNode> svs_nodes;
@@ -133,7 +155,6 @@ void benchmark_framed_octree_intersection()
     builder.convert_to_sparse_voxel_set(svs_nodes);
     builder.convert_to_sparse_brick_set(header, sbs_nodes, sbs_data);
 
-    unsigned W = 1024, H = 1024;
     LiteImage::Image2D<uint32_t> image(W, H);
 
     for (int rm=0; rm<render_names.size(); rm++)
@@ -161,13 +182,13 @@ void benchmark_framed_octree_intersection()
           double sum_ms[4] = {0,0,0,0};
           double min_ms[4] = {1e6,1e6,1e6,1e6};
           double max_ms[4] = {0,0,0,0};
-          render(image, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset);
+          render(image, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset, pass_size);
           for (int iter = 0; iter<iters; iter++)
           {
             float timings[4] = {0,0,0,0};
             
             auto t1 = std::chrono::steady_clock::now();
-            pRender->Render(image.data(), image.width(), image.height(), "color"); 
+            pRender->Render(image.data(), image.width(), image.height(), "color", pass_size); 
             pRender->GetExecutionTime("CastRaySingleBlock", timings);
             auto t2 = std::chrono::steady_clock::now();
             
@@ -175,7 +196,7 @@ void benchmark_framed_octree_intersection()
             //printf("%s rendered in %.1f ms. %d kRays/s\n", "SDF Framed Octree", time_ms, (int)((W * H) / time_ms));
             //printf("CastRaySingleBlock took %.1f ms\n", timings[0]);
 
-            if (iter == 0)
+            if (iter == 0 && save_images)
               LiteImage::SaveImage<uint32_t>(("saves/benchmark_"+scene_names[scene_n]+"_"+render_names[rm]+"_"+AS_names[as_n]+"_"+preset_names[as_n][i]+".bmp").c_str(), image); 
             for (int i=0;i<4;i++)
             {
@@ -191,8 +212,8 @@ void benchmark_framed_octree_intersection()
           results.back().as_name = AS_names[as_n];
           results.back().preset_name = preset_names[as_n][i];
           results.back().iters = iters;
-          results.back().render_average_time_ms = float4(sum_ms[0], sum_ms[1], sum_ms[2], sum_ms[3])/iters;
-          results.back().render_min_time_ms = float4(min_ms[0], min_ms[1], min_ms[2], min_ms[3]);
+          results.back().render_average_time_ms = float4(sum_ms[0], sum_ms[1], sum_ms[2], sum_ms[3])/(iters*pass_size);
+          results.back().render_min_time_ms = float4(min_ms[0], min_ms[1], min_ms[2], min_ms[3])/pass_size;
         }
       }
     }
