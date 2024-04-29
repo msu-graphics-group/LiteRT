@@ -689,6 +689,10 @@ float eval_sh(float sh[28], float3 rayDir, const int offset)
   return sum;
 }
 
+float sigmoid(float x) {
+    return 1 / (1 + exp(-x));
+}
+
 void BVHRT::RayGridIntersection(float3 ray_pos, float3 ray_dir, float3 bbMin, float3 bbMax, uint gridSize, float3 p, float3 lastP, float &throughput, float3 &colour)
 {
   float3 coords01 = (p - bbMin) / (bbMax - bbMin);
@@ -726,15 +730,15 @@ void BVHRT::RayGridIntersection(float3 ray_pos, float3 ray_dir, float3 bbMin, fl
   // std::cout << std::endl;
 
   float dist = length(p - lastP);
-  // if (dist > sqrt(3) / (float)gridSize)
-  //     dist -= ((int)(dist * (float)gridSize) - 1) / (float)gridSize;
+  if (dist > sqrt(3) / (float)gridSize)
+      dist -= ((int)(dist * (float)gridSize) - 1) / (float)gridSize;
 
   float tr = exp(-gridVal[0] * m_RFGridScales[0] * dist);
 
   // std::cout << tr << ' ' << gridVal[0] << ' ' << length(p - lastP) << ' ' << gridSize << std::endl;
 
   // float3 RGB = float3(1.0f);
-  float3 RGB = float3(min(max(eval_sh(gridVal, ray_dir, 1), 0.0f), 1.0f), min(max(eval_sh(gridVal, ray_dir, 10), 0.0f), 1.0f), min(max(eval_sh(gridVal, ray_dir, 19), 0.0f), 1.0f));
+  float3 RGB = float3(sigmoid(eval_sh(gridVal, ray_dir, 1)), sigmoid(eval_sh(gridVal, ray_dir, 10)), sigmoid(eval_sh(gridVal, ray_dir, 19)));
   colour = colour + throughput * (1 - tr) * RGB;
   
   throughput *= tr;
