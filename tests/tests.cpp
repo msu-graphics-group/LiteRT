@@ -445,13 +445,80 @@ void litert_test_5_interval_tracing()
     printf("FAILED, psnr = %f\n", psnr_1);
 }
 
+void litert_test_6_faster_bvh_build()
+{
+  //create renderers for SDF scene and mesh scene
+  //const char *scene_name = "large_scenes/02_casual_effects/dragon/change_00000.xml";
+  const char *scene_name = "scenes/01_simple_scenes/instanced_objects.xml";
+  //const char *scene_name = "large_scenes/02_casual_effects/dragon/change_00000.xml";
+  //const char *scene_name = "scenes/01_simple_scenes/bunny_cornell.xml";
+  unsigned W = 2048, H = 2048;
+
+  MultiRenderPreset preset_ref = getDefaultPreset();
+  MultiRenderPreset preset_1 = getDefaultPreset();
+  preset_1.sdf_frame_octree_intersect = SDF_OCTREE_NODE_INTERSECT_NEWTON;
+  MultiRenderPreset preset_2 = getDefaultPreset();
+  preset_2.sdf_frame_octree_intersect = SDF_OCTREE_NODE_INTERSECT_NEWTON;
+  LiteImage::Image2D<uint32_t> image_1(W, H);
+  LiteImage::Image2D<uint32_t> image_2(W, H);
+  LiteImage::Image2D<uint32_t> ref_image(W, H);
+
+  auto pRenderRef = CreateMultiRenderer("GPU");
+  pRenderRef->SetPreset(preset_ref);
+  pRenderRef->SetViewport(0,0,W,H);
+  pRenderRef->LoadSceneHydra((scenes_folder_path+scene_name).c_str());
+
+  auto pRender_1 = CreateMultiRenderer("GPU");
+  pRender_1->SetPreset(preset_1);
+  pRender_1->SetViewport(0,0,W,H);
+auto t1 = std::chrono::steady_clock::now();
+  pRender_1->LoadSceneHydra((scenes_folder_path+scene_name).c_str(), TYPE_SDF_SVS,
+                            SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 9));
+auto t2 = std::chrono::steady_clock::now();
+  float time_1 = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+
+  auto pRender_2 = CreateMultiRenderer("GPU");
+  pRender_2->SetPreset(preset_2);
+  pRender_2->SetViewport(0,0,W,H);
+auto t3 = std::chrono::steady_clock::now();
+  pRender_2->LoadSceneHydra((scenes_folder_path+scene_name).c_str(), TYPE_SDF_SVS,
+                            SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, 9));
+auto t4 = std::chrono::steady_clock::now();
+  float time_2 = std::chrono::duration_cast<std::chrono::milliseconds>(t4 - t3).count();
+
+  auto m1 = pRender_1->getWorldView();
+  auto m2 = pRender_1->getProj();
+
+  pRender_1->Render(image_1.data(), image_1.width(), image_1.height(), m1, m2, preset_1);
+  pRender_2->Render(image_2.data(), image_2.width(), image_2.height(), m1, m2, preset_2);
+  pRenderRef->Render(ref_image.data(), ref_image.width(), ref_image.height(), m1, m2, preset_ref);
+
+  LiteImage::SaveImage<uint32_t>("saves/test_6_default.bmp", image_1); 
+  LiteImage::SaveImage<uint32_t>("saves/test_6_mesh_tlo.bmp", image_2); 
+  LiteImage::SaveImage<uint32_t>("saves/test_6_ref.bmp", ref_image);
+
+  float psnr_1 = PSNR(image_1, image_2);
+  float psnr_2 = PSNR(ref_image, image_2);
+  printf("TEST 6. MESH_TLO SDF BVH build. default %.1f s, mesh TLO %.1f s\n", time_1/1000.0f, time_2/1000.0f);
+  printf("  6.1. %-64s", "mesh and SDF PSNR > 30 ");
+  if (psnr_2 >= 30)
+    printf("passed    (%.2f)\n", psnr_2);
+  else
+    printf("FAILED, psnr = %f\n", psnr_2);
+  printf("  6.2. %-64s", "DEFAULT and MESH_TLO PSNR > 45 ");
+  if (psnr_1 >= 45)
+    printf("passed    (%.2f)\n", psnr_1);
+  else
+    printf("FAILED, psnr = %f\n", psnr_1);
+}
+
 void perform_tests_litert(const std::vector<int> &test_ids)
 {
   std::vector<int> tests = test_ids;
 
   std::vector<std::function<void(void)>> test_functions = {
       litert_test_1_framed_octree, litert_test_2_SVS, litert_test_3_SBS_verify,
-      litert_test_4_hydra_scene, litert_test_5_interval_tracing};
+      litert_test_4_hydra_scene, litert_test_5_interval_tracing, litert_test_6_faster_bvh_build};
 
   if (tests.empty())
   {
