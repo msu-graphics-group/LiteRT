@@ -409,6 +409,29 @@ uint32_t BVHRT::AddGeom_SdfSVS(SdfSVSView octree, BuildQuality a_qualityLevel)
   float4 mn = float4(-1,-1,-1,1);
   float4 mx = float4( 1, 1, 1,1);
 
+  //choose only those node that have both positive and negative values in distance array, i.e. borders
+  std::vector<SdfSVSNode> border_nodes;
+  border_nodes.reserve(octree.size);
+  for (int i=0;i<octree.size;i++)
+  {
+    float sz = octree.nodes[i].pos_z_lod_size & 0x0000FFFF;
+    float d_max = 2*1.41421356f/sz;
+
+    bool less = false;
+    bool more = false;
+    for (int j=0;j<8;j++)
+    {
+      float val = -d_max + 2*d_max*(1.0/255.0f)*((octree.nodes[i].values[j/4] >> (8*(j%4))) & 0xFF);
+      if (val <= 0)
+        less = true;
+      else if (val >= 0)
+        more = true;
+    }
+
+    if (less)
+      border_nodes.push_back(octree.nodes[i]);
+  }
+
   //fill common data arrays
   m_geomOffsets.push_back(uint2(m_SdfSVSRoots.size(), 0));
   m_geomBoxes.push_back(Box4f(mn, mx));
@@ -418,16 +441,16 @@ uint32_t BVHRT::AddGeom_SdfSVS(SdfSVSView octree, BuildQuality a_qualityLevel)
   //fill octree-specific data arrays
   unsigned n_offset = m_SdfSVSNodes.size();
   m_SdfSVSRoots.push_back(n_offset);
-  m_SdfSVSNodes.insert(m_SdfSVSNodes.end(), octree.nodes, octree.nodes + octree.size);
+  m_SdfSVSNodes.insert(m_SdfSVSNodes.end(), border_nodes.begin(), border_nodes.end());
 
   //create list of bboxes for BLAS
-  std::vector<BVHNode> orig_nodes(octree.size);
-  for (int i=0;i<octree.size;i++)
+  std::vector<BVHNode> orig_nodes(border_nodes.size());
+  for (int i=0;i<border_nodes.size();i++)
   {
-    float px = octree.nodes[i].pos_xy >> 16;
-    float py = octree.nodes[i].pos_xy & 0x0000FFFF;
-    float pz = octree.nodes[i].pos_z_lod_size >> 16;
-    float sz = octree.nodes[i].pos_z_lod_size & 0x0000FFFF;
+    float px = border_nodes[i].pos_xy >> 16;
+    float py = border_nodes[i].pos_xy & 0x0000FFFF;
+    float pz = border_nodes[i].pos_z_lod_size >> 16;
+    float sz = border_nodes[i].pos_z_lod_size & 0x0000FFFF;
     orig_nodes[i].boxMin = float3(-1,-1,-1) + 2.0f*float3(px,py,pz)/sz;
     orig_nodes[i].boxMax = orig_nodes[i].boxMin + 2.0f*float3(1,1,1)/sz;
   }
