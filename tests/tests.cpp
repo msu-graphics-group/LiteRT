@@ -63,7 +63,7 @@ void litert_test_1_framed_octree()
     mesh_bvh.init(mesh);
 
     SparseOctreeBuilder builder;
-    SparseOctreeSettings settings{9, 4, 0.0f};
+    SparseOctreeSettings settings(SparseOctreeBuildType::DEFAULT, 9);
     std::vector<SdfFrameOctreeNode> frame_nodes;
 
     builder.construct([&mesh_bvh](const float3 &p) { return mesh_bvh.get_signed_distance(p); }, settings);
@@ -124,7 +124,7 @@ void litert_test_2_SVS()
     mesh_bvh.init(mesh);
 
     SparseOctreeBuilder builder;
-    SparseOctreeSettings settings{9, 4, 0.0f};
+    SparseOctreeSettings settings(SparseOctreeBuildType::DEFAULT, 9);
     std::vector<SdfSVSNode> frame_nodes;
 
     builder.construct([&mesh_bvh](const float3 &p) { return mesh_bvh.get_signed_distance(p); }, settings);
@@ -186,7 +186,7 @@ void litert_test_3_SBS_verify()
   mesh_bvh.init(mesh);
 
   SparseOctreeBuilder builder;
-  SparseOctreeSettings settings{8, 4, 0.0f};
+  SparseOctreeSettings settings(SparseOctreeBuildType::DEFAULT, 8);
 
   std::vector<SdfFrameOctreeNode> frame_nodes;
   std::vector<SdfSVSNode> svs_nodes;
@@ -367,7 +367,8 @@ void litert_test_4_hydra_scene()
   auto pRender = CreateMultiRenderer("GPU");
   pRender->SetPreset(preset);
   pRender->SetViewport(0,0,W,H);
-  pRender->LoadSceneHydra((scenes_folder_path+scene_name).c_str(), TYPE_SDF_SVS);
+  pRender->LoadSceneHydra((scenes_folder_path+scene_name).c_str(), TYPE_SDF_SVS, 
+                          SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 9));
 
   auto m1 = pRender->getWorldView();
   auto m2 = pRender->getProj();
@@ -415,7 +416,8 @@ void litert_test_5_interval_tracing()
   auto pRender = CreateMultiRenderer("GPU");
   pRender->SetPreset(preset_1);
   pRender->SetViewport(0,0,W,H);
-  pRender->LoadSceneHydra((scenes_folder_path+scene_name).c_str(), TYPE_SDF_SVS);
+  pRender->LoadSceneHydra((scenes_folder_path+scene_name).c_str(), TYPE_SDF_SVS,
+                          SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 9));
 
   auto m1 = pRender->getWorldView();
   auto m2 = pRender->getProj();

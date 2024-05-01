@@ -48,7 +48,12 @@ void MultiRenderer::UpdateCamera(const LiteMath::float4x4& worldView, const Lite
   m_worldViewInv = inverse4x4(worldView);
 }
 
-bool MultiRenderer::LoadSceneHydra(const std::string& a_path, unsigned type)
+bool MultiRenderer::LoadSceneHydra(const std::string& a_path)
+{
+  return LoadSceneHydra(a_path, TYPE_MESH_TRIANGLE, SparseOctreeSettings());
+}
+
+bool MultiRenderer::LoadSceneHydra(const std::string& a_path, unsigned type, SparseOctreeSettings so_settings)
 {
   hydra_xml::HydraScene scene;
   if(scene.LoadState(a_path) < 0)
@@ -90,22 +95,29 @@ bool MultiRenderer::LoadSceneHydra(const std::string& a_path, unsigned type)
         float4x4 trans = cmesh4::rescale_mesh(currMesh, float3(-0.9, -0.9, -0.9), float3(0.9, 0.9, 0.9));
         addGeomTransform.back() = inverse4x4(trans);
 
-        MeshBVH mesh_bvh;
-        mesh_bvh.init(currMesh);
-
-        SparseOctreeBuilder builder;
-        SparseOctreeSettings settings{9, 4, 0.0f};
-        std::vector<SdfSVSNode> svs_nodes;
-
-        builder.construct([&mesh_bvh](const float3 &p)
-                          { return mesh_bvh.get_signed_distance(p); },
-                          settings);
-
         switch (type)
         {
         case TYPE_SDF_SVS:
         {
-          builder.convert_to_sparse_voxel_set(svs_nodes);
+          std::vector<SdfSVSNode> svs_nodes;
+          if (so_settings.build_type == SparseOctreeBuildType::DEFAULT)
+          {
+            MeshBVH mesh_bvh;
+            mesh_bvh.init(currMesh);
+            SparseOctreeBuilder builder;
+            builder.construct([&mesh_bvh](const float3 &p)
+                              { return mesh_bvh.get_signed_distance(p); },
+                              so_settings);
+            builder.convert_to_sparse_voxel_set(svs_nodes);
+          }
+          else if (so_settings.build_type == SparseOctreeBuildType::MESH_TLO)
+          {
+            //search_range_mult is selected by experiments, more is better, but slower.
+            //2.0 is probably the right value in theory.
+            constexpr float search_range_mult = 1.75f;
+            auto oct = cmesh4::create_triangle_list_octree(currMesh, so_settings.depth, 1, search_range_mult);
+            SparseOctreeBuilder::mesh_octree_to_SVS(currMesh, oct, svs_nodes);
+          }
           m_pAccelStruct->AddGeom_SdfSVS({(unsigned)svs_nodes.size(), svs_nodes.data()});
         }
           break;

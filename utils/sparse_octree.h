@@ -3,6 +3,7 @@
 #include <functional>
 #include <fstream>
 #include "../sdfScene/sdf_scene.h"
+#include "../utils/mesh.h"
 /*
 A class that is able to represent and arbitrary function f : R^3 -> T 
 as a sparse octree, where every leaf contains value of function in it's
@@ -12,11 +13,24 @@ It should have T+T and float*T operator and be POD of course.
 Octree always represents unit cube [-1,1]^3
 */
 
+enum class SparseOctreeBuildType
+{
+  DEFAULT = 0, //build from abstrace distance function, quite slow, but reliable
+  MESH_TLO = 1 //works only if building from mesh, faster for detailed octrees and medium-sized meshes
+};
+
 struct SparseOctreeSettings
 {
+  SparseOctreeSettings() = default;
+  SparseOctreeSettings(SparseOctreeBuildType type, unsigned _depth)
+  {
+    build_type = type;
+    depth = _depth;
+  }
   unsigned depth = 1;
-  unsigned min_remove_level = 4;
-  float remove_thr = 0.0001;
+  unsigned min_remove_level = 4; //used only with SparseOctreeBuildType::DEFAULT
+  float remove_thr = 0.0001; //used only with SparseOctreeBuildType::DEFAULT
+  SparseOctreeBuildType build_type = SparseOctreeBuildType::DEFAULT;
 };
 
 template <typename T>
@@ -98,7 +112,12 @@ public:
   using T = float;
 
   static bool is_border(float distance, int level);
-
+  static void mesh_octree_to_sdf_frame_octree(const cmesh4::SimpleMesh &mesh,
+                                              const cmesh4::TriangleListOctree &tl_octree, 
+                                              std::vector<SdfFrameOctreeNode> &out_frame);
+  static void mesh_octree_to_SVS(const cmesh4::SimpleMesh &mesh,
+                                 const cmesh4::TriangleListOctree &tl_octree, 
+                                 std::vector<SdfSVSNode> &out_frame);
   SparseOctreeBuilder();
   void construct(std::function<T(const float3 &)> f, SparseOctreeSettings settings);
   void construct_bottom_up(std::function<T(const float3 &)> f, SparseOctreeSettings settings);

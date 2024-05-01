@@ -31,7 +31,7 @@ void benchmark_framed_octree_intersection()
 {
   constexpr unsigned iters = 3;
   constexpr unsigned pass_size = 50;
-  SparseOctreeSettings settings{8, 4, 0.0f};
+  SparseOctreeSettings settings(SparseOctreeBuildType::DEFAULT, 8);
   SdfSBSHeader header;
   header.brick_size = 1;
   header.brick_pad = 0;

@@ -976,3 +976,90 @@ void SparseOctreeBuilder::convert_to_sparse_brick_set(SdfSBSHeader &header,
   auto &nodes = get_nodes();
   frame_octree_to_SBS_rec(sdf, nodes, header, out_nodes, out_values, 0, uint3(0,0,0), 0, 1);
 }
+
+void mesh_octree_to_sdf_frame_octree_rec(const cmesh4::SimpleMesh &mesh,
+                                         const cmesh4::TriangleListOctree &tl_octree,
+                                         std::vector<SdfFrameOctreeNode> &frame,
+                                         unsigned idx, float3 p, float d)
+{
+  unsigned ofs = tl_octree.nodes[idx].offset;
+  frame[idx].offset = ofs;
+
+  if (is_leaf(ofs)) 
+  {
+    bool inc_distance = false;
+    float3 pos = 2.0f*(d*p) - 1.0f;
+    for (int i = 0; i < 8; i++)
+    {
+      float3 ch_pos = pos + 2*d*float3((i & 4) >> 2, (i & 2) >> 1, i & 1);
+      float min_dist_sq = 1000;
+      int min_ti = -1;
+      for (int j=0; j<tl_octree.nodes[idx].tid_count; j++)
+      {
+        int t_i = tl_octree.triangle_ids[tl_octree.nodes[idx].tid_offset+j];
+
+        float3 a = to_float3(mesh.vPos4f[mesh.indices[3*t_i+0]]);
+        float3 b = to_float3(mesh.vPos4f[mesh.indices[3*t_i+1]]);
+        float3 c = to_float3(mesh.vPos4f[mesh.indices[3*t_i+2]]);
+        float3 vt = ch_pos - cmesh4::closest_point_triangle(ch_pos, a, b, c);
+        float dist_sq = LiteMath::dot(vt, vt);
+        if (t_i == 174649)
+        printf("%u t_id %d dist (%f %f %f) -- (%f %f %f) = %f, d= %f\n", idx, t_i, ch_pos.x, ch_pos.y, ch_pos.z,
+        a.x, a.y, a.z, sqrtf(dist_sq), d);
+        if (dist_sq < min_dist_sq)
+        {
+          min_dist_sq = dist_sq; 
+          min_ti = t_i;
+        }
+      }
+
+      if (min_ti >= 0)
+      {
+        float3 a = to_float3(mesh.vPos4f[mesh.indices[3*min_ti+0]]);
+        float3 b = to_float3(mesh.vPos4f[mesh.indices[3*min_ti+1]]);
+        float3 c = to_float3(mesh.vPos4f[mesh.indices[3*min_ti+2]]);
+        float3 vt = ch_pos - cmesh4::closest_point_triangle(ch_pos, a, b, c);
+        float3 n = (1.0f/3.0f)*(to_float3(mesh.vNorm4f[mesh.indices[3*min_ti+0]]) + 
+                                to_float3(mesh.vNorm4f[mesh.indices[3*min_ti+1]]) + 
+                                to_float3(mesh.vNorm4f[mesh.indices[3*min_ti+2]]));
+
+        frame[idx].values[i] = dot(normalize(n), vt) > 0 ? sqrt(min_dist_sq) : -sqrt(min_dist_sq);
+        //if (i==0)
+        //  frame[idx].values[i] = -1;
+        //else
+        //  frame[idx].values[i] = 1;
+      }
+      else
+        frame[idx].values[i] = 1000;
+      
+      //printf("d = %f\n",frame[idx].values[i]);
+    }
+    //printf("\n");
+  }
+  else
+  {
+    for (int i = 0; i < 8; i++)
+    {
+      float ch_d = d / 2;
+      float3 ch_p = 2 * p + float3((i & 4) >> 2, (i & 2) >> 1, i & 1);
+      mesh_octree_to_sdf_frame_octree_rec(mesh, tl_octree, frame, ofs + i, ch_p, ch_d);
+    }
+  }
+}
+
+void SparseOctreeBuilder::mesh_octree_to_sdf_frame_octree(const cmesh4::SimpleMesh &mesh,
+                                                          const cmesh4::TriangleListOctree &tl_octree, 
+                                                          std::vector<SdfFrameOctreeNode> &out_frame)
+{
+  out_frame.resize(tl_octree.nodes.size());
+  mesh_octree_to_sdf_frame_octree_rec(mesh, tl_octree, out_frame, 0, float3(0,0,0), 1);
+}
+
+void SparseOctreeBuilder::mesh_octree_to_SVS(const cmesh4::SimpleMesh &mesh,
+                                             const cmesh4::TriangleListOctree &tl_octree, 
+                                             std::vector<SdfSVSNode> &out_SVS)
+{
+  std::vector<SdfFrameOctreeNode> frame; 
+  mesh_octree_to_sdf_frame_octree(mesh, tl_octree, frame);
+  frame_octree_to_SVS_rec(frame, out_SVS, 0, uint3(0,0,0), 1);
+}

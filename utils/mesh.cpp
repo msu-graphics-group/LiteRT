@@ -148,7 +148,7 @@ namespace cmesh4
             bool intersect = triangle_aabb_intersect(a, b, c, node_center, 0.5f*node_size);
             if (intersect)
             {
-              grid.nodes[i*grid_size.y*grid_size.z + j*grid_size.z + k].triangleIds.push_back(t_i);
+              grid.nodes[i*grid_size.y*grid_size.z + j*grid_size.z + k].triangle_ids.push_back(t_i);
               //printf("added %d\n", t_i);
             }
           }
@@ -162,8 +162,8 @@ namespace cmesh4
         {
           for (int k=0; k<grid_size.z; k++)
           {
-            //if (grid.nodes[i*grid_size.y*grid_size.z + j*grid_size.z + k].triangleIds.size() > 0)
-            //printf("(%u %u %u) %d triangles\n",i,j,k,(int)grid.nodes[i*grid_size.y*grid_size.z + j*grid_size.z + k].triangleIds.size());
+            //if (grid.nodes[i*grid_size.y*grid_size.z + j*grid_size.z + k].triangle_ids.size() > 0)
+            //printf("(%u %u %u) %d triangles\n",i,j,k,(int)grid.nodes[i*grid_size.y*grid_size.z + j*grid_size.z + k].triangle_ids.size());
           }
         }
       }
@@ -226,25 +226,155 @@ namespace cmesh4
   {
     float3 bbox_size = grid.max_pos - grid.min_pos;
     float3 grid_size_f = float3(grid.size);
-    int3 cell_i = int3(floor(((pos - grid.min_pos) / bbox_size) * grid_size_f));
-    if (cell_i.x<0||cell_i.y<0||cell_i.z<0||cell_i.x>=grid.size.x||cell_i.y>=grid.size.y||cell_i.z>=grid.size.z)
-      return 1000;
-    const auto &tris = grid.nodes[cell_i.x*grid.size.y*grid.size.z + cell_i.y*grid.size.z + cell_i.z].triangleIds;
-    if (tris.empty())
-      return 1.0f/grid_size_f.x;
+    int3 cell_start = int3(floor(((pos - grid.min_pos) / bbox_size) * grid_size_f - float3(0.5, 0.5, 0.5)));
+
+    float dist = 0.5f/grid_size_f.x;
+    for (int i=0;i<8;i++)
+    {
+      int3 cell_i = cell_start + int3((i & 4) >> 2, (i & 2) >> 1, i & 1);
+      if (cell_i.x<0||cell_i.y<0||cell_i.z<0||cell_i.x>=grid.size.x||cell_i.y>=grid.size.y||cell_i.z>=grid.size.z)
+        continue;
+      const auto &tris = grid.nodes[cell_i.x*grid.size.y*grid.size.z + cell_i.y*grid.size.z + cell_i.z].triangle_ids;
+      if (tris.empty())
+        continue;
+      else
+      {
+        for (auto &t_i : tris)
+        {
+          float3 a = to_float3(mesh.vPos4f[mesh.indices[3*t_i+0]]);
+          float3 b = to_float3(mesh.vPos4f[mesh.indices[3*t_i+1]]);
+          float3 c = to_float3(mesh.vPos4f[mesh.indices[3*t_i+2]]);       
+
+          float3 pt = closest_point_triangle(pos, a, b, c);
+          dist = std::min(dist, length(pos - pt)); 
+        }
+      }
+    }
+
+    return dist;
+  }
+
+  //thread-local function
+  void create_triangle_list_octree_rec(const cmesh4::SimpleMesh &mesh, 
+                                       std::vector<uint32_t> &tri_ids,
+                                       std::vector<TriangleListOctree::Node> &nodes,
+                                       unsigned max_depth, unsigned max_triangles_per_leaf, float search_range_mult,
+                                       const std::vector<uint32_t> &node_tri_ids,
+                                       unsigned idx, float3 p, float d, unsigned level)
+  {
+    if (level >= max_depth || node_tri_ids.size() <= max_triangles_per_leaf)
+    {
+      //make this node a leaf
+      nodes[idx].offset = 0;
+      nodes[idx].tid_count = node_tri_ids.size();
+      nodes[idx].tid_offset = tri_ids.size();
+      for (auto &tri_idx : node_tri_ids) 
+      {
+        tri_ids.push_back(tri_idx);
+        if (tri_idx == 174649)
+          printf("udx %u ch node (%f %f %f)-%f %u\n", idx, p.x, p.y, p.z, d, level);
+          
+      }
+      
+      //printf("created %u-leaf %u on p=(%f %f %f) with %d tris\n", level, idx, p.x, p.y, p.z, (int)node_tri_ids.size());
+    }
     else
     {
-      float d = 1000;
-      for (auto &t_i : tris)
-      {
-        float3 a = to_float3(mesh.vPos4f[mesh.indices[3*t_i+0]]);
-        float3 b = to_float3(mesh.vPos4f[mesh.indices[3*t_i+1]]);
-        float3 c = to_float3(mesh.vPos4f[mesh.indices[3*t_i+2]]);       
+      //go deeper
+      unsigned ch_idx = nodes.size();
+      nodes[idx].offset = ch_idx;
+      nodes[idx].tid_count = node_tri_ids.size();
+      nodes[idx].tid_offset = tri_ids.size();
 
-        float3 pt = closest_point_triangle(pos, a, b, c);
-        d = std::min(d, length(pos - pt)); 
+      for (int i=0;i<8;i++)
+        nodes.emplace_back();
+      
+      std::vector<uint32_t> child_tri_ids;
+      for (int i=0;i<8;i++)
+      {
+        child_tri_ids.resize(0);
+        child_tri_ids.reserve(node_tri_ids.size());
+
+        float ch_d = d/2;
+        float3 ch_p = 2*p + float3((i & 4) >> 2, (i & 2) >> 1, i & 1);
+        float3 ch_center = 2.0f*((ch_p + float3(0.5, 0.5, 0.5))*ch_d) - 1.0f;
+        float3 ch_half_size = search_range_mult*float3(ch_d);
+
+        //printf("ch node (%f %f %f)-(%f %f %f)\n", ch_center.x, ch_center.y, ch_center.z, ch_half_size.x, ch_half_size.y, ch_half_size.z);
+
+        for (int t_i : node_tri_ids)
+        {
+          float3 a = to_float3(mesh.vPos4f[mesh.indices[3*t_i+0]]);
+          float3 b = to_float3(mesh.vPos4f[mesh.indices[3*t_i+1]]);
+          float3 c = to_float3(mesh.vPos4f[mesh.indices[3*t_i+2]]);
+
+          if (triangle_aabb_intersect(a, b, c, ch_center, ch_half_size))
+            child_tri_ids.push_back(t_i);
+        }
+
+        create_triangle_list_octree_rec(mesh, tri_ids, nodes, max_depth, max_triangles_per_leaf, search_range_mult,
+                                        child_tri_ids, ch_idx+i, ch_p, ch_d, level+1);
       }
-      return d;
     }
+  }
+
+  TriangleListOctree create_triangle_list_octree(const cmesh4::SimpleMesh &mesh, unsigned max_depth, 
+                                                 unsigned max_triangles_per_leaf, float search_range_mult)
+  {
+    std::vector<unsigned> all_tri_ids(mesh.TrianglesNum());
+    for (int t_i=0;t_i<mesh.TrianglesNum();t_i++)
+      all_tri_ids[t_i] = t_i;
+
+    constexpr int NUM_THREADS = 8;
+    std::vector<std::vector<uint32_t>> thread_local_tri_ids(NUM_THREADS);
+    std::vector<std::vector<TriangleListOctree::Node>> thread_local_nodes(NUM_THREADS, {TriangleListOctree::Node()});
+
+    #pragma omp parallel for num_threads(NUM_THREADS)
+    for (int i=0;i<NUM_THREADS;i++)
+    {
+      create_triangle_list_octree_rec(mesh, thread_local_tri_ids[i], thread_local_nodes[i], max_depth, max_triangles_per_leaf,
+                                      search_range_mult, all_tri_ids, 0, float3((i & 4) >> 2, (i & 2) >> 1, i & 1), 0.5f, 1);
+    }
+
+    TriangleListOctree octree;
+    unsigned octree_total_nodes = 1;
+    unsigned octree_total_tri_ids = 0;
+
+    for (int i=0;i<NUM_THREADS;i++)
+    {
+      octree_total_nodes += thread_local_nodes[i].size();
+      octree_total_tri_ids += thread_local_tri_ids[i].size();
+    }
+
+    octree.nodes.resize(octree_total_nodes);
+    octree.triangle_ids.resize(octree_total_tri_ids);
+    octree.nodes[0].offset = 1;
+
+    unsigned node_ofs = 9;
+    unsigned tri_ids_ofs = 0;
+    for (int i=0;i<NUM_THREADS;i++)
+    {
+      bool empty_root = thread_local_nodes[i][0].offset == 0;
+      octree.nodes[i+1].offset = empty_root ? 0 : node_ofs;
+      octree.nodes[i+1].tid_count = empty_root ? thread_local_nodes[i][0].tid_count : 0;
+      octree.nodes[i+1].tid_offset = empty_root ? thread_local_nodes[i][0].tid_offset + tri_ids_ofs : 0;
+
+      for (int j=1;j<thread_local_nodes[i].size();j++)
+      {
+        octree.nodes[node_ofs+j-1] = thread_local_nodes[i][j];
+        if (thread_local_nodes[i][j].offset == 0)
+          octree.nodes[node_ofs+j-1].tid_offset += tri_ids_ofs;
+        else
+          octree.nodes[node_ofs+j-1].offset += node_ofs-1;
+      }
+
+      for (int j=0;j<thread_local_tri_ids[i].size();j++)
+        octree.triangle_ids[tri_ids_ofs + j] = thread_local_tri_ids[i][j];
+
+      node_ofs += thread_local_nodes[i].size() - 1;
+      tri_ids_ofs += thread_local_tri_ids[i].size();
+    }
+    printf("created octee with %d nodes and %d tri ids\n", (int)octree.nodes.size(), (int)octree.triangle_ids.size());
+    return octree;
   }
 }

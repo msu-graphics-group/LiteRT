@@ -11,12 +11,25 @@ namespace cmesh4
   {
     struct Node
     {
-      std::vector<unsigned> triangleIds; //ids of all triangles to intersect this node's bbox
+      std::vector<uint32_t> triangle_ids; //ids of all triangles to intersect this node's bbox
       uint32_t payload; //left empty by constructor, can be used in different algorithms
     };
     uint3 size;
     std::vector<Node> nodes;
     float3 min_pos, max_pos; //AABB for mesh
+  };
+
+  //Octree always represents unit cube [-1,1]^3
+  struct TriangleListOctree 
+  {
+    struct Node
+    {
+      uint32_t offset;// offset for children (they are stored together). 0 offset means it's a leaf
+      uint32_t tid_offset;// start of Node's triangles ids in triangle_ids list, only for leaves
+      uint32_t tid_count;// how many triangles intersect this node
+    };
+    std::vector<Node> nodes;
+    std::vector<uint32_t> triangle_ids;
   };
 
   float3 closest_point_triangle(const float3 &p, const float3 &a, const float3 &b, const float3 &c);
@@ -29,4 +42,6 @@ namespace cmesh4
   LiteMath::float4x4 rescale_mesh(cmesh4::SimpleMesh &mesh, float3 min_pos, float3 max_pos);
 
   TriangleListGrid create_triangle_list_grid(const cmesh4::SimpleMesh &mesh, uint3 grid_size);
+  TriangleListOctree create_triangle_list_octree(const cmesh4::SimpleMesh &mesh, unsigned max_depth, 
+                                                 unsigned max_triangles_per_leaf = 4, float search_range_mult = 3);
 }

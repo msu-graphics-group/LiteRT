@@ -16,6 +16,8 @@
 
 using LiteMath::uint;
 
+struct SparseOctreeSettings;
+
 //enum MultiRenderMode
 static constexpr unsigned MULTI_RENDER_MODE_MASK = 0; //white object, black background
 static constexpr unsigned MULTI_RENDER_MODE_LAMBERT = 1;
@@ -105,7 +107,11 @@ public:
 
   void UpdateCamera(const LiteMath::float4x4& a_worldView, const LiteMath::float4x4& a_proj) override;
   
-  bool LoadSceneHydra(const std::string& a_path, unsigned type = TYPE_MESH_TRIANGLE);
+  //ddefault one, loading meshes
+  bool LoadSceneHydra(const std::string& a_path);
+
+  //so_settings is used only when type is soem kind of SDF octree
+  bool LoadSceneHydra(const std::string& a_path, unsigned type, SparseOctreeSettings so_settings);  
 
   LiteMath::float4x4 getProj() { return m_proj; }
   LiteMath::float4x4 getWorldView() { return m_worldView; }
