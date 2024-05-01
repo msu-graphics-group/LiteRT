@@ -8,6 +8,7 @@ static constexpr unsigned TYPE_SDF_FRAME_OCTREE    = 4;
 static constexpr unsigned TYPE_RF_GRID             = 5;
 static constexpr unsigned TYPE_SDF_SVS             = 6;
 static constexpr unsigned TYPE_SDF_SBS             = 7;
+static constexpr unsigned TYPE_GS_PRIMITIVE        = 8;
 
 //enum SdfOctreeSampler
 static constexpr unsigned SDF_OCTREE_SAMPLER_MIPSKIP_3X3 = 0; //go to the deepest level possible, resampling larger nodes
@@ -40,6 +41,7 @@ static constexpr unsigned MULTI_RENDER_MODE_BARYCENTRIC = 9; //visualize barycen
 static constexpr unsigned MULTI_RENDER_MODE_SPHERE_TRACE_ITERATIONS = 10; //for SDFs replace primId with number of iterations for sphere tracing
 static constexpr unsigned MULTI_RENDER_MODE_RF = 11;
 static constexpr unsigned MULTI_RENDER_MODE_PHONG = 12;
+static constexpr unsigned MULTI_RENDER_MODE_GS = 13;
 
 struct MultiRenderPreset
 {

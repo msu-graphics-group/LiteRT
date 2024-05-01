@@ -21,15 +21,15 @@ int main(int argc, const char** argv)
   //auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path+"scenes/01_simple_scenes/data/teapot.vsgf").c_str());
   //cmesh4::create_triangle_list_grid(mesh, LiteMath::uint3(32,32,32));
   //return 0;
-  perform_tests_litert({4});
+  // perform_tests_litert({4});
   //benchmark_framed_octree_intersection();
-  return 0;
+  // return 0;
 
   uint32_t WIDTH  = 1024;
   uint32_t HEIGHT = 1024;
   
 
-  const char* scenePath   = "scenes/02_sdf_scenes/relu_fields.xml"; // 02_sdf_scenes/csg_new.xml bunny_cornell.xml, instanced_objects.xml
+  const char* scenePath   = "scenes/03_gs_scenes/lego.xml";
   const char* accelStruct  = "BVH2Common"; // BruteForce BVH2Common
   const char* buildFormat  = "cbvh_embree2";///"NanoRT";  // BVH2Common
   const char* layout       = "SuperTreeletAlignedMerged4"; ///"opt";
@@ -41,7 +41,7 @@ int main(int argc, const char** argv)
   std::shared_ptr<IRenderer> pRender = nullptr;
   std::cout << "[main]: init renderer ..." << std::endl; 
   {
-    pRender = CreateMultiRenderer("GPU");  
+    pRender = CreateMultiRenderer("CPU");  
     auto accelStructImpl = CreateSceneRT(accelStruct, buildFormat, layout);
     pRender->SetAccelStruct(accelStructImpl);
   }
@@ -56,7 +56,7 @@ int main(int argc, const char** argv)
   std::cout << "Implementation:  " << pRender->Name() << "; builder = '" << buildFormat << "'" << std::endl;
 
   MultiRenderPreset preset;
-  preset.mode = MULTI_RENDER_MODE_RF;
+  preset.mode = MULTI_RENDER_MODE_GS;
   dynamic_cast<MultiRenderer*>(pRender.get())->SetPreset(preset);
   pRender->CommitDeviceData();
   pRender->Clear(WIDTH, HEIGHT, "color");

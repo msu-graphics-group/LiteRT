@@ -49,6 +49,7 @@ set(SCENE_LOADER_SRC
     ${CMAKE_SOURCE_DIR}/utils/mesh.cpp
     ${CMAKE_SOURCE_DIR}/utils/sparse_octree.cpp
     ${CMAKE_SOURCE_DIR}/utils/radiance_field.cpp
+    ${CMAKE_SOURCE_DIR}/utils/gaussian_field.cpp
     ${CMAKE_SOURCE_DIR}/tests/tests.cpp
     ${CMAKE_SOURCE_DIR}/tests/benchmark.cpp
     ${CMAKE_SOURCE_DIR}/NeuralRT/NeuralRT.cpp

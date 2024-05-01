@@ -148,6 +148,13 @@ bool MultiRenderer::LoadSceneHydra(const std::string& a_path, unsigned type, Spa
       load_rf_scene(scene, dir);
       m_pAccelStruct->AddGeom_RFScene(scene);
     }
+    else if (name == "gs")
+    {
+      std::cout << "[LoadScene]: gaussian splatting = " << dir.c_str() << std::endl;
+      GSScene scene;
+      load_gs_scene(scene, dir);
+      m_pAccelStruct->AddGeom_GSScene(scene);
+    }
     else
     {
       std::cout << "[LoadScene]: unknown geometry node type: " << name.c_str() << std::endl;

@@ -55,6 +55,7 @@ struct BVHRT : public ISceneObject
   uint32_t AddGeom_SdfScene(SdfSceneView scene, BuildOptions a_qualityLevel = BUILD_HIGH) override;
   uint32_t AddGeom_SdfGrid(SdfGridView grid, BuildOptions a_qualityLevel = BUILD_HIGH) override;
   uint32_t AddGeom_RFScene(RFScene grid, BuildOptions a_qualityLevel = BUILD_HIGH) override;
+  uint32_t AddGeom_GSScene(GSScene grid, BuildOptions a_qualityLevel = BUILD_HIGH) override;
   uint32_t AddGeom_SdfOctree(SdfOctreeView octree, BuildOptions a_qualityLevel = BUILD_HIGH) override;
   uint32_t AddGeom_SdfFrameOctree(SdfFrameOctreeView octree, BuildOptions a_qualityLevel = BUILD_HIGH) override;
   uint32_t AddGeom_SdfSVS(SdfSVSView octree, BuildOptions a_qualityLevel = BUILD_HIGH) override;
@@ -123,6 +124,11 @@ struct BVHRT : public ISceneObject
                               uint32_t a_start, uint32_t a_count,
                               CRT_Hit *pHit);
 
+  void IntersectGSInLeaf(const float3& ray_pos, const float3& ray_dir,
+                         float tNear, uint32_t instId,
+                         uint32_t geomId, uint32_t a_start,
+                         uint32_t a_count, CRT_Hit* pHit);
+
   void RayGridIntersection(float3 ray_dir, uint gridSize, float3 p, float3 lastP, uint4 ptrs, uint4 ptrs2, float &throughput, float3 &colour);
   void lerpCell(const uint idx0, const uint idx1, const float t, float memory[28]);
 
@@ -145,6 +151,7 @@ struct BVHRT : public ISceneObject
 
 #ifndef KERNEL_SLICER  
   std::vector<BVHNode> GetBoxes_RFGrid(RFScene grid, std::vector<float>& sparseGrid, std::vector<uint4>& sparsePtrs);
+  std::vector<BVHNode> GetBoxes_GSGrid(const GSScene& grid);
   std::vector<BVHNode> GetBoxes_SdfGrid(SdfGridView grid);
   std::vector<BVHNode> GetBoxes_SdfOctree(SdfOctreeView octree);
   std::vector<BVHNode> GetBoxes_SdfFrameOctree(SdfFrameOctreeView octree);
@@ -201,6 +208,157 @@ struct BVHRT : public ISceneObject
   std::vector<uint32_t> m_RFGridOffsets; //offset in m_SdfGridData for each RF grid
   std::vector<size_t> m_RFGridSizes;      //size for each RF grid
   std::vector<float> m_RFGridScales;      //size for each RF grid
+
+  // GS data
+  std::size_t m_gs_count{};
+
+  std::vector<float> m_gs_x{};
+  std::vector<float> m_gs_y{};
+  std::vector<float> m_gs_z{};
+
+  std::vector<float> m_gs_nx{};
+  std::vector<float> m_gs_ny{};
+  std::vector<float> m_gs_nz{};
+
+  std::vector<float> m_gs_f_dc_0{};
+  std::vector<float> m_gs_f_dc_1{};
+  std::vector<float> m_gs_f_dc_2{};
+
+  std::vector<float> m_gs_f_rest_0{};
+  std::vector<float> m_gs_f_rest_1{};
+  std::vector<float> m_gs_f_rest_2{};
+  std::vector<float> m_gs_f_rest_3{};
+  std::vector<float> m_gs_f_rest_4{};
+  std::vector<float> m_gs_f_rest_5{};
+  std::vector<float> m_gs_f_rest_6{};
+  std::vector<float> m_gs_f_rest_7{};
+  std::vector<float> m_gs_f_rest_8{};
+  std::vector<float> m_gs_f_rest_9{};
+  std::vector<float> m_gs_f_rest_10{};
+  std::vector<float> m_gs_f_rest_11{};
+  std::vector<float> m_gs_f_rest_12{};
+  std::vector<float> m_gs_f_rest_13{};
+  std::vector<float> m_gs_f_rest_14{};
+  std::vector<float> m_gs_f_rest_15{};
+  std::vector<float> m_gs_f_rest_16{};
+  std::vector<float> m_gs_f_rest_17{};
+  std::vector<float> m_gs_f_rest_18{};
+  std::vector<float> m_gs_f_rest_19{};
+  std::vector<float> m_gs_f_rest_20{};
+  std::vector<float> m_gs_f_rest_21{};
+  std::vector<float> m_gs_f_rest_22{};
+  std::vector<float> m_gs_f_rest_23{};
+  std::vector<float> m_gs_f_rest_24{};
+  std::vector<float> m_gs_f_rest_25{};
+  std::vector<float> m_gs_f_rest_26{};
+  std::vector<float> m_gs_f_rest_27{};
+  std::vector<float> m_gs_f_rest_28{};
+  std::vector<float> m_gs_f_rest_29{};
+  std::vector<float> m_gs_f_rest_30{};
+  std::vector<float> m_gs_f_rest_31{};
+  std::vector<float> m_gs_f_rest_32{};
+  std::vector<float> m_gs_f_rest_33{};
+  std::vector<float> m_gs_f_rest_34{};
+  std::vector<float> m_gs_f_rest_35{};
+  std::vector<float> m_gs_f_rest_36{};
+  std::vector<float> m_gs_f_rest_37{};
+  std::vector<float> m_gs_f_rest_38{};
+  std::vector<float> m_gs_f_rest_39{};
+  std::vector<float> m_gs_f_rest_40{};
+  std::vector<float> m_gs_f_rest_41{};
+  std::vector<float> m_gs_f_rest_42{};
+  std::vector<float> m_gs_f_rest_43{};
+  std::vector<float> m_gs_f_rest_44{};
+
+  std::vector<float> m_gs_opacity{};
+
+  std::vector<float> m_gs_scale_0{};
+  std::vector<float> m_gs_scale_1{};
+  std::vector<float> m_gs_scale_2{};
+
+  std::vector<float> m_gs_rot_0{};
+  std::vector<float> m_gs_rot_1{};
+  std::vector<float> m_gs_rot_2{};
+  std::vector<float> m_gs_rot_3{};
+
+  std::vector<float> m_gs_base_color_0{};
+  std::vector<float> m_gs_base_color_1{};
+  std::vector<float> m_gs_base_color_2{};
+
+  std::vector<float> m_gs_roughness{};
+
+  std::vector<float> m_gs_metallic{};
+
+  std::vector<float> m_gs_incidents_dc_0{};
+  std::vector<float> m_gs_incidents_dc_1{};
+  std::vector<float> m_gs_incidents_dc_2{};
+
+  std::vector<float> m_gs_incidents_rest_0{};
+  std::vector<float> m_gs_incidents_rest_1{};
+  std::vector<float> m_gs_incidents_rest_2{};
+  std::vector<float> m_gs_incidents_rest_3{};
+  std::vector<float> m_gs_incidents_rest_4{};
+  std::vector<float> m_gs_incidents_rest_5{};
+  std::vector<float> m_gs_incidents_rest_6{};
+  std::vector<float> m_gs_incidents_rest_7{};
+  std::vector<float> m_gs_incidents_rest_8{};
+  std::vector<float> m_gs_incidents_rest_9{};
+  std::vector<float> m_gs_incidents_rest_10{};
+  std::vector<float> m_gs_incidents_rest_11{};
+  std::vector<float> m_gs_incidents_rest_12{};
+  std::vector<float> m_gs_incidents_rest_13{};
+  std::vector<float> m_gs_incidents_rest_14{};
+  std::vector<float> m_gs_incidents_rest_15{};
+  std::vector<float> m_gs_incidents_rest_16{};
+  std::vector<float> m_gs_incidents_rest_17{};
+  std::vector<float> m_gs_incidents_rest_18{};
+  std::vector<float> m_gs_incidents_rest_19{};
+  std::vector<float> m_gs_incidents_rest_20{};
+  std::vector<float> m_gs_incidents_rest_21{};
+  std::vector<float> m_gs_incidents_rest_22{};
+  std::vector<float> m_gs_incidents_rest_23{};
+  std::vector<float> m_gs_incidents_rest_24{};
+  std::vector<float> m_gs_incidents_rest_25{};
+  std::vector<float> m_gs_incidents_rest_26{};
+  std::vector<float> m_gs_incidents_rest_27{};
+  std::vector<float> m_gs_incidents_rest_28{};
+  std::vector<float> m_gs_incidents_rest_29{};
+  std::vector<float> m_gs_incidents_rest_30{};
+  std::vector<float> m_gs_incidents_rest_31{};
+  std::vector<float> m_gs_incidents_rest_32{};
+  std::vector<float> m_gs_incidents_rest_33{};
+  std::vector<float> m_gs_incidents_rest_34{};
+  std::vector<float> m_gs_incidents_rest_35{};
+  std::vector<float> m_gs_incidents_rest_36{};
+  std::vector<float> m_gs_incidents_rest_37{};
+  std::vector<float> m_gs_incidents_rest_38{};
+  std::vector<float> m_gs_incidents_rest_39{};
+  std::vector<float> m_gs_incidents_rest_40{};
+  std::vector<float> m_gs_incidents_rest_41{};
+  std::vector<float> m_gs_incidents_rest_42{};
+  std::vector<float> m_gs_incidents_rest_43{};
+  std::vector<float> m_gs_incidents_rest_44{};
+
+  std::vector<float> m_gs_visibility_dc_0{};
+
+  std::vector<float> m_gs_visibility_rest_0{};
+  std::vector<float> m_gs_visibility_rest_1{};
+  std::vector<float> m_gs_visibility_rest_2{};
+  std::vector<float> m_gs_visibility_rest_3{};
+  std::vector<float> m_gs_visibility_rest_4{};
+  std::vector<float> m_gs_visibility_rest_5{};
+  std::vector<float> m_gs_visibility_rest_6{};
+  std::vector<float> m_gs_visibility_rest_7{};
+  std::vector<float> m_gs_visibility_rest_8{};
+  std::vector<float> m_gs_visibility_rest_9{};
+  std::vector<float> m_gs_visibility_rest_10{};
+  std::vector<float> m_gs_visibility_rest_11{};
+  std::vector<float> m_gs_visibility_rest_12{};
+  std::vector<float> m_gs_visibility_rest_13{};
+  std::vector<float> m_gs_visibility_rest_14{};
+
+  std::vector<float4x4> m_gs_cov{};
+  std::vector<float4x4> m_gs_conic{};
 
   //SDF octree data
 #ifndef LITERT_MINI

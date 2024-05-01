@@ -150,6 +150,9 @@ void BVHRT::IntersectAllPrimitivesInLeaf(const float3 ray_pos, const float3 ray_
   case TYPE_RF_GRID:
     IntersectRFInLeaf(ray_pos, ray_dir, tNear, instId, geomId, a_start, a_count, pHit);
     break;
+  case TYPE_GS_PRIMITIVE:
+    IntersectGSInLeaf(ray_pos, ray_dir, tNear, instId, geomId, a_start, a_count, pHit);
+    break;
   case TYPE_SDF_SVS:
   case TYPE_SDF_SBS:
     OctreeNodeIntersect(type, ray_pos, ray_dir, tNear, instId, geomId, a_start, a_count, pHit);
@@ -797,6 +800,103 @@ void BVHRT::IntersectRFInLeaf(const float3 ray_pos, const float3 ray_dir,
   /* pHit->adds[3] = 0.0f; */
 
   // std::cout << "Mew" << std::endl;
+}
+
+float4 QuaternionMultiply(const float4& a, const float4& b) {
+    float4 c;
+
+    c.x = a.x * b.x - a.y * b.y - a.z * b.z - a.w * b.w;
+    c.y = a.x * b.y + a.y * b.x + a.z * b.w - a.w * b.z;
+    c.z = a.x * b.z - a.y * b.w + a.z * b.x + a.w * b.y;
+    c.w = a.x * b.w + a.y * b.z - a.z * b.y + a.w * b.x;
+
+    return c;
+}
+
+float4 QuaternionConjugate(const float4& q) {
+    return float4(q.x, -q.y, -q.z, -q.w);
+}
+
+float3 RotatePoint(const float3& p, const float4& q) {
+    float4 result = QuaternionMultiply(QuaternionMultiply(QuaternionConjugate(q), float4(0.0f, p.x, p.y, p.z)), q);
+
+    return float3(result.y, result.z, result.w);
+}
+
+void BVHRT::IntersectGSInLeaf(const float3& ray_pos, const float3& ray_dir,
+                              float tNear, uint32_t instId,
+                              uint32_t geomId, uint32_t a_start,
+                              uint32_t a_count, CRT_Hit* pHit) {
+    float sh_c0 = 0.28209479177387814f;
+
+    for (uint32_t i = a_start; i < a_start + a_count; ++i) {
+        float3 mean = float3(m_gs_x[i], m_gs_y[i], m_gs_z[i]);
+        float3 scale = float3(exp(m_gs_scale_0[i]), exp(m_gs_scale_1[i]), exp(m_gs_scale_2[i])) * 3.0f;
+        float4 rotation = QuaternionConjugate(normalize(float4(m_gs_rot_0[i], m_gs_rot_1[i], m_gs_rot_2[i], m_gs_rot_3[i])));
+        float3 diffuse_color = float3(m_gs_f_dc_0[i], m_gs_f_dc_1[i], m_gs_f_dc_2[i]) * sh_c0;
+        float opacity = sigmoid(m_gs_opacity[i]);
+
+        float3 origin = ray_pos - mean;
+        float3 direction = ray_dir;
+
+        origin = RotatePoint(origin, rotation);
+        direction = RotatePoint(direction, rotation);
+
+        origin    = origin / scale;
+        direction = direction / scale;
+
+        float a = dot(direction, direction);
+        float b = 2.0f * dot(origin, direction);
+        float c = dot(origin, origin) - 1.0f;
+
+        float discriminant = b * b - 4.0f * a * c;
+
+        if (discriminant < 1e-9f) {
+            continue;
+        }
+
+        float t1 = (-b + sqrt(discriminant)) / (2.0f * a);
+        float t2 = (-b - sqrt(discriminant)) / (2.0f * a);
+
+        if (t1 > tNear && t2 > tNear) {
+            float t = (t1 + t2) / 2.0f;
+            float3 intersection = ray_pos + t * ray_dir;
+            float3 distance = intersection - mean;
+
+            float power  = -0.5f * (
+                m_gs_conic[i][0][0] * distance.x * distance.x +
+                m_gs_conic[i][1][1] * distance.y * distance.y +
+                m_gs_conic[i][2][2] * distance.z * distance.z) -
+                m_gs_conic[i][0][1] * distance.x * distance.y -
+                m_gs_conic[i][0][2] * distance.x * distance.z -
+                m_gs_conic[i][1][2] * distance.y * distance.z;
+
+            if (power > 0.0f) {
+                continue;
+            }
+
+            float alpha = min(0.99f, opacity * float(exp(power)));
+
+            if (alpha < 1.0f / 255.0f) {
+                continue;
+            }
+
+            float transparency = pHit->coords[0] * (1.0f - alpha);
+
+            if (transparency < 0.0001f) { 
+                break;
+            }
+
+            float weight = alpha * pHit->coords[0];
+
+            pHit->coords[1] += (0.5f + diffuse_color.x) * weight;
+            pHit->coords[2] += (0.5f + diffuse_color.y) * weight;
+            pHit->coords[3] += (0.5f + diffuse_color.z) * weight;
+            pHit->coords[0] = transparency;
+
+            pHit->primId = i;
+        }
+    }
 }
 
 SdfHit BVHRT::sdf_sphere_tracing(uint32_t type, uint32_t sdf_id, const float3 &min_pos, const float3 &max_pos,
