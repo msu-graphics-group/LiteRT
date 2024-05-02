@@ -697,10 +697,10 @@ float eval_sh(float sh[28], float3 rayDir, const int offset)
 }
 
 float sigmoid(float x) {
-    return 1 / (1 + exp(-x));
+  return 1 / (1 + exp(-x));
 }
 
-void BVHRT::RayGridIntersection(float3 ray_pos, float3 ray_dir, float3 bbMin, float3 bbMax, uint gridSize, float3 p, float3 lastP, float &throughput, float3 &colour)
+void BVHRT::RayGridIntersection(float3 ray_pos, float3 ray_dir, float3 bbMin, float3 bbMax, uint gridSize, float3 p, float3 lastP, float diff, float &throughput, float3 &colour)
 {
   float3 coords01 = (p - bbMin) / (bbMax - bbMin);
   float3 coords = coords01 * (float)(gridSize);
@@ -729,16 +729,17 @@ void BVHRT::RayGridIntersection(float3 ray_pos, float3 ray_dir, float3 bbMin, fl
   lerpCellf(xyz0, xyz1, lerpFactors.z, gridVal);
 
   // relu
-  if (gridVal[0] < 0.0)
-    gridVal[0] = 0.0;
+  /* if (gridVal[0] < 0.0) */
+  /*   gridVal[0] = 0.0; */
 
   // for (size_t i = 0; i < 28; i++)
     // std::cout << (&grid[indexGrid(nearCoords[0], nearCoords[1], nearCoords[2], gridSize)])[i] << ' ';
   // std::cout << std::endl;
 
-  float dist = length(p - lastP);
-  if (dist > sqrt(3) / (float)gridSize)
-      dist -= ((int)(dist * (float)gridSize) - 1) / (float)gridSize;
+  float dist = 1.0f / (float) gridSize * 1.75f;
+  /* float dist = length(p - lastP) + diff; */
+  /* if (dist > sqrt(3) / (float)gridSize) */
+  /*     dist -= ((int)(dist * (float)gridSize) - 1) / (float)gridSize; */
 
   float tr = exp(-gridVal[0] * m_RFGridScales[0] * dist);
 
@@ -747,7 +748,6 @@ void BVHRT::RayGridIntersection(float3 ray_pos, float3 ray_dir, float3 bbMin, fl
   // float3 RGB = float3(1.0f);
   float3 RGB = float3(sigmoid(eval_sh(gridVal, ray_dir, 1)), sigmoid(eval_sh(gridVal, ray_dir, 10)), sigmoid(eval_sh(gridVal, ray_dir, 19)));
   colour = colour + throughput * (1 - tr) * RGB;
-  
   throughput *= tr;
 }
 
@@ -789,36 +789,32 @@ void BVHRT::IntersectRFInLeaf(const float3 ray_pos, const float3 ray_dir,
 
   float3 min_pos = float3(0,0,0), max_pos = float3(1,1,1);
 
-  float l = length(ray_dir);
-  float3 dir = ray_dir/l;
-
   auto bbox = m_origNodes[a_start];
-  float2 zNearAndFar = RayBoxIntersection(ray_pos, dir, bbox.boxMin, bbox.boxMax);
-  float3 p = ray_pos + dir * (zNearAndFar.x + zNearAndFar.y) / 2.0f;
+  float2 zNearAndFar = RayBoxIntersection(ray_pos, ray_dir, bbox.boxMin, bbox.boxMax);
 
-  float3 lastP;
-  if (pHit->adds[3] < 0.5f)
-    lastP = float3(pHit->adds[0], pHit->adds[1], pHit->adds[2]);
-  else
-    lastP = ray_pos + dir * zNearAndFar.x;
+  float3 p = ray_pos + ray_dir * (zNearAndFar.x + (zNearAndFar.y - zNearAndFar.x) * 0.5f);
 
   float throughput = pHit->coords[0];
   float3 colour = float3(pHit->coords[1], pHit->coords[2], pHit->coords[3]);
 
-  RayGridIntersection(ray_pos, dir, min_pos, max_pos, m_RFGridSizes[0], p, lastP, throughput, colour);
-  
+  /* float diff = pHit->adds[0]; */
+  /* float3 startP = ray_pos + ray_dir * zNearAndFar.x; */
+  RayGridIntersection(ray_pos, ray_dir, min_pos, max_pos, m_RFGridSizes[0], p, float3(0.0f), 0.0f, throughput, colour);
   // std::cout << throughput << std::endl;
-  
+
   pHit->primId = a_start;
   pHit->geomId = geomId | (type << SH_TYPE);
+
   pHit->coords[0] = throughput;
   pHit->coords[1] = colour[0];
   pHit->coords[2] = colour[1];
   pHit->coords[3] = colour[2];
-  pHit->adds[0] = p[0];
-  pHit->adds[1] = p[1];
-  pHit->adds[2] = p[2];
-  pHit->adds[3] = 0.0f;
+
+  /* float3 edge = ray_pos + ray_dir * zNearAndFar.y; */
+  /* pHit->adds[0] = length(edge - p); */
+  /* pHit->adds[1] = 0.0f; */
+  /* pHit->adds[2] = 0.0f; */
+  /* pHit->adds[3] = 0.0f; */
 
   // std::cout << "Mew" << std::endl;
 }
@@ -1370,11 +1366,6 @@ CRT_Hit BVHRT::RayQuery_NearestHit(float4 posAndNear, float4 dirAndFar)
   hit.coords[1] = 0.0f;
   hit.coords[2] = 0.0f;
   hit.coords[3] = 0.0f;
-  hit.adds[0] = 0.0f;
-  hit.adds[1] = 0.0f;
-  hit.adds[2] = 0.0f;
-  hit.adds[3] = 1.0f;
-
   // std::cout << "-----------------------------------------" << std::endl;
 
   //no TLAS, only one instance

@@ -28,7 +28,6 @@ struct CRT_Hit
   uint32_t geomId;    ///< use 4 most significant bits for geometry type; thay are zero for triangles 
   float    coords[4]; ///< custom intersection data; for triangles coords[0] and coords[1] stores baricentric coords (u,v)
                       // coords[2] and coords[3] stores normal.xy
-  float    adds[4];
 };
 
 static constexpr unsigned SH_TYPE = 28; //4 bits for type
