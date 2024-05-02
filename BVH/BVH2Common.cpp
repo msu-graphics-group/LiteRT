@@ -653,9 +653,9 @@ void lerpCellf(const float v0[28], const float v1[28], const float t, float memo
     memory[i] = LiteMath::lerp(v0[i], v1[i], t);
 }
 
-void BVHRT::lerpCell(const int idx0, const int idx1, const float t, float memory[28]) {
+void BVHRT::lerpCell(const uint idx0, const uint idx1, const float t, float memory[28]) {
   for (int i = 0; i < 28; i++)
-    memory[i] = LiteMath::lerp(m_RFGridData[idx0 + i], m_RFGridData[idx1 + i], t);
+    memory[i] = LiteMath::lerp(m_RFGridData[28 * idx0 + i], m_RFGridData[28 * idx1 + i], t);
 }
 
 // From Mitsuba 3
@@ -700,7 +700,7 @@ float sigmoid(float x) {
   return 1 / (1 + exp(-x));
 }
 
-void BVHRT::RayGridIntersection(float3 ray_pos, float3 ray_dir, float3 bbMin, float3 bbMax, uint gridSize, float3 p, float3 lastP, float diff, float &throughput, float3 &colour)
+void BVHRT::RayGridIntersection(float3 ray_pos, float3 ray_dir, float3 bbMin, float3 bbMax, uint gridSize, float3 p, float3 lastP, uint4 ptrs, uint4 ptrs2, float &throughput, float3 &colour)
 {
   float3 coords01 = (p - bbMin) / (bbMax - bbMin);
   float3 coords = coords01 * (float)(gridSize);
@@ -715,10 +715,11 @@ void BVHRT::RayGridIntersection(float3 ray_pos, float3 ray_dir, float3 bbMin, fl
   float xy01[28];
   float xy11[28];
   
-  lerpCell(indexGrid(nearCoords[0], nearCoords[1], nearCoords[2], gridSize), indexGrid(farCoords[0], nearCoords[1], nearCoords[2], gridSize), lerpFactors.x, xy00);
-  lerpCell(indexGrid(nearCoords[0], farCoords[1], nearCoords[2], gridSize), indexGrid(farCoords[0], farCoords[1], nearCoords[2], gridSize), lerpFactors.x, xy10);
-  lerpCell(indexGrid(nearCoords[0], nearCoords[1], farCoords[2], gridSize), indexGrid(farCoords[0], nearCoords[1], farCoords[2], gridSize), lerpFactors.x, xy01);
-  lerpCell(indexGrid(nearCoords[0], farCoords[1], farCoords[2], gridSize), indexGrid(farCoords[0], farCoords[1], farCoords[2], gridSize), lerpFactors.x, xy11);
+  lerpCell(ptrs[0], ptrs[1], lerpFactors.x, xy00);
+  lerpCell(ptrs[2], ptrs2[0], lerpFactors.x, xy10);
+  lerpCell(ptrs[3], ptrs2[2], lerpFactors.x, xy01);
+  lerpCell(ptrs2[1], ptrs2[3], lerpFactors.x, xy11);
+
 
   float xyz0[28];
   float xyz1[28];
@@ -736,8 +737,8 @@ void BVHRT::RayGridIntersection(float3 ray_pos, float3 ray_dir, float3 bbMin, fl
     // std::cout << (&grid[indexGrid(nearCoords[0], nearCoords[1], nearCoords[2], gridSize)])[i] << ' ';
   // std::cout << std::endl;
 
-  float dist = 1.0f / (float) gridSize * 1.75f;
-  /* float dist = length(p - lastP) + diff; */
+  float dist = 1.0f / (float) gridSize;
+  /* float dist = length(p - lastP); */
   /* if (dist > sqrt(3) / (float)gridSize) */
   /*     dist -= ((int)(dist * (float)gridSize) - 1) / (float)gridSize; */
 
@@ -790,16 +791,20 @@ void BVHRT::IntersectRFInLeaf(const float3 ray_pos, const float3 ray_dir,
   float3 min_pos = float3(0,0,0), max_pos = float3(1,1,1);
 
   auto bbox = m_origNodes[a_start];
-  float2 zNearAndFar = RayBoxIntersection(ray_pos, ray_dir, bbox.boxMin, bbox.boxMax);
+  float2 zNearAndFar = RayBoxIntersection(ray_pos, dir, bbox.boxMin, bbox.boxMax);
+  float3 p = ray_pos + dir * (zNearAndFar.x + (zNearAndFar.y - zNearAndFar.x) * 0.5);
 
-  float3 p = ray_pos + ray_dir * (zNearAndFar.x + (zNearAndFar.y - zNearAndFar.x) * 0.5f);
+  float3 lastP;
+  if (pHit->adds[3] < 0.5f)
+    lastP = float3(pHit->adds[0], pHit->adds[1], pHit->adds[2]);
+  else
+    lastP = ray_pos + dir * zNearAndFar.x;
 
   float throughput = pHit->coords[0];
   float3 colour = float3(pHit->coords[1], pHit->coords[2], pHit->coords[3]);
 
-  /* float diff = pHit->adds[0]; */
-  /* float3 startP = ray_pos + ray_dir * zNearAndFar.x; */
-  RayGridIntersection(ray_pos, ray_dir, min_pos, max_pos, m_RFGridSizes[0], p, float3(0.0f), 0.0f, throughput, colour);
+  RayGridIntersection(ray_pos, dir, min_pos, max_pos, m_RFGridSizes[0], p, lastP, bbox.pointers, bbox.pointers2, throughput, colour);
+  
   // std::cout << throughput << std::endl;
 
   pHit->primId = a_start;

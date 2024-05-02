@@ -123,8 +123,8 @@ struct BVHRT : public ISceneObject
                               uint32_t a_start, uint32_t a_count,
                               CRT_Hit *pHit);
 
-  void RayGridIntersection(float3 ray_pos, float3 ray_dir, float3 bbMin, float3 bbMax, uint gridSize, float3 p, float3 lastP, float diff, float &throughput, float3 &colour);
-  void lerpCell(const int idx0, const int idx1, const float t, float memory[28]);
+  void RayGridIntersection(float3 ray_pos, float3 ray_dir, float3 bbMin, float3 bbMax, uint gridSize, float3 p, float3 lastP, uint4 ptrs, uint4 ptrs2, float &throughput, float3 &colour);
+  void lerpCell(const uint idx0, const uint idx1, const float t, float memory[28]);
 
   void IntersectAllTrianglesInLeaf(const float3 ray_pos, const float3 ray_dir,
                                    float tNear, uint32_t instId, uint32_t geomId,
@@ -144,7 +144,7 @@ struct BVHRT : public ISceneObject
                               const uint32_t *a_triIndices, size_t a_indNumber);
 
 #ifndef KERNEL_SLICER  
-  std::vector<BVHNode> GetBoxes_RFGrid(RFScene grid);
+  std::vector<BVHNode> GetBoxes_RFGrid(RFScene grid, std::vector<float>& sparseGrid);
   std::vector<BVHNode> GetBoxes_SdfGrid(SdfGridView grid);
   std::vector<BVHNode> GetBoxes_SdfOctree(SdfOctreeView octree);
   std::vector<BVHNode> GetBoxes_SdfFrameOctree(SdfFrameOctreeView octree);

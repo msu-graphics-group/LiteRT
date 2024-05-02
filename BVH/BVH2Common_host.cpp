@@ -7,6 +7,7 @@
 #include <cfloat>
 #include <memory>
 #include <array>
+#include <map>
 
 #include "BVH2Common.h"
 
@@ -265,10 +266,12 @@ uint32_t BVHRT::AddGeom_RFScene(RFScene grid, BuildOptions a_qualityLevel)
   m_RFGridOffsets.push_back(m_RFGridData.size());
   m_RFGridSizes.push_back(grid.size);
   m_RFGridScales.push_back(grid.scale);
-  m_RFGridData.insert(m_RFGridData.end(), grid.data.begin(), grid.data.end());
 
   //create list of bboxes for BLAS
-  m_origNodes = GetBoxes_RFGrid(grid);
+  std::vector<float> sparseGrid;
+  m_origNodes = GetBoxes_RFGrid(grid, sparseGrid);
+
+  m_RFGridData.insert(m_RFGridData.end(), sparseGrid.begin(), sparseGrid.end());
 
   // Build BVH for each geom and append it to big buffer;
   // append data to global arrays and fix offsets
@@ -733,8 +736,19 @@ std::array<float, CellSize> interpolate(float* grid, int3 nearCoords, int3 farCo
   return lerpCell(xyz0.data(), xyz1.data(), lerpFactors.z);
 }
 
-std::vector<BVHNode> BVHRT::GetBoxes_RFGrid(RFScene grid)
+void addToVector(std::vector<float>& v, float data[28]) {
+  v.insert(v.end(), data, data + 28);
+}
+
+struct hashableFloat3 {
+    float x, y, z;
+    auto operator<=>(const hashableFloat3&) const = default;
+};
+
+std::vector<BVHNode> BVHRT::GetBoxes_RFGrid(RFScene grid, std::vector<float>& sparseGrid)
 {
+  std::map<hashableFloat3, uint> coordsToIdx;
+
   std::vector<BVHNode> nodes;
   nodes.reserve((grid.size - 1) * (grid.size - 1) * (grid.size - 1));
 
@@ -751,7 +765,7 @@ std::vector<BVHNode> BVHRT::GetBoxes_RFGrid(RFScene grid)
     int3 farCoords = LiteMath::clamp(nearCoords + 1, 0, grid.size - 1);
 
     auto gridVal = interpolate((float*)grid.data.data(), nearCoords, farCoords, lerpFactors, grid.size);
-    return gridVal[0];
+    return gridVal[0] * grid.scale;
   };
 
   for (size_t z = 0; z < grid.size - 1; z++)
@@ -761,11 +775,31 @@ std::vector<BVHNode> BVHRT::GetBoxes_RFGrid(RFScene grid)
         size_t i = x + y * (grid.size - 1) + z * (grid.size - 1) * (grid.size - 1);
 
         BVHNode node;
-        node.boxMin = float3((float)x / (float)grid.size, (float)y / (float)grid.size, (float)z / (float)grid.size);
-        node.boxMax = float3((float)(x + 1) / (float)grid.size, (float)(y + 1) / (float)grid.size, (float)(z + 1) / (float)grid.size);
+        node.boxMin = float3((float)x / (float)(grid.size), (float)y / (float)(grid.size), (float)z / (float)(grid.size));
+        node.boxMax = float3((float)(x + 1) / (float)(grid.size), (float)(y + 1) / (float)(grid.size), (float)(z + 1) / (float)(grid.size));
 
-        if (getDensity(node) > 0.0)
+        if (getDensity(node) > 0.0f) {
+          auto addPointer = [&](uint3 coords) {
+            hashableFloat3 spaceCoords = {(float)coords[0] / (float) (grid.size - 1), (float)coords[1] / (float) (grid.size - 1), (float)coords[2] / (float) (grid.size - 1)};
+            if (coordsToIdx.find(spaceCoords) == coordsToIdx.end()) {
+              coordsToIdx[spaceCoords] = sparseGrid.size() / 28;
+              addToVector(sparseGrid, &grid.data[28 * (coords[0] + coords[1] * grid.size + coords[2] * grid.size * grid.size)]);
+            }
+            return coordsToIdx[spaceCoords];
+          };
+
+          node.pointers[0] = addPointer(uint3(x, y, z));
+          node.pointers[1] = addPointer(uint3(x + 1, y, z));
+          node.pointers[2] = addPointer(uint3(x, y + 1, z));
+          node.pointers[3] = addPointer(uint3(x, y, z + 1));
+
+          node.pointers2[0] = addPointer(uint3(x + 1, y + 1, z));
+          node.pointers2[1] = addPointer(uint3(x, y + 1, z + 1));
+          node.pointers2[2] = addPointer(uint3(x + 1, y, z + 1));
+          node.pointers2[3] = addPointer(uint3(x + 1, y + 1, z + 1));
+
           nodes.push_back(node);
+        }
       }
 
   return nodes;
