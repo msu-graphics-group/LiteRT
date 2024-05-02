@@ -129,7 +129,7 @@ void BVHRT::AppendTreeData(const std::vector<BVHNodePair>& a_nodes, const std::v
   }
 }
 
-uint32_t BVHRT::AddGeom_Triangles3f(const float *a_vpos3f, size_t a_vertNumber, const uint32_t *a_triIndices, size_t a_indNumber, BuildQuality a_qualityLevel, size_t vByteStride)
+uint32_t BVHRT::AddGeom_Triangles3f(const float *a_vpos3f, size_t a_vertNumber, const uint32_t *a_triIndices, size_t a_indNumber, BuildOptions a_qualityLevel, size_t vByteStride)
 {
   const size_t vStride = vByteStride / 4;
   assert(vByteStride % 4 == 0);
@@ -168,12 +168,12 @@ uint32_t BVHRT::AddGeom_Triangles3f(const float *a_vpos3f, size_t a_vertNumber, 
   return currGeomId;
 }
 
-void BVHRT::UpdateGeom_Triangles3f(uint32_t a_geomId, const float *a_vpos3f, size_t a_vertNumber, const uint32_t *a_triIndices, size_t a_indNumber, BuildQuality a_qualityLevel, size_t vByteStride)
+void BVHRT::UpdateGeom_Triangles3f(uint32_t a_geomId, const float *a_vpos3f, size_t a_vertNumber, const uint32_t *a_triIndices, size_t a_indNumber, BuildOptions a_qualityLevel, size_t vByteStride)
 {
   std::cout << "[BVHRT::UpdateGeom_Triangles3f]: " << "not implemeted!" << std::endl; // not planned for this implementation (possible in general)
 }
 
-uint32_t BVHRT::AddGeom_SdfScene(SdfSceneView scene, BuildQuality a_qualityLevel)
+uint32_t BVHRT::AddGeom_SdfScene(SdfSceneView scene, BuildOptions a_qualityLevel)
 {
 #ifndef LITERT_MINI
   assert(scene.conjunctions_count > 0);
@@ -249,7 +249,7 @@ uint32_t BVHRT::AddGeom_SdfScene(SdfSceneView scene, BuildQuality a_qualityLevel
   return m_geomTypeByGeomId.size()-1;
 }
 
-uint32_t BVHRT::AddGeom_RFScene(RFScene grid, BuildQuality a_qualityLevel)
+uint32_t BVHRT::AddGeom_RFScene(RFScene grid, BuildOptions a_qualityLevel)
 {
   //RF grid is always a unit cube
   float4 mn = float4(0, 0, 0,1);
@@ -284,7 +284,7 @@ uint32_t BVHRT::AddGeom_RFScene(RFScene grid, BuildQuality a_qualityLevel)
   return m_geomTypeByGeomId.size()-1;
 }
 
-uint32_t BVHRT::AddGeom_SdfGrid(SdfGridView grid, BuildQuality a_qualityLevel)
+uint32_t BVHRT::AddGeom_SdfGrid(SdfGridView grid, BuildOptions a_qualityLevel)
 {
 #ifndef LITERT_MINI
   assert(grid.size.x*grid.size.y*grid.size.z > 0);
@@ -324,7 +324,7 @@ uint32_t BVHRT::AddGeom_SdfGrid(SdfGridView grid, BuildQuality a_qualityLevel)
   return m_geomTypeByGeomId.size()-1;
 }
 
-uint32_t BVHRT::AddGeom_SdfOctree(SdfOctreeView octree, BuildQuality a_qualityLevel)
+uint32_t BVHRT::AddGeom_SdfOctree(SdfOctreeView octree, BuildOptions a_qualityLevel)
 {
 #ifndef LITERT_MINI
   assert(octree.size > 0);
@@ -365,7 +365,7 @@ uint32_t BVHRT::AddGeom_SdfOctree(SdfOctreeView octree, BuildQuality a_qualityLe
   return m_geomTypeByGeomId.size()-1;
 }
 
-uint32_t BVHRT::AddGeom_SdfFrameOctree(SdfFrameOctreeView octree, BuildQuality a_qualityLevel)
+uint32_t BVHRT::AddGeom_SdfFrameOctree(SdfFrameOctreeView octree, BuildOptions a_qualityLevel)
 {
   assert(octree.size > 0);
   assert(octree.size < (1u<<28)); //huge grids shouldn't be here
@@ -401,7 +401,7 @@ uint32_t BVHRT::AddGeom_SdfFrameOctree(SdfFrameOctreeView octree, BuildQuality a
   return m_geomTypeByGeomId.size()-1;
 }
 
-uint32_t BVHRT::AddGeom_SdfSVS(SdfSVSView octree, BuildQuality a_qualityLevel)
+uint32_t BVHRT::AddGeom_SdfSVS(SdfSVSView octree, BuildOptions a_qualityLevel)
 {
   assert(octree.size > 0);
   assert(octree.size < (1u<<28)); //huge grids shouldn't be here
@@ -466,7 +466,7 @@ uint32_t BVHRT::AddGeom_SdfSVS(SdfSVSView octree, BuildQuality a_qualityLevel)
   return m_geomTypeByGeomId.size()-1;
 }
 
-uint32_t BVHRT::AddGeom_SdfSBS(SdfSBSView octree, BuildQuality a_qualityLevel)
+uint32_t BVHRT::AddGeom_SdfSBS(SdfSBSView octree, BuildOptions a_qualityLevel)
 {
 #ifndef LITERT_MINI
   assert(octree.size > 0 && octree.values_count > 0);
@@ -603,7 +603,7 @@ void DebugPrintBoxes(const std::vector<Box4f>& nodes, const std::string& a_fileN
   } 
 }
 
-void BVHRT::CommitScene(BuildQuality a_qualityLevel)
+void BVHRT::CommitScene(BuildOptions a_qualityLevel)
 {
   assert(m_instBoxes.size() > 0);
 

@@ -9,14 +9,16 @@
 #include "utils/radiance_field.h"
 #include "render_settings.h"
 
-enum BuildQuality
+enum BuildOptions 
 {
-  BUILD_LOW    = 0, ///< Prefer Fast Build
-  BUILD_MEDIUM = 1, ///< Standart sweep builder
-  BUILD_HIGH   = 2, ///< Enable Advanced techniques like Split BVH or Early Split Clipping
-  BUILD_REFIT  = 3, ///< Don't change hirarchy, recompute bouding boxes.
+  NONE                   = 0x00000000, 
+  BUILD_LOW              = 0x00000001,
+  BUILD_MEDIUM           = 0x00000002,
+  BUILD_HIGH             = 0x00000004,
+  BUILD_REFIT            = 0x00000008,  
+  MOTION_BLUR            = 0x00000010,
+  BUILD_OPTIONS_MAX_ENUM = 0x7FFFFFFF
 };
-
 /**
 \brief API to ray-scene intersection on CPU
 */
@@ -65,7 +67,7 @@ struct ISceneObject
   \param vByteStride    - byte offset from each vertex to the next one; if 0 or sizeof(float)*3 then data is tiny packed
   \return id of added geometry
   */
-  virtual uint32_t AddGeom_Triangles3f(const float* a_vpos3f, size_t a_vertNumber, const uint32_t* a_triIndices, size_t a_indNumber, BuildQuality a_qualityLevel = BUILD_HIGH, size_t vByteStride = sizeof(float)*3) = 0;
+  virtual uint32_t AddGeom_Triangles3f(const float* a_vpos3f, size_t a_vertNumber, const uint32_t* a_triIndices, size_t a_indNumber, BuildOptions a_qualityLevel = BUILD_HIGH, size_t vByteStride = sizeof(float)*3) = 0;
   
   /**
   \brief Update geometry for triangle mesh to 'internal geometry library' of scene object and return geometry id
@@ -76,16 +78,16 @@ struct ISceneObject
    * increase geometry size (no 'a_vertNumber', neither 'a_indNumber') with this fuction (but it is allowed to make it smaller than original geometry size which was set by 'AddGeom_Triangles3f')
      So if you added 'Triangles' and got geom_id == 3, than you will have triangle mesh on geom_id == 3 forever and with the size you have set by 'AddGeom_Triangles3f'.
   */
-  virtual void UpdateGeom_Triangles3f(uint32_t a_geomId, const float* a_vpos3f, size_t a_vertNumber, const uint32_t* a_triIndices, size_t a_indNumber, BuildQuality a_qualityLevel = BUILD_HIGH, size_t vByteStride = sizeof(float)*3) = 0;
+  virtual void UpdateGeom_Triangles3f(uint32_t a_geomId, const float* a_vpos3f, size_t a_vertNumber, const uint32_t* a_triIndices, size_t a_indNumber, BuildOptions a_qualityLevel = BUILD_HIGH, size_t vByteStride = sizeof(float)*3) = 0;
   
 #ifndef KERNEL_SLICER 
-  virtual uint32_t AddGeom_SdfScene(SdfSceneView scene, BuildQuality a_qualityLevel = BUILD_HIGH) = 0;
-  virtual uint32_t AddGeom_SdfGrid(SdfGridView grid, BuildQuality a_qualityLevel = BUILD_HIGH) = 0;
-  virtual uint32_t AddGeom_RFScene(RFScene grid, BuildQuality a_qualityLevel = BUILD_HIGH) = 0;
-  virtual uint32_t AddGeom_SdfOctree(SdfOctreeView octree, BuildQuality a_qualityLevel = BUILD_HIGH) = 0;
-  virtual uint32_t AddGeom_SdfFrameOctree(SdfFrameOctreeView octree, BuildQuality a_qualityLevel = BUILD_HIGH) = 0;
-  virtual uint32_t AddGeom_SdfSVS(SdfSVSView octree, BuildQuality a_qualityLevel = BUILD_HIGH) = 0;
-  virtual uint32_t AddGeom_SdfSBS(SdfSBSView octree, BuildQuality a_qualityLevel = BUILD_HIGH) = 0;
+  virtual uint32_t AddGeom_SdfScene(SdfSceneView scene, BuildOptions a_qualityLevel = BUILD_HIGH) = 0;
+  virtual uint32_t AddGeom_SdfGrid(SdfGridView grid, BuildOptions a_qualityLevel = BUILD_HIGH) = 0;
+  virtual uint32_t AddGeom_RFScene(RFScene grid, BuildOptions a_qualityLevel = BUILD_HIGH) = 0;
+  virtual uint32_t AddGeom_SdfOctree(SdfOctreeView octree, BuildOptions a_qualityLevel = BUILD_HIGH) = 0;
+  virtual uint32_t AddGeom_SdfFrameOctree(SdfFrameOctreeView octree, BuildOptions a_qualityLevel = BUILD_HIGH) = 0;
+  virtual uint32_t AddGeom_SdfSVS(SdfSVSView octree, BuildOptions a_qualityLevel = BUILD_HIGH) = 0;
+  virtual uint32_t AddGeom_SdfSBS(SdfSBSView octree, BuildOptions a_qualityLevel = BUILD_HIGH) = 0;
 
   virtual void set_debug_mode(bool enable) { };
 #endif
@@ -98,7 +100,7 @@ struct ISceneObject
   /**
   \brief Finish instancing and build top level acceleration structure
   */
-  virtual void CommitScene(BuildQuality a_qualityLevel = BUILD_MEDIUM) = 0; ///< 
+  virtual void CommitScene(BuildOptions a_qualityLevel = BUILD_MEDIUM) = 0; ///< 
   
   /**
   \brief Add instance to scene

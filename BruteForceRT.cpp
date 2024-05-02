@@ -29,18 +29,18 @@ struct BruteForceRT : public ISceneObject
 
   void ClearGeom() override;
 
-  uint32_t AddGeom_Triangles3f(const float* a_vpos3f, size_t a_vertNumber, const uint32_t* a_triIndices, size_t a_indNumber, BuildQuality a_qualityLevel, size_t vByteStride) override;
-  void     UpdateGeom_Triangles3f(uint32_t a_geomId, const float* a_vpos3f, size_t a_vertNumber, const uint32_t* a_triIndices, size_t a_indNumber, BuildQuality a_qualityLevel, size_t vByteStride) override;
-  uint32_t AddGeom_SdfScene(SdfSceneView scene, BuildQuality a_qualityLevel = BUILD_HIGH) override;
-  uint32_t AddGeom_RFScene(RFScene scene, BuildQuality a_qualityLevel = BUILD_HIGH) override;
-  uint32_t AddGeom_SdfGrid(SdfGridView grid, BuildQuality a_qualityLevel = BUILD_HIGH) override;
-  uint32_t AddGeom_SdfOctree(SdfOctreeView octree, BuildQuality a_qualityLevel = BUILD_HIGH) override;
-  uint32_t AddGeom_SdfFrameOctree(SdfFrameOctreeView octree, BuildQuality a_qualityLevel = BUILD_HIGH) override;
-  uint32_t AddGeom_SdfSVS(SdfSVSView octree, BuildQuality a_qualityLevel = BUILD_HIGH) override;
-  uint32_t AddGeom_SdfSBS(SdfSBSView octree, BuildQuality a_qualityLevel = BUILD_HIGH) override;
+  uint32_t AddGeom_Triangles3f(const float* a_vpos3f, size_t a_vertNumber, const uint32_t* a_triIndices, size_t a_indNumber, BuildOptions a_qualityLevel, size_t vByteStride) override;
+  void     UpdateGeom_Triangles3f(uint32_t a_geomId, const float* a_vpos3f, size_t a_vertNumber, const uint32_t* a_triIndices, size_t a_indNumber, BuildOptions a_qualityLevel, size_t vByteStride) override;
+  uint32_t AddGeom_SdfScene(SdfSceneView scene, BuildOptions a_qualityLevel = BUILD_HIGH) override;
+  uint32_t AddGeom_RFScene(RFScene scene, BuildOptions a_qualityLevel = BUILD_HIGH) override;
+  uint32_t AddGeom_SdfGrid(SdfGridView grid, BuildOptions a_qualityLevel = BUILD_HIGH) override;
+  uint32_t AddGeom_SdfOctree(SdfOctreeView octree, BuildOptions a_qualityLevel = BUILD_HIGH) override;
+  uint32_t AddGeom_SdfFrameOctree(SdfFrameOctreeView octree, BuildOptions a_qualityLevel = BUILD_HIGH) override;
+  uint32_t AddGeom_SdfSVS(SdfSVSView octree, BuildOptions a_qualityLevel = BUILD_HIGH) override;
+  uint32_t AddGeom_SdfSBS(SdfSBSView octree, BuildOptions a_qualityLevel = BUILD_HIGH) override;
 
   void ClearScene() override; 
-  void CommitScene  (BuildQuality a_qualityLevel) override; 
+  void CommitScene  (BuildOptions a_qualityLevel) override; 
   
   uint32_t AddInstance(uint32_t a_geomId, const float4x4& a_matrix) override;
   void     UpdateInstance(uint32_t a_instanceId, const float4x4& a_matrix) override;
@@ -109,7 +109,7 @@ void BruteForceRT::ClearGeom()
   ClearScene();
 }
 
-uint32_t BruteForceRT::AddGeom_Triangles3f(const float* a_vpos3f, size_t a_vertNumber, const uint32_t* a_triIndices, size_t a_indNumber, BuildQuality a_qualityLevel, size_t vByteStride)
+uint32_t BruteForceRT::AddGeom_Triangles3f(const float* a_vpos3f, size_t a_vertNumber, const uint32_t* a_triIndices, size_t a_indNumber, BuildOptions a_qualityLevel, size_t vByteStride)
 {
   const size_t vStride = vByteStride/4;
   assert(vByteStride%4==0);
@@ -139,12 +139,12 @@ uint32_t BruteForceRT::AddGeom_Triangles3f(const float* a_vpos3f, size_t a_vertN
   return m_geomTypeByGeomId.size()-1;
 }
 
-void BruteForceRT::UpdateGeom_Triangles3f(uint32_t a_geomId, const float* a_vpos3f, size_t a_vertNumber, const uint32_t* a_triIndices, size_t a_indNumber, BuildQuality a_qualityLevel, size_t vByteStride)
+void BruteForceRT::UpdateGeom_Triangles3f(uint32_t a_geomId, const float* a_vpos3f, size_t a_vertNumber, const uint32_t* a_triIndices, size_t a_indNumber, BuildOptions a_qualityLevel, size_t vByteStride)
 {
   std::cout << "[BruteForceRT::UpdateGeom_Triangles3f]: " << "not implemeted!" << std::endl;
 }
 
-uint32_t BruteForceRT::AddGeom_SdfScene(SdfSceneView scene, BuildQuality a_qualityLevel)
+uint32_t BruteForceRT::AddGeom_SdfScene(SdfSceneView scene, BuildOptions a_qualityLevel)
 {
   assert(scene.conjunctions_count > 0);
   assert(scene.objects_count > 0);
@@ -189,43 +189,43 @@ void BruteForceRT::ClearScene()
   m_geomIdByInstId.resize(0);
 }
 
-uint32_t BruteForceRT::AddGeom_SdfGrid(SdfGridView grid, BuildQuality a_qualityLevel)
+uint32_t BruteForceRT::AddGeom_SdfGrid(SdfGridView grid, BuildOptions a_qualityLevel)
 {
   printf("AddGeom_SdfGrid not implemented!!!\n");
   return 0u;
 }
 
-uint32_t BruteForceRT::AddGeom_RFScene(RFScene grid, BuildQuality a_qualityLevel)
+uint32_t BruteForceRT::AddGeom_RFScene(RFScene grid, BuildOptions a_qualityLevel)
 {
   printf("AddGeom_RFScene not implemented!!!\n");
   return 0u;
 }
 
-uint32_t BruteForceRT::AddGeom_SdfOctree(SdfOctreeView octree, BuildQuality a_qualityLevel)
+uint32_t BruteForceRT::AddGeom_SdfOctree(SdfOctreeView octree, BuildOptions a_qualityLevel)
 {
   printf("AddGeom_SdfOctree not implemented!!!\n");
   return 0u;
 }
 
-uint32_t BruteForceRT::AddGeom_SdfFrameOctree(SdfFrameOctreeView octree, BuildQuality a_qualityLevel)
+uint32_t BruteForceRT::AddGeom_SdfFrameOctree(SdfFrameOctreeView octree, BuildOptions a_qualityLevel)
 {
   printf("AddGeom_SdfFrameOctree not implemented!!!\n");
   return 0u;
 }
 
-uint32_t BruteForceRT::AddGeom_SdfSVS(SdfSVSView octree, BuildQuality a_qualityLevel)
+uint32_t BruteForceRT::AddGeom_SdfSVS(SdfSVSView octree, BuildOptions a_qualityLevel)
 {
   printf("AddGeom_SdfSVS not implemented!!!\n");
   return 0u;
 }
 
-uint32_t BruteForceRT::AddGeom_SdfSBS(SdfSBSView octree, BuildQuality a_qualityLevel)
+uint32_t BruteForceRT::AddGeom_SdfSBS(SdfSBSView octree, BuildOptions a_qualityLevel)
 {
   printf("AddGeom_SdfSBS not implemented!!!\n");
   return 0u;
 }
 
-void BruteForceRT::CommitScene(BuildQuality a_qualityLevel)
+void BruteForceRT::CommitScene(BuildOptions a_qualityLevel)
 {
   
 } 
