@@ -305,7 +305,9 @@ void BruteForceRT::IntersectAllTrianglesInLeaf(const float3 ray_pos, const float
         pHit->coords[0] = u;
         pHit->coords[1] = v;
 
-        if (m_preset.need_normal > 0)
+        if (m_preset.mode == MULTI_RENDER_MODE_LAMBERT || 
+            m_preset.mode == MULTI_RENDER_MODE_NORMAL  ||
+            m_preset.mode == MULTI_RENDER_MODE_PHONG)
         {
           float3 n = normalize(cross(edge1, edge2));
           pHit->coords[2] = n.x;

@@ -148,6 +148,7 @@ struct BVHRT : public ISceneObject
   virtual float2 box_intersects(const float3 &min_pos, const float3 &max_pos, const float3 &origin, const float3 &dir);
   virtual bool is_leaf(unsigned offset);
   virtual float eval_dist_trilinear(const float values[8], float3 dp);
+  virtual bool need_normal();
 
 #ifndef LITERT_MINI
   virtual float eval_dist_prim(unsigned prim_id, float3 p);

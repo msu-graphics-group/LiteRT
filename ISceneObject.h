@@ -7,6 +7,7 @@
 #include "LiteMath.h"
 #include "sdfScene/sdf_scene.h"
 #include "utils/radiance_field.h"
+#include "render_settings.h"
 
 enum BuildQuality
 {
@@ -32,43 +33,6 @@ struct CRT_Hit
 
 static constexpr unsigned SH_TYPE = 28; //4 bits for type
 
-static constexpr unsigned TYPE_MESH_TRIANGLE       = 0;
-static constexpr unsigned TYPE_SDF_PRIMITIVE       = 1;
-static constexpr unsigned TYPE_SDF_GRID            = 2;
-static constexpr unsigned TYPE_SDF_OCTREE          = 3;
-static constexpr unsigned TYPE_SDF_FRAME_OCTREE    = 4;
-static constexpr unsigned TYPE_RF_GRID             = 5;
-static constexpr unsigned TYPE_SDF_SVS             = 6;
-static constexpr unsigned TYPE_SDF_SBS             = 7;
-
-//enum SdfOctreeSampler
-static constexpr unsigned SDF_OCTREE_SAMPLER_MIPSKIP_3X3 = 0; //go to the deepest level possible, resampling larger nodes
-static constexpr unsigned SDF_OCTREE_SAMPLER_MIPSKIP_CLOSEST = 1; //go deeper while resampling is not needed, then sample
-static constexpr unsigned SDF_OCTREE_SAMPLER_CLOSEST = 2;
-
-//enum SdfFrameOctreeBLAS
-static constexpr unsigned SDF_OCTREE_BLAS_NO = 0; //use trivial BLAS with 2 bboxes and full sphere tracing later on
-static constexpr unsigned SDF_OCTREE_BLAS_DEFAULT = 1; //use BVH with one leaf for every non-empty leaf node of octree
-
-//enum SdfFrameOctreeIntersect
-static constexpr unsigned SDF_OCTREE_NODE_INTERSECT_DEFAULT = 0; //sphere tracing + octree traversal
-static constexpr unsigned SDF_OCTREE_NODE_INTERSECT_ST = 1;// only with SDF_OCTREE_BLAS_DEFAULT! Sphere tracing inside node
-static constexpr unsigned SDF_OCTREE_NODE_INTERSECT_ANALYTIC = 2;// only with SDF_OCTREE_BLAS_DEFAULT! Explicitly finding ray/sdf intersection inside node
-static constexpr unsigned SDF_OCTREE_NODE_INTERSECT_NEWTON = 3;// only with SDF_OCTREE_BLAS_DEFAULT! Using Newton method to find ray/sdf intersection inside node
-static constexpr unsigned SDF_OCTREE_NODE_INTERSECT_BBOX = 4;// only with SDF_OCTREE_BLAS_DEFAULT! Intersect with node bbox for debug purposes
-static constexpr unsigned SDF_OCTREE_NODE_INTERSECT_IT = 5;// only with SDF_OCTREE_BLAS_DEFAULT! Interval tracing inside node
-
-//enum VisualizeStatType 
-static constexpr unsigned VISUALIZE_STAT_NONE = 0;
-static constexpr unsigned VISUALIZE_STAT_SPHERE_TRACE_ITERATIONS = 1;
-struct TracerPreset
-{
-  unsigned need_normal;
-  unsigned sdf_octree_sampler; //enum SdfOctreeSampler
-  unsigned visualize_stat; //enum VisualizeStatType 
-  unsigned sdf_frame_octree_blas; //enum SdfFrameOctreeBLAS
-  unsigned sdf_frame_octree_intersect; //enum SdfFrameOctreeIntersect
-};
 /**
 \brief API to ray-scene intersection on CPU
 */
@@ -177,7 +141,7 @@ struct ISceneObject
   virtual uint32_t GetInstNum() const  { return 0; };
   virtual const LiteMath::float4* GetGeomBoxes() const { return nullptr; };
 
-  void SetPreset(const TracerPreset& a_preset){ m_preset = a_preset; }
+  void SetPreset(const MultiRenderPreset& a_preset){ m_preset = a_preset; }
 
-  TracerPreset m_preset;
+  MultiRenderPreset m_preset;
 };

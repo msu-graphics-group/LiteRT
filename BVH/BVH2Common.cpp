@@ -13,6 +13,13 @@ using uvec3 = uint3;
 using LiteMath::M_PI;
 using LiteMath::clamp;
 
+bool BVHRT::need_normal()
+{
+  return m_preset.mode == MULTI_RENDER_MODE_LAMBERT || 
+         m_preset.mode == MULTI_RENDER_MODE_NORMAL  ||
+         m_preset.mode == MULTI_RENDER_MODE_PHONG;
+}
+
 float2 BVHRT::box_intersects(const float3 &min_pos, const float3 &max_pos, const float3 &origin, const float3 &dir)
 {
   float3 safe_dir = sign(dir) * max(float3(1e-9f), abs(dir));
@@ -534,7 +541,7 @@ void BVHRT::OctreeNodeIntersect(uint32_t type, const float3 ray_pos, const float
   if (t <= qFar && hit && tReal < pHit->t)
   {
     float3 norm = float3(0, 0, 1);
-    if (m_preset.need_normal > 0)
+    if (need_normal())
     {
       float3 p0 = start_q + t * ray_dir;
       const float h = 0.001;
@@ -559,7 +566,7 @@ void BVHRT::OctreeNodeIntersect(uint32_t type, const float3 ray_pos, const float
     pHit->coords[2] = norm.x;
     pHit->coords[3] = norm.y;
 
-    if (m_preset.visualize_stat == VISUALIZE_STAT_SPHERE_TRACE_ITERATIONS)
+    if (m_preset.mode == MULTI_RENDER_MODE_SPHERE_TRACE_ITERATIONS)
       pHit->primId = iter;
   }
 }
@@ -615,7 +622,7 @@ void BVHRT::IntersectAllSdfsInLeaf(const float3 ray_pos, const float3 ray_dir,
 
   float l = length(ray_dir);
   float3 dir = ray_dir/l;
-  SdfHit hit = sdf_sphere_tracing(type, sdfId, min_pos, max_pos, ray_pos, dir, m_preset.need_normal > 0);
+  SdfHit hit = sdf_sphere_tracing(type, sdfId, min_pos, max_pos, ray_pos, dir, need_normal());
   if (hit.hit_pos.w > 0)
   {
     float t = length(to_float3(hit.hit_pos)-ray_pos)/l;
@@ -630,7 +637,7 @@ void BVHRT::IntersectAllSdfsInLeaf(const float3 ray_pos, const float3 ray_dir,
       pHit->coords[2] = hit.hit_norm.x;
       pHit->coords[3] = hit.hit_norm.y;
 
-      if (m_preset.visualize_stat == VISUALIZE_STAT_SPHERE_TRACE_ITERATIONS)
+      if (m_preset.mode == MULTI_RENDER_MODE_SPHERE_TRACE_ITERATIONS)
         pHit->primId = uint32_t(hit.hit_norm.w);
     }
   }
@@ -1269,7 +1276,7 @@ void BVHRT::IntersectAllTrianglesInLeaf(const float3 ray_pos, const float3 ray_d
       pHit->coords[0] = u;
       pHit->coords[1] = v;
 
-      if (m_preset.need_normal > 0)
+      if (need_normal())
       {
         float3 n = normalize(cross(edge1, edge2));
         pHit->coords[2] = n.x;

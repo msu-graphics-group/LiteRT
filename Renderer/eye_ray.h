@@ -18,30 +18,6 @@ using LiteMath::uint;
 
 struct SparseOctreeSettings;
 
-//enum MultiRenderMode
-static constexpr unsigned MULTI_RENDER_MODE_MASK = 0; //white object, black background
-static constexpr unsigned MULTI_RENDER_MODE_LAMBERT = 1;
-static constexpr unsigned MULTI_RENDER_MODE_DEPTH = 2;
-static constexpr unsigned MULTI_RENDER_MODE_LINEAR_DEPTH = 3;
-static constexpr unsigned MULTI_RENDER_MODE_INVERSE_LINEAR_DEPTH = 4;
-static constexpr unsigned MULTI_RENDER_MODE_PRIMIVIVE = 5; //each primitive has distinct color from palette
-static constexpr unsigned MULTI_RENDER_MODE_TYPE = 6; //each type has distinct color from palette
-static constexpr unsigned MULTI_RENDER_MODE_GEOM = 7; //each geodId has distinct color from palette
-static constexpr unsigned MULTI_RENDER_MODE_NORMAL = 8; //visualize normals (abs for each coordinate)
-static constexpr unsigned MULTI_RENDER_MODE_BARYCENTRIC = 9; //visualize barycentric coordinates for triangle mesh
-static constexpr unsigned MULTI_RENDER_MODE_SPHERE_TRACE_ITERATIONS = 10; //for SDFs replace primId with number of iterations for sphere tracing
-static constexpr unsigned MULTI_RENDER_MODE_RF = 11;
-static constexpr unsigned MULTI_RENDER_MODE_PHONG = 12;
-
-struct MultiRenderPreset
-{
-  unsigned mode; //enum MultiRenderMode
-  unsigned sdf_octree_sampler; //enum SdfOctreeSampler
-  unsigned spp; //samples per pixel, should be a square (1, 4, 9, 16 etc.)
-  unsigned sdf_frame_octree_blas; //enum SdfFrameOctreeBLAS
-  unsigned sdf_frame_octree_intersect; //enum SdfFrameOctreeIntersect
-};
-
 static MultiRenderPreset getDefaultPreset()
 {
   MultiRenderPreset p;

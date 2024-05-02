@@ -272,28 +272,7 @@ void MultiRenderer::SetPreset(const MultiRenderPreset& a_preset)
   m_preset = a_preset;
 
   if (m_pAccelStruct)
-  {
-    TracerPreset tp;
-    tp.need_normal = (a_preset.mode == MULTI_RENDER_MODE_LAMBERT || 
-                      a_preset.mode == MULTI_RENDER_MODE_NORMAL  ||
-                      a_preset.mode == MULTI_RENDER_MODE_PHONG) ? 1 : 0;
-    tp.sdf_octree_sampler = m_preset.sdf_octree_sampler;
-    tp.sdf_frame_octree_blas = m_preset.sdf_frame_octree_blas;
-    tp.sdf_frame_octree_intersect = m_preset.sdf_frame_octree_intersect;
-
-    switch (a_preset.mode)
-    {
-    case MULTI_RENDER_MODE_SPHERE_TRACE_ITERATIONS:
-      tp.visualize_stat = VISUALIZE_STAT_SPHERE_TRACE_ITERATIONS;
-      break;
-    
-    default:
-      tp.visualize_stat = VISUALIZE_STAT_NONE;
-      break;
-    }
-
-    m_pAccelStruct->SetPreset(tp);
-  }
+    m_pAccelStruct->SetPreset(a_preset);
 }
 
 void MultiRenderer::Render(uint32_t* imageData, uint32_t a_width, uint32_t a_height, 
