@@ -111,6 +111,15 @@ struct ISceneObject
   virtual uint32_t AddInstance(uint32_t a_geomId, const LiteMath::float4x4& a_matrix) = 0;
   
   /**
+  \brief Add moving instance to scene
+  \param a_geomId       - input id of geometry that is supposed to be instanced
+  \param a_matrices     - array of float4x4 matrices, default layout is column-major
+  \param a_matrixNumber - size of matrices array
+
+  */
+  virtual uint32_t AddInstanceMotion(uint32_t a_geomId, const LiteMath::float4x4* a_matrices, uint32_t a_matrixNumber) = 0; 
+  
+  /**
   \brief Add instance to scene
   \param a_instanceId
   \param a_matrixData - float4x4 matrix, the layout is column-major
@@ -130,6 +139,16 @@ struct ISceneObject
   */
   virtual CRT_Hit RayQuery_NearestHit(LiteMath::float4 posAndNear, LiteMath::float4 dirAndFar) = 0;
 
+
+  /**
+  \brief Find nearest intersection of ray segment (Near,Far) and scene geometry
+  \param posAndNear   - ray origin (x,y,z) and t_near (w)
+  \param dirAndFar    - ray direction (x,y,z) and t_far (w)
+  \param time         - time in [0, 1] interval between first and last timesteps
+  \return             - closest hit surface info
+  */
+  virtual CRT_Hit RayQuery_NearestHitMotion(LiteMath::float4 posAndNear, LiteMath::float4 dirAndFar, float time) = 0;
+
   /**
   \brief Find any hit for ray segment (Near,Far). If none is found return false, else return true;
   \param posAndNear   - ray origin (x,y,z) and t_near (w)
@@ -137,6 +156,15 @@ struct ISceneObject
   \return             - true if a hit is found, false otherwaise
   */
   virtual bool    RayQuery_AnyHit(LiteMath::float4 posAndNear, LiteMath::float4 dirAndFar) = 0;
+
+  /**
+  \brief Find any hit for ray segment (Near,Far). If none is found return false, else return true;
+  \param posAndNear   - ray origin (x,y,z) and t_near (w)
+  \param dirAndFar    - ray direction (x,y,z) and t_far (w)
+  \param time         - time in [0, 1] interval between first and last timesteps
+  \return             - true if a hit is found, false otherwaise
+  */
+  virtual bool    RayQuery_AnyHitMotion(LiteMath::float4 posAndNear, LiteMath::float4 dirAndFar, float time = 0.0f) = 0;
 
   virtual uint32_t GetGeomNum() const  { return 0; };
   virtual uint32_t GetInstNum() const  { return 0; };

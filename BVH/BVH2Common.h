@@ -89,10 +89,18 @@ struct BVHRT : public ISceneObject
   virtual void CommitScene(BuildOptions a_qualityLevel) override;
 
   uint32_t AddInstance(uint32_t a_geomId, const float4x4 &a_matrix) override;
+  uint32_t AddInstanceMotion(uint32_t a_geomId, const LiteMath::float4x4* a_matrices, uint32_t a_matrixNumber) override
+  { return AddInstance(a_geomId, a_matrices[0]); }
+
   void UpdateInstance(uint32_t a_instanceId, const float4x4 &a_matrix) override;
 
   CRT_Hit RayQuery_NearestHit(float4 posAndNear, float4 dirAndFar) override;
+  CRT_Hit RayQuery_NearestHitMotion(LiteMath::float4 posAndNear, LiteMath::float4 dirAndFar, float time) override
+  { return RayQuery_NearestHit(posAndNear, dirAndFar); }
+
   bool    RayQuery_AnyHit(float4 posAndNear, float4 dirAndFar) override;
+  bool    RayQuery_AnyHitMotion(LiteMath::float4 posAndNear, LiteMath::float4 dirAndFar, float time = 0.0f) override
+  { return RayQuery_AnyHit(posAndNear, dirAndFar); }
   
   uint32_t GetGeomNum() const override { return uint32_t(m_geomBoxes.size()); }
   uint32_t GetInstNum() const override { return uint32_t(m_instBoxes.size()); }
