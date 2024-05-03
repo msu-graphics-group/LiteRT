@@ -144,7 +144,7 @@ struct BVHRT : public ISceneObject
                               const uint32_t *a_triIndices, size_t a_indNumber);
 
 #ifndef KERNEL_SLICER  
-  std::vector<BVHNode> GetBoxes_RFGrid(RFScene grid, std::vector<float>& sparseGrid);
+  std::vector<BVHNode> GetBoxes_RFGrid(RFScene grid, std::vector<float>& sparseGrid, std::vector<uint4>& sparsePtrs);
   std::vector<BVHNode> GetBoxes_SdfGrid(SdfGridView grid);
   std::vector<BVHNode> GetBoxes_SdfOctree(SdfOctreeView octree);
   std::vector<BVHNode> GetBoxes_SdfFrameOctree(SdfFrameOctreeView octree);
@@ -197,6 +197,7 @@ struct BVHRT : public ISceneObject
 
   // RF grid data
   std::vector<float> m_RFGridData;       //raw data for all RF grids
+  std::vector<uint4> m_RFGridPtrs;       //raw data for all RF grids
   std::vector<uint32_t> m_RFGridOffsets; //offset in m_SdfGridData for each RF grid
   std::vector<size_t> m_RFGridSizes;      //size for each RF grid
   std::vector<float> m_RFGridScales;      //size for each RF grid

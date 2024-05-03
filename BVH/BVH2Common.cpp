@@ -797,7 +797,7 @@ void BVHRT::IntersectRFInLeaf(const float3 ray_pos, const float3 ray_dir,
   float throughput = pHit->coords[0];
   float3 colour = float3(pHit->coords[1], pHit->coords[2], pHit->coords[3]);
 
-  RayGridIntersection(ray_pos, ray_dir, min_pos, max_pos, m_RFGridSizes[0], p, float3(0.0f), bbox.pointers, bbox.pointers2, throughput, colour);
+  RayGridIntersection(ray_pos, ray_dir, min_pos, max_pos, m_RFGridSizes[0], p, float3(0.0f), m_RFGridPtrs[2 * a_start], m_RFGridPtrs[2 * a_start + 1], throughput, colour);
   
   // std::cout << throughput << std::endl;
 

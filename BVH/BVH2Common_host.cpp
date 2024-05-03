@@ -87,6 +87,9 @@ void BVHRT::ClearGeom()
   m_RFGridData.reserve(16);
   m_RFGridData.resize(0);
 
+  m_RFGridPtrs.reserve(16);
+  m_RFGridPtrs.resize(0);
+
   m_RFGridOffsets.reserve(16);
   m_RFGridOffsets.resize(0);
 
@@ -269,9 +272,15 @@ uint32_t BVHRT::AddGeom_RFScene(RFScene grid, BuildOptions a_qualityLevel)
 
   //create list of bboxes for BLAS
   std::vector<float> sparseGrid;
-  m_origNodes = GetBoxes_RFGrid(grid, sparseGrid);
+  std::vector<uint4> sparsePtrs;
+  m_origNodes = GetBoxes_RFGrid(grid, sparseGrid, sparsePtrs);
 
   m_RFGridData.insert(m_RFGridData.end(), sparseGrid.begin(), sparseGrid.end());
+  m_RFGridPtrs.insert(m_RFGridPtrs.end(), sparsePtrs.begin(), sparsePtrs.end());
+
+  std::cout << "Using "
+      << (m_RFGridData.size() * sizeof(float) / 1024 / 1024 + m_RFGridPtrs.size() * sizeof(uint4) / 1024 / 1024) 
+      << " MB for model" << std::endl;
 
   // Build BVH for each geom and append it to big buffer;
   // append data to global arrays and fix offsets
@@ -279,8 +288,8 @@ uint32_t BVHRT::AddGeom_RFScene(RFScene grid, BuildOptions a_qualityLevel)
   auto layout  = LayoutPresetsFromString(m_layoutName.c_str());
   auto bvhData = BuildBVHFatCustom(m_origNodes.data(), m_origNodes.size(), presets, layout);
 
-  for (auto &i : bvhData.indices)
-    printf("grid ind %d\n",(int)i);
+  /* for (auto &i : bvhData.indices) */
+  /*   printf("grid ind %d\n",(int)i); */
 
   m_allNodePairs.insert(m_allNodePairs.end(), bvhData.nodes.begin(), bvhData.nodes.end());
 
@@ -316,8 +325,8 @@ uint32_t BVHRT::AddGeom_SdfGrid(SdfGridView grid, BuildOptions a_qualityLevel)
   auto layout  = LayoutPresetsFromString(m_layoutName.c_str());
   auto bvhData = BuildBVHFatCustom(orig_nodes.data(), orig_nodes.size(), presets, layout);
 
-  for (auto &i : bvhData.indices)
-    printf("grid ind %d\n",(int)i);
+  /* for (auto &i : bvhData.indices) */
+  /*   printf("grid ind %d\n",(int)i); */
 
   m_allNodePairs.insert(m_allNodePairs.end(), bvhData.nodes.begin(), bvhData.nodes.end());
 #else
@@ -742,10 +751,13 @@ void addToVector(std::vector<float>& v, float data[28]) {
 
 struct hashableFloat3 {
     float x, y, z;
-    auto operator<=>(const hashableFloat3&) const = default;
+
+    bool operator< (const hashableFloat3& other) const {
+        return (x < other.x || (x == other.x && y < other.y) || (x == other.x && y == other.y && z < other.z));
+    }
 };
 
-std::vector<BVHNode> BVHRT::GetBoxes_RFGrid(RFScene grid, std::vector<float>& sparseGrid)
+std::vector<BVHNode> BVHRT::GetBoxes_RFGrid(RFScene grid, std::vector<float>& sparseGrid, std::vector<uint4>& sparsePtrs)
 {
   std::map<hashableFloat3, uint> coordsToIdx;
 
@@ -788,15 +800,20 @@ std::vector<BVHNode> BVHRT::GetBoxes_RFGrid(RFScene grid, std::vector<float>& sp
             return coordsToIdx[spaceCoords];
           };
 
-          node.pointers[0] = addPointer(uint3(x, y, z));
-          node.pointers[1] = addPointer(uint3(x + 1, y, z));
-          node.pointers[2] = addPointer(uint3(x, y + 1, z));
-          node.pointers[3] = addPointer(uint3(x, y, z + 1));
+          uint4 ptrs;
+          ptrs[0] = addPointer(uint3(x, y, z));
+          ptrs[1] = addPointer(uint3(x + 1, y, z));
+          ptrs[2] = addPointer(uint3(x, y + 1, z));
+          ptrs[3] = addPointer(uint3(x, y, z + 1));
 
-          node.pointers2[0] = addPointer(uint3(x + 1, y + 1, z));
-          node.pointers2[1] = addPointer(uint3(x, y + 1, z + 1));
-          node.pointers2[2] = addPointer(uint3(x + 1, y, z + 1));
-          node.pointers2[3] = addPointer(uint3(x + 1, y + 1, z + 1));
+          sparsePtrs.push_back(ptrs);
+
+          ptrs[0] = addPointer(uint3(x + 1, y + 1, z));
+          ptrs[1] = addPointer(uint3(x, y + 1, z + 1));
+          ptrs[2] = addPointer(uint3(x + 1, y, z + 1));
+          ptrs[3] = addPointer(uint3(x + 1, y + 1, z + 1));
+
+          sparsePtrs.push_back(ptrs);
 
           nodes.push_back(node);
         }
