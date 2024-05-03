@@ -23,8 +23,6 @@
     uint   leftOffset; //!< please note that when LEAF_BIT (0x80000000) is set in leftOffset, this node is a leaf
     float3 boxMax;
     uint   escapeIndex;
-    uint4  pointers;
-    uint4  pointers2;
   };
 
   struct BVHNodePair
