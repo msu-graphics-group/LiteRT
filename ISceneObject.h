@@ -100,7 +100,7 @@ struct ISceneObject
   /**
   \brief Finish instancing and build top level acceleration structure
   */
-  virtual void CommitScene(BuildOptions a_qualityLevel = BUILD_MEDIUM) = 0; ///< 
+  virtual void CommitScene(uint32_t a_qualityLevel = BUILD_MEDIUM) = 0; ///< 
   
   /**
   \brief Add instance to scene
@@ -174,3 +174,5 @@ struct ISceneObject
 
   MultiRenderPreset m_preset;
 };
+ISceneObject* CreateSceneRT(const char* a_impleName);
+void DeleteSceneRT(ISceneObject* a_pScene);

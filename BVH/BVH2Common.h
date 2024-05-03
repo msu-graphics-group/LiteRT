@@ -86,7 +86,7 @@ struct BVHRT : public ISceneObject
 #endif
 
   void ClearScene() override;
-  virtual void CommitScene(BuildOptions a_qualityLevel) override;
+  virtual void CommitScene(uint32_t a_qualityLevel) override;
 
   uint32_t AddInstance(uint32_t a_geomId, const float4x4 &a_matrix) override;
   uint32_t AddInstanceMotion(uint32_t a_geomId, const LiteMath::float4x4* a_matrices, uint32_t a_matrixNumber) override

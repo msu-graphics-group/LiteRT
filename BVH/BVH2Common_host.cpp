@@ -606,7 +606,7 @@ void DebugPrintBoxes(const std::vector<Box4f>& nodes, const std::string& a_fileN
   } 
 }
 
-void BVHRT::CommitScene(BuildOptions a_qualityLevel)
+void BVHRT::CommitScene(uint32_t a_qualityLevel)
 {
   assert(m_instBoxes.size() > 0);
 
