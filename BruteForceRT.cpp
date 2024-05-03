@@ -40,7 +40,7 @@ struct BruteForceRT : public ISceneObject
   uint32_t AddGeom_SdfSBS(SdfSBSView octree, BuildOptions a_qualityLevel = BUILD_HIGH) override;
 
   void ClearScene() override; 
-  void CommitScene  (BuildOptions a_qualityLevel) override; 
+  void CommitScene  (uint32_t a_qualityLevel) override; 
   
   uint32_t AddInstance(uint32_t a_geomId, const float4x4 &a_matrix) override;
   uint32_t AddInstanceMotion(uint32_t a_geomId, const LiteMath::float4x4* a_matrices, uint32_t a_matrixNumber) override
@@ -233,7 +233,7 @@ uint32_t BruteForceRT::AddGeom_SdfSBS(SdfSBSView octree, BuildOptions a_qualityL
   return 0u;
 }
 
-void BruteForceRT::CommitScene(BuildOptions a_qualityLevel)
+void BruteForceRT::CommitScene(uint32_t a_qualityLevel)
 {
   
 } 
