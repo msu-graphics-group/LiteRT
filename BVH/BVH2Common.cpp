@@ -709,10 +709,9 @@ float sigmoid(float x) {
   return 1 / (1 + exp(-x));
 }
 
-void BVHRT::RayGridIntersection(float3 ray_pos, float3 ray_dir, float3 bbMin, float3 bbMax, uint gridSize, float3 p, float3 lastP, uint4 ptrs, uint4 ptrs2, float &throughput, float3 &colour)
+void BVHRT::RayGridIntersection(float3 ray_dir, uint gridSize, float3 p, float3 lastP, uint4 ptrs, uint4 ptrs2, float &throughput, float3 &colour)
 {
-  float3 coords01 = (p - bbMin) / (bbMax - bbMin);
-  float3 coords = coords01 * (float)(gridSize);
+  float3 coords = p * (float)(gridSize);
 
   int3 nearCoords = clamp((int3)coords, int3(0), int3(gridSize - 1));
   int3 farCoords = clamp((int3)coords + int3(1), int3(0), int3(gridSize - 1));
@@ -746,12 +745,12 @@ void BVHRT::RayGridIntersection(float3 ray_pos, float3 ray_dir, float3 bbMin, fl
     // std::cout << (&grid[indexGrid(nearCoords[0], nearCoords[1], nearCoords[2], gridSize)])[i] << ' ';
   // std::cout << std::endl;
 
-  float dist = 1.0f / (float) gridSize;
+  float dist = 1.0f / (float) gridSize * 2.0f;
   /* float dist = length(p - lastP); */
   /* if (dist > sqrt(3) / (float)gridSize) */
   /*     dist -= ((int)(dist * (float)gridSize) - 1) / (float)gridSize; */
 
-  float tr = exp(-gridVal[0] * m_RFGridScales[0] * dist);
+  float tr = clamp(exp(-gridVal[0] * m_RFGridScales[0] * dist), 0.0f, 1.0f);
 
   // std::cout << tr << ' ' << gridVal[0] << ' ' << length(p - lastP) << ' ' << gridSize << std::endl;
 
@@ -759,33 +758,6 @@ void BVHRT::RayGridIntersection(float3 ray_pos, float3 ray_dir, float3 bbMin, fl
   float3 RGB = float3(sigmoid(eval_sh(gridVal, ray_dir, 1)), sigmoid(eval_sh(gridVal, ray_dir, 10)), sigmoid(eval_sh(gridVal, ray_dir, 19)));
   colour = colour + throughput * (1 - tr) * RGB;
   throughput *= tr;
-}
-
-float2 RayBoxIntersection(float3 ray_pos, float3 ray_dir, float3 boxMin, float3 boxMax)
-{
-  ray_dir.x = 1.0f / ray_dir.x; // may precompute if intersect many boxes
-  ray_dir.y = 1.0f / ray_dir.y; // may precompute if intersect many boxes
-  ray_dir.z = 1.0f / ray_dir.z; // may precompute if intersect many boxes
-
-  float lo = ray_dir.x * (boxMin.x - ray_pos.x);
-  float hi = ray_dir.x * (boxMax.x - ray_pos.x);
-
-  float tmin = std::min(lo, hi);
-  float tmax = std::max(lo, hi);
-
-  float lo1 = ray_dir.y * (boxMin.y - ray_pos.y);
-  float hi1 = ray_dir.y * (boxMax.y - ray_pos.y);
-
-  tmin = std::max(tmin, std::min(lo1, hi1));
-  tmax = std::min(tmax, std::max(lo1, hi1));
-
-  float lo2 = ray_dir.z * (boxMin.z - ray_pos.z);
-  float hi2 = ray_dir.z * (boxMax.z - ray_pos.z);
-
-  tmin = std::max(tmin, std::min(lo2, hi2));
-  tmax = std::min(tmax, std::max(lo2, hi2));
-
-  return float2(tmin, tmax);
 }
 
 void BVHRT::IntersectRFInLeaf(const float3 ray_pos, const float3 ray_dir,
@@ -797,16 +769,16 @@ void BVHRT::IntersectRFInLeaf(const float3 ray_pos, const float3 ray_dir,
   uint32_t sdfId = 0;
   uint32_t primId = 0;
 
-  float3 min_pos = float3(0,0,0), max_pos = float3(1,1,1);
-
   auto bbox = m_origNodes[a_start];
-  float2 zNearAndFar = RayBoxIntersection(ray_pos, ray_dir, bbox.boxMin, bbox.boxMax);
-  float3 p = ray_pos + ray_dir * (zNearAndFar.x + (zNearAndFar.y - zNearAndFar.x) * 0.5);
+  float2 smallBox = RayBoxIntersection2(ray_pos, SafeInverse(ray_dir), bbox.boxMin, bbox.boxMax);
+
+  float depth = (smallBox.x + (smallBox.y - smallBox.x) * 0.5);
+  float3 p = ray_pos + ray_dir * depth;
 
   float throughput = pHit->coords[0];
   float3 colour = float3(pHit->coords[1], pHit->coords[2], pHit->coords[3]);
 
-  RayGridIntersection(ray_pos, ray_dir, min_pos, max_pos, m_RFGridSizes[0], p, float3(0.0f), m_RFGridPtrs[2 * a_start], m_RFGridPtrs[2 * a_start + 1], throughput, colour);
+  RayGridIntersection(ray_dir, m_RFGridSizes[0], p, float3(0.0f), m_RFGridPtrs[2 * a_start], m_RFGridPtrs[2 * a_start + 1], throughput, colour);
   
   // std::cout << throughput << std::endl;
 
@@ -1374,6 +1346,7 @@ CRT_Hit BVHRT::RayQuery_NearestHit(float4 posAndNear, float4 dirAndFar)
   hit.coords[1] = 0.0f;
   hit.coords[2] = 0.0f;
   hit.coords[3] = 0.0f;
+
   // std::cout << "-----------------------------------------" << std::endl;
 
   //no TLAS, only one instance
