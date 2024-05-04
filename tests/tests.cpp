@@ -6,6 +6,7 @@
 #include "../utils/sparse_octree.h"
 #include "LiteScene/hydraxml.h"
 #include "LiteMath/Image2d.h"
+#include "../NeuralRT/NeuralRT.h"
 
 #include <functional>
 #include <cassert>
@@ -515,7 +516,7 @@ auto t4 = std::chrono::steady_clock::now();
 void test_7_neural_SDF()
 {
   const char *scene_name = "scenes/02_sdf_scenes/sdf_neural.xml"; 
-  unsigned W = 1024, H = 1024;
+  unsigned W = 256, H = 256;
 
   MultiRenderPreset preset_1 = getDefaultPreset();
   preset_1.mode = MULTI_RENDER_MODE_LINEAR_DEPTH;
@@ -528,19 +529,22 @@ void test_7_neural_SDF()
   pRender_1->SetViewport(0,0,W,H);
   pRender_1->LoadSceneHydra((scenes_folder_path+scene_name).c_str());
 
+  NeuralRT neuralRT;
+  BVHRT *rt = static_cast<BVHRT*>(pRender_1->GetAccelStruct().get());
+  neuralRT.AddGeom_NeuralSdf(rt->m_SdfNeuralProperties[0], rt->m_SdfParameters.data());
+
   auto m1 = pRender_1->getWorldView();
   auto m2 = pRender_1->getProj();
 
   pRender_1->Render(image_1.data(), image_1.width(), image_1.height(), m1, m2, preset_1);
-  //pRender_2->Render(image_2.data(), image_2.width(), image_2.height(), m1, m2, preset_2);
-  //pRenderRef->Render(ref_image.data(), ref_image.width(), ref_image.height(), m1, m2, preset_ref);
+  neuralRT.Render(image_2.data(), image_2.width(), image_2.height(), m1, m2);
 
   LiteImage::SaveImage<uint32_t>("saves/test_7_default.bmp", image_1); 
   LiteImage::SaveImage<uint32_t>("saves/test_7_separate_render.bmp", image_2); 
 
   float psnr_1 = PSNR(image_1, image_2);
   printf("TEST 7. NEURAL SDF rendering\n");
-  printf("  7.2. %-64s", "default and separate renderer PSNR > 45 ");
+  printf("  7.1. %-64s", "default and separate renderer PSNR > 45 ");
   if (psnr_1 >= 45)
     printf("passed    (%.2f)\n", psnr_1);
   else
