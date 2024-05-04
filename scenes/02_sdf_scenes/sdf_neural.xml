@@ -16,7 +16,7 @@
         <nearClipPlane>0.01</nearClipPlane>
         <farClipPlane>100.0</farClipPlane>
         <up>0 1 0</up>
-        <position>0 0 3</position>
+        <position>0 0 -3</position>
         <look_at>0 0 0</look_at>
       </camera>
     </cam_lib>

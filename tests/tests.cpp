@@ -512,13 +512,49 @@ auto t4 = std::chrono::steady_clock::now();
     printf("FAILED, psnr = %f\n", psnr_1);
 }
 
+void test_7_neural_SDF()
+{
+  const char *scene_name = "scenes/02_sdf_scenes/sdf_neural.xml"; 
+  unsigned W = 1024, H = 1024;
+
+  MultiRenderPreset preset_1 = getDefaultPreset();
+  preset_1.mode = MULTI_RENDER_MODE_LINEAR_DEPTH;
+
+  LiteImage::Image2D<uint32_t> image_1(W, H);
+  LiteImage::Image2D<uint32_t> image_2(W, H);
+
+  auto pRender_1 = CreateMultiRenderer("GPU");
+  pRender_1->SetPreset(preset_1);
+  pRender_1->SetViewport(0,0,W,H);
+  pRender_1->LoadSceneHydra((scenes_folder_path+scene_name).c_str());
+
+  auto m1 = pRender_1->getWorldView();
+  auto m2 = pRender_1->getProj();
+
+  pRender_1->Render(image_1.data(), image_1.width(), image_1.height(), m1, m2, preset_1);
+  //pRender_2->Render(image_2.data(), image_2.width(), image_2.height(), m1, m2, preset_2);
+  //pRenderRef->Render(ref_image.data(), ref_image.width(), ref_image.height(), m1, m2, preset_ref);
+
+  LiteImage::SaveImage<uint32_t>("saves/test_7_default.bmp", image_1); 
+  LiteImage::SaveImage<uint32_t>("saves/test_7_separate_render.bmp", image_2); 
+
+  float psnr_1 = PSNR(image_1, image_2);
+  printf("TEST 7. NEURAL SDF rendering\n");
+  printf("  7.2. %-64s", "default and separate renderer PSNR > 45 ");
+  if (psnr_1 >= 45)
+    printf("passed    (%.2f)\n", psnr_1);
+  else
+    printf("FAILED, psnr = %f\n", psnr_1);
+}
+
 void perform_tests_litert(const std::vector<int> &test_ids)
 {
   std::vector<int> tests = test_ids;
 
   std::vector<std::function<void(void)>> test_functions = {
       litert_test_1_framed_octree, litert_test_2_SVS, litert_test_3_SBS_verify,
-      litert_test_4_hydra_scene, litert_test_5_interval_tracing, litert_test_6_faster_bvh_build};
+      litert_test_4_hydra_scene, litert_test_5_interval_tracing, litert_test_6_faster_bvh_build,
+      test_7_neural_SDF};
 
   if (tests.empty())
   {
