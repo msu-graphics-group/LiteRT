@@ -1,8 +1,10 @@
 #include "NeuralRT.h"
+#include "../raytrace_common.h"
+#include "cbvh.h"
 #include "../render_common.h"
 
 template<uint32_t bsize> 
-void NeuralRT::kernelBE1D_SphereTracing(uint32_t blockNum)
+void NeuralRT::kernelBE1D_SphereTracing(uint32_t* imageData, uint32_t blockNum)
 {
   for(uint32_t blockId = 0; blockId < blockNum; blockId++) 
   {
@@ -20,8 +22,8 @@ void NeuralRT::kernelBE1D_SphereTracing(uint32_t blockNum)
 
       float2 tNearFar = RayBoxIntersection2(rayPos, SafeInverse(rayDir), float3(-1,-1,-1), float3(1,1,1));
 
-      constexpr float EPS = 1e-5f;
-      constexpr uint32_t max_iters = 1000;
+      const float EPS = 1e-5f;
+      const uint32_t max_iters = 1000;
       float t = tNearFar.x;
       float d = 1e6f;
       uint32_t iter = 0;
@@ -66,19 +68,34 @@ void NeuralRT::kernelBE1D_SphereTracing(uint32_t blockNum)
         float z_far = 10;
         float depth = ((z - z_near) / (z_far - z_near));
         uint32_t col= uint32_t(255*depth);
-        m_ImageData[y * m_width + x] = 0xFF000000 | (col<<16) | (col<<8) | col; 
+        imageData[y * m_width + x] = 0xFF000000 | (col<<16) | (col<<8) | col; 
       }
       else
-        m_ImageData[y * m_width + x] = 0xFF000000;
+        imageData[y * m_width + x] = 0xFF000000;
     }
   }
+}
+
+void NeuralRT::Render(uint32_t* imageData, uint32_t a_width, uint32_t a_height, 
+                      const float4x4 &a_worldView, const float4x4 &a_proj, int a_passNum)
+{
+  m_width = a_width;
+  m_height = a_height;
+  m_projInv = inverse4x4(a_proj);
+  m_worldViewInv = inverse4x4(a_worldView);
+
+  for (int i=0;i<a_passNum;i++)
+    kernelBE1D_SphereTracing<64>(imageData, m_width*m_height/(64));
 }
 
 #ifndef KERNEL_SLICER  
 NeuralRT::NeuralRT()
 {
   m_SdfNeuralProperties.reserve(1);
+  m_SdfNeuralProperties.resize(0);
+
   m_SdfNeuralData.reserve(10000);
+  m_SdfNeuralData.resize(0);
 }
 
 uint32_t NeuralRT::AddGeom_NeuralSdf(NeuralProperties neural_properties, float *data, BuildOptions a_qualityLevel)
@@ -102,20 +119,27 @@ uint32_t NeuralRT::AddGeom_NeuralSdf(NeuralProperties neural_properties, float *
   return m_SdfNeuralProperties.size()-1;
 }
 
-void NeuralRT::Render(uint32_t* imageData, uint32_t a_width, uint32_t a_height, 
-                      const LiteMath::float4x4& a_worldView, const LiteMath::float4x4& a_proj, int a_passNum)
-{
-  m_width = a_width;
-  m_height = a_height;
-  m_worldView = a_worldView;
-  m_proj = a_proj;
-  m_projInv = inverse4x4(a_proj);
-  m_worldViewInv = inverse4x4(a_worldView);
-  m_ImageData.resize(a_width*a_height, 0u);
-
-  for (int i=0;i<a_passNum;i++)
-    kernelBE1D_SphereTracing<NEURALRT_BSIZE*NEURALRT_BSIZE>(a_width*a_height/(NEURALRT_BSIZE*NEURALRT_BSIZE));
-
-  memcpy(imageData, m_ImageData.data(), sizeof(uint32_t)*a_width*a_height);
+#ifndef LITERT_MINI
+#if defined(USE_GPU)
+#include "NeuralRT_gpu.h"
+std::shared_ptr<NeuralRT> CreateNeuralRT_GPU(vk_utils::VulkanContext a_ctx, size_t a_maxThreadsGenerated);
+std::shared_ptr<NeuralRT> CreateNeuralRT(const char* a_name) 
+{ 
+  if (std::string(a_name) == "GPU")
+    return CreateNeuralRT_GPU(vk_utils::globalContextGet(true, 0u), 256); 
+  else
+    return std::shared_ptr<NeuralRT>(new NeuralRT());
 }
+#else
+std::shared_ptr<NeuralRT> CreateNeuralRT(const char* a_name) 
+{ 
+  return std::shared_ptr<NeuralRT>(new NeuralRT()); 
+}
+#endif
+#else
+std::shared_ptr<NeuralRT> CreateNeuralRT(const char* a_name) 
+{ 
+  return std::shared_ptr<NeuralRT>(new NeuralRT()); 
+}
+#endif
 #endif

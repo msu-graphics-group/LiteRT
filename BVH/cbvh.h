@@ -3,6 +3,7 @@
 #include <vector>
 #include <cstdint>
 #include <cassert>
+#include <iostream>
 
 #include "LiteMath.h"
 

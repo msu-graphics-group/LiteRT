@@ -523,32 +523,43 @@ void test_7_neural_SDF()
 
   LiteImage::Image2D<uint32_t> image_1(W, H);
   LiteImage::Image2D<uint32_t> image_2(W, H);
+  LiteImage::Image2D<uint32_t> image_3(W, H);
 
   auto pRender_1 = CreateMultiRenderer("GPU");
   pRender_1->SetPreset(preset_1);
   pRender_1->SetViewport(0,0,W,H);
   pRender_1->LoadSceneHydra((scenes_folder_path+scene_name).c_str());
 
-  NeuralRT neuralRT;
+  std::shared_ptr<NeuralRT> neuralRT1 = CreateNeuralRT("CPU");
+  std::shared_ptr<NeuralRT> neuralRT2 = CreateNeuralRT("GPU");
   BVHRT *rt = static_cast<BVHRT*>(pRender_1->GetAccelStruct().get());
-  neuralRT.AddGeom_NeuralSdf(rt->m_SdfNeuralProperties[0], rt->m_SdfParameters.data());
+  neuralRT1->AddGeom_NeuralSdf(rt->m_SdfNeuralProperties[0], rt->m_SdfParameters.data());
+  neuralRT2->AddGeom_NeuralSdf(rt->m_SdfNeuralProperties[0], rt->m_SdfParameters.data());
 
   auto m1 = pRender_1->getWorldView();
   auto m2 = pRender_1->getProj();
 
   pRender_1->Render(image_1.data(), image_1.width(), image_1.height(), m1, m2, preset_1);
-  neuralRT.Render(image_2.data(), image_2.width(), image_2.height(), m1, m2);
+  neuralRT1->Render(image_2.data(), image_2.width(), image_2.height(), m1, m2);
+  neuralRT2->Render(image_3.data(), image_3.width(), image_3.height(), m1, m2);
 
   LiteImage::SaveImage<uint32_t>("saves/test_7_default.bmp", image_1); 
-  LiteImage::SaveImage<uint32_t>("saves/test_7_separate_render.bmp", image_2); 
+  LiteImage::SaveImage<uint32_t>("saves/test_7_NeuralRT_CPU.bmp", image_2); 
+  LiteImage::SaveImage<uint32_t>("saves/test_7_NeuralRT_GPU.bmp", image_3); 
 
   float psnr_1 = PSNR(image_1, image_2);
+  float psnr_2 = PSNR(image_1, image_3);
   printf("TEST 7. NEURAL SDF rendering\n");
-  printf("  7.1. %-64s", "default and separate renderer PSNR > 45 ");
+  printf("  7.1. %-64s", "default and NeuralRT CPU PSNR > 45 ");
   if (psnr_1 >= 45)
     printf("passed    (%.2f)\n", psnr_1);
   else
     printf("FAILED, psnr = %f\n", psnr_1);
+  printf("  7.2. %-64s", "default and NeuralRT GPU PSNR > 45 ");
+  if (psnr_2 >= 45)
+    printf("passed    (%.2f)\n", psnr_2);
+  else
+    printf("FAILED, psnr = %f\n", psnr_2);
 }
 
 void perform_tests_litert(const std::vector<int> &test_ids)

@@ -123,7 +123,11 @@ if (MODULE_VULKAN)
   set(VKGEN_SOURCE 
       ${CMAKE_SOURCE_DIR}/Renderer/eye_ray_gpu.cpp 
       ${CMAKE_SOURCE_DIR}/Renderer/eye_ray_gpu_ds.cpp 
-      ${CMAKE_SOURCE_DIR}/Renderer/eye_ray_gpu_init.cpp)
+      ${CMAKE_SOURCE_DIR}/Renderer/eye_ray_gpu_init.cpp
+      
+      ${CMAKE_SOURCE_DIR}/NeuralRT/NeuralRT_gpu.cpp
+      ${CMAKE_SOURCE_DIR}/NeuralRT/NeuralRT_gpu_ds.cpp
+      ${CMAKE_SOURCE_DIR}/NeuralRT/NeuralRT_gpu_init.cpp)
 
   set(VKUTILS_SOURCE ${CMAKE_SOURCE_DIR}/dependencies/vkutils/vk_utils.cpp
                      ${CMAKE_SOURCE_DIR}/dependencies/vkutils/vk_copy.cpp
