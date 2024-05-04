@@ -73,6 +73,10 @@ void load_neural_sdf_scene_SIREN(SdfScene &scene, const std::string &path)
   scene.objects[0].type = SDF_PRIM_SIREN;
   scene.objects[0].params_offset = 0;
   scene.objects[0].params_count = p_cnt;
+  scene.objects[0].neural_id = 0;
+  scene.objects[0].distance_add = 0.0f;
+  scene.objects[0].distance_mult = 1.0f;
+  scene.objects[0].complement = 0;
   scene.objects[0].min_pos = float4(-1,-1,-1, 1);
   scene.objects[0].max_pos = float4(1,1,1, 1);
   scene.objects[0].transform.identity();
