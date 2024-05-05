@@ -7,6 +7,7 @@
 #include "LiteMath.h"
 #include "sdfScene/sdf_scene.h"
 #include "utils/radiance_field.h"
+#include "utils/gaussian_field.h"
 #include "render_settings.h"
 
 enum BuildOptions 
@@ -84,6 +85,7 @@ struct ISceneObject
   virtual uint32_t AddGeom_SdfScene(SdfSceneView scene, BuildOptions a_qualityLevel = BUILD_HIGH) = 0;
   virtual uint32_t AddGeom_SdfGrid(SdfGridView grid, BuildOptions a_qualityLevel = BUILD_HIGH) = 0;
   virtual uint32_t AddGeom_RFScene(RFScene grid, BuildOptions a_qualityLevel = BUILD_HIGH) = 0;
+  virtual uint32_t AddGeom_GSScene(GSScene grid, BuildOptions a_qualityLevel = BUILD_HIGH) = 0;
   virtual uint32_t AddGeom_SdfOctree(SdfOctreeView octree, BuildOptions a_qualityLevel = BUILD_HIGH) = 0;
   virtual uint32_t AddGeom_SdfFrameOctree(SdfFrameOctreeView octree, BuildOptions a_qualityLevel = BUILD_HIGH) = 0;
   virtual uint32_t AddGeom_SdfSVS(SdfSVSView octree, BuildOptions a_qualityLevel = BUILD_HIGH) = 0;

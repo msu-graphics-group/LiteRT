@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<textures_lib/>
+<materials_lib/>
+<geometry_lib>
+  <gs loc="lego.ply"/>
+</geometry_lib>
+<lights_lib/>
+<cam_lib>
+  <camera>
+    <fov>30</fov>
+    <nearClipPlane>0.01</nearClipPlane>
+    <farClipPlane>100.0</farClipPlane>
+    <up>0 1 0</up>
+    <position>0 0 5</position>
+  </camera>
+</cam_lib>
+<render_lib/>
+<scenes>
+  <scene>
+    <instance matrix="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1"/>
+  </scene>
+</scenes>
