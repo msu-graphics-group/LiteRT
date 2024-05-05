@@ -121,6 +121,27 @@ bool MultiRenderer::LoadSceneHydra(const std::string& a_path, unsigned type, Spa
           m_pAccelStruct->AddGeom_SdfSVS({(unsigned)svs_nodes.size(), svs_nodes.data()});
         }
           break;
+        case TYPE_SDF_GRID:
+        {
+          MeshBVH mesh_bvh;
+          mesh_bvh.init(currMesh);
+          unsigned sz = pow(2,so_settings.depth);
+          std::vector<float> data(sz*sz*sz, 0);
+
+          for (int i=0;i<sz;i++)
+          {
+            for (int j=0;j<sz;j++)
+            {
+              for (int k=0;k<sz;k++)
+              {
+                data[i*sz*sz + j*sz + k] = mesh_bvh.get_signed_distance(2.0f * (float3(k+0.5, j+0.5, i+0.5) / float(sz)) - 1.0f);
+              }
+            }
+          }
+
+          m_pAccelStruct->AddGeom_SdfGrid({uint3(sz,sz,sz), data.data()});
+        }
+          break;
         default:
           printf("cannot transform meshes from Hydra scene to type %u\n", type);
           break;
