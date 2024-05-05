@@ -326,7 +326,7 @@ std::vector<float4x4> ComputeCovarianceMatrices(
             0.0f, 0.0f, 0.0f, 0.0f);
 
         float4 q = normalize(
-            float4(m_gs_rot_0[i], m_gs_rot_1[i], m_gs_rot_2[i], m_gs_rot_3[i]));
+            float4(m_gs_rot_0[i], -m_gs_rot_1[i], m_gs_rot_2[i], m_gs_rot_3[i]));
 
         float r = q.x;
         float x = q.y;

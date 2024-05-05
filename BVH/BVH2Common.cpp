@@ -832,7 +832,7 @@ void BVHRT::IntersectGSInLeaf(const float3& ray_pos, const float3& ray_dir,
     for (uint32_t i = a_start; i < a_start + a_count; ++i) {
         float3 mean = float3(m_gs_x[i], m_gs_y[i], m_gs_z[i]);
         float3 scale = float3(exp(m_gs_scale_0[i]), exp(m_gs_scale_1[i]), exp(m_gs_scale_2[i])) * 3.0f;
-        float4 rotation = QuaternionConjugate(normalize(float4(m_gs_rot_0[i], m_gs_rot_1[i], m_gs_rot_2[i], m_gs_rot_3[i])));
+        float4 rotation = QuaternionConjugate(normalize(float4(m_gs_rot_0[i], -m_gs_rot_1[i], m_gs_rot_2[i], m_gs_rot_3[i])));
         float3 diffuse_color = float3(m_gs_f_dc_0[i], m_gs_f_dc_1[i], m_gs_f_dc_2[i]) * sh_c0;
         float opacity = sigmoid(m_gs_opacity[i]);
 
