@@ -4,7 +4,7 @@
 #include "../render_common.h"
 
 template<uint32_t bsize> 
-void NeuralRT::kernelBE1D_SphereTracing(uint32_t* imageData, uint32_t blockNum)
+void NeuralRT::kernelBE1D_BlockedSphereTracing(uint32_t* imageData, uint32_t blockNum)
 {
   for(uint32_t blockId = 0; blockId < blockNum; blockId++) 
   {
@@ -76,8 +76,151 @@ void NeuralRT::kernelBE1D_SphereTracing(uint32_t* imageData, uint32_t blockNum)
   }
 }
 
+template<uint32_t bsize> 
+void NeuralRT::kernelBE1D_CoopMatricesSphereTracing(uint32_t* imageData, uint32_t blockNum)
+{
+  for(uint32_t blockId = 0; blockId < blockNum; blockId++) 
+  {
+    for(uint32_t localId = 0; localId < bsize; localId++) [[parallel]]  // full parallel
+    {
+      const uint32_t x  = NEURALRT_BSIZE * (blockId % (m_width / NEURALRT_BSIZE)) + localId % NEURALRT_BSIZE;
+      const uint32_t y  = NEURALRT_BSIZE * (blockId / (m_width / NEURALRT_BSIZE)) + localId / NEURALRT_BSIZE;
+      float tmp_mem[2 * NEURAL_SDF_MAX_LAYER_SIZE];
+
+      float3 rayDir = normalize(EyeRayDirNormalized((float(x)+0.5f)/float(m_width), (float(y)+0.5f)/float(m_height), m_projInv));
+      float3 rayPos = float3(0,0,0);
+
+      transform_ray3f(m_worldViewInv, 
+                      &rayPos, &rayDir);
+
+      float2 tNearFar = RayBoxIntersection2(rayPos, SafeInverse(rayDir), float3(-1,-1,-1), float3(1,1,1));
+
+      const float EPS = 1e-5f;
+      const uint32_t max_iters = 1000;
+      float t = tNearFar.x;
+      float d = 1e6f;
+      uint32_t iter = 0;
+      while (t < tNearFar.y && iter < max_iters && d > EPS)
+      {
+        float3 p = rayPos + t*rayDir;
+
+        //calculate SIREN SDF
+        NeuralProperties prop = m_SdfNeuralProperties[0];
+        uint32_t t_ofs1 = 0;
+        uint32_t t_ofs2 = NEURAL_SDF_MAX_LAYER_SIZE;
+
+        tmp_mem[t_ofs1 + 0] = p.x;
+        tmp_mem[t_ofs1 + 1] = p.y;
+        tmp_mem[t_ofs1 + 2] = p.z;
+
+        for (int l = 0; l < prop.layer_count; l++)
+        {
+          uint32_t m_ofs = prop.layers[l].offset;
+          uint32_t b_ofs = prop.layers[l].offset + prop.layers[l].in_size * prop.layers[l].out_size;
+          for (int i = 0; i < prop.layers[l].out_size; i++)
+          {
+            tmp_mem[t_ofs2 + i] = m_SdfNeuralData[b_ofs + i];
+            for (int j = 0; j < prop.layers[l].in_size; j++)
+              tmp_mem[t_ofs2 + i] += tmp_mem[t_ofs1 + j] * m_SdfNeuralData[m_ofs + i * prop.layers[l].in_size + j];
+            if (l < prop.layer_count - 1)
+              tmp_mem[t_ofs2 + i] = std::sin(SIREN_W0 * tmp_mem[t_ofs2 + i]);
+          }
+
+          t_ofs2 = t_ofs1;
+          t_ofs1 = (t_ofs1 + NEURAL_SDF_MAX_LAYER_SIZE) % (2 * NEURAL_SDF_MAX_LAYER_SIZE);
+        }
+
+        d = tmp_mem[t_ofs1];
+        t += d + EPS;
+      }
+
+      if (d <= EPS)
+      {
+        float z = t;
+        float z_near = 0.1;
+        float z_far = 10;
+        float depth = ((z - z_near) / (z_far - z_near));
+        uint32_t col= uint32_t(255*depth);
+        imageData[y * m_width + x] = 0xFF000000 | (col<<16) | (col<<8) | col; 
+      }
+      else
+        imageData[y * m_width + x] = 0xFF000000;
+    }
+  }
+}
+
+void NeuralRT::kernel1D_SimpleSphereTracing(uint32_t *imageData, uint blockNum)
+{
+  for (uint32_t localId = 0; localId < blockNum; localId++)
+  {
+    const uint32_t x = localId % m_width;
+    const uint32_t y = localId / m_width;
+    float tmp_mem[2 * NEURAL_SDF_MAX_LAYER_SIZE];
+
+    float3 rayDir = normalize(EyeRayDirNormalized((float(x) + 0.5f) / float(m_width), (float(y) + 0.5f) / float(m_height), m_projInv));
+    float3 rayPos = float3(0, 0, 0);
+
+    transform_ray3f(m_worldViewInv,
+                    &rayPos, &rayDir);
+
+    float2 tNearFar = RayBoxIntersection2(rayPos, SafeInverse(rayDir), float3(-1, -1, -1), float3(1, 1, 1));
+
+    const float EPS = 1e-5f;
+    const uint32_t max_iters = 1000;
+    float t = tNearFar.x;
+    float d = 1e6f;
+    uint32_t iter = 0;
+    while (t < tNearFar.y && iter < max_iters && d > EPS)
+    {
+      float3 p = rayPos + t * rayDir;
+
+      // calculate SIREN SDF
+      NeuralProperties prop = m_SdfNeuralProperties[0];
+      uint32_t t_ofs1 = 0;
+      uint32_t t_ofs2 = NEURAL_SDF_MAX_LAYER_SIZE;
+
+      tmp_mem[t_ofs1 + 0] = p.x;
+      tmp_mem[t_ofs1 + 1] = p.y;
+      tmp_mem[t_ofs1 + 2] = p.z;
+
+      for (int l = 0; l < prop.layer_count; l++)
+      {
+        uint32_t m_ofs = prop.layers[l].offset;
+        uint32_t b_ofs = prop.layers[l].offset + prop.layers[l].in_size * prop.layers[l].out_size;
+        for (int i = 0; i < prop.layers[l].out_size; i++)
+        {
+          tmp_mem[t_ofs2 + i] = m_SdfNeuralData[b_ofs + i];
+          for (int j = 0; j < prop.layers[l].in_size; j++)
+            tmp_mem[t_ofs2 + i] += tmp_mem[t_ofs1 + j] * m_SdfNeuralData[m_ofs + i * prop.layers[l].in_size + j];
+          if (l < prop.layer_count - 1)
+            tmp_mem[t_ofs2 + i] = std::sin(SIREN_W0 * tmp_mem[t_ofs2 + i]);
+        }
+
+        t_ofs2 = t_ofs1;
+        t_ofs1 = (t_ofs1 + NEURAL_SDF_MAX_LAYER_SIZE) % (2 * NEURAL_SDF_MAX_LAYER_SIZE);
+      }
+
+      d = tmp_mem[t_ofs1];
+      t += d + EPS;
+    }
+
+    if (d <= EPS)
+    {
+      float z = t;
+      float z_near = 0.1;
+      float z_far = 10;
+      float depth = ((z - z_near) / (z_far - z_near));
+      uint32_t col = uint32_t(255 * depth);
+      imageData[y * m_width + x] = 0xFF000000 | (col << 16) | (col << 8) | col;
+    }
+    else
+      imageData[y * m_width + x] = 0xFF000000;
+  }
+}
+
 void NeuralRT::Render(uint32_t* imageData, uint32_t a_width, uint32_t a_height, 
-                      const float4x4 &a_worldView, const float4x4 &a_proj, int a_passNum)
+                      const float4x4 &a_worldView, const float4x4 &a_proj, 
+                      uint32_t a_renderType, int a_passNum)
 {
   m_width = a_width;
   m_height = a_height;
@@ -85,7 +228,20 @@ void NeuralRT::Render(uint32_t* imageData, uint32_t a_width, uint32_t a_height,
   m_worldViewInv = inverse4x4(a_worldView);
 
   for (int i=0;i<a_passNum;i++)
-    kernelBE1D_SphereTracing<64>(imageData, m_width*m_height/(64));
+    {
+    switch (a_renderType)
+    {
+    case NEURALRT_RENDER_SIMPLE:
+      kernel1D_SimpleSphereTracing(imageData, m_width*m_height);
+      break;
+    case NEURALRT_RENDER_BLOCKED:
+      kernelBE1D_BlockedSphereTracing<64>(imageData, m_width*m_height/(64));
+      break;
+    case NEURALRT_RENDER_COOP_MATRICES:
+      kernelBE1D_CoopMatricesSphereTracing<64>(imageData, m_width*m_height/(64));
+      break;
+    }
+  }
 }
 
 #ifndef KERNEL_SLICER  

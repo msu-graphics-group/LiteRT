@@ -524,6 +524,8 @@ void test_7_neural_SDF()
   LiteImage::Image2D<uint32_t> image_1(W, H);
   LiteImage::Image2D<uint32_t> image_2(W, H);
   LiteImage::Image2D<uint32_t> image_3(W, H);
+  LiteImage::Image2D<uint32_t> image_4(W, H);
+  LiteImage::Image2D<uint32_t> image_5(W, H);
 
   auto pRender_1 = CreateMultiRenderer("GPU");
   pRender_1->SetPreset(preset_1);
@@ -541,25 +543,44 @@ void test_7_neural_SDF()
 
   pRender_1->Render(image_1.data(), image_1.width(), image_1.height(), m1, m2, preset_1);
   neuralRT1->Render(image_2.data(), image_2.width(), image_2.height(), m1, m2);
-  neuralRT2->Render(image_3.data(), image_3.width(), image_3.height(), m1, m2);
+  neuralRT2->Render(image_3.data(), image_3.width(), image_3.height(), m1, m2, NEURALRT_RENDER_SIMPLE);
+  neuralRT2->Render(image_4.data(), image_4.width(), image_4.height(), m1, m2, NEURALRT_RENDER_BLOCKED);
+  neuralRT2->Render(image_5.data(), image_5.width(), image_5.height(), m1, m2, NEURALRT_RENDER_COOP_MATRICES);
 
   LiteImage::SaveImage<uint32_t>("saves/test_7_default.bmp", image_1); 
   LiteImage::SaveImage<uint32_t>("saves/test_7_NeuralRT_CPU.bmp", image_2); 
-  LiteImage::SaveImage<uint32_t>("saves/test_7_NeuralRT_GPU.bmp", image_3); 
+  LiteImage::SaveImage<uint32_t>("saves/test_7_NeuralRT_GPU_default.bmp", image_3); 
+  LiteImage::SaveImage<uint32_t>("saves/test_7_NeuralRT_GPU_blocked.bmp", image_4); 
+  LiteImage::SaveImage<uint32_t>("saves/test_7_NeuralRT_GPU_coop_matrices.bmp", image_5); 
 
   float psnr_1 = PSNR(image_1, image_2);
   float psnr_2 = PSNR(image_1, image_3);
+  float psnr_3 = PSNR(image_1, image_4);
+  float psnr_4 = PSNR(image_1, image_5);
   printf("TEST 7. NEURAL SDF rendering\n");
   printf("  7.1. %-64s", "default and NeuralRT CPU PSNR > 45 ");
   if (psnr_1 >= 45)
     printf("passed    (%.2f)\n", psnr_1);
   else
     printf("FAILED, psnr = %f\n", psnr_1);
-  printf("  7.2. %-64s", "default and NeuralRT GPU PSNR > 45 ");
+
+  printf("  7.2. %-64s", "default and NeuralRT GPU default PSNR > 45 ");
   if (psnr_2 >= 45)
     printf("passed    (%.2f)\n", psnr_2);
   else
     printf("FAILED, psnr = %f\n", psnr_2);
+
+  printf("  7.3. %-64s", "default and NeuralRT GPU blocked PSNR > 45 ");
+  if (psnr_3 >= 45)
+    printf("passed    (%.2f)\n", psnr_3);
+  else
+    printf("FAILED, psnr = %f\n", psnr_3);
+
+  printf("  7.4. %-64s", "default and NeuralRT GPU coop matrices PSNR > 45 ");
+  if (psnr_4 >= 45)
+    printf("passed    (%.2f)\n", psnr_4);
+  else
+    printf("FAILED, psnr = %f\n", psnr_4);
 }
 
 void perform_tests_litert(const std::vector<int> &test_ids)

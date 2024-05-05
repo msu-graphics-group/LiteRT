@@ -29,6 +29,11 @@ using LiteMath::Box4f;
 
 static constexpr unsigned NEURALRT_BSIZE = 8;
 
+//enum NeuralRTRenderType
+static constexpr unsigned NEURALRT_RENDER_SIMPLE        = 0;
+static constexpr unsigned NEURALRT_RENDER_BLOCKED       = 1;
+static constexpr unsigned NEURALRT_RENDER_COOP_MATRICES = 2;
+
 class NeuralRT
 {
 public:
@@ -37,13 +42,19 @@ public:
   uint32_t AddGeom_NeuralSdf(NeuralProperties neural_properties, float *data, BuildOptions a_qualityLevel = BUILD_HIGH);
   
   virtual void Render(uint32_t* imageData [[size("a_width*a_height")]], uint32_t a_width, uint32_t a_height, 
-                      const LiteMath::float4x4& a_worldView, const LiteMath::float4x4& a_proj, int a_passNum = 1);
+                      const LiteMath::float4x4& a_worldView, const LiteMath::float4x4& a_proj, 
+                      uint32_t a_renderType = NEURALRT_RENDER_SIMPLE, int a_passNum = 1);
 
   virtual void CommitDeviceData() {}                                       // will be overriden in generated class
   virtual void GetExecutionTime(const char* a_funcName, float a_out[4]) {} // will be overriden in generated class
 protected:
   template<uint bsize> 
-  void kernelBE1D_SphereTracing(uint32_t* imageData, uint blockNum); 
+  void kernelBE1D_BlockedSphereTracing(uint32_t* imageData, uint blockNum); 
+
+  template<uint bsize> 
+  void kernelBE1D_CoopMatricesSphereTracing(uint32_t* imageData, uint blockNum); 
+
+  void kernel1D_SimpleSphereTracing(uint32_t* imageData, uint blockNum);
 
   std::vector<NeuralProperties> m_SdfNeuralProperties;
   std::vector<float> m_SdfNeuralData;
