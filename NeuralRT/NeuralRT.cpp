@@ -23,7 +23,7 @@ void NeuralRT::kernelBE1D_BlockedSphereTracing(uint32_t* imageData, uint32_t blo
       float2 tNearFar = RayBoxIntersection2(rayPos, SafeInverse(rayDir), float3(-1,-1,-1), float3(1,1,1));
 
       const float EPS = 1e-5f;
-      const uint32_t max_iters = 1000;
+      const uint32_t max_iters = 256;
       float t = tNearFar.x;
       float d = 1e6f;
       uint32_t iter = 0;
@@ -59,9 +59,10 @@ void NeuralRT::kernelBE1D_BlockedSphereTracing(uint32_t* imageData, uint32_t blo
 
         d = tmp_mem[t_ofs1];
         t += d + EPS;
+        iter++;
       }
 
-      if (d <= EPS)
+      if (t < tNearFar.y)
       {
         float z = t;
         float z_near = 0.1;
@@ -96,7 +97,7 @@ void NeuralRT::kernelBE1D_CoopMatricesSphereTracing(uint32_t* imageData, uint32_
       float2 tNearFar = RayBoxIntersection2(rayPos, SafeInverse(rayDir), float3(-1,-1,-1), float3(1,1,1));
 
       const float EPS = 1e-5f;
-      const uint32_t max_iters = 1000;
+      const uint32_t max_iters = 256;
       float t = tNearFar.x;
       float d = 1e6f;
       uint32_t iter = 0;
@@ -132,9 +133,10 @@ void NeuralRT::kernelBE1D_CoopMatricesSphereTracing(uint32_t* imageData, uint32_
 
         d = tmp_mem[t_ofs1];
         t += d + EPS;
+        iter++;
       }
 
-      if (d <= EPS)
+      if (t < tNearFar.y)
       {
         float z = t;
         float z_near = 0.1;
@@ -166,7 +168,7 @@ void NeuralRT::kernel1D_SimpleSphereTracing(uint32_t *imageData, uint blockNum)
     float2 tNearFar = RayBoxIntersection2(rayPos, SafeInverse(rayDir), float3(-1, -1, -1), float3(1, 1, 1));
 
     const float EPS = 1e-5f;
-    const uint32_t max_iters = 1000;
+    const uint32_t max_iters = 256;
     float t = tNearFar.x;
     float d = 1e6f;
     uint32_t iter = 0;
@@ -202,9 +204,10 @@ void NeuralRT::kernel1D_SimpleSphereTracing(uint32_t *imageData, uint blockNum)
 
       d = tmp_mem[t_ofs1];
       t += d + EPS;
+      iter++;
     }
 
-    if (d <= EPS)
+    if (t < tNearFar.y)
     {
       float z = t;
       float z_near = 0.1;

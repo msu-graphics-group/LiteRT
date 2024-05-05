@@ -541,11 +541,20 @@ void test_7_neural_SDF()
   auto m1 = pRender_1->getWorldView();
   auto m2 = pRender_1->getProj();
 
+  float timings[4][4];
+
   pRender_1->Render(image_1.data(), image_1.width(), image_1.height(), m1, m2, preset_1);
+  pRender_1->GetExecutionTime("CastRaySingleBlock", timings[0]);
+
   neuralRT1->Render(image_2.data(), image_2.width(), image_2.height(), m1, m2);
+
   neuralRT2->Render(image_3.data(), image_3.width(), image_3.height(), m1, m2, NEURALRT_RENDER_SIMPLE);
+  neuralRT2->GetExecutionTime("Render_internal", timings[1]);
   neuralRT2->Render(image_4.data(), image_4.width(), image_4.height(), m1, m2, NEURALRT_RENDER_BLOCKED);
+  neuralRT2->GetExecutionTime("Render_internal", timings[2]);
+
   neuralRT2->Render(image_5.data(), image_5.width(), image_5.height(), m1, m2, NEURALRT_RENDER_COOP_MATRICES);
+  neuralRT2->GetExecutionTime("Render_internal", timings[3]);
 
   LiteImage::SaveImage<uint32_t>("saves/test_7_default.bmp", image_1); 
   LiteImage::SaveImage<uint32_t>("saves/test_7_NeuralRT_CPU.bmp", image_2); 
@@ -581,6 +590,9 @@ void test_7_neural_SDF()
     printf("passed    (%.2f)\n", psnr_4);
   else
     printf("FAILED, psnr = %f\n", psnr_4);
+
+  printf("timings: reference = %f; default = %f; blocked = %f; coop matrices = %f\n", 
+         timings[0][0], timings[1][0], timings[2][0], timings[3][0]);
 }
 
 void perform_tests_litert(const std::vector<int> &test_ids)
