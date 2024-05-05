@@ -54,7 +54,10 @@ protected:
   template<uint bsize> 
   void kernelBE1D_CoopMatricesSphereTracing(uint32_t* imageData, uint blockNum); 
 
-  void kernel1D_SimpleSphereTracing(uint32_t* imageData, uint blockNum);
+  virtual void kernel1D_SimpleSphereTracing(uint32_t* imageData, uint blockNum);
+
+  virtual void Render_internal(uint32_t* imageData [[size("a_width*a_height")]], uint32_t a_width, uint32_t a_height, 
+                               uint32_t a_renderType, int a_passNum);
 
   std::vector<NeuralProperties> m_SdfNeuralProperties;
   std::vector<float> m_SdfNeuralData;

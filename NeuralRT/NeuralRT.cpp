@@ -217,16 +217,9 @@ void NeuralRT::kernel1D_SimpleSphereTracing(uint32_t *imageData, uint blockNum)
       imageData[y * m_width + x] = 0xFF000000;
   }
 }
-
-void NeuralRT::Render(uint32_t* imageData, uint32_t a_width, uint32_t a_height, 
-                      const float4x4 &a_worldView, const float4x4 &a_proj, 
-                      uint32_t a_renderType, int a_passNum)
+void NeuralRT::Render_internal(uint32_t* imageData, uint32_t a_width, uint32_t a_height, 
+                               uint32_t a_renderType, int a_passNum)
 {
-  m_width = a_width;
-  m_height = a_height;
-  m_projInv = inverse4x4(a_proj);
-  m_worldViewInv = inverse4x4(a_worldView);
-
   for (int i=0;i<a_passNum;i++)
     {
     switch (a_renderType)
@@ -252,6 +245,20 @@ NeuralRT::NeuralRT()
 
   m_SdfNeuralData.reserve(10000);
   m_SdfNeuralData.resize(0);
+}
+
+void NeuralRT::Render(uint32_t* imageData, uint32_t a_width, uint32_t a_height, 
+                      const float4x4 &a_worldView, const float4x4 &a_proj, 
+                      uint32_t a_renderType, int a_passNum)
+{
+  m_width = a_width;
+  m_height = a_height;
+  m_projInv = inverse4x4(a_proj);
+  m_worldViewInv = inverse4x4(a_worldView);
+
+  CommitDeviceData();
+
+  Render_internal(imageData, a_width, a_height, a_renderType, a_passNum);
 }
 
 uint32_t NeuralRT::AddGeom_NeuralSdf(NeuralProperties neural_properties, float *data, BuildOptions a_qualityLevel)
