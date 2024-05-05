@@ -28,6 +28,7 @@ using LiteMath::Box4f;
 #include "../ISceneObject.h"
 
 static constexpr unsigned NEURALRT_BSIZE = 8;
+static constexpr unsigned NEURALRT_LAYER_SIZE = 64;
 
 //enum NeuralRTRenderType
 static constexpr unsigned NEURALRT_RENDER_SIMPLE        = 0;
