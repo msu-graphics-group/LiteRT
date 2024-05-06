@@ -516,7 +516,7 @@ auto t4 = std::chrono::steady_clock::now();
 void test_7_neural_SDF()
 {
   const char *scene_name = "scenes/02_sdf_scenes/sdf_neural.xml"; 
-  unsigned W = 256, H = 256;
+  unsigned W = 512, H = 512;
 
   MultiRenderPreset preset_1 = getDefaultPreset();
   preset_1.mode = MULTI_RENDER_MODE_LINEAR_DEPTH;
@@ -526,11 +526,24 @@ void test_7_neural_SDF()
   LiteImage::Image2D<uint32_t> image_3(W, H);
   LiteImage::Image2D<uint32_t> image_4(W, H);
   LiteImage::Image2D<uint32_t> image_5(W, H);
+  LiteImage::Image2D<uint32_t> image_6(W, H);
 
   auto pRender_1 = CreateMultiRenderer("GPU");
   pRender_1->SetPreset(preset_1);
   pRender_1->SetViewport(0,0,W,H);
   pRender_1->LoadSceneHydra((scenes_folder_path+scene_name).c_str());
+
+  ISdfSceneFunction *sdf_func = dynamic_cast<ISdfSceneFunction*>(pRender_1->GetAccelStruct().get());
+  SparseOctreeBuilder builder;
+  SparseOctreeSettings settings(SparseOctreeBuildType::DEFAULT, 7);
+  std::vector<SdfSVSNode> frame_nodes;
+
+  builder.construct([&sdf_func](const float3 &p) { return sdf_func->eval_distance(p); }, settings);
+  builder.convert_to_sparse_voxel_set(frame_nodes);
+
+  auto pRender_2 = CreateMultiRenderer("GPU");
+  pRender_2->SetPreset(preset_1);
+  pRender_2->SetScene({(unsigned)frame_nodes.size(), frame_nodes.data()});
 
   std::shared_ptr<NeuralRT> neuralRT1 = CreateNeuralRT("CPU");
   std::shared_ptr<NeuralRT> neuralRT2 = CreateNeuralRT("GPU");
@@ -541,7 +554,7 @@ void test_7_neural_SDF()
   auto m1 = pRender_1->getWorldView();
   auto m2 = pRender_1->getProj();
 
-  float timings[4][4];
+  float timings[5][4];
 
   pRender_1->Render(image_1.data(), image_1.width(), image_1.height(), m1, m2, preset_1);
   pRender_1->GetExecutionTime("CastRaySingleBlock", timings[0]);
@@ -556,16 +569,21 @@ void test_7_neural_SDF()
   neuralRT2->Render(image_5.data(), image_5.width(), image_5.height(), m1, m2, NEURALRT_RENDER_COOP_MATRICES);
   neuralRT2->GetExecutionTime("Render_internal", timings[3]);
 
+  pRender_2->Render(image_6.data(), image_6.width(), image_6.height(), m1, m2, preset_1);
+  pRender_2->GetExecutionTime("CastRaySingleBlock", timings[4]);
+
   LiteImage::SaveImage<uint32_t>("saves/test_7_default.bmp", image_1); 
   LiteImage::SaveImage<uint32_t>("saves/test_7_NeuralRT_CPU.bmp", image_2); 
   LiteImage::SaveImage<uint32_t>("saves/test_7_NeuralRT_GPU_default.bmp", image_3); 
   LiteImage::SaveImage<uint32_t>("saves/test_7_NeuralRT_GPU_blocked.bmp", image_4); 
   LiteImage::SaveImage<uint32_t>("saves/test_7_NeuralRT_GPU_coop_matrices.bmp", image_5); 
+  LiteImage::SaveImage<uint32_t>("saves/test_7_octree.bmp", image_6); 
 
   float psnr_1 = PSNR(image_1, image_2);
   float psnr_2 = PSNR(image_1, image_3);
   float psnr_3 = PSNR(image_1, image_4);
   float psnr_4 = PSNR(image_1, image_5);
+  float psnr_5 = PSNR(image_1, image_6);
   printf("TEST 7. NEURAL SDF rendering\n");
   printf("  7.1. %-64s", "default and NeuralRT CPU PSNR > 45 ");
   if (psnr_1 >= 45)
@@ -591,8 +609,14 @@ void test_7_neural_SDF()
   else
     printf("FAILED, psnr = %f\n", psnr_4);
 
-  printf("timings: reference = %f; default = %f; blocked = %f; coop matrices = %f\n", 
-         timings[0][0], timings[1][0], timings[2][0], timings[3][0]);
+  printf("  7.5. %-64s", "default and SDF octree PSNR > 25 ");
+  if (psnr_4 >= 45)
+    printf("passed    (%.2f)\n", psnr_4);
+  else
+    printf("FAILED, psnr = %f\n", psnr_4);
+
+  printf("timings: reference = %f; default = %f; blocked = %f; coop matrices = %f; octree = %f\n", 
+         timings[0][0], timings[1][0], timings[2][0], timings[3][0], timings[4][0]);
 }
 
 void litert_test_8_SDF_grid()
