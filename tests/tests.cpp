@@ -637,6 +637,44 @@ void litert_test_8_SDF_grid()
     printf("FAILED, psnr = %f\n", psnr);
 }
 
+void litert_test_9_mesh()
+{
+  //create renderers for SDF scene and mesh scene
+  const char *scene_name = "scenes/01_simple_scenes/teapot.xml";
+  unsigned W = 2048, H = 2048;
+
+  MultiRenderPreset preset = getDefaultPreset();
+  LiteImage::Image2D<uint32_t> image(W, H);
+  LiteImage::Image2D<uint32_t> ref_image(W, H);
+
+  auto pRenderRef = CreateMultiRenderer("CPU");
+  pRenderRef->SetPreset(preset);
+  pRenderRef->SetViewport(0,0,W,H);
+  pRenderRef->LoadSceneHydra((scenes_folder_path+scene_name).c_str());
+
+  auto pRender = CreateMultiRenderer("GPU");
+  pRender->SetPreset(preset);
+  pRender->SetViewport(0,0,W,H);
+  pRender->LoadSceneHydra((scenes_folder_path+scene_name).c_str());
+
+  auto m1 = pRender->getWorldView();
+  auto m2 = pRender->getProj();
+
+  pRender->Render(image.data(), image.width(), image.height(), m1, m2, preset);
+  pRenderRef->Render(ref_image.data(), ref_image.width(), ref_image.height(), m1, m2, preset);
+
+  LiteImage::SaveImage<uint32_t>("saves/test_9_res.bmp", image); 
+  LiteImage::SaveImage<uint32_t>("saves/test_9_ref.bmp", ref_image);
+
+  float psnr = PSNR(ref_image, image);
+  printf("TEST 9. Rendering simple mesh\n");
+  printf("  9.1. %-64s", "CPU and GPU render PSNR > 45 ");
+  if (psnr >= 45)
+    printf("passed    (%.2f)\n", psnr);
+  else
+    printf("FAILED, psnr = %f\n", psnr);
+}
+
 void perform_tests_litert(const std::vector<int> &test_ids)
 {
   std::vector<int> tests = test_ids;
@@ -644,7 +682,7 @@ void perform_tests_litert(const std::vector<int> &test_ids)
   std::vector<std::function<void(void)>> test_functions = {
       litert_test_1_framed_octree, litert_test_2_SVS, litert_test_3_SBS_verify,
       litert_test_4_hydra_scene, litert_test_5_interval_tracing, litert_test_6_faster_bvh_build,
-      test_7_neural_SDF, litert_test_8_SDF_grid};
+      test_7_neural_SDF, litert_test_8_SDF_grid, litert_test_9_mesh};
 
   if (tests.empty())
   {
