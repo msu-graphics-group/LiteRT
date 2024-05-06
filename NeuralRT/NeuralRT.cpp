@@ -1,6 +1,6 @@
 #include "NeuralRT.h"
 #include "../raytrace_common.h"
-#include "cbvh.h"
+#include "../BVH/cbvh.h"
 #include "../render_common.h"
 
 template<uint32_t bsize> 
