@@ -59,7 +59,7 @@
 </lights_lib>
 <cam_lib>
   <camera id="0" name="my camera" type="uvn">
-    <fov>45</fov>
+    <fov>60</fov>
     <nearClipPlane>0.01</nearClipPlane>
     <farClipPlane>100.0</farClipPlane>
     <up>0 1 0</up>

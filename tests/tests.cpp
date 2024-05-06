@@ -252,8 +252,7 @@ void litert_test_3_SBS_verify()
   {
     auto pRender = CreateMultiRenderer("CPU");
     pRender->SetPreset(preset);
-    pRender->SetScene({header_1_1, (unsigned)sbs_nodes_1_1.size(), sbs_nodes_1_1.data(), 
-                                   (unsigned)sbs_data_1_1.size(), sbs_data_1_1.data()});
+    pRender->SetScene(SdfSBSView(header_1_1, sbs_nodes_1_1, sbs_data_1_1));
 
     render(image, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset);
     LiteImage::SaveImage<uint32_t>("saves/test_3_SBS_1_1.bmp", image); 
@@ -275,8 +274,7 @@ void litert_test_3_SBS_verify()
   {
     auto pRender = CreateMultiRenderer("GPU");
     pRender->SetPreset(preset);
-    pRender->SetScene({header_1_1, (unsigned)sbs_nodes_1_1.size(), sbs_nodes_1_1.data(), 
-                                   (unsigned)sbs_data_1_1.size(), sbs_data_1_1.data()});
+    pRender->SetScene(SdfSBSView(header_1_1, sbs_nodes_1_1, sbs_data_1_1));
 
     render(image, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset);
     LiteImage::SaveImage<uint32_t>("saves/test_3_SBS_1_1.bmp", image); 
@@ -298,8 +296,7 @@ void litert_test_3_SBS_verify()
   {
     auto pRender = CreateMultiRenderer("GPU");
     pRender->SetPreset(preset);
-    pRender->SetScene({header_1_2, (unsigned)sbs_nodes_1_2.size(), sbs_nodes_1_2.data(), 
-                                   (unsigned)sbs_data_1_2.size(), sbs_data_1_2.data()});
+    pRender->SetScene(SdfSBSView(header_1_2, sbs_nodes_1_2, sbs_data_1_2));
 
     render(image, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset);
     LiteImage::SaveImage<uint32_t>("saves/test_3_SBS_1_2.bmp", image); 
@@ -314,8 +311,7 @@ void litert_test_3_SBS_verify()
   {
     auto pRender = CreateMultiRenderer("GPU");
     pRender->SetPreset(preset);
-    pRender->SetScene({header_2_1, (unsigned)sbs_nodes_2_1.size(), sbs_nodes_2_1.data(), 
-                                   (unsigned)sbs_data_2_1.size(), sbs_data_2_1.data()});
+    pRender->SetScene(SdfSBSView(header_2_1, sbs_nodes_2_1, sbs_data_2_1));
 
     render(image, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset);
     LiteImage::SaveImage<uint32_t>("saves/test_3_SBS_2_1.bmp", image); 
@@ -330,8 +326,7 @@ void litert_test_3_SBS_verify()
   {
     auto pRender = CreateMultiRenderer("GPU");
     pRender->SetPreset(preset);
-    pRender->SetScene({header_2_2, (unsigned)sbs_nodes_2_2.size(), sbs_nodes_2_2.data(), 
-                                   (unsigned)sbs_data_2_2.size(), sbs_data_2_2.data()});
+    pRender->SetScene(SdfSBSView(header_2_2, sbs_nodes_2_2, sbs_data_2_2));
 
     render(image, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset);
     LiteImage::SaveImage<uint32_t>("saves/test_3_SBS_2_2.bmp", image); 
@@ -699,6 +694,126 @@ void litert_test_9_mesh()
     printf("FAILED, psnr = %f\n", psnr);
 }
 
+// save and load octrees of all types
+void litert_test_10_save_load()
+{
+  auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "scenes/01_simple_scenes/data/teapot.vsgf").c_str());
+
+  float3 mb1, mb2, ma1, ma2;
+  cmesh4::get_bbox(mesh, &mb1, &mb2);
+  cmesh4::rescale_mesh(mesh, float3(-0.9, -0.9, -0.9), float3(0.9, 0.9, 0.9));
+  cmesh4::get_bbox(mesh, &ma1, &ma2);
+
+  printf("total triangles %d\n", (int)mesh.TrianglesNum());
+  printf("bbox [(%f %f %f)-(%f %f %f)] to [(%f %f %f)-(%f %f %f)]\n",
+         mb1.x, mb1.y, mb1.z, mb2.x, mb2.y, mb2.z, ma1.x, ma1.y, ma1.z, ma2.x, ma2.y, ma2.z);
+  MeshBVH mesh_bvh;
+  mesh_bvh.init(mesh);
+
+  {
+    SparseOctreeBuilder builder;
+    SparseOctreeSettings settings(SparseOctreeBuildType::DEFAULT, 7);
+
+    std::vector<SdfOctreeNode> octree_nodes;
+    std::vector<SdfFrameOctreeNode> frame_nodes;
+    std::vector<SdfSVSNode> svs_nodes;
+    SdfSBS sbs;
+    sbs.header = SdfSBSHeader{1, 0, 1, 2};
+
+    builder.construct([&mesh_bvh](const float3 &p)
+                      { return mesh_bvh.get_signed_distance(p); },
+                      settings);
+    octree_nodes = builder.get_nodes();
+    builder.convert_to_frame_octree(frame_nodes);
+    builder.convert_to_sparse_voxel_set(svs_nodes);
+    builder.convert_to_sparse_brick_set(sbs.header, sbs.nodes, sbs.values);
+
+    save_sdf_octree({(unsigned)octree_nodes.size(), octree_nodes.data()}, "saves/test_10_octree.bin");
+    save_sdf_frame_octree({(unsigned)frame_nodes.size(), frame_nodes.data()}, "saves/test_10_frame_octree.bin");
+    save_sdf_SVS({(unsigned)svs_nodes.size(), svs_nodes.data()}, "saves/test_10_svs.bin");
+    save_sdf_SBS(sbs, "saves/test_10_sbs.bin");
+  }
+
+  std::vector<SdfOctreeNode> octree_nodes;
+  std::vector<SdfFrameOctreeNode> frame_nodes;
+  std::vector<SdfSVSNode> svs_nodes;
+  SdfSBS sbs;
+
+  load_sdf_octree(octree_nodes, "saves/test_10_octree.bin");
+  load_sdf_frame_octree(frame_nodes, "saves/test_10_frame_octree.bin");
+  load_sdf_SVS(svs_nodes, "saves/test_10_svs.bin");
+  load_sdf_SBS(sbs, "saves/test_10_sbs.bin");
+
+  unsigned W = 1024, H = 1024;
+  MultiRenderPreset preset = getDefaultPreset();
+  preset.mode = MULTI_RENDER_MODE_LAMBERT;
+  preset.sdf_octree_sampler = SDF_OCTREE_SAMPLER_MIPSKIP_3X3;
+
+  LiteImage::Image2D<uint32_t> image_ref(W, H);
+  auto pRender_ref = CreateMultiRenderer("GPU");
+  pRender_ref->SetPreset(preset);
+  pRender_ref->LoadSceneHydra("scenes/01_simple_scenes/teapot.xml");
+  render(image_ref, pRender_ref, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+  LiteImage::SaveImage<uint32_t>("saves/test_10_ref.bmp", image_ref);
+
+  LiteImage::Image2D<uint32_t> image_1(W, H);
+  auto pRender_1 = CreateMultiRenderer("GPU");
+  pRender_1->SetPreset(preset);
+  pRender_1->SetScene({(unsigned)octree_nodes.size(), octree_nodes.data()});
+  render(image_1, pRender_1, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+  LiteImage::SaveImage<uint32_t>("saves/test_10_octree.bmp", image_1);
+
+  LiteImage::Image2D<uint32_t> image_2(W, H);
+  auto pRender_2 = CreateMultiRenderer("GPU");
+  pRender_2->SetPreset(preset);
+  pRender_2->SetScene({(unsigned)frame_nodes.size(), frame_nodes.data()});
+  render(image_2, pRender_2, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+  LiteImage::SaveImage<uint32_t>("saves/test_10_frame_octree.bmp", image_2);
+
+  LiteImage::Image2D<uint32_t> image_3(W, H);
+  auto pRender_3 = CreateMultiRenderer("GPU");
+  pRender_3->SetPreset(preset);
+  pRender_3->SetScene({(unsigned)svs_nodes.size(), svs_nodes.data()});
+  render(image_3, pRender_3, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+  LiteImage::SaveImage<uint32_t>("saves/test_10_svs.bmp", image_3);
+
+  LiteImage::Image2D<uint32_t> image_4(W, H);
+  auto pRender_4 = CreateMultiRenderer("GPU");
+  pRender_4->SetPreset(preset);
+  pRender_4->SetScene(sbs);
+  render(image_4, pRender_4, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+  LiteImage::SaveImage<uint32_t>("saves/test_10_sbs.bmp", image_4);
+
+  float psnr_1 = PSNR(image_1, image_1);
+  float psnr_2 = PSNR(image_1, image_2);
+  float psnr_3 = PSNR(image_1, image_3);
+  float psnr_4 = PSNR(image_1, image_4);
+
+  printf(" 10.1. %-64s", "SDF Octree ");
+  if (psnr_1 >= 25)
+    printf("passed    (%.2f)\n", psnr_1);
+  else
+    printf("FAILED, psnr = %f\n", psnr_1);
+
+  printf(" 10.2. %-64s", "SDF Framed Octree ");
+  if (psnr_2 >= 25)
+    printf("passed    (%.2f)\n", psnr_2);
+  else
+    printf("FAILED, psnr = %f\n", psnr_2);
+
+  printf(" 10.3. %-64s", "SDF Sparse Voxel Set ");
+  if (psnr_3 >= 25)
+    printf("passed    (%.2f)\n", psnr_3);
+  else
+    printf("FAILED, psnr = %f\n", psnr_3);
+
+  printf(" 10.4. %-64s", "SDF Sparse Brick Set ");
+  if (psnr_4 >= 25)
+    printf("passed    (%.2f)\n", psnr_4);
+  else
+    printf("FAILED, psnr = %f\n", psnr_4);
+}
+
 void perform_tests_litert(const std::vector<int> &test_ids)
 {
   std::vector<int> tests = test_ids;
@@ -706,7 +821,8 @@ void perform_tests_litert(const std::vector<int> &test_ids)
   std::vector<std::function<void(void)>> test_functions = {
       litert_test_1_framed_octree, litert_test_2_SVS, litert_test_3_SBS_verify,
       litert_test_4_hydra_scene, litert_test_5_interval_tracing, litert_test_6_faster_bvh_build,
-      test_7_neural_SDF, litert_test_8_SDF_grid, litert_test_9_mesh};
+      test_7_neural_SDF, litert_test_8_SDF_grid, litert_test_9_mesh, 
+      litert_test_10_save_load};
 
   if (tests.empty())
   {

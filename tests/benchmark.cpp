@@ -177,7 +177,7 @@ void benchmark_framed_octree_intersection()
           else if (AS_types[as_n] == TYPE_MESH_TRIANGLE) 
             pRender->SetScene(mesh);
           else if (AS_types[as_n] == TYPE_SDF_SBS)
-            pRender->SetScene({header, (unsigned)sbs_nodes.size(), sbs_nodes.data(), (unsigned)sbs_data.size(), sbs_data.data()});
+            pRender->SetScene(SdfSBSView(header, sbs_nodes, sbs_data));
 
           double sum_ms[4] = {0,0,0,0};
           double min_ms[4] = {1e6,1e6,1e6,1e6};

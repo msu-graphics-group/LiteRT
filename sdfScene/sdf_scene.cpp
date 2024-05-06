@@ -44,6 +44,107 @@ void load_sdf_scene(SdfScene &scene, const std::string &path)
   fs.close();
 }
 
+void save_sdf_grid(const SdfGridView &scene, const std::string &path)
+{
+  std::ofstream fs(path, std::ios::binary);
+  fs.write((const char *)&scene.size, 3 * sizeof(unsigned));
+  fs.write((const char *)scene.data, scene.size.x*scene.size.y*scene.size.z * sizeof(float));
+  fs.flush();
+  fs.close();
+}
+
+void load_sdf_grid(SdfGrid &scene, const std::string &path)
+{
+  std::ifstream fs(path, std::ios::binary);
+  fs.read((char *)&scene.size, 3 * sizeof(unsigned));
+  scene.data.resize(scene.size.x*scene.size.y*scene.size.z);
+  fs.read((char *)scene.data.data(), scene.size.x*scene.size.y*scene.size.z * sizeof(float));
+  fs.close();
+}
+
+void save_sdf_octree(const SdfOctreeView &scene, const std::string &path)
+{
+  std::ofstream fs(path, std::ios::binary);
+  fs.write((const char *)&scene.size, sizeof(unsigned));
+  fs.write((const char *)scene.nodes, scene.size * sizeof(SdfOctreeNode));
+  fs.flush();
+  fs.close();
+}
+
+void load_sdf_octree(std::vector<SdfOctreeNode> &scene, const std::string &path)
+{
+  std::ifstream fs(path, std::ios::binary);
+  unsigned sz = 0;
+  fs.read((char *)&sz, sizeof(unsigned));
+  scene.resize(sz);
+  fs.read((char *)scene.data(), scene.size() * sizeof(SdfOctreeNode));
+  fs.close();
+}
+
+void save_sdf_frame_octree(const SdfFrameOctreeView &scene, const std::string &path)
+{
+  std::ofstream fs(path, std::ios::binary);
+  fs.write((const char *)&scene.size, sizeof(unsigned));
+  fs.write((const char *)scene.nodes, scene.size * sizeof(SdfFrameOctreeNode));
+  fs.flush();
+  fs.close();
+}
+
+void load_sdf_frame_octree(std::vector<SdfFrameOctreeNode> &scene, const std::string &path)
+{
+  std::ifstream fs(path, std::ios::binary);
+  unsigned sz = 0;
+  fs.read((char *)&sz, sizeof(unsigned));
+  scene.resize(sz);
+  fs.read((char *)scene.data(), scene.size() * sizeof(SdfFrameOctreeNode));
+  fs.close();
+}
+
+void save_sdf_SVS(const SdfSVSView &scene, const std::string &path)
+{
+  std::ofstream fs(path, std::ios::binary);
+  fs.write((const char *)&scene.size, sizeof(unsigned));
+  fs.write((const char *)scene.nodes, scene.size * sizeof(SdfSVSNode));
+  fs.flush();
+  fs.close();
+}
+
+void load_sdf_SVS(std::vector<SdfSVSNode> &scene, const std::string &path)
+{
+  std::ifstream fs(path, std::ios::binary);
+  unsigned sz = 0;
+  fs.read((char *)&sz, sizeof(unsigned));
+  scene.resize(sz);
+  fs.read((char *)scene.data(), scene.size() * sizeof(SdfSVSNode));
+  fs.close();
+}
+
+void save_sdf_SBS(const SdfSBSView &scene, const std::string &path)
+{
+  std::ofstream fs(path, std::ios::binary);
+  fs.write((const char *)&scene.header, sizeof(SdfSBSHeader));
+  fs.write((const char *)&scene.size, sizeof(unsigned));
+  fs.write((const char *)scene.nodes, scene.size * sizeof(SdfSBSNode));
+  fs.write((const char *)&scene.values_count, sizeof(unsigned));
+  fs.write((const char *)scene.values, scene.values_count * sizeof(unsigned));
+  fs.flush();
+  fs.close();
+}
+
+void  load_sdf_SBS(SdfSBS &scene, const std::string &path)
+{
+  std::ifstream fs(path, std::ios::binary);
+  fs.read((char *)&scene.header, sizeof(SdfSBSHeader));
+  unsigned sz, cnt;
+  fs.read((char *)&sz, sizeof(unsigned));
+  scene.nodes.resize(sz);
+  fs.read((char *)scene.nodes.data(), sz * sizeof(SdfSBSNode));
+  fs.read((char *)&cnt, sizeof(unsigned));
+  scene.values.resize(cnt);
+  fs.read((char *)scene.values.data(), cnt * sizeof(unsigned));
+  fs.close();
+}
+
 void load_neural_sdf_scene_SIREN(SdfScene &scene, const std::string &path)
 {
   constexpr unsigned layers = 4;

@@ -127,8 +127,40 @@ struct SdfSBSHeader
 //################################################################################
 #ifndef KERNEL_SLICER
 
+struct SdfGrid
+{
+  uint3 size;
+  std::vector<float> data; //size.x*size.y*size.z values 
+};
+
+struct SdfSBS
+{
+  SdfSBSHeader header;
+  std::vector<SdfSBSNode> nodes;
+  std::vector<uint32_t> values;
+};
+
+// structure to actually store SdfScene data
+struct SdfScene
+{
+  std::vector<float> parameters;
+  std::vector<SdfObject> objects;
+  std::vector<SdfConjunction> conjunctions;
+  std::vector<NeuralProperties> neural_properties;
+};
 struct SdfGridView
 {
+  SdfGridView() = default;
+  SdfGridView(const SdfGrid &grid)
+  {
+    size = grid.size;
+    data = grid.data.data();
+  }
+  SdfGridView(uint3 a_size, const std::vector<float> &a_data)
+  {
+    size = a_size;
+    data = a_data.data();
+  }
   uint3 size;
   const float *data; //size.x*size.y*size.z values 
 };
@@ -153,20 +185,30 @@ struct SdfSVSView
 
 struct SdfSBSView
 {
+  SdfSBSView() = default;
+  SdfSBSView(const SdfSBS &sbs)
+  {
+    header = sbs.header;
+    size = sbs.nodes.size();
+    nodes = sbs.nodes.data();
+    values_count = sbs.values.size();
+    values = sbs.values.data();
+  }
+  SdfSBSView(SdfSBSHeader a_header, const std::vector<SdfSBSNode> &a_nodes, 
+             const std::vector<uint32_t> &a_values)
+  {
+    header = a_header;
+    size = a_nodes.size();
+    nodes = a_nodes.data();
+    values_count = a_values.size();
+    values = a_values.data();
+  }
+
   SdfSBSHeader header;
   unsigned size;
-  SdfSBSNode *nodes;
+  const SdfSBSNode *nodes;
   unsigned values_count;
-  uint32_t *values;
-};
-
-// structure to actually store SdfScene data
-struct SdfScene
-{
-  std::vector<float> parameters;
-  std::vector<SdfObject> objects;
-  std::vector<SdfConjunction> conjunctions;
-  std::vector<NeuralProperties> neural_properties;
+  const uint32_t *values;
 };
 
 // structure to access and transfer SdfScene data
@@ -249,5 +291,21 @@ std::shared_ptr<ISdfGridFunction> get_SdfGridFunction(SdfGridView scene);
 void save_sdf_scene_hydra(const SdfScene &scene, const std::string &folder, const std::string &name);
 void save_sdf_scene(const SdfScene &scene, const std::string &path);
 void load_sdf_scene(SdfScene &scene, const std::string &path);
+
+void save_sdf_grid(const SdfGridView &scene, const std::string &path);
+void load_sdf_grid(SdfGrid &scene, const std::string &path);
+
+void save_sdf_octree(const SdfOctreeView &scene, const std::string &path);
+void load_sdf_octree(std::vector<SdfOctreeNode> &scene, const std::string &path);
+
+void save_sdf_frame_octree(const SdfFrameOctreeView &scene, const std::string &path);
+void load_sdf_frame_octree(std::vector<SdfFrameOctreeNode> &scene, const std::string &path);
+
+void save_sdf_SVS(const SdfSVSView &scene, const std::string &path);
+void load_sdf_SVS(std::vector<SdfSVSNode> &scene, const std::string &path);
+
+void save_sdf_SBS(const SdfSBSView &scene, const std::string &path);
+void load_sdf_SBS(SdfSBS &scene, const std::string &path);
+
 void load_neural_sdf_scene_SIREN(SdfScene &scene, const std::string &path); // loads scene from raw SIREN weights file
 #endif

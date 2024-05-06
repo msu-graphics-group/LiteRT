@@ -139,7 +139,7 @@ bool MultiRenderer::LoadSceneHydra(const std::string& a_path, unsigned type, Spa
             }
           }
 
-          m_pAccelStruct->AddGeom_SdfGrid({uint3(sz,sz,sz), data.data()});
+          m_pAccelStruct->AddGeom_SdfGrid(SdfGridView(uint3(sz,sz,sz), data));
         }
           break;
         default:
@@ -154,6 +154,41 @@ bool MultiRenderer::LoadSceneHydra(const std::string& a_path, unsigned type, Spa
       SdfScene scene;
       load_sdf_scene(scene, dir);
       m_pAccelStruct->AddGeom_SdfScene(scene);
+    }
+    else if (name == "sdf_grid")
+    {
+      std::cout << "[LoadScene]: sdf grid = " << dir.c_str() << std::endl;
+      SdfGrid scene;
+      load_sdf_grid(scene, dir);
+      m_pAccelStruct->AddGeom_SdfGrid(scene);
+    }
+    else if (name == "sdf_octree")
+    {
+      std::cout << "[LoadScene]: sdf octree = " << dir.c_str() << std::endl;
+      std::vector<SdfOctreeNode> scene;
+      load_sdf_octree(scene, dir);
+      m_pAccelStruct->AddGeom_SdfOctree({(unsigned)scene.size(), scene.data()});
+    }
+    else if (name == "sdf_frame_octree")
+    {
+      std::cout << "[LoadScene]: sdf frame octree = " << dir.c_str() << std::endl;
+      std::vector<SdfFrameOctreeNode> scene;
+      load_sdf_frame_octree(scene, dir);
+      m_pAccelStruct->AddGeom_SdfFrameOctree({(unsigned)scene.size(), scene.data()});
+    }
+    else if (name == "sdf_svs")
+    {
+      std::cout << "[LoadScene]: sdf svs = " << dir.c_str() << std::endl;
+      std::vector<SdfSVSNode> scene;
+      load_sdf_SVS(scene, dir);
+      m_pAccelStruct->AddGeom_SdfSVS({(unsigned)scene.size(), scene.data()});
+    }
+    else if (name == "sdf_sbs")
+    {
+      std::cout << "[LoadScene]: sdf sbs = " << dir.c_str() << std::endl;
+      SdfSBS scene;
+      load_sdf_SBS(scene, dir);
+      m_pAccelStruct->AddGeom_SdfSBS(scene);
     }
     else if (name == "nsdf")
     {
