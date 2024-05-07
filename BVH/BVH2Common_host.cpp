@@ -1449,6 +1449,10 @@ std::vector<BVHNode> BVHRT::GetBoxes_RFGrid(RFScene grid, std::vector<float>& sp
         node.boxMax = float3((float)(x + 1) / (float)(grid.size), (float)(y + 1) / (float)(grid.size), (float)(z + 1) / (float)(grid.size));
 
         if (getDensity(node) > 0.0f) {
+          auto addCell = [&](uint3 coords) {
+            addToVector(sparseGrid, &grid.data[28 * (coords[0] + coords[1] * grid.size + coords[2] * grid.size * grid.size)]);
+          };
+
           auto addPointer = [&](uint3 coords) {
             hashableFloat3 spaceCoords = {(float)coords[0] / (float) (grid.size - 1), (float)coords[1] / (float) (grid.size - 1), (float)coords[2] / (float) (grid.size - 1)};
             if (coordsToIdx.find(spaceCoords) == coordsToIdx.end()) {
@@ -1458,20 +1462,32 @@ std::vector<BVHNode> BVHRT::GetBoxes_RFGrid(RFScene grid, std::vector<float>& sp
             return coordsToIdx[spaceCoords];
           };
 
-          uint4 ptrs;
-          ptrs[0] = addPointer(uint3(x, y, z));
-          ptrs[1] = addPointer(uint3(x + 1, y, z));
-          ptrs[2] = addPointer(uint3(x, y + 1, z));
-          ptrs[3] = addPointer(uint3(x, y, z + 1));
+          if (!saveMemory) {
+            addCell(uint3(x, y, z));
+            addCell(uint3(x + 1, y, z));
+            addCell(uint3(x, y + 1, z));
+            addCell(uint3(x, y, z + 1));
 
-          sparsePtrs.push_back(ptrs);
+            addCell(uint3(x + 1, y + 1, z));
+            addCell(uint3(x, y + 1, z + 1));
+            addCell(uint3(x + 1, y, z + 1));
+            addCell(uint3(x + 1, y + 1, z + 1));
+          } else {
+            uint4 ptrs;
+            ptrs[0] = addPointer(uint3(x, y, z));
+            ptrs[1] = addPointer(uint3(x + 1, y, z));
+            ptrs[2] = addPointer(uint3(x, y + 1, z));
+            ptrs[3] = addPointer(uint3(x, y, z + 1));
 
-          ptrs[0] = addPointer(uint3(x + 1, y + 1, z));
-          ptrs[1] = addPointer(uint3(x, y + 1, z + 1));
-          ptrs[2] = addPointer(uint3(x + 1, y, z + 1));
-          ptrs[3] = addPointer(uint3(x + 1, y + 1, z + 1));
+            sparsePtrs.push_back(ptrs);
 
-          sparsePtrs.push_back(ptrs);
+            ptrs[0] = addPointer(uint3(x + 1, y + 1, z));
+            ptrs[1] = addPointer(uint3(x, y + 1, z + 1));
+            ptrs[2] = addPointer(uint3(x + 1, y, z + 1));
+            ptrs[3] = addPointer(uint3(x + 1, y + 1, z + 1));
+
+            sparsePtrs.push_back(ptrs);
+          }
 
           nodes.push_back(node);
         }

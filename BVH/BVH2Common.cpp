@@ -781,7 +781,22 @@ void BVHRT::IntersectRFInLeaf(const float3 ray_pos, const float3 ray_dir,
   float throughput = pHit->coords[0];
   float3 colour = float3(pHit->coords[1], pHit->coords[2], pHit->coords[3]);
 
-  RayGridIntersection(ray_dir, m_RFGridSizes[0], p, float3(0.0f), m_RFGridPtrs[2 * a_start], m_RFGridPtrs[2 * a_start + 1], throughput, colour);
+  if (!saveMemory) {
+    uint4 ptrs;
+    ptrs[0] = 8 * a_start;
+    ptrs[1] = 8 * a_start + 1;
+    ptrs[2] = 8 * a_start + 2;
+    ptrs[3] = 8 * a_start + 3;
+
+    uint4 ptrs2;
+    ptrs2[0] = 8 * a_start + 4;
+    ptrs2[1] = 8 * a_start + 5;
+    ptrs2[2] = 8 * a_start + 6;
+    ptrs2[3] = 8 * a_start + 7;
+
+    RayGridIntersection(ray_dir, m_RFGridSizes[0], p, float3(0.0f), ptrs, ptrs2, throughput, colour);
+  } else
+    RayGridIntersection(ray_dir, m_RFGridSizes[0], p, float3(0.0f), m_RFGridPtrs[2 * a_start], m_RFGridPtrs[2 * a_start + 1], throughput, colour);
   
   // std::cout << throughput << std::endl;
 
@@ -1377,7 +1392,7 @@ void BVHRT::BVH2TraverseF32(const float3 ray_pos, const float3 ray_dir, float tN
   uint32_t leftNodeOffset = 0;
 
   const float3 rayDirInv = SafeInverse(ray_dir);
-  while (top >= 0 && !(stopOnFirstHit && pHit->primId != uint32_t(-1)))
+  while (top >= 0 && !(stopOnFirstHit && pHit->primId != uint32_t(-1)) && pHit->coords[0] > 0.01f)
   {
     while (top >= 0 && ((leftNodeOffset & LEAF_BIT) == 0))
     {
@@ -1496,7 +1511,7 @@ CRT_Hit BVHRT::RayQuery_NearestHit(float4 posAndNear, float4 dirAndFar)
     
         BVH2TraverseF32(ray_pos, ray_dir, posAndNear.w, instId, geomId, stack, stopOnFirstHit, &hit);
       }
-    } while (nodeIdx < 0xFFFFFFFE && !(stopOnFirstHit && hit.primId != uint32_t(-1))); //
+    } while (nodeIdx < 0xFFFFFFFE && !(stopOnFirstHit && hit.primId != uint32_t(-1)) && hit.coords[0] > 0.01f); //
   }
 
   if(hit.geomId < uint32_t(-1) && ((hit.geomId >> SH_TYPE) == TYPE_MESH_TRIANGLE)) 
