@@ -1462,7 +1462,7 @@ std::vector<BVHNode> BVHRT::GetBoxes_RFGrid(RFScene grid, std::vector<float>& sp
             return coordsToIdx[spaceCoords];
           };
 
-          if (!saveMemory) {
+          if (true) {
             addCell(uint3(x, y, z));
             addCell(uint3(x + 1, y, z));
             addCell(uint3(x, y + 1, z));

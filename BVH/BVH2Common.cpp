@@ -781,7 +781,7 @@ void BVHRT::IntersectRFInLeaf(const float3 ray_pos, const float3 ray_dir,
   float throughput = pHit->coords[0];
   float3 colour = float3(pHit->coords[1], pHit->coords[2], pHit->coords[3]);
 
-  if (!saveMemory) {
+  if (true) {
     uint4 ptrs;
     ptrs[0] = 8 * a_start;
     ptrs[1] = 8 * a_start + 1;
