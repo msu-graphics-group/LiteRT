@@ -99,6 +99,405 @@ void BVHRT::ClearGeom()
   m_RFGridScales.reserve(16);  
   m_RFGridScales.resize(0);
 
+  m_gs_x.reserve(16);
+  m_gs_x.resize(0);
+
+  m_gs_y.reserve(16);
+  m_gs_y.resize(0);
+
+  m_gs_z.reserve(16);
+  m_gs_z.resize(0);
+
+  m_gs_nx.reserve(16);
+  m_gs_nx.resize(0);
+
+  m_gs_ny.reserve(16);
+  m_gs_ny.resize(0);
+
+  m_gs_nz.reserve(16);
+  m_gs_nz.resize(0);
+
+  m_gs_f_dc_0.reserve(16);
+  m_gs_f_dc_0.resize(0);
+
+  m_gs_f_dc_1.reserve(16);
+  m_gs_f_dc_1.resize(0);
+
+  m_gs_f_dc_2.reserve(16);
+  m_gs_f_dc_2.resize(0);
+
+  m_gs_f_rest_0.reserve(16);
+  m_gs_f_rest_0.resize(0);
+
+  m_gs_f_rest_1.reserve(16);
+  m_gs_f_rest_1.resize(0);
+
+  m_gs_f_rest_2.reserve(16);
+  m_gs_f_rest_2.resize(0);
+
+  m_gs_f_rest_3.reserve(16);
+  m_gs_f_rest_3.resize(0);
+
+  m_gs_f_rest_4.reserve(16);
+  m_gs_f_rest_4.resize(0);
+
+  m_gs_f_rest_5.reserve(16);
+  m_gs_f_rest_5.resize(0);
+
+  m_gs_f_rest_6.reserve(16);
+  m_gs_f_rest_6.resize(0);
+
+  m_gs_f_rest_7.reserve(16);
+  m_gs_f_rest_7.resize(0);
+
+  m_gs_f_rest_8.reserve(16);
+  m_gs_f_rest_8.resize(0);
+
+  m_gs_f_rest_9.reserve(16);
+  m_gs_f_rest_9.resize(0);
+
+  m_gs_f_rest_10.reserve(16);
+  m_gs_f_rest_10.resize(0);
+
+  m_gs_f_rest_11.reserve(16);
+  m_gs_f_rest_11.resize(0);
+
+  m_gs_f_rest_12.reserve(16);
+  m_gs_f_rest_12.resize(0);
+
+  m_gs_f_rest_13.reserve(16);
+  m_gs_f_rest_13.resize(0);
+
+  m_gs_f_rest_14.reserve(16);
+  m_gs_f_rest_14.resize(0);
+
+  m_gs_f_rest_15.reserve(16);
+  m_gs_f_rest_15.resize(0);
+
+  m_gs_f_rest_16.reserve(16);
+  m_gs_f_rest_16.resize(0);
+
+  m_gs_f_rest_17.reserve(16);
+  m_gs_f_rest_17.resize(0);
+
+  m_gs_f_rest_18.reserve(16);
+  m_gs_f_rest_18.resize(0);
+
+  m_gs_f_rest_19.reserve(16);
+  m_gs_f_rest_19.resize(0);
+
+  m_gs_f_rest_20.reserve(16);
+  m_gs_f_rest_20.resize(0);
+
+  m_gs_f_rest_21.reserve(16);
+  m_gs_f_rest_21.resize(0);
+
+  m_gs_f_rest_22.reserve(16);
+  m_gs_f_rest_22.resize(0);
+
+  m_gs_f_rest_23.reserve(16);
+  m_gs_f_rest_23.resize(0);
+
+  m_gs_f_rest_24.reserve(16);
+  m_gs_f_rest_24.resize(0);
+
+  m_gs_f_rest_25.reserve(16);
+  m_gs_f_rest_25.resize(0);
+
+  m_gs_f_rest_26.reserve(16);
+  m_gs_f_rest_26.resize(0);
+
+  m_gs_f_rest_27.reserve(16);
+  m_gs_f_rest_27.resize(0);
+
+  m_gs_f_rest_28.reserve(16);
+  m_gs_f_rest_28.resize(0);
+
+  m_gs_f_rest_29.reserve(16);
+  m_gs_f_rest_29.resize(0);
+
+  m_gs_f_rest_30.reserve(16);
+  m_gs_f_rest_30.resize(0);
+
+  m_gs_f_rest_31.reserve(16);
+  m_gs_f_rest_31.resize(0);
+
+  m_gs_f_rest_32.reserve(16);
+  m_gs_f_rest_32.resize(0);
+
+  m_gs_f_rest_33.reserve(16);
+  m_gs_f_rest_33.resize(0);
+
+  m_gs_f_rest_34.reserve(16);
+  m_gs_f_rest_34.resize(0);
+
+  m_gs_f_rest_35.reserve(16);
+  m_gs_f_rest_35.resize(0);
+
+  m_gs_f_rest_36.reserve(16);
+  m_gs_f_rest_36.resize(0);
+
+  m_gs_f_rest_37.reserve(16);
+  m_gs_f_rest_37.resize(0);
+
+  m_gs_f_rest_38.reserve(16);
+  m_gs_f_rest_38.resize(0);
+
+  m_gs_f_rest_39.reserve(16);
+  m_gs_f_rest_39.resize(0);
+
+  m_gs_f_rest_40.reserve(16);
+  m_gs_f_rest_40.resize(0);
+
+  m_gs_f_rest_41.reserve(16);
+  m_gs_f_rest_41.resize(0);
+
+  m_gs_f_rest_42.reserve(16);
+  m_gs_f_rest_42.resize(0);
+
+  m_gs_f_rest_43.reserve(16);
+  m_gs_f_rest_43.resize(0);
+
+  m_gs_f_rest_44.reserve(16);
+  m_gs_f_rest_44.resize(0);
+
+  m_gs_opacity.reserve(16);
+  m_gs_opacity.resize(0);
+
+  m_gs_scale_0.reserve(16);
+  m_gs_scale_0.resize(0);
+
+  m_gs_scale_1.reserve(16);
+  m_gs_scale_1.resize(0);
+
+  m_gs_scale_2.reserve(16);
+  m_gs_scale_2.resize(0);
+
+  m_gs_rot_0.reserve(16);
+  m_gs_rot_0.resize(0);
+
+  m_gs_rot_1.reserve(16);
+  m_gs_rot_1.resize(0);
+
+  m_gs_rot_2.reserve(16);
+  m_gs_rot_2.resize(0);
+
+  m_gs_rot_3.reserve(16);
+  m_gs_rot_3.resize(0);
+
+  m_gs_base_color_0.reserve(16);
+  m_gs_base_color_0.resize(0);
+
+  m_gs_base_color_1.reserve(16);
+  m_gs_base_color_1.resize(0);
+
+  m_gs_base_color_2.reserve(16);
+  m_gs_base_color_2.resize(0);
+
+  m_gs_roughness.reserve(16);
+  m_gs_roughness.resize(0);
+
+  m_gs_metallic.reserve(16);
+  m_gs_metallic.resize(0);
+
+  m_gs_incidents_dc_0.reserve(16);
+  m_gs_incidents_dc_0.resize(0);
+
+  m_gs_incidents_dc_1.reserve(16);
+  m_gs_incidents_dc_1.resize(0);
+
+  m_gs_incidents_dc_2.reserve(16);
+  m_gs_incidents_dc_2.resize(0);
+
+  m_gs_incidents_rest_0.reserve(16);
+  m_gs_incidents_rest_0.resize(0);
+
+  m_gs_incidents_rest_1.reserve(16);
+  m_gs_incidents_rest_1.resize(0);
+
+  m_gs_incidents_rest_2.reserve(16);
+  m_gs_incidents_rest_2.resize(0);
+
+  m_gs_incidents_rest_3.reserve(16);
+  m_gs_incidents_rest_3.resize(0);
+
+  m_gs_incidents_rest_4.reserve(16);
+  m_gs_incidents_rest_4.resize(0);
+
+  m_gs_incidents_rest_5.reserve(16);
+  m_gs_incidents_rest_5.resize(0);
+
+  m_gs_incidents_rest_6.reserve(16);
+  m_gs_incidents_rest_6.resize(0);
+
+  m_gs_incidents_rest_7.reserve(16);
+  m_gs_incidents_rest_7.resize(0);
+
+  m_gs_incidents_rest_8.reserve(16);
+  m_gs_incidents_rest_8.resize(0);
+
+  m_gs_incidents_rest_9.reserve(16);
+  m_gs_incidents_rest_9.resize(0);
+
+  m_gs_incidents_rest_10.reserve(16);
+  m_gs_incidents_rest_10.resize(0);
+
+  m_gs_incidents_rest_11.reserve(16);
+  m_gs_incidents_rest_11.resize(0);
+
+  m_gs_incidents_rest_12.reserve(16);
+  m_gs_incidents_rest_12.resize(0);
+
+  m_gs_incidents_rest_13.reserve(16);
+  m_gs_incidents_rest_13.resize(0);
+
+  m_gs_incidents_rest_14.reserve(16);
+  m_gs_incidents_rest_14.resize(0);
+
+  m_gs_incidents_rest_15.reserve(16);
+  m_gs_incidents_rest_15.resize(0);
+
+  m_gs_incidents_rest_16.reserve(16);
+  m_gs_incidents_rest_16.resize(0);
+
+  m_gs_incidents_rest_17.reserve(16);
+  m_gs_incidents_rest_17.resize(0);
+
+  m_gs_incidents_rest_18.reserve(16);
+  m_gs_incidents_rest_18.resize(0);
+
+  m_gs_incidents_rest_19.reserve(16);
+  m_gs_incidents_rest_19.resize(0);
+
+  m_gs_incidents_rest_20.reserve(16);
+  m_gs_incidents_rest_20.resize(0);
+
+  m_gs_incidents_rest_21.reserve(16);
+  m_gs_incidents_rest_21.resize(0);
+
+  m_gs_incidents_rest_22.reserve(16);
+  m_gs_incidents_rest_22.resize(0);
+
+  m_gs_incidents_rest_23.reserve(16);
+  m_gs_incidents_rest_23.resize(0);
+
+  m_gs_incidents_rest_24.reserve(16);
+  m_gs_incidents_rest_24.resize(0);
+
+  m_gs_incidents_rest_25.reserve(16);
+  m_gs_incidents_rest_25.resize(0);
+
+  m_gs_incidents_rest_26.reserve(16);
+  m_gs_incidents_rest_26.resize(0);
+
+  m_gs_incidents_rest_27.reserve(16);
+  m_gs_incidents_rest_27.resize(0);
+
+  m_gs_incidents_rest_28.reserve(16);
+  m_gs_incidents_rest_28.resize(0);
+
+  m_gs_incidents_rest_29.reserve(16);
+  m_gs_incidents_rest_29.resize(0);
+
+  m_gs_incidents_rest_30.reserve(16);
+  m_gs_incidents_rest_30.resize(0);
+
+  m_gs_incidents_rest_31.reserve(16);
+  m_gs_incidents_rest_31.resize(0);
+
+  m_gs_incidents_rest_32.reserve(16);
+  m_gs_incidents_rest_32.resize(0);
+
+  m_gs_incidents_rest_33.reserve(16);
+  m_gs_incidents_rest_33.resize(0);
+
+  m_gs_incidents_rest_34.reserve(16);
+  m_gs_incidents_rest_34.resize(0);
+
+  m_gs_incidents_rest_35.reserve(16);
+  m_gs_incidents_rest_35.resize(0);
+
+  m_gs_incidents_rest_36.reserve(16);
+  m_gs_incidents_rest_36.resize(0);
+
+  m_gs_incidents_rest_37.reserve(16);
+  m_gs_incidents_rest_37.resize(0);
+
+  m_gs_incidents_rest_38.reserve(16);
+  m_gs_incidents_rest_38.resize(0);
+
+  m_gs_incidents_rest_39.reserve(16);
+  m_gs_incidents_rest_39.resize(0);
+
+  m_gs_incidents_rest_40.reserve(16);
+  m_gs_incidents_rest_40.resize(0);
+
+  m_gs_incidents_rest_41.reserve(16);
+  m_gs_incidents_rest_41.resize(0);
+
+  m_gs_incidents_rest_42.reserve(16);
+  m_gs_incidents_rest_42.resize(0);
+
+  m_gs_incidents_rest_43.reserve(16);
+  m_gs_incidents_rest_43.resize(0);
+
+  m_gs_incidents_rest_44.reserve(16);
+  m_gs_incidents_rest_44.resize(0);
+
+  m_gs_visibility_dc_0.reserve(16);
+  m_gs_visibility_dc_0.resize(0);
+
+  m_gs_visibility_rest_0.reserve(16);
+  m_gs_visibility_rest_0.resize(0);
+
+  m_gs_visibility_rest_1.reserve(16);
+  m_gs_visibility_rest_1.resize(0);
+
+  m_gs_visibility_rest_2.reserve(16);
+  m_gs_visibility_rest_2.resize(0);
+
+  m_gs_visibility_rest_3.reserve(16);
+  m_gs_visibility_rest_3.resize(0);
+
+  m_gs_visibility_rest_4.reserve(16);
+  m_gs_visibility_rest_4.resize(0);
+
+  m_gs_visibility_rest_5.reserve(16);
+  m_gs_visibility_rest_5.resize(0);
+
+  m_gs_visibility_rest_6.reserve(16);
+  m_gs_visibility_rest_6.resize(0);
+
+  m_gs_visibility_rest_7.reserve(16);
+  m_gs_visibility_rest_7.resize(0);
+
+  m_gs_visibility_rest_8.reserve(16);
+  m_gs_visibility_rest_8.resize(0);
+
+  m_gs_visibility_rest_9.reserve(16);
+  m_gs_visibility_rest_9.resize(0);
+
+  m_gs_visibility_rest_10.reserve(16);
+  m_gs_visibility_rest_10.resize(0);
+
+  m_gs_visibility_rest_11.reserve(16);
+  m_gs_visibility_rest_11.resize(0);
+
+  m_gs_visibility_rest_12.reserve(16);
+  m_gs_visibility_rest_12.resize(0);
+
+  m_gs_visibility_rest_13.reserve(16);
+  m_gs_visibility_rest_13.resize(0);
+
+  m_gs_visibility_rest_14.reserve(16);
+  m_gs_visibility_rest_14.resize(0);
+
+  m_gs_cov.reserve(16);
+  m_gs_cov.resize(0);
+
+  m_gs_conic.reserve(16);
+  m_gs_conic.resize(0);
+
   m_SdfSBSNodes.reserve(16);
   m_SdfSBSNodes.resize(0);
 
