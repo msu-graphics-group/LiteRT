@@ -669,6 +669,9 @@ uint32_t BVHRT::AddGeom_RFScene(RFScene grid, BuildOptions a_qualityLevel)
   m_RFGridSizes.push_back(grid.size);
   m_RFGridScales.push_back(grid.scale);
 
+  m_RFGridFlags.push_back(1); // Do RF
+  m_RFGridFlags.push_back(1); // Do fast rendering
+
   //create list of bboxes for BLAS
   std::vector<float> sparseGrid;
   std::vector<uint4> sparsePtrs;
@@ -1462,7 +1465,7 @@ std::vector<BVHNode> BVHRT::GetBoxes_RFGrid(RFScene grid, std::vector<float>& sp
             return coordsToIdx[spaceCoords];
           };
 
-          if (true) {
+          if (m_RFGridFlags[1] == 1) {
             addCell(uint3(x, y, z));
             addCell(uint3(x + 1, y, z));
             addCell(uint3(x, y + 1, z));

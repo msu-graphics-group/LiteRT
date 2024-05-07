@@ -223,6 +223,7 @@ struct BVHRT : public ISceneObject
   std::vector<uint32_t> m_RFGridOffsets; //offset in m_SdfGridData for each RF grid
   std::vector<size_t> m_RFGridSizes;      //size for each RF grid
   std::vector<float> m_RFGridScales;      //size for each RF grid
+  std::vector<uint32_t> m_RFGridFlags;      //size for each RF grid
 
   // GS data
   std::size_t m_gs_count{};

@@ -781,7 +781,7 @@ void BVHRT::IntersectRFInLeaf(const float3 ray_pos, const float3 ray_dir,
   float throughput = pHit->coords[0];
   float3 colour = float3(pHit->coords[1], pHit->coords[2], pHit->coords[3]);
 
-  if (true) {
+  if (m_RFGridFlags[1] == 1) {
     uint4 ptrs;
     ptrs[0] = 8 * a_start;
     ptrs[1] = 8 * a_start + 1;
@@ -1394,6 +1394,9 @@ void BVHRT::BVH2TraverseF32(const float3 ray_pos, const float3 ray_dir, float tN
   const float3 rayDirInv = SafeInverse(ray_dir);
   while (top >= 0 && !(stopOnFirstHit && pHit->primId != uint32_t(-1)))
   {
+    if (m_RFGridFlags.size() > 0 && pHit->coords[0] <= 0.01f)
+      break;
+
     while (top >= 0 && ((leftNodeOffset & LEAF_BIT) == 0))
     {
       const BVHNodePair fatNode = m_allNodePairs[bvhOffset + leftNodeOffset];
@@ -1485,6 +1488,9 @@ CRT_Hit BVHRT::RayQuery_NearestHit(float4 posAndNear, float4 dirAndFar)
     uint32_t nodeIdx = 0;
     do
     {
+      if (m_RFGridFlags.size() > 0 && hit.coords[0] <= 0.01f)
+        break;
+
       uint32_t travFlags  = 0;
       uint32_t leftOffset = 0;
       do
