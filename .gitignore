@@ -63,3 +63,5 @@ NeuralRT/shaders_gpu/build.sh
 .DS_Store
 scenes/03_gs_scenes/nerf_synthetic
 scenes/03_gs_scenes/lego.ply
+*ninja*
+build
