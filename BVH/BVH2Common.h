@@ -423,4 +423,5 @@ struct BVHRT : public ISceneObject
 
   bool m_firstSceneCommit = true;
   bool debug_cur_pixel = false;
+  bool saveMemory = false;
 };
