@@ -29,6 +29,18 @@ using LiteMath::Box4f;
 #include "../raytrace_common.h"
 #include "cbvh.h"
 
+static MultiRenderPreset getDefaultPreset()
+{
+  MultiRenderPreset p;
+  p.mode = MULTI_RENDER_MODE_LAMBERT;
+  p.sdf_octree_sampler = SDF_OCTREE_SAMPLER_MIPSKIP_3X3;
+  p.spp = 1;
+  p.sdf_frame_octree_blas = SDF_OCTREE_BLAS_DEFAULT;
+  p.sdf_frame_octree_intersect = SDF_OCTREE_NODE_INTERSECT_ST;
+
+  return p;
+}
+
 // main class
 //
 struct BVHRT : public ISceneObject
@@ -41,7 +53,10 @@ struct BVHRT : public ISceneObject
   //overiding ISceneObject interface
   BVHRT(const char* a_buildName = nullptr, const char* a_layoutName = nullptr) : 
     m_buildName(a_buildName != nullptr ? a_buildName : ""), 
-    m_layoutName(a_layoutName != nullptr ? a_layoutName : "") { }
+    m_layoutName(a_layoutName != nullptr ? a_layoutName : "") 
+    {
+      m_preset = getDefaultPreset();
+    }
   ~BVHRT() override {}
 
   const char* Name() const override { return "BVH2Fat"; }

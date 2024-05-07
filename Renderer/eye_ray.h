@@ -18,18 +18,6 @@ using LiteMath::uint;
 
 struct SparseOctreeSettings;
 
-static MultiRenderPreset getDefaultPreset()
-{
-  MultiRenderPreset p;
-  p.mode = MULTI_RENDER_MODE_PHONG;
-  p.sdf_octree_sampler = SDF_OCTREE_SAMPLER_CLOSEST;
-  p.spp = 1;
-  p.sdf_frame_octree_blas = SDF_OCTREE_BLAS_DEFAULT;
-  p.sdf_frame_octree_intersect = SDF_OCTREE_NODE_INTERSECT_ST;
-
-  return p;
-}
-
 class MultiRenderer : public IRenderer
 {
 public:
