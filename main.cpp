@@ -21,9 +21,9 @@ int main(int argc, const char** argv)
   //auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path+"scenes/01_simple_scenes/data/teapot.vsgf").c_str());
   //cmesh4::create_triangle_list_grid(mesh, LiteMath::uint3(32,32,32));
   //return 0;
-  perform_tests_litert({9});
+  // perform_tests_litert({9});
   //benchmark_framed_octree_intersection();
-  return 0;
+  // return 0;
 
   uint32_t WIDTH  = 1024;
   uint32_t HEIGHT = 1024;
@@ -41,7 +41,7 @@ int main(int argc, const char** argv)
   std::shared_ptr<IRenderer> pRender = nullptr;
   std::cout << "[main]: init renderer ..." << std::endl; 
   {
-    pRender = CreateMultiRenderer("CPU");  
+    pRender = CreateMultiRenderer("GPU");  
     auto accelStructImpl = CreateSceneRT(accelStruct, buildFormat, layout);
     pRender->SetAccelStruct(accelStructImpl);
   }

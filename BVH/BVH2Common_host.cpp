@@ -99,401 +99,8 @@ void BVHRT::ClearGeom()
   m_RFGridScales.reserve(16);  
   m_RFGridScales.resize(0);
 
-  m_gs_x.reserve(16);
-  m_gs_x.resize(0);
-
-  m_gs_y.reserve(16);
-  m_gs_y.resize(0);
-
-  m_gs_z.reserve(16);
-  m_gs_z.resize(0);
-
-  m_gs_nx.reserve(16);
-  m_gs_nx.resize(0);
-
-  m_gs_ny.reserve(16);
-  m_gs_ny.resize(0);
-
-  m_gs_nz.reserve(16);
-  m_gs_nz.resize(0);
-
-  m_gs_f_dc_0.reserve(16);
-  m_gs_f_dc_0.resize(0);
-
-  m_gs_f_dc_1.reserve(16);
-  m_gs_f_dc_1.resize(0);
-
-  m_gs_f_dc_2.reserve(16);
-  m_gs_f_dc_2.resize(0);
-
-  m_gs_f_rest_0.reserve(16);
-  m_gs_f_rest_0.resize(0);
-
-  m_gs_f_rest_1.reserve(16);
-  m_gs_f_rest_1.resize(0);
-
-  m_gs_f_rest_2.reserve(16);
-  m_gs_f_rest_2.resize(0);
-
-  m_gs_f_rest_3.reserve(16);
-  m_gs_f_rest_3.resize(0);
-
-  m_gs_f_rest_4.reserve(16);
-  m_gs_f_rest_4.resize(0);
-
-  m_gs_f_rest_5.reserve(16);
-  m_gs_f_rest_5.resize(0);
-
-  m_gs_f_rest_6.reserve(16);
-  m_gs_f_rest_6.resize(0);
-
-  m_gs_f_rest_7.reserve(16);
-  m_gs_f_rest_7.resize(0);
-
-  m_gs_f_rest_8.reserve(16);
-  m_gs_f_rest_8.resize(0);
-
-  m_gs_f_rest_9.reserve(16);
-  m_gs_f_rest_9.resize(0);
-
-  m_gs_f_rest_10.reserve(16);
-  m_gs_f_rest_10.resize(0);
-
-  m_gs_f_rest_11.reserve(16);
-  m_gs_f_rest_11.resize(0);
-
-  m_gs_f_rest_12.reserve(16);
-  m_gs_f_rest_12.resize(0);
-
-  m_gs_f_rest_13.reserve(16);
-  m_gs_f_rest_13.resize(0);
-
-  m_gs_f_rest_14.reserve(16);
-  m_gs_f_rest_14.resize(0);
-
-  m_gs_f_rest_15.reserve(16);
-  m_gs_f_rest_15.resize(0);
-
-  m_gs_f_rest_16.reserve(16);
-  m_gs_f_rest_16.resize(0);
-
-  m_gs_f_rest_17.reserve(16);
-  m_gs_f_rest_17.resize(0);
-
-  m_gs_f_rest_18.reserve(16);
-  m_gs_f_rest_18.resize(0);
-
-  m_gs_f_rest_19.reserve(16);
-  m_gs_f_rest_19.resize(0);
-
-  m_gs_f_rest_20.reserve(16);
-  m_gs_f_rest_20.resize(0);
-
-  m_gs_f_rest_21.reserve(16);
-  m_gs_f_rest_21.resize(0);
-
-  m_gs_f_rest_22.reserve(16);
-  m_gs_f_rest_22.resize(0);
-
-  m_gs_f_rest_23.reserve(16);
-  m_gs_f_rest_23.resize(0);
-
-  m_gs_f_rest_24.reserve(16);
-  m_gs_f_rest_24.resize(0);
-
-  m_gs_f_rest_25.reserve(16);
-  m_gs_f_rest_25.resize(0);
-
-  m_gs_f_rest_26.reserve(16);
-  m_gs_f_rest_26.resize(0);
-
-  m_gs_f_rest_27.reserve(16);
-  m_gs_f_rest_27.resize(0);
-
-  m_gs_f_rest_28.reserve(16);
-  m_gs_f_rest_28.resize(0);
-
-  m_gs_f_rest_29.reserve(16);
-  m_gs_f_rest_29.resize(0);
-
-  m_gs_f_rest_30.reserve(16);
-  m_gs_f_rest_30.resize(0);
-
-  m_gs_f_rest_31.reserve(16);
-  m_gs_f_rest_31.resize(0);
-
-  m_gs_f_rest_32.reserve(16);
-  m_gs_f_rest_32.resize(0);
-
-  m_gs_f_rest_33.reserve(16);
-  m_gs_f_rest_33.resize(0);
-
-  m_gs_f_rest_34.reserve(16);
-  m_gs_f_rest_34.resize(0);
-
-  m_gs_f_rest_35.reserve(16);
-  m_gs_f_rest_35.resize(0);
-
-  m_gs_f_rest_36.reserve(16);
-  m_gs_f_rest_36.resize(0);
-
-  m_gs_f_rest_37.reserve(16);
-  m_gs_f_rest_37.resize(0);
-
-  m_gs_f_rest_38.reserve(16);
-  m_gs_f_rest_38.resize(0);
-
-  m_gs_f_rest_39.reserve(16);
-  m_gs_f_rest_39.resize(0);
-
-  m_gs_f_rest_40.reserve(16);
-  m_gs_f_rest_40.resize(0);
-
-  m_gs_f_rest_41.reserve(16);
-  m_gs_f_rest_41.resize(0);
-
-  m_gs_f_rest_42.reserve(16);
-  m_gs_f_rest_42.resize(0);
-
-  m_gs_f_rest_43.reserve(16);
-  m_gs_f_rest_43.resize(0);
-
-  m_gs_f_rest_44.reserve(16);
-  m_gs_f_rest_44.resize(0);
-
-  m_gs_opacity.reserve(16);
-  m_gs_opacity.resize(0);
-
-  m_gs_scale_0.reserve(16);
-  m_gs_scale_0.resize(0);
-
-  m_gs_scale_1.reserve(16);
-  m_gs_scale_1.resize(0);
-
-  m_gs_scale_2.reserve(16);
-  m_gs_scale_2.resize(0);
-
-  m_gs_rot_0.reserve(16);
-  m_gs_rot_0.resize(0);
-
-  m_gs_rot_1.reserve(16);
-  m_gs_rot_1.resize(0);
-
-  m_gs_rot_2.reserve(16);
-  m_gs_rot_2.resize(0);
-
-  m_gs_rot_3.reserve(16);
-  m_gs_rot_3.resize(0);
-
-  m_gs_base_color_0.reserve(16);
-  m_gs_base_color_0.resize(0);
-
-  m_gs_base_color_1.reserve(16);
-  m_gs_base_color_1.resize(0);
-
-  m_gs_base_color_2.reserve(16);
-  m_gs_base_color_2.resize(0);
-
-  m_gs_roughness.reserve(16);
-  m_gs_roughness.resize(0);
-
-  m_gs_metallic.reserve(16);
-  m_gs_metallic.resize(0);
-
-  m_gs_incidents_dc_0.reserve(16);
-  m_gs_incidents_dc_0.resize(0);
-
-  m_gs_incidents_dc_1.reserve(16);
-  m_gs_incidents_dc_1.resize(0);
-
-  m_gs_incidents_dc_2.reserve(16);
-  m_gs_incidents_dc_2.resize(0);
-
-  m_gs_incidents_rest_0.reserve(16);
-  m_gs_incidents_rest_0.resize(0);
-
-  m_gs_incidents_rest_1.reserve(16);
-  m_gs_incidents_rest_1.resize(0);
-
-  m_gs_incidents_rest_2.reserve(16);
-  m_gs_incidents_rest_2.resize(0);
-
-  m_gs_incidents_rest_3.reserve(16);
-  m_gs_incidents_rest_3.resize(0);
-
-  m_gs_incidents_rest_4.reserve(16);
-  m_gs_incidents_rest_4.resize(0);
-
-  m_gs_incidents_rest_5.reserve(16);
-  m_gs_incidents_rest_5.resize(0);
-
-  m_gs_incidents_rest_6.reserve(16);
-  m_gs_incidents_rest_6.resize(0);
-
-  m_gs_incidents_rest_7.reserve(16);
-  m_gs_incidents_rest_7.resize(0);
-
-  m_gs_incidents_rest_8.reserve(16);
-  m_gs_incidents_rest_8.resize(0);
-
-  m_gs_incidents_rest_9.reserve(16);
-  m_gs_incidents_rest_9.resize(0);
-
-  m_gs_incidents_rest_10.reserve(16);
-  m_gs_incidents_rest_10.resize(0);
-
-  m_gs_incidents_rest_11.reserve(16);
-  m_gs_incidents_rest_11.resize(0);
-
-  m_gs_incidents_rest_12.reserve(16);
-  m_gs_incidents_rest_12.resize(0);
-
-  m_gs_incidents_rest_13.reserve(16);
-  m_gs_incidents_rest_13.resize(0);
-
-  m_gs_incidents_rest_14.reserve(16);
-  m_gs_incidents_rest_14.resize(0);
-
-  m_gs_incidents_rest_15.reserve(16);
-  m_gs_incidents_rest_15.resize(0);
-
-  m_gs_incidents_rest_16.reserve(16);
-  m_gs_incidents_rest_16.resize(0);
-
-  m_gs_incidents_rest_17.reserve(16);
-  m_gs_incidents_rest_17.resize(0);
-
-  m_gs_incidents_rest_18.reserve(16);
-  m_gs_incidents_rest_18.resize(0);
-
-  m_gs_incidents_rest_19.reserve(16);
-  m_gs_incidents_rest_19.resize(0);
-
-  m_gs_incidents_rest_20.reserve(16);
-  m_gs_incidents_rest_20.resize(0);
-
-  m_gs_incidents_rest_21.reserve(16);
-  m_gs_incidents_rest_21.resize(0);
-
-  m_gs_incidents_rest_22.reserve(16);
-  m_gs_incidents_rest_22.resize(0);
-
-  m_gs_incidents_rest_23.reserve(16);
-  m_gs_incidents_rest_23.resize(0);
-
-  m_gs_incidents_rest_24.reserve(16);
-  m_gs_incidents_rest_24.resize(0);
-
-  m_gs_incidents_rest_25.reserve(16);
-  m_gs_incidents_rest_25.resize(0);
-
-  m_gs_incidents_rest_26.reserve(16);
-  m_gs_incidents_rest_26.resize(0);
-
-  m_gs_incidents_rest_27.reserve(16);
-  m_gs_incidents_rest_27.resize(0);
-
-  m_gs_incidents_rest_28.reserve(16);
-  m_gs_incidents_rest_28.resize(0);
-
-  m_gs_incidents_rest_29.reserve(16);
-  m_gs_incidents_rest_29.resize(0);
-
-  m_gs_incidents_rest_30.reserve(16);
-  m_gs_incidents_rest_30.resize(0);
-
-  m_gs_incidents_rest_31.reserve(16);
-  m_gs_incidents_rest_31.resize(0);
-
-  m_gs_incidents_rest_32.reserve(16);
-  m_gs_incidents_rest_32.resize(0);
-
-  m_gs_incidents_rest_33.reserve(16);
-  m_gs_incidents_rest_33.resize(0);
-
-  m_gs_incidents_rest_34.reserve(16);
-  m_gs_incidents_rest_34.resize(0);
-
-  m_gs_incidents_rest_35.reserve(16);
-  m_gs_incidents_rest_35.resize(0);
-
-  m_gs_incidents_rest_36.reserve(16);
-  m_gs_incidents_rest_36.resize(0);
-
-  m_gs_incidents_rest_37.reserve(16);
-  m_gs_incidents_rest_37.resize(0);
-
-  m_gs_incidents_rest_38.reserve(16);
-  m_gs_incidents_rest_38.resize(0);
-
-  m_gs_incidents_rest_39.reserve(16);
-  m_gs_incidents_rest_39.resize(0);
-
-  m_gs_incidents_rest_40.reserve(16);
-  m_gs_incidents_rest_40.resize(0);
-
-  m_gs_incidents_rest_41.reserve(16);
-  m_gs_incidents_rest_41.resize(0);
-
-  m_gs_incidents_rest_42.reserve(16);
-  m_gs_incidents_rest_42.resize(0);
-
-  m_gs_incidents_rest_43.reserve(16);
-  m_gs_incidents_rest_43.resize(0);
-
-  m_gs_incidents_rest_44.reserve(16);
-  m_gs_incidents_rest_44.resize(0);
-
-  m_gs_visibility_dc_0.reserve(16);
-  m_gs_visibility_dc_0.resize(0);
-
-  m_gs_visibility_rest_0.reserve(16);
-  m_gs_visibility_rest_0.resize(0);
-
-  m_gs_visibility_rest_1.reserve(16);
-  m_gs_visibility_rest_1.resize(0);
-
-  m_gs_visibility_rest_2.reserve(16);
-  m_gs_visibility_rest_2.resize(0);
-
-  m_gs_visibility_rest_3.reserve(16);
-  m_gs_visibility_rest_3.resize(0);
-
-  m_gs_visibility_rest_4.reserve(16);
-  m_gs_visibility_rest_4.resize(0);
-
-  m_gs_visibility_rest_5.reserve(16);
-  m_gs_visibility_rest_5.resize(0);
-
-  m_gs_visibility_rest_6.reserve(16);
-  m_gs_visibility_rest_6.resize(0);
-
-  m_gs_visibility_rest_7.reserve(16);
-  m_gs_visibility_rest_7.resize(0);
-
-  m_gs_visibility_rest_8.reserve(16);
-  m_gs_visibility_rest_8.resize(0);
-
-  m_gs_visibility_rest_9.reserve(16);
-  m_gs_visibility_rest_9.resize(0);
-
-  m_gs_visibility_rest_10.reserve(16);
-  m_gs_visibility_rest_10.resize(0);
-
-  m_gs_visibility_rest_11.reserve(16);
-  m_gs_visibility_rest_11.resize(0);
-
-  m_gs_visibility_rest_12.reserve(16);
-  m_gs_visibility_rest_12.resize(0);
-
-  m_gs_visibility_rest_13.reserve(16);
-  m_gs_visibility_rest_13.resize(0);
-
-  m_gs_visibility_rest_14.reserve(16);
-  m_gs_visibility_rest_14.resize(0);
-
-  m_gs_cov.reserve(16);
-  m_gs_cov.resize(0);
+  m_gs_data_0.reserve(16);
+  m_gs_data_0.resize(0);
 
   m_gs_conic.reserve(16);
   m_gs_conic.resize(0);
@@ -710,25 +317,18 @@ float4x4 Transpose(float4x4& a) {
     return b;
 }
 
-std::vector<float4x4> ComputeCovarianceMatrices(
-        std::vector<float>& m_gs_scale_0,
-        std::vector<float>& m_gs_scale_1,
-        std::vector<float>& m_gs_scale_2,
-        std::vector<float>& m_gs_rot_0,
-        std::vector<float>& m_gs_rot_1,
-        std::vector<float>& m_gs_rot_2,
-        std::vector<float>& m_gs_rot_3) {
+std::vector<float4x4> ComputeCovarianceMatrices(std::vector<float4x4>& m_gs_data_0) {
     std::vector<float4x4> covariance_matrices;
 
-    for (int i = 0; i < m_gs_scale_0.size(); ++i) {
+    for (int i = 0; i < m_gs_data_0.size(); ++i) {
         float4x4 S = float4x4(
-            exp(m_gs_scale_0[i]), 0.0f, 0.0f, 0.0f,
-            0.0f, exp(m_gs_scale_1[i]), 0.0f, 0.0f,
-            0.0f, 0.0f, exp(m_gs_scale_2[i]), 0.0f,
+            exp(m_gs_data_0[i][1][3]), 0.0f, 0.0f, 0.0f,
+            0.0f, exp(m_gs_data_0[i][2][0]), 0.0f, 0.0f,
+            0.0f, 0.0f, exp(m_gs_data_0[i][2][1]), 0.0f,
             0.0f, 0.0f, 0.0f, 0.0f);
 
         float4 q = normalize(
-            float4(m_gs_rot_0[i], -m_gs_rot_1[i], m_gs_rot_2[i], m_gs_rot_3[i]));
+            float4(m_gs_data_0[i][2][2], -m_gs_data_0[i][2][3], m_gs_data_0[i][3][0], m_gs_data_0[i][3][1]));
 
         float r = q.x;
         float x = q.y;
@@ -750,7 +350,7 @@ std::vector<float4x4> ComputeCovarianceMatrices(
     return covariance_matrices;
 }
 
-std::vector<float4x4> InvertMatrices(std::vector<float4x4>& matrices) {
+std::vector<float4x4> InvertMatrices(std::vector<float4x4>&& matrices) {
     std::vector<float4x4> inverted_matrices;
     inverted_matrices.reserve(matrices.size());
 
@@ -788,163 +388,13 @@ std::vector<float4x4> InvertMatrices(std::vector<float4x4>& matrices) {
 }
 
 uint32_t BVHRT::AddGeom_GSScene(GSScene grid, BuildOptions a_qualityLevel) {
-    m_geomOffsets.push_back(uint2(grid.count, 0));
+    m_geomOffsets.push_back(uint2(grid.data_0.size(), 0));
     m_geomBoxes.push_back(Box4f(float4(-1.0f, -1.0f, -1.0f, 1.0f), float4(1.0f, 1.0f, 1.0f, 1.0f)));
     m_geomTypeByGeomId.push_back(TYPE_GS_PRIMITIVE);
     m_bvhOffsets.push_back(m_allNodePairs.size());
 
-    m_gs_count = grid.count;
-
-    m_gs_x = grid.x;
-    m_gs_y = grid.y;
-    m_gs_z = grid.z;
-
-    m_gs_nx = grid.nx;
-    m_gs_ny = grid.ny;
-    m_gs_nz = grid.nz;
-
-    m_gs_f_dc_0 = grid.f_dc_0;
-    m_gs_f_dc_1 = grid.f_dc_1;
-    m_gs_f_dc_2 = grid.f_dc_2;
-
-    m_gs_f_rest_0 = grid.f_rest_0;
-    m_gs_f_rest_1 = grid.f_rest_1;
-    m_gs_f_rest_2 = grid.f_rest_2;
-    m_gs_f_rest_3 = grid.f_rest_3;
-    m_gs_f_rest_4 = grid.f_rest_4;
-    m_gs_f_rest_5 = grid.f_rest_5;
-    m_gs_f_rest_6 = grid.f_rest_6;
-    m_gs_f_rest_7 = grid.f_rest_7;
-    m_gs_f_rest_8 = grid.f_rest_8;
-    m_gs_f_rest_9 = grid.f_rest_9;
-    m_gs_f_rest_10 = grid.f_rest_10;
-    m_gs_f_rest_11 = grid.f_rest_11;
-    m_gs_f_rest_12 = grid.f_rest_12;
-    m_gs_f_rest_13 = grid.f_rest_13;
-    m_gs_f_rest_14 = grid.f_rest_14;
-    m_gs_f_rest_15 = grid.f_rest_15;
-    m_gs_f_rest_16 = grid.f_rest_16;
-    m_gs_f_rest_17 = grid.f_rest_17;
-    m_gs_f_rest_18 = grid.f_rest_18;
-    m_gs_f_rest_19 = grid.f_rest_19;
-    m_gs_f_rest_20 = grid.f_rest_20;
-    m_gs_f_rest_21 = grid.f_rest_21;
-    m_gs_f_rest_22 = grid.f_rest_22;
-    m_gs_f_rest_23 = grid.f_rest_23;
-    m_gs_f_rest_24 = grid.f_rest_24;
-    m_gs_f_rest_25 = grid.f_rest_25;
-    m_gs_f_rest_26 = grid.f_rest_26;
-    m_gs_f_rest_27 = grid.f_rest_27;
-    m_gs_f_rest_28 = grid.f_rest_28;
-    m_gs_f_rest_29 = grid.f_rest_29;
-    m_gs_f_rest_30 = grid.f_rest_30;
-    m_gs_f_rest_31 = grid.f_rest_31;
-    m_gs_f_rest_32 = grid.f_rest_32;
-    m_gs_f_rest_33 = grid.f_rest_33;
-    m_gs_f_rest_34 = grid.f_rest_34;
-    m_gs_f_rest_35 = grid.f_rest_35;
-    m_gs_f_rest_36 = grid.f_rest_36;
-    m_gs_f_rest_37 = grid.f_rest_37;
-    m_gs_f_rest_38 = grid.f_rest_38;
-    m_gs_f_rest_39 = grid.f_rest_39;
-    m_gs_f_rest_40 = grid.f_rest_40;
-    m_gs_f_rest_41 = grid.f_rest_41;
-    m_gs_f_rest_42 = grid.f_rest_42;
-    m_gs_f_rest_43 = grid.f_rest_43;
-    m_gs_f_rest_44 = grid.f_rest_44;
-
-    m_gs_opacity = grid.opacity;
-
-    m_gs_scale_0 = grid.scale_0;
-    m_gs_scale_1 = grid.scale_1;
-    m_gs_scale_2 = grid.scale_2;
-
-    m_gs_rot_0 = grid.rot_0;
-    m_gs_rot_1 = grid.rot_1;
-    m_gs_rot_2 = grid.rot_2;
-    m_gs_rot_3 = grid.rot_3;
-
-    m_gs_base_color_0 = grid.base_color_0;
-    m_gs_base_color_1 = grid.base_color_1;
-    m_gs_base_color_2 = grid.base_color_2;
-
-    m_gs_roughness = grid.roughness;
-
-    m_gs_metallic = grid.metallic;
-
-    m_gs_incidents_dc_0 = grid.incidents_dc_0;
-    m_gs_incidents_dc_1 = grid.incidents_dc_1;
-    m_gs_incidents_dc_2 = grid.incidents_dc_2;
-
-    m_gs_incidents_rest_0 = grid.incidents_rest_0;
-    m_gs_incidents_rest_1 = grid.incidents_rest_1;
-    m_gs_incidents_rest_2 = grid.incidents_rest_2;
-    m_gs_incidents_rest_3 = grid.incidents_rest_3;
-    m_gs_incidents_rest_4 = grid.incidents_rest_4;
-    m_gs_incidents_rest_5 = grid.incidents_rest_5;
-    m_gs_incidents_rest_6 = grid.incidents_rest_6;
-    m_gs_incidents_rest_7 = grid.incidents_rest_7;
-    m_gs_incidents_rest_8 = grid.incidents_rest_8;
-    m_gs_incidents_rest_9 = grid.incidents_rest_9;
-    m_gs_incidents_rest_10 = grid.incidents_rest_10;
-    m_gs_incidents_rest_11 = grid.incidents_rest_11;
-    m_gs_incidents_rest_12 = grid.incidents_rest_12;
-    m_gs_incidents_rest_13 = grid.incidents_rest_13;
-    m_gs_incidents_rest_14 = grid.incidents_rest_14;
-    m_gs_incidents_rest_15 = grid.incidents_rest_15;
-    m_gs_incidents_rest_16 = grid.incidents_rest_16;
-    m_gs_incidents_rest_17 = grid.incidents_rest_17;
-    m_gs_incidents_rest_18 = grid.incidents_rest_18;
-    m_gs_incidents_rest_19 = grid.incidents_rest_19;
-    m_gs_incidents_rest_20 = grid.incidents_rest_20;
-    m_gs_incidents_rest_21 = grid.incidents_rest_21;
-    m_gs_incidents_rest_22 = grid.incidents_rest_22;
-    m_gs_incidents_rest_23 = grid.incidents_rest_23;
-    m_gs_incidents_rest_24 = grid.incidents_rest_24;
-    m_gs_incidents_rest_25 = grid.incidents_rest_25;
-    m_gs_incidents_rest_26 = grid.incidents_rest_26;
-    m_gs_incidents_rest_27 = grid.incidents_rest_27;
-    m_gs_incidents_rest_28 = grid.incidents_rest_28;
-    m_gs_incidents_rest_29 = grid.incidents_rest_29;
-    m_gs_incidents_rest_30 = grid.incidents_rest_30;
-    m_gs_incidents_rest_31 = grid.incidents_rest_31;
-    m_gs_incidents_rest_32 = grid.incidents_rest_32;
-    m_gs_incidents_rest_33 = grid.incidents_rest_33;
-    m_gs_incidents_rest_34 = grid.incidents_rest_34;
-    m_gs_incidents_rest_35 = grid.incidents_rest_35;
-    m_gs_incidents_rest_36 = grid.incidents_rest_36;
-    m_gs_incidents_rest_37 = grid.incidents_rest_37;
-    m_gs_incidents_rest_38 = grid.incidents_rest_38;
-    m_gs_incidents_rest_39 = grid.incidents_rest_39;
-    m_gs_incidents_rest_40 = grid.incidents_rest_40;
-    m_gs_incidents_rest_41 = grid.incidents_rest_41;
-    m_gs_incidents_rest_42 = grid.incidents_rest_42;
-    m_gs_incidents_rest_43 = grid.incidents_rest_43;
-    m_gs_incidents_rest_44 = grid.incidents_rest_44;
-
-    m_gs_visibility_dc_0 = grid.visibility_dc_0;
-
-    m_gs_visibility_rest_0 = grid.visibility_rest_0;
-    m_gs_visibility_rest_1 = grid.visibility_rest_1;
-    m_gs_visibility_rest_2 = grid.visibility_rest_2;
-    m_gs_visibility_rest_3 = grid.visibility_rest_3;
-    m_gs_visibility_rest_4 = grid.visibility_rest_4;
-    m_gs_visibility_rest_5 = grid.visibility_rest_5;
-    m_gs_visibility_rest_6 = grid.visibility_rest_6;
-    m_gs_visibility_rest_7 = grid.visibility_rest_7;
-    m_gs_visibility_rest_8 = grid.visibility_rest_8;
-    m_gs_visibility_rest_9 = grid.visibility_rest_9;
-    m_gs_visibility_rest_10 = grid.visibility_rest_10;
-    m_gs_visibility_rest_11 = grid.visibility_rest_11;
-    m_gs_visibility_rest_12 = grid.visibility_rest_12;
-    m_gs_visibility_rest_13 = grid.visibility_rest_13;
-    m_gs_visibility_rest_14 = grid.visibility_rest_14;
-
-    m_gs_cov = ComputeCovarianceMatrices(
-        m_gs_scale_0, m_gs_scale_1, m_gs_scale_2,
-        m_gs_rot_0, m_gs_rot_1, m_gs_rot_2, m_gs_rot_3);
-
-    m_gs_conic = InvertMatrices(m_gs_cov);
+    m_gs_data_0 = grid.data_0;
+    m_gs_conic = InvertMatrices(ComputeCovarianceMatrices(m_gs_data_0));
 
     m_origNodes = GetBoxes_GSGrid(grid);
 
@@ -1501,15 +951,15 @@ std::vector<BVHNode> BVHRT::GetBoxes_RFGrid(RFScene grid, std::vector<float>& sp
 
 std::vector<BVHNode> BVHRT::GetBoxes_GSGrid(const GSScene& grid) {
   std::vector<BVHNode> nodes;
-  nodes.reserve(grid.count);
+  nodes.reserve(grid.data_0.size());
 
-  for (size_t i = 0; i < grid.count; ++i) {
-    float scale = exp(max(max(m_gs_scale_0[i], m_gs_scale_1[i]), m_gs_scale_2[i])) * 3.0f;
+  for (size_t i = 0; i < grid.data_0.size(); ++i) {
+    float scale = exp(max(max(grid.data_0[i](1, 3), grid.data_0[i](2, 0)), grid.data_0[i](2, 1))) * 3.0f;
 
     BVHNode node;
 
-    node.boxMin = float3(grid.x[i] - scale, grid.y[i] - scale, grid.z[i] - scale);
-    node.boxMax = float3(grid.x[i] + scale, grid.y[i] + scale, grid.z[i] + scale);
+    node.boxMin = float3(grid.data_0[i](0, 0) - scale, grid.data_0[i](0, 1) - scale, grid.data_0[i](0, 2) - scale);
+    node.boxMax = float3(grid.data_0[i](0, 0) + scale, grid.data_0[i](0, 1) + scale, grid.data_0[i](0, 2) + scale);
 
     nodes.push_back(node);
   }
