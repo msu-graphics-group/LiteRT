@@ -15,113 +15,30 @@
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-constexpr size_t reserveSize = 1000;
+constexpr std::size_t reserveSize = 1000;
 
 void BVHRT::ClearGeom()
 {
-  m_vertPos.reserve(std::max<size_t>(100000, m_vertPos.capacity()));
-  m_indices.reserve(std::max<size_t>(100000 * 3, m_indices.capacity()));
-  m_primIndices.reserve(std::max<size_t>(100000, m_primIndices.capacity()));
-
-  m_vertPos.resize(0);
-  m_indices.resize(0);
-  m_primIndices.resize(0);
-
-  m_allNodePairs.reserve(std::max<size_t>(100000, m_allNodePairs.capacity()));
-  m_allNodePairs.resize(0);
-
-  m_geomOffsets.reserve(std::max(reserveSize, m_geomOffsets.capacity()));
+  m_geomOffsets.reserve(std::max<std::size_t>(reserveSize, m_geomOffsets.capacity()));
   m_geomOffsets.resize(0);
 
-  m_geomBoxes.reserve(std::max<size_t>(reserveSize, m_geomBoxes.capacity()));
+  m_geomBoxes.reserve(std::max<std::size_t>(reserveSize, m_geomBoxes.capacity()));
   m_geomBoxes.resize(0);
 
-  m_bvhOffsets.reserve(std::max<size_t>(reserveSize, m_bvhOffsets.capacity()));
+  m_bvhOffsets.reserve(std::max<std::size_t>(reserveSize, m_bvhOffsets.capacity()));
   m_bvhOffsets.resize(0);
 
-  m_SdfParameters.reserve(16);
-  m_SdfParameters.resize(0);
+  m_indices.reserve(std::max<std::size_t>(100000 * 3, m_indices.capacity()));
+  m_indices.resize(0);
 
-  m_SdfObjects.reserve(16);
-  m_SdfObjects.resize(0);
+  m_vertPos.reserve(std::max<std::size_t>(100000, m_vertPos.capacity()));
+  m_vertPos.resize(0);
 
-  m_SdfConjunctions.reserve(16);
-  m_SdfConjunctions.resize(0);
+  m_primIndices.reserve(std::max<std::size_t>(100000, m_primIndices.capacity()));
+  m_primIndices.resize(0);
 
-  m_SdfNeuralProperties.reserve(16);
-  m_SdfNeuralProperties.resize(0);
-
-  m_ConjIndices.reserve(16);
-  m_ConjIndices.resize(0);
-
-  m_SdfGridData.reserve(16);
-  m_SdfGridData.resize(0);  
-
-  m_SdfGridOffsets.reserve(16);
-  m_SdfGridOffsets.resize(0);  
-
-  m_SdfGridSizes.reserve(16);
-  m_SdfGridSizes.resize(0);  
-
-  m_SdfOctreeNodes.reserve(16);
-  m_SdfOctreeNodes.resize(0);  
-
-  m_SdfOctreeRoots.reserve(16);
-  m_SdfOctreeRoots.resize(0);  
-
-  m_SdfFrameOctreeNodes.reserve(16);
-  m_SdfFrameOctreeNodes.resize(0);  
-
-  m_SdfFrameOctreeRoots.reserve(16);
-  m_SdfFrameOctreeRoots.resize(0);  
-
-  m_origNodes.reserve(16);
-  m_origNodes.resize(0); 
-
-  m_SdfSVSNodes.reserve(16);
-  m_SdfSVSNodes.resize(0);
-
-  m_SdfSVSRoots.reserve(16);
-  m_SdfSVSRoots.resize(0);
-
-  m_RFGridData.reserve(16);
-  m_RFGridData.resize(0);
-
-  m_RFGridPtrs.reserve(16);
-  m_RFGridPtrs.resize(0);
-
-  m_RFGridOffsets.reserve(16);
-  m_RFGridOffsets.resize(0);
-
-  m_RFGridSizes.reserve(16);
-  m_RFGridSizes.resize(0);
-
-  m_RFGridScales.reserve(16);  
-  m_RFGridScales.resize(0);
-
-  m_RFGridFlags.reserve(16);  
-  m_RFGridFlags.resize(0);
-
-  m_gs_data_0.reserve(16);
-  m_gs_data_0.resize(0);
-
-  m_gs_conic.reserve(16);
-  m_gs_conic.resize(0);
-
-  m_SdfSBSNodes.reserve(16);
-  m_SdfSBSNodes.resize(0);
-
-  m_SdfSBSData.reserve(16);
-  m_SdfSBSData.resize(0);
-
-  m_SdfSBSRoots.reserve(16);
-  m_SdfSBSRoots.resize(0);
-
-  m_SdfSBSHeaders.reserve(16);
-  m_SdfSBSHeaders.resize(0);
-
-  m_SdfSBSRemap.reserve(16);
-  m_SdfSBSRemap.resize(0);
+  m_allNodePairs.reserve(std::max<std::size_t>(100000, m_allNodePairs.capacity()));
+  m_allNodePairs.resize(0);
 
   ClearScene();
 }
@@ -689,15 +606,16 @@ void BVHRT::set_debug_mode(bool enable)
 
 void BVHRT::ClearScene()
 {
-  m_instBoxes.reserve(std::max(reserveSize, m_instBoxes.capacity()));
-  m_instMatricesInv.reserve(std::max(reserveSize, m_instMatricesInv.capacity()));
-  m_instMatricesFwd.reserve(std::max(reserveSize, m_instMatricesFwd.capacity()));
-
-  m_geomIdByInstId.reserve(std::max(reserveSize, m_geomIdByInstId.capacity()));
-
+  m_instBoxes.reserve(std::max<std::size_t>(reserveSize, m_instBoxes.capacity()));
   m_instBoxes.resize(0);
+
+  m_instMatricesInv.reserve(std::max<std::size_t>(reserveSize, m_instMatricesInv.capacity()));
   m_instMatricesInv.resize(0);
+
+  m_instMatricesFwd.reserve(std::max<std::size_t>(reserveSize, m_instMatricesFwd.capacity()));
   m_instMatricesFwd.resize(0);
+
+  m_geomIdByInstId.reserve(std::max<std::size_t>(reserveSize, m_geomIdByInstId.capacity()));
   m_geomIdByInstId.resize(0);
 
   m_firstSceneCommit = true;
@@ -894,12 +812,11 @@ std::vector<BVHNode> BVHRT::GetBoxes_RFGrid(RFScene grid, std::vector<float>& sp
     return gridVal[0] * grid.scale;
   };
 
+  #pragma omp parallel for collapse(3)
   for (size_t z = 0; z < grid.size - 1; z++)
     for (size_t y = 0; y < grid.size - 1; y++)
       for (size_t x = 0; x < grid.size - 1; x++)
       {
-        size_t i = x + y * (grid.size - 1) + z * (grid.size - 1) * (grid.size - 1);
-
         BVHNode node;
         node.boxMin = float3((float)x / (float)(grid.size), (float)y / (float)(grid.size), (float)z / (float)(grid.size));
         node.boxMax = float3((float)(x + 1) / (float)(grid.size), (float)(y + 1) / (float)(grid.size), (float)(z + 1) / (float)(grid.size));
@@ -918,34 +835,37 @@ std::vector<BVHNode> BVHRT::GetBoxes_RFGrid(RFScene grid, std::vector<float>& sp
             return coordsToIdx[spaceCoords];
           };
 
-          if (m_RFGridFlags[1] == 1) {
-            addCell(uint3(x, y, z));
-            addCell(uint3(x + 1, y, z));
-            addCell(uint3(x, y + 1, z));
-            addCell(uint3(x, y, z + 1));
+          #pragma omp critical
+          {
+            if (m_RFGridFlags[1] == 1) {
+              addCell(uint3(x, y, z));
+              addCell(uint3(x + 1, y, z));
+              addCell(uint3(x, y + 1, z));
+              addCell(uint3(x, y, z + 1));
 
-            addCell(uint3(x + 1, y + 1, z));
-            addCell(uint3(x, y + 1, z + 1));
-            addCell(uint3(x + 1, y, z + 1));
-            addCell(uint3(x + 1, y + 1, z + 1));
-          } else {
-            uint4 ptrs;
-            ptrs[0] = addPointer(uint3(x, y, z));
-            ptrs[1] = addPointer(uint3(x + 1, y, z));
-            ptrs[2] = addPointer(uint3(x, y + 1, z));
-            ptrs[3] = addPointer(uint3(x, y, z + 1));
+              addCell(uint3(x + 1, y + 1, z));
+              addCell(uint3(x, y + 1, z + 1));
+              addCell(uint3(x + 1, y, z + 1));
+              addCell(uint3(x + 1, y + 1, z + 1));
+            } else {
+              uint4 ptrs;
+              ptrs[0] = addPointer(uint3(x, y, z));
+              ptrs[1] = addPointer(uint3(x + 1, y, z));
+              ptrs[2] = addPointer(uint3(x, y + 1, z));
+              ptrs[3] = addPointer(uint3(x, y, z + 1));
 
-            sparsePtrs.push_back(ptrs);
+              sparsePtrs.push_back(ptrs);
 
-            ptrs[0] = addPointer(uint3(x + 1, y + 1, z));
-            ptrs[1] = addPointer(uint3(x, y + 1, z + 1));
-            ptrs[2] = addPointer(uint3(x + 1, y, z + 1));
-            ptrs[3] = addPointer(uint3(x + 1, y + 1, z + 1));
+              ptrs[0] = addPointer(uint3(x + 1, y + 1, z));
+              ptrs[1] = addPointer(uint3(x, y + 1, z + 1));
+              ptrs[2] = addPointer(uint3(x + 1, y, z + 1));
+              ptrs[3] = addPointer(uint3(x + 1, y + 1, z + 1));
 
-            sparsePtrs.push_back(ptrs);
+              sparsePtrs.push_back(ptrs);
+            }
+
+            nodes.push_back(node);
           }
-
-          nodes.push_back(node);
         }
       }
 

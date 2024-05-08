@@ -37,7 +37,6 @@
     <scenes>
       <scene id="0" name="my scene" discard="1" bbox="-10 -10 -10 10 10 10">
         <instance id="0" mesh_id="0" rmap_id="0" scn_id="0" scn_sid="0" matrix="1 0 0 0   0 1 0 0   0 0 1 0   0 0 0 1 " />
-        <instance id="1" mesh_id="1" rmap_id="0" scn_id="0" scn_sid="0" matrix="0.7 0 0 1    0 0.7 0 0   0 0 0.7 0   0 0 0 1 " />
       </scene>
     </scenes>
   
