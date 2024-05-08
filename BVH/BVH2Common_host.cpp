@@ -99,6 +99,9 @@ void BVHRT::ClearGeom()
   m_RFGridScales.reserve(16);  
   m_RFGridScales.resize(0);
 
+  m_RFGridFlags.reserve(16);  
+  m_RFGridFlags.resize(0);
+
   m_gs_data_0.reserve(16);
   m_gs_data_0.resize(0);
 
