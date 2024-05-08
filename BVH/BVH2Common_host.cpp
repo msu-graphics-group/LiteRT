@@ -894,12 +894,11 @@ std::vector<BVHNode> BVHRT::GetBoxes_RFGrid(RFScene grid, std::vector<float>& sp
     return gridVal[0] * grid.scale;
   };
 
+  #pragma omp parallel for collapse(3)
   for (size_t z = 0; z < grid.size - 1; z++)
     for (size_t y = 0; y < grid.size - 1; y++)
       for (size_t x = 0; x < grid.size - 1; x++)
       {
-        size_t i = x + y * (grid.size - 1) + z * (grid.size - 1) * (grid.size - 1);
-
         BVHNode node;
         node.boxMin = float3((float)x / (float)(grid.size), (float)y / (float)(grid.size), (float)z / (float)(grid.size));
         node.boxMax = float3((float)(x + 1) / (float)(grid.size), (float)(y + 1) / (float)(grid.size), (float)(z + 1) / (float)(grid.size));
@@ -918,34 +917,37 @@ std::vector<BVHNode> BVHRT::GetBoxes_RFGrid(RFScene grid, std::vector<float>& sp
             return coordsToIdx[spaceCoords];
           };
 
-          if (m_RFGridFlags[1] == 1) {
-            addCell(uint3(x, y, z));
-            addCell(uint3(x + 1, y, z));
-            addCell(uint3(x, y + 1, z));
-            addCell(uint3(x, y, z + 1));
+          #pragma omp critical
+          {
+            if (m_RFGridFlags[1] == 1) {
+              addCell(uint3(x, y, z));
+              addCell(uint3(x + 1, y, z));
+              addCell(uint3(x, y + 1, z));
+              addCell(uint3(x, y, z + 1));
 
-            addCell(uint3(x + 1, y + 1, z));
-            addCell(uint3(x, y + 1, z + 1));
-            addCell(uint3(x + 1, y, z + 1));
-            addCell(uint3(x + 1, y + 1, z + 1));
-          } else {
-            uint4 ptrs;
-            ptrs[0] = addPointer(uint3(x, y, z));
-            ptrs[1] = addPointer(uint3(x + 1, y, z));
-            ptrs[2] = addPointer(uint3(x, y + 1, z));
-            ptrs[3] = addPointer(uint3(x, y, z + 1));
+              addCell(uint3(x + 1, y + 1, z));
+              addCell(uint3(x, y + 1, z + 1));
+              addCell(uint3(x + 1, y, z + 1));
+              addCell(uint3(x + 1, y + 1, z + 1));
+            } else {
+              uint4 ptrs;
+              ptrs[0] = addPointer(uint3(x, y, z));
+              ptrs[1] = addPointer(uint3(x + 1, y, z));
+              ptrs[2] = addPointer(uint3(x, y + 1, z));
+              ptrs[3] = addPointer(uint3(x, y, z + 1));
 
-            sparsePtrs.push_back(ptrs);
+              sparsePtrs.push_back(ptrs);
 
-            ptrs[0] = addPointer(uint3(x + 1, y + 1, z));
-            ptrs[1] = addPointer(uint3(x, y + 1, z + 1));
-            ptrs[2] = addPointer(uint3(x + 1, y, z + 1));
-            ptrs[3] = addPointer(uint3(x + 1, y + 1, z + 1));
+              ptrs[0] = addPointer(uint3(x + 1, y + 1, z));
+              ptrs[1] = addPointer(uint3(x, y + 1, z + 1));
+              ptrs[2] = addPointer(uint3(x + 1, y, z + 1));
+              ptrs[3] = addPointer(uint3(x + 1, y + 1, z + 1));
 
-            sparsePtrs.push_back(ptrs);
+              sparsePtrs.push_back(ptrs);
+            }
+
+            nodes.push_back(node);
           }
-
-          nodes.push_back(node);
         }
       }
 
