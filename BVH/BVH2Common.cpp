@@ -131,6 +131,8 @@ void BVHRT::IntersectAllPrimitivesInLeaf(const float3 ray_pos, const float3 ray_
                                              CRT_Hit *pHit)
 {
   uint32_t type = m_geomTypeByGeomId[geomId];
+  const float SDF_BIAS = 0.01f;
+  const float tNearSdf = std::max(tNear, SDF_BIAS);
   switch (type)
   {
   case TYPE_MESH_TRIANGLE:
@@ -139,13 +141,13 @@ void BVHRT::IntersectAllPrimitivesInLeaf(const float3 ray_pos, const float3 ray_
   case TYPE_SDF_PRIMITIVE:
   case TYPE_SDF_GRID:
   case TYPE_SDF_OCTREE:
-    IntersectAllSdfsInLeaf(ray_pos, ray_dir, tNear, instId, geomId, a_start, a_count, pHit);
+    IntersectAllSdfsInLeaf(ray_pos, ray_dir, tNearSdf, instId, geomId, a_start, a_count, pHit);
     break;
   case TYPE_SDF_FRAME_OCTREE:
     if (m_preset.sdf_frame_octree_intersect == SDF_OCTREE_NODE_INTERSECT_DEFAULT)
-      IntersectAllSdfsInLeaf(ray_pos, ray_dir, tNear, instId, geomId, a_start, a_count, pHit);
+      IntersectAllSdfsInLeaf(ray_pos, ray_dir, tNearSdf, instId, geomId, a_start, a_count, pHit);
     else
-      OctreeNodeIntersect(type, ray_pos, ray_dir, tNear, instId, geomId, a_start, a_count, pHit);
+      OctreeNodeIntersect(type, ray_pos, ray_dir, tNearSdf, instId, geomId, a_start, a_count, pHit);
     break;
   case TYPE_RF_GRID:
     IntersectRFInLeaf(ray_pos, ray_dir, tNear, instId, geomId, a_start, a_count, pHit);
@@ -155,7 +157,7 @@ void BVHRT::IntersectAllPrimitivesInLeaf(const float3 ray_pos, const float3 ray_
     break;
   case TYPE_SDF_SVS:
   case TYPE_SDF_SBS:
-    OctreeNodeIntersect(type, ray_pos, ray_dir, tNear, instId, geomId, a_start, a_count, pHit);
+    OctreeNodeIntersect(type, ray_pos, ray_dir, tNearSdf, instId, geomId, a_start, a_count, pHit);
     break;
   default:
     break;
@@ -183,7 +185,7 @@ void BVHRT::OctreeNodeIntersect(uint32_t type, const float3 ray_pos, const float
 
   float values[8];
   uint32_t nodeId, primId;
-  float d, qFar;
+  float d, qNear, qFar;
   float2 fNearFar;
   float3 start_q;
   float3 min_pos, max_pos;
@@ -201,11 +203,11 @@ void BVHRT::OctreeNodeIntersect(uint32_t type, const float3 ray_pos, const float
       values[i] = m_SdfFrameOctreeNodes[nodeId].values[i];
 
     fNearFar = RayBoxIntersection2(ray_pos, SafeInverse(ray_dir), min_pos, max_pos);
-    fNearFar.x = std::max(fNearFar.x, tNear);
     float3 start_pos = ray_pos + fNearFar.x*ray_dir;
     d = std::max(size.x, std::max(size.y, size.z));
     start_q = (start_pos - min_pos)/(2.0f*d);
     qFar = (fNearFar.y - fNearFar.x) / (2.0f * d);
+    qNear = tNear > fNearFar.x ? (tNear - fNearFar.x) / (2.0f * d) : 0.0f;
   }
   else if (type == TYPE_SDF_SVS)
   {
@@ -227,11 +229,11 @@ void BVHRT::OctreeNodeIntersect(uint32_t type, const float3 ray_pos, const float
       values[i] = -d_max + 2*d_max*(1.0/255.0f)*((m_SdfSVSNodes[nodeId].values[i/4] >> (8*(i%4))) & 0xFF);
 
     fNearFar = RayBoxIntersection2(ray_pos, SafeInverse(ray_dir), min_pos, max_pos);
-    fNearFar.x = std::max(fNearFar.x, tNear);
     float3 start_pos = ray_pos + fNearFar.x*ray_dir;
     d = std::max(size.x, std::max(size.y, size.z));
     start_q = (start_pos - min_pos)/(2.0f*d);
     qFar = (fNearFar.y - fNearFar.x) / (2.0f * d);
+    qNear = tNear > fNearFar.x ? (tNear - fNearFar.x) / (2.0f * d) : 0.0f;
   }
 #ifndef LITERT_MINI
   else //if (type == TYPE_SDF_SBS)
@@ -267,19 +269,22 @@ void BVHRT::OctreeNodeIntersect(uint32_t type, const float3 ray_pos, const float
     }
 
     fNearFar = RayBoxIntersection2(ray_pos, SafeInverse(ray_dir), min_pos, max_pos);
-    fNearFar.x = std::max(fNearFar.x, tNear);
     float3 start_pos = ray_pos + fNearFar.x*ray_dir;
     d = std::max(size.x, std::max(size.y, size.z));
     start_q = (start_pos - min_pos)/(2.0f*d);
     qFar = (fNearFar.y - fNearFar.x) / (2.0f * d);
+    qNear = tNear > fNearFar.x ? (tNear - fNearFar.x) / (2.0f * d) : 0.0f;
   }
 #endif
 
-  float t = 0;
+  if (qNear > 0.0f) 
+    return;
+
+  float t = qNear;
   bool hit = false;
   unsigned iter = 0;
 
-  float start_dist = eval_dist_trilinear(values, start_q);
+  float start_dist = eval_dist_trilinear(values, start_q + t * ray_dir);
   if (start_dist <= EPS || m_preset.sdf_frame_octree_intersect == SDF_OCTREE_NODE_INTERSECT_BBOX)
   {
     hit = true;
@@ -546,6 +551,8 @@ void BVHRT::OctreeNodeIntersect(uint32_t type, const float3 ray_pos, const float
            values[0], values[1], values[2], values[3],
            values[4], values[5], values[6], values[7]);
     printf("t = %f in [0, %f], tReal = %f in [%f %f]\n",t,qFar,tReal,fNearFar.x,fNearFar.y);
+    printf("ray_dir = (%f %f %f)\n", ray_dir.x, ray_dir.y, ray_dir.z);
+    printf("ray_pos = (%f %f %f)\n", ray_pos.x, ray_pos.y, ray_pos.z);
     printf("\n");
   }
 #endif

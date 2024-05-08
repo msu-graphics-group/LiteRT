@@ -188,7 +188,7 @@ void MultiRenderer::kernel_RayTrace(uint32_t tidX, const float4* rayPosAndNear,
       const float Kd = 1;
       const float Ks = 1;
       const int spec_pow = 32;
-      const float BIAS = 0.02f;
+      const float BIAS = 1e-6f;
 
       float3 diffuse = float3(1,1,1);
       float3 norm(hit.coords[2], hit.coords[3], sqrt(max(0.0f, 1-hit.coords[2]*hit.coords[2] - hit.coords[3]*hit.coords[3])));

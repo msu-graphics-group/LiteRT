@@ -96,7 +96,7 @@
     <remap_lists>
       <remap_list id="0" size="2" val="0 4 " />
     </remap_lists>
-    <instance id="0" mesh_id="1" rmap_id="0" scn_id="0" scn_sid="0" matrix="3 0 0 0 0 3 0 0 0 0 3 0 0 0 0 1 " />
+    <instance id="0" mesh_id="1" rmap_id="0" scn_id="0" scn_sid="0" matrix="3 0 0 0 0 3 0 -1.4 0 0 3 0 0 0 0 1 " />
     <instance id="1" mesh_id="0" rmap_id="-1" scn_id="0" scn_sid="0" matrix="-1 0 -8.74228e-08 0 0 1 0 0 8.74228e-08 0 -1 0 0 0 0 1 " />
     <instance_light id="0" light_id="0" matrix="1 0 0 0 0 1 0 3.85 0 0 1 0 0 0 0 1 " lgroup_id="-1" />
     <instance id="2" mesh_id="2" rmap_id="-1" matrix="1 0 0 0 0 1 0 3.85 0 0 1 0 0 0 0 1 " light_id="0" linst_id="0" />
