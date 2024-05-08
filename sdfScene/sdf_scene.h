@@ -87,6 +87,11 @@ struct SdfOctreeNode
   float value;
   unsigned offset; // offset for children (they are stored together). 0 offset means it's a leaf
 };
+struct SDONeighbor
+{
+  SdfOctreeNode node;
+  uint32_t overshoot;
+};
 
 struct SdfFrameOctreeNode
 {

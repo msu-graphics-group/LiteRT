@@ -1038,24 +1038,9 @@ float BVHRT::eval_distance_sdf_grid(uint32_t grid_id, float3 pos)
 #endif
 }
 
-static constexpr uint32_t X_L = 1<<0;
-static constexpr uint32_t X_H = 1<<1;
-static constexpr uint32_t Y_L = 1<<2;
-static constexpr uint32_t Y_H = 1<<3;
-static constexpr uint32_t Z_L = 1<<4;
-static constexpr uint32_t Z_H = 1<<5;
-
-constexpr uint32_t INVALID_IDX = 1u<<31u;
-
-struct SDONeighbor
-{
-  SdfOctreeNode node;
-  uint32_t overshoot;
-};
-
 bool BVHRT::is_leaf(uint32_t offset)
 {
-  return (offset == 0) || ((offset & INVALID_IDX) > 0);
+  return (offset == 0) || ((offset & (1u<<31u)) > 0);
 }
 
 float BVHRT::eval_distance_sdf_octree(uint32_t octree_id, float3 position, uint32_t max_level)
@@ -1197,6 +1182,13 @@ float BVHRT::sdf_octree_sample_closest(uint32_t octree_id, float3 position, uint
 
 float BVHRT::sdf_octree_sample_mipskip_3x3(uint32_t octree_id, float3 position, uint32_t max_level)
 {
+  const uint32_t X_L = 1<<0;
+  const uint32_t X_H = 1<<1;
+  const uint32_t Y_L = 1<<2;
+  const uint32_t Y_H = 1<<3;
+  const uint32_t Z_L = 1<<4;
+  const uint32_t Z_H = 1<<5;
+
   uint32_t CENTER = 9 + 3 + 1;
   float EPS = 1e-6;
   SDONeighbor neighbors[27];
