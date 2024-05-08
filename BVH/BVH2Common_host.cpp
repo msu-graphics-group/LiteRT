@@ -19,25 +19,25 @@ constexpr std::size_t reserveSize = 1000;
 
 void BVHRT::ClearGeom()
 {
-  m_geomOffsets.reserve(std::max(reserveSize, m_geomOffsets.capacity()));
+  m_geomOffsets.reserve(std::max<std::size_t>(reserveSize, m_geomOffsets.capacity()));
   m_geomOffsets.resize(0);
 
-  m_geomBoxes.reserve(std::max(reserveSize, m_geomBoxes.capacity()));
+  m_geomBoxes.reserve(std::max<std::size_t>(reserveSize, m_geomBoxes.capacity()));
   m_geomBoxes.resize(0);
 
-  m_bvhOffsets.reserve(std::max(reserveSize, m_bvhOffsets.capacity()));
+  m_bvhOffsets.reserve(std::max<std::size_t>(reserveSize, m_bvhOffsets.capacity()));
   m_bvhOffsets.resize(0);
 
-  m_indices.reserve(std::max(100000 * 3, m_indices.capacity()));
+  m_indices.reserve(std::max<std::size_t>(100000 * 3, m_indices.capacity()));
   m_indices.resize(0);
 
-  m_vertPos.reserve(std::max(100000, m_vertPos.capacity()));
+  m_vertPos.reserve(std::max<std::size_t>(100000, m_vertPos.capacity()));
   m_vertPos.resize(0);
 
-  m_primIndices.reserve(std::max(100000, m_primIndices.capacity()));
+  m_primIndices.reserve(std::max<std::size_t>(100000, m_primIndices.capacity()));
   m_primIndices.resize(0);
 
-  m_allNodePairs.reserve(std::max(100000, m_allNodePairs.capacity()));
+  m_allNodePairs.reserve(std::max<std::size_t>(100000, m_allNodePairs.capacity()));
   m_allNodePairs.resize(0);
 
   ClearScene();
@@ -606,16 +606,16 @@ void BVHRT::set_debug_mode(bool enable)
 
 void BVHRT::ClearScene()
 {
-  m_instBoxes.reserve(std::max(reserveSize, m_instBoxes.capacity()));
+  m_instBoxes.reserve(std::max<std::size_t>(reserveSize, m_instBoxes.capacity()));
   m_instBoxes.resize(0);
 
-  m_instMatricesInv.reserve(std::max(reserveSize, m_instMatricesInv.capacity()));
+  m_instMatricesInv.reserve(std::max<std::size_t>(reserveSize, m_instMatricesInv.capacity()));
   m_instMatricesInv.resize(0);
 
-  m_instMatricesFwd.reserve(std::max(reserveSize, m_instMatricesFwd.capacity()));
+  m_instMatricesFwd.reserve(std::max<std::size_t>(reserveSize, m_instMatricesFwd.capacity()));
   m_instMatricesFwd.resize(0);
 
-  m_geomIdByInstId.reserve(std::max(reserveSize, m_geomIdByInstId.capacity()));
+  m_geomIdByInstId.reserve(std::max<std::size_t>(reserveSize, m_geomIdByInstId.capacity()));
   m_geomIdByInstId.resize(0);
 
   m_firstSceneCommit = true;
