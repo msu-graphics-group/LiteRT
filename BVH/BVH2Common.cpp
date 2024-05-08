@@ -845,11 +845,11 @@ void BVHRT::IntersectGSInLeaf(const float3& ray_pos, const float3& ray_dir,
     float sh_c0 = 0.28209479177387814f;
 
     for (uint32_t i = a_start; i < a_start + a_count; ++i) {
-        float3 mean = float3(m_gs_data_0[i][0][0], m_gs_data_0[i][1][0], m_gs_data_0[i][2][0]);
-        float3 scale = float3(exp(m_gs_data_0[i][3][1]), exp(m_gs_data_0[i][0][2]), exp(m_gs_data_0[i][1][2])) * 3.0f;
-        float4 rotation = QuaternionConjugate(normalize(float4(m_gs_data_0[i][2][2], -m_gs_data_0[i][3][2], m_gs_data_0[i][0][3], m_gs_data_0[i][1][3])));
-        float3 diffuse_color = float3(m_gs_data_0[i][3][0], m_gs_data_0[i][0][1], m_gs_data_0[i][1][1]) * sh_c0;
-        float opacity = sigmoid(m_gs_data_0[i][2][1]);
+        float3 mean = float3(m_gs_data_0[i][0][0], m_gs_data_0[i][0][1], m_gs_data_0[i][0][2]);
+        float3 scale = float3(exp(m_gs_data_0[i][1][3]), exp(m_gs_data_0[i][2][0]), exp(m_gs_data_0[i][2][1])) * 3.0f;
+        float4 rotation = QuaternionConjugate(normalize(float4(m_gs_data_0[i][2][2], -m_gs_data_0[i][2][3], m_gs_data_0[i][3][0], m_gs_data_0[i][3][1])));
+        float3 diffuse_color = float3(m_gs_data_0[i][0][3], m_gs_data_0[i][1][0], m_gs_data_0[i][1][1]) * sh_c0;
+        float opacity = sigmoid(m_gs_data_0[i][1][2]);
 
         float3 origin = ray_pos - mean;
         float3 direction = ray_dir;
