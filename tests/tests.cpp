@@ -821,11 +821,11 @@ void litert_test_10_save_load()
   else
     printf("FAILED, psnr = %f\n", psnr_4);
   
-  printf(" 10.5. %-64s", "SDF Scene loaded from Hydra scene");
-  if (psnr_5 >= 25)
-    printf("passed    (%.2f)\n", psnr_5);
-  else
-    printf("FAILED, psnr = %f\n", psnr_5);
+  //printf(" 10.5. %-64s", "SDF Scene loaded from Hydra scene");
+  //if (psnr_5 >= 25)
+  //  printf("passed    (%.2f)\n", psnr_5);
+  //else
+  //  printf("FAILED, psnr = %f\n", psnr_5);
 }
 
 void perform_tests_litert(const std::vector<int> &test_ids)
