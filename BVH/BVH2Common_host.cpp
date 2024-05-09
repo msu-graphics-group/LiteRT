@@ -279,10 +279,10 @@ std::vector<float4x4> InvertMatrices(std::vector<float4x4>&& matrices) {
                             matrices[i][0][1] * (matrices[i][1][0] * matrices[i][2][2] - matrices[i][1][2] * matrices[i][2][0]) +
                             matrices[i][0][2] * (matrices[i][1][0] * matrices[i][2][1] - matrices[i][1][1] * matrices[i][2][0]);
 
-        if (determinant < 1e-9f) {
-            matrices[i][0][0] += 1e-9f;
-            matrices[i][1][1] += 1e-9f;
-            matrices[i][2][2] += 1e-9f;
+        if (determinant < std::numeric_limits<float>().epsilon()) {
+            matrices[i][0][0] += std::numeric_limits<float>().epsilon();
+            matrices[i][1][1] += std::numeric_limits<float>().epsilon();
+            matrices[i][2][2] += std::numeric_limits<float>().epsilon();
 
             determinant = matrices[i][0][0] * (matrices[i][1][1] * matrices[i][2][2] - matrices[i][2][1] * matrices[i][1][2]) -
                           matrices[i][0][1] * (matrices[i][1][0] * matrices[i][2][2] - matrices[i][1][2] * matrices[i][2][0]) +
@@ -309,14 +309,14 @@ std::vector<float4x4> InvertMatrices(std::vector<float4x4>&& matrices) {
 
 uint32_t BVHRT::AddGeom_GSScene(GSScene grid, BuildOptions a_qualityLevel) {
     m_geomOffsets.push_back(uint2(grid.data_0.size(), 0));
-    m_geomBoxes.push_back(Box4f(float4(-1.0f, -1.0f, -1.0f, 1.0f), float4(1.0f, 1.0f, 1.0f, 1.0f)));
+    m_geomBoxes.push_back(grid.box);
     m_geomTypeByGeomId.push_back(TYPE_GS_PRIMITIVE);
     m_bvhOffsets.push_back(m_allNodePairs.size());
 
     m_gs_data_0 = grid.data_0;
     m_gs_conic = InvertMatrices(ComputeCovarianceMatrices(m_gs_data_0));
 
-    m_origNodes = GetBoxes_GSGrid(grid);
+    m_origNodes = GetBoxes_GSGrid(grid, m_gs_indices, m_gs_nodes);
 
     auto presets = BuilderPresetsFromString(m_buildName.c_str());
     auto layout = LayoutPresetsFromString(m_layoutName.c_str());
@@ -872,19 +872,34 @@ std::vector<BVHNode> BVHRT::GetBoxes_RFGrid(RFScene grid, std::vector<float>& sp
   return nodes;
 }
 
-std::vector<BVHNode> BVHRT::GetBoxes_GSGrid(const GSScene& grid) {
+std::vector<BVHNode> BVHRT::GetBoxes_GSGrid(const GSScene& grid,
+                                            std::vector<int32_t>& m_gs_indices,
+                                            std::vector<Box4f>& m_gs_nodes) {
   std::vector<BVHNode> nodes;
-  nodes.reserve(grid.data_0.size());
+  nodes.reserve(grid.octree_data.size());
 
-  for (size_t i = 0; i < grid.data_0.size(); ++i) {
-    float scale = exp(max(max(grid.data_0[i](1, 3), grid.data_0[i](2, 0)), grid.data_0[i](2, 1))) * 3.0f;
+  std::size_t offset = 0;
 
+  for (std::size_t i = 0; i < grid.octree_data.size(); ++i) {
     BVHNode node;
 
-    node.boxMin = float3(grid.data_0[i](0, 0) - scale, grid.data_0[i](0, 1) - scale, grid.data_0[i](0, 2) - scale);
-    node.boxMax = float3(grid.data_0[i](0, 0) + scale, grid.data_0[i](0, 1) + scale, grid.data_0[i](0, 2) + scale);
+    node.boxMin = float3(grid.octree_data[i].bbox[0], grid.octree_data[i].bbox[1], grid.octree_data[i].bbox[2]);
+    node.boxMax = float3(grid.octree_data[i].bbox[3], grid.octree_data[i].bbox[4], grid.octree_data[i].bbox[5]);
 
     nodes.push_back(node);
+
+    for (const auto& item : grid.octree_data[i].indices) {
+      m_gs_indices.push_back(item);
+    }
+
+    m_gs_nodes.push_back(
+      Box4f(
+        float4(grid.octree_data[i].bbox[0], grid.octree_data[i].bbox[1], grid.octree_data[i].bbox[2], LiteMath::as_float(offset)),
+        float4(grid.octree_data[i].bbox[3], grid.octree_data[i].bbox[4], grid.octree_data[i].bbox[5], LiteMath::as_float(grid.octree_data[i].indices.size()))
+      )
+    );
+
+    offset += grid.octree_data[i].indices.size();
   }
 
   return nodes;

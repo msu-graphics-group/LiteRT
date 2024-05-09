@@ -207,8 +207,12 @@ bool MultiRenderer::LoadSceneHydra(const std::string& a_path, unsigned type, Spa
     else if (name == "gs")
     {
       std::cout << "[LoadScene]: gaussian splatting = " << dir.c_str() << std::endl;
+
+      std::string points_path = root_dir + "/" + hydra_xml::ws2s(std::wstring(mIter->attribute(L"points").as_string()));
+      std::string octree_path = root_dir + "/" + hydra_xml::ws2s(std::wstring(mIter->attribute(L"octree").as_string()));
+
       GSScene scene;
-      load_gs_scene(scene, dir);
+      load_gs_scene(scene, points_path, octree_path);
       m_pAccelStruct->AddGeom_GSScene(scene);
     }
     else
@@ -240,13 +244,18 @@ void MultiRenderer::Render(uint32_t* a_outColor, uint32_t a_width, uint32_t a_he
 
 void MultiRenderer::CastRaySingleBlock(uint32_t tidX, uint32_t * out_color, uint32_t a_numPasses)
 {
-  //CPU version is mostly used by debug, so better make it single-threaded
-  //also per-pixel debug does not work with multithreading
-  //#ifndef _DEBUG
-  //#pragma omp parallel for default(shared)
-  //#endif
-  for(int i=0;i<tidX;i++)
+  // CPU version is mostly used for debugging, so better make it single-threaded
+  // Per-pixel debugging does not work with multithreading
+#pragma omp parallel for default(shared)
+  for (uint32_t i = 0; i < tidX; ++i) {
+#ifndef KERNEL_SLICER
+    // if ((i + 1) % uint32_t(tidX * 0.01) == 0 || i + 1 == tidX) {
+    //   std::cout << "Rendering: [ " << std::setw(std::floor(std::log10(tidX)) + 1)
+    //             << i + 1 << " | " << tidX << " ]" << std::endl;
+    // }
+#endif
     CastRaySingle(i, out_color);
+  }
 }
 
 const char* MultiRenderer::Name() const

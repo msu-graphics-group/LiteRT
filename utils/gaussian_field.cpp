@@ -34,7 +34,44 @@ void parse_element_data(GSScene& scene, happly::Element& element) {
   }
 }
 
-void load_gs_scene(GSScene& scene, const std::string& path) {
-  auto data = happly::PLYData(path, true);
+void read_octree_data(GSScene& scene, const std::string& octree_path) {
+    std::ifstream file(octree_path, std::ios::binary);
+
+    if (!file) {
+        throw std::runtime_error("Failed to open file " + octree_path);
+    }
+
+    float box[6];
+    file.read(reinterpret_cast<char*>(box), sizeof(box));
+    scene.box = LiteMath::Box4f(
+        LiteMath::float4(box[0], box[1], box[2], 1.0f),
+        LiteMath::float4(box[3], box[4], box[5], 1.0f)
+    );
+
+    while (true) {
+        OctreeData item;
+
+        file.read(reinterpret_cast<char*>(item.bbox), sizeof(item.bbox));
+
+        if (file.eof()) {
+            break;
+        }
+
+        uint32_t length;
+        file.read(reinterpret_cast<char*>(&length), sizeof(length));
+
+        item.indices.resize(length);
+        file.read(reinterpret_cast<char*>(item.indices.data()), length * sizeof(uint32_t));
+
+        scene.octree_data.push_back(item);
+    }
+
+    file.close();
+}
+
+void load_gs_scene(GSScene& scene, const std::string& points_path, const std::string& octree_path) {
+  auto data = happly::PLYData(points_path, true);
   parse_element_data(scene, data.getElement("vertex"));
+
+  read_octree_data(scene, octree_path);
 }

@@ -845,79 +845,148 @@ float3 RotatePoint(const float3& p, const float4& q) {
     return float3(result.y, result.z, result.w);
 }
 
+bool IsPointInsideAABB(const float3& point, const Box4f& box) {
+    return point.x >= box.boxMin.x && point.x <= box.boxMax.x &&
+           point.y >= box.boxMin.y && point.y <= box.boxMax.y &&
+           point.z >= box.boxMin.z && point.z <= box.boxMax.z;
+}
+
 void BVHRT::IntersectGSInLeaf(const float3& ray_pos, const float3& ray_dir,
                               float tNear, uint32_t instId,
                               uint32_t geomId, uint32_t a_start,
                               uint32_t a_count, CRT_Hit* pHit) {
-    float sh_c0 = 0.28209479177387814f;
+    std::vector<std::tuple<int, float, float>> stack;
 
-    for (uint32_t i = a_start; i < a_start + a_count; ++i) {
-        float3 mean = float3(m_gs_data_0[i][0][0], m_gs_data_0[i][0][1], m_gs_data_0[i][0][2]);
-        float3 scale = float3(exp(m_gs_data_0[i][1][3]), exp(m_gs_data_0[i][2][0]), exp(m_gs_data_0[i][2][1])) * 3.0f;
-        float4 rotation = QuaternionConjugate(normalize(float4(m_gs_data_0[i][2][2], -m_gs_data_0[i][2][3], m_gs_data_0[i][3][0], m_gs_data_0[i][3][1])));
-        float3 diffuse_color = float3(m_gs_data_0[i][0][3], m_gs_data_0[i][1][0], m_gs_data_0[i][1][1]) * sh_c0;
-        float opacity = sigmoid(m_gs_data_0[i][1][2]);
+    const auto indices_offset = LiteMath::as_int(m_gs_nodes[a_start].boxMin.w);
+    const auto indices_length = LiteMath::as_int(m_gs_nodes[a_start].boxMax.w);
 
-        float3 origin = ray_pos - mean;
-        float3 direction = ray_dir;
+    for (std::size_t j = 0; j < indices_length; ++j) {
+      const auto i = m_gs_indices[indices_offset + j];
 
-        origin = RotatePoint(origin, rotation);
-        direction = RotatePoint(direction, rotation);
+      const auto mean = float3(m_gs_data_0[i][0][0], m_gs_data_0[i][0][1], m_gs_data_0[i][0][2]);
+      const auto scale = float3(exp(m_gs_data_0[i][1][3]), exp(m_gs_data_0[i][2][0]), exp(m_gs_data_0[i][2][1])) * 3.0f;
+      const auto rotation = QuaternionConjugate(normalize(float4(m_gs_data_0[i][2][2], -m_gs_data_0[i][2][3], m_gs_data_0[i][3][0], m_gs_data_0[i][3][1])));
 
-        origin    = origin / scale;
-        direction = direction / scale;
+      auto origin = ray_pos - mean;
+      auto direction = ray_dir;
 
-        float a = dot(direction, direction);
-        float b = 2.0f * dot(origin, direction);
-        float c = dot(origin, origin) - 1.0f;
+      origin = RotatePoint(origin, rotation);
+      direction = RotatePoint(direction, rotation);
 
-        float discriminant = b * b - 4.0f * a * c;
+      origin    = origin / scale;
+      direction = direction / scale;
 
-        if (discriminant < 1e-9f) {
+      const auto normalized_direction = normalize(direction);
+      const auto b2 = dot(origin, normalized_direction);
+      const auto fd = origin - b2 * normalized_direction;
+
+      const auto discriminant = 1.0f - dot(fd, fd);
+
+      if (discriminant < 0.0f) {
+        continue;
+      }
+
+      const auto c = dot(origin, origin) - 1.0f;
+      const auto sqrt_d = sqrt(discriminant);
+
+      const auto q = (b2 < 0.0f) ? sqrt_d - b2 : 0.0f - sqrt_d - b2;
+
+      const auto t1 = c / q / length(direction);
+      const auto t2 = q / length(direction);
+
+      if (t1 > tNear && t2 > tNear) {
+          const auto t = (t1 + t2) / 2.0f;
+          const auto intersection_point = ray_pos + t * ray_dir;
+
+          if (!IsPointInsideAABB(intersection_point, m_gs_nodes[a_start])) {
             continue;
-        }
+          }
 
-        float t1 = (-b + sqrt(discriminant)) / (2.0f * a);
-        float t2 = (-b - sqrt(discriminant)) / (2.0f * a);
+          auto origin_m = ray_pos - mean;
+          auto direction_m = normalize(mean - ray_pos);
 
-        if (t1 > tNear && t2 > tNear) {
-            float t = (t1 + t2) / 2.0f;
-            float3 intersection = ray_pos + t * ray_dir;
-            float3 distance = intersection - mean;
+          origin_m = RotatePoint(origin_m, rotation);
+          direction_m = RotatePoint(direction_m, rotation);
 
-            float power  = -0.5f * (
-                m_gs_conic[i][0][0] * distance.x * distance.x +
-                m_gs_conic[i][1][1] * distance.y * distance.y +
-                m_gs_conic[i][2][2] * distance.z * distance.z) -
-                m_gs_conic[i][0][1] * distance.x * distance.y -
-                m_gs_conic[i][0][2] * distance.x * distance.z -
-                m_gs_conic[i][1][2] * distance.y * distance.z;
+          origin_m    = origin_m / scale;
+          direction_m = direction_m / scale;
 
-            if (power > 0.0f) {
-                continue;
-            }
+          const auto normalized_direction_m = normalize(direction_m);
+          const auto b2_m = dot(origin_m, normalized_direction_m);
+          const auto fd_m = origin_m - b2_m * normalized_direction_m;
 
-            float alpha = min(0.99f, opacity * float(exp(power)));
+          const auto discriminant_m = 1.0f - dot(fd_m, fd_m);
 
-            if (alpha < 1.0f / 255.0f) {
-                continue;
-            }
+          if (discriminant_m < 0.0f) {
+            continue;
+          }
 
-            float transparency = pHit->coords[0] * (1.0f - alpha);
+          const auto c_m = dot(origin_m, origin_m) - 1.0f;
+          const auto sqrt_d_m = sqrt(discriminant_m);
 
-            if (transparency < 0.0001f) { 
-                break;
-            }
+          const auto q_m = (b2_m < 0.0f) ? sqrt_d_m - b2_m : 0.0f - sqrt_d_m - b2_m;
 
-            float weight = alpha * pHit->coords[0];
+          const auto t1_m = c_m / q_m / length(direction_m);
+          const auto t2_m = q_m / length(direction_m);
 
-            pHit->coords[1] += (0.5f + diffuse_color.x) * weight;
-            pHit->coords[2] += (0.5f + diffuse_color.y) * weight;
-            pHit->coords[3] += (0.5f + diffuse_color.z) * weight;
-            pHit->coords[0] = transparency;
+          stack.push_back({i, std::min(t1_m, t2_m), t});
+      }
+    }
 
-            pHit->primId = i;
-        }
+    std::sort(
+      stack.begin(),
+      stack.end(),
+      [](const auto& left, const auto& right) {
+        return std::get<1>(left) < std::get<1>(right);
+      }
+    );
+
+    for (const auto& [i, _, t] : stack) {
+      const auto mean = float3(m_gs_data_0[i][0][0], m_gs_data_0[i][0][1], m_gs_data_0[i][0][2]);
+      const auto diffuse_color = float3(m_gs_data_0[i][0][3], m_gs_data_0[i][1][0], m_gs_data_0[i][1][1]) * 0.28209479177387814f;
+      const auto opacity = sigmoid(m_gs_data_0[i][1][2]);
+
+      const auto intersection = ray_pos + t * ray_dir;
+      const auto distance = intersection - mean;
+
+      const auto power_a = (
+          m_gs_conic[i][0][0] * distance.x * distance.x +
+          m_gs_conic[i][1][1] * distance.y * distance.y +
+          m_gs_conic[i][2][2] * distance.z * distance.z
+      );
+
+      const auto power_b = (
+          m_gs_conic[i][0][1] * distance.x * distance.y +
+          m_gs_conic[i][0][2] * distance.x * distance.z +
+          m_gs_conic[i][1][2] * distance.y * distance.z
+      );
+
+      const auto power  = -0.5f * power_a - power_b;
+
+      if (power > 0.0f) {
+          continue;
+      }
+
+      const auto alpha = min(0.99f, opacity * exp(power));
+
+      if (alpha < 1.0f / 255.0f) {
+          continue;
+      }
+
+      const auto transparency = pHit->coords[0] * (1.0f - alpha);
+
+      if (transparency < 0.0001f) { 
+          break;
+      }
+
+      const auto weight = alpha * pHit->coords[0];
+
+      pHit->coords[1] += (0.5f + diffuse_color.x) * weight;
+      pHit->coords[2] += (0.5f + diffuse_color.y) * weight;
+      pHit->coords[3] += (0.5f + diffuse_color.z) * weight;
+      pHit->coords[0] = transparency;
+
+      pHit->primId = i;
     }
 }
 

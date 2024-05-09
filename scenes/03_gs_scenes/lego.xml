@@ -2,7 +2,7 @@
 <textures_lib/>
 <materials_lib/>
 <geometry_lib>
-  <gs loc="lego.ply"/>
+  <gs points="lego.ply" octree="lego.bin"/>
 </geometry_lib>
 <lights_lib/>
 <cam_lib>
