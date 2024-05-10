@@ -1504,11 +1504,11 @@ CRT_Hit BVHRT::RayQuery_NearestHit(float4 posAndNear, float4 dirAndFar)
     if (intersects)
     {
       const uint32_t instId = 0;
-      const uint32_t geomId = m_geomIdByInstId[instId];
+      const uint32_t geomId = m_instanceData[instId].geomId;
 
       // transform ray with matrix to local space
-      const float3 ray_pos = matmul4x3(m_instMatricesInv[0], to_float3(posAndNear));
-      const float3 ray_dir = matmul3x3(m_instMatricesInv[0], to_float3(dirAndFar));
+      const float3 ray_pos = matmul4x3(m_instanceData[0].transformInv, to_float3(posAndNear));
+      const float3 ray_dir = matmul3x3(m_instanceData[0].transformInv, to_float3(dirAndFar));
       BVH2TraverseF32(ray_pos, ray_dir, posAndNear.w, instId, geomId, stack, stopOnFirstHit, &hit);
     }
   }
@@ -1539,12 +1539,12 @@ CRT_Hit BVHRT::RayQuery_NearestHit(float4 posAndNear, float4 dirAndFar)
       if(isLeafAndIntersect(travFlags)) 
       {
         const uint32_t instId = EXTRACT_START(leftOffset);
-        const uint32_t geomId = m_geomIdByInstId[instId];
+        const uint32_t geomId = m_instanceData[instId].geomId;
     
         // transform ray with matrix to local space
         //
-        const float3 ray_pos = matmul4x3(m_instMatricesInv[instId], to_float3(posAndNear));
-        const float3 ray_dir = matmul3x3(m_instMatricesInv[instId], to_float3(dirAndFar)); // DON'float NORMALIZE IT !!!! When we transform to local space of node, ray_dir must be unnormalized!!!
+        const float3 ray_pos = matmul4x3(m_instanceData[instId].transformInv, to_float3(posAndNear));
+        const float3 ray_dir = matmul3x3(m_instanceData[instId].transformInv, to_float3(dirAndFar)); // DON'float NORMALIZE IT !!!! When we transform to local space of node, ray_dir must be unnormalized!!!
     
         BVH2TraverseF32(ray_pos, ray_dir, posAndNear.w, instId, geomId, stack, stopOnFirstHit, &hit);
       }

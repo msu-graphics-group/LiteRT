@@ -1,5 +1,6 @@
 #pragma once
 
+//enum GeomType
 static constexpr unsigned TYPE_MESH_TRIANGLE       = 0;
 static constexpr unsigned TYPE_SDF_PRIMITIVE       = 1;
 static constexpr unsigned TYPE_SDF_GRID            = 2;

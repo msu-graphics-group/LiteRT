@@ -594,17 +594,8 @@ void BVHRT::set_debug_mode(bool enable)
 
 void BVHRT::ClearScene()
 {
-  m_instBoxes.reserve(std::max<std::size_t>(reserveSize, m_instBoxes.capacity()));
-  m_instBoxes.resize(0);
-
-  m_instMatricesInv.reserve(std::max<std::size_t>(reserveSize, m_instMatricesInv.capacity()));
-  m_instMatricesInv.resize(0);
-
-  m_instMatricesFwd.reserve(std::max<std::size_t>(reserveSize, m_instMatricesFwd.capacity()));
-  m_instMatricesFwd.resize(0);
-
-  m_geomIdByInstId.reserve(std::max<std::size_t>(reserveSize, m_geomIdByInstId.capacity()));
-  m_geomIdByInstId.resize(0);
+  m_instanceData.reserve(std::max<std::size_t>(reserveSize, m_instanceData.capacity()));
+  m_instanceData.resize(0);
 
   m_firstSceneCommit = true;
 }
@@ -637,23 +628,24 @@ void DebugPrintBoxes(const std::vector<Box4f>& nodes, const std::string& a_fileN
 
 void BVHRT::CommitScene(uint32_t a_qualityLevel)
 {
-  assert(m_instBoxes.size() > 0);
+  assert(m_instanceData.size() > 0);
 
   //if there is only 1 instance, there is no need in TLAS
-  if (m_instBoxes.size() > 1)
+  if (m_instanceData.size() > 1)
   {
+    std::vector<Box4f> instBoxes(m_instanceData.size());
+    for (size_t i = 0; i < m_instanceData.size(); i++)
+      instBoxes[i] = Box4f(m_instanceData[i].boxMin, m_instanceData[i].boxMax);
+    
     BuilderPresets presets = {BVH2_LEFT_OFFSET, BVHQuality::HIGH, 1};
-    m_nodesTLAS = BuildBVH((const BVHNode *)m_instBoxes.data(), m_instBoxes.size(), presets).nodes;
+    m_nodesTLAS = BuildBVH((const BVHNode *)instBoxes.data(), instBoxes.size(), presets).nodes;
   }
   else
   {
     m_nodesTLAS.emplace_back();
-    m_nodesTLAS[0].boxMin = to_float3(m_instBoxes[0].boxMin);
-    m_nodesTLAS[0].boxMax = to_float3(m_instBoxes[0].boxMax);
+    m_nodesTLAS[0].boxMin = to_float3(m_instanceData[0].boxMin);
+    m_nodesTLAS[0].boxMax = to_float3(m_instanceData[0].boxMax);
   }
-
-  // DebugPrintNodes(m_nodesTLAS, "z01_tlas.txt");
-  // DebugPrintBoxes(m_instBoxes, "y01_boxes.txt");
 
   m_firstSceneCommit = false;
 }
@@ -679,26 +671,28 @@ uint32_t BVHRT::AddInstance(uint32_t a_geomId, const float4x4 &a_matrix)
     newBox.include(boxVertices[i]);
 
   // (2) append bounding box and matrices
-  //
-  const uint32_t oldSize = uint32_t(m_instBoxes.size());
+  const uint32_t oldSize = uint32_t(m_instanceData.size());
+  InstanceData instance;
+  instance.boxMin = newBox.boxMin;
+  instance.boxMax = newBox.boxMax;
+  instance.geomId = a_geomId;
+  instance.transform = a_matrix;
+  instance.transformInv = inverse4x4(a_matrix);
 
-  m_instBoxes.push_back(newBox);
-  m_instMatricesFwd.push_back(a_matrix);
-  m_instMatricesInv.push_back(inverse4x4(a_matrix));
-  m_geomIdByInstId.push_back(a_geomId);
+  m_instanceData.push_back(instance);
 
   return oldSize;
 }
 
 void BVHRT::UpdateInstance(uint32_t a_instanceId, const float4x4 &a_matrix)
 {
-  if(a_instanceId > m_geomIdByInstId.size())
+  if(a_instanceId > m_instanceData.size())
   {
-    std::cout << "[BVHRT::UpdateInstance]: " << "bad instance id == " << a_instanceId << "; size == " << m_geomIdByInstId.size() << std::endl;
+    std::cout << "[BVHRT::UpdateInstance]: " << "bad instance id == " << a_instanceId << "; size == " << m_instanceData.size() << std::endl;
     return;
   }
 
-  const uint32_t geomId = m_geomIdByInstId[a_instanceId];
+  const uint32_t geomId = m_instanceData[a_instanceId].geomId;
   const float4 boxMin   = m_geomBoxes[geomId].boxMin;
   const float4 boxMax   = m_geomBoxes[geomId].boxMax;
 
@@ -718,9 +712,10 @@ void BVHRT::UpdateInstance(uint32_t a_instanceId, const float4x4 &a_matrix)
   for (size_t i = 0; i < 8; i++)
     newBox.include(boxVertices[i]);
 
-  m_instBoxes      [a_instanceId] = newBox;
-  m_instMatricesFwd[a_instanceId] = a_matrix;
-  m_instMatricesInv[a_instanceId] = inverse4x4(a_matrix);
+  m_instanceData[a_instanceId].boxMin = newBox.boxMin;
+  m_instanceData[a_instanceId].boxMax = newBox.boxMax;
+  m_instanceData[a_instanceId].transform = a_matrix;
+  m_instanceData[a_instanceId].transformInv = inverse4x4(a_matrix);
 }
 
 std::vector<BVHNode> BVHRT::GetBoxes_SdfGrid(SdfGridView grid)

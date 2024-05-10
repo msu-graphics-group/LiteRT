@@ -41,6 +41,26 @@ static MultiRenderPreset getDefaultPreset()
   return p;
 }
 
+struct GeomData
+{
+  float4 boxMin;
+  float4 boxMax;
+  uint2 offset;
+  uint32_t bvhOffset;
+  uint32_t geomType; // enum GeomType
+};
+
+// common data for arch instance on scene
+struct InstanceData
+{
+  float4 boxMin;
+  float4 boxMax;
+  uint32_t geomId;
+  uint32_t _pad[7];
+  float4x4 transform;
+  float4x4 transformInv;
+};
+
 // main class
 //
 struct BVHRT : public ISceneObject
@@ -119,7 +139,7 @@ struct BVHRT : public ISceneObject
   { return RayQuery_AnyHit(posAndNear, dirAndFar); }
   
   uint32_t GetGeomNum() const override { return uint32_t(m_geomBoxes.size()); }
-  uint32_t GetInstNum() const override { return uint32_t(m_instBoxes.size()); }
+  uint32_t GetInstNum() const override { return uint32_t(m_instanceData.size()); }
   const LiteMath::float4* GetGeomBoxes() const override { return (const LiteMath::float4*)m_geomBoxes.data(); }
   
 //protected:
@@ -199,11 +219,6 @@ struct BVHRT : public ISceneObject
   virtual float eval_distance_sdf(unsigned type, unsigned prim_id, float3 p);
   virtual SdfHit sdf_sphere_tracing(unsigned type, unsigned prim_id, const float3 &min_pos, const float3 &max_pos,
                                     const float3 &pos, const float3 &dir, bool need_norm);    
-  //for each model in scene  
-  std::vector<Box4f>    m_geomBoxes;
-  std::vector<uint2>    m_geomOffsets; //means different things for different types of geometry
-  std::vector<uint32_t> m_bvhOffsets;
-  std::vector<uint32_t> m_geomTypeByGeomId;
 
   //SDFs data
 #ifndef DISABLE_SDF_PRIMITIVE
@@ -268,16 +283,19 @@ struct BVHRT : public ISceneObject
   std::vector<uint2>        m_SdfSBSRemap;   //primId->nodeId, required as each SBS node can have >1 bbox in BLAS
 #endif
 
-  //for each instance in scene
-  std::vector<Box4f> m_instBoxes;
-  std::vector<uint32_t> m_geomIdByInstId;
-  std::vector<float4x4> m_instMatricesInv; ///< inverse instance matrices
-  std::vector<float4x4> m_instMatricesFwd; ///< instance matrices
+  //for each model in scene  
+  std::vector<Box4f>    m_geomBoxes;
+  std::vector<uint2>    m_geomOffsets; //means different things for different types of geometry
+  std::vector<uint32_t> m_bvhOffsets;
+  std::vector<uint32_t> m_geomTypeByGeomId;
 
   //meshes data
   std::vector<float4>   m_vertPos;
   std::vector<uint32_t> m_indices;
   std::vector<uint32_t> m_primIndices;
+
+  //instance data
+  std::vector<InstanceData> m_instanceData;
 
   //Top Level Acceleration Structure
   std::vector<BVHNode>    m_nodesTLAS;
