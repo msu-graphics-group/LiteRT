@@ -130,7 +130,7 @@ void BVHRT::IntersectAllPrimitivesInLeaf(const float3 ray_pos, const float3 ray_
                                              uint32_t a_start, uint32_t a_count,
                                              CRT_Hit *pHit)
 {
-  uint32_t type = m_geomTypeByGeomId[geomId];
+  uint32_t type = m_geomData[geomId].type;
   const float SDF_BIAS = 0.01f;
   const float tNearSdf = std::max(tNear, SDF_BIAS);
   switch (type)
@@ -199,7 +199,7 @@ void BVHRT::OctreeNodeIntersect(uint32_t type, const float3 ray_pos, const float
   if (type == TYPE_SDF_FRAME_OCTREE)
   {
 #ifndef DISABLE_SDF_FRAME_OCTREE
-    uint32_t sdfId =  m_geomOffsets[geomId].x;
+    uint32_t sdfId =  m_geomData[geomId].offset.x;
     primId = m_origNodes[a_start].leftOffset;
     nodeId = primId + m_SdfFrameOctreeRoots[sdfId];
     min_pos = m_origNodes[a_start].boxMin;
@@ -220,7 +220,7 @@ void BVHRT::OctreeNodeIntersect(uint32_t type, const float3 ray_pos, const float
   else if (type == TYPE_SDF_SVS)
   {
 #ifndef DISABLE_SDF_SVS
-    uint32_t sdfId =  m_geomOffsets[geomId].x;
+    uint32_t sdfId =  m_geomData[geomId].offset.x;
     primId = a_start;
     nodeId = primId + m_SdfSVSRoots[sdfId];
 
@@ -248,10 +248,10 @@ void BVHRT::OctreeNodeIntersect(uint32_t type, const float3 ray_pos, const float
   else //if (type == TYPE_SDF_SBS)
   {
 #ifndef DISABLE_SDF_SBS
-    uint32_t sdfId =  m_geomOffsets[geomId].x;
+    uint32_t sdfId =  m_geomData[geomId].offset.x;
     primId = a_start; //id of bbox in BLAS
-    nodeId = m_SdfSBSRemap[primId + m_geomOffsets[geomId].y].x; //id of node (brick) in SBS
-    uint32_t voxelId = m_SdfSBSRemap[primId + m_geomOffsets[geomId].y].y;
+    nodeId = m_SdfSBSRemap[primId + m_geomData[geomId].offset.y].x; //id of node (brick) in SBS
+    uint32_t voxelId = m_SdfSBSRemap[primId + m_geomData[geomId].offset.y].y;
     SdfSBSHeader header = m_SdfSBSHeaders[sdfId];
     uint3 voxelPos = uint3(voxelId/(header.v_size*header.v_size), voxelId/header.v_size%header.v_size, voxelId%header.v_size);
 
@@ -607,7 +607,7 @@ void BVHRT::IntersectAllSdfsInLeaf(const float3 ray_pos, const float3 ray_dir,
                                    CRT_Hit *pHit)
 {
 
-  uint32_t type = m_geomTypeByGeomId[geomId];
+  uint32_t type = m_geomData[geomId].type;
   uint32_t sdfId = 0;
   uint32_t primId = 0;
 
@@ -617,7 +617,7 @@ void BVHRT::IntersectAllSdfsInLeaf(const float3 ray_pos, const float3 ray_dir,
   {
 #ifndef DISABLE_SDF_PRIMITIVE
   case TYPE_SDF_PRIMITIVE:
-    sdfId = m_ConjIndices[m_geomOffsets[geomId].x + a_start];
+    sdfId = m_ConjIndices[m_geomData[geomId].offset.x + a_start];
     primId = sdfId;
     min_pos = to_float3(m_SdfConjunctions[sdfId].min_pos);
     max_pos = to_float3(m_SdfConjunctions[sdfId].max_pos);
@@ -625,7 +625,7 @@ void BVHRT::IntersectAllSdfsInLeaf(const float3 ray_pos, const float3 ray_dir,
 #endif
 #ifndef DISABLE_SDF_GRID
   case TYPE_SDF_GRID:
-    sdfId = m_geomOffsets[geomId].x;
+    sdfId = m_geomData[geomId].offset.x;
     primId = 0;
     min_pos = float3(-1,-1,-1);
     max_pos = float3( 1, 1, 1);
@@ -633,7 +633,7 @@ void BVHRT::IntersectAllSdfsInLeaf(const float3 ray_pos, const float3 ray_dir,
 #endif
 #ifndef DISABLE_SDF_OCTREE
   case TYPE_SDF_OCTREE:
-    sdfId = m_geomOffsets[geomId].x;
+    sdfId = m_geomData[geomId].offset.x;
     primId = 0;
     min_pos = float3(-1,-1,-1);
     max_pos = float3( 1, 1, 1);
@@ -641,7 +641,7 @@ void BVHRT::IntersectAllSdfsInLeaf(const float3 ray_pos, const float3 ray_dir,
 #endif
 #ifndef DISABLE_SDF_FRAME_OCTREE
   case TYPE_SDF_FRAME_OCTREE:
-    sdfId =  m_geomOffsets[geomId].x;
+    sdfId =  m_geomData[geomId].offset.x;
 
     if (m_preset.sdf_frame_octree_blas == SDF_OCTREE_BLAS_NO)
     {
@@ -798,7 +798,7 @@ void BVHRT::IntersectRFInLeaf(const float3 ray_pos, const float3 ray_dir,
                                    uint32_t a_start, uint32_t a_count,
                                    CRT_Hit *pHit)
 {
-  uint32_t type = m_geomTypeByGeomId[geomId];
+  uint32_t type = m_geomData[geomId].type;
   uint32_t sdfId = 0;
   uint32_t primId = 0;
 
@@ -1362,7 +1362,7 @@ void BVHRT::IntersectAllTrianglesInLeaf(const float3 ray_pos, const float3 ray_d
                                         uint32_t a_start, uint32_t a_count,
                                         CRT_Hit *pHit)
 {
-  const uint2 a_geomOffsets = m_geomOffsets[geomId];
+  const uint2 a_geomOffsets = m_geomData[geomId].offset;
 
   for (uint32_t triId = a_start; triId < a_start + a_count; triId++)
   {
@@ -1413,7 +1413,7 @@ void BVHRT::BVH2TraverseF32(const float3 ray_pos, const float3 ray_dir, float tN
                                 uint32_t instId, uint32_t geomId, uint32_t stack[STACK_SIZE], bool stopOnFirstHit,
                                 CRT_Hit* pHit)
 {
-  const uint32_t bvhOffset = m_bvhOffsets[geomId];
+  const uint32_t bvhOffset = m_geomData[geomId].bvhOffset;
 
   int top = 0;
   uint32_t leftNodeOffset = 0;
@@ -1553,7 +1553,7 @@ CRT_Hit BVHRT::RayQuery_NearestHit(float4 posAndNear, float4 dirAndFar)
 
   if(hit.geomId < uint32_t(-1) && ((hit.geomId >> SH_TYPE) == TYPE_MESH_TRIANGLE)) 
   {
-    const uint2 geomOffsets = m_geomOffsets[hit.geomId & 0x0FFFFFFF];
+    const uint2 geomOffsets = m_geomData[hit.geomId & 0x0FFFFFFF].offset;
     hit.primId = m_primIndices[geomOffsets.x/3 + hit.primId];
   }
   

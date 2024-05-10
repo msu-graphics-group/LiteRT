@@ -47,7 +47,7 @@ struct GeomData
   float4 boxMax;
   uint2 offset;
   uint32_t bvhOffset;
-  uint32_t geomType; // enum GeomType
+  uint32_t type; // enum GeomType
 };
 
 // common data for arch instance on scene
@@ -138,10 +138,9 @@ struct BVHRT : public ISceneObject
   bool    RayQuery_AnyHitMotion(LiteMath::float4 posAndNear, LiteMath::float4 dirAndFar, float time = 0.0f) override
   { return RayQuery_AnyHit(posAndNear, dirAndFar); }
   
-  uint32_t GetGeomNum() const override { return uint32_t(m_geomBoxes.size()); }
+  uint32_t GetGeomNum() const override { return uint32_t(m_geomData.size()); }
   uint32_t GetInstNum() const override { return uint32_t(m_instanceData.size()); }
-  const LiteMath::float4* GetGeomBoxes() const override { return (const LiteMath::float4*)m_geomBoxes.data(); }
-  
+
 //protected:
 
   void IntersectAllPrimitivesInLeaf(const float3 ray_pos, const float3 ray_dir,
@@ -283,16 +282,13 @@ struct BVHRT : public ISceneObject
   std::vector<uint2>        m_SdfSBSRemap;   //primId->nodeId, required as each SBS node can have >1 bbox in BLAS
 #endif
 
-  //for each model in scene  
-  std::vector<Box4f>    m_geomBoxes;
-  std::vector<uint2>    m_geomOffsets; //means different things for different types of geometry
-  std::vector<uint32_t> m_bvhOffsets;
-  std::vector<uint32_t> m_geomTypeByGeomId;
-
   //meshes data
   std::vector<float4>   m_vertPos;
   std::vector<uint32_t> m_indices;
   std::vector<uint32_t> m_primIndices;
+
+  //geometric data
+  std::vector<GeomData> m_geomData;
 
   //instance data
   std::vector<InstanceData> m_instanceData;

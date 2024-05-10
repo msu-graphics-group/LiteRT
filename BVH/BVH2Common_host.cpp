@@ -19,14 +19,8 @@ constexpr std::size_t reserveSize = 1000;
 
 void BVHRT::ClearGeom()
 {
-  m_geomOffsets.reserve(std::max<std::size_t>(reserveSize, m_geomOffsets.capacity()));
-  m_geomOffsets.resize(0);
-
-  m_geomBoxes.reserve(std::max<std::size_t>(reserveSize, m_geomBoxes.capacity()));
-  m_geomBoxes.resize(0);
-
-  m_bvhOffsets.reserve(std::max<std::size_t>(reserveSize, m_bvhOffsets.capacity()));
-  m_bvhOffsets.resize(0);
+  m_geomData.reserve(std::max<std::size_t>(reserveSize, m_geomData.capacity()));
+  m_geomData.resize(0);
 
   m_indices.reserve(std::max<std::size_t>(100000 * 3, m_indices.capacity()));
   m_indices.resize(0);
@@ -64,11 +58,9 @@ uint32_t BVHRT::AddGeom_Triangles3f(const float *a_vpos3f, size_t a_vertNumber, 
   const size_t vStride = vByteStride / 4;
   assert(vByteStride % 4 == 0);
 
-  const uint32_t currGeomId = uint32_t(m_geomOffsets.size());
+  const uint32_t currGeomId = uint32_t(m_geomData.size());
   const size_t oldSizeVert  = m_vertPos.size();
   const size_t oldSizeInd   = m_indices.size();
-
-  m_geomOffsets.push_back(uint2(oldSizeInd, oldSizeVert));
 
   m_vertPos.resize(oldSizeVert + a_vertNumber);
 
@@ -80,14 +72,18 @@ uint32_t BVHRT::AddGeom_Triangles3f(const float *a_vpos3f, size_t a_vertNumber, 
     bbox.include(v);
   }
 
-  m_geomBoxes.push_back(bbox);
-  m_geomTypeByGeomId.push_back(TYPE_MESH_TRIANGLE);
-
   // Build BVH for each geom and append it to big buffer;
   // append data to global arrays and fix offsets
   //
   const size_t oldBvhSize = m_allNodePairs.size();
-  m_bvhOffsets.push_back(oldBvhSize);
+
+  GeomData geomData;
+  geomData.boxMin = bbox.boxMin;
+  geomData.boxMax = bbox.boxMax;
+  geomData.offset = uint2(oldSizeInd, oldSizeVert);
+  geomData.bvhOffset = oldBvhSize;
+  geomData.type = TYPE_MESH_TRIANGLE;
+  m_geomData.push_back(geomData);
   
   auto presets = BuilderPresetsFromString(m_buildName.c_str());
   auto layout  = LayoutPresetsFromString(m_layoutName.c_str());
@@ -105,7 +101,6 @@ void BVHRT::UpdateGeom_Triangles3f(uint32_t a_geomId, const float *a_vpos3f, siz
 
 uint32_t BVHRT::AddGeom_SdfScene(SdfSceneView scene, BuildOptions a_qualityLevel)
 {
-#ifndef DISABLE_SDF_PRIMITIVE
   assert(scene.conjunctions_count > 0);
   assert(scene.objects_count > 0);
   assert(scene.parameters_count > 0);
@@ -116,10 +111,14 @@ uint32_t BVHRT::AddGeom_SdfScene(SdfSceneView scene, BuildOptions a_qualityLevel
     mn = min(mn, scene.conjunctions[i].min_pos);
     mx = max(mx, scene.conjunctions[i].max_pos);
   }
-  m_geomOffsets.push_back(uint2(m_ConjIndices.size(), 0));
-  m_geomBoxes.push_back(Box4f(mn, mx));
-  m_geomTypeByGeomId.push_back(TYPE_SDF_PRIMITIVE);
-  m_bvhOffsets.push_back(m_allNodePairs.size());
+
+  GeomData geomData;
+  geomData.boxMin = mn;
+  geomData.boxMax = mx;
+  geomData.offset = uint2(m_ConjIndices.size(), 0);
+  geomData.bvhOffset = m_allNodePairs.size();
+  geomData.type = TYPE_SDF_PRIMITIVE;
+  m_geomData.push_back(geomData);
 
   unsigned p_offset = m_SdfParameters.size();
   unsigned o_offset = m_SdfObjects.size();
@@ -172,11 +171,8 @@ uint32_t BVHRT::AddGeom_SdfScene(SdfSceneView scene, BuildOptions a_qualityLevel
     printf("ind %d\n",(int)i);
 
   m_allNodePairs.insert(m_allNodePairs.end(), bvhData.nodes.begin(), bvhData.nodes.end());
-#else
-  printf("Mini LiteRT does not support SdfScene!");
-#endif
 
-  return m_geomTypeByGeomId.size()-1;
+  return m_geomData.size()-1;
 }
 
 uint32_t BVHRT::AddGeom_RFScene(RFScene grid, BuildOptions a_qualityLevel)
@@ -185,11 +181,14 @@ uint32_t BVHRT::AddGeom_RFScene(RFScene grid, BuildOptions a_qualityLevel)
   float4 mn = float4(0, 0, 0,1);
   float4 mx = float4( 1, 1, 1,1);
 
-  //fill common data arrays
-  m_geomOffsets.push_back(uint2(m_RFGridOffsets.size(), 0));
-  m_geomBoxes.push_back(Box4f(mn, mx));
-  m_geomTypeByGeomId.push_back(TYPE_RF_GRID);
-  m_bvhOffsets.push_back(m_allNodePairs.size());
+  //fill geom data array
+  GeomData geomData;
+  geomData.boxMin = mn;
+  geomData.boxMax = mx;
+  geomData.offset = uint2(m_RFGridOffsets.size(), 0);
+  geomData.bvhOffset = m_allNodePairs.size();
+  geomData.type = TYPE_RF_GRID;
+  m_geomData.push_back(geomData);
 
   //fill grid-specific data arrays
   m_RFGridOffsets.push_back(m_RFGridData.size());
@@ -222,7 +221,7 @@ uint32_t BVHRT::AddGeom_RFScene(RFScene grid, BuildOptions a_qualityLevel)
 
   m_allNodePairs.insert(m_allNodePairs.end(), bvhData.nodes.begin(), bvhData.nodes.end());
 
-  return m_geomTypeByGeomId.size()-1;
+  return m_geomData.size()-1;
 }
 
 float4x4 Transpose(float4x4& a) {
@@ -308,10 +307,13 @@ std::vector<float4x4> InvertMatrices(std::vector<float4x4>&& matrices) {
 }
 
 uint32_t BVHRT::AddGeom_GSScene(GSScene grid, BuildOptions a_qualityLevel) {
-    m_geomOffsets.push_back(uint2(grid.data_0.size(), 0));
-    m_geomBoxes.push_back(Box4f(float4(-1.0f, -1.0f, -1.0f, 1.0f), float4(1.0f, 1.0f, 1.0f, 1.0f)));
-    m_geomTypeByGeomId.push_back(TYPE_GS_PRIMITIVE);
-    m_bvhOffsets.push_back(m_allNodePairs.size());
+    GeomData geomData;
+    geomData.boxMin = float4(-1.0f, -1.0f, -1.0f, 1.0f);
+    geomData.boxMax = float4(1.0f, 1.0f, 1.0f, 1.0f);
+    geomData.offset = uint2(grid.data_0.size(), 0);
+    geomData.bvhOffset = m_allNodePairs.size();
+    geomData.type = TYPE_GS_PRIMITIVE;
+    m_geomData.push_back(geomData);
 
     m_gs_data_0 = grid.data_0;
     m_gs_conic = InvertMatrices(ComputeCovarianceMatrices(m_gs_data_0));
@@ -324,7 +326,7 @@ uint32_t BVHRT::AddGeom_GSScene(GSScene grid, BuildOptions a_qualityLevel) {
 
     m_allNodePairs.insert(m_allNodePairs.end(), bvhData.nodes.begin(), bvhData.nodes.end());
 
-    return m_geomTypeByGeomId.size() - 1;
+    return m_geomData.size() - 1;
 }
 
 uint32_t BVHRT::AddGeom_SdfGrid(SdfGridView grid, BuildOptions a_qualityLevel)
@@ -335,11 +337,14 @@ uint32_t BVHRT::AddGeom_SdfGrid(SdfGridView grid, BuildOptions a_qualityLevel)
   float4 mn = float4(-1,-1,-1,1);
   float4 mx = float4( 1, 1, 1,1);
 
-  //fill common data arrays
-  m_geomOffsets.push_back(uint2(m_SdfGridOffsets.size(), 0));
-  m_geomBoxes.push_back(Box4f(mn, mx));
-  m_geomTypeByGeomId.push_back(TYPE_SDF_GRID);
-  m_bvhOffsets.push_back(m_allNodePairs.size());
+  //fill geom data array
+  GeomData geomData;
+  geomData.boxMin = mn;
+  geomData.boxMax = mx;
+  geomData.offset = uint2(m_SdfGridOffsets.size(), 0);
+  geomData.bvhOffset = m_allNodePairs.size();
+  geomData.type = TYPE_SDF_GRID;
+  m_geomData.push_back(geomData);
 
   //fill grid-specific data arrays
   m_SdfGridOffsets.push_back(m_SdfGridData.size());
@@ -360,7 +365,7 @@ uint32_t BVHRT::AddGeom_SdfGrid(SdfGridView grid, BuildOptions a_qualityLevel)
 
   m_allNodePairs.insert(m_allNodePairs.end(), bvhData.nodes.begin(), bvhData.nodes.end());
 
-  return m_geomTypeByGeomId.size()-1;
+  return m_geomData.size()-1;
 }
 
 uint32_t BVHRT::AddGeom_SdfOctree(SdfOctreeView octree, BuildOptions a_qualityLevel)
@@ -371,11 +376,14 @@ uint32_t BVHRT::AddGeom_SdfOctree(SdfOctreeView octree, BuildOptions a_qualityLe
   float4 mn = float4(-1,-1,-1,1);
   float4 mx = float4( 1, 1, 1,1);
 
-  //fill common data arrays
-  m_geomOffsets.push_back(uint2(m_SdfOctreeRoots.size(), 0));
-  m_geomBoxes.push_back(Box4f(mn, mx));
-  m_geomTypeByGeomId.push_back(TYPE_SDF_OCTREE);
-  m_bvhOffsets.push_back(m_allNodePairs.size());
+  //fill geom data array
+  GeomData geomData;
+  geomData.boxMin = mn;
+  geomData.boxMax = mx;
+  geomData.offset = uint2(m_SdfOctreeRoots.size(), 0);
+  geomData.bvhOffset = m_allNodePairs.size();
+  geomData.type = TYPE_SDF_OCTREE;
+  m_geomData.push_back(geomData);
 
   //fill octree-specific data arrays
   m_SdfOctreeRoots.push_back(m_SdfOctreeNodes.size());
@@ -397,7 +405,7 @@ uint32_t BVHRT::AddGeom_SdfOctree(SdfOctreeView octree, BuildOptions a_qualityLe
 
   m_allNodePairs.insert(m_allNodePairs.end(), bvhData.nodes.begin(), bvhData.nodes.end());
 
-  return m_geomTypeByGeomId.size()-1;
+  return m_geomData.size()-1;
 }
 
 uint32_t BVHRT::AddGeom_SdfFrameOctree(SdfFrameOctreeView octree, BuildOptions a_qualityLevel)
@@ -408,11 +416,14 @@ uint32_t BVHRT::AddGeom_SdfFrameOctree(SdfFrameOctreeView octree, BuildOptions a
   float4 mn = float4(-1,-1,-1,1);
   float4 mx = float4( 1, 1, 1,1);
 
-  //fill common data arrays
-  m_geomOffsets.push_back(uint2(m_SdfFrameOctreeRoots.size(), 0));
-  m_geomBoxes.push_back(Box4f(mn, mx));
-  m_geomTypeByGeomId.push_back(TYPE_SDF_FRAME_OCTREE);
-  m_bvhOffsets.push_back(m_allNodePairs.size());
+  //fill geom data array
+  GeomData geomData;
+  geomData.boxMin = mn;
+  geomData.boxMax = mx;
+  geomData.offset = uint2(m_SdfFrameOctreeRoots.size(), 0);
+  geomData.bvhOffset = m_allNodePairs.size();
+  geomData.type = TYPE_SDF_FRAME_OCTREE;
+  m_geomData.push_back(geomData);
 
   //fill octree-specific data arrays
   unsigned n_offset = m_SdfFrameOctreeNodes.size();
@@ -433,7 +444,7 @@ uint32_t BVHRT::AddGeom_SdfFrameOctree(SdfFrameOctreeView octree, BuildOptions a
 
   m_allNodePairs.insert(m_allNodePairs.end(), bvhData.nodes.begin(), bvhData.nodes.end());
 
-  return m_geomTypeByGeomId.size()-1;
+  return m_geomData.size()-1;
 }
 
 uint32_t BVHRT::AddGeom_SdfSVS(SdfSVSView octree, BuildOptions a_qualityLevel)
@@ -467,11 +478,14 @@ uint32_t BVHRT::AddGeom_SdfSVS(SdfSVSView octree, BuildOptions a_qualityLevel)
       border_nodes.push_back(octree.nodes[i]);
   }
 
-  //fill common data arrays
-  m_geomOffsets.push_back(uint2(m_SdfSVSRoots.size(), 0));
-  m_geomBoxes.push_back(Box4f(mn, mx));
-  m_geomTypeByGeomId.push_back(TYPE_SDF_SVS);
-  m_bvhOffsets.push_back(m_allNodePairs.size());
+  //fill geom data array
+  GeomData geomData;
+  geomData.boxMin = mn;
+  geomData.boxMax = mx;
+  geomData.offset = uint2(m_SdfSVSRoots.size(), 0);
+  geomData.bvhOffset = m_allNodePairs.size();
+  geomData.type = TYPE_SDF_SVS;
+  m_geomData.push_back(geomData);
 
   //fill octree-specific data arrays
   unsigned n_offset = m_SdfSVSNodes.size();
@@ -498,7 +512,7 @@ uint32_t BVHRT::AddGeom_SdfSVS(SdfSVSView octree, BuildOptions a_qualityLevel)
 
   m_allNodePairs.insert(m_allNodePairs.end(), bvhData.nodes.begin(), bvhData.nodes.end());
 
-  return m_geomTypeByGeomId.size()-1;
+  return m_geomData.size()-1;
 }
 
 uint32_t BVHRT::AddGeom_SdfSBS(SdfSBSView octree, BuildOptions a_qualityLevel)
@@ -509,11 +523,14 @@ uint32_t BVHRT::AddGeom_SdfSBS(SdfSBSView octree, BuildOptions a_qualityLevel)
   float4 mn = float4(-1,-1,-1,1);
   float4 mx = float4( 1, 1, 1,1);
 
-  //fill common data arrays
-  m_geomOffsets.push_back(uint2(m_SdfSBSRoots.size(), m_SdfSBSRemap.size()));
-  m_geomBoxes.push_back(Box4f(mn, mx));
-  m_geomTypeByGeomId.push_back(TYPE_SDF_SBS);
-  m_bvhOffsets.push_back(m_allNodePairs.size());
+  //fill geom data array
+  GeomData geomData;
+  geomData.boxMin = mn;
+  geomData.boxMax = mx;
+  geomData.offset = uint2(m_SdfSBSRoots.size(), m_SdfSBSRemap.size());
+  geomData.bvhOffset = m_allNodePairs.size();
+  geomData.type = TYPE_SDF_SBS;
+  m_geomData.push_back(geomData);
 
   //fill octree-specific data arrays
   unsigned n_offset = m_SdfSBSNodes.size();
@@ -584,7 +601,7 @@ uint32_t BVHRT::AddGeom_SdfSBS(SdfSBSView octree, BuildOptions a_qualityLevel)
 
   m_allNodePairs.insert(m_allNodePairs.end(), bvhData.nodes.begin(), bvhData.nodes.end());
 
-  return m_geomTypeByGeomId.size()-1;
+  return m_geomData.size()-1;
 }
 
 void BVHRT::set_debug_mode(bool enable)
@@ -652,18 +669,19 @@ void BVHRT::CommitScene(uint32_t a_qualityLevel)
 
 uint32_t BVHRT::AddInstance(uint32_t a_geomId, const float4x4 &a_matrix)
 {
-  const auto &box = m_geomBoxes[a_geomId];
+  const auto &boxMin = m_geomData[a_geomId].boxMin;
+  const auto &boxMax = m_geomData[a_geomId].boxMax;
 
   // (1) mult mesh bounding box vertices with matrix to form new bouding box for instance
   float4 boxVertices[8]{
-      a_matrix * float4{box.boxMin.x, box.boxMin.y, box.boxMin.z, 1.0f},
-      a_matrix * float4{box.boxMax.x, box.boxMin.y, box.boxMin.z, 1.0f},
-      a_matrix * float4{box.boxMin.x, box.boxMax.y, box.boxMin.z, 1.0f},
-      a_matrix * float4{box.boxMin.x, box.boxMin.y, box.boxMax.z, 1.0f},
-      a_matrix * float4{box.boxMax.x, box.boxMax.y, box.boxMin.z, 1.0f},
-      a_matrix * float4{box.boxMax.x, box.boxMin.y, box.boxMax.z, 1.0f},
-      a_matrix * float4{box.boxMin.x, box.boxMax.y, box.boxMax.z, 1.0f},
-      a_matrix * float4{box.boxMax.x, box.boxMax.y, box.boxMax.z, 1.0f},
+      a_matrix * float4{boxMin.x, boxMin.y, boxMin.z, 1.0f},
+      a_matrix * float4{boxMax.x, boxMin.y, boxMin.z, 1.0f},
+      a_matrix * float4{boxMin.x, boxMax.y, boxMin.z, 1.0f},
+      a_matrix * float4{boxMin.x, boxMin.y, boxMax.z, 1.0f},
+      a_matrix * float4{boxMax.x, boxMax.y, boxMin.z, 1.0f},
+      a_matrix * float4{boxMax.x, boxMin.y, boxMax.z, 1.0f},
+      a_matrix * float4{boxMin.x, boxMax.y, boxMax.z, 1.0f},
+      a_matrix * float4{boxMax.x, boxMax.y, boxMax.z, 1.0f},
   };
 
   Box4f newBox;
@@ -693,8 +711,8 @@ void BVHRT::UpdateInstance(uint32_t a_instanceId, const float4x4 &a_matrix)
   }
 
   const uint32_t geomId = m_instanceData[a_instanceId].geomId;
-  const float4 boxMin   = m_geomBoxes[geomId].boxMin;
-  const float4 boxMax   = m_geomBoxes[geomId].boxMax;
+  const float4 boxMin   = m_geomData[geomId].boxMin;
+  const float4 boxMax   = m_geomData[geomId].boxMax;
 
   // (1) mult mesh bounding box vertices with matrix to form new bouding box for instance
   float4 boxVertices[8]{
