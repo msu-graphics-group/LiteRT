@@ -315,7 +315,6 @@ uint32_t NeuralRT::AddGeom_NeuralSdf(NeuralProperties neural_properties, float *
   return m_SdfNeuralProperties.size()-1;
 }
 
-#ifndef LITERT_MINI
 #if defined(USE_GPU)
 #include "NeuralRT_gpu.h"
 std::shared_ptr<NeuralRT> CreateNeuralRT_GPU(vk_utils::VulkanContext a_ctx, size_t a_maxThreadsGenerated);
@@ -326,12 +325,6 @@ std::shared_ptr<NeuralRT> CreateNeuralRT(const char* a_name)
   else
     return std::shared_ptr<NeuralRT>(new NeuralRT());
 }
-#else
-std::shared_ptr<NeuralRT> CreateNeuralRT(const char* a_name) 
-{ 
-  return std::shared_ptr<NeuralRT>(new NeuralRT()); 
-}
-#endif
 #else
 std::shared_ptr<NeuralRT> CreateNeuralRT(const char* a_name) 
 { 

@@ -180,18 +180,22 @@ struct BVHRT : public ISceneObject
   virtual float eval_dist_trilinear(const float values[8], float3 dp);
   virtual bool need_normal();
 
-#ifndef LITERT_MINI
+#ifndef DISABLE_SDF_PRIMITIVE
   virtual float eval_dist_prim(unsigned prim_id, float3 p);
+  virtual float eval_dist_sdf_conjunction(unsigned conj_id, float3 p);
+#endif
+#ifndef DISABLE_SDF_OCTREE
   virtual float sdf_octree_sample_mipskip_3x3(unsigned octree_id, float3 p, unsigned max_level);
   virtual float sdf_octree_sample_mipskip_closest(unsigned octree_id, float3 p, unsigned max_level);
   virtual float sdf_octree_sample_closest(unsigned octree_id, float3 p, unsigned max_level);
-  virtual float eval_dist_sdf_conjunction(unsigned conj_id, float3 p);
-#endif
-
-  virtual float eval_distance_sdf_grid(unsigned grid_id, float3 p);
   virtual float eval_distance_sdf_octree(unsigned octree_id, float3 p, unsigned max_level);
+#endif
+#ifndef DISABLE_SDF_GRID
+  virtual float eval_distance_sdf_grid(unsigned grid_id, float3 p);
+#endif 
+#ifndef DISABLE_SDF_FRAME_OCTREE
   virtual float eval_distance_sdf_frame_octree(unsigned octree_id, float3 p);
-
+#endif
   virtual float eval_distance_sdf(unsigned type, unsigned prim_id, float3 p);
   virtual SdfHit sdf_sphere_tracing(unsigned type, unsigned prim_id, const float3 &min_pos, const float3 &max_pos,
                                     const float3 &pos, const float3 &dir, bool need_norm);    
@@ -202,7 +206,7 @@ struct BVHRT : public ISceneObject
   std::vector<uint32_t> m_geomTypeByGeomId;
 
   //SDFs data
-#ifndef LITERT_MINI
+#ifndef DISABLE_SDF_PRIMITIVE
   std::vector<float> m_SdfParameters;
   std::vector<SdfObject> m_SdfObjects;
   std::vector<SdfConjunction> m_SdfConjunctions;
@@ -211,41 +215,52 @@ struct BVHRT : public ISceneObject
 #endif
 
   //SDF grid data
-#ifndef LITERT_MINI
+#ifndef DISABLE_SDF_GRID
   std::vector<float> m_SdfGridData;       //raw data for all SDF grids
   std::vector<uint32_t> m_SdfGridOffsets; //offset in m_SdfGridData for each SDF grid
   std::vector<uint3> m_SdfGridSizes;      //size for each SDF grid
 #endif
 
   // RF grid data
+#ifndef DISABLE_RF_GRID
   std::vector<float> m_RFGridData;       //raw data for all RF grids
   std::vector<uint4> m_RFGridPtrs;       //raw data for all RF grids
   std::vector<uint32_t> m_RFGridOffsets; //offset in m_SdfGridData for each RF grid
   std::vector<size_t> m_RFGridSizes;      //size for each RF grid
   std::vector<float> m_RFGridScales;      //size for each RF grid
   std::vector<uint32_t> m_RFGridFlags;      //size for each RF grid
+  #ifdef DISABLE_SDF_FRAME_OCTREE
+    std::vector<BVHNode> m_origNodes;
+  #endif
+#endif
 
   // GS data
+#ifndef DISABLE_GS_PRIMITIVE
   std::vector<float4x4> m_gs_data_0{};
   std::vector<float4x4> m_gs_conic{};
+#endif
 
   //SDF octree data
-#ifndef LITERT_MINI
+#ifndef DISABLE_SDF_OCTREE
   std::vector<SdfOctreeNode> m_SdfOctreeNodes;//nodes for all SDF octrees
   std::vector<uint32_t> m_SdfOctreeRoots;     //root node ids for each SDF octree
 #endif
 
   //SDF frame octree data
+#ifndef DISABLE_SDF_FRAME_OCTREE
   std::vector<SdfFrameOctreeNode> m_SdfFrameOctreeNodes;//nodes for all SDF octrees
   std::vector<uint32_t> m_SdfFrameOctreeRoots;     //root node ids for each SDF octree
   std::vector<BVHNode> m_origNodes;
+#endif
 
   //SDF Sparse Voxel Sets
+#ifndef DISABLE_SDF_SVS
   std::vector<SdfSVSNode> m_SdfSVSNodes;//nodes for all SDF Sparse Voxel Sets
   std::vector<uint32_t> m_SdfSVSRoots;     //root node ids for each SDF Sparse Voxel Set
+#endif
 
   //SDF Sparse Brick Sets
-#ifndef LITERT_MINI
+#ifndef DISABLE_SDF_SBS
   std::vector<SdfSBSNode>   m_SdfSBSNodes;   //nodes for all SDF Sparse Brick Sets
   std::vector<uint32_t>     m_SdfSBSData;    //raw data for all Sparse Brick Sets
   std::vector<uint32_t>     m_SdfSBSRoots;   //root node ids for each SDF Sparse Voxel Set

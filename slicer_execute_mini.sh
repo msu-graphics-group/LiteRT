@@ -20,7 +20,15 @@ $2 $start_dir/Renderer/eye_ray.cpp $start_dir/BVH/BVH2Common.cpp \
 -shaderCC glsl \
 -suffix _GPU \
 -megakernel 1 \
--DPUGIXML_NO_EXCEPTIONS -DKERNEL_SLICER -DLITERT_MINI -v
+-DPUGIXML_NO_EXCEPTIONS -DKERNEL_SLICER -v \
+-DDISABLE_SDF_PRIMITIVE \
+-DDISABLE_SDF_OCTREE \
+-DDISABLE_SDF_GRID \
+-DDISABLE_SDF_FRAME_OCTREE \
+-DDISABLE_SDF_SBS \
+#-DDISABLE_SDF_SVS \
+#-DDISABLE_RF_GRID \
+#-DDISABLE_GS_PRIMITIVE
 
 $2 $start_dir/NeuralRT/NeuralRT.cpp \
 -mainClass NeuralRT \

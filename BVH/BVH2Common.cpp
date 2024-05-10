@@ -42,7 +42,7 @@ float2 BVHRT::box_intersects(const float3 &min_pos, const float3 &max_pos, const
   return float2(tNear, tFar);
 }
 
-#ifndef LITERT_MINI
+#ifndef DISABLE_SDF_PRIMITIVE
 float BVHRT::eval_dist_prim(uint32_t prim_id, float3 p)
 {
   SdfObject prim = m_SdfObjects[prim_id];
@@ -149,12 +149,16 @@ void BVHRT::IntersectAllPrimitivesInLeaf(const float3 ray_pos, const float3 ray_
     else
       OctreeNodeIntersect(type, ray_pos, ray_dir, tNearSdf, instId, geomId, a_start, a_count, pHit);
     break;
+#ifndef DISABLE_RF_GRID
   case TYPE_RF_GRID:
     IntersectRFInLeaf(ray_pos, ray_dir, tNear, instId, geomId, a_start, a_count, pHit);
     break;
+#endif
+#ifndef DISABLE_GS_PRIMITIVE
   case TYPE_GS_PRIMITIVE:
     IntersectGSInLeaf(ray_pos, ray_dir, tNear, instId, geomId, a_start, a_count, pHit);
     break;
+#endif
   case TYPE_SDF_SVS:
   case TYPE_SDF_SBS:
     OctreeNodeIntersect(type, ray_pos, ray_dir, tNearSdf, instId, geomId, a_start, a_count, pHit);
@@ -190,8 +194,11 @@ void BVHRT::OctreeNodeIntersect(uint32_t type, const float3 ray_pos, const float
   float3 start_q;
   float3 min_pos, max_pos;
 
+  qNear = 1.0f;
+
   if (type == TYPE_SDF_FRAME_OCTREE)
   {
+#ifndef DISABLE_SDF_FRAME_OCTREE
     uint32_t sdfId =  m_geomOffsets[geomId].x;
     primId = m_origNodes[a_start].leftOffset;
     nodeId = primId + m_SdfFrameOctreeRoots[sdfId];
@@ -208,9 +215,11 @@ void BVHRT::OctreeNodeIntersect(uint32_t type, const float3 ray_pos, const float
     start_q = (start_pos - min_pos)/(2.0f*d);
     qFar = (fNearFar.y - fNearFar.x) / (2.0f * d);
     qNear = tNear > fNearFar.x ? (tNear - fNearFar.x) / (2.0f * d) : 0.0f;
+#endif
   }
   else if (type == TYPE_SDF_SVS)
   {
+#ifndef DISABLE_SDF_SVS
     uint32_t sdfId =  m_geomOffsets[geomId].x;
     primId = a_start;
     nodeId = primId + m_SdfSVSRoots[sdfId];
@@ -234,10 +243,11 @@ void BVHRT::OctreeNodeIntersect(uint32_t type, const float3 ray_pos, const float
     start_q = (start_pos - min_pos)/(2.0f*d);
     qFar = (fNearFar.y - fNearFar.x) / (2.0f * d);
     qNear = tNear > fNearFar.x ? (tNear - fNearFar.x) / (2.0f * d) : 0.0f;
+#endif
   }
-#ifndef LITERT_MINI
   else //if (type == TYPE_SDF_SBS)
   {
+#ifndef DISABLE_SDF_SBS
     uint32_t sdfId =  m_geomOffsets[geomId].x;
     primId = a_start; //id of bbox in BLAS
     nodeId = m_SdfSBSRemap[primId + m_geomOffsets[geomId].y].x; //id of node (brick) in SBS
@@ -274,9 +284,10 @@ void BVHRT::OctreeNodeIntersect(uint32_t type, const float3 ray_pos, const float
     start_q = (start_pos - min_pos)/(2.0f*d);
     qFar = (fNearFar.y - fNearFar.x) / (2.0f * d);
     qNear = tNear > fNearFar.x ? (tNear - fNearFar.x) / (2.0f * d) : 0.0f;
-  }
 #endif
+  }
 
+  //fast return if starting point in this exacat node or type is not supported
   if (qNear > 0.0f) 
     return;
 
@@ -604,7 +615,7 @@ void BVHRT::IntersectAllSdfsInLeaf(const float3 ray_pos, const float3 ray_dir,
 
   switch (type)
   {
-#ifndef LITERT_MINI
+#ifndef DISABLE_SDF_PRIMITIVE
   case TYPE_SDF_PRIMITIVE:
     sdfId = m_ConjIndices[m_geomOffsets[geomId].x + a_start];
     primId = sdfId;
@@ -612,13 +623,23 @@ void BVHRT::IntersectAllSdfsInLeaf(const float3 ray_pos, const float3 ray_dir,
     max_pos = to_float3(m_SdfConjunctions[sdfId].max_pos);
     break;
 #endif
+#ifndef DISABLE_SDF_GRID
   case TYPE_SDF_GRID:
+    sdfId = m_geomOffsets[geomId].x;
+    primId = 0;
+    min_pos = float3(-1,-1,-1);
+    max_pos = float3( 1, 1, 1);
+    break;
+#endif
+#ifndef DISABLE_SDF_OCTREE
   case TYPE_SDF_OCTREE:
     sdfId = m_geomOffsets[geomId].x;
     primId = 0;
     min_pos = float3(-1,-1,-1);
     max_pos = float3( 1, 1, 1);
     break;
+#endif
+#ifndef DISABLE_SDF_FRAME_OCTREE
   case TYPE_SDF_FRAME_OCTREE:
     sdfId =  m_geomOffsets[geomId].x;
 
@@ -635,6 +656,7 @@ void BVHRT::IntersectAllSdfsInLeaf(const float3 ray_pos, const float3 ray_dir,
       max_pos = m_origNodes[a_start].boxMax;
     }
     break;
+#endif
   default:
     break;
   }
@@ -662,6 +684,7 @@ void BVHRT::IntersectAllSdfsInLeaf(const float3 ray_pos, const float3 ray_dir,
   }
 }
 
+#ifndef DISABLE_RF_GRID
 int indexGrid(int x, int y, int z, int gridSize) {
     return (x + y * gridSize + z * gridSize * gridSize) * 28;
 }
@@ -823,7 +846,9 @@ void BVHRT::IntersectRFInLeaf(const float3 ray_pos, const float3 ray_dir,
 
   // std::cout << "Mew" << std::endl;
 }
+#endif
 
+#ifndef DISABLE_GS_PRIMITIVE
 float4 QuaternionMultiply(const float4& a, const float4& b) {
     float4 c;
 
@@ -920,6 +945,7 @@ void BVHRT::IntersectGSInLeaf(const float3& ray_pos, const float3& ray_dir,
         }
     }
 }
+#endif
 
 SdfHit BVHRT::sdf_sphere_tracing(uint32_t type, uint32_t sdf_id, const float3 &min_pos, const float3 &max_pos,
                                  const float3 &pos, const float3 &dir, bool need_norm)
@@ -976,29 +1002,35 @@ float BVHRT::eval_distance_sdf(uint32_t type, uint32_t sdf_id, float3 pos)
   float val = 1000;
   switch (type)
   {
-#ifndef LITERT_MINI
+#ifndef DISABLE_SDF_PRIMITIVE
   case TYPE_SDF_PRIMITIVE:
     val = eval_dist_sdf_conjunction(sdf_id, pos);
     break;
 #endif
+#ifndef DISABLE_SDF_GRID
   case TYPE_SDF_GRID:
     val = eval_distance_sdf_grid(sdf_id, pos);
     break;
+#endif
+#ifndef DISABLE_SDF_OCTREE
   case TYPE_SDF_OCTREE:
     val = eval_distance_sdf_octree(sdf_id, pos, 1000);
     break;
+#endif
+#ifndef DISABLE_SDF_FRAME_OCTREE
   case TYPE_SDF_FRAME_OCTREE:
     val = eval_distance_sdf_frame_octree(sdf_id, pos);
     break;
+#endif
   default:
     break;
   }
   return val;
 }
 
+#ifndef DISABLE_SDF_GRID
 float BVHRT::eval_distance_sdf_grid(uint32_t grid_id, float3 pos)
 {
-#ifndef LITERT_MINI
   uint32_t off = m_SdfGridOffsets[grid_id];
   uint3 size = m_SdfGridSizes[grid_id];
 
@@ -1033,11 +1065,10 @@ float BVHRT::eval_distance_sdf_grid(uint32_t grid_id, float3 pos)
   }
   
   return res;
-#else
-  return 1000;
-#endif
 }
+#endif
 
+#ifndef DISABLE_SDF_OCTREE
 bool BVHRT::is_leaf(uint32_t offset)
 {
   return (offset == 0) || ((offset & (1u<<31u)) > 0);
@@ -1045,7 +1076,6 @@ bool BVHRT::is_leaf(uint32_t offset)
 
 float BVHRT::eval_distance_sdf_octree(uint32_t octree_id, float3 position, uint32_t max_level)
 {
-#ifndef LITERT_MINI
   switch (m_preset.sdf_octree_sampler)
   {
   case SDF_OCTREE_SAMPLER_MIPSKIP_3X3:
@@ -1061,12 +1091,8 @@ float BVHRT::eval_distance_sdf_octree(uint32_t octree_id, float3 position, uint3
     return 1e6;
     break;
   }
-#else
-  return 1000;
-#endif
 }
 
-#ifndef LITERT_MINI
 float BVHRT::sdf_octree_sample_mipskip_closest(uint32_t octree_id, float3 position, uint32_t max_level)
 {
   float3 n_pos = clamp(0.5f*(position + 1.0f), 0.0f, 1.0f);//position in current neighborhood
@@ -1299,6 +1325,7 @@ float BVHRT::sdf_octree_sample_mipskip_3x3(uint32_t octree_id, float3 position, 
 }
 #endif
 
+#ifndef DISABLE_SDF_FRAME_OCTREE
 float BVHRT::eval_distance_sdf_frame_octree(uint32_t octree_id, float3 position)
 {
   float3 pos = clamp(0.5f*(position + 1.0f), 0.0f, 1.0f);
@@ -1328,6 +1355,7 @@ float BVHRT::eval_distance_sdf_frame_octree(uint32_t octree_id, float3 position)
          (  dp.x)*(  dp.y)*(1-dp.z)*m_SdfFrameOctreeNodes[idx].values[6] + 
          (  dp.x)*(  dp.y)*(  dp.z)*m_SdfFrameOctreeNodes[idx].values[7];
 }
+#endif
 
 void BVHRT::IntersectAllTrianglesInLeaf(const float3 ray_pos, const float3 ray_dir,
                                         float tNear, uint32_t instId, uint32_t geomId,
@@ -1393,8 +1421,10 @@ void BVHRT::BVH2TraverseF32(const float3 ray_pos, const float3 ray_dir, float tN
   const float3 rayDirInv = SafeInverse(ray_dir);
   while (top >= 0 && !(stopOnFirstHit && pHit->primId != uint32_t(-1)))
   {
+#ifndef DISABLE_RF_GRID
     if (m_RFGridFlags.size() > 0 && pHit->coords[0] <= 0.01f)
       break;
+#endif
 
     while (top >= 0 && ((leftNodeOffset & LEAF_BIT) == 0))
     {
@@ -1487,8 +1517,10 @@ CRT_Hit BVHRT::RayQuery_NearestHit(float4 posAndNear, float4 dirAndFar)
     uint32_t nodeIdx = 0;
     do
     {
+#ifndef DISABLE_RF_GRID
       if (m_RFGridFlags.size() > 0 && hit.coords[0] <= 0.01f)
         break;
+#endif
 
       uint32_t travFlags  = 0;
       uint32_t leftOffset = 0;
