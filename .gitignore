@@ -65,3 +65,4 @@ scenes/03_gs_scenes/nerf_synthetic
 scenes/03_gs_scenes/lego.ply
 *ninja*
 build
+scenes/SDFs/*

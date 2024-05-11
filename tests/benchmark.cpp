@@ -15,6 +15,7 @@
 void render(LiteImage::Image2D<uint32_t> &image, std::shared_ptr<MultiRenderer> pRender, 
             float3 pos, float3 target, float3 up, 
             MultiRenderPreset preset, int a_passNum);
+float PSNR(const LiteImage::Image2D<uint32_t> &image_1, const LiteImage::Image2D<uint32_t> &image_2);
 
 struct BenchmarkResult
 {
@@ -227,5 +228,59 @@ void benchmark_framed_octree_intersection()
            res.render_min_time_ms.y + res.render_min_time_ms.z + res.render_min_time_ms.w,
            res.render_average_time_ms.x,
            res.render_average_time_ms.y + res.render_average_time_ms.z + res.render_average_time_ms.w);
+  }
+}
+
+void quality_check(const char *path)
+{
+  auto mesh = cmesh4::LoadMeshFromVSGF(path);
+
+  float3 mb1, mb2, ma1, ma2;
+  cmesh4::get_bbox(mesh, &mb1, &mb2);
+  cmesh4::rescale_mesh(mesh, float3(-0.99, -0.99, -0.99), float3(0.99, 0.99, 0.99));
+  cmesh4::get_bbox(mesh, &ma1, &ma2);
+
+  printf("total triangles %d\n", (int)mesh.TrianglesNum());
+  printf("bbox [(%f %f %f)-(%f %f %f)] to [(%f %f %f)-(%f %f %f)]\n",
+         mb1.x, mb1.y, mb1.z, mb2.x, mb2.y, mb2.z, ma1.x, ma1.y, ma1.z, ma2.x, ma2.y, ma2.z);
+  MeshBVH mesh_bvh;
+  mesh_bvh.init(mesh);
+
+  unsigned W = 1024, H = 1024;
+  MultiRenderPreset preset = getDefaultPreset();
+  preset.mode = MULTI_RENDER_MODE_PHONG;
+  preset.sdf_octree_sampler = SDF_OCTREE_SAMPLER_MIPSKIP_3X3;
+
+  LiteImage::Image2D<uint32_t> image_ref(W, H);
+  auto pRender_ref = CreateMultiRenderer("GPU");
+  pRender_ref->SetPreset(preset);
+  pRender_ref->SetScene(mesh);
+  render(image_ref, pRender_ref, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset, 1);
+  LiteImage::SaveImage<uint32_t>("saves/ref.bmp", image_ref);
+
+  for (int depth = 6; depth <= 10; depth++)
+  {
+    std::vector<SdfSVSNode> svs_nodes;
+    SparseOctreeBuilder builder;
+    SparseOctreeSettings settings(SparseOctreeBuildType::MESH_TLO, depth);
+
+    builder.construct([&mesh_bvh](const float3 &p)
+                      { return mesh_bvh.get_signed_distance(p); },
+                      settings);
+    builder.convert_to_sparse_voxel_set(svs_nodes);
+
+    save_sdf_SVS({(unsigned)svs_nodes.size(), svs_nodes.data()}, 
+                 ("saves/svs_"+std::to_string(depth)+".bin").c_str());
+
+    LiteImage::Image2D<uint32_t> image_1(W, H);
+    auto pRender_1 = CreateMultiRenderer("GPU");
+    pRender_1->SetPreset(preset);
+    pRender_1->SetScene({(unsigned)svs_nodes.size(), svs_nodes.data()});
+    render(image_1, pRender_1, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset, 1);
+    LiteImage::SaveImage<uint32_t>(("saves/svs_"+std::to_string(depth)+".bmp").c_str(), 
+                                   image_1);
+
+    float psnr_1 = PSNR(image_ref, image_1);
+    printf("depth = %d PSNR = %f\n", depth, psnr_1);
   }
 }

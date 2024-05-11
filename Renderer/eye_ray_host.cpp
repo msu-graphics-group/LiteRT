@@ -356,7 +356,7 @@ std::shared_ptr<MultiRenderer> CreateMultiRenderer_GPU(vk_utils::VulkanContext a
 std::shared_ptr<MultiRenderer> CreateMultiRenderer(const char* a_name) 
 { 
   if (std::string(a_name) == "GPU")
-    return CreateMultiRenderer_GPU(vk_utils::globalContextGet(true, 0u), 256); 
+    return CreateMultiRenderer_GPU(vk_utils::globalContextGet(false, 0u), 256); 
   else
     return std::shared_ptr<MultiRenderer>(new MultiRenderer());
 }
