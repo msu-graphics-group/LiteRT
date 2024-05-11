@@ -44,6 +44,27 @@ void MultiRenderer::kernel_InitEyeRay(uint32_t tidX, float4* rayPosAndNear, floa
   transform_ray3f(m_worldViewInv, 
                   &rayPos, &rayDir);
   
+  rayPos = float3(0.0, 2.73726, 2.9592917);
+
+  float x_coords = float(x) + 0.5f;
+  float y_coords = float(y) + 0.5f;
+
+  float focal = 1111.1110311937682;
+
+  LiteMath::float3x3 rotation = {
+    float3(-0.99999994, 0.0, 0.0),
+    float3(0.0, -0.73411, 0.6790306),
+    float3(0.0, 0.67903066, 0.7341099)
+  };
+
+  rayDir = normalize(
+    rotation * float3(
+      (x_coords - m_width  * 0.5f) / focal,
+      -(y_coords - m_height * 0.5f) / focal,
+      -1.0f
+    )
+  );
+
   *rayPosAndNear = to_float4(rayPos, 0.0f);
   *rayDirAndFar  = to_float4(rayDir, 1e9f);
 }

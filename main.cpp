@@ -25,8 +25,8 @@ int main(int argc, const char** argv)
   //benchmark_framed_octree_intersection();
   // return 0;
 
-  uint32_t WIDTH  = 1024;
-  uint32_t HEIGHT = 1024;
+  uint32_t WIDTH  = 800;
+  uint32_t HEIGHT = 800;
   
 
   const char* scenePath   = "scenes/03_gs_scenes/lego.xml";
