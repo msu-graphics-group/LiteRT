@@ -39,6 +39,7 @@ class NeuralRT
 {
 public:
   NeuralRT();
+  virtual ~NeuralRT() {}
 
   uint32_t AddGeom_NeuralSdf(NeuralProperties neural_properties, float *data, BuildOptions a_qualityLevel = BUILD_HIGH);
   

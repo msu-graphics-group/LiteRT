@@ -525,7 +525,7 @@ void BVHRT::OctreeNodeIntersect(uint32_t type, const float3 ray_pos, const float
       const float k = 2;
 
       float e = 0.1f*qFar;
-      float t_max = abs(c3) < EPS ? 1e6 : -c2/(3*c3);
+      float t_max = std::abs(c3) < EPS ? 1e6 : -c2/(3*c3);
       float df_max = 3*c3*t_max*t_max + 2*c2*t_max + c1;
 
       float dist = start_dist;
@@ -738,7 +738,7 @@ float eval_sh(float sh[28], float3 rayDir, const int offset)
   return sum;
 }
 
-float sigmoid(float x) {
+static float sigmoid(float x) {
   return 1 / (1 + exp(-x));
 }
 
