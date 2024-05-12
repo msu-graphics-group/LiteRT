@@ -7,6 +7,7 @@
 #include "LiteScene/hydraxml.h"
 #include "LiteMath/Image2d.h"
 #include "../NeuralRT/NeuralRT.h"
+#include "../utils/hp_octree.h"
 
 #include <functional>
 #include <cassert>
@@ -828,6 +829,34 @@ void litert_test_10_save_load()
   //  printf("FAILED, psnr = %f\n", psnr_5);
 }
 
+static double urand(double from=0, double to=1)
+{
+  return ((double)rand() / RAND_MAX) * (to - from) + from;
+}
+void litert_test_11_hp_octree_legacy()
+{
+  HPOctreeBuilder builder;
+  builder.readLegacy(scenes_folder_path+"scenes/02_sdf_scenes/sphere_hp_legacy.bin");
+
+  double diff = 0.0;
+  int cnt = 10000;
+  for (int i = 0; i < cnt; i++)
+  {
+    float3 rnd_pos = float3(urand(-0.5f, 0.5f), urand(-0.5f, 0.5f), urand(-0.5f, 0.5f));
+    float dist_real = length(rnd_pos) - 0.5f;
+    float dist = builder.Query(rnd_pos);
+    diff += abs(dist_real - dist);
+    //printf("%.4f - %.4f = %.4f\n", dist_real, dist, dist_real - dist);
+  }
+  diff /= cnt;
+  printf("TEST 11. hp-Octree legacy\n");
+  printf(" 11.1. %-64s", "reading from Legacy format ");
+  if (diff < 1e-4f)
+    printf("passed    (%f)\n", diff);
+  else
+    printf("FAILED, diff = %f\n", diff);
+}
+
 void perform_tests_litert(const std::vector<int> &test_ids)
 {
   std::vector<int> tests = test_ids;
@@ -836,7 +865,7 @@ void perform_tests_litert(const std::vector<int> &test_ids)
       litert_test_1_framed_octree, litert_test_2_SVS, litert_test_3_SBS_verify,
       litert_test_4_hydra_scene, litert_test_5_interval_tracing, litert_test_6_faster_bvh_build,
       test_7_neural_SDF, litert_test_8_SDF_grid, litert_test_9_mesh, 
-      litert_test_10_save_load};
+      litert_test_10_save_load, litert_test_11_hp_octree_legacy};
 
   if (tests.empty())
   {
