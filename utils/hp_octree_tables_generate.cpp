@@ -1,0 +1,215 @@
+#include "hp_octree.h"
+
+/*
+  Constexpr-satisfying versions of Pow and Sqrt.
+*/
+constexpr double PowConst(const double base_, const size_t pow_)
+{
+  if (pow_ == 0)
+  {
+    return 1.0;
+  }
+  else
+  {
+    return base_ * PowConst(base_, pow_ - 1);
+  }
+}
+constexpr double SqrtConst(const double x_)
+{
+  // Newton's Method
+  double guess = x_;
+  for (size_t i = 0; i < 100; ++i)
+  {
+    guess = 0.5 * (guess + x_ / guess);
+  }
+
+  return guess;
+}
+
+/*
+  In equation (4), precomputes the sqrt portions under the assumption that the internal octree
+  volume is taken to be the unit cube.
+*/
+struct NormalisedLengthsCalc
+{
+  constexpr NormalisedLengthsCalc() : values()
+  {
+    for (uint32_t i = 0; i <= BASIS_MAX_DEGREE; ++i)
+    {
+      for (uint32_t j = 0; j <= TREE_MAX_DEPTH; ++j)
+      {
+        // Sizes are 1 at level 0, 0.5 at level 1, ... , 2^-n at level n
+        values[i][j] = SqrtConst((2.0 * i + 1.0) * PowConst(2.0, j));
+      }
+    }
+  }
+  double values[BASIS_MAX_DEGREE + 1][TREE_MAX_DEPTH + 1];
+};
+static constexpr const double (&NormalisedLengths)[BASIS_MAX_DEGREE + 1][TREE_MAX_DEPTH + 1] = NormalisedLengthsCalc().values;
+
+/*
+  Stores the number of coefficient in each basis polynomial. I.e. store[n] tells us that
+  the nth Legendre polynomial contains store[n] coefficients. If the dimension is M and
+  the max basis degree is N, then the formula is:
+
+          store_M^N[n] = 1 / M! * (N + 1) * (N + 2) * ... * (N + M)
+*/
+struct LegendreCoefficientCountCalc
+{
+  constexpr LegendreCoefficientCountCalc() : values()
+  {
+    const double f = 1.0 / 6.0;
+
+    for (uint32_t i = 0; i <= BASIS_MAX_DEGREE; ++i)
+    {
+      values[i] = (uint32_t)(f * (i + 1) * (i + 2) * (i + 3));
+    }
+  }
+  uint32_t values[BASIS_MAX_DEGREE + 1];
+
+  static constexpr const uint32_t Size()
+  {
+    const double f = 1.0 / 6.0;
+    return (uint32_t)(f * (BASIS_MAX_DEGREE + 1) * (BASIS_MAX_DEGREE + 2) * (BASIS_MAX_DEGREE + 3));
+  }
+};
+static constexpr const uint32_t (&LegendreCoeffientCount)[BASIS_MAX_DEGREE + 1] = LegendreCoefficientCountCalc().values;
+
+/*
+  Stores the constants used in each term of the reccurence relation definition for Legendre polynomials.
+  Removes the need to perform repeated divides when querying the tree.
+*/
+struct LegendreCoefficientCalc
+{
+  constexpr LegendreCoefficientCalc() : values()
+  {
+    values[0][0] = 0.0;
+    values[0][1] = 0.0;
+
+    for (uint32_t i = 1; i <= BASIS_MAX_DEGREE; ++i)
+    {
+      values[i][0] = (2.0 * i - 1.0) / i;
+      values[i][1] = (i - 1.0) / i;
+    }
+  }
+  double values[BASIS_MAX_DEGREE + 1][2];
+};
+static constexpr const double (&LegendreCoefficent)[BASIS_MAX_DEGREE + 1][2] = LegendreCoefficientCalc().values;
+
+/*
+  Stores all possible combinations of BasisIndex for dimension M and max basis degree N. Saves having
+  to compute these on the fly or store them inside the node (both very bad ideas!).
+*/
+struct BasisIndexValuesCalc
+{
+  constexpr BasisIndexValuesCalc() : values()
+  {
+    uint32_t valuesIdx = 0;
+    for (uint32_t p = 0; p <= BASIS_MAX_DEGREE; ++p)
+    {
+      for (uint32_t i = 0; i <= p; ++i)
+      {
+        for (uint32_t j = 0; j <= p - i; ++j)
+        {
+          for (uint32_t k = 0; k <= p - i - j; ++k)
+          {
+            if ((i + j + k) == p)
+            {
+              values[valuesIdx][0] = i;
+              values[valuesIdx][1] = j;
+              values[valuesIdx][2] = k;
+              valuesIdx++;
+            }
+          }
+        }
+      }
+    }
+  }
+  uint32_t values[LegendreCoefficientCountCalc::Size()][3];
+};
+static constexpr const uint32_t (&BasisIndexValues)[LegendreCoefficientCountCalc::Size()][3] = BasisIndexValuesCalc().values;
+
+/*
+    Stores adjacent face pairs used during the continuity correction. The lookup table is additive (i.e. the lookup table for
+  dim_{n - 1} is a subset of the lookup table for dim_{n}) so we iterate through dims 0, 1 and 2 to get the final set.
+*/
+struct SharedFaceLookupCalc
+{
+  constexpr SharedFaceLookupCalc() : values()
+  {
+    constexpr unsigned char ourDim = 3;
+
+    for (unsigned char i = 0; i < ourDim; ++i)
+    {
+      // Axis = 0, MAX_DIM = 3 => modVal1 = 1, modVal = 2, valsPerMod = 4
+      unsigned char valueIdxs[2] = {0};
+      unsigned char modVal1 = (1 << i);
+      unsigned char modVal = (1 << (i + 1));
+      unsigned char valsPerMod = (1 << (ourDim - 1 - i));
+
+      for (unsigned char j = 0; j < valsPerMod; ++j)
+      {
+        for (unsigned char k = 0; k < modVal1; ++k)
+        {
+          values[i][valueIdxs[0]++][0] = k + j * modVal;
+        }
+
+        for (unsigned char k = modVal1; k < modVal; ++k)
+        {
+          values[i][valueIdxs[1]++][1] = k + j * modVal;
+        }
+      }
+    }
+  }
+  size_t values[3][4][2];
+};
+static constexpr const size_t (&SharedFaceLookup)[3][4][2] = SharedFaceLookupCalc().values;
+
+void hp_octree_generate_tables()
+{
+  printf("// Generated by hp_octree_generate_tables\n");
+  printf("float NormalisedLengths[%d][%d] = {\n", BASIS_MAX_DEGREE + 1, TREE_MAX_DEPTH + 1);
+  for (uint32_t i = 0; i <= BASIS_MAX_DEGREE; ++i)
+  {
+    printf("  {");
+    for (uint32_t j = 0; j <= TREE_MAX_DEPTH; ++j)
+    {
+      printf(" %.8f,", NormalisedLengths[i][j]);
+    }
+    printf(" },\n");
+  }
+  printf("};\n");
+
+  printf("uint32_t LegendreCoeffientCount[%d] = {\n", BASIS_MAX_DEGREE + 1);
+  for (uint32_t i = 0; i <= BASIS_MAX_DEGREE; ++i)
+  {
+    printf("  %d,\n", LegendreCoeffientCount[i]);
+  }
+  printf("};\n");
+
+  printf("float LegendreCoefficent[%d][2] = {\n", BASIS_MAX_DEGREE + 1);
+  for (uint32_t i = 0; i <= BASIS_MAX_DEGREE; ++i)
+  {
+    printf("  { %.8f, %.8f },\n", LegendreCoefficent[i][0], LegendreCoefficent[i][1]);
+  }
+  printf("};\n");
+
+  printf("uint32_t BasisIndexValues[%d][3] = {\n", LegendreCoefficientCountCalc::Size());
+  for (uint32_t i = 0; i < (uint32_t)LegendreCoefficientCountCalc::Size(); ++i)
+  {
+    printf("  { %d, %d, %d },\n", (uint32_t)BasisIndexValues[i][0], (uint32_t)BasisIndexValues[i][1], (uint32_t)BasisIndexValues[i][2]);
+  }
+  printf("};\n");
+
+  printf("uint32_t SharedFaceLookup[%d][%d][2] = {\n", 3, 4);
+  for (uint32_t i = 0; i < 3; ++i)
+  {
+    printf("  {");
+    for (uint32_t j = 0; j < 4; ++j)
+    {
+      printf(" { %d, %d },", (uint32_t)SharedFaceLookup[i][j][0], (uint32_t)SharedFaceLookup[i][j][1]);
+    }
+    printf(" },\n");
+  }
+  printf("};\n");
+}

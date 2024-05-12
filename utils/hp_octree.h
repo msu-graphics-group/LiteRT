@@ -9,9 +9,12 @@
 constexpr static unsigned BASIS_MAX_DEGREE = 12;
 constexpr static unsigned TREE_MAX_DEPTH   = 10;
 
+void hp_octree_generate_tables();
+
 class HPOctreeBuilder
 {
 public:
+  HPOctreeBuilder();
   double Query(const float3& pt_) const;
   void readLegacy(const std::string &path);
   
