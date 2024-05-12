@@ -127,6 +127,14 @@ struct SdfSBSHeader
   uint32_t v_size;          //brick_size + 2*brick_pad + 1
 };
 
+struct SdfHPOctreeNode
+{
+  uint32_t pos_xy; //position of start voxel of the block in it's LOD
+  uint32_t pos_z_lod_size; //size of it's LOD, (i.e. 2^LOD)
+  uint32_t data_offset; //offset in data vector for block with polynomial coefficients, offset is in float, not bytes   
+  uint32_t degree_lod; //polynomial degree and LOD
+};
+
 //################################################################################
 // CPU-specific functions and data structures
 //################################################################################
@@ -153,6 +161,13 @@ struct SdfScene
   std::vector<SdfConjunction> conjunctions;
   std::vector<NeuralProperties> neural_properties;
 };
+
+struct SdfHPOctree
+{
+  std::vector<SdfHPOctreeNode> nodes;
+  std::vector<float> data;
+};
+
 struct SdfGridView
 {
   SdfGridView() = default;
@@ -258,6 +273,29 @@ struct SdfSceneView
   unsigned objects_count;
   unsigned conjunctions_count;
   unsigned neural_properties_count;
+};
+
+struct SdfHPOctreeView
+{
+  SdfHPOctreeView() = default;
+  SdfHPOctreeView(const SdfHPOctree &octree)
+  {
+    nodes = octree.nodes.data();
+    data = octree.data.data();
+    nodes_size = octree.nodes.size();
+    data_size = octree.data.size();
+  }
+  SdfHPOctreeView(const std::vector<SdfHPOctreeNode> &_nodes, const std::vector<float> &_data)
+  {
+    nodes = _nodes.data();
+    data = _data.data();
+    nodes_size = _nodes.size();
+    data_size = _data.size();
+  }
+  const SdfHPOctreeNode *nodes;
+  const float *data;
+  unsigned nodes_size;
+  unsigned data_size;
 };
 
 // interface to evaluate SdfScene out of context of rendering

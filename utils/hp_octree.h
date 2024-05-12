@@ -15,7 +15,7 @@ class HPOctreeBuilder
 {
 public:
   HPOctreeBuilder();
-  double Query(const float3& pt_) const;
+  double QueryLegacy(const float3& pt_) const;
   void readLegacy(const std::string &path);
   
 private:
@@ -90,11 +90,15 @@ private:
     void IsValid() const;
   };
 
+  void readLegacy(const std::vector<double> &coeffStore, const std::vector<NodeLegacy> &nodes);
   double FApprox(const NodeLegacy::Basis& basis_, const Box3Legacy& aabb_, const float3& pt_, const uint32_t depth_) const;
+  float FApprox(uint32_t idx, const float3& pt) const;
 
 
   std::vector<double> coeffStore;
 	std::vector<NodeLegacy> nodes;
+
+  SdfHPOctree octree;
 
   ConfigLegacy config;
   float3 configRootCentre;

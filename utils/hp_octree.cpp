@@ -80,9 +80,11 @@ void HPOctreeBuilder::readLegacy(const std::string &path)
   config.IsValid();
   configRootCentre = 0.5f * (config.root.m_min + config.root.m_max);
   configRootInvSizes = 1.0f / (config.root.m_max - config.root.m_min);
+
+  readLegacy(coeffStore, nodes);
 }
 
-double HPOctreeBuilder::Query(const float3 &pt_) const
+double HPOctreeBuilder::QueryLegacy(const float3 &pt_) const
 {
   // Move to unit cube
   const float3 pt = (pt_ - configRootCentre) * configRootInvSizes;
@@ -116,7 +118,10 @@ double HPOctreeBuilder::Query(const float3 &pt_) const
       basis.degree = curChild.basis.degree;
       basis.coeffs = (double *)(coeffStore.data() + curChild.basis.coeffsStart);
 
-      return FApprox(basis, curChild.aabb, pt, curChild.depth);
+      float d1 = FApprox(basis, curChild.aabb, pt, curChild.depth);
+      float d2 = FApprox(childIdx, pt);
+      printf("d1: %f, d2: %f\n", d1, d2);
+      return d1;
     }
     else
     {
@@ -130,6 +135,8 @@ double HPOctreeBuilder::FApprox(const NodeLegacy::Basis &basis_, const Box3Legac
 {
   // Move pt_ to unit cube
   const float3 unitPt = (pt_ - 0.5f * (aabb_.m_min + aabb_.m_max)) * (2 << depth_);
+  printf("aabb: (%f, %f, %f) (%f, %f, %f)\n", aabb_.m_min.x, aabb_.m_min.y, aabb_.m_min.z, aabb_.m_max.x, aabb_.m_max.y, aabb_.m_max.z);
+  printf("unitPt: %f, %f, %f\n", unitPt.x, unitPt.y, unitPt.z);
 
   // Create lookup table for pt_
   double LpXLookup[BASIS_MAX_DEGREE][3];
@@ -168,4 +175,85 @@ double HPOctreeBuilder::FApprox(const NodeLegacy::Basis &basis_, const Box3Legac
   }
 
   return fApprox;
+}
+
+float HPOctreeBuilder::FApprox(uint32_t nodeId, const float3& pt) const
+{
+  // Move pt_ to unit cube [-1,1]
+  float px = octree.nodes[nodeId].pos_xy >> 16;
+  float py = octree.nodes[nodeId].pos_xy & 0x0000FFFF;
+  float pz = octree.nodes[nodeId].pos_z_lod_size >> 16;
+  float sz = octree.nodes[nodeId].pos_z_lod_size & 0x0000FFFF;
+
+  const float3 min_pos = float3(-1,-1,-1) + 2.0f*float3(px,py,pz)/sz;
+  const float3 max_pos = min_pos + 2.0f*float3(1,1,1)/sz;
+  const float3 half_size = 0.5f*(max_pos - min_pos);
+  const float3 center = 0.5f*(max_pos + min_pos);
+  const float3 unitPt = (pt - center) * half_size;
+  printf("min_pos: %f, %f, %f\n", min_pos.x, min_pos.y, min_pos.z);
+  printf("max_pos: %f, %f, %f\n", max_pos.x, max_pos.y, max_pos.z);
+  printf("unitPt: %f, %f, %f\n", unitPt.x, unitPt.y, unitPt.z);
+
+  unsigned depth = octree.nodes[nodeId].degree_lod & 0x0000FFFF;
+  unsigned degree = octree.nodes[nodeId].degree_lod >> 16;
+
+  // Create lookup table for pt_
+  double LpXLookup[BASIS_MAX_DEGREE][3];
+  for (uint32_t i = 0; i < 3; ++i)
+  {
+    // Constant
+    LpXLookup[0][i] = NormalisedLengths[0][depth];
+
+    // Initial values for recurrence
+    double LjMinus2 = 0.0;
+    double LjMinus1 = 1.0;
+    double Lj = 1.0;
+
+    // Determine remaining values
+    for (uint32_t j = 1; j <= degree; ++j)
+    {
+      Lj = LegendreCoefficent[j][0] * unitPt[i] * LjMinus1 - LegendreCoefficent[j][1] * LjMinus2;
+      LjMinus2 = LjMinus1;
+      LjMinus1 = Lj;
+
+      LpXLookup[j][i] = Lj * NormalisedLengths[j][depth];
+    }
+  }
+
+  // Sum up basis coeffs
+  double fApprox = 0.0;
+  for (uint32_t i = 0; i < LegendreCoeffientCount[degree]; ++i)
+  {
+    double Lp = 1.0;
+    for (uint32_t j = 0; j < 3; ++j)
+    {
+      Lp *= LpXLookup[BasisIndexValues[i][j]][j];
+    }
+
+    fApprox += octree.data[octree.nodes[nodeId].data_offset + i] * Lp;
+  }
+
+  return fApprox;
+}
+
+void HPOctreeBuilder::readLegacy(const std::vector<double> &coeffStore, const std::vector<NodeLegacy> &nodes)
+{
+  octree.data.resize(coeffStore.size());
+  octree.nodes.resize(nodes.size());
+
+  for (int i = 0; i < coeffStore.size(); i++)
+    octree.data[i] = coeffStore[i];
+  
+  for (int i = 0; i < nodes.size(); i++)
+  {
+    SdfHPOctreeNode &node = octree.nodes[i];
+    float sz = pow(2, nodes[i].depth);
+    uint3 p = uint3(sz*0.5f*(nodes[i].aabb.m_min + 1.0f));
+    assert(p.x < (1 << 16) && p.y < (1 << 16) && p.z < (1 << 16));
+
+    node.pos_xy = (p.x << 16) | p.y;
+    node.pos_z_lod_size = (p.z << 16) | (2 << nodes[i].depth);
+    node.degree_lod = (nodes[i].basis.degree << 16) | nodes[i].depth;
+    node.data_offset = nodes[i].basis.coeffsStart;
+  }
 }

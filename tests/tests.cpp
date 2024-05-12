@@ -844,7 +844,7 @@ void litert_test_11_hp_octree_legacy()
   {
     float3 rnd_pos = float3(urand(-0.5f, 0.5f), urand(-0.5f, 0.5f), urand(-0.5f, 0.5f));
     float dist_real = length(rnd_pos) - 0.5f;
-    float dist = builder.Query(rnd_pos);
+    float dist = builder.QueryLegacy(rnd_pos);
     diff += abs(dist_real - dist);
     //printf("%.4f - %.4f = %.4f\n", dist_real, dist, dist_real - dist);
   }
