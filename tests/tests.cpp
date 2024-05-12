@@ -511,7 +511,7 @@ auto t4 = std::chrono::steady_clock::now();
 void test_7_neural_SDF()
 {
   const char *scene_name = "scenes/02_sdf_scenes/sdf_neural.xml"; 
-  unsigned W = 512, H = 512;
+  unsigned W = 1024, H = 1024;
 
   MultiRenderPreset preset_1 = getDefaultPreset();
   preset_1.mode = MULTI_RENDER_MODE_LINEAR_DEPTH;
@@ -530,7 +530,7 @@ void test_7_neural_SDF()
 
   ISdfSceneFunction *sdf_func = dynamic_cast<ISdfSceneFunction*>(pRender_1->GetAccelStruct().get());
   SparseOctreeBuilder builder;
-  SparseOctreeSettings settings(SparseOctreeBuildType::DEFAULT, 7);
+  SparseOctreeSettings settings(SparseOctreeBuildType::DEFAULT, 8);
   std::vector<SdfSVSNode> frame_nodes;
 
   builder.construct([&sdf_func](const float3 &p) { return sdf_func->eval_distance(p); }, settings);
@@ -605,10 +605,10 @@ void test_7_neural_SDF()
     printf("FAILED, psnr = %f\n", psnr_4);
 
   printf("  7.5. %-64s", "default and SDF octree PSNR > 25 ");
-  if (psnr_4 >= 45)
-    printf("passed    (%.2f)\n", psnr_4);
+  if (psnr_5 >= 25)
+    printf("passed    (%.2f)\n", psnr_5);
   else
-    printf("FAILED, psnr = %f\n", psnr_4);
+    printf("FAILED, psnr = %f\n", psnr_5);
 
   printf("timings: reference = %f; default = %f; blocked = %f; coop matrices = %f; octree = %f\n", 
          timings[0][0], timings[1][0], timings[2][0], timings[3][0], timings[4][0]);
