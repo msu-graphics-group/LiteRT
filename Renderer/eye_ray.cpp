@@ -38,14 +38,47 @@ void MultiRenderer::kernel_InitEyeRay(uint32_t tidX, float4* rayPosAndNear, floa
   //else
   //  g_debugPrint = false;
 
-  float3 rayDir = EyeRayDirNormalized((float(x)+0.5f)/float(m_width), (float(y)+0.5f)/float(m_height), m_projInv);
-  float3 rayPos = float3(0,0,0);
+  /* float3 rayDir = EyeRayDirNormalized((float(x)+0.5f)/float(m_width), (float(y)+0.5f)/float(m_height), m_projInv); */
+  /* float3 rayPos = float3(0,0,0); */
 
-  transform_ray3f(m_worldViewInv, 
-                  &rayPos, &rayDir);
+  /* transform_ray3f(m_worldViewInv, */ 
+  /*                 &rayPos, &rayDir); */
+
+
+    LiteMath::float3x3 rotation = {
+    float3(-1.0f,
+    0.0f,
+    0.0f),
+
+    float3(0.0f,
+    -0.73411f,
+    0.67903066f),
+
+    float3(0.0f,
+    0.67903066f,
+    0.7341099f),
+    };
+
+    float x_coords = float(x) + 0.5f;
+    float y_coords = float(y) + 0.5f;
+
+    float focal = 1111.1110311937682f;
+
+    float3 rayDir2 = normalize(rotation * float3((x_coords - m_width * 0.5f) / focal, -(y_coords - m_height * 0.5f) / focal, -1.0f));
+
+
+    float3 rayPos2 = float3(
+    0.0f * 0.3333f + 0.5f - 1.0f / 512.0f,
+    2.73726f * 0.3333f + 0.5f - 1.0f / 512.0f,
+    2.9592917f * 0.3333f + 0.5 - 1.0f / 512.0f
+    );
+
+  /* std::cout << rayDir[0] << ' ' << rayDir[1] << ' ' << rayDir[2] << ", " << rayPos[0] << ' ' << rayPos[1] << ' ' << rayPos[2] << std::endl; */
+  /* std::cout << rayDir2[0] << ' ' << rayDir2[1] << ' ' << rayDir2[2] << ", " << rayPos2[0] << ' ' << rayPos2[1] << ' ' << rayPos2[2] << std::endl; */
+  /* std::cout << "--------------------------------------------" << std::endl; */
   
-  *rayPosAndNear = to_float4(rayPos, 0.0f);
-  *rayDirAndFar  = to_float4(rayDir, 1e9f);
+  *rayPosAndNear = to_float4(rayPos2, 0.0f);
+  *rayDirAndFar  = to_float4(rayDir2, 1e9f);
 }
 
 void MultiRenderer::kernel_RayTrace(uint32_t tidX, const float4* rayPosAndNear,

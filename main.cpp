@@ -21,12 +21,12 @@ int main(int argc, const char** argv)
   //auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path+"scenes/01_simple_scenes/data/teapot.vsgf").c_str());
   //cmesh4::create_triangle_list_grid(mesh, LiteMath::uint3(32,32,32));
   //return 0;
-  // perform_tests_litert({9});
-  //benchmark_framed_octree_intersection();
-  // return 0;
+  /* perform_tests_litert({4}); */
+  /* //benchmark_framed_octree_intersection(); */
+  /* return 0; */
 
-  uint32_t WIDTH  = 1024;
-  uint32_t HEIGHT = 1024;
+  uint32_t WIDTH  = 800;
+  uint32_t HEIGHT = 800;
   
 
   const char* scenePath   = "scenes/03_gs_scenes/lego.xml";
