@@ -119,9 +119,9 @@ double HPOctreeBuilder::QueryLegacy(const float3 &pt_) const
       basis.coeffs = (double *)(coeffStore.data() + curChild.basis.coeffsStart);
 
       //float d1 = FApprox(basis, curChild.aabb, pt, curChild.depth);
-      //float d2 = FApprox(childIdx, pt);
+      //float d2 = FApprox(allToLeafRemap[childIdx], pt);
       //printf("d1: %f, d2: %f\n", d1, d2);
-      return FApprox(childIdx, pt);
+      return FApprox(allToLeafRemap[childIdx], pt);
     }
     else
     {
@@ -198,16 +198,16 @@ float HPOctreeBuilder::FApprox(uint32_t nodeId, const float3& pt) const
   unsigned degree = octree.nodes[nodeId].degree_lod >> 16;
 
   // Create lookup table for pt_
-  double LpXLookup[BASIS_MAX_DEGREE][3];
+  float LpXLookup[BASIS_MAX_DEGREE][3];
   for (uint32_t i = 0; i < 3; ++i)
   {
     // Constant
     LpXLookup[0][i] = NormalisedLengths[0][depth];
 
     // Initial values for recurrence
-    double LjMinus2 = 0.0;
-    double LjMinus1 = 1.0;
-    double Lj = 1.0;
+    float LjMinus2 = 0.0;
+    float LjMinus1 = 1.0;
+    float Lj = 1.0;
 
     // Determine remaining values
     for (uint32_t j = 1; j <= degree; ++j)
@@ -221,10 +221,10 @@ float HPOctreeBuilder::FApprox(uint32_t nodeId, const float3& pt) const
   }
 
   // Sum up basis coeffs
-  double fApprox = 0.0;
+  float fApprox = 0.0;
   for (uint32_t i = 0; i < LegendreCoeffientCount[degree]; ++i)
   {
-    double Lp = 1.0;
+    float Lp = 1.0;
     for (uint32_t j = 0; j < 3; ++j)
     {
       Lp *= LpXLookup[BasisIndexValues[i][j]][j];
@@ -238,22 +238,34 @@ float HPOctreeBuilder::FApprox(uint32_t nodeId, const float3& pt) const
 
 void HPOctreeBuilder::readLegacy(const std::vector<double> &coeffStore, const std::vector<NodeLegacy> &nodes)
 {
-  octree.data.resize(coeffStore.size());
-  octree.nodes.resize(nodes.size());
+  octree.data.reserve(coeffStore.size());
+  octree.nodes.reserve(nodes.size());
+  allToLeafRemap.resize(nodes.size());
 
   for (int i = 0; i < coeffStore.size(); i++)
     octree.data[i] = coeffStore[i];
   
   for (int i = 0; i < nodes.size(); i++)
   {
-    SdfHPOctreeNode &node = octree.nodes[i];
-    float sz = 1 << nodes[i].depth;
-    uint3 p = uint3(sz*(nodes[i].aabb.m_min - config.root.m_min)*configRootInvSizes);
-    assert(p.x < (1 << 16) && p.y < (1 << 16) && p.z < (1 << 16));
+    if (nodes[i].basis.degree != (BASIS_MAX_DEGREE + 1))
+    {
+      SdfHPOctreeNode node;
+      float sz = 1 << nodes[i].depth;
+      uint3 p = uint3(sz*(nodes[i].aabb.m_min - config.root.m_min)*configRootInvSizes);
+      assert(p.x < (1 << 16) && p.y < (1 << 16) && p.z < (1 << 16));
 
-    node.pos_xy = (p.x << 16) | p.y;
-    node.pos_z_lod_size = (p.z << 16) | (1 << nodes[i].depth);
-    node.degree_lod = (nodes[i].basis.degree << 16) | nodes[i].depth;
-    node.data_offset = nodes[i].basis.coeffsStart;
+      node.pos_xy = (p.x << 16) | p.y;
+      node.pos_z_lod_size = (p.z << 16) | (1 << nodes[i].depth);
+      node.degree_lod = (nodes[i].basis.degree << 16) | nodes[i].depth;
+      node.data_offset = octree.data.size();
+
+      allToLeafRemap[i] = octree.nodes.size();
+      octree.nodes.push_back(node);
+      for (int j=0;j<LegendreCoeffientCount[nodes[i].basis.degree];j++)
+        octree.data.push_back(coeffStore[nodes[i].basis.coeffsStart+j]);
+      
+    }
   }
+
+  printf("new size: %d\n nCoeffs: %d\n", (int)octree.nodes.size(), (int)octree.data.size());
 }

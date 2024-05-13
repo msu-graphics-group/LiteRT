@@ -10,6 +10,7 @@ static constexpr unsigned TYPE_RF_GRID             = 5;
 static constexpr unsigned TYPE_SDF_SVS             = 6;
 static constexpr unsigned TYPE_SDF_SBS             = 7;
 static constexpr unsigned TYPE_GS_PRIMITIVE        = 8;
+static constexpr unsigned TYPE_SDF_HP              = 9;
 
 //enum SdfOctreeSampler
 static constexpr unsigned SDF_OCTREE_SAMPLER_MIPSKIP_3X3 = 0; //go to the deepest level possible, resampling larger nodes

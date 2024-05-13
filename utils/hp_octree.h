@@ -6,9 +6,6 @@
 #include "../sdfScene/sdf_scene.h"
 #include "../utils/mesh.h"
 
-constexpr static unsigned BASIS_MAX_DEGREE = 12;
-constexpr static unsigned TREE_MAX_DEPTH   = 10;
-
 void hp_octree_generate_tables();
 
 class HPOctreeBuilder
@@ -18,6 +15,7 @@ public:
   double QueryLegacy(const float3& pt_) const;
   void readLegacy(const std::string &path);
   
+  SdfHPOctree octree;
 private:
   // format from original hp-Adaptive-Signed-Distance-Field-Octree implementation
   struct Box3Legacy
@@ -97,8 +95,7 @@ private:
 
   std::vector<double> coeffStore;
 	std::vector<NodeLegacy> nodes;
-
-  SdfHPOctree octree;
+  std::vector<unsigned> allToLeafRemap; 
 
   ConfigLegacy config;
   float3 configRootCentre;

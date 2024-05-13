@@ -330,6 +330,16 @@ void MultiRenderer::SetScene(SdfSBSView scene)
   GetAccelStruct()->CommitScene();
 }
 
+void MultiRenderer::SetScene(SdfHPOctreeView scene)
+{
+  SetPreset(m_preset);
+  GetAccelStruct()->ClearGeom();
+  GetAccelStruct()->AddGeom_SdfHpOctree(scene);
+  GetAccelStruct()->ClearScene();
+  GetAccelStruct()->AddInstance(0, LiteMath::float4x4());
+  GetAccelStruct()->CommitScene();
+}
+
 void MultiRenderer::SetPreset(const MultiRenderPreset& a_preset)
 {
   m_preset = a_preset;

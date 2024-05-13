@@ -8,6 +8,7 @@
 #include <chrono>
 
 #include "BVH2Common.h"
+#include "../utils/hp_octree_precomputed_tables.h"
 
 using uvec3 = uint3;
 using LiteMath::M_PI;
@@ -162,6 +163,9 @@ void BVHRT::IntersectAllPrimitivesInLeaf(const float3 ray_pos, const float3 ray_
   case TYPE_SDF_SVS:
   case TYPE_SDF_SBS:
     OctreeNodeIntersect(type, ray_pos, ray_dir, tNearSdf, instId, geomId, a_start, a_count, pHit);
+    break;
+  case TYPE_SDF_HP:
+    PolynomialOctreeNodeIntersect(type, ray_pos, ray_dir, tNearSdf, instId, geomId, a_start, a_count, pHit);
     break;
   default:
     break;
@@ -681,6 +685,176 @@ void BVHRT::IntersectAllSdfsInLeaf(const float3 ray_pos, const float3 ray_dir,
       if (m_preset.mode == MULTI_RENDER_MODE_SPHERE_TRACE_ITERATIONS)
         pHit->primId = uint32_t(hit.hit_norm.w);
     }
+  }
+}
+
+#ifndef DISABLE_SDF_HP
+float BVHRT::eval_dist_hp_polynomials(unsigned depth, unsigned degree, unsigned data_offset, const float3 &unitPt)
+{
+  // Create lookup table for pt_
+  float LpXLookup[BASIS_MAX_DEGREE][3];
+  for (uint32_t i = 0; i < 3; ++i)
+  {
+    // Constant
+    LpXLookup[0][i] = NormalisedLengths[0][depth];
+
+    // Initial values for recurrence
+    float LjMinus2 = 0.0;
+    float LjMinus1 = 1.0;
+    float Lj = 1.0;
+
+    // Determine remaining values
+    for (uint32_t j = 1; j <= degree; ++j)
+    {
+      Lj = LegendreCoefficent[j][0] * unitPt[i] * LjMinus1 - LegendreCoefficent[j][1] * LjMinus2;
+      LjMinus2 = LjMinus1;
+      LjMinus1 = Lj;
+
+      LpXLookup[j][i] = Lj * NormalisedLengths[j][depth];
+    }
+  }
+
+  // Sum up basis coeffs
+  float fApprox = 0.0;
+  for (uint32_t i = 0; i < LegendreCoeffientCount[degree]; ++i)
+  {
+    float Lp = 1.0;
+    for (uint32_t j = 0; j < 3; ++j)
+    {
+      Lp *= LpXLookup[BasisIndexValues[i][j]][j];
+    }
+
+    fApprox += m_SdfHpOctreeData[data_offset + i] * Lp;
+  }
+
+  return fApprox;
+}
+#endif
+
+void BVHRT::PolynomialOctreeNodeIntersect(uint32_t type, const float3 ray_pos, const float3 ray_dir,
+                                          float tNear, uint32_t instId, uint32_t geomId,
+                                          uint32_t a_start, uint32_t a_count,
+                                          CRT_Hit *pHit)
+{
+  const float EPS = 1e-6;
+
+  uint32_t nodeId, primId;
+  float d, qNear, qFar;
+  float2 fNearFar;
+  float3 start_q;
+  float3 min_pos, max_pos;
+  unsigned depth, degree, data_offset;
+
+  qNear = 1.0f;
+
+  if (type == TYPE_SDF_HP)
+  {
+#ifndef DISABLE_SDF_HP
+    const float3 root_m_min = float3(-0.5, -0.5, -0.5);
+    const float3 configRootInvSizes = float3(1,1,1);
+
+    uint32_t sdfId =  m_geomData[geomId].offset.x;
+    primId = a_start;
+    nodeId = primId + m_SdfHpOctreeRoots[sdfId];
+
+    // Move pt_ to unit cube [-1,1]
+    float px = m_SdfHpOctreeNodes[nodeId].pos_xy >> 16;
+    float py = m_SdfHpOctreeNodes[nodeId].pos_xy & 0x0000FFFF;
+    float pz = m_SdfHpOctreeNodes[nodeId].pos_z_lod_size >> 16;
+    float sz = m_SdfHpOctreeNodes[nodeId].pos_z_lod_size & 0x0000FFFF;
+
+    min_pos = root_m_min+ configRootInvSizes*float3(px,py,pz)/sz;
+    max_pos = min_pos + configRootInvSizes*float3(1,1,1)/sz;
+    float3 size = max_pos - min_pos;
+    //const float3 unitPt = 2.0f*(pt - min_pos) / (max_pos - min_pos) - 1.0f;
+
+    depth = m_SdfHpOctreeNodes[nodeId].degree_lod & 0x0000FFFF;
+    degree = m_SdfHpOctreeNodes[nodeId].degree_lod >> 16;
+    data_offset = m_SdfHpOctreeNodes[nodeId].data_offset;
+
+    fNearFar = RayBoxIntersection2(ray_pos, SafeInverse(ray_dir), min_pos, max_pos);
+    float3 start_pos = ray_pos + fNearFar.x*ray_dir;
+    d = std::max(size.x, std::max(size.y, size.z));
+    start_q = (start_pos - min_pos)/(2.0f*d);
+    qFar = (fNearFar.y - fNearFar.x) / (2.0f * d);
+    qNear = tNear > fNearFar.x ? (tNear - fNearFar.x) / (2.0f * d) : 0.0f;
+#endif
+  }
+
+  //fast return if starting point in this exacat node or type is not supported
+  if (qNear > 0.0f) 
+    return;
+
+  float t = qNear;
+  bool hit = false;
+  unsigned iter = 0;
+
+  float start_dist = eval_dist_hp_polynomials(depth, degree, data_offset, start_q + t * ray_dir);
+  if (start_dist <= EPS || m_preset.sdf_frame_octree_intersect == SDF_OCTREE_NODE_INTERSECT_BBOX)
+  {
+    hit = true;
+  }
+  else if (m_preset.sdf_frame_octree_intersect == SDF_OCTREE_NODE_INTERSECT_ST)
+  {
+    const unsigned ST_max_iters = 256;
+    float dist = start_dist;
+    float3 pp0 = start_q + t * ray_dir;
+
+    while (t < qFar && dist > EPS && iter < ST_max_iters)
+    {
+      t += dist / (2.0f * d);
+      dist = eval_dist_hp_polynomials(depth, degree, data_offset, start_q + t * ray_dir);
+      float3 pp = start_q + t * ray_dir;
+      iter++;
+    }
+    hit = (dist <= EPS);
+  }
+
+  float tReal = fNearFar.x + 2.0f * d * t;
+
+#if ON_CPU==1
+  if (debug_cur_pixel)
+  {
+    printf("\n");
+    printf("sdf type = %u\n", type);
+    printf("node bbox [(%f %f %f)-(%f %f %f)]\n", min_pos.x, min_pos.y, min_pos.z, max_pos.x, max_pos.y, max_pos.z);
+    printf("t = %f in [0, %f], tReal = %f in [%f %f]\n",t,qFar,tReal,fNearFar.x,fNearFar.y);
+    printf("ray_dir = (%f %f %f)\n", ray_dir.x, ray_dir.y, ray_dir.z);
+    printf("ray_pos = (%f %f %f)\n", ray_pos.x, ray_pos.y, ray_pos.z);
+    printf("\n");
+  }
+#endif
+
+  if (t <= qFar && hit && tReal < pHit->t)
+  {
+    float3 norm = float3(0, 0, 1);
+    if (need_normal())
+    {
+      float3 p0 = start_q + t * ray_dir;
+      const float h = 0.001;
+      float ddx = (eval_dist_hp_polynomials(depth, degree, data_offset, p0 + float3(h, 0, 0)) -
+                   eval_dist_hp_polynomials(depth, degree, data_offset, p0 + float3(-h, 0, 0))) /
+                  (2 * h);
+      float ddy = (eval_dist_hp_polynomials(depth, degree, data_offset, p0 + float3(0, h, 0)) -
+                   eval_dist_hp_polynomials(depth, degree, data_offset, p0 + float3(0, -h, 0))) /
+                  (2 * h);
+      float ddz = (eval_dist_hp_polynomials(depth, degree, data_offset, p0 + float3(0, 0, h)) -
+                   eval_dist_hp_polynomials(depth, degree, data_offset, p0 + float3(0, 0, -h))) /
+                  (2 * h);
+
+      norm = normalize(float3(ddx, ddy, ddz));
+    }
+    pHit->t = tReal;
+    pHit->primId = primId;
+    pHit->instId = instId;
+    pHit->geomId = geomId | (type << SH_TYPE);
+    pHit->coords[0] = 0;
+    pHit->coords[1] = 0;
+    pHit->coords[2] = norm.x;
+    pHit->coords[3] = norm.y;
+
+    if (m_preset.mode == MULTI_RENDER_MODE_SPHERE_TRACE_ITERATIONS)
+      pHit->primId = iter;
   }
 }
 

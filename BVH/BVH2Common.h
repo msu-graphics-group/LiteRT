@@ -95,6 +95,7 @@ struct BVHRT : public ISceneObject
   uint32_t AddGeom_SdfFrameOctree(SdfFrameOctreeView octree, BuildOptions a_qualityLevel = BUILD_HIGH) override;
   uint32_t AddGeom_SdfSVS(SdfSVSView octree, BuildOptions a_qualityLevel = BUILD_HIGH) override;
   uint32_t AddGeom_SdfSBS(SdfSBSView octree, BuildOptions a_qualityLevel = BUILD_HIGH) override;
+  uint32_t AddGeom_SdfHpOctree(SdfHPOctreeView octree, BuildOptions a_qualityLevel = BUILD_HIGH) override;
 
   void set_debug_mode(bool enable) override;
 #endif
@@ -176,6 +177,11 @@ struct BVHRT : public ISceneObject
                            uint32_t a_start, uint32_t a_count,
                            CRT_Hit *pHit);
 
+  void PolynomialOctreeNodeIntersect(uint32_t type, const float3 ray_pos, const float3 ray_dir,
+                                     float tNear, uint32_t instId, uint32_t geomId,
+                                     uint32_t a_start, uint32_t a_count,
+                                     CRT_Hit *pHit);
+
   virtual void BVH2TraverseF32(const float3 ray_pos, const float3 ray_dir, float tNear, 
                                uint32_t instId, uint32_t geomId, uint32_t stack[STACK_SIZE], bool stopOnFirstHit,
                                CRT_Hit *pHit);
@@ -219,6 +225,9 @@ struct BVHRT : public ISceneObject
   virtual SdfHit sdf_sphere_tracing(unsigned type, unsigned prim_id, const float3 &min_pos, const float3 &max_pos,
                                     const float3 &pos, const float3 &dir, bool need_norm);    
 
+#ifndef DISABLE_SDF_HP
+  virtual float eval_dist_hp_polynomials(unsigned depth, unsigned degree, unsigned data_offset, const float3 &unitPt);
+#endif
   //SDFs data
 #ifndef DISABLE_SDF_PRIMITIVE
   std::vector<float> m_SdfParameters;
@@ -280,6 +289,12 @@ struct BVHRT : public ISceneObject
   std::vector<uint32_t>     m_SdfSBSRoots;   //root node ids for each SDF Sparse Voxel Set
   std::vector<SdfSBSHeader> m_SdfSBSHeaders; //header for each SDF Sparse Voxel Set
   std::vector<uint2>        m_SdfSBSRemap;   //primId->nodeId, required as each SBS node can have >1 bbox in BLAS
+#endif
+
+#ifndef DISABLE_SDF_HP
+  std::vector<SdfHPOctreeNode> m_SdfHpOctreeNodes; //nodes for all SDF hp-Octrees
+  std::vector<float> m_SdfHpOctreeData;            //raw data for all SDF hp-Octrees
+  std::vector<float> m_SdfHpOctreeRoots;           //header for each SDF hp-Octree
 #endif
 
   //meshes data
