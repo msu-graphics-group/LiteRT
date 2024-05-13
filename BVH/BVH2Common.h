@@ -294,7 +294,7 @@ struct BVHRT : public ISceneObject
 #ifndef DISABLE_SDF_HP
   std::vector<SdfHPOctreeNode> m_SdfHpOctreeNodes; //nodes for all SDF hp-Octrees
   std::vector<float> m_SdfHpOctreeData;            //raw data for all SDF hp-Octrees
-  std::vector<float> m_SdfHpOctreeRoots;           //header for each SDF hp-Octree
+  std::vector<uint32_t> m_SdfHpOctreeRoots;           //header for each SDF hp-Octree
 #endif
 
   //meshes data

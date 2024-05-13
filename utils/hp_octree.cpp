@@ -241,9 +241,6 @@ void HPOctreeBuilder::readLegacy(const std::vector<double> &coeffStore, const st
   octree.data.reserve(coeffStore.size());
   octree.nodes.reserve(nodes.size());
   allToLeafRemap.resize(nodes.size());
-
-  for (int i = 0; i < coeffStore.size(); i++)
-    octree.data[i] = coeffStore[i];
   
   for (int i = 0; i < nodes.size(); i++)
   {

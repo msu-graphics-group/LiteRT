@@ -862,9 +862,10 @@ void litert_test_12_hp_octree_render()
   HPOctreeBuilder builder;
   builder.readLegacy(scenes_folder_path+"scenes/02_sdf_scenes/sphere_hp_legacy.bin");
 
-  unsigned W = 512, H = 512;
+  unsigned W = 256, H = 256;
 
   MultiRenderPreset preset = getDefaultPreset();
+  //preset.sdf_frame_octree_intersect = SDF_OCTREE_NODE_INTERSECT_BBOX;
   LiteImage::Image2D<uint32_t> image(W, H);
   LiteImage::Image2D<uint32_t> ref_image(W, H);
 
@@ -873,7 +874,7 @@ void litert_test_12_hp_octree_render()
   pRenderRef->SetViewport(0,0,W,H);
   pRenderRef->SetScene(SdfHPOctreeView(builder.octree.nodes, builder.octree.data));
 
-  auto pRender = CreateMultiRenderer("CPU");
+  auto pRender = CreateMultiRenderer("GPU");
   pRender->SetPreset(preset);
   pRender->SetViewport(0,0,W,H);
   pRender->SetScene(SdfHPOctreeView(builder.octree.nodes, builder.octree.data));

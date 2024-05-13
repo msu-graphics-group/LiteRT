@@ -723,8 +723,9 @@ float BVHRT::eval_dist_hp_polynomials(unsigned depth, unsigned degree, unsigned 
     {
       Lp *= LpXLookup[BasisIndexValues[i][j]][j];
     }
-
-    fApprox += m_SdfHpOctreeData[data_offset + i] * Lp;
+    //if(data_offset + i >= m_SdfHpOctreeData.size())
+    //  printf("ddddd\n");
+    fApprox += m_SdfHpOctreeData[std::min(data_offset + i, 79149u)] * Lp;
   }
 
   return fApprox;
