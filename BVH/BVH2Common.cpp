@@ -723,9 +723,8 @@ float BVHRT::eval_dist_hp_polynomials(unsigned depth, unsigned degree, unsigned 
     {
       Lp *= LpXLookup[BasisIndexValues[i][j]][j];
     }
-    //if(data_offset + i >= m_SdfHpOctreeData.size())
-    //  printf("ddddd\n");
-    fApprox += m_SdfHpOctreeData[std::min(data_offset + i, 79149u)] * Lp;
+
+    fApprox += m_SdfHpOctreeData[data_offset + i] * Lp;
   }
 
   return fApprox;
@@ -795,7 +794,7 @@ void BVHRT::PolynomialOctreeNodeIntersect(uint32_t type, const float3 ray_pos, c
   {
     hit = true;
   }
-  else if (m_preset.sdf_frame_octree_intersect == SDF_OCTREE_NODE_INTERSECT_ST)
+  else //if (m_preset.sdf_frame_octree_intersect == SDF_OCTREE_NODE_INTERSECT_ST)
   {
     const unsigned ST_max_iters = 256;
     float dist = start_dist;

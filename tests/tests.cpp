@@ -862,7 +862,7 @@ void litert_test_12_hp_octree_render()
   HPOctreeBuilder builder;
   builder.readLegacy(scenes_folder_path+"scenes/02_sdf_scenes/sphere_hp_legacy.bin");
 
-  unsigned W = 256, H = 256;
+  unsigned W = 1024, H = 1024;
 
   MultiRenderPreset preset = getDefaultPreset();
   //preset.sdf_frame_octree_intersect = SDF_OCTREE_NODE_INTERSECT_BBOX;
