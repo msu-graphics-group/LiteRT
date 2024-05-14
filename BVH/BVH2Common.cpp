@@ -716,18 +716,24 @@ float BVHRT::eval_dist_hp_polynomials(unsigned depth, unsigned degree, unsigned 
 
   // Sum up basis coeffs
   float fApprox = 0.0;
-  for (uint32_t i = 0; i < LegendreCoeffientCount[degree]; ++i)
+  int valuesIdx = 0;
+  for (int p = 0; p <= BASIS_MAX_DEGREE; ++p)
   {
-    float Lp = 1.0;
-    for (uint32_t j = 0; j < 3; ++j)
+    for (int k1 = 0; k1 <= p; ++k1)
     {
-      Lp *= LpXLookup[BasisIndexValues[i][j]][j];
+      for (int k2 = 0; k2 <= p - k1; ++k2)
+      {
+        int k3 = p - k1 - k2;
+        float Lp = LpXLookup[k1][0]*LpXLookup[k2][1]*LpXLookup[k3][2];
+
+        fApprox += m_SdfHpOctreeData[data_offset + valuesIdx] * Lp;
+        valuesIdx++;
+        if (valuesIdx >= LegendreCoeffientCount[degree])
+          return fApprox;
+      }
     }
-
-    fApprox += m_SdfHpOctreeData[data_offset + i] * Lp;
   }
-
-  return fApprox;
+  return 1000.0f;
 }
 #endif
 
