@@ -756,9 +756,6 @@ void BVHRT::PolynomialOctreeNodeIntersect(uint32_t type, const float3 ray_pos, c
   if (type == TYPE_SDF_HP)
   {
 #ifndef DISABLE_SDF_HP
-    const float3 root_m_min = float3(-0.5, -0.5, -0.5);
-    const float3 configRootInvSizes = float3(1,1,1);
-
     uint32_t sdfId =  m_geomData[geomId].offset.x;
     primId = a_start;
     nodeId = primId + m_SdfHpOctreeRoots[sdfId];
@@ -769,10 +766,9 @@ void BVHRT::PolynomialOctreeNodeIntersect(uint32_t type, const float3 ray_pos, c
     float pz = m_SdfHpOctreeNodes[nodeId].pos_z_lod_size >> 16;
     float sz = m_SdfHpOctreeNodes[nodeId].pos_z_lod_size & 0x0000FFFF;
 
-    min_pos = root_m_min+ configRootInvSizes*float3(px,py,pz)/sz;
-    max_pos = min_pos + configRootInvSizes*float3(1,1,1)/sz;
+    min_pos = float3(-1,-1,-1) + 2.0f*float3(px,py,pz)/sz;
+    max_pos = min_pos + 2.0f*float3(1,1,1)/sz;
     float3 size = max_pos - min_pos;
-    //const float3 unitPt = 2.0f*(pt - min_pos) / (max_pos - min_pos) - 1.0f;
 
     depth = m_SdfHpOctreeNodes[nodeId].degree_lod & 0x0000FFFF;
     degree = m_SdfHpOctreeNodes[nodeId].degree_lod >> 16;

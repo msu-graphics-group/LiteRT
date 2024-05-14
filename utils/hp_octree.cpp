@@ -546,6 +546,8 @@ double HPOctreeBuilder::QueryLegacy(const float3 &pt_) const
 {
   // Move to unit cube
   const float3 pt = (pt_ - configRootCentre) * configRootInvSizes;
+  //printf("centre: %f %f %f\n", configRootCentre.x, configRootCentre.y, configRootCentre.z);
+  //printf("invSizes: %f %f %f\n", configRootInvSizes.x, configRootInvSizes.y, configRootInvSizes.z);
 
   // Not in volume
   if (pt.x < nodes[0].aabb.m_min.x || pt.x > nodes[0].aabb.m_max.x ||
@@ -576,8 +578,8 @@ double HPOctreeBuilder::QueryLegacy(const float3 &pt_) const
       basis.degree = curChild.basis.degree;
       basis.coeffs = (double *)(coeffStore.data() + curChild.basis.coeffsStart);
 
-      //float d1 = FApprox(basis, curChild.aabb, pt, curChild.depth);
-      //float d2 = FApprox(allToLeafRemap[childIdx], pt);
+      float d1 = FApprox(basis, curChild.aabb, pt, curChild.depth);
+      float d2 = FApprox(allToLeafRemap[childIdx], pt);
       //printf("d1: %f, d2: %f\n", d1, d2);
       return FApprox(allToLeafRemap[childIdx], pt);
     }
@@ -643,11 +645,10 @@ float HPOctreeBuilder::FApprox(uint32_t nodeId, const float3& pt) const
   float pz = octree.nodes[nodeId].pos_z_lod_size >> 16;
   float sz = octree.nodes[nodeId].pos_z_lod_size & 0x0000FFFF;
 
-  const float3 min_pos = config.root.m_min + configRootInvSizes*float3(px,py,pz)/sz;
-  const float3 max_pos = min_pos + configRootInvSizes*float3(1,1,1)/sz;
-  const float3 half_size = 0.5f*(max_pos - min_pos);
-  const float3 center = 0.5f*(max_pos + min_pos);
+  const float3 min_pos = float3(-1,-1,-1) + 2.0f*float3(px,py,pz)/sz;
+  const float3 max_pos = min_pos + 2.0f*float3(1,1,1)/sz;
   const float3 unitPt = 2.0f*(pt - min_pos) / (max_pos - min_pos) - 1.0f;
+  //printf("px py pz sz: %f, %f, %f, %f\n", px, py, pz, sz);
   //printf("min_pos: %f, %f, %f\n", min_pos.x, min_pos.y, min_pos.z);
   //printf("max_pos: %f, %f, %f\n", max_pos.x, max_pos.y, max_pos.z);
   //printf("unitPt: %f, %f, %f\n", unitPt.x, unitPt.y, unitPt.z);
@@ -711,12 +712,12 @@ void HPOctreeBuilder::readLegacy(const std::vector<double> &coeffStore, const st
     if (nodes[i].basis.degree != (BASIS_MAX_DEGREE + 1))
     {
       SdfHPOctreeNode node;
-      float sz = 1 << nodes[i].depth;
-      uint3 p = uint3(sz*(nodes[i].aabb.m_min - config.root.m_min)*configRootInvSizes);
+      float sz = 1 << nodes[i].depth + 1;
+      uint3 p = uint3(0.5f*sz*(nodes[i].aabb.m_min + 1.0f));
       assert(p.x < (1 << 16) && p.y < (1 << 16) && p.z < (1 << 16));
 
       node.pos_xy = (p.x << 16) | p.y;
-      node.pos_z_lod_size = (p.z << 16) | (1 << nodes[i].depth);
+      node.pos_z_lod_size = (p.z << 16) | (1 << nodes[i].depth + 1);
       node.degree_lod = (nodes[i].basis.degree << 16) | nodes[i].depth;
       node.data_offset = octree.data.size();
 

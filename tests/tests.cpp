@@ -836,7 +836,7 @@ static double urand(double from=0, double to=1)
 void litert_test_11_hp_octree_legacy()
 {
   HPOctreeBuilder builder;
-  builder.readLegacy(scenes_folder_path+"scenes/02_sdf_scenes/sphere_hp_legacy.bin");
+  builder.readLegacy(scenes_folder_path+"scenes/02_sdf_scenes/sphere_hp.bin");
 
   double diff = 0.0;
   int cnt = 10000;
@@ -860,7 +860,7 @@ void litert_test_11_hp_octree_legacy()
 void litert_test_12_hp_octree_render()
 {
   HPOctreeBuilder builder;
-  builder.readLegacy(scenes_folder_path+"scenes/02_sdf_scenes/sphere_hp_legacy.bin");
+  builder.readLegacy(scenes_folder_path+"scenes/02_sdf_scenes/sphere_hp.bin");
 
   unsigned W = 1024, H = 1024;
 

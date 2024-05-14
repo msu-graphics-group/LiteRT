@@ -635,8 +635,6 @@ uint32_t BVHRT::AddGeom_SdfHpOctree(SdfHPOctreeView octree, BuildOptions a_quali
   //create list of bboxes for BLAS
   std::vector<BVHNode> orig_nodes;
 
-  const float3 root_m_min = float3(-0.5, -0.5, -0.5);
-  const float3 configRootInvSizes = float3(1,1,1);
   for (int i=0;i<octree.nodes_size;i++)
   {
     float px = octree.nodes[i].pos_xy >> 16;
@@ -646,8 +644,8 @@ uint32_t BVHRT::AddGeom_SdfHpOctree(SdfHPOctreeView octree, BuildOptions a_quali
     unsigned depth = octree.nodes[i].degree_lod & 0x0000FFFF;
     unsigned degree = octree.nodes[i].degree_lod >> 16;
 
-    const float3 min_pos = root_m_min + configRootInvSizes*float3(px,py,pz)/sz;
-    const float3 max_pos = min_pos + configRootInvSizes*float3(1,1,1)/sz;
+    const float3 min_pos = float3(-1,-1,-1) + 2.0f*float3(px,py,pz)/sz;
+    const float3 max_pos = min_pos + 2.0f*float3(1,1,1)/sz;
     
     orig_nodes.emplace_back();
     orig_nodes.back().boxMin = min_pos;
