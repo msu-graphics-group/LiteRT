@@ -519,21 +519,26 @@ void HPOctreeBuilder::readLegacy(const std::string &path)
   fs.read((char *)&size, sizeof(unsigned));
   std::vector<unsigned char> bytes(size);
   fs.read((char *)bytes.data(), size);
+  fs.close();
 
+  readLegacy(bytes.data(), size);
+}
+void HPOctreeBuilder::readLegacy(unsigned char *bytes, unsigned size)
+{
   printf("size: %u\n", size);
 
   assert(size > 0);
 
-  unsigned nCoeffs = *((unsigned *)(bytes.data() + 0));
+  unsigned nCoeffs = *((unsigned *)(bytes + 0));
   printf("nCoeffs: %u\n", nCoeffs);
   coeffStore.resize(nCoeffs);
-  memcpy(coeffStore.data(), bytes.data() + sizeof(unsigned), sizeof(double) * nCoeffs);
+  memcpy(coeffStore.data(), bytes + sizeof(unsigned), sizeof(double) * nCoeffs);
 
-  unsigned nNodes = *((unsigned *)(bytes.data() + sizeof(unsigned) + sizeof(double) * nCoeffs));
+  unsigned nNodes = *((unsigned *)(bytes + sizeof(unsigned) + sizeof(double) * nCoeffs));
   nodes.resize(nNodes);
-  memcpy(nodes.data(), bytes.data() + sizeof(unsigned) + sizeof(double) * nCoeffs + sizeof(unsigned), sizeof(NodeLegacy) * nNodes);
+  memcpy(nodes.data(), bytes + sizeof(unsigned) + sizeof(double) * nCoeffs + sizeof(unsigned), sizeof(NodeLegacy) * nNodes);
 
-  config = *(ConfigLegacy *)(bytes.data() + sizeof(unsigned) + sizeof(double) * nCoeffs + sizeof(unsigned) + sizeof(NodeLegacy) * nNodes);
+  config = *(ConfigLegacy *)(bytes + sizeof(unsigned) + sizeof(double) * nCoeffs + sizeof(unsigned) + sizeof(NodeLegacy) * nNodes);
 
   config.IsValid();
   configRootCentre = 0.5f * (config.root.m_min + config.root.m_max);
@@ -712,12 +717,12 @@ void HPOctreeBuilder::readLegacy(const std::vector<double> &coeffStore, const st
     if (nodes[i].basis.degree != (BASIS_MAX_DEGREE + 1))
     {
       SdfHPOctreeNode node;
-      float sz = 1 << nodes[i].depth + 1;
+      float sz = 1 << (nodes[i].depth + 1);
       uint3 p = uint3(0.5f*sz*(nodes[i].aabb.m_min + 1.0f));
       assert(p.x < (1 << 16) && p.y < (1 << 16) && p.z < (1 << 16));
 
       node.pos_xy = (p.x << 16) | p.y;
-      node.pos_z_lod_size = (p.z << 16) | (1 << nodes[i].depth + 1);
+      node.pos_z_lod_size = (p.z << 16) | (1 << (nodes[i].depth + 1));
       node.degree_lod = (nodes[i].basis.degree << 16) | nodes[i].depth;
       node.data_offset = octree.data.size();
 

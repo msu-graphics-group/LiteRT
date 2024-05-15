@@ -897,6 +897,53 @@ void litert_test_12_hp_octree_render()
     printf("FAILED, psnr = %f\n", psnr);
 }
 
+void litert_test_13_hp_octree_build()
+{
+#ifdef HP_OCTREE_BUILDER
+  HPOctreeBuilder builder;
+  auto sdf_func = [](const LiteMath::float3 &pt) -> float { return length(pt) - 0.5f; };
+  builder.construct(sdf_func);
+  //HPOctreeBuilder builder;
+  //builder.readLegacy("saves/octree.bin");
+
+  unsigned W = 1024, H = 1024;
+
+  MultiRenderPreset preset = getDefaultPreset();
+  //preset.sdf_frame_octree_intersect = SDF_OCTREE_NODE_INTERSECT_BBOX;
+  LiteImage::Image2D<uint32_t> image(W, H);
+  LiteImage::Image2D<uint32_t> ref_image(W, H);
+
+  auto pRenderRef = CreateMultiRenderer("CPU");
+  pRenderRef->SetPreset(preset);
+  pRenderRef->SetViewport(0,0,W,H);
+  pRenderRef->SetScene(SdfHPOctreeView(builder.octree.nodes, builder.octree.data));
+
+  auto pRender = CreateMultiRenderer("GPU");
+  pRender->SetPreset(preset);
+  pRender->SetViewport(0,0,W,H);
+  pRender->SetScene(SdfHPOctreeView(builder.octree.nodes, builder.octree.data));
+
+  auto m1 = pRender->getWorldView();
+  auto m2 = pRender->getProj();
+
+  render(ref_image, pRenderRef, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+  render(image, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+
+  LiteImage::SaveImage<uint32_t>("saves/test_13_res.bmp", image); 
+  LiteImage::SaveImage<uint32_t>("saves/test_13_ref.bmp", ref_image);
+
+  float psnr = PSNR(ref_image, image);
+  printf("TEST 13. Rendering hp-adaptive SDF octree\n");
+  printf("  13.1. %-64s", "CPU and GPU render PSNR > 45 ");
+  if (psnr >= 45)
+    printf("passed    (%.2f)\n", psnr);
+  else
+    printf("FAILED, psnr = %f\n", psnr);
+#else
+  printf("TEST 13. Skipping hp-adaptive SDF octree test: HP_OCTREE_BUILDER is disabled\n");
+#endif
+}
+
 void perform_tests_litert(const std::vector<int> &test_ids)
 {
   std::vector<int> tests = test_ids;
@@ -905,7 +952,8 @@ void perform_tests_litert(const std::vector<int> &test_ids)
       litert_test_1_framed_octree, litert_test_2_SVS, litert_test_3_SBS_verify,
       litert_test_4_hydra_scene, litert_test_5_interval_tracing, litert_test_6_faster_bvh_build,
       test_7_neural_SDF, litert_test_8_SDF_grid, litert_test_9_mesh, 
-      litert_test_10_save_load, litert_test_11_hp_octree_legacy, litert_test_12_hp_octree_render};
+      litert_test_10_save_load, litert_test_11_hp_octree_legacy, litert_test_12_hp_octree_render,
+      litert_test_13_hp_octree_build};
 
   if (tests.empty())
   {
