@@ -25,7 +25,7 @@ using LiteMath::max;
 using LiteMath::min;
 
 #ifndef KERNEL_SLICER
-const size_t CellSize = 28;
+const size_t CellSize = 13;
 
 // structure to actually store SdfScene data
 struct RFScene

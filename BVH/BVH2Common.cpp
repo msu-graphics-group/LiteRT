@@ -656,56 +656,41 @@ void BVHRT::IntersectAllSdfsInLeaf(const float3 ray_pos, const float3 ray_dir,
 }
 
 int indexGrid(int x, int y, int z, int gridSize) {
-    return (x + y * gridSize + z * gridSize * gridSize) * 28;
+    return (x + y * gridSize + z * gridSize * gridSize) * 13;
 }
 
-void lerpCellf(const float v0[28], const float v1[28], const float t, float memory[28])
+void lerpCellf(const float v0[13], const float v1[13], const float t, float memory[13])
 {
-  for (int i = 0; i < 28; i++)
+  for (int i = 0; i < 13; i++)
     memory[i] = LiteMath::lerp(v0[i], v1[i], t);
 }
 
-void BVHRT::lerpCell(const uint idx0, const uint idx1, const float t, float memory[28]) {
-  for (int i = 0; i < 28; i++)
-    memory[i] = LiteMath::lerp(m_RFGridData[28 * idx0 + i], m_RFGridData[28 * idx1 + i], t);
+void BVHRT::lerpCell(const uint idx0, const uint idx1, const float t, float memory[13]) {
+  for (int i = 0; i < 13; i++)
+    memory[i] = LiteMath::lerp(m_RFGridData[13 * idx0 + i], m_RFGridData[13 * idx1 + i], t);
 }
 
 // From Mitsuba 3
-void sh_eval_2(const float3 &d, float fout[9])
+float3 eval_sh(float sh[13], float3 rayDir)
 {
-  float x = d.x, y = d.y, z = d.z, z2 = z * z;
-  float c0, c1, s0, s1, tmp_a, tmp_b, tmp_c;
+  const float3 sh0 = float3(sh[1], sh[5], sh[9]);
+  const float3 sh1 = float3(sh[1 + 1], sh[5 + 1], sh[9 + 1]);
+  const float3 sh2 = float3(sh[1 + 2], sh[5 + 2], sh[9 + 2]);
+  const float3 sh3 = float3(sh[1 + 3], sh[5 + 3], sh[9 + 3]);
 
-  fout[0] = 0.28209479177387814;
-  fout[2] = z * 0.488602511902919923;
-  fout[6] = z2 * 0.94617469575756008 + -0.315391565252520045;
-  c0 = x;
-  s0 = y;
+  const float3 lumCoeffs = float3(0.2126f, 0.7152f, 0.0722f);
+  float3 zonalAxis = normalize(float3(-dot(sh3, lumCoeffs), -dot(sh1, lumCoeffs), dot(sh2, lumCoeffs)));
 
-  tmp_a = -0.488602511902919978;
-  fout[3] = tmp_a * c0;
-  fout[1] = tmp_a * s0;
-  tmp_b = z * -1.09254843059207896;
-  fout[7] = tmp_b * c0;
-  fout[5] = tmp_b * s0;
-  c1 = x * c0 - y * s0;
-  s1 = x * s0 + y * c0;
+  float fZ = dot(zonalAxis, rayDir);
+  float zhDir = sqrt(5.0f / (16.0f * 3.141592653589793f)) * (3.0f * fZ * fZ - 1.0f);
 
-  tmp_c = 0.546274215296039478;
-  fout[8] = tmp_c * c1;
-  fout[4] = tmp_c * s1;
-}
+  const float C0 = 0.28209479177387814f;
+  const float C1 = 0.4886025119029199;
 
-float eval_sh(float sh[28], float3 rayDir, const int offset)
-{
-  float sh_coeffs[9];
-  sh_eval_2(rayDir, sh_coeffs);
+  float3 result = C0 * sh0 - C1 * rayDir.y * sh1 + C1 * rayDir.z * sh2 - C1 * rayDir.x * sh3;
+  result += float3(zhDir, zhDir, zhDir);
 
-  float sum = 0.0f;
-  for (int i = 0; i < 9; i++)
-    sum += sh[offset + i] * sh_coeffs[i];
-
-  return sum;
+  return result;
 }
 
 float sigmoid(float x) {
@@ -721,10 +706,10 @@ void BVHRT::RayGridIntersection(float3 ray_dir, uint gridSize, float3 p, float3 
 
   float3 lerpFactors = coords - (float3)nearCoords;
 
-  float xy00[28];
-  float xy10[28];
-  float xy01[28];
-  float xy11[28];
+  float xy00[13];
+  float xy10[13];
+  float xy01[13];
+  float xy11[13];
   
   lerpCell(ptrs[0], ptrs[1], lerpFactors.x, xy00);
   lerpCell(ptrs[2], ptrs2[0], lerpFactors.x, xy10);
@@ -732,23 +717,23 @@ void BVHRT::RayGridIntersection(float3 ray_dir, uint gridSize, float3 p, float3 
   lerpCell(ptrs2[1], ptrs2[3], lerpFactors.x, xy11);
 
 
-  float xyz0[28];
-  float xyz1[28];
+  float xyz0[13];
+  float xyz1[13];
   lerpCellf(xy00, xy10, lerpFactors.y, xyz0);
   lerpCellf(xy01, xy11, lerpFactors.y, xyz1);
 
-  float gridVal[28];
+  float gridVal[13];
   lerpCellf(xyz0, xyz1, lerpFactors.z, gridVal);
 
   // relu
   /* if (gridVal[0] < 0.0) */
   /*   gridVal[0] = 0.0; */
 
-  // for (size_t i = 0; i < 28; i++)
+  // for (size_t i = 0; i < 13; i++)
     // std::cout << (&grid[indexGrid(nearCoords[0], nearCoords[1], nearCoords[2], gridSize)])[i] << ' ';
   // std::cout << std::endl;
 
-  float dist = 1.0f / (float) gridSize * 4.0f;
+  float dist = 1.0f / (float) gridSize * 2.0f;
   /* float dist = length(p - lastP); */
   /* if (dist > sqrt(3) / (float)gridSize) */
   /*     dist -= ((int)(dist * (float)gridSize) - 1) / (float)gridSize; */
@@ -758,7 +743,8 @@ void BVHRT::RayGridIntersection(float3 ray_dir, uint gridSize, float3 p, float3 
   // std::cout << tr << ' ' << gridVal[0] << ' ' << length(p - lastP) << ' ' << gridSize << std::endl;
 
   // float3 RGB = float3(1.0f);
-  float3 RGB = float3(sigmoid(eval_sh(gridVal, ray_dir, 1)), sigmoid(eval_sh(gridVal, ray_dir, 10)), sigmoid(eval_sh(gridVal, ray_dir, 19)));
+  float3 sh = eval_sh(gridVal, ray_dir);
+  float3 RGB = float3(sigmoid(sh[0]), sigmoid(sh[1]), sigmoid(sh[2]));
   colour = colour + throughput * (1 - tr) * RGB;
   throughput *= tr;
 }

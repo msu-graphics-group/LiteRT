@@ -145,7 +145,7 @@ struct BVHRT : public ISceneObject
                          uint32_t a_count, CRT_Hit* pHit);
 
   void RayGridIntersection(float3 ray_dir, uint gridSize, float3 p, float3 lastP, uint4 ptrs, uint4 ptrs2, float &throughput, float3 &colour);
-  void lerpCell(const uint idx0, const uint idx1, const float t, float memory[28]);
+  void lerpCell(const uint idx0, const uint idx1, const float t, float memory[13]);
 
   void IntersectAllTrianglesInLeaf(const float3 ray_pos, const float3 ray_dir,
                                    float tNear, uint32_t instId, uint32_t geomId,

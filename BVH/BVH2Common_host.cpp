@@ -777,8 +777,8 @@ std::array<float, CellSize> interpolate(float* grid, int3 nearCoords, int3 farCo
   return lerpCell(xyz0.data(), xyz1.data(), lerpFactors.z);
 }
 
-void addToVector(std::vector<float>& v, float data[28]) {
-  v.insert(v.end(), data, data + 28);
+void addToVector(std::vector<float>& v, float data[13]) {
+  v.insert(v.end(), data, data + 13);
 }
 
 struct hashableFloat3 {
@@ -823,14 +823,14 @@ std::vector<BVHNode> BVHRT::GetBoxes_RFGrid(RFScene grid, std::vector<float>& sp
 
         if (getDensity(node) > 0.0f) {
           auto addCell = [&](uint3 coords) {
-            addToVector(sparseGrid, &grid.data[28 * (coords[0] + coords[1] * grid.size + coords[2] * grid.size * grid.size)]);
+            addToVector(sparseGrid, &grid.data[13 * (coords[0] + coords[1] * grid.size + coords[2] * grid.size * grid.size)]);
           };
 
           auto addPointer = [&](uint3 coords) {
             hashableFloat3 spaceCoords = {(float)coords[0] / (float) (grid.size - 1), (float)coords[1] / (float) (grid.size - 1), (float)coords[2] / (float) (grid.size - 1)};
             if (coordsToIdx.find(spaceCoords) == coordsToIdx.end()) {
-              coordsToIdx[spaceCoords] = sparseGrid.size() / 28;
-              addToVector(sparseGrid, &grid.data[28 * (coords[0] + coords[1] * grid.size + coords[2] * grid.size * grid.size)]);
+              coordsToIdx[spaceCoords] = sparseGrid.size() / 13;
+              addToVector(sparseGrid, &grid.data[13 * (coords[0] + coords[1] * grid.size + coords[2] * grid.size * grid.size)]);
             }
             return coordsToIdx[spaceCoords];
           };
