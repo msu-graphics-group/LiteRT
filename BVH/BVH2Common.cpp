@@ -730,7 +730,7 @@ void BVHRT::RayGridIntersection(float3 ray_dir, uint gridSize, float3 p, float3 
     // std::cout << (&grid[indexGrid(nearCoords[0], nearCoords[1], nearCoords[2], gridSize)])[i] << ' ';
   // std::cout << std::endl;
 
-  float dist = 1.0f / (float) gridSize * 2.0f;
+  float dist = 1.0f / (float) gridSize * 4.0f;
   /* float dist = length(p - lastP); */
   /* if (dist > sqrt(3) / (float)gridSize) */
   /*     dist -= ((int)(dist * (float)gridSize) - 1) / (float)gridSize; */
