@@ -901,22 +901,10 @@ void litert_test_13_hp_octree_build()
 #ifdef HP_OCTREE_BUILDER
 
   HPOctreeBuilder builder;
-  /*
+
   auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "scenes/01_simple_scenes/data/teapot.vsgf").c_str());
-  float3 mb1, mb2, ma1, ma2;
-  cmesh4::get_bbox(mesh, &mb1, &mb2);
-  cmesh4::rescale_mesh(mesh, float3(-0.9, -0.9, -0.9), float3(0.9, 0.9, 0.9));
-  cmesh4::get_bbox(mesh, &ma1, &ma2);
-  MeshBVH mesh_bvh;
-  mesh_bvh.init(mesh);
-  
-  auto sdf_func = [&mesh_bvh](const float3 &p)
-                    { return mesh_bvh.get_signed_distance(p); };
-  */
-  auto sdf_func = [](const LiteMath::float3 &pt) -> float { return length(pt) - 0.5f; };
-  builder.construct(sdf_func);
-  //HPOctreeBuilder builder;
-  //builder.readLegacy("saves/octree.bin");
+  cmesh4::rescale_mesh(mesh, float3(-0.99, -0.99, -0.99), float3(0.99, 0.99, 0.99));
+  builder.construct(mesh);
 
   unsigned W = 1024, H = 1024;
 
