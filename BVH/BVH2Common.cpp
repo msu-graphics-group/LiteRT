@@ -689,8 +689,10 @@ void BVHRT::IntersectAllSdfsInLeaf(const float3 ray_pos, const float3 ray_dir,
 }
 
 #ifndef DISABLE_SDF_HP
-float BVHRT::eval_dist_hp_polynomials(unsigned depth, unsigned degree, unsigned data_offset, const float3 &unitPt)
+float BVHRT::eval_dist_hp_polynomials(unsigned depth, unsigned degree, unsigned data_offset, const float3 &unitPt01)
 {
+  float3 unitPt = 2.0f*unitPt01 - 1.0f;
+
   // Create lookup table for pt_
   float LpXLookup[BASIS_MAX_DEGREE][3];
   for (uint32_t i = 0; i < 3; ++i)
@@ -777,9 +779,9 @@ void BVHRT::PolynomialOctreeNodeIntersect(uint32_t type, const float3 ray_pos, c
     fNearFar = RayBoxIntersection2(ray_pos, SafeInverse(ray_dir), min_pos, max_pos);
     float3 start_pos = ray_pos + fNearFar.x*ray_dir;
     d = std::max(size.x, std::max(size.y, size.z));
-    start_q = (start_pos - min_pos)/(2.0f*d);
-    qFar = (fNearFar.y - fNearFar.x) / (2.0f * d);
-    qNear = tNear > fNearFar.x ? (tNear - fNearFar.x) / (2.0f * d) : 0.0f;
+    start_q = (start_pos - min_pos)/d;
+    qFar = (fNearFar.y - fNearFar.x) / d;
+    qNear = tNear > fNearFar.x ? (tNear - fNearFar.x) / d : 0.0f;
 #endif
   }
 
@@ -804,7 +806,7 @@ void BVHRT::PolynomialOctreeNodeIntersect(uint32_t type, const float3 ray_pos, c
 
     while (t < qFar && dist > EPS && iter < ST_max_iters)
     {
-      t += dist / (2.0f * d);
+      t += dist / d;
       dist = eval_dist_hp_polynomials(depth, degree, data_offset, start_q + t * ray_dir);
       float3 pp = start_q + t * ray_dir;
       iter++;
@@ -812,7 +814,7 @@ void BVHRT::PolynomialOctreeNodeIntersect(uint32_t type, const float3 ray_pos, c
     hit = (dist <= EPS);
   }
 
-  float tReal = fNearFar.x + 2.0f * d * t;
+  float tReal = fNearFar.x + d * t;
 
 #if ON_CPU==1
   if (debug_cur_pixel)

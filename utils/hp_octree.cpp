@@ -544,6 +544,14 @@ void HPOctreeBuilder::readLegacy(unsigned char *bytes, unsigned size)
   configRootCentre = 0.5f * (config.root.m_min + config.root.m_max);
   configRootInvSizes = 1.0f / (config.root.m_max - config.root.m_min);
 
+  for (auto &node : nodes)
+  {
+    node.aabb.m_min = (node.aabb.m_min - configRootCentre) / configRootInvSizes;
+    node.aabb.m_max = (node.aabb.m_max - configRootCentre) / configRootInvSizes;
+  }
+  configRootCentre = float3(0,0,0);
+  configRootInvSizes = float3(1,1,1);
+
   readLegacy(coeffStore, nodes);
 }
 
@@ -717,12 +725,12 @@ void HPOctreeBuilder::readLegacy(const std::vector<double> &coeffStore, const st
     if (nodes[i].basis.degree != (BASIS_MAX_DEGREE + 1))
     {
       SdfHPOctreeNode node;
-      float sz = 1 << (nodes[i].depth + 1);
+      float sz = 1 << nodes[i].depth;
       uint3 p = uint3(0.5f*sz*(nodes[i].aabb.m_min + 1.0f));
       assert(p.x < (1 << 16) && p.y < (1 << 16) && p.z < (1 << 16));
 
       node.pos_xy = (p.x << 16) | p.y;
-      node.pos_z_lod_size = (p.z << 16) | (1 << (nodes[i].depth + 1));
+      node.pos_z_lod_size = (p.z << 16) | (1 << nodes[i].depth);
       node.degree_lod = (nodes[i].basis.degree << 16) | nodes[i].depth;
       node.data_offset = octree.data.size();
 

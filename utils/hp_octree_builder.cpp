@@ -15,7 +15,7 @@ void HPOctreeBuilder::construct(std::function<float(const float3 &)> f)
   hpConfig.nearnessWeighting.strength = 3.0;
   hpConfig.continuity.enforce = true;
   hpConfig.continuity.strength = 8.0;
-  hpConfig.threadCount = 12;
+  hpConfig.threadCount = 16;
   hpConfig.root = Eigen::AlignedBox3f(Eigen::Vector3f(-1, -1, -1), Eigen::Vector3f(1, 1, 1));
 
   SDF::Octree hpOctree;
