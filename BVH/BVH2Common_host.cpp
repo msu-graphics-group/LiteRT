@@ -851,6 +851,7 @@ struct hashableFloat3 {
 
 std::vector<BVHNode> BVHRT::GetBoxes_RFGrid(RFScene grid, std::vector<float>& sparseGrid, std::vector<uint4>& sparsePtrs)
 {
+  std::cout << "Optimizing model" << std::endl;
   std::map<hashableFloat3, uint> coordsToIdx;
 
   std::vector<BVHNode> nodes;
@@ -872,6 +873,8 @@ std::vector<BVHNode> BVHRT::GetBoxes_RFGrid(RFScene grid, std::vector<float>& sp
     return gridVal[0] * grid.scale;
   };
 
+  size_t i = 0;
+  std::cout << "Added nodes: " << i << '\r' << std::flush;
   #pragma omp parallel for collapse(3)
   for (size_t z = 0; z < grid.size - 1; z++)
     for (size_t y = 0; y < grid.size - 1; y++)
@@ -925,6 +928,7 @@ std::vector<BVHNode> BVHRT::GetBoxes_RFGrid(RFScene grid, std::vector<float>& sp
             }
 
             nodes.push_back(node);
+            std::cout << "Added nodes: " << ++i << '\r' << std::flush;
           }
         }
       }
