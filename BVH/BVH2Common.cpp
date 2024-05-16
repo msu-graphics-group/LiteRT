@@ -967,7 +967,7 @@ void BVHRT::IntersectGSInLeaf(const float3& ray_pos, const float3& ray_dir,
           continue;
       }
 
-      const auto alpha = min(0.99f, opacity * exp(power));
+      const auto alpha = min(0.99f, opacity * float(exp(power)));
 
       if (alpha < 1.0f / 255.0f) {
           continue;

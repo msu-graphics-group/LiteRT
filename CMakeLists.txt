@@ -83,7 +83,7 @@ endif()
 
 add_compile_definitions(ON_CPU=1)
 
-option(MODULE_VULKAN "include GPU support for neural networks" ON)
+option(MODULE_VULKAN "include GPU support for neural networks" OFF)
 
 set(MODULES_SRC "")
 set(MODULES_INCLUDE_DIRS "modules")
