@@ -1,6 +1,7 @@
 #include "radiance_field.h"
 #include <cassert>
 #include <fstream>
+#include <iostream>
 
 void load_rf_scene(RFScene &scene, const std::string &path)
 {
@@ -13,4 +14,6 @@ void load_rf_scene(RFScene &scene, const std::string &path)
 
   fs.read((char *)(scene.data.data()), scene.size *  scene.size * scene.size * CellSize * sizeof(float));
   fs.close();
+
+  std::cout << "Done loading from disk" << std::endl;
 }
