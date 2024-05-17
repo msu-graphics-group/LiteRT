@@ -190,6 +190,13 @@ bool MultiRenderer::LoadSceneHydra(const std::string& a_path, unsigned type, Spa
       load_sdf_SBS(scene, dir);
       m_pAccelStruct->AddGeom_SdfSBS(scene);
     }
+    else if (name == "sdf_hp")
+    {
+      std::cout << "[LoadScene]: sdf hp = " << dir.c_str() << std::endl;
+      SdfHPOctree scene;
+      load_sdf_hp_octree(scene, dir);
+      m_pAccelStruct->AddGeom_SdfHpOctree(scene);
+    }
     else if (name == "nsdf")
     {
       std::cout << "[LoadScene]: neural sdf = " << dir.c_str() << std::endl;

@@ -350,5 +350,8 @@ void load_sdf_SVS(std::vector<SdfSVSNode> &scene, const std::string &path);
 void save_sdf_SBS(const SdfSBSView &scene, const std::string &path);
 void load_sdf_SBS(SdfSBS &scene, const std::string &path);
 
+void save_sdf_hp_octree(const SdfHPOctreeView &scene, const std::string &path);
+void load_sdf_hp_octree(SdfHPOctree &scene, const std::string &path);
+
 void load_neural_sdf_scene_SIREN(SdfScene &scene, const std::string &path); // loads scene from raw SIREN weights file
 #endif

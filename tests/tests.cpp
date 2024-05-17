@@ -901,16 +901,24 @@ void litert_test_13_hp_octree_build()
 #ifdef HP_OCTREE_BUILDER
 
   HPOctreeBuilder builder;
+  HPOctreeBuilder::BuildSettings settings;
+  settings.threads = 7;
+  settings.target_error = 5*1e-6f;
 
   auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "scenes/01_simple_scenes/data/teapot.vsgf").c_str());
   cmesh4::normalize_mesh(mesh);
-  builder.construct(mesh);
+  builder.construct(mesh, settings);
+
+  save_sdf_hp_octree(builder.octree, "saves/test_13_hp_octree.bin");
+  SdfHPOctree loaded_octree;
+  load_sdf_hp_octree(loaded_octree, "saves/test_13_hp_octree.bin");
 
   unsigned W = 1024, H = 1024;
 
   MultiRenderPreset preset = getDefaultPreset();
   //preset.sdf_frame_octree_intersect = SDF_OCTREE_NODE_INTERSECT_BBOX;
   LiteImage::Image2D<uint32_t> image(W, H);
+  LiteImage::Image2D<uint32_t> image_l(W, H);
   LiteImage::Image2D<uint32_t> ref_image(W, H);
 
   auto pRenderRef = CreateMultiRenderer("CPU");
@@ -923,22 +931,34 @@ void litert_test_13_hp_octree_build()
   pRender->SetViewport(0,0,W,H);
   pRender->SetScene(SdfHPOctreeView(builder.octree.nodes, builder.octree.data));
 
+  auto pRender_l = CreateMultiRenderer("GPU");
+  pRender_l->SetPreset(preset);
+  pRender_l->SetViewport(0,0,W,H);
+  pRender_l->SetScene(SdfHPOctreeView(loaded_octree.nodes, loaded_octree.data));
+
   auto m1 = pRender->getWorldView();
   auto m2 = pRender->getProj();
 
   render(ref_image, pRenderRef, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
   render(image, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+  render(image_l, pRender_l, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
 
   LiteImage::SaveImage<uint32_t>("saves/test_13_res.bmp", image); 
   LiteImage::SaveImage<uint32_t>("saves/test_13_ref.bmp", ref_image);
 
   float psnr = PSNR(ref_image, image);
+  float psnr_l = PSNR(ref_image, image_l);
   printf("TEST 13. Rendering hp-adaptive SDF octree\n");
   printf("  13.1. %-64s", "CPU and GPU render PSNR > 45 ");
   if (psnr >= 45)
     printf("passed    (%.2f)\n", psnr);
   else
     printf("FAILED, psnr = %f\n", psnr);
+  printf("  13.2. %-64s", "original and loaded render PSNR > 45 ");
+  if (psnr_l >= 45)
+    printf("passed    (%.2f)\n", psnr_l);
+  else
+    printf("FAILED, psnr = %f\n", psnr_l);
 #else
   printf("TEST 13. Skipping hp-adaptive SDF octree test: HP_OCTREE_BUILDER is disabled\n");
 #endif
