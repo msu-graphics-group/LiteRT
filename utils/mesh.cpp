@@ -1,5 +1,7 @@
 #include "mesh.h"
 #include "LiteMath/LiteMath.h"
+#include <math.h> 
+#include <stack>
 
 namespace cmesh4
 {
@@ -376,5 +378,98 @@ namespace cmesh4
     }
     printf("created octee with %d nodes and %d tri ids\n", (int)octree.nodes.size(), (int)octree.triangle_ids.size());
     return octree;
+  }
+
+  void fix_normals(cmesh4::SimpleMesh &mesh)
+  {
+    {
+      int broken_normals_cnt = 0;
+      std::vector<bool> broken_normals(mesh.vNorm4f.size(), false);
+      for (int i=0;i<mesh.vNorm4f.size();i++)
+      {
+        float3 n = to_float3(mesh.vNorm4f[i]);
+        float len = dot(n, n);
+        if (len < 1e-6 || isnan(len) || isinf(len))
+        {
+          broken_normals[i] = true;
+          broken_normals_cnt++;
+        } 
+        else
+          mesh.vNorm4f[i] = to_float4(n/sqrt(len), 1);
+      }
+      if (broken_normals_cnt > 0)
+      {
+        printf("WARNING: mesh has %d broken normals\n", broken_normals_cnt);
+        //TODO: fix broken normals
+      }
+      else
+        printf("OK: mesh has no broken normals\n");
+    }
+    {
+      int flipped_normals = 0;
+      std::vector<std::vector<unsigned>> edges(mesh.vPos4f.size(), std::vector<unsigned>());
+      std::vector<bool> vertex_visited(mesh.vPos4f.size(), false);
+
+      for (int i=0;i<mesh.indices.size();i+=3)
+      {
+        unsigned a = mesh.indices[i];
+        unsigned b = mesh.indices[i+1];
+        unsigned c = mesh.indices[i+2];
+        edges[a].push_back(b);
+        edges[a].push_back(c);
+        edges[b].push_back(a);
+        edges[b].push_back(c);
+        edges[c].push_back(a);
+        edges[c].push_back(b);
+      }
+
+      //TODO: check if the first normal in pointing in the right direction
+
+      std::stack<unsigned> stack;
+      stack.push(0);
+      while (!stack.empty())
+      {
+        unsigned v = stack.top();
+        stack.pop();
+        if (!vertex_visited[v])
+        {
+          vertex_visited[v] = true;
+          float3 n = to_float3(mesh.vNorm4f[v]);
+          for (auto &v2 : edges[v])
+          {
+            if (!vertex_visited[v2])
+            {
+              float3 n2 = to_float3(mesh.vNorm4f[v2]);
+              if (dot(n, n2) < 0)
+              {
+                flipped_normals++;
+                mesh.vNorm4f[v2] = to_float4(-n2, 1);
+              }
+              stack.push(v2);
+            }
+          }
+        }
+      }
+
+      if (flipped_normals == 0)
+        printf("OK: all normals pointing in the same direction\n");
+      else
+        printf("WARNING: %d/%d were pointing in the wrong direction and were fixed\n", flipped_normals, (int)mesh.vNorm4f.size());
+    }
+  }
+
+  LiteMath::float4x4 normalize_mesh(cmesh4::SimpleMesh &mesh)
+  {
+    LiteMath::float4x4 transform = rescale_mesh(mesh, 0.999f*float3(-1, -1, -1), 0.999f*float3(1, 1, 1));
+
+    bool is_watertight = check_watertight_mesh(mesh);
+    if (is_watertight)
+      printf("OK: mesh is watertight\n");
+    else
+      printf("WARNING: mesh is not watertight\n");
+
+    fix_normals(mesh);
+
+    return transform;
   }
 }

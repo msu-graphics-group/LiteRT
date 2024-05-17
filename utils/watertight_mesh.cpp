@@ -1,4 +1,4 @@
-#include "watertight_mesh.h"
+#include "mesh.h"
 
 #include <iostream>
 #include <map>
@@ -7,7 +7,7 @@
 #define EPS 1e-10
 
 
-namespace upg{
+namespace cmesh4{
   int find_edge_in_planes(const std::vector<LiteMath::float4> &mesh_vertices,
                           const std::vector<unsigned int> &mesh_indices,
                            std::map<std::pair<unsigned int, unsigned int>,
@@ -63,7 +63,7 @@ struct cmpUint3 {
     }
 };
 
-  bool fast_watertight(cmesh4::SimpleMesh& mesh)
+  bool fast_watertight(const cmesh4::SimpleMesh& mesh)
   {
     std::vector<LiteMath::float4> mesh_vertices = mesh.vPos4f;
     std::vector<unsigned int> mesh_indices = mesh.indices;
@@ -123,26 +123,30 @@ struct cmpUint3 {
     }
 
     int i=0;
-    bool watertight = true;
+    int hanging_edges = 0;
     for (auto it = edge_in_planes.begin(); it != edge_in_planes.end(); it++)
     {
-      //printf("edge_in_planes size %d\n",(int)edge_in_planes.size());
-      //auto p = edge_in_planes.begin() + i;
       if (it->second.size() < 2)
-      {
-        printf("%d edge (%u %u), %d triangles\n", i, it->first.x, it->first.y, (int)it->second.size());
-        watertight = false;
-      }
+        hanging_edges++;
       i++;
     }
 
-    //for (int i=0;i<10;i++)
-    //printf("%f %f %f\n", mesh_vertices[mesh_indices[i]].x, mesh_vertices[mesh_indices[i]].y, mesh_vertices[mesh_indices[i]].z);
+    bool watertight = true;
+    if (hanging_edges > 0)
+    {
+      printf("WARNING: mesh has %d hanging edges\n", hanging_edges);
+      watertight = false;
+    }
+    else
+      printf("OK: mesh has no hanging edges\n");
+
     return watertight;
   }
 
-  bool watertight_mesh(cmesh4::SimpleMesh& mesh){
+  bool check_watertight_mesh(const cmesh4::SimpleMesh& mesh){
     return fast_watertight(mesh);
+
+
     std::vector<LiteMath::float4> mesh_vertices = mesh.vPos4f;
     std::vector<unsigned int> mesh_indices = mesh.indices;
 
