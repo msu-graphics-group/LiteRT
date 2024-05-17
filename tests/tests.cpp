@@ -619,7 +619,7 @@ void litert_test_8_SDF_grid()
 {
   //create renderers for SDF scene and mesh scene
   const char *scene_name = "scenes/01_simple_scenes/teapot.xml";
-  unsigned W = 2048, H = 2048;
+  unsigned W = 512, H = 512;
 
   MultiRenderPreset preset = getDefaultPreset();
   preset.mode = MULTI_RENDER_MODE_LAMBERT;
@@ -628,12 +628,12 @@ void litert_test_8_SDF_grid()
   LiteImage::Image2D<uint32_t> image(W, H);
   LiteImage::Image2D<uint32_t> ref_image(W, H);
 
-  auto pRenderRef = CreateMultiRenderer("GPU");
+  auto pRenderRef = CreateMultiRenderer("CPU");
   pRenderRef->SetPreset(preset);
   pRenderRef->SetViewport(0,0,W,H);
   pRenderRef->LoadSceneHydra((scenes_folder_path+scene_name).c_str());
 
-  auto pRender = CreateMultiRenderer("GPU");
+  auto pRender = CreateMultiRenderer("CPU");
   pRender->SetPreset(preset);
   pRender->SetViewport(0,0,W,H);
   pRender->LoadSceneHydra((scenes_folder_path+scene_name).c_str(), TYPE_SDF_GRID, 

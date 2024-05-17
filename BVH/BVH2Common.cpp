@@ -1204,6 +1204,44 @@ float BVHRT::eval_distance_sdf(uint32_t type, uint32_t sdf_id, float3 pos)
 }
 
 #ifndef DISABLE_SDF_GRID
+float BVHRT::tricubic_eval_distance_sdf_grid(uint32_t grid_id, float3 pos)
+{
+  uint32_t off = m_SdfGridOffsets[grid_id];
+  uint3 size = m_SdfGridSizes[grid_id];
+
+  //bbox for grid is a unit cube
+  float3 grid_size_f = float3(size);
+  float3 vox_f = grid_size_f*((pos-float3(-1,-1,-1))/float3(2,2,2)) - float3(0.5, 0.5, 0.5);
+  vox_f = min(max(vox_f, float3(0.0f)), grid_size_f - float3(1e-5f));
+  uint3 vox_u = uint3(vox_f);
+  float3 dp = vox_f - float3(vox_u);
+
+  //trilinear sampling
+  float res = 0.0;
+  if (vox_u.x < size.x-1 && vox_u.y < size.y-1 && vox_u.z < size.z-1)
+  {
+    for (int i=0;i<2;i++)
+    {
+      for (int j=0;j<2;j++)
+      {
+        for (int k=0;k<2;k++)
+        {
+          float qx = (1 - dp.x + i*(2*dp.x-1));
+          float qy = (1 - dp.y + j*(2*dp.y-1));
+          float qz = (1 - dp.z + k*(2*dp.z-1));   
+          res += qx*qy*qz*m_SdfGridData[off + (vox_u.z + k)*size.x*size.y + (vox_u.y + j)*size.x + (vox_u.x + i)];   
+        }      
+      }
+    }
+  }
+  else
+  {
+    res += m_SdfGridData[off + (vox_u.z)*size.x*size.y + (vox_u.y)*size.x + (vox_u.x)]; 
+  }
+  
+  return res;
+}
+
 float BVHRT::eval_distance_sdf_grid(uint32_t grid_id, float3 pos)
 {
   uint32_t off = m_SdfGridOffsets[grid_id];
