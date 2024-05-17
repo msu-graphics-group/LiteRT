@@ -1220,17 +1220,50 @@ float BVHRT::tricubic_eval_distance_sdf_grid(uint32_t grid_id, float3 pos)
   float res = 0.0;
   if (vox_u.x < size.x-1 && vox_u.y < size.y-1 && vox_u.z < size.z-1)
   {
-    for (int i=0;i<2;i++)
+    float b[8], coefs[64];
+
+    b[0] = m_SdfGridData[off + (vox_u.z + 0)*size.x*size.y + (vox_u.y + 0)*size.x + (vox_u.x + 0)];
+    b[1] = m_SdfGridData[off + (vox_u.z + 0)*size.x*size.y + (vox_u.y + 0)*size.x + (vox_u.x + 1)];
+    b[2] = m_SdfGridData[off + (vox_u.z + 0)*size.x*size.y + (vox_u.y + 1)*size.x + (vox_u.x + 0)];
+    b[3] = m_SdfGridData[off + (vox_u.z + 0)*size.x*size.y + (vox_u.y + 1)*size.x + (vox_u.x + 1)];
+    b[4] = m_SdfGridData[off + (vox_u.z + 1)*size.x*size.y + (vox_u.y + 0)*size.x + (vox_u.x + 0)];
+    b[5] = m_SdfGridData[off + (vox_u.z + 1)*size.x*size.y + (vox_u.y + 0)*size.x + (vox_u.x + 1)];
+    b[6] = m_SdfGridData[off + (vox_u.z + 1)*size.x*size.y + (vox_u.y + 1)*size.x + (vox_u.x + 0)];
+    b[7] = m_SdfGridData[off + (vox_u.z + 1)*size.x*size.y + (vox_u.y + 1)*size.x + (vox_u.x + 1)];
+
+    for (int i = 0; i < 64; i++)
     {
-      for (int j=0;j<2;j++)
+      for (int j = 0; j < 64; j++)
       {
-        for (int k=0;k<2;k++)
+        coefs[i] += (float)B[64 * i + j] * b[j % 8];
+      }
+    }
+
+    float power_x[4], power_y[4], power_z[4];
+      
+    power_x[0] = 1;
+    power_x[1] = dp.x;
+    power_x[2] = dp.x * dp.x;
+    power_x[3] = dp.x * dp.x * dp.x;
+
+    power_y[0] = 1;
+    power_y[1] = dp.y;
+    power_y[2] = dp.y * dp.y;
+    power_y[3] = dp.y * dp.y * dp.y;
+
+    power_z[0] = 1;
+    power_z[1] = dp.z;
+    power_z[2] = dp.z * dp.z;
+    power_z[3] = dp.z * dp.z * dp.z;
+
+    for (int i = 0; i < 4; i++)
+    {
+      for (int j = 0; j < 4; j++)
+      {
+        for (int k = 0; k < 4; k++)
         {
-          float qx = (1 - dp.x + i*(2*dp.x-1));
-          float qy = (1 - dp.y + j*(2*dp.y-1));
-          float qz = (1 - dp.z + k*(2*dp.z-1));   
-          res += qx*qy*qz*m_SdfGridData[off + (vox_u.z + k)*size.x*size.y + (vox_u.y + j)*size.x + (vox_u.x + i)];   
-        }      
+          res += coefs[i + 4 * j + 16 * k] * power_x[i] * power_y[j] * power_z[k];
+        }
       }
     }
   }
