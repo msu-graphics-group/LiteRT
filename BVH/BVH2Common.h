@@ -28,6 +28,7 @@ using LiteMath::Box4f;
 #include "../ISceneObject.h"
 #include "../raytrace_common.h"
 #include "cbvh.h"
+#include "precompute_matrix.h"
 
 static MultiRenderPreset getDefaultPreset()
 {

@@ -1220,7 +1220,7 @@ float BVHRT::tricubic_eval_distance_sdf_grid(uint32_t grid_id, float3 pos)
   float res = 0.0;
   if (vox_u.x < size.x-1 && vox_u.y < size.y-1 && vox_u.z < size.z-1)
   {
-    float b[8], coefs[64];
+    float b[8] = {0}, coefs[64] = {0};
 
     b[0] = m_SdfGridData[off + (vox_u.z + 0)*size.x*size.y + (vox_u.y + 0)*size.x + (vox_u.x + 0)];
     b[1] = m_SdfGridData[off + (vox_u.z + 0)*size.x*size.y + (vox_u.y + 0)*size.x + (vox_u.x + 1)];
