@@ -684,8 +684,8 @@ float3 eval_sh(float sh[16], float3 rayDir)
   const float C0 = 0.28209479177387814f;
   const float C1 = 0.4886025119029199;
 
-  float3 result = C0 * sh0 - C1 * rayDir.y * sh1 * 2.0f / 3.0f + C1 * rayDir.z * sh2 * 2.0f / 3.0f - C1 * rayDir.x * sh3 * 2.0f / 3.0f;
-  result += 0.25f * sh4 * zhDir;
+  float3 result = C0 * sh0 - C1 * rayDir.y * sh1 + C1 * rayDir.z * sh2 - C1 * rayDir.x * sh3;
+  result += sh4 * zhDir;
 
   return result;
 }
@@ -730,7 +730,7 @@ void BVHRT::RayGridIntersection(float3 ray_dir, uint gridSize, float3 p, float3 
     // std::cout << (&grid[indexGrid(nearCoords[0], nearCoords[1], nearCoords[2], gridSize)])[i] << ' ';
   // std::cout << std::endl;
 
-  float dist = 1.0f / (float) gridSize * 4.0f;
+  float dist = 1.0f / (float) gridSize * 2.0f;
   /* float dist = length(p - lastP); */
   /* if (dist > sqrt(3) / (float)gridSize) */
   /*     dist -= ((int)(dist * (float)gridSize) - 1) / (float)gridSize; */
