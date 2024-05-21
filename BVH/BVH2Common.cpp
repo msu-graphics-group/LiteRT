@@ -688,9 +688,9 @@ void BVHRT::IntersectAllSdfsInLeaf(const float3 ray_pos, const float3 ray_dir,
   }
 }
 
-#ifndef DISABLE_SDF_HP
 float BVHRT::eval_dist_hp_polynomials(unsigned depth, unsigned degree, unsigned data_offset, const float3 &unitPt01)
 {
+#ifndef DISABLE_SDF_HP
   float3 unitPt = 2.0f*unitPt01 - 1.0f;
 
   // Create lookup table for pt_
@@ -735,9 +735,9 @@ float BVHRT::eval_dist_hp_polynomials(unsigned depth, unsigned degree, unsigned 
       }
     }
   }
+#endif
   return 1000.0f;
 }
-#endif
 
 void BVHRT::PolynomialOctreeNodeIntersect(uint32_t type, const float3 ray_pos, const float3 ray_dir,
                                           float tNear, uint32_t instId, uint32_t geomId,
@@ -1588,11 +1588,12 @@ void BVHRT::IntersectAllTrianglesInLeaf(const float3 ray_pos, const float3 ray_d
 }
 
 void BVHRT::BVH2TraverseF32(const float3 ray_pos, const float3 ray_dir, float tNear,
-                                uint32_t instId, uint32_t geomId, uint32_t stack[STACK_SIZE], bool stopOnFirstHit,
+                                uint32_t instId, uint32_t geomId, bool stopOnFirstHit,
                                 CRT_Hit* pHit)
 {
   const uint32_t bvhOffset = m_geomData[geomId].bvhOffset;
 
+  uint32_t stack[STACK_SIZE];
   int top = 0;
   uint32_t leftNodeOffset = 0;
 
@@ -1660,8 +1661,6 @@ CRT_Hit BVHRT::RayQuery_NearestHit(float4 posAndNear, float4 dirAndFar)
     dirAndFar.w *= -1.0f;
   const float3 rayDirInv = SafeInverse(to_float3(dirAndFar));
 
-  uint32_t stack[STACK_SIZE];
-
   CRT_Hit hit;
   hit.t      = dirAndFar.w;
   hit.primId = uint32_t(-1);
@@ -1687,7 +1686,7 @@ CRT_Hit BVHRT::RayQuery_NearestHit(float4 posAndNear, float4 dirAndFar)
       // transform ray with matrix to local space
       const float3 ray_pos = matmul4x3(m_instanceData[0].transformInv, to_float3(posAndNear));
       const float3 ray_dir = matmul3x3(m_instanceData[0].transformInv, to_float3(dirAndFar));
-      BVH2TraverseF32(ray_pos, ray_dir, posAndNear.w, instId, geomId, stack, stopOnFirstHit, &hit);
+      BVH2TraverseF32(ray_pos, ray_dir, posAndNear.w, instId, geomId, stopOnFirstHit, &hit);
     }
   }
   else
@@ -1724,7 +1723,7 @@ CRT_Hit BVHRT::RayQuery_NearestHit(float4 posAndNear, float4 dirAndFar)
         const float3 ray_pos = matmul4x3(m_instanceData[instId].transformInv, to_float3(posAndNear));
         const float3 ray_dir = matmul3x3(m_instanceData[instId].transformInv, to_float3(dirAndFar)); // DON'float NORMALIZE IT !!!! When we transform to local space of node, ray_dir must be unnormalized!!!
     
-        BVH2TraverseF32(ray_pos, ray_dir, posAndNear.w, instId, geomId, stack, stopOnFirstHit, &hit);
+        BVH2TraverseF32(ray_pos, ray_dir, posAndNear.w, instId, geomId, stopOnFirstHit, &hit);
       }
     } while (nodeIdx < 0xFFFFFFFE && !(stopOnFirstHit && hit.primId != uint32_t(-1))); //
   }

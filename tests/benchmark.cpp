@@ -4,6 +4,7 @@
 #include "../utils/mesh_bvh.h"
 #include "../utils/mesh.h"
 #include "../utils/sparse_octree.h"
+#include "../utils/hp_octree.h"
 #include "LiteScene/hydraxml.h"
 #include "LiteMath/Image2d.h"
 
@@ -45,15 +46,15 @@ void benchmark_framed_octree_intersection()
   std::vector<std::string> scene_paths = {"scenes/01_simple_scenes/data/teapot.vsgf"}; 
   std::vector<std::string> scene_names = {"Teapot", "Bunny"};
 
-  std::vector<unsigned> render_modes = {MULTI_RENDER_MODE_LAMBERT, MULTI_RENDER_MODE_LINEAR_DEPTH};
-  std::vector<std::string> render_names = {"lambert", "depth"};
+  std::vector<unsigned> render_modes = {MULTI_RENDER_MODE_LAMBERT};
+  std::vector<std::string> render_names = {"lambert"};
 
-  std::vector<unsigned> AS_types = {TYPE_SDF_FRAME_OCTREE, TYPE_SDF_SVS, TYPE_SDF_SBS, TYPE_MESH_TRIANGLE};
-  std::vector<std::string> AS_names = {"framed_octree", "sparse_voxel_set", "sparse_brick_set", "mesh"};
+  std::vector<unsigned> AS_types = {TYPE_SDF_FRAME_OCTREE, TYPE_SDF_SVS, TYPE_SDF_HP, TYPE_SDF_SBS, TYPE_MESH_TRIANGLE};
+  std::vector<std::string> AS_names = {"framed_octree", "sparse_voxel_set", "hp-adaptive_octree","sparse_brick_set", "mesh"};
 
-  std::vector<std::vector<unsigned>> presets_ob(4);
-  std::vector<std::vector<unsigned>> presets_oi(4);
-  std::vector<std::vector<std::string>> preset_names(4);
+  std::vector<std::vector<unsigned>> presets_ob(5);
+  std::vector<std::vector<unsigned>> presets_oi(5);
+  std::vector<std::vector<std::string>> preset_names(5);
 
   presets_ob[0] = {SDF_OCTREE_BLAS_NO, 
                    SDF_OCTREE_BLAS_DEFAULT, 
@@ -122,8 +123,12 @@ void benchmark_framed_octree_intersection()
                      "bvh_nodes"};
 
   presets_ob[3] = {SDF_OCTREE_BLAS_DEFAULT};
-  presets_oi[3] = {SDF_OCTREE_NODE_INTERSECT_DEFAULT};
-  preset_names[3] = {"default"};
+  presets_oi[3] = {SDF_OCTREE_NODE_INTERSECT_ST};
+  preset_names[3] = {"bvh_sphere_tracing"};
+
+  presets_ob[4] = {SDF_OCTREE_BLAS_DEFAULT};
+  presets_oi[4] = {SDF_OCTREE_NODE_INTERSECT_DEFAULT};
+  preset_names[4] = {"default"};
 
   assert(scene_names.size() >= scene_paths.size());
   assert(render_modes.size() >= render_names.size());
@@ -155,6 +160,9 @@ void benchmark_framed_octree_intersection()
     builder.convert_to_frame_octree(frame_nodes);
     builder.convert_to_sparse_voxel_set(svs_nodes);
     builder.convert_to_sparse_brick_set(header, sbs_nodes, sbs_data);
+    
+    HPOctreeBuilder hp_builder;
+    hp_builder.construct(mesh);
 
     LiteImage::Image2D<uint32_t> image(W, H);
 
@@ -179,6 +187,8 @@ void benchmark_framed_octree_intersection()
             pRender->SetScene(mesh);
           else if (AS_types[as_n] == TYPE_SDF_SBS)
             pRender->SetScene(SdfSBSView(header, sbs_nodes, sbs_data));
+          else if (AS_types[as_n] == TYPE_SDF_HP)
+            pRender->SetScene(SdfHPOctreeView(hp_builder.octree.nodes, hp_builder.octree.data));
 
           double sum_ms[4] = {0,0,0,0};
           double min_ms[4] = {1e6,1e6,1e6,1e6};
