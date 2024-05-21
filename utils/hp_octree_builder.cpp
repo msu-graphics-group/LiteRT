@@ -37,12 +37,14 @@ void HPOctreeBuilder::construct(std::function<float(const float3 &, unsigned thr
   SDF::Octree hpOctree;
   hpOctree.Create(hpConfig, SphereFunc);
   auto hpBlock = hpOctree.ToMemoryBlock();
+  readLegacy((unsigned char*)hpBlock.ptr, hpBlock.size);
 
   //check if nodes actually have surface inside it
   //and mark nodes that are fully inside or outside object as invalid
   //we do not need them in final octree
   if (true)
   {
+    unsigned remained = 0;
     float distance_thr = 1e-5f;
     unsigned partitions = 2;
     for (auto &n : nodes)
@@ -68,10 +70,16 @@ void HPOctreeBuilder::construct(std::function<float(const float3 &, unsigned thr
         n.basis.degree = BASIS_MAX_DEGREE + 1;
       else if (max_val < -distance_thr) //node is inside
         n.basis.degree = BASIS_MAX_DEGREE + 1;
+      else
+      {
+        //printf("min_val: %f, max_val: %f\n", min_val, max_val);
+        remained++;
+      }
     }
+    printf("remained nodes: %d/%d\n", remained, (int)nodes.size());
   }
 
-  readLegacy((unsigned char*)hpBlock.ptr, hpBlock.size);
+  transformFromLegacy(coeffStore, nodes);
   coeffStore = {};
   nodes = {};
 }

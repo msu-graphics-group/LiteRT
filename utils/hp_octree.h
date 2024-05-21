@@ -121,7 +121,7 @@ private:
   };
 
   void readLegacy(unsigned char *data, unsigned size);
-  void readLegacy(const std::vector<double> &coeffStore, const std::vector<NodeLegacy> &nodes);
+  void transformFromLegacy(const std::vector<double> &coeffStore, const std::vector<NodeLegacy> &nodes);
   double FApprox(const NodeLegacy::Basis& basis_, const Box3Legacy& aabb_, const float3& pt_, const uint32_t depth_) const;
   float FApprox(uint32_t idx, const float3& pt) const;
 

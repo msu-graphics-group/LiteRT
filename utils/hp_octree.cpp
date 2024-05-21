@@ -522,6 +522,7 @@ void HPOctreeBuilder::readLegacy(const std::string &path)
   fs.close();
 
   readLegacy(bytes.data(), size);
+  transformFromLegacy(coeffStore, nodes);
 }
 void HPOctreeBuilder::readLegacy(unsigned char *bytes, unsigned size)
 {
@@ -551,8 +552,6 @@ void HPOctreeBuilder::readLegacy(unsigned char *bytes, unsigned size)
   }
   configRootCentre = float3(0,0,0);
   configRootInvSizes = float3(1,1,1);
-
-  readLegacy(coeffStore, nodes);
 }
 
 double HPOctreeBuilder::QueryLegacy(const float3 &pt_) const
@@ -714,7 +713,7 @@ float HPOctreeBuilder::FApprox(uint32_t nodeId, const float3& pt) const
   return 1000.0f;
 }
 
-void HPOctreeBuilder::readLegacy(const std::vector<double> &coeffStore, const std::vector<NodeLegacy> &nodes)
+void HPOctreeBuilder::transformFromLegacy(const std::vector<double> &coeffStore, const std::vector<NodeLegacy> &nodes)
 {
   octree.data.reserve(coeffStore.size());
   octree.nodes.reserve(nodes.size());
