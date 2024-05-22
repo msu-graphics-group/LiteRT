@@ -902,8 +902,8 @@ void litert_test_13_hp_octree_build()
 
   HPOctreeBuilder builder;
   HPOctreeBuilder::BuildSettings settings;
-  settings.threads = 7;
-  settings.target_error = 5*1e-6f;
+  settings.threads = 15;
+  settings.target_error = 1e-5f;
 
   auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "scenes/01_simple_scenes/data/teapot.vsgf").c_str());
   cmesh4::normalize_mesh(mesh);

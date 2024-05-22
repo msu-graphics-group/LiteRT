@@ -2,6 +2,8 @@
 #include "LiteMath/LiteMath.h"
 #include <math.h> 
 #include <stack>
+#include "vector_comparators.h"
+#include <map>
 
 namespace cmesh4
 {
@@ -380,7 +382,62 @@ namespace cmesh4
     return octree;
   }
 
-  void fix_normals(cmesh4::SimpleMesh &mesh)
+  inline bool ray_intersects_triangle(const float3 &ray_origin,
+                                      const float3 &ray_vector,
+                                      const float3 &a,
+                                      const float3 &b,
+                                      const float3 &c)
+  {
+    constexpr float epsilon = std::numeric_limits<float>::epsilon();
+
+    float3 edge1 = b - a;
+    float3 edge2 = c - a;
+    float3 ray_cross_e2 = cross(ray_vector, edge2);
+    float det = dot(edge1, ray_cross_e2);
+
+    if (det > -epsilon && det < epsilon)
+      return false; // This ray is parallel to this triangle.
+
+    float inv_det = 1.0 / det;
+    float3 s = ray_origin - a;
+    float u = inv_det * dot(s, ray_cross_e2);
+
+    if (u < 0 || u > 1)
+      return false;
+
+    float3 s_cross_e1 = cross(s, edge1);
+    float v = inv_det * dot(ray_vector, s_cross_e1);
+
+    if (v < 0 || u + v > 1)
+      return false;
+
+    // At this stage we can compute t to find out where the intersection point is on the line.
+    float t = inv_det * dot(edge2, s_cross_e1);
+
+    if (t > epsilon) // ray intersection
+    {
+      // out_intersection_point = ray_origin + ray_vector * t;
+      return true;
+    }
+    else // This means that there is a line intersection but not a ray intersection.
+      return false;
+  }
+
+  int intersection_count(const cmesh4::SimpleMesh &mesh, const float3 &ray_origin, const float3 &ray_vector)
+  {
+    int cnt = 0;
+    for (int i=0;i<mesh.TrianglesNum();i++)
+    {
+      float3 a = to_float3(mesh.vPos4f[mesh.indices[3*i+0]]);
+      float3 b = to_float3(mesh.vPos4f[mesh.indices[3*i+1]]);
+      float3 c = to_float3(mesh.vPos4f[mesh.indices[3*i+2]]);
+      if (ray_intersects_triangle(ray_origin, ray_vector, a, b, c))
+        cnt++;
+    }
+    return cnt;
+  }
+
+  void fix_normals(cmesh4::SimpleMesh &mesh, bool verbose)
   {
     {
       int broken_normals_cnt = 0;
@@ -399,11 +456,15 @@ namespace cmesh4
       }
       if (broken_normals_cnt > 0)
       {
-        printf("WARNING: mesh has %d broken normals\n", broken_normals_cnt);
+        if (verbose)
+          printf("WARNING: mesh has %d broken normals\n", broken_normals_cnt);
         //TODO: fix broken normals
       }
       else
-        printf("OK: mesh has no broken normals\n");
+      {
+        if (verbose)
+          printf("OK: mesh has no broken normals\n");
+      }
     }
     {
       int flipped_normals = 0;
@@ -424,9 +485,18 @@ namespace cmesh4
       }
 
       //TODO: check if the first normal in pointing in the right direction
+      int start_index = 0;
+      int intersection_cnt = intersection_count(mesh, 
+                                                to_float3(mesh.vPos4f[start_index]) + 1e-6f*to_float3(mesh.vNorm4f[start_index]), 
+                                                to_float3(mesh.vNorm4f[start_index]));
+
+      if (verbose)
+        printf("intersection_cnt %d\n", intersection_cnt);
+      if (intersection_cnt % 2)
+        mesh.vNorm4f[start_index] *= -1;
 
       std::stack<unsigned> stack;
-      stack.push(0);
+      stack.push(start_index);
       while (!stack.empty())
       {
         unsigned v = stack.top();
@@ -451,24 +521,175 @@ namespace cmesh4
         }
       }
 
-      if (flipped_normals == 0)
-        printf("OK: all normals pointing in the same direction\n");
-      else
-        printf("WARNING: %d/%d were pointing in the wrong direction and were fixed\n", flipped_normals, (int)mesh.vNorm4f.size());
+      if (verbose)
+      {
+        if (flipped_normals == 0 )
+          printf("OK: all normals pointing in the same direction\n");
+        else
+          printf("WARNING: %d/%d were pointing in the wrong direction and were fixed\n", flipped_normals, (int)mesh.vNorm4f.size());
+      }
     }
   }
 
-  LiteMath::float4x4 normalize_mesh(cmesh4::SimpleMesh &mesh)
+  void compress_close_vertices(cmesh4::SimpleMesh &mesh, double threshold, bool verbose)
+  {
+    std::map<int3, std::vector<unsigned>, cmpInt3> vert_indices;
+    float inv_thr = 1.0/std::max(1e-6, threshold);
+
+    for (int i=0;i<mesh.vPos4f.size();i++)
+    {
+      int3 v_idx0 = int3(inv_thr*LiteMath::to_float3(mesh.vPos4f[i]));
+      std::vector<int3> v_idxes = 
+        {v_idx0 + int3(0, 0, 0), v_idx0 + int3(0, 0, 1), v_idx0 + int3(0, 1, 0), v_idx0 + int3(0, 1, 1),
+         v_idx0 + int3(1, 0, 0), v_idx0 + int3(1, 0, 1), v_idx0 + int3(1, 1, 0), v_idx0 + int3(1, 1, 1)};
+      for (auto &v_idx : v_idxes)
+      {
+        auto it = vert_indices.find(v_idx);
+        if (it == vert_indices.end())
+          vert_indices[v_idx] = {(unsigned)i};
+        else
+          vert_indices[v_idx].push_back(i);
+      
+        //printf("v_idx %d %d %d size %d\n", v_idx.x, v_idx.y, v_idx.z, (int)vert_indices[v_idx].size());
+      }
+    }
+
+    std::vector<int> vert_remap(mesh.vPos4f.size(), -1);
+    std::vector<bool> remapped(mesh.vPos4f.size(), false);
+    std::vector<int> vert_remap_inv(mesh.vPos4f.size(), -1);
+    unsigned new_idx = 0;
+
+    for (auto &it : vert_indices)
+    {
+      //printf("Checking %d vertices\n", (int)it.second.size());
+      for (auto &idx1 : it.second)
+      {
+        for (auto &idx2 : it.second)
+        {
+          if (idx1 >= idx2)
+            continue;
+          float3 p1 = to_float3(mesh.vPos4f[idx1]);
+          float3 p2 = to_float3(mesh.vPos4f[idx2]);
+          if (!remapped[idx1] && !remapped[idx2] &&
+              sqrt((double)(p1.x-p2.x)*(double)(p1.x-p2.x) + (double)(p1.y-p2.y)*(double)(p1.y-p2.y) + (double)(p1.z-p2.z)*(double)(p1.z-p2.z)) < threshold)
+          {
+            double d = sqrt((double)(p1.x-p2.x)*(double)(p1.x-p2.x) + (double)(p1.y-p2.y)*(double)(p1.y-p2.y) + (double)(p1.z-p2.z)*(double)(p1.z-p2.z));
+            //printf("length = %lg\n", d);
+            if (dot3(mesh.vNorm4f[idx1], mesh.vNorm4f[idx2]) > 0.99f) //we can safely merge the vertices
+            {
+              //printf("norm[idx1] %f %f %f norm[idx2] %f %f %f\n", mesh.vNorm4f[idx1].x, mesh.vNorm4f[idx1].y, mesh.vNorm4f[idx1].z, mesh.vNorm4f[idx2].x, mesh.vNorm4f[idx2].y, mesh.vNorm4f[idx2].z);
+              remapped[idx2] = true;
+              if (vert_remap[idx1] == -1)
+              {
+                vert_remap[idx1] = new_idx;
+                vert_remap_inv[new_idx] = idx1;
+                new_idx++;
+              }
+              vert_remap[idx2] = vert_remap[idx1];
+            }
+            else //just need to spread them apart to avoid having triangles with zero area
+            {
+              mesh.vPos4f[idx1] += float4(1e-6f, 1e-6f, 1e-6f, 0)*mesh.vNorm4f[idx1];
+              mesh.vPos4f[idx2] += float4(1e-6f, 1e-6f, 1e-6f, 0)*mesh.vNorm4f[idx2];
+            }
+          }
+        }
+      }
+    }
+
+    for (int i=0;i<mesh.vPos4f.size();i++)
+    {
+      if (vert_remap[i] == -1)
+      {
+        vert_remap[i] = new_idx;
+        vert_remap_inv[new_idx] = i;
+        new_idx++;
+      }
+      float3 norm_old = to_float3(mesh.vNorm4f[i]);
+      float3 norm_new = to_float3(mesh.vNorm4f[vert_remap_inv[vert_remap[i]]]);
+      //printf("idx %d %d\n", i, vert_remap_inv[vert_remap[i]]);
+      //printf("norm old %f %f %f new %f %f %f\n", norm_old.x, norm_old.y, norm_old.z, norm_new.x, norm_new.y, norm_new.z);
+    }
+    //for (int i=0;i<new_idx;i++)
+    //  printf("%d ", vert_remap_inv[i]);
+    //printf("\n");
+
+    if (new_idx == mesh.vPos4f.size())
+    {
+      if (verbose)
+        printf("OK: mesh has no close vertices\n");
+    }
+    else
+    {
+      if (verbose)
+        printf("WARNING: %d/%d vertices were close and were compressed\n", (int)(mesh.vPos4f.size() - new_idx), (int)mesh.vPos4f.size());
+    
+      //    std::vector<LiteMath::float4> vPos4f; 
+      //    std::vector<LiteMath::float4> vNorm4f;
+      //    std::vector<LiteMath::float4> vTang4f;
+      //    std::vector<float2>           vTexCoord2f;
+      //    std::vector<unsigned int>     indices;
+      //    std::vector<unsigned int>     matIndices;
+
+      std::vector<LiteMath::float4> new_pos4f(new_idx);
+      std::vector<LiteMath::float4> new_norm4f(new_idx);
+      std::vector<LiteMath::float4> new_tang4f(new_idx);
+      std::vector<float2>           new_tex2f(new_idx);
+      std::vector<unsigned int>     new_indices;
+      std::vector<unsigned int>     new_matIndices;
+
+      for (int i=0;i<new_idx;i++)
+      {
+        new_pos4f[i] = mesh.vPos4f[vert_remap_inv[i]];
+        new_norm4f[i] = mesh.vNorm4f[vert_remap_inv[i]];
+        new_tang4f[i] = mesh.vTang4f[vert_remap_inv[i]];
+        new_tex2f[i] = mesh.vTexCoord2f[vert_remap_inv[i]];
+      }
+
+      for (int i=0;i<mesh.indices.size();i+=3)
+      {
+        unsigned idx0 = vert_remap[mesh.indices[i+0]];
+        unsigned idx1 = vert_remap[mesh.indices[i+1]];
+        unsigned idx2 = vert_remap[mesh.indices[i+2]];
+
+        if (idx0 == idx1 || idx0 == idx2 || idx1 == idx2)
+          continue;
+
+        new_indices.push_back(idx0);
+        new_indices.push_back(idx1);
+        new_indices.push_back(idx2);
+        new_matIndices.push_back(mesh.matIndices[i/3]);
+      }
+
+      int old_triangles = mesh.matIndices.size();
+
+      mesh.vPos4f = new_pos4f;
+      mesh.vNorm4f = new_norm4f;
+      mesh.vTang4f = new_tang4f;
+      mesh.vTexCoord2f = new_tex2f;
+      mesh.indices = new_indices;
+      mesh.matIndices = new_matIndices;
+
+      if (verbose)
+        printf("%d/%d triangles were removed after vertex compression\n",old_triangles - (int)mesh.matIndices.size(), old_triangles);
+    }
+  }
+
+  LiteMath::float4x4 normalize_mesh(cmesh4::SimpleMesh &mesh, bool verbose)
   {
     LiteMath::float4x4 transform = rescale_mesh(mesh, 0.999f*float3(-1, -1, -1), 0.999f*float3(1, 1, 1));
+    compress_close_vertices(mesh, 1e-12f, verbose); //should not be used until I rule out why it can break normals (on dragon model at least)
 
-    bool is_watertight = check_watertight_mesh(mesh);
-    if (is_watertight)
-      printf("OK: mesh is watertight\n");
-    else
-      printf("WARNING: mesh is not watertight\n");
+    bool is_watertight = check_watertight_mesh(mesh, verbose);
+    if (verbose)
+    {
+      if (is_watertight)
+        printf("OK: mesh is watertight\n");
+      else
+        printf("WARNING: mesh is not watertight\n");
+    }
 
-    fix_normals(mesh);
+    fix_normals(mesh, verbose);
 
     return transform;
   }

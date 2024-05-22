@@ -84,68 +84,65 @@ bool MultiRenderer::LoadSceneHydra(const std::string& a_path, unsigned type, Spa
     {
       std::cout << "[LoadScene]: mesh = " << dir.c_str() << std::endl;
       auto currMesh = cmesh4::LoadMeshFromVSGF(dir.c_str());
+      float4x4 trans = cmesh4::normalize_mesh(currMesh, true);
+      addGeomTransform.back() = inverse4x4(trans);
 
-      if (type == TYPE_MESH_TRIANGLE)
+      switch (type)
       {
-        m_pAccelStruct->AddGeom_Triangles3f((const float*)currMesh.vPos4f.data(), currMesh.vPos4f.size(),
-                                            currMesh.indices.data(), currMesh.indices.size(), BUILD_HIGH, sizeof(float)*4);
+      case TYPE_MESH_TRIANGLE:
+      {
+        m_pAccelStruct->AddGeom_Triangles3f((const float *)currMesh.vPos4f.data(), currMesh.vPos4f.size(),
+                                            currMesh.indices.data(), currMesh.indices.size(), BUILD_HIGH, sizeof(float) * 4);
       }
-      else
+      break;
+      case TYPE_SDF_SVS:
       {
-        float4x4 trans = cmesh4::rescale_mesh(currMesh, float3(-0.9, -0.9, -0.9), float3(0.9, 0.9, 0.9));
-        addGeomTransform.back() = inverse4x4(trans);
-
-        switch (type)
-        {
-        case TYPE_SDF_SVS:
-        {
-          std::vector<SdfSVSNode> svs_nodes;
-          if (so_settings.build_type == SparseOctreeBuildType::DEFAULT)
-          {
-            MeshBVH mesh_bvh;
-            mesh_bvh.init(currMesh);
-            SparseOctreeBuilder builder;
-            builder.construct([&mesh_bvh](const float3 &p)
-                              { return mesh_bvh.get_signed_distance(p); },
-                              so_settings);
-            builder.convert_to_sparse_voxel_set(svs_nodes);
-          }
-          else if (so_settings.build_type == SparseOctreeBuildType::MESH_TLO)
-          {
-            //search_range_mult is selected by experiments, more is better, but slower.
-            //2.0 is probably the right value in theory.
-            constexpr float search_range_mult = 1.75f;
-            auto oct = cmesh4::create_triangle_list_octree(currMesh, so_settings.depth, 1, search_range_mult);
-            SparseOctreeBuilder::mesh_octree_to_SVS(currMesh, oct, svs_nodes);
-          }
-          m_pAccelStruct->AddGeom_SdfSVS({(unsigned)svs_nodes.size(), svs_nodes.data()});
-        }
-          break;
-        case TYPE_SDF_GRID:
+        std::vector<SdfSVSNode> svs_nodes;
+        if (so_settings.build_type == SparseOctreeBuildType::DEFAULT)
         {
           MeshBVH mesh_bvh;
           mesh_bvh.init(currMesh);
-          unsigned sz = pow(2,so_settings.depth);
-          std::vector<float> data(sz*sz*sz, 0);
+          SparseOctreeBuilder builder;
+          builder.construct([&mesh_bvh](const float3 &p)
+                            { return mesh_bvh.get_signed_distance(p); },
+                            so_settings);
+          builder.convert_to_sparse_voxel_set(svs_nodes);
+        }
+        else if (so_settings.build_type == SparseOctreeBuildType::MESH_TLO)
+        {
+          // search_range_mult is selected by experiments, more is better, but slower.
+          // 2.0 is probably the right value in theory.
+          constexpr float search_range_mult = 1.75f;
+          auto oct = cmesh4::create_triangle_list_octree(currMesh, so_settings.depth, 1, search_range_mult);
+          SparseOctreeBuilder::mesh_octree_to_SVS(currMesh, oct, svs_nodes);
+        }
+        m_pAccelStruct->AddGeom_SdfSVS({(unsigned)svs_nodes.size(), svs_nodes.data()});
+      }
+      break;
+      case TYPE_SDF_GRID:
+      {
+        MeshBVH mesh_bvh;
+        mesh_bvh.init(currMesh);
+        unsigned sz = pow(2, so_settings.depth);
+        std::vector<float> data(sz * sz * sz, 0);
 
-          for (int i=0;i<sz;i++)
+        for (int i = 0; i < sz; i++)
+        {
+          for (int j = 0; j < sz; j++)
           {
-            for (int j=0;j<sz;j++)
+            for (int k = 0; k < sz; k++)
             {
-              for (int k=0;k<sz;k++)
-              {
-                data[i*sz*sz + j*sz + k] = mesh_bvh.get_signed_distance(2.0f * (float3(k+0.5, j+0.5, i+0.5) / float(sz)) - 1.0f);
-              }
+              data[i * sz * sz + j * sz + k] = mesh_bvh.get_signed_distance(2.0f * (float3(k + 0.5, j + 0.5, i + 0.5) / float(sz)) - 1.0f);
             }
           }
+        }
 
-          m_pAccelStruct->AddGeom_SdfGrid(SdfGridView(uint3(sz,sz,sz), data));
-        }
-          break;
-        default:
-          printf("cannot transform meshes from Hydra scene to type %u\n", type);
-          break;
-        }
+        m_pAccelStruct->AddGeom_SdfGrid(SdfGridView(uint3(sz, sz, sz), data));
+      }
+      break;
+      default:
+        printf("cannot transform meshes from Hydra scene to type %u\n", type);
+        break;
       }
     }
     else if (name == "sdf")

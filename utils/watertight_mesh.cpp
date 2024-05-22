@@ -1,4 +1,5 @@
 #include "mesh.h"
+#include "vector_comparators.h"
 
 #include <iostream>
 #include <map>
@@ -7,7 +8,8 @@
 #define EPS 1e-10
 
 
-namespace cmesh4{
+namespace cmesh4
+{
   int find_edge_in_planes(const std::vector<LiteMath::float4> &mesh_vertices,
                           const std::vector<unsigned int> &mesh_indices,
                            std::map<std::pair<unsigned int, unsigned int>,
@@ -32,38 +34,7 @@ namespace cmesh4{
 
   LiteMath::float3 float4_to_float3(LiteMath::float4 m);
 
-  using LiteMath::uint2;
-  using LiteMath::uint3;
-
-  struct cmpUint2 {
-    bool operator()(const uint2& a, const uint2& b) const 
-    {
-      if (a.x < b.x)
-        return true;
-      else if (a.x > b.x)
-        return false;
-      return a.y < b.y;
-      
-    }
-};
-
-struct cmpUint3 {
-    bool operator()(const uint3& a, const uint3& b) const 
-    {
-      if (a.x < b.x)
-        return true;
-      else if (a.x > b.x)
-        return false;
-      if (a.y < b.y)
-        return true;
-      else if (a.y > b.y)
-        return false;
-      return a.z < b.z;
-      
-    }
-};
-
-  bool fast_watertight(const cmesh4::SimpleMesh& mesh)
+  bool fast_watertight(const cmesh4::SimpleMesh& mesh, bool verbose)
   {
     std::vector<LiteMath::float4> mesh_vertices = mesh.vPos4f;
     std::vector<unsigned int> mesh_indices = mesh.indices;
@@ -71,7 +42,7 @@ struct cmpUint3 {
     if (mesh_vertices.size() == 0 || mesh_indices.size() == 0 || mesh_indices.size()%3 != 0)
       return false;
 
-    std::map<uint3, unsigned, cmpUint3> vert_indices;
+    std::map<int3, unsigned, cmpInt3> vert_indices;
     float eps = 1e-5;
     float inv_eps = 1/eps;
     std::vector<unsigned> vert_remap;
@@ -79,7 +50,7 @@ struct cmpUint3 {
 
     for (int i=0;i<mesh_vertices.size();i++)
     {
-      uint3 v_idx = uint3(inv_eps*LiteMath::to_float3(mesh_vertices[i]) + LiteMath::float3(0.5, 0.5, 0.5));
+      int3 v_idx = int3(inv_eps*LiteMath::to_float3(mesh_vertices[i]) + LiteMath::float3(0.5, 0.5, 0.5));
       auto it = vert_indices.find(v_idx);
       if (it == vert_indices.end())
       {
@@ -134,17 +105,18 @@ struct cmpUint3 {
     bool watertight = true;
     if (hanging_edges > 0)
     {
-      printf("WARNING: mesh has %d hanging edges\n", hanging_edges);
+      if (verbose)
+        printf("WARNING: mesh has %d hanging edges\n", hanging_edges);
       watertight = false;
     }
-    else
+    else if (verbose)
       printf("OK: mesh has no hanging edges\n");
 
     return watertight;
   }
 
-  bool check_watertight_mesh(const cmesh4::SimpleMesh& mesh){
-    return fast_watertight(mesh);
+  bool check_watertight_mesh(const cmesh4::SimpleMesh& mesh, bool verbose){
+    return fast_watertight(mesh, verbose);
 
 
     std::vector<LiteMath::float4> mesh_vertices = mesh.vPos4f;
