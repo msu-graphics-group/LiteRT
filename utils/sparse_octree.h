@@ -130,6 +130,8 @@ public:
   void convert_to_sparse_voxel_set(std::vector<SdfSVSNode> &out_nodes);
   void convert_to_sparse_brick_set(SdfSBSHeader &header, std::vector<SdfSBSNode> &out_nodes, std::vector<uint32_t> &out_values);
 
+  float check_quality(std::function<T(const float3 &)> f, const std::vector<SdfSVSNode> &nodes);
+
   T sample(const float3 &pos, unsigned max_level = 1000) const;
   T sample_closest(const float3 &pos) const;
 

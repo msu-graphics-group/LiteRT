@@ -112,9 +112,17 @@ bool MultiRenderer::LoadSceneHydra(const std::string& a_path, unsigned type, Spa
         {
           // search_range_mult is selected by experiments, more is better, but slower.
           // 2.0 is probably the right value in theory.
-          constexpr float search_range_mult = 1.75f;
+          constexpr float search_range_mult = 2.0f;
           auto oct = cmesh4::create_triangle_list_octree(currMesh, so_settings.depth, 1, search_range_mult);
           SparseOctreeBuilder::mesh_octree_to_SVS(currMesh, oct, svs_nodes);
+        }
+        if (false) //use to check quality
+        {
+          MeshBVH mesh_bvh;
+          mesh_bvh.init(currMesh);
+          SparseOctreeBuilder builder;
+          builder.check_quality([&mesh_bvh](const float3 &p)
+                            { return mesh_bvh.get_signed_distance(p); }, svs_nodes);
         }
         m_pAccelStruct->AddGeom_SdfSVS({(unsigned)svs_nodes.size(), svs_nodes.data()});
       }
