@@ -808,8 +808,8 @@ std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
   unsigned long n_real = get_nodes().size();
   unsigned long n_max = pow(8, settings.depth);
   
-  printf("SDF octree created with %lu (%5.2lf%%) nodes (dense one would have %lu)\n", n_real, 100.0*n_real/n_max, n_max);
-  printf("time spent (ms) %.1f\n", time_1);
+  //printf("SDF octree created with %lu (%5.2lf%%) nodes (dense one would have %lu)\n", n_real, 100.0*n_real/n_max, n_max);
+  //printf("time spent (ms) %.1f\n", time_1);
 }
 
 void SparseOctreeBuilder::convert_to_frame_octree(std::vector<SdfFrameOctreeNode> &out_frame)
@@ -842,8 +842,8 @@ std::chrono::steady_clock::time_point t4 = std::chrono::steady_clock::now();
   unsigned long n_real = get_nodes().size();
   unsigned long n_max = pow(8, settings.depth);
   
-  printf("SDF octree created with %lu (%5.2lf%%) nodes (dense one would have %lu)\n", n_real, 100.0*n_real/n_max, n_max);
-  printf("time spent (ms) %.1f %.1f %.1f\n", time_1, time_2, time_3);
+  //printf("SDF octree created with %lu (%5.2lf%%) nodes (dense one would have %lu)\n", n_real, 100.0*n_real/n_max, n_max);
+  //printf("time spent (ms) %.1f %.1f %.1f\n", time_1, time_2, time_3);
 }
 
 void frame_octree_to_SVS_rec(const std::vector<SdfFrameOctreeNode> &frame,
