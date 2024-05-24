@@ -389,7 +389,7 @@ void SparseOctreeBuilder::construct_bottom_up_base(unsigned start_depth, float3 
     remove_linear_rec(*this, settings.remove_thr, settings.min_remove_level, 0, start_depth, start_p, start_d);  
 }
 
-void SparseOctreeBuilder::construct_bottom_up(std::function<T(const float3 &)> _sdf, SparseOctreeSettings _settings)
+void SparseOctreeBuilder::construct_bottom_up(DistanceFunction _sdf, SparseOctreeSettings _settings)
 {
   sdf = _sdf;
   settings = _settings;
@@ -523,7 +523,7 @@ void node_values_to_blocks_rec(SparseOctreeBuilder &octree, std::vector<std::vec
   }
 }
 
-void SparseOctreeBuilder::construct_bottom_up_blocks(std::function<T(const float3 &)> _sdf, SparseOctreeSettings _settings, 
+void SparseOctreeBuilder::construct_bottom_up_blocks(DistanceFunction _sdf, SparseOctreeSettings _settings, 
                                               BlockSparseOctree<T> &out_bso)
 {
   sdf = _sdf;
@@ -706,7 +706,7 @@ void check_and_fix_sdf_sign(std::vector<SparseOctreeBuilder::Node> &nodes, float
   }
 }
 
-void SparseOctreeBuilder::construct(std::function<T(const float3 &)> _sdf, SparseOctreeSettings _settings)
+void SparseOctreeBuilder::construct(DistanceFunction _sdf, SparseOctreeSettings _settings)
 {
   sdf = _sdf;
   settings = _settings;
@@ -819,7 +819,7 @@ void SparseOctreeBuilder::convert_to_frame_octree(std::vector<SdfFrameOctreeNode
   fill_octree_frame_rec(sdf, nodes, out_frame, 0, float3(0,0,0), 1);
 }
 
-void SparseOctreeBuilder::construct_bottom_up_frame(std::function<T(const float3 &)> _sdf, SparseOctreeSettings _settings, 
+void SparseOctreeBuilder::construct_bottom_up_frame(DistanceFunction _sdf, SparseOctreeSettings _settings, 
                                                     std::vector<SdfFrameOctreeNode> &out_frame)
 {
   sdf = _sdf;
