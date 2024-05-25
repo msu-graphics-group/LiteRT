@@ -186,7 +186,7 @@ struct BVHRT : public ISceneObject
                                      CRT_Hit *pHit);
 
   virtual void BVH2TraverseF32(const float3 ray_pos, const float3 ray_dir, float tNear, 
-                               uint32_t instId, uint32_t geomId, uint32_t stack[STACK_SIZE], bool stopOnFirstHit,
+                               uint32_t instId, uint32_t geomId, bool stopOnFirstHit,
                                CRT_Hit *pHit);
 
   virtual void AppendTreeData(const std::vector<BVHNodePair>& a_nodes, const std::vector<uint32_t>& a_indices, 
@@ -229,9 +229,8 @@ struct BVHRT : public ISceneObject
   virtual SdfHit sdf_sphere_tracing(unsigned type, unsigned prim_id, const float3 &min_pos, const float3 &max_pos,
                                     const float3 &pos, const float3 &dir, bool need_norm);    
 
-#ifndef DISABLE_SDF_HP
   virtual float eval_dist_hp_polynomials(unsigned depth, unsigned degree, unsigned data_offset, const float3 &unitPt);
-#endif
+
   //SDFs data
 #ifndef DISABLE_SDF_PRIMITIVE
   std::vector<float> m_SdfParameters;

@@ -389,7 +389,7 @@ void SparseOctreeBuilder::construct_bottom_up_base(unsigned start_depth, float3 
     remove_linear_rec(*this, settings.remove_thr, settings.min_remove_level, 0, start_depth, start_p, start_d);  
 }
 
-void SparseOctreeBuilder::construct_bottom_up(std::function<T(const float3 &)> _sdf, SparseOctreeSettings _settings)
+void SparseOctreeBuilder::construct_bottom_up(DistanceFunction _sdf, SparseOctreeSettings _settings)
 {
   sdf = _sdf;
   settings = _settings;
@@ -523,7 +523,7 @@ void node_values_to_blocks_rec(SparseOctreeBuilder &octree, std::vector<std::vec
   }
 }
 
-void SparseOctreeBuilder::construct_bottom_up_blocks(std::function<T(const float3 &)> _sdf, SparseOctreeSettings _settings, 
+void SparseOctreeBuilder::construct_bottom_up_blocks(DistanceFunction _sdf, SparseOctreeSettings _settings, 
                                               BlockSparseOctree<T> &out_bso)
 {
   sdf = _sdf;
@@ -706,7 +706,7 @@ void check_and_fix_sdf_sign(std::vector<SparseOctreeBuilder::Node> &nodes, float
   }
 }
 
-void SparseOctreeBuilder::construct(std::function<T(const float3 &)> _sdf, SparseOctreeSettings _settings)
+void SparseOctreeBuilder::construct(DistanceFunction _sdf, SparseOctreeSettings _settings)
 {
   sdf = _sdf;
   settings = _settings;
@@ -808,8 +808,8 @@ std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
   unsigned long n_real = get_nodes().size();
   unsigned long n_max = pow(8, settings.depth);
   
-  printf("SDF octree created with %lu (%5.2lf%%) nodes (dense one would have %lu)\n", n_real, 100.0*n_real/n_max, n_max);
-  printf("time spent (ms) %.1f\n", time_1);
+  //printf("SDF octree created with %lu (%5.2lf%%) nodes (dense one would have %lu)\n", n_real, 100.0*n_real/n_max, n_max);
+  //printf("time spent (ms) %.1f\n", time_1);
 }
 
 void SparseOctreeBuilder::convert_to_frame_octree(std::vector<SdfFrameOctreeNode> &out_frame)
@@ -819,7 +819,7 @@ void SparseOctreeBuilder::convert_to_frame_octree(std::vector<SdfFrameOctreeNode
   fill_octree_frame_rec(sdf, nodes, out_frame, 0, float3(0,0,0), 1);
 }
 
-void SparseOctreeBuilder::construct_bottom_up_frame(std::function<T(const float3 &)> _sdf, SparseOctreeSettings _settings, 
+void SparseOctreeBuilder::construct_bottom_up_frame(DistanceFunction _sdf, SparseOctreeSettings _settings, 
                                                     std::vector<SdfFrameOctreeNode> &out_frame)
 {
   sdf = _sdf;
@@ -842,8 +842,8 @@ std::chrono::steady_clock::time_point t4 = std::chrono::steady_clock::now();
   unsigned long n_real = get_nodes().size();
   unsigned long n_max = pow(8, settings.depth);
   
-  printf("SDF octree created with %lu (%5.2lf%%) nodes (dense one would have %lu)\n", n_real, 100.0*n_real/n_max, n_max);
-  printf("time spent (ms) %.1f %.1f %.1f\n", time_1, time_2, time_3);
+  //printf("SDF octree created with %lu (%5.2lf%%) nodes (dense one would have %lu)\n", n_real, 100.0*n_real/n_max, n_max);
+  //printf("time spent (ms) %.1f %.1f %.1f\n", time_1, time_2, time_3);
 }
 
 void frame_octree_to_SVS_rec(const std::vector<SdfFrameOctreeNode> &frame,
@@ -853,11 +853,16 @@ void frame_octree_to_SVS_rec(const std::vector<SdfFrameOctreeNode> &frame,
   unsigned ofs = frame[idx].offset;
   if (is_leaf(ofs)) 
   {
-    bool border_node = false;
+    float d_max = 2*sqrt(3)/lod_size;
+    bool less_node = false;
+    bool more_node = false;
     for (int i=0;i<8;i++)
-      border_node = border_node || (frame[idx].values[i] <= 0);
+    {
+      less_node = less_node || (frame[idx].values[i] <= 0);
+      more_node = more_node || (frame[idx].values[i] > -d_max);
+    }
     
-    if (border_node)
+    if (less_node && more_node)
     {
       nodes.emplace_back();
       nodes.back().pos_xy = (p.x << 16) | p.y;
@@ -867,8 +872,7 @@ void frame_octree_to_SVS_rec(const std::vector<SdfFrameOctreeNode> &frame,
       nodes.back().values[1] = 0u;
       for (int i=0;i<8;i++)
       {
-        float d_max = 2*sqrt(3)/lod_size;
-        unsigned d_compressed = std::max(0.0f, 255*((frame[idx].values[i]+d_max)/(2*d_max)));
+        unsigned d_compressed = std::max(0.0f, 255*((frame[idx].values[i]+d_max)/(2*d_max)) + 0.5f);
         d_compressed = std::min(d_compressed, 255u);
         //assert(d_compressed < 256);
         nodes.back().values[i/4] |= d_compressed << (8*(i%4));
@@ -1062,4 +1066,52 @@ void SparseOctreeBuilder::mesh_octree_to_SVS(const cmesh4::SimpleMesh &mesh,
   std::vector<SdfFrameOctreeNode> frame; 
   mesh_octree_to_sdf_frame_octree(mesh, tl_octree, frame);
   frame_octree_to_SVS_rec(frame, out_SVS, 0, uint3(0,0,0), 1);
+}
+
+float SparseOctreeBuilder::check_quality(std::function<float(const float3 &)> f, const std::vector<SdfSVSNode> &nodes)
+{
+  double diff = 0;
+  double diff_abs = 0;
+  int cnt = 0;
+  for (int i=0;i<nodes.size();i++)
+  {
+    float px = nodes[i].pos_xy >> 16;
+    float py = nodes[i].pos_xy & 0x0000FFFF;
+    float pz = nodes[i].pos_z_lod_size >> 16;
+    float sz = nodes[i].pos_z_lod_size & 0x0000FFFF;
+    float d_max = 2*1.41421356f/sz;
+
+    float3 boxMin = float3(-1,-1,-1) + 2.0f*float3(px,py,pz)/sz;
+    float3 boxMax = boxMin + 2.0f*float3(1,1,1)/sz;
+    //printf("box (%f %f %f) - (%f %f %f)\n", boxMin.x, boxMin.y, boxMin.z, boxMax.x, boxMax.y, boxMax.z);
+    float local_diff = 0;
+    float local_diff_abs = 0;
+    float max_val = -1000;
+    for (int j=0;j<8;j++)
+    {
+      float3 p = boxMin + float3((j & 4) >> 2, (j & 2) >> 1, j & 1)*2.0f/sz;
+      unsigned q_val = (nodes[i].values[j/4] >> (8*(j%4))) & 0xFF;
+      float val = -d_max + 2*d_max*(1.0/255.0f)*q_val;
+      float val_real = f(p);
+
+      //if (std::abs(val_real - val) > 0.02)
+      //printf("duff (%d %f) - %f\n", q_val, val, val_real);
+      max_val = std::max(max_val, val_real);
+      local_diff += val_real - val;
+      local_diff_abs += std::abs(val_real - val);
+    }
+
+    //if we have a "solid" with only negative values, we don't really expect it to be accurate, it's just a box
+    if (max_val >= 0)
+    {
+      diff += local_diff;
+      diff_abs += local_diff_abs;
+      cnt += 8;
+    }
+    //printf("\n");
+  }
+
+  printf("diff = %f, diff_abs = %f\n", diff/cnt, diff_abs/cnt);
+
+  return diff_abs / cnt;
 }

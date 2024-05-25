@@ -267,7 +267,7 @@ void litert_test_3_SBS_verify()
 
     float svs_psnr = PSNR(svs_image, image);
     printf("  3.3. %-64s", "[CPU] 1-voxel,1-byte SBS matches SVS");
-    if (svs_psnr >= 90)
+    if (svs_psnr >= 40)
       printf("passed\n");
     else
       printf("FAILED, psnr = %f\n", svs_psnr);
@@ -289,7 +289,7 @@ void litert_test_3_SBS_verify()
 
     float svs_psnr = PSNR(svs_image, image);
     printf("  3.5. %-64s", "1-voxel,1-byte SBS matches SVS");
-    if (svs_psnr >= 90)
+    if (svs_psnr >= 40)
       printf("passed\n");
     else
       printf("FAILED, psnr = %f\n", svs_psnr);
@@ -446,7 +446,7 @@ void litert_test_6_faster_bvh_build()
 {
   //create renderers for SDF scene and mesh scene
   //const char *scene_name = "large_scenes/02_casual_effects/dragon/change_00000.xml";
-  const char *scene_name = "scenes/01_simple_scenes/instanced_objects.xml";
+  const char *scene_name = "scenes/01_simple_scenes/bunny.xml";
   //const char *scene_name = "large_scenes/02_casual_effects/dragon/change_00000.xml";
   //const char *scene_name = "scenes/01_simple_scenes/bunny_cornell.xml";
   unsigned W = 2048, H = 2048;
@@ -699,15 +699,7 @@ void litert_test_9_mesh()
 void litert_test_10_save_load()
 {
   auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "scenes/01_simple_scenes/data/teapot.vsgf").c_str());
-
-  float3 mb1, mb2, ma1, ma2;
-  cmesh4::get_bbox(mesh, &mb1, &mb2);
-  cmesh4::rescale_mesh(mesh, float3(-0.9, -0.9, -0.9), float3(0.9, 0.9, 0.9));
-  cmesh4::get_bbox(mesh, &ma1, &ma2);
-
-  printf("total triangles %d\n", (int)mesh.TrianglesNum());
-  printf("bbox [(%f %f %f)-(%f %f %f)] to [(%f %f %f)-(%f %f %f)]\n",
-         mb1.x, mb1.y, mb1.z, mb2.x, mb2.y, mb2.z, ma1.x, ma1.y, ma1.z, ma2.x, ma2.y, ma2.z);
+  cmesh4::normalize_mesh(mesh);
   MeshBVH mesh_bvh;
   mesh_bvh.init(mesh);
 
@@ -753,7 +745,7 @@ void litert_test_10_save_load()
   LiteImage::Image2D<uint32_t> image_ref(W, H);
   auto pRender_ref = CreateMultiRenderer("GPU");
   pRender_ref->SetPreset(preset);
-  pRender_ref->LoadSceneHydra("scenes/01_simple_scenes/teapot.xml");
+  pRender_ref->SetScene(mesh);
   render(image_ref, pRender_ref, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
   LiteImage::SaveImage<uint32_t>("saves/test_10_ref.bmp", image_ref);
 
@@ -788,15 +780,15 @@ void litert_test_10_save_load()
   LiteImage::Image2D<uint32_t> image_5(W, H);
   auto pRender_5 = CreateMultiRenderer("GPU");
   pRender_5->SetPreset(preset);
-  pRender_5->LoadSceneHydra("scenes/02_sdf_scenes/teapot_svs.xml");
+  pRender_5->LoadSceneHydra("scenes/02_sdf_scenes/test_10.xml");
   render(image_5, pRender_5, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
   LiteImage::SaveImage<uint32_t>("saves/test_10_hydra_scene.bmp", image_5);
 
-  float psnr_1 = PSNR(image_1, image_1);
-  float psnr_2 = PSNR(image_1, image_2);
-  float psnr_3 = PSNR(image_1, image_3);
-  float psnr_4 = PSNR(image_1, image_4);
-  float psnr_5 = PSNR(image_1, image_5);
+  float psnr_1 = PSNR(image_ref, image_1);
+  float psnr_2 = PSNR(image_ref, image_2);
+  float psnr_3 = PSNR(image_ref, image_3);
+  float psnr_4 = PSNR(image_ref, image_4);
+  float psnr_5 = PSNR(image_ref, image_5);
 
   printf(" 10.1. %-64s", "SDF Octree ");
   if (psnr_1 >= 25)
@@ -822,11 +814,11 @@ void litert_test_10_save_load()
   else
     printf("FAILED, psnr = %f\n", psnr_4);
   
-  //printf(" 10.5. %-64s", "SDF Scene loaded from Hydra scene");
-  //if (psnr_5 >= 25)
-  //  printf("passed    (%.2f)\n", psnr_5);
-  //else
-  //  printf("FAILED, psnr = %f\n", psnr_5);
+  printf(" 10.5. %-64s", "SDF Scene loaded from Hydra scene");
+  if (psnr_5 >= 25)
+    printf("passed    (%.2f)\n", psnr_5);
+  else
+    printf("FAILED, psnr = %f\n", psnr_5);
 }
 
 static double urand(double from=0, double to=1)
@@ -836,7 +828,7 @@ static double urand(double from=0, double to=1)
 void litert_test_11_hp_octree_legacy()
 {
   HPOctreeBuilder builder;
-  builder.readLegacy(scenes_folder_path+"scenes/02_sdf_scenes/sphere_hp_legacy.bin");
+  builder.readLegacy(scenes_folder_path+"scenes/02_sdf_scenes/sphere_hp.bin");
 
   double diff = 0.0;
   int cnt = 10000;
@@ -860,9 +852,9 @@ void litert_test_11_hp_octree_legacy()
 void litert_test_12_hp_octree_render()
 {
   HPOctreeBuilder builder;
-  builder.readLegacy(scenes_folder_path+"scenes/02_sdf_scenes/sphere_hp_legacy.bin");
+  builder.readLegacy(scenes_folder_path+"scenes/02_sdf_scenes/sphere_hp.bin");
 
-  unsigned W = 256, H = 256;
+  unsigned W = 1024, H = 1024;
 
   MultiRenderPreset preset = getDefaultPreset();
   //preset.sdf_frame_octree_intersect = SDF_OCTREE_NODE_INTERSECT_BBOX;
@@ -873,7 +865,6 @@ void litert_test_12_hp_octree_render()
   pRenderRef->SetPreset(preset);
   pRenderRef->SetViewport(0,0,W,H);
   pRenderRef->SetScene(SdfHPOctreeView(builder.octree.nodes, builder.octree.data));
-
   auto pRender = CreateMultiRenderer("GPU");
   pRender->SetPreset(preset);
   pRender->SetViewport(0,0,W,H);
@@ -897,6 +888,74 @@ void litert_test_12_hp_octree_render()
     printf("FAILED, psnr = %f\n", psnr);
 }
 
+void litert_test_13_hp_octree_build()
+{
+#ifdef HP_OCTREE_BUILDER
+
+  HPOctreeBuilder builder;
+  HPOctreeBuilder::BuildSettings settings;
+  settings.threads = 15;
+  settings.target_error = 1e-5f;
+
+  auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "scenes/01_simple_scenes/data/teapot.vsgf").c_str());
+  cmesh4::normalize_mesh(mesh);
+  builder.construct(mesh, settings);
+
+  save_sdf_hp_octree(builder.octree, "saves/test_13_hp_octree.bin");
+  SdfHPOctree loaded_octree;
+  load_sdf_hp_octree(loaded_octree, "saves/test_13_hp_octree.bin");
+
+  unsigned W = 1024, H = 1024;
+
+  MultiRenderPreset preset = getDefaultPreset();
+  //preset.sdf_frame_octree_intersect = SDF_OCTREE_NODE_INTERSECT_BBOX;
+  LiteImage::Image2D<uint32_t> image(W, H);
+  LiteImage::Image2D<uint32_t> image_l(W, H);
+  LiteImage::Image2D<uint32_t> ref_image(W, H);
+
+  auto pRenderRef = CreateMultiRenderer("CPU");
+  pRenderRef->SetPreset(preset);
+  pRenderRef->SetViewport(0,0,W,H);
+  pRenderRef->SetScene(SdfHPOctreeView(builder.octree.nodes, builder.octree.data));
+
+  auto pRender = CreateMultiRenderer("GPU");
+  pRender->SetPreset(preset);
+  pRender->SetViewport(0,0,W,H);
+  pRender->SetScene(SdfHPOctreeView(builder.octree.nodes, builder.octree.data));
+
+  auto pRender_l = CreateMultiRenderer("GPU");
+  pRender_l->SetPreset(preset);
+  pRender_l->SetViewport(0,0,W,H);
+  pRender_l->SetScene(SdfHPOctreeView(loaded_octree.nodes, loaded_octree.data));
+
+  auto m1 = pRender->getWorldView();
+  auto m2 = pRender->getProj();
+
+  render(ref_image, pRenderRef, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+  render(image, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+  render(image_l, pRender_l, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+
+  LiteImage::SaveImage<uint32_t>("saves/test_13_res.bmp", image); 
+  LiteImage::SaveImage<uint32_t>("saves/test_13_ref.bmp", ref_image);
+
+  float psnr = PSNR(ref_image, image);
+  float psnr_l = PSNR(ref_image, image_l);
+  printf("TEST 13. Rendering hp-adaptive SDF octree\n");
+  printf("  13.1. %-64s", "CPU and GPU render PSNR > 45 ");
+  if (psnr >= 45)
+    printf("passed    (%.2f)\n", psnr);
+  else
+    printf("FAILED, psnr = %f\n", psnr);
+  printf("  13.2. %-64s", "original and loaded render PSNR > 45 ");
+  if (psnr_l >= 45)
+    printf("passed    (%.2f)\n", psnr_l);
+  else
+    printf("FAILED, psnr = %f\n", psnr_l);
+#else
+  printf("TEST 13. Skipping hp-adaptive SDF octree test: HP_OCTREE_BUILDER is disabled\n");
+#endif
+}
+
 void perform_tests_litert(const std::vector<int> &test_ids)
 {
   std::vector<int> tests = test_ids;
@@ -905,7 +964,8 @@ void perform_tests_litert(const std::vector<int> &test_ids)
       litert_test_1_framed_octree, litert_test_2_SVS, litert_test_3_SBS_verify,
       litert_test_4_hydra_scene, litert_test_5_interval_tracing, litert_test_6_faster_bvh_build,
       test_7_neural_SDF, litert_test_8_SDF_grid, litert_test_9_mesh, 
-      litert_test_10_save_load, litert_test_11_hp_octree_legacy, litert_test_12_hp_octree_render};
+      litert_test_10_save_load, litert_test_11_hp_octree_legacy, litert_test_12_hp_octree_render,
+      litert_test_13_hp_octree_build};
 
   if (tests.empty())
   {

@@ -110,6 +110,7 @@ class SparseOctreeBuilder
 public:
   using Node = SdfOctreeNode;
   using T = float;
+  using DistanceFunction = std::function<T(const float3 &)>;
 
   static bool is_border(float distance, int level);
   static void mesh_octree_to_sdf_frame_octree(const cmesh4::SimpleMesh &mesh,
@@ -119,16 +120,18 @@ public:
                                  const cmesh4::TriangleListOctree &tl_octree, 
                                  std::vector<SdfSVSNode> &out_frame);
   SparseOctreeBuilder();
-  void construct(std::function<T(const float3 &)> f, SparseOctreeSettings settings);
-  void construct_bottom_up(std::function<T(const float3 &)> f, SparseOctreeSettings settings);
-  void construct_bottom_up_blocks(std::function<T(const float3 &)> f, SparseOctreeSettings settings, 
+  void construct(DistanceFunction f, SparseOctreeSettings settings);
+  void construct_bottom_up(DistanceFunction f, SparseOctreeSettings settings);
+  void construct_bottom_up_blocks(DistanceFunction f, SparseOctreeSettings settings, 
                                   BlockSparseOctree<T> &out_bso);
-  void construct_bottom_up_frame(std::function<T(const float3 &)> f, SparseOctreeSettings settings, 
+  void construct_bottom_up_frame(DistanceFunction f, SparseOctreeSettings settings, 
                                  std::vector<SdfFrameOctreeNode> &out_frame);
   
   void convert_to_frame_octree(std::vector<SdfFrameOctreeNode> &out_frame);
   void convert_to_sparse_voxel_set(std::vector<SdfSVSNode> &out_nodes);
   void convert_to_sparse_brick_set(SdfSBSHeader &header, std::vector<SdfSBSNode> &out_nodes, std::vector<uint32_t> &out_values);
+
+  float check_quality(DistanceFunction f, const std::vector<SdfSVSNode> &nodes);
 
   T sample(const float3 &pos, unsigned max_level = 1000) const;
   T sample_closest(const float3 &pos) const;
@@ -149,6 +152,6 @@ protected:
   void construct_large_cell_rec(std::vector<Node> &final_nodes, unsigned root_idx, unsigned level, float3 p, float d);
 
   std::shared_ptr<ISdfOctreeFunction> octree_f; //0 node is root
-  std::function<T(const float3 &)> sdf;
+  DistanceFunction sdf;
   SparseOctreeSettings settings;
 };

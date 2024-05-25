@@ -688,9 +688,11 @@ void BVHRT::IntersectAllSdfsInLeaf(const float3 ray_pos, const float3 ray_dir,
   }
 }
 
-#ifndef DISABLE_SDF_HP
-float BVHRT::eval_dist_hp_polynomials(unsigned depth, unsigned degree, unsigned data_offset, const float3 &unitPt)
+float BVHRT::eval_dist_hp_polynomials(unsigned depth, unsigned degree, unsigned data_offset, const float3 &unitPt01)
 {
+#ifndef DISABLE_SDF_HP
+  float3 unitPt = 2.0f*unitPt01 - 1.0f;
+
   // Create lookup table for pt_
   float LpXLookup[BASIS_MAX_DEGREE][3];
   for (uint32_t i = 0; i < 3; ++i)
@@ -716,21 +718,26 @@ float BVHRT::eval_dist_hp_polynomials(unsigned depth, unsigned degree, unsigned 
 
   // Sum up basis coeffs
   float fApprox = 0.0;
-  for (uint32_t i = 0; i < LegendreCoeffientCount[degree]; ++i)
+  int valuesIdx = 0;
+  for (int p = 0; p <= BASIS_MAX_DEGREE; ++p)
   {
-    float Lp = 1.0;
-    for (uint32_t j = 0; j < 3; ++j)
+    for (int k1 = 0; k1 <= p; ++k1)
     {
-      Lp *= LpXLookup[BasisIndexValues[i][j]][j];
-    }
-    //if(data_offset + i >= m_SdfHpOctreeData.size())
-    //  printf("ddddd\n");
-    fApprox += m_SdfHpOctreeData[std::min(data_offset + i, 79149u)] * Lp;
-  }
+      for (int k2 = 0; k2 <= p - k1; ++k2)
+      {
+        int k3 = p - k1 - k2;
+        float Lp = LpXLookup[k1][0]*LpXLookup[k2][1]*LpXLookup[k3][2];
 
-  return fApprox;
-}
+        fApprox += m_SdfHpOctreeData[data_offset + valuesIdx] * Lp;
+        valuesIdx++;
+        if (valuesIdx >= LegendreCoeffientCount[degree])
+          return fApprox;
+      }
+    }
+  }
 #endif
+  return 1000.0f;
+}
 
 void BVHRT::PolynomialOctreeNodeIntersect(uint32_t type, const float3 ray_pos, const float3 ray_dir,
                                           float tNear, uint32_t instId, uint32_t geomId,
@@ -751,9 +758,6 @@ void BVHRT::PolynomialOctreeNodeIntersect(uint32_t type, const float3 ray_pos, c
   if (type == TYPE_SDF_HP)
   {
 #ifndef DISABLE_SDF_HP
-    const float3 root_m_min = float3(-0.5, -0.5, -0.5);
-    const float3 configRootInvSizes = float3(1,1,1);
-
     uint32_t sdfId =  m_geomData[geomId].offset.x;
     primId = a_start;
     nodeId = primId + m_SdfHpOctreeRoots[sdfId];
@@ -764,10 +768,9 @@ void BVHRT::PolynomialOctreeNodeIntersect(uint32_t type, const float3 ray_pos, c
     float pz = m_SdfHpOctreeNodes[nodeId].pos_z_lod_size >> 16;
     float sz = m_SdfHpOctreeNodes[nodeId].pos_z_lod_size & 0x0000FFFF;
 
-    min_pos = root_m_min+ configRootInvSizes*float3(px,py,pz)/sz;
-    max_pos = min_pos + configRootInvSizes*float3(1,1,1)/sz;
+    min_pos = float3(-1,-1,-1) + 2.0f*float3(px,py,pz)/sz;
+    max_pos = min_pos + 2.0f*float3(1,1,1)/sz;
     float3 size = max_pos - min_pos;
-    //const float3 unitPt = 2.0f*(pt - min_pos) / (max_pos - min_pos) - 1.0f;
 
     depth = m_SdfHpOctreeNodes[nodeId].degree_lod & 0x0000FFFF;
     degree = m_SdfHpOctreeNodes[nodeId].degree_lod >> 16;
@@ -776,9 +779,9 @@ void BVHRT::PolynomialOctreeNodeIntersect(uint32_t type, const float3 ray_pos, c
     fNearFar = RayBoxIntersection2(ray_pos, SafeInverse(ray_dir), min_pos, max_pos);
     float3 start_pos = ray_pos + fNearFar.x*ray_dir;
     d = std::max(size.x, std::max(size.y, size.z));
-    start_q = (start_pos - min_pos)/(2.0f*d);
-    qFar = (fNearFar.y - fNearFar.x) / (2.0f * d);
-    qNear = tNear > fNearFar.x ? (tNear - fNearFar.x) / (2.0f * d) : 0.0f;
+    start_q = (start_pos - min_pos)/d;
+    qFar = (fNearFar.y - fNearFar.x) / d;
+    qNear = tNear > fNearFar.x ? (tNear - fNearFar.x) / d : 0.0f;
 #endif
   }
 
@@ -795,7 +798,7 @@ void BVHRT::PolynomialOctreeNodeIntersect(uint32_t type, const float3 ray_pos, c
   {
     hit = true;
   }
-  else if (m_preset.sdf_frame_octree_intersect == SDF_OCTREE_NODE_INTERSECT_ST)
+  else //if (m_preset.sdf_frame_octree_intersect == SDF_OCTREE_NODE_INTERSECT_ST)
   {
     const unsigned ST_max_iters = 256;
     float dist = start_dist;
@@ -803,7 +806,7 @@ void BVHRT::PolynomialOctreeNodeIntersect(uint32_t type, const float3 ray_pos, c
 
     while (t < qFar && dist > EPS && iter < ST_max_iters)
     {
-      t += dist / (2.0f * d);
+      t += dist / d;
       dist = eval_dist_hp_polynomials(depth, degree, data_offset, start_q + t * ray_dir);
       float3 pp = start_q + t * ray_dir;
       iter++;
@@ -811,7 +814,7 @@ void BVHRT::PolynomialOctreeNodeIntersect(uint32_t type, const float3 ray_pos, c
     hit = (dist <= EPS);
   }
 
-  float tReal = fNearFar.x + 2.0f * d * t;
+  float tReal = fNearFar.x + d * t;
 
 #if ON_CPU==1
   if (debug_cur_pixel)
@@ -1657,11 +1660,12 @@ void BVHRT::IntersectAllTrianglesInLeaf(const float3 ray_pos, const float3 ray_d
 }
 
 void BVHRT::BVH2TraverseF32(const float3 ray_pos, const float3 ray_dir, float tNear,
-                                uint32_t instId, uint32_t geomId, uint32_t stack[STACK_SIZE], bool stopOnFirstHit,
+                                uint32_t instId, uint32_t geomId, bool stopOnFirstHit,
                                 CRT_Hit* pHit)
 {
   const uint32_t bvhOffset = m_geomData[geomId].bvhOffset;
 
+  uint32_t stack[STACK_SIZE];
   int top = 0;
   uint32_t leftNodeOffset = 0;
 
@@ -1729,8 +1733,6 @@ CRT_Hit BVHRT::RayQuery_NearestHit(float4 posAndNear, float4 dirAndFar)
     dirAndFar.w *= -1.0f;
   const float3 rayDirInv = SafeInverse(to_float3(dirAndFar));
 
-  uint32_t stack[STACK_SIZE];
-
   CRT_Hit hit;
   hit.t      = dirAndFar.w;
   hit.primId = uint32_t(-1);
@@ -1756,7 +1758,7 @@ CRT_Hit BVHRT::RayQuery_NearestHit(float4 posAndNear, float4 dirAndFar)
       // transform ray with matrix to local space
       const float3 ray_pos = matmul4x3(m_instanceData[0].transformInv, to_float3(posAndNear));
       const float3 ray_dir = matmul3x3(m_instanceData[0].transformInv, to_float3(dirAndFar));
-      BVH2TraverseF32(ray_pos, ray_dir, posAndNear.w, instId, geomId, stack, stopOnFirstHit, &hit);
+      BVH2TraverseF32(ray_pos, ray_dir, posAndNear.w, instId, geomId, stopOnFirstHit, &hit);
     }
   }
   else
@@ -1793,7 +1795,7 @@ CRT_Hit BVHRT::RayQuery_NearestHit(float4 posAndNear, float4 dirAndFar)
         const float3 ray_pos = matmul4x3(m_instanceData[instId].transformInv, to_float3(posAndNear));
         const float3 ray_dir = matmul3x3(m_instanceData[instId].transformInv, to_float3(dirAndFar)); // DON'float NORMALIZE IT !!!! When we transform to local space of node, ray_dir must be unnormalized!!!
     
-        BVH2TraverseF32(ray_pos, ray_dir, posAndNear.w, instId, geomId, stack, stopOnFirstHit, &hit);
+        BVH2TraverseF32(ray_pos, ray_dir, posAndNear.w, instId, geomId, stopOnFirstHit, &hit);
       }
     } while (nodeIdx < 0xFFFFFFFE && !(stopOnFirstHit && hit.primId != uint32_t(-1))); //
   }

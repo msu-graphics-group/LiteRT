@@ -2,6 +2,464 @@
 #include "hp_octree_precomputed_tables.h"
 #include <thread>
 
+static constexpr uint32_t BasisIndexValues[455][3] = {
+  { 0, 0, 0 },
+  { 0, 0, 1 },
+  { 0, 1, 0 },
+  { 1, 0, 0 },
+  { 0, 0, 2 },
+  { 0, 1, 1 },
+  { 0, 2, 0 },
+  { 1, 0, 1 },
+  { 1, 1, 0 },
+  { 2, 0, 0 },
+  { 0, 0, 3 },
+  { 0, 1, 2 },
+  { 0, 2, 1 },
+  { 0, 3, 0 },
+  { 1, 0, 2 },
+  { 1, 1, 1 },
+  { 1, 2, 0 },
+  { 2, 0, 1 },
+  { 2, 1, 0 },
+  { 3, 0, 0 },
+  { 0, 0, 4 },
+  { 0, 1, 3 },
+  { 0, 2, 2 },
+  { 0, 3, 1 },
+  { 0, 4, 0 },
+  { 1, 0, 3 },
+  { 1, 1, 2 },
+  { 1, 2, 1 },
+  { 1, 3, 0 },
+  { 2, 0, 2 },
+  { 2, 1, 1 },
+  { 2, 2, 0 },
+  { 3, 0, 1 },
+  { 3, 1, 0 },
+  { 4, 0, 0 },
+  { 0, 0, 5 },
+  { 0, 1, 4 },
+  { 0, 2, 3 },
+  { 0, 3, 2 },
+  { 0, 4, 1 },
+  { 0, 5, 0 },
+  { 1, 0, 4 },
+  { 1, 1, 3 },
+  { 1, 2, 2 },
+  { 1, 3, 1 },
+  { 1, 4, 0 },
+  { 2, 0, 3 },
+  { 2, 1, 2 },
+  { 2, 2, 1 },
+  { 2, 3, 0 },
+  { 3, 0, 2 },
+  { 3, 1, 1 },
+  { 3, 2, 0 },
+  { 4, 0, 1 },
+  { 4, 1, 0 },
+  { 5, 0, 0 },
+  { 0, 0, 6 },
+  { 0, 1, 5 },
+  { 0, 2, 4 },
+  { 0, 3, 3 },
+  { 0, 4, 2 },
+  { 0, 5, 1 },
+  { 0, 6, 0 },
+  { 1, 0, 5 },
+  { 1, 1, 4 },
+  { 1, 2, 3 },
+  { 1, 3, 2 },
+  { 1, 4, 1 },
+  { 1, 5, 0 },
+  { 2, 0, 4 },
+  { 2, 1, 3 },
+  { 2, 2, 2 },
+  { 2, 3, 1 },
+  { 2, 4, 0 },
+  { 3, 0, 3 },
+  { 3, 1, 2 },
+  { 3, 2, 1 },
+  { 3, 3, 0 },
+  { 4, 0, 2 },
+  { 4, 1, 1 },
+  { 4, 2, 0 },
+  { 5, 0, 1 },
+  { 5, 1, 0 },
+  { 6, 0, 0 },
+  { 0, 0, 7 },
+  { 0, 1, 6 },
+  { 0, 2, 5 },
+  { 0, 3, 4 },
+  { 0, 4, 3 },
+  { 0, 5, 2 },
+  { 0, 6, 1 },
+  { 0, 7, 0 },
+  { 1, 0, 6 },
+  { 1, 1, 5 },
+  { 1, 2, 4 },
+  { 1, 3, 3 },
+  { 1, 4, 2 },
+  { 1, 5, 1 },
+  { 1, 6, 0 },
+  { 2, 0, 5 },
+  { 2, 1, 4 },
+  { 2, 2, 3 },
+  { 2, 3, 2 },
+  { 2, 4, 1 },
+  { 2, 5, 0 },
+  { 3, 0, 4 },
+  { 3, 1, 3 },
+  { 3, 2, 2 },
+  { 3, 3, 1 },
+  { 3, 4, 0 },
+  { 4, 0, 3 },
+  { 4, 1, 2 },
+  { 4, 2, 1 },
+  { 4, 3, 0 },
+  { 5, 0, 2 },
+  { 5, 1, 1 },
+  { 5, 2, 0 },
+  { 6, 0, 1 },
+  { 6, 1, 0 },
+  { 7, 0, 0 },
+  { 0, 0, 8 },
+  { 0, 1, 7 },
+  { 0, 2, 6 },
+  { 0, 3, 5 },
+  { 0, 4, 4 },
+  { 0, 5, 3 },
+  { 0, 6, 2 },
+  { 0, 7, 1 },
+  { 0, 8, 0 },
+  { 1, 0, 7 },
+  { 1, 1, 6 },
+  { 1, 2, 5 },
+  { 1, 3, 4 },
+  { 1, 4, 3 },
+  { 1, 5, 2 },
+  { 1, 6, 1 },
+  { 1, 7, 0 },
+  { 2, 0, 6 },
+  { 2, 1, 5 },
+  { 2, 2, 4 },
+  { 2, 3, 3 },
+  { 2, 4, 2 },
+  { 2, 5, 1 },
+  { 2, 6, 0 },
+  { 3, 0, 5 },
+  { 3, 1, 4 },
+  { 3, 2, 3 },
+  { 3, 3, 2 },
+  { 3, 4, 1 },
+  { 3, 5, 0 },
+  { 4, 0, 4 },
+  { 4, 1, 3 },
+  { 4, 2, 2 },
+  { 4, 3, 1 },
+  { 4, 4, 0 },
+  { 5, 0, 3 },
+  { 5, 1, 2 },
+  { 5, 2, 1 },
+  { 5, 3, 0 },
+  { 6, 0, 2 },
+  { 6, 1, 1 },
+  { 6, 2, 0 },
+  { 7, 0, 1 },
+  { 7, 1, 0 },
+  { 8, 0, 0 },
+  { 0, 0, 9 },
+  { 0, 1, 8 },
+  { 0, 2, 7 },
+  { 0, 3, 6 },
+  { 0, 4, 5 },
+  { 0, 5, 4 },
+  { 0, 6, 3 },
+  { 0, 7, 2 },
+  { 0, 8, 1 },
+  { 0, 9, 0 },
+  { 1, 0, 8 },
+  { 1, 1, 7 },
+  { 1, 2, 6 },
+  { 1, 3, 5 },
+  { 1, 4, 4 },
+  { 1, 5, 3 },
+  { 1, 6, 2 },
+  { 1, 7, 1 },
+  { 1, 8, 0 },
+  { 2, 0, 7 },
+  { 2, 1, 6 },
+  { 2, 2, 5 },
+  { 2, 3, 4 },
+  { 2, 4, 3 },
+  { 2, 5, 2 },
+  { 2, 6, 1 },
+  { 2, 7, 0 },
+  { 3, 0, 6 },
+  { 3, 1, 5 },
+  { 3, 2, 4 },
+  { 3, 3, 3 },
+  { 3, 4, 2 },
+  { 3, 5, 1 },
+  { 3, 6, 0 },
+  { 4, 0, 5 },
+  { 4, 1, 4 },
+  { 4, 2, 3 },
+  { 4, 3, 2 },
+  { 4, 4, 1 },
+  { 4, 5, 0 },
+  { 5, 0, 4 },
+  { 5, 1, 3 },
+  { 5, 2, 2 },
+  { 5, 3, 1 },
+  { 5, 4, 0 },
+  { 6, 0, 3 },
+  { 6, 1, 2 },
+  { 6, 2, 1 },
+  { 6, 3, 0 },
+  { 7, 0, 2 },
+  { 7, 1, 1 },
+  { 7, 2, 0 },
+  { 8, 0, 1 },
+  { 8, 1, 0 },
+  { 9, 0, 0 },
+  { 0, 0, 10 },
+  { 0, 1, 9 },
+  { 0, 2, 8 },
+  { 0, 3, 7 },
+  { 0, 4, 6 },
+  { 0, 5, 5 },
+  { 0, 6, 4 },
+  { 0, 7, 3 },
+  { 0, 8, 2 },
+  { 0, 9, 1 },
+  { 0, 10, 0 },
+  { 1, 0, 9 },
+  { 1, 1, 8 },
+  { 1, 2, 7 },
+  { 1, 3, 6 },
+  { 1, 4, 5 },
+  { 1, 5, 4 },
+  { 1, 6, 3 },
+  { 1, 7, 2 },
+  { 1, 8, 1 },
+  { 1, 9, 0 },
+  { 2, 0, 8 },
+  { 2, 1, 7 },
+  { 2, 2, 6 },
+  { 2, 3, 5 },
+  { 2, 4, 4 },
+  { 2, 5, 3 },
+  { 2, 6, 2 },
+  { 2, 7, 1 },
+  { 2, 8, 0 },
+  { 3, 0, 7 },
+  { 3, 1, 6 },
+  { 3, 2, 5 },
+  { 3, 3, 4 },
+  { 3, 4, 3 },
+  { 3, 5, 2 },
+  { 3, 6, 1 },
+  { 3, 7, 0 },
+  { 4, 0, 6 },
+  { 4, 1, 5 },
+  { 4, 2, 4 },
+  { 4, 3, 3 },
+  { 4, 4, 2 },
+  { 4, 5, 1 },
+  { 4, 6, 0 },
+  { 5, 0, 5 },
+  { 5, 1, 4 },
+  { 5, 2, 3 },
+  { 5, 3, 2 },
+  { 5, 4, 1 },
+  { 5, 5, 0 },
+  { 6, 0, 4 },
+  { 6, 1, 3 },
+  { 6, 2, 2 },
+  { 6, 3, 1 },
+  { 6, 4, 0 },
+  { 7, 0, 3 },
+  { 7, 1, 2 },
+  { 7, 2, 1 },
+  { 7, 3, 0 },
+  { 8, 0, 2 },
+  { 8, 1, 1 },
+  { 8, 2, 0 },
+  { 9, 0, 1 },
+  { 9, 1, 0 },
+  { 10, 0, 0 },
+  { 0, 0, 11 },
+  { 0, 1, 10 },
+  { 0, 2, 9 },
+  { 0, 3, 8 },
+  { 0, 4, 7 },
+  { 0, 5, 6 },
+  { 0, 6, 5 },
+  { 0, 7, 4 },
+  { 0, 8, 3 },
+  { 0, 9, 2 },
+  { 0, 10, 1 },
+  { 0, 11, 0 },
+  { 1, 0, 10 },
+  { 1, 1, 9 },
+  { 1, 2, 8 },
+  { 1, 3, 7 },
+  { 1, 4, 6 },
+  { 1, 5, 5 },
+  { 1, 6, 4 },
+  { 1, 7, 3 },
+  { 1, 8, 2 },
+  { 1, 9, 1 },
+  { 1, 10, 0 },
+  { 2, 0, 9 },
+  { 2, 1, 8 },
+  { 2, 2, 7 },
+  { 2, 3, 6 },
+  { 2, 4, 5 },
+  { 2, 5, 4 },
+  { 2, 6, 3 },
+  { 2, 7, 2 },
+  { 2, 8, 1 },
+  { 2, 9, 0 },
+  { 3, 0, 8 },
+  { 3, 1, 7 },
+  { 3, 2, 6 },
+  { 3, 3, 5 },
+  { 3, 4, 4 },
+  { 3, 5, 3 },
+  { 3, 6, 2 },
+  { 3, 7, 1 },
+  { 3, 8, 0 },
+  { 4, 0, 7 },
+  { 4, 1, 6 },
+  { 4, 2, 5 },
+  { 4, 3, 4 },
+  { 4, 4, 3 },
+  { 4, 5, 2 },
+  { 4, 6, 1 },
+  { 4, 7, 0 },
+  { 5, 0, 6 },
+  { 5, 1, 5 },
+  { 5, 2, 4 },
+  { 5, 3, 3 },
+  { 5, 4, 2 },
+  { 5, 5, 1 },
+  { 5, 6, 0 },
+  { 6, 0, 5 },
+  { 6, 1, 4 },
+  { 6, 2, 3 },
+  { 6, 3, 2 },
+  { 6, 4, 1 },
+  { 6, 5, 0 },
+  { 7, 0, 4 },
+  { 7, 1, 3 },
+  { 7, 2, 2 },
+  { 7, 3, 1 },
+  { 7, 4, 0 },
+  { 8, 0, 3 },
+  { 8, 1, 2 },
+  { 8, 2, 1 },
+  { 8, 3, 0 },
+  { 9, 0, 2 },
+  { 9, 1, 1 },
+  { 9, 2, 0 },
+  { 10, 0, 1 },
+  { 10, 1, 0 },
+  { 11, 0, 0 },
+  { 0, 0, 12 },
+  { 0, 1, 11 },
+  { 0, 2, 10 },
+  { 0, 3, 9 },
+  { 0, 4, 8 },
+  { 0, 5, 7 },
+  { 0, 6, 6 },
+  { 0, 7, 5 },
+  { 0, 8, 4 },
+  { 0, 9, 3 },
+  { 0, 10, 2 },
+  { 0, 11, 1 },
+  { 0, 12, 0 },
+  { 1, 0, 11 },
+  { 1, 1, 10 },
+  { 1, 2, 9 },
+  { 1, 3, 8 },
+  { 1, 4, 7 },
+  { 1, 5, 6 },
+  { 1, 6, 5 },
+  { 1, 7, 4 },
+  { 1, 8, 3 },
+  { 1, 9, 2 },
+  { 1, 10, 1 },
+  { 1, 11, 0 },
+  { 2, 0, 10 },
+  { 2, 1, 9 },
+  { 2, 2, 8 },
+  { 2, 3, 7 },
+  { 2, 4, 6 },
+  { 2, 5, 5 },
+  { 2, 6, 4 },
+  { 2, 7, 3 },
+  { 2, 8, 2 },
+  { 2, 9, 1 },
+  { 2, 10, 0 },
+  { 3, 0, 9 },
+  { 3, 1, 8 },
+  { 3, 2, 7 },
+  { 3, 3, 6 },
+  { 3, 4, 5 },
+  { 3, 5, 4 },
+  { 3, 6, 3 },
+  { 3, 7, 2 },
+  { 3, 8, 1 },
+  { 3, 9, 0 },
+  { 4, 0, 8 },
+  { 4, 1, 7 },
+  { 4, 2, 6 },
+  { 4, 3, 5 },
+  { 4, 4, 4 },
+  { 4, 5, 3 },
+  { 4, 6, 2 },
+  { 4, 7, 1 },
+  { 4, 8, 0 },
+  { 5, 0, 7 },
+  { 5, 1, 6 },
+  { 5, 2, 5 },
+  { 5, 3, 4 },
+  { 5, 4, 3 },
+  { 5, 5, 2 },
+  { 5, 6, 1 },
+  { 5, 7, 0 },
+  { 6, 0, 6 },
+  { 6, 1, 5 },
+  { 6, 2, 4 },
+  { 6, 3, 3 },
+  { 6, 4, 2 },
+  { 6, 5, 1 },
+  { 6, 6, 0 },
+  { 7, 0, 5 },
+  { 7, 1, 4 },
+  { 7, 2, 3 },
+  { 7, 3, 2 },
+  { 7, 4, 1 },
+  { 7, 5, 0 },
+  { 8, 0, 4 },
+  { 8, 1, 3 },
+  { 8, 2, 2 },
+  { 8, 3, 1 },
+  { 8, 4, 0 },
+  { 9, 0, 3 },
+  { 9, 1, 2 },
+  { 9, 2, 1 },
+  { 9, 3, 0 },
+  { 10, 0, 2 },
+  { 10, 1, 1 },
+  { 10, 2, 0 },
+  { 11, 0, 1 },
+  { 11, 1, 0 },
+  { 12, 0, 0 },
+};
+
 HPOctreeBuilder::HPOctreeBuilder()
 {
   //if these asserts fail, the tables have changed
@@ -61,33 +519,47 @@ void HPOctreeBuilder::readLegacy(const std::string &path)
   fs.read((char *)&size, sizeof(unsigned));
   std::vector<unsigned char> bytes(size);
   fs.read((char *)bytes.data(), size);
+  fs.close();
 
+  readLegacy(bytes.data(), size);
+  transformFromLegacy(coeffStore, nodes);
+}
+void HPOctreeBuilder::readLegacy(unsigned char *bytes, unsigned size)
+{
   printf("size: %u\n", size);
 
   assert(size > 0);
 
-  unsigned nCoeffs = *((unsigned *)(bytes.data() + 0));
+  unsigned nCoeffs = *((unsigned *)(bytes + 0));
   printf("nCoeffs: %u\n", nCoeffs);
   coeffStore.resize(nCoeffs);
-  memcpy(coeffStore.data(), bytes.data() + sizeof(unsigned), sizeof(double) * nCoeffs);
+  memcpy(coeffStore.data(), bytes + sizeof(unsigned), sizeof(double) * nCoeffs);
 
-  unsigned nNodes = *((unsigned *)(bytes.data() + sizeof(unsigned) + sizeof(double) * nCoeffs));
+  unsigned nNodes = *((unsigned *)(bytes + sizeof(unsigned) + sizeof(double) * nCoeffs));
   nodes.resize(nNodes);
-  memcpy(nodes.data(), bytes.data() + sizeof(unsigned) + sizeof(double) * nCoeffs + sizeof(unsigned), sizeof(NodeLegacy) * nNodes);
+  memcpy(nodes.data(), bytes + sizeof(unsigned) + sizeof(double) * nCoeffs + sizeof(unsigned), sizeof(NodeLegacy) * nNodes);
 
-  config = *(ConfigLegacy *)(bytes.data() + sizeof(unsigned) + sizeof(double) * nCoeffs + sizeof(unsigned) + sizeof(NodeLegacy) * nNodes);
+  config = *(ConfigLegacy *)(bytes + sizeof(unsigned) + sizeof(double) * nCoeffs + sizeof(unsigned) + sizeof(NodeLegacy) * nNodes);
 
   config.IsValid();
   configRootCentre = 0.5f * (config.root.m_min + config.root.m_max);
   configRootInvSizes = 1.0f / (config.root.m_max - config.root.m_min);
 
-  readLegacy(coeffStore, nodes);
+  for (auto &node : nodes)
+  {
+    node.aabb.m_min = (node.aabb.m_min - configRootCentre) / configRootInvSizes;
+    node.aabb.m_max = (node.aabb.m_max - configRootCentre) / configRootInvSizes;
+  }
+  configRootCentre = float3(0,0,0);
+  configRootInvSizes = float3(1,1,1);
 }
 
 double HPOctreeBuilder::QueryLegacy(const float3 &pt_) const
 {
   // Move to unit cube
   const float3 pt = (pt_ - configRootCentre) * configRootInvSizes;
+  //printf("centre: %f %f %f\n", configRootCentre.x, configRootCentre.y, configRootCentre.z);
+  //printf("invSizes: %f %f %f\n", configRootInvSizes.x, configRootInvSizes.y, configRootInvSizes.z);
 
   // Not in volume
   if (pt.x < nodes[0].aabb.m_min.x || pt.x > nodes[0].aabb.m_max.x ||
@@ -118,8 +590,8 @@ double HPOctreeBuilder::QueryLegacy(const float3 &pt_) const
       basis.degree = curChild.basis.degree;
       basis.coeffs = (double *)(coeffStore.data() + curChild.basis.coeffsStart);
 
-      //float d1 = FApprox(basis, curChild.aabb, pt, curChild.depth);
-      //float d2 = FApprox(allToLeafRemap[childIdx], pt);
+      float d1 = FApprox(basis, curChild.aabb, pt, curChild.depth);
+      float d2 = FApprox(allToLeafRemap[childIdx], pt);
       //printf("d1: %f, d2: %f\n", d1, d2);
       return FApprox(allToLeafRemap[childIdx], pt);
     }
@@ -185,11 +657,10 @@ float HPOctreeBuilder::FApprox(uint32_t nodeId, const float3& pt) const
   float pz = octree.nodes[nodeId].pos_z_lod_size >> 16;
   float sz = octree.nodes[nodeId].pos_z_lod_size & 0x0000FFFF;
 
-  const float3 min_pos = config.root.m_min + configRootInvSizes*float3(px,py,pz)/sz;
-  const float3 max_pos = min_pos + configRootInvSizes*float3(1,1,1)/sz;
-  const float3 half_size = 0.5f*(max_pos - min_pos);
-  const float3 center = 0.5f*(max_pos + min_pos);
+  const float3 min_pos = float3(-1,-1,-1) + 2.0f*float3(px,py,pz)/sz;
+  const float3 max_pos = min_pos + 2.0f*float3(1,1,1)/sz;
   const float3 unitPt = 2.0f*(pt - min_pos) / (max_pos - min_pos) - 1.0f;
+  //printf("px py pz sz: %f, %f, %f, %f\n", px, py, pz, sz);
   //printf("min_pos: %f, %f, %f\n", min_pos.x, min_pos.y, min_pos.z);
   //printf("max_pos: %f, %f, %f\n", max_pos.x, max_pos.y, max_pos.z);
   //printf("unitPt: %f, %f, %f\n", unitPt.x, unitPt.y, unitPt.z);
@@ -222,21 +693,27 @@ float HPOctreeBuilder::FApprox(uint32_t nodeId, const float3& pt) const
 
   // Sum up basis coeffs
   float fApprox = 0.0;
-  for (uint32_t i = 0; i < LegendreCoeffientCount[degree]; ++i)
+  int valuesIdx = 0;
+  for (int p = 0; p <= BASIS_MAX_DEGREE; ++p)
   {
-    float Lp = 1.0;
-    for (uint32_t j = 0; j < 3; ++j)
+    for (int k1 = 0; k1 <= p; ++k1)
     {
-      Lp *= LpXLookup[BasisIndexValues[i][j]][j];
+      for (int k2 = 0; k2 <= p - k1; ++k2)
+      {
+        int k3 = p - k1 - k2;
+        float Lp = LpXLookup[k1][0]*LpXLookup[k2][1]*LpXLookup[k3][2];
+
+        fApprox += octree.data[octree.nodes[nodeId].data_offset + valuesIdx] * Lp;
+        valuesIdx++;
+        if (valuesIdx >= LegendreCoeffientCount[degree])
+          return fApprox;
+      }
     }
-
-    fApprox += octree.data[octree.nodes[nodeId].data_offset + i] * Lp;
   }
-
-  return fApprox;
+  return 1000.0f;
 }
 
-void HPOctreeBuilder::readLegacy(const std::vector<double> &coeffStore, const std::vector<NodeLegacy> &nodes)
+void HPOctreeBuilder::transformFromLegacy(const std::vector<double> &coeffStore, const std::vector<NodeLegacy> &nodes)
 {
   octree.data.reserve(coeffStore.size());
   octree.nodes.reserve(nodes.size());
@@ -248,7 +725,7 @@ void HPOctreeBuilder::readLegacy(const std::vector<double> &coeffStore, const st
     {
       SdfHPOctreeNode node;
       float sz = 1 << nodes[i].depth;
-      uint3 p = uint3(sz*(nodes[i].aabb.m_min - config.root.m_min)*configRootInvSizes);
+      uint3 p = uint3(0.5f*sz*(nodes[i].aabb.m_min + 1.0f));
       assert(p.x < (1 << 16) && p.y < (1 << 16) && p.z < (1 << 16));
 
       node.pos_xy = (p.x << 16) | p.y;
