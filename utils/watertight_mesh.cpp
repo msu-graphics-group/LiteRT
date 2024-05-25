@@ -34,6 +34,84 @@ namespace cmesh4
 
   LiteMath::float3 float4_to_float3(LiteMath::float4 m);
 
+
+  // Looking for holes in the mesh
+  std::vector<std::vector<unsigned int>> holes_search(std::vector<uint2>& vec_edge_occurs_1time){
+    std::vector<unsigned int> vertex_vec;
+    std::vector<unsigned int> del_vect;
+    std::vector<std::vector<unsigned int>> vect_of_holes;
+    uint2 start_edge; 
+    uint2 checkpoint;
+    bool fl;
+    int fl2; // if fl = 1, then compares the value of checkpoint.x with the values of start_edge
+             // if fl = 2, then compares the value of checkpoint.y with the values of start_edge
+
+    for(uint2 i : vec_edge_occurs_1time){
+      vertex_vec.push_back(i.x);
+      vertex_vec.push_back(i.y);
+    }
+
+    unsigned int k;
+    for(unsigned int i = 0; i < vertex_vec.size(); i += 2){
+      start_edge.x = vertex_vec[i];
+      start_edge.y = vertex_vec[i + 1];
+
+      fl = 0;
+      fl2 = 0;
+      k = i;
+      while (fl < 2){
+        del_vect.push_back(vertex_vec[k]);
+        checkpoint.x = vertex_vec[k];
+        vertex_vec.erase(vertex_vec.begin() + k);
+        
+        del_vect.push_back(vertex_vec[k]);
+        checkpoint.y = vertex_vec[k];
+        vertex_vec.erase(vertex_vec.begin() + k);
+
+        if((fl2 == 1) && ((checkpoint.x == start_edge.x) || (checkpoint.x == start_edge.y))){
+          fl = 1;
+          break;
+        }
+
+        if((fl2 == 2) && ((checkpoint.y == start_edge.x) || (checkpoint.y == start_edge.y))){
+          fl = 1;
+          break;
+        }
+
+        auto pointer = find(vertex_vec.begin(), vertex_vec.end(), checkpoint.x);
+        if(pointer == vertex_vec.end()){
+          auto pointer = find(vertex_vec.begin(), vertex_vec.end(), checkpoint.y);
+          if(pointer == vertex_vec.end())
+            break;
+          else{
+            fl2 = 2;
+            k = pointer - vertex_vec.begin();
+            if(k % 2 != 0){
+              fl2 = 1;
+              k = pointer - vertex_vec.begin() - 1;
+            }
+          }
+        }
+        else{
+          fl2 = 2;
+          k = pointer - vertex_vec.begin();
+          if(k % 2 != 0){
+            fl2 = 1;
+            k = pointer - vertex_vec.begin() - 1;
+          }
+        }
+      }
+      if(fl){
+        vect_of_holes.push_back(del_vect);
+        std::cout << "size vect_of_holes: " << vect_of_holes.size() << std::endl;
+        std::cout << "size del_vect: " << del_vect.size() << std::endl;
+        i = -2;
+      }
+      del_vect.clear();
+    }
+    return vect_of_holes;
+  }
+
   bool fast_watertight(const cmesh4::SimpleMesh& mesh, bool verbose)
   {
     std::vector<LiteMath::float4> mesh_vertices = mesh.vPos4f;
@@ -95,12 +173,23 @@ namespace cmesh4
 
     int i=0;
     int hanging_edges = 0;
+    std::vector<uint2> vec_edge_occurs_1time;
     for (auto it = edge_in_planes.begin(); it != edge_in_planes.end(); it++)
     {
-      if (it->second.size() < 2)
+      if (it->second.size() < 2){
         hanging_edges++;
+        if(it->second.size() == 1){
+          // count++;
+          if(it->first.x != it->first.y){
+            // printf("%d edge (%u %u), %d triangles\n", i, it->first.x, it->first.y, (int)it->second.size());
+            vec_edge_occurs_1time.push_back(it->first);
+          }
+        }
+      }
       i++;
     }
+
+    holes_search(vec_edge_occurs_1time);
 
     bool watertight = true;
     if (hanging_edges > 0)
