@@ -440,6 +440,7 @@ void BVHRT::OctreeNodeIntersect(uint32_t type, const float3 ray_pos, const float
     }
     else if (m_preset.sdf_frame_octree_intersect == SDF_OCTREE_NODE_INTERSECT_NEWTON)
     {
+      // std::cout << "1111\n";
       // our polynom is c3*t^3 + c2*t^2 + c1*t + c0 = 0;
       // it's derivative is  3*c3*t^2 + 2*c2*t + c1 = 0; 
       // find where it equals 0 to determine interval where the root is located
@@ -1187,8 +1188,8 @@ float BVHRT::eval_distance_sdf(uint32_t type, uint32_t sdf_id, float3 pos)
 #endif
 #ifndef DISABLE_SDF_GRID
   case TYPE_SDF_GRID:
-    // val = eval_distance_sdf_grid(sdf_id, pos);
-    val = tricubic_eval_distance_sdf_grid(sdf_id, pos);
+    val = eval_distance_sdf_grid(sdf_id, pos);
+    // val = tricubic_eval_distance_sdf_grid(sdf_id, pos);
     break;
 #endif
 #ifndef DISABLE_SDF_OCTREE

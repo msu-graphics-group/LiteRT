@@ -92,7 +92,7 @@ void litert_test_1_framed_octree()
       preset.sdf_frame_octree_blas = presets_ob[i];
       preset.sdf_frame_octree_intersect = presets_oi[i];
 
-      auto pRender = CreateMultiRenderer("GPU");
+      auto pRender = CreateMultiRenderer("CPU");
       pRender->SetPreset(preset);
       pRender->SetScene({(unsigned)frame_nodes.size(), 
                         frame_nodes.data()});
@@ -737,48 +737,48 @@ void litert_test_10_save_load()
   load_sdf_SVS(svs_nodes, "saves/test_10_svs.bin");
   load_sdf_SBS(sbs, "saves/test_10_sbs.bin");
 
-  unsigned W = 1024, H = 1024;
+  unsigned W = 512, H = 512;
   MultiRenderPreset preset = getDefaultPreset();
   preset.mode = MULTI_RENDER_MODE_LAMBERT;
   preset.sdf_octree_sampler = SDF_OCTREE_SAMPLER_MIPSKIP_3X3;
 
   LiteImage::Image2D<uint32_t> image_ref(W, H);
-  auto pRender_ref = CreateMultiRenderer("GPU");
+  auto pRender_ref = CreateMultiRenderer("CPU");
   pRender_ref->SetPreset(preset);
   pRender_ref->SetScene(mesh);
   render(image_ref, pRender_ref, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
   LiteImage::SaveImage<uint32_t>("saves/test_10_ref.bmp", image_ref);
 
   LiteImage::Image2D<uint32_t> image_1(W, H);
-  auto pRender_1 = CreateMultiRenderer("GPU");
+  auto pRender_1 = CreateMultiRenderer("CPU");
   pRender_1->SetPreset(preset);
   pRender_1->SetScene({(unsigned)octree_nodes.size(), octree_nodes.data()});
   render(image_1, pRender_1, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
   LiteImage::SaveImage<uint32_t>("saves/test_10_octree.bmp", image_1);
 
   LiteImage::Image2D<uint32_t> image_2(W, H);
-  auto pRender_2 = CreateMultiRenderer("GPU");
+  auto pRender_2 = CreateMultiRenderer("CPU");
   pRender_2->SetPreset(preset);
   pRender_2->SetScene({(unsigned)frame_nodes.size(), frame_nodes.data()});
   render(image_2, pRender_2, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
   LiteImage::SaveImage<uint32_t>("saves/test_10_frame_octree.bmp", image_2);
 
   LiteImage::Image2D<uint32_t> image_3(W, H);
-  auto pRender_3 = CreateMultiRenderer("GPU");
+  auto pRender_3 = CreateMultiRenderer("CPU");
   pRender_3->SetPreset(preset);
   pRender_3->SetScene({(unsigned)svs_nodes.size(), svs_nodes.data()});
   render(image_3, pRender_3, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
   LiteImage::SaveImage<uint32_t>("saves/test_10_svs.bmp", image_3);
 
   LiteImage::Image2D<uint32_t> image_4(W, H);
-  auto pRender_4 = CreateMultiRenderer("GPU");
+  auto pRender_4 = CreateMultiRenderer("CPU");
   pRender_4->SetPreset(preset);
   pRender_4->SetScene(sbs);
   render(image_4, pRender_4, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
   LiteImage::SaveImage<uint32_t>("saves/test_10_sbs.bmp", image_4);
 
   LiteImage::Image2D<uint32_t> image_5(W, H);
-  auto pRender_5 = CreateMultiRenderer("GPU");
+  auto pRender_5 = CreateMultiRenderer("CPU");
   pRender_5->SetPreset(preset);
   pRender_5->LoadSceneHydra("scenes/02_sdf_scenes/test_10.xml");
   render(image_5, pRender_5, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
@@ -956,6 +956,67 @@ void litert_test_13_hp_octree_build()
 #endif
 }
 
+void test14_tricubic_octree()
+{
+  auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path+"scenes/01_simple_scenes/data/teapot.vsgf").c_str());
+
+    float3 mb1,mb2, ma1,ma2;
+    cmesh4::get_bbox(mesh, &mb1, &mb2);
+    cmesh4::rescale_mesh(mesh, float3(-0.9,-0.9,-0.9), float3(0.9,0.9,0.9));
+    cmesh4::get_bbox(mesh, &ma1, &ma2);
+
+    printf("total triangles %d\n", (int)mesh.TrianglesNum());
+    printf("bbox [(%f %f %f)-(%f %f %f)] to [(%f %f %f)-(%f %f %f)]\n",
+           mb1.x, mb1.y, mb1.z, mb2.x, mb2.y, mb2.z, ma1.x, ma1.y, ma1.z, ma2.x, ma2.y, ma2.z);
+    MeshBVH mesh_bvh;
+    mesh_bvh.init(mesh);
+
+    SparseOctreeBuilder builder;
+    SparseOctreeSettings settings(SparseOctreeBuildType::DEFAULT, 9);
+    std::vector<SdfFrameOctreeNode> frame_nodes;
+
+    builder.construct([&mesh_bvh](const float3 &p) { return mesh_bvh.get_signed_distance(p); }, settings);
+    builder.convert_to_frame_octree(frame_nodes);
+
+    unsigned W = 2048, H = 2048;
+    LiteImage::Image2D<uint32_t> image(W, H);
+    float timings[4] = {0,0,0,0};
+
+    std::vector<unsigned> presets_ob = {SDF_OCTREE_BLAS_NO, SDF_OCTREE_BLAS_DEFAULT,
+                                        SDF_OCTREE_BLAS_DEFAULT, SDF_OCTREE_BLAS_DEFAULT,
+                                        SDF_OCTREE_BLAS_DEFAULT, SDF_OCTREE_BLAS_DEFAULT};
+
+    std::vector<unsigned> presets_oi = {SDF_OCTREE_NODE_INTERSECT_DEFAULT, SDF_OCTREE_NODE_INTERSECT_DEFAULT, 
+                                        SDF_OCTREE_NODE_INTERSECT_ST, SDF_OCTREE_NODE_INTERSECT_ANALYTIC, 
+                                        SDF_OCTREE_NODE_INTERSECT_NEWTON, SDF_OCTREE_NODE_INTERSECT_BBOX};
+
+    std::vector<std::string> names = {"no_bvh_traversal", "bvh_traversal", "bvh_sphere_tracing", "bvh_analytic", "bvh_newton", "bvh_bboxes"};
+
+    for (int i=0; i<presets_ob.size(); i++)
+    {
+      MultiRenderPreset preset = getDefaultPreset();
+      preset.mode = MULTI_RENDER_MODE_PHONG;
+      preset.sdf_frame_octree_blas = presets_ob[i];
+      preset.sdf_frame_octree_intersect = presets_oi[i];
+
+      auto pRender = CreateMultiRenderer("CPU");
+      pRender->SetPreset(preset);
+      pRender->SetScene({(unsigned)frame_nodes.size(), 
+                        frame_nodes.data()});
+
+  auto t1 = std::chrono::steady_clock::now();
+      render(image, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset);
+      pRender->GetExecutionTime("CastRaySingleBlock", timings);
+  auto t2 = std::chrono::steady_clock::now();
+
+      float time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+      printf("%s rendered in %.1f ms. %d kRays/s\n", "SDF Framed Octree", time_ms, (int)((W * H) / time_ms));
+      printf("CastRaySingleBlock took %.1f ms\n", timings[0]);
+
+      LiteImage::SaveImage<uint32_t>(("saves/test_1_"+names[i]+".bmp").c_str(), image); 
+    }
+}
+
 void perform_tests_litert(const std::vector<int> &test_ids)
 {
   std::vector<int> tests = test_ids;
@@ -965,7 +1026,7 @@ void perform_tests_litert(const std::vector<int> &test_ids)
       litert_test_4_hydra_scene, litert_test_5_interval_tracing, litert_test_6_faster_bvh_build,
       test_7_neural_SDF, litert_test_8_SDF_grid, litert_test_9_mesh, 
       litert_test_10_save_load, litert_test_11_hp_octree_legacy, litert_test_12_hp_octree_render,
-      litert_test_13_hp_octree_build};
+      litert_test_13_hp_octree_build, test14_tricubic_octree};
 
   if (tests.empty())
   {
