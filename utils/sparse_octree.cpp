@@ -50,6 +50,13 @@ bool is_leaf(unsigned offset)
   return (offset == 0) || (offset & INVALID_IDX);
 }
 
+//level_size is (1 << level)
+bool is_border_node(float min_val, float max_val, unsigned level_size)
+{
+    float d_max = 2*sqrt(3)/level_size;
+    return (min_val <= 0) && (max_val > -d_max);
+}
+
 void SparseOctreeBuilder::add_node_rec(unsigned node_idx, unsigned depth, unsigned max_depth, float3 p, float d)
 {
   auto &nodes = get_nodes();
@@ -639,26 +646,24 @@ void fill_octree_frame_rec(std::function<SparseOctreeBuilder::T(const float3 &)>
   frame[idx].offset = ofs;
   float min_val = nodes[idx].value;
   float max_val = nodes[idx].value;
-  if (is_leaf(ofs)) 
-  {
-    bool inc_distance = false;
-    float3 pos = 2.0f*(d*p) - 1.0f;
-    for (int i = 0; i < 8; i++)
-    {
-      float3 ch_pos = pos + 2*d*float3((i & 4) >> 2, (i & 2) >> 1, i & 1);
-      frame[idx].values[i] = f(ch_pos);
-      min_val = std::min(min_val, frame[idx].values[i]);
-      max_val = std::max(max_val, frame[idx].values[i]);
-    }
 
-    if (max_val - min_val > 2*sqrt(3)*d)
-    {
-      //printf("inconsistent distance %f - %f with d=%f\n", max_val, min_val, d);
-      for (int i = 0; i < 8; i++)
-        frame[idx].values[i] = LiteMath::sign(max_val)*std::abs(frame[idx].values[i]);
-    }
+  float3 pos = 2.0f * (d * p) - 1.0f;
+  for (int i = 0; i < 8; i++)
+  {
+    float3 ch_pos = pos + 2 * d * float3((i & 4) >> 2, (i & 2) >> 1, i & 1);
+    frame[idx].values[i] = f(ch_pos);
+    min_val = std::min(min_val, frame[idx].values[i]);
+    max_val = std::max(max_val, frame[idx].values[i]);
   }
-  else
+
+  if (max_val - min_val > 2 * sqrt(3) * d)
+  {
+    // printf("inconsistent distance %f - %f with d=%f\n", max_val, min_val, d);
+    for (int i = 0; i < 8; i++)
+      frame[idx].values[i] = LiteMath::sign(max_val) * std::abs(frame[idx].values[i]);
+  }
+
+  if (!is_leaf(ofs)) 
   {
     for (int i = 0; i < 8; i++)
     {
@@ -991,7 +996,6 @@ void mesh_octree_to_sdf_frame_octree_rec(const cmesh4::SimpleMesh &mesh,
 
   if (is_leaf(ofs)) 
   {
-    bool inc_distance = false;
     float3 pos = 2.0f*(d*p) - 1.0f;
     for (int i = 0; i < 8; i++)
     {
@@ -1007,9 +1011,7 @@ void mesh_octree_to_sdf_frame_octree_rec(const cmesh4::SimpleMesh &mesh,
         float3 c = to_float3(mesh.vPos4f[mesh.indices[3*t_i+2]]);
         float3 vt = ch_pos - cmesh4::closest_point_triangle(ch_pos, a, b, c);
         float dist_sq = LiteMath::dot(vt, vt);
-        if (t_i == 174649)
-        printf("%u t_id %d dist (%f %f %f) -- (%f %f %f) = %f, d= %f\n", idx, t_i, ch_pos.x, ch_pos.y, ch_pos.z,
-        a.x, a.y, a.z, sqrtf(dist_sq), d);
+
         if (dist_sq < min_dist_sq)
         {
           min_dist_sq = dist_sq; 
@@ -1028,17 +1030,10 @@ void mesh_octree_to_sdf_frame_octree_rec(const cmesh4::SimpleMesh &mesh,
                                 to_float3(mesh.vNorm4f[mesh.indices[3*min_ti+2]]));
 
         frame[idx].values[i] = dot(normalize(n), vt) > 0 ? sqrt(min_dist_sq) : -sqrt(min_dist_sq);
-        //if (i==0)
-        //  frame[idx].values[i] = -1;
-        //else
-        //  frame[idx].values[i] = 1;
       }
       else
         frame[idx].values[i] = 1000;
-      
-      //printf("d = %f\n",frame[idx].values[i]);
     }
-    //printf("\n");
   }
   else
   {
@@ -1114,4 +1109,178 @@ float SparseOctreeBuilder::check_quality(std::function<float(const float3 &)> f,
   printf("diff = %f, diff_abs = %f\n", diff/cnt, diff_abs/cnt);
 
   return diff_abs / cnt;
+}
+
+struct LayerNodeInfo
+{
+  unsigned idx;
+  bool is_leaf;
+  bool is_border;
+  unsigned border_children;
+};
+
+struct NodeQualitySort
+{
+  unsigned idx;
+  unsigned active_children; //active children count
+  float weighted_diff; //average sdf diff. on children sample points / weight
+};
+
+bool fill_layers_rec(const std::vector<SdfFrameOctreeNode> &frame, std::vector<std::vector<LayerNodeInfo>> &layers, 
+                     unsigned level, unsigned idx)
+{  
+  if (level >= layers.size())
+    layers.resize(level+1);
+
+  unsigned ofs = frame[idx].offset;
+  bool leaf = is_leaf(ofs);
+  float min_val = frame[idx].values[0];
+  float max_val = frame[idx].values[0];
+  for (int i=0;i<8;i++)
+  {
+    min_val = std::min(min_val, frame[idx].values[i]);
+    max_val = std::max(max_val, frame[idx].values[i]);
+  }
+  bool border = is_border_node(min_val, max_val, 1 << level);
+  unsigned border_children = 0;
+
+  if (!leaf)
+  {
+    for (unsigned i=0;i<8;i++)
+      border_children += fill_layers_rec(frame, layers, level+1, ofs+i);
+  }
+
+  //printf("layer %u, idx %u, leaf = %d, border = %d, border_children = %u\n", level, idx, leaf, border, border_children);
+  LayerNodeInfo node = {idx, leaf, border, border_children};
+  layers[level].push_back(node);
+
+  return border;
+}
+
+static float trilinear_interpolation(const float values[8], float3 dp)
+{
+  return (1-dp.x)*(1-dp.y)*(1-dp.z)*values[0] + 
+         (1-dp.x)*(1-dp.y)*(  dp.z)*values[1] + 
+         (1-dp.x)*(  dp.y)*(1-dp.z)*values[2] + 
+         (1-dp.x)*(  dp.y)*(  dp.z)*values[3] + 
+         (  dp.x)*(1-dp.y)*(1-dp.z)*values[4] + 
+         (  dp.x)*(1-dp.y)*(  dp.z)*values[5] + 
+         (  dp.x)*(  dp.y)*(1-dp.z)*values[6] + 
+         (  dp.x)*(  dp.y)*(  dp.z)*values[7];
+}
+
+void frame_octree_limit_nodes(std::vector<SdfFrameOctreeNode> &frame, unsigned nodes_limit,
+                              bool count_only_border_nodes = false)
+{
+  //if (nodes_limit >= frame.size())
+  //  return;
+  
+  assert(nodes_limit > 0);
+  assert(frame.size() > 0);
+
+  std::vector<std::vector<LayerNodeInfo>> layers;
+  fill_layers_rec(frame, layers, 0, 0);
+
+  unsigned cnt = 0;
+  for (auto &layer : layers)
+  {
+    printf("layer %u\n", (unsigned)layer.size());
+    for (auto &node : layer)
+    {
+      if (node.is_leaf && (!count_only_border_nodes || node.is_border))
+        cnt++;
+    }
+  }
+  printf("cnt = %u, nodes_limit = %u\n", cnt, nodes_limit);
+
+  //layer from which we are deleting nodes, to do so, their parent nodes are evaluated
+  unsigned active_layer = layers.size() - 1;
+
+  while (cnt > nodes_limit && active_layer > 0)
+  {
+    std::vector<NodeQualitySort> merge_candidates;
+    for (auto &p_idx : layers[active_layer-1])
+    {
+      //printf("%u %d %d %u\n", p_idx.idx, p_idx.is_leaf, p_idx.is_border, p_idx.border_children);
+      unsigned ofs = frame[p_idx.idx].offset;
+      unsigned active_children = count_only_border_nodes ? p_idx.border_children : 8;
+      if (is_leaf(ofs) || active_children < 2)
+        continue;
+
+      float diff = 0;
+      for (unsigned i=0;i<8;i++)
+      {
+        SdfFrameOctreeNode &child = frame[ofs+i];
+        for (unsigned j=0;j<8;j++)
+        {
+          float child_val = child.values[j];
+          float3 parent_q = 0.5f*(float3((i & 4) >> 2, (i & 2) >> 1, i & 1) + float3((j & 4) >> 2, (j & 2) >> 1, j & 1));
+          float parent_val = trilinear_interpolation(frame[p_idx.idx].values, parent_q);
+          diff += std::abs(child_val - parent_val);
+        }
+      }
+      merge_candidates.push_back({p_idx.idx, active_children, diff/(active_children - 1)});
+    }
+
+    assert(merge_candidates.size() > 0);
+
+    std::sort(merge_candidates.begin(), merge_candidates.end(), 
+              [](const NodeQualitySort &a, const NodeQualitySort &b){return a.weighted_diff < b.weighted_diff;});
+
+    int c_i = 0;
+    while (cnt > nodes_limit && c_i < merge_candidates.size())
+    {
+      unsigned idx = merge_candidates[c_i].idx;
+      for (unsigned i=0;i<8;i++)
+        frame[frame[idx].offset+i].offset = INVALID_IDX;
+      frame[idx].offset = 0;
+      //printf("removing %u %u %f, left %d\n", idx, merge_candidates[c_i].active_children, 
+      //merge_candidates[c_i].weighted_diff, cnt);
+      cnt -= (merge_candidates[c_i].active_children - 1);
+      c_i++;
+    }
+    break;
+
+    //for (int i=0;i<merge_candidates.size();i++)
+    //  printf("%u %u %f\n", merge_candidates[i].idx, merge_candidates[i].weight, merge_candidates[i].weighted_diff);
+    active_layer--;
+  }
+
+  std::vector<unsigned> idx_remap(frame.size(), 0);
+  std::vector<SdfFrameOctreeNode> new_frame;
+
+  new_frame.reserve(frame.size());
+  for (unsigned i=0;i<frame.size();i++)
+  {
+    if (frame[i].offset != INVALID_IDX)
+    {
+      idx_remap[i] = new_frame.size();
+      new_frame.push_back(frame[i]);
+    }
+  }
+
+  for (unsigned i=0;i<new_frame.size();i++)
+  {
+    if (new_frame[i].offset > 0)
+      new_frame[i].offset = idx_remap[new_frame[i].offset];
+  }
+
+  frame = new_frame;
+
+  if (false)
+  {
+    std::vector<std::vector<LayerNodeInfo>> layers2;
+    fill_layers_rec(frame, layers2, 0, 0);
+
+    unsigned cnt = 0;
+    unsigned cur_l = 0;
+    for (auto &layer : layers2)
+    {
+      printf("layer %u\n", (unsigned)layer.size());
+      for (auto &node : layer)
+        printf("%d, node[%u] %d %d %u values %f %f\n", cur_l, node.idx, node.is_leaf, node.is_border,
+               node.border_children, frame[node.idx].values[0], frame[node.idx].values[7]);
+      cur_l++;
+    }
+  }
 }
