@@ -914,7 +914,7 @@ void frame_octree_to_SBS_rec(std::function<SparseOctreeBuilder::T(const float3 &
   {
     std::vector<float> values(header.v_size*header.v_size*header.v_size, 1000.0f);
     float min_val = 1000;
-    float max_val = 1000;
+    float max_val = -1000;
     float3 p0 = 2.0f*(d*float3(p)) - 1.0f;
     float dp = 2.0f*d/header.brick_size;
 
@@ -935,6 +935,14 @@ void frame_octree_to_SBS_rec(std::function<SparseOctreeBuilder::T(const float3 &
           values[i*header.v_size*header.v_size + j*header.v_size + k] = val;
         }
       }      
+    }
+
+    //fix for inconsistent distances
+    if (max_val - min_val > 2 * sqrt(3) * d)
+    {
+      //printf("inconsistent distance %f - %f with d=%f\n", max_val, min_val, d);
+      for (int i = 0; i < values.size(); i++)
+        values[i] = LiteMath::sign(max_val) * std::abs(values[i]);
     }
 
     //add not only if there is really a border
