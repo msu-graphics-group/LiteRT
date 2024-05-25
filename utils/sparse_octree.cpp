@@ -700,7 +700,7 @@ void check_and_fix_sdf_sign(std::vector<SparseOctreeBuilder::Node> &nodes, float
   {
     for (int i=0;i<8;i++)
     {
-      if (abs(nodes[ofs+i].value - nodes[idx].value)> 0.5*sqrt(3)*d)
+      if (std::abs(nodes[ofs+i].value - nodes[idx].value)> 0.5*sqrt(3)*d)
         nodes[ofs+i].value *= -1;
       //if (nodes[idx].value < -d_thr)
       //  printf("%u lol %f ch %d %f\n", idx, nodes[idx].value, i, nodes[ofs+i].value);
