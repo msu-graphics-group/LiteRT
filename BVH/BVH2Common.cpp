@@ -438,9 +438,38 @@ void BVHRT::OctreeNodeIntersect(uint32_t type, const float3 ray_pos, const float
       t = std::min(x1, std::min(x2,x3));
       hit = (t >= 0 && t <= qFar);
     }
+    else if (m_preset.sdf_frame_octree_intersect == SDF_OCTREE_NODE_INTERSECT_NEWTON_TRICUBIC)
+    {
+      float b[8] = {s000, s001, s010, s011, s100, s101, s110, s111};
+      float coefs[64] = {0};
+      float new_coefs[10], interval[2];
+
+      for (int i = 0; i < 64; i++)
+      {
+          for (int j = 0; j < 64; j++)
+          {
+              coefs[i] += (float)B[64 * i + j] * b[j % 8];
+          }
+      }
+
+      solver::coefsDecrease(coefs, o, d3, new_coefs);
+      solver::find_interval(new_coefs, 0, 2, 9, interval);
+      
+      if (interval[0] == interval[1])
+      {
+        hit = false;
+        t = 0;
+      }
+      else
+      {
+        bool has_intersection = false;
+        t = solver::nr_solver(new_coefs, interval[0], interval[1], EPS, has_intersection);
+
+        hit = has_intersection;
+      }
+    }
     else if (m_preset.sdf_frame_octree_intersect == SDF_OCTREE_NODE_INTERSECT_NEWTON)
     {
-      // std::cout << "1111\n";
       // our polynom is c3*t^3 + c2*t^2 + c1*t + c0 = 0;
       // it's derivative is  3*c3*t^2 + 2*c2*t + c1 = 0; 
       // find where it equals 0 to determine interval where the root is located

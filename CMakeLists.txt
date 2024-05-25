@@ -71,6 +71,7 @@ set(BUILDERS_SRC
     ${CMAKE_SOURCE_DIR}/BVH/cbvh.cpp
     ${CMAKE_SOURCE_DIR}/BVH/cbvh_fat.cpp
     ${CMAKE_SOURCE_DIR}/BVH/cbvh_embree2.cpp
+    ${CMAKE_SOURCE_DIR}/BVH/equation_solvers.cpp
     )
 
 message(STATUS "CMAKE_BUILD_TYPE = ${CMAKE_BUILD_TYPE}")

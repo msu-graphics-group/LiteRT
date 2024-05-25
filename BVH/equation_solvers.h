@@ -15,10 +15,10 @@ namespace solver
     float ddf(const float* coefs, const float& x, const int& n);
     void polinomMiltiplier(const float* p1, const float* p2, float* res, const int& n1, const int& n2, const float& polinom_coef);
     //  before call this func need to set Ray coords from world position to voxel space
-    void coefsDecrease(const std::vector<float>& coefs, const LiteMath::float3& P, const LiteMath::float3& D, float* res);
+    void coefsDecrease(const float* coefs, const LiteMath::float3& P, const LiteMath::float3& D, float* res);
     
     //  Newton-Raphson Safe Method
-    float nr_solver(const float* coefs, const float& x1, const float& x2, const float& acc);
+    float nr_solver(const float* coefs, const float& x1, const float& x2, const float& acc, bool& has_intersection);
     //  Halley’s Method
     float halley_solver(const float* coefs, const float& x1, const float& x2, const float& acc);
     //  Bisection Method
@@ -29,3 +29,10 @@ namespace solver
     //  For test
     float calc_test_res(const std::vector<float>& coefs, const LiteMath::float3& P, const LiteMath::float3& D, const float& t);
 };
+
+// using solver::coefsDecrease;
+// using solver::find_interval;
+// using solver::df;
+// using solver::f;
+// using solver::polinomMiltiplier;
+// using solver::nr_solver;

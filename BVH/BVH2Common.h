@@ -7,6 +7,7 @@
 #include <memory>
 
 #include "LiteMath.h"
+#include "equation_solvers.h"
 
 using LiteMath::cross;
 using LiteMath::dot;
@@ -29,8 +30,6 @@ using LiteMath::Box4f;
 #include "../raytrace_common.h"
 #include "cbvh.h"
 #include "precompute_matrix.h"
-#include "equation_solvers.h"
-
 
 static MultiRenderPreset getDefaultPreset()
 {

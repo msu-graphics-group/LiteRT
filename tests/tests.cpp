@@ -982,15 +982,11 @@ void test14_tricubic_octree()
     LiteImage::Image2D<uint32_t> image(W, H);
     float timings[4] = {0,0,0,0};
 
-    std::vector<unsigned> presets_ob = {SDF_OCTREE_BLAS_NO, SDF_OCTREE_BLAS_DEFAULT,
-                                        SDF_OCTREE_BLAS_DEFAULT, SDF_OCTREE_BLAS_DEFAULT,
-                                        SDF_OCTREE_BLAS_DEFAULT, SDF_OCTREE_BLAS_DEFAULT};
+    std::vector<unsigned> presets_ob = {SDF_OCTREE_BLAS_DEFAULT, SDF_OCTREE_BLAS_DEFAULT};
 
-    std::vector<unsigned> presets_oi = {SDF_OCTREE_NODE_INTERSECT_DEFAULT, SDF_OCTREE_NODE_INTERSECT_DEFAULT, 
-                                        SDF_OCTREE_NODE_INTERSECT_ST, SDF_OCTREE_NODE_INTERSECT_ANALYTIC, 
-                                        SDF_OCTREE_NODE_INTERSECT_NEWTON, SDF_OCTREE_NODE_INTERSECT_BBOX};
+    std::vector<unsigned> presets_oi = {SDF_OCTREE_NODE_INTERSECT_NEWTON, SDF_OCTREE_NODE_INTERSECT_NEWTON_TRICUBIC};
 
-    std::vector<std::string> names = {"no_bvh_traversal", "bvh_traversal", "bvh_sphere_tracing", "bvh_analytic", "bvh_newton", "bvh_bboxes"};
+    std::vector<std::string> names = {"bvh_newton", "bvh_newton_tricubic"};
 
     for (int i=0; i<presets_ob.size(); i++)
     {
@@ -1012,6 +1008,14 @@ void test14_tricubic_octree()
       float time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
       printf("%s rendered in %.1f ms. %d kRays/s\n", "SDF Framed Octree", time_ms, (int)((W * H) / time_ms));
       printf("CastRaySingleBlock took %.1f ms\n", timings[0]);
+
+      // printf(" 10.1. %-64s", "SDF Octree ");
+
+      // float psnr = PSNR()
+      // if (psnr >= 25)
+      //   printf("passed    (%.2f)\n", psnr);
+      // else
+      //   printf("FAILED, psnr = %f\n", psnr);
 
       LiteImage::SaveImage<uint32_t>(("saves/test_1_"+names[i]+".bmp").c_str(), image); 
     }

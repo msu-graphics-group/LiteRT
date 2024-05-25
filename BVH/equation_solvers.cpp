@@ -68,7 +68,7 @@ solver::polinomMiltiplier(const float* p1, const float* p2, float* res, const in
 }
 
 void
-solver::coefsDecrease(const std::vector<float>& coefs, const LiteMath::float3& P, const LiteMath::float3& D, float* res)
+solver::coefsDecrease(const float* coefs, const LiteMath::float3& P, const LiteMath::float3& D, float* res)
 {
     float x_polinoms[4][4] = {{1, 0, 0, 0}, {P.x, D.x, 0, 0}, {P.x * P.x, 2 * P.x * D.x, D.x * D.x, 0}, {P.x * P.x * P.x, 3 * P.x * P.x * D.x, 3 * P.x * D.x * D.x, D.x * D.x * D.x}};
     float y_polinoms[4][4] = {{1, 0, 0, 0}, {P.y, D.y, 0, 0}, {P.y * P.y, 2 * P.y * D.y, D.y * D.y, 0}, {P.y * P.y * P.y, 3 * P.y * P.y * D.y, 3 * P.y * D.y * D.y, D.y * D.y * D.y}};
@@ -126,16 +126,17 @@ solver::calc_test_res(const std::vector<float>& coefs, const LiteMath::float3& P
 }
 
 float 
-solver::nr_solver(const float* coefs, const float& x1, const float& x2, const float& acc)
+solver::nr_solver(const float* coefs, const float& x1, const float& x2, const float& acc, bool& has_intersection)
 {
     const int MAXIT = 100;
     float xh = 0, xl = 0;
     float fl = solver::f(coefs, x1, 9), fh = solver::f(coefs, x2, 9);
 
-    if ((fl > 0.0 && fh > 0.0) || (fl < 0.0 && fh < 0.0))
-    {
-        throw("Root must be bracketed");
-    }
+    has_intersection = false;
+    // if ((fl > 0.0 && fh > 0.0) || (fl < 0.0 && fh < 0.0))
+    // {
+    //     throw("Root must be bracketed");
+    // }
 
     if (fl == 0.0) return x1;
     if (fh == 0.0) return x2;
@@ -162,7 +163,11 @@ solver::nr_solver(const float* coefs, const float& x1, const float& x2, const fl
             dx = 0.5 * (xh - xl);
             rts = xl + dx;
 
-            if (xl == rts) return rts;
+            if (xl == rts)
+            {
+                has_intersection = true;
+                return rts;
+            }
         }
         else
         {
@@ -170,10 +175,18 @@ solver::nr_solver(const float* coefs, const float& x1, const float& x2, const fl
             dx=f/df;
             float temp=rts;
             rts -= dx;
-            if (temp == rts) return rts;
+            if (temp == rts)
+            {
+                has_intersection = true;
+                return rts;
+            }
         }
 
-        if (std::abs(dx) < acc) return rts;
+        if (std::abs(dx) < acc)
+        {
+            has_intersection = true;
+            return rts;
+        }
 
         f=solver::f(coefs, rts, 9);
         df=solver::df(coefs, rts, 9);
@@ -188,7 +201,8 @@ solver::nr_solver(const float* coefs, const float& x1, const float& x2, const fl
         }
     }
 
-    throw("Maximum number of iterations exceeded");
+    // throw("Maximum number of iterations exceeded");
+    return 0;
 }
 
 float 
