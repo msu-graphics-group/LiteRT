@@ -17,7 +17,7 @@ namespace solver
     //  before call this func need to set Ray coords from world position to voxel space
     void coefsDecrease(const std::vector<float>& coefs, const LiteMath::float3& P, const LiteMath::float3& D, float* res);
     
-    //  Newton-Raphson Save Method
+    //  Newton-Raphson Safe Method
     float nr_solver(const float* coefs, const float& x1, const float& x2, const float& acc);
     //  Halley’s Method
     float halley_solver(const float* coefs, const float& x1, const float& x2, const float& acc);
