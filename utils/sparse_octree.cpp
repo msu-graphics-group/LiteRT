@@ -766,8 +766,8 @@ std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
           for (int k1=max(0,k-1);k1<min(lg_size,k+2);k1++)
             max_val = max(max_val, all_nodes[large_grid[i1*lg_size*lg_size + j1*lg_size + k1]].value);
     
-      if (max_val - val > sqrt(3)*2/lg_size)
-        all_nodes[large_grid[i*lg_size*lg_size + j*lg_size + k]].value *= -1;
+      //if (max_val - val > sqrt(3)*2/lg_size)
+      //  all_nodes[large_grid[i*lg_size*lg_size + j*lg_size + k]].value *= -1;
     }
     //printf("(%5.2f %5.2f)", max_val, all_nodes[large_grid[i*lg_size*lg_size + j*lg_size + k]].value);
   }    
