@@ -976,7 +976,7 @@ void litert_test_14_octree_nodes_removal()
                       { return mesh_bvh.get_signed_distance(p); },
                       settings);
     octree_nodes_ref = builder.get_nodes();
-    octree_limit_nodes(octree_nodes_ref, 21603);
+    octree_limit_nodes(octree_nodes_ref, level_6_nodes);
   }
 
   {
@@ -986,7 +986,7 @@ void litert_test_14_octree_nodes_removal()
                       { return mesh_bvh.get_signed_distance(p); },
                       settings);
     octree_nodes_7 = builder.get_nodes();
-    octree_limit_nodes(octree_nodes_7, 21603);
+    octree_limit_nodes(octree_nodes_7, level_6_nodes);
   }
 
   {
@@ -996,7 +996,7 @@ void litert_test_14_octree_nodes_removal()
                       { return mesh_bvh.get_signed_distance(p); },
                       settings);
     octree_nodes_8 = builder.get_nodes();
-    octree_limit_nodes(octree_nodes_8, 21603);
+    octree_limit_nodes(octree_nodes_8, level_6_nodes);
   }
 
   unsigned W = 1024, H = 1024;
@@ -1035,18 +1035,227 @@ void litert_test_14_octree_nodes_removal()
   float psnr_2 = PSNR(image_1, image_3);
 
   printf("TEST 14. Octree nodes removal\n");
-  printf("  14.1. %-64s", "clear level 7 ");
+  printf("  14.1. %-64s", "octrees have the same node count ");
+  if (octree_nodes_ref.size() == octree_nodes_7.size() && octree_nodes_ref.size() == octree_nodes_8.size())
+    printf("passed\n");
+  else
+    printf("FAILED, %d, %d, %d\n", (int)octree_nodes_ref.size(), (int)octree_nodes_7.size(), (int)octree_nodes_8.size());
+  printf("  14.2. %-64s", "clear level 7 ");
   if (psnr_1 >= 45)
     printf("passed    (%.2f)\n", psnr_1);
   else
     printf("FAILED, psnr = %f\n", psnr_1);
 
-  printf("  14.2. %-64s", "clear levels 7 and 8 ");
+  printf("  14.3. %-64s", "clear levels 7 and 8 ");
   if (psnr_2 >= 45)
     printf("passed    (%.2f)\n", psnr_2);
   else
     printf("FAILED, psnr = %f\n", psnr_2);
 }
+
+void frame_octree_limit_nodes(std::vector<SdfFrameOctreeNode> &frame, unsigned nodes_limit,
+                              bool count_only_border_nodes);
+void litert_test_15_frame_octree_nodes_removal()
+{
+  auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "scenes/01_simple_scenes/data/teapot.vsgf").c_str());
+  cmesh4::normalize_mesh(mesh);
+  MeshBVH mesh_bvh;
+  mesh_bvh.init(mesh);
+
+  std::vector<SdfFrameOctreeNode> octree_nodes_ref;
+  std::vector<SdfFrameOctreeNode> octree_nodes_7;
+  std::vector<SdfFrameOctreeNode> octree_nodes_8;
+  const unsigned level_6_nodes = 21603;
+
+  {
+    SparseOctreeSettings settings(SparseOctreeBuildType::DEFAULT, 6);
+    SparseOctreeBuilder builder;
+    builder.construct([&mesh_bvh](const float3 &p)
+                      { return mesh_bvh.get_signed_distance(p); },
+                      settings);
+    builder.convert_to_frame_octree(octree_nodes_ref);
+    frame_octree_limit_nodes(octree_nodes_ref, level_6_nodes, false);
+  }
+
+  {
+    SparseOctreeSettings settings(SparseOctreeBuildType::DEFAULT, 7);
+    SparseOctreeBuilder builder;
+    builder.construct([&mesh_bvh](const float3 &p)
+                      { return mesh_bvh.get_signed_distance(p); },
+                      settings);
+    builder.convert_to_frame_octree(octree_nodes_7);
+    frame_octree_limit_nodes(octree_nodes_7, level_6_nodes, false);
+  }
+
+  {
+    SparseOctreeSettings settings(SparseOctreeBuildType::DEFAULT, 8);
+    SparseOctreeBuilder builder;
+    builder.construct([&mesh_bvh](const float3 &p)
+                      { return mesh_bvh.get_signed_distance(p); },
+                      settings);
+    builder.convert_to_frame_octree(octree_nodes_8);
+    frame_octree_limit_nodes(octree_nodes_8, level_6_nodes, false);
+  }
+
+  unsigned W = 1024, H = 1024;
+  MultiRenderPreset preset = getDefaultPreset();
+  preset.mode = MULTI_RENDER_MODE_LAMBERT;
+  preset.sdf_octree_sampler = SDF_OCTREE_SAMPLER_MIPSKIP_3X3;
+  LiteImage::Image2D<uint32_t> image_1(W, H);
+  LiteImage::Image2D<uint32_t> image_2(W, H);
+  LiteImage::Image2D<uint32_t> image_3(W, H);
+
+  {
+    auto pRender_1 = CreateMultiRenderer("GPU");
+    pRender_1->SetPreset(preset);
+    pRender_1->SetScene({(unsigned)octree_nodes_ref.size(), octree_nodes_ref.data()});
+    render(image_1, pRender_1, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+    LiteImage::SaveImage<uint32_t>("saves/test_15_ref.bmp", image_1);
+  }
+
+  {
+    auto pRender_2 = CreateMultiRenderer("GPU");
+    pRender_2->SetPreset(preset);
+    pRender_2->SetScene({(unsigned)octree_nodes_7.size(), octree_nodes_7.data()});
+    render(image_2, pRender_2, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+    LiteImage::SaveImage<uint32_t>("saves/test_15_trimmed_7.bmp", image_2);
+  }
+
+  {
+    auto pRender_3 = CreateMultiRenderer("GPU");
+    pRender_3->SetPreset(preset);
+    pRender_3->SetScene({(unsigned)octree_nodes_8.size(), octree_nodes_8.data()});
+    render(image_3, pRender_3, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+    LiteImage::SaveImage<uint32_t>("saves/test_15_trimmed_8.bmp", image_3);
+  }
+
+  float psnr_1 = PSNR(image_1, image_2);
+  float psnr_2 = PSNR(image_1, image_3);
+
+  printf("TEST 15. Frame octree nodes removal\n");
+  printf("  15.1. %-64s", "octrees have the same node count ");
+  if (octree_nodes_ref.size() == octree_nodes_7.size() && octree_nodes_ref.size() == octree_nodes_8.size())
+    printf("passed\n");
+  else
+    printf("FAILED, %d, %d, %d\n", (int)octree_nodes_ref.size(), (int)octree_nodes_7.size(), (int)octree_nodes_8.size());
+  printf("  15.2. %-64s", "clear level 7 ");
+  if (psnr_1 >= 45)
+    printf("passed    (%.2f)\n", psnr_1);
+  else
+    printf("FAILED, psnr = %f\n", psnr_1);
+
+  printf("  15.3. %-64s", "clear levels 7 and 8 ");
+  if (psnr_2 >= 45)
+    printf("passed    (%.2f)\n", psnr_2);
+  else
+    printf("FAILED, psnr = %f\n", psnr_2);
+}
+
+void frame_octree_to_SVS_rec(const std::vector<SdfFrameOctreeNode> &frame,
+                             std::vector<SdfSVSNode> &nodes,
+                             unsigned idx, uint3 p, unsigned lod_size);
+void litert_test_16_SVS_nodes_removal()
+{
+  auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "scenes/01_simple_scenes/data/teapot.vsgf").c_str());
+  cmesh4::normalize_mesh(mesh);
+  MeshBVH mesh_bvh;
+  mesh_bvh.init(mesh);
+
+  std::vector<SdfSVSNode> octree_nodes_ref;
+  std::vector<SdfSVSNode> octree_nodes_7;
+  std::vector<SdfSVSNode> octree_nodes_8;
+  const unsigned level_6_nodes = 11215;
+
+  {
+    SparseOctreeSettings settings(SparseOctreeBuildType::DEFAULT, 6);
+    SparseOctreeBuilder builder;
+    builder.construct([&mesh_bvh](const float3 &p)
+                      { return mesh_bvh.get_signed_distance(p); },
+                      settings);
+    std::vector<SdfFrameOctreeNode> nodes;
+    builder.convert_to_frame_octree(nodes);
+    frame_octree_limit_nodes(nodes, level_6_nodes, true);
+    frame_octree_to_SVS_rec(nodes, octree_nodes_ref, 0, uint3(0,0,0), 1);
+  }
+
+  {
+    SparseOctreeSettings settings(SparseOctreeBuildType::DEFAULT, 7);
+    SparseOctreeBuilder builder;
+    builder.construct([&mesh_bvh](const float3 &p)
+                      { return mesh_bvh.get_signed_distance(p); },
+                      settings);
+    std::vector<SdfFrameOctreeNode> nodes;
+    builder.convert_to_frame_octree(nodes);
+    frame_octree_limit_nodes(nodes, level_6_nodes, true);
+    frame_octree_to_SVS_rec(nodes, octree_nodes_7, 0, uint3(0,0,0), 1);
+  }
+
+  {
+    SparseOctreeSettings settings(SparseOctreeBuildType::DEFAULT, 8);
+    SparseOctreeBuilder builder;
+    builder.construct([&mesh_bvh](const float3 &p)
+                      { return mesh_bvh.get_signed_distance(p); },
+                      settings);
+    std::vector<SdfFrameOctreeNode> nodes;
+    builder.convert_to_frame_octree(nodes);
+    frame_octree_limit_nodes(nodes, level_6_nodes, true);
+    frame_octree_to_SVS_rec(nodes, octree_nodes_8, 0, uint3(0,0,0), 1);
+  }
+
+  unsigned W = 1024, H = 1024;
+  MultiRenderPreset preset = getDefaultPreset();
+  preset.mode = MULTI_RENDER_MODE_LAMBERT;
+  preset.sdf_octree_sampler = SDF_OCTREE_SAMPLER_MIPSKIP_3X3;
+  LiteImage::Image2D<uint32_t> image_1(W, H);
+  LiteImage::Image2D<uint32_t> image_2(W, H);
+  LiteImage::Image2D<uint32_t> image_3(W, H);
+
+  {
+    auto pRender_1 = CreateMultiRenderer("GPU");
+    pRender_1->SetPreset(preset);
+    pRender_1->SetScene({(unsigned)octree_nodes_ref.size(), octree_nodes_ref.data()});
+    render(image_1, pRender_1, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+    LiteImage::SaveImage<uint32_t>("saves/test_16_ref.bmp", image_1);
+  }
+
+  {
+    auto pRender_2 = CreateMultiRenderer("GPU");
+    pRender_2->SetPreset(preset);
+    pRender_2->SetScene({(unsigned)octree_nodes_7.size(), octree_nodes_7.data()});
+    render(image_2, pRender_2, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+    LiteImage::SaveImage<uint32_t>("saves/test_16_trimmed_7.bmp", image_2);
+  }
+
+  {
+    auto pRender_3 = CreateMultiRenderer("GPU");
+    pRender_3->SetPreset(preset);
+    pRender_3->SetScene({(unsigned)octree_nodes_8.size(), octree_nodes_8.data()});
+    render(image_3, pRender_3, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+    LiteImage::SaveImage<uint32_t>("saves/test_16_trimmed_8.bmp", image_3);
+  }
+
+  float psnr_1 = PSNR(image_1, image_2);
+  float psnr_2 = PSNR(image_1, image_3);
+
+  printf("TEST 16. SVS nodes removal\n");
+  printf("  16.1. %-64s", "octrees have corrent node count ");
+  if (octree_nodes_ref.size() >= octree_nodes_7.size() && octree_nodes_ref.size() >= octree_nodes_8.size())
+    printf("passed\n");
+  else
+    printf("FAILED, %d, %d, %d\n", (int)octree_nodes_ref.size(), (int)octree_nodes_7.size(), (int)octree_nodes_8.size());
+  printf("  16.2. %-64s", "clear level 7 ");
+  if (psnr_1 >= 45)
+    printf("passed    (%.2f)\n", psnr_1);
+  else
+    printf("FAILED, psnr = %f\n", psnr_1);
+
+  printf("  16.3. %-64s", "clear levels 7 and 8 ");
+  if (psnr_2 >= 45)
+    printf("passed    (%.2f)\n", psnr_2);
+  else
+    printf("FAILED, psnr = %f\n", psnr_2);
+}
+
 
 void perform_tests_litert(const std::vector<int> &test_ids)
 {
@@ -1057,7 +1266,8 @@ void perform_tests_litert(const std::vector<int> &test_ids)
       litert_test_4_hydra_scene, litert_test_5_interval_tracing, litert_test_6_faster_bvh_build,
       test_7_neural_SDF, litert_test_8_SDF_grid, litert_test_9_mesh, 
       litert_test_10_save_load, litert_test_11_hp_octree_legacy, litert_test_12_hp_octree_render,
-      litert_test_13_hp_octree_build, litert_test_14_octree_nodes_removal};
+      litert_test_13_hp_octree_build, litert_test_14_octree_nodes_removal, 
+      litert_test_15_frame_octree_nodes_removal, litert_test_16_SVS_nodes_removal};
 
   if (tests.empty())
   {

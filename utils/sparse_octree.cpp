@@ -1180,8 +1180,8 @@ static float trilinear_interpolation(const float values[8], float3 dp)
 void frame_octree_limit_nodes(std::vector<SdfFrameOctreeNode> &frame, unsigned nodes_limit,
                               bool count_only_border_nodes = false)
 {
-  //if (nodes_limit >= frame.size())
-  //  return;
+  if (nodes_limit >= frame.size())
+    return;
   
   assert(nodes_limit > 0);
   assert(frame.size() > 0);
@@ -1192,14 +1192,14 @@ void frame_octree_limit_nodes(std::vector<SdfFrameOctreeNode> &frame, unsigned n
   unsigned cnt = 0;
   for (auto &layer : layers)
   {
-    printf("layer %u\n", (unsigned)layer.size());
+    //printf("layer %u\n", (unsigned)layer.size());
     for (auto &node : layer)
     {
       if (node.is_leaf && (!count_only_border_nodes || node.is_border))
         cnt++;
     }
   }
-  printf("cnt = %u, nodes_limit = %u\n", cnt, nodes_limit);
+  //printf("cnt = %u, nodes_limit = %u\n", cnt, nodes_limit);
 
   //layer from which we are deleting nodes, to do so, their parent nodes are evaluated
   unsigned active_layer = layers.size() - 1;
@@ -1247,7 +1247,6 @@ void frame_octree_limit_nodes(std::vector<SdfFrameOctreeNode> &frame, unsigned n
       cnt -= (merge_candidates[c_i].active_children - 1);
       c_i++;
     }
-    break;
 
     //for (int i=0;i<merge_candidates.size();i++)
     //  printf("%u %u %f\n", merge_candidates[i].idx, merge_candidates[i].weight, merge_candidates[i].weighted_diff);
@@ -1291,6 +1290,8 @@ void frame_octree_limit_nodes(std::vector<SdfFrameOctreeNode> &frame, unsigned n
       cur_l++;
     }
   }
+
+  //printf("cnt left %u\n", cnt);
 }
 
 struct LayerOctreeNodeInfo
