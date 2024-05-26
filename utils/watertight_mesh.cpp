@@ -189,7 +189,7 @@ namespace cmesh4
       i++;
     }
 
-    holes_search(vec_edge_occurs_1time);
+    //holes_search(vec_edge_occurs_1time);
 
     bool watertight = true;
     if (hanging_edges > 0)
