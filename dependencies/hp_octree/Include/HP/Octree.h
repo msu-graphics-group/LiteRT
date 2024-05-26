@@ -85,7 +85,7 @@ namespace SDF
 	    void OutputFunctionSlice(const char* fName_, const f64 c_, const Eigen::AlignedBox3f& viewArea_);
     #endif
 
-
+    private:
         static constexpr f64 INITIAL_NODE_ERR = 100.0;
 
 	    friend class BuildThreadPool;

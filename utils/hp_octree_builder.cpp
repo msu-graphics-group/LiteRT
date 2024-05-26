@@ -32,6 +32,7 @@ void HPOctreeBuilder::construct(std::function<float(const float3 &, unsigned thr
   hpConfig.continuity.enforce = settings.enforce_continuity;
   hpConfig.continuity.strength = settings.continuity_strength;
   hpConfig.threadCount = settings.threads;
+  hpConfig.nodesLimit = settings.nodesLimit;
   hpConfig.root = Eigen::AlignedBox3f(Eigen::Vector3f(-1, -1, -1), Eigen::Vector3f(1, 1, 1));
 
   SDF::Octree hpOctree;

@@ -27,6 +27,7 @@ public:
     }; 
     unsigned threads = 1; // number of threads to use, if >1 sdf function must support multi-threading
     float target_error = 5e-7; //distance error to stop expanding the octree
+    uint32_t  nodesLimit = 1000000;
     NearnessWeighting nearness_weighting = NearnessWeighting::Exponential;
     float nearness_weight = 20.0;
     bool enforce_continuity = false; // might crash for larger octrees
@@ -38,14 +39,14 @@ public:
   
   //construct hp-adaptive octree from arbitrary distance function in [-1,1]^3 region
   void construct(std::function<float(const float3 &, unsigned thread_idx)> sdf,
-                 BuildSettings settings = BuildSettings{1u, 5e-7f, BuildSettings::NearnessWeighting::Exponential, 20.0f, false, 8.0f});
+                 BuildSettings settings = BuildSettings{1u, 5e-7f, 1000000, BuildSettings::NearnessWeighting::Exponential, 20.0f, false, 8.0f});
   
   //construct hp-adaptive octree from mesh in [-1,1]^3 region
   //mesh should fit in [-1,1]^3 cube, otherwise octree can be messed up
   //mesh should be watertight, not self-intersecting and have normals pointing out
   //TODO: fix normals direction, detect and fill holes
   void construct(const cmesh4::SimpleMesh &mesh,
-                 BuildSettings settings = BuildSettings{8u, 5e-7f, BuildSettings::NearnessWeighting::Exponential, 20.0f, false, 8.0f});
+                 BuildSettings settings = BuildSettings{8u, 5e-7f, 1000000, BuildSettings::NearnessWeighting::Exponential, 20.0f, false, 8.0f});
   
   SdfHPOctree octree;
 private:
@@ -112,6 +113,7 @@ private:
 
     bool enableLogging;
     double targetErrorThreshold;
+    uint32_t  nodesLimit;
     uint32_t threadCount;
 
     Box3Legacy root;

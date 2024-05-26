@@ -488,6 +488,7 @@ HPOctreeBuilder::ConfigLegacy::ConfigLegacy()
   continuity.enforce = true;
   continuity.strength = 8.0;
   threadCount = std::thread::hardware_concurrency() != 0 ? std::thread::hardware_concurrency() : 1;
+  nodesLimit = 1000000;
   root = Box3Legacy(float3(-0.5, -0.5, -0.5), float3(0.5, 0.5, 0.5));
   enableLogging = false;
 }
@@ -499,6 +500,7 @@ void HPOctreeBuilder::ConfigLegacy::IsValid() const
   float3 size = root.m_max - root.m_min;
   float volume = size.x * size.y * size.z;
   assert(volume > 0.0);
+  assert(nodesLimit > 8);
 
   if (nearnessWeighting.type != ConfigLegacy::NearnessWeighting::None)
   {

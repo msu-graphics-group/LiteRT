@@ -34,6 +34,7 @@ namespace SDF
 
         bool enableLogging;
 	    f64  targetErrorThreshold;
+        u32  nodesLimit;
 	    u32  threadCount;
 
         Eigen::AlignedBox3f root;
