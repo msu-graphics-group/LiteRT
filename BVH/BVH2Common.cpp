@@ -1217,8 +1217,11 @@ float BVHRT::eval_distance_sdf(uint32_t type, uint32_t sdf_id, float3 pos)
 #endif
 #ifndef DISABLE_SDF_GRID
   case TYPE_SDF_GRID:
-    val = eval_distance_sdf_grid(sdf_id, pos);
-    // val = tricubic_eval_distance_sdf_grid(sdf_id, pos);
+    // val = eval_distance_sdf_grid(sdf_id, pos);
+    val = tricubic_eval_distance_sdf_grid(sdf_id, pos);
+    break;
+  case TYPE_SDF_GRID_TRICUBIC:
+    val = tricubic_eval_distance_sdf_grid(sdf_id, pos);
     break;
 #endif
 #ifndef DISABLE_SDF_OCTREE

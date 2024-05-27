@@ -626,6 +626,7 @@ void litert_test_8_SDF_grid()
   preset.sdf_frame_octree_blas = SDF_OCTREE_BLAS_DEFAULT;
   preset.sdf_frame_octree_intersect = SDF_OCTREE_NODE_INTERSECT_ANALYTIC;
   LiteImage::Image2D<uint32_t> image(W, H);
+  LiteImage::Image2D<uint32_t> tricubic_image(W, H);
   LiteImage::Image2D<uint32_t> ref_image(W, H);
 
   auto pRenderRef = CreateMultiRenderer("CPU");
@@ -633,28 +634,44 @@ void litert_test_8_SDF_grid()
   pRenderRef->SetViewport(0,0,W,H);
   pRenderRef->LoadSceneHydra((scenes_folder_path+scene_name).c_str());
 
-  auto pRender = CreateMultiRenderer("CPU");
-  pRender->SetPreset(preset);
-  pRender->SetViewport(0,0,W,H);
-  pRender->LoadSceneHydra((scenes_folder_path+scene_name).c_str(), TYPE_SDF_GRID, 
+  // auto pRender = CreateMultiRenderer("CPU");
+  // pRender->SetPreset(preset);
+  // pRender->SetViewport(0,0,W,H);
+  // pRender->LoadSceneHydra((scenes_folder_path+scene_name).c_str(), TYPE_SDF_GRID, 
+  //                         SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 7));
+
+  auto pRenderTricubic = CreateMultiRenderer("CPU");
+  pRenderTricubic->SetPreset(preset);
+  pRenderTricubic->SetViewport(0,0,W,H);
+  pRenderTricubic->LoadSceneHydra((scenes_folder_path+scene_name).c_str(), TYPE_SDF_GRID_TRICUBIC, 
                           SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 7));
 
-  auto m1 = pRender->getWorldView();
-  auto m2 = pRender->getProj();
+  auto m1 = pRenderTricubic->getWorldView();
+  auto m2 = pRenderTricubic->getProj();
 
-  pRender->Render(image.data(), image.width(), image.height(), m1, m2, preset);
+  // pRender->Render(image.data(), image.width(), image.height(), m1, m2, preset);
+  pRenderTricubic->Render(tricubic_image.data(), tricubic_image.width(), tricubic_image.height(), m1, m2, preset);
   pRenderRef->Render(ref_image.data(), ref_image.width(), ref_image.height(), m1, m2, preset);
 
-  LiteImage::SaveImage<uint32_t>("saves/test_8_res.bmp", image); 
+  // LiteImage::SaveImage<uint32_t>("saves/test_8_res_trilinear.bmp", image); 
+  LiteImage::SaveImage<uint32_t>("saves/test_8_res_tricubic.bmp", tricubic_image);
   LiteImage::SaveImage<uint32_t>("saves/test_8_ref.bmp", ref_image);
 
-  float psnr = PSNR(ref_image, image);
-  printf("TEST 8. Rendering Hydra scene\n");
-  printf("  8.1. %-64s", "mesh and SDF grid PSNR > 30 ");
-  if (psnr >= 30)
-    printf("passed    (%.2f)\n", psnr);
+  // float psnr1 = PSNR(ref_image, image);
+  float psnr2 = PSNR(ref_image, tricubic_image);
+
+  // printf("TEST 8. Rendering Hydra scene\n");
+  // printf("  8.1. %-64s", "mesh and SDF grid trilinear PSNR > 30 ");
+  // if (psnr1 >= 30)
+  //   printf("passed    (%.2f)\n", psnr1);
+  // else
+  //   printf("FAILED, psnr = %f\n", psnr1);
+
+  printf("  8.2. %-64s", "mesh and SDF grid tricubic PSNR > 30 ");
+  if (psnr2 >= 30)
+    printf("passed    (%.2f)\n", psnr2);
   else
-    printf("FAILED, psnr = %f\n", psnr);
+    printf("FAILED, psnr = %f\n", psnr2);
 }
 
 void litert_test_9_mesh()

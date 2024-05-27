@@ -29,10 +29,3 @@ namespace solver
     //  For test
     float calc_test_res(const std::vector<float>& coefs, const LiteMath::float3& P, const LiteMath::float3& D, const float& t);
 };
-
-// using solver::coefsDecrease;
-// using solver::find_interval;
-// using solver::df;
-// using solver::f;
-// using solver::polinomMiltiplier;
-// using solver::nr_solver;
