@@ -393,13 +393,14 @@ void SparseOctreeBuilder::construct_bottom_up_base(unsigned start_depth, float3 
 
   //remove some nodes with estimated error is lower than given threshold
   if (settings.remove_thr > 0)
-    remove_linear_rec(*this, settings.remove_thr, settings.min_remove_level, 0, start_depth, start_p, start_d);  
+    remove_linear_rec(*this, settings.remove_thr, min_remove_level, 0, start_depth, start_p, start_d);  
 }
 
 void SparseOctreeBuilder::construct_bottom_up(DistanceFunction _sdf, SparseOctreeSettings _settings)
 {
   sdf = _sdf;
   settings = _settings;
+  min_remove_level = std::min(settings.depth, 4u);
   octree_f->get_nodes().clear();
 
   construct_bottom_up_base(0u, float3(0,0,0), 1.0f);
@@ -535,6 +536,7 @@ void SparseOctreeBuilder::construct_bottom_up_blocks(DistanceFunction _sdf, Spar
 {
   sdf = _sdf;
   settings = _settings;
+  min_remove_level = std::min(settings.depth, 4u);
   octree_f->get_nodes().clear();
 
   unsigned max_block_size = std::max(BlockSparseOctree<float>::BLOCK_SIZE_X, std::max(BlockSparseOctree<float>::BLOCK_SIZE_Y, BlockSparseOctree<float>::BLOCK_SIZE_Z));
@@ -677,7 +679,7 @@ void fill_octree_frame_rec(std::function<SparseOctreeBuilder::T(const float3 &)>
 void SparseOctreeBuilder::construct_large_cell_rec(std::vector<Node> &final_nodes, unsigned root_idx, unsigned level, float3 p, float d)
 {
   //construct octree in this large cell
-  if (level == settings.min_remove_level)
+  if (level == min_remove_level)
   {
 
   }
@@ -715,18 +717,19 @@ void SparseOctreeBuilder::construct(DistanceFunction _sdf, SparseOctreeSettings 
 {
   sdf = _sdf;
   settings = _settings;
+  min_remove_level = std::min(settings.depth, 4u);
 
 std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
 
   std::vector<LargeNode> large_nodes;
-  int lg_size = pow(2, settings.min_remove_level);
+  int lg_size = pow(2, min_remove_level);
   std::vector<unsigned> large_grid(lg_size*lg_size*lg_size);
   large_nodes.push_back({float3(0,0,0), 1.0f, 0u, 0u, 0u});
 
   unsigned i = 0;
   while (i < large_nodes.size())
   {
-    if (large_nodes[i].level < settings.min_remove_level)
+    if (large_nodes[i].level < min_remove_level)
     {
       large_nodes[i].children_idx = large_nodes.size();
       for (int j=0;j<8;j++)
@@ -747,7 +750,7 @@ std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
     all_nodes[i].offset = large_nodes[i].children_idx;
     all_nodes[i].value = val;
 
-    if (large_nodes[i].level == settings.min_remove_level)
+    if (large_nodes[i].level == min_remove_level)
       large_grid[large_nodes[i].p.x*lg_size*lg_size + large_nodes[i].p.y*lg_size + large_nodes[i].p.z] = i;
   }
 
@@ -803,7 +806,7 @@ std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
     }
   }
 
-  check_and_fix_sdf_sign(all_nodes, pow(2,-1.0*settings.min_remove_level), 0, 1.0f);
+  check_and_fix_sdf_sign(all_nodes, pow(2,-1.0*min_remove_level), 0, 1.0f);
 
   get_nodes() = all_nodes;
   
@@ -829,6 +832,7 @@ void SparseOctreeBuilder::construct_bottom_up_frame(DistanceFunction _sdf, Spars
 {
   sdf = _sdf;
   settings = _settings;
+  min_remove_level = std::min(settings.depth, 4u);
   octree_f->get_nodes().clear();
 
 std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
@@ -903,7 +907,7 @@ void SparseOctreeBuilder::convert_to_sparse_voxel_set(std::vector<SdfSVSNode> &o
 }
 
 void frame_octree_to_SBS_rec(std::function<SparseOctreeBuilder::T(const float3 &)> sdf, 
-                             const std::vector<SdfOctreeNode> &nodes,
+                             const std::vector<SdfFrameOctreeNode> &nodes,
                              const SdfSBSHeader &header,
                              std::vector<SdfSBSNode> &out_nodes, 
                              std::vector<uint32_t> &out_values,
@@ -991,7 +995,10 @@ void SparseOctreeBuilder::convert_to_sparse_brick_set(SdfSBSHeader &header,
   header.v_size = header.brick_size + 2*header.brick_pad + 1;
 
   auto &nodes = get_nodes();
-  frame_octree_to_SBS_rec(sdf, nodes, header, out_nodes, out_values, 0, uint3(0,0,0), 0, 1);
+  std::vector<SdfFrameOctreeNode> frame(nodes.size());
+  fill_octree_frame_rec(sdf, nodes, frame, 0, float3(0,0,0), 1);
+
+  frame_octree_to_SBS_rec(sdf, frame, header, out_nodes, out_values, 0, uint3(0,0,0), 0, 1);
 }
 
 void mesh_octree_to_sdf_frame_octree_rec(const cmesh4::SimpleMesh &mesh,

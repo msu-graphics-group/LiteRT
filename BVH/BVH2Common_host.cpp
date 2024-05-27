@@ -401,9 +401,6 @@ uint32_t BVHRT::AddGeom_SdfOctree(SdfOctreeView octree, BuildOptions a_qualityLe
   auto layout  = LayoutPresetsFromString(m_layoutName.c_str());
   auto bvhData = BuildBVHFatCustom(orig_nodes.data(), orig_nodes.size(), presets, layout);
 
-  for (auto &i : bvhData.indices)
-    printf("octree ind %d\n",(int)i);
-
   m_allNodePairs.insert(m_allNodePairs.end(), bvhData.nodes.begin(), bvhData.nodes.end());
 
   return m_geomData.size()-1;

@@ -8,6 +8,7 @@
 #include "LiteMath/Image2d.h"
 #include "../NeuralRT/NeuralRT.h"
 #include "../utils/hp_octree.h"
+#include "../utils/sdf_converter.h"
 
 #include <functional>
 #include <cassert>
@@ -1263,7 +1264,7 @@ void litert_test_16_SVS_nodes_removal()
   float psnr_2 = PSNR(image_1, image_3);
 
   printf("TEST 16. SVS nodes removal\n");
-  printf("  16.1. %-64s", "octrees have corrent node count ");
+  printf("  16.1. %-64s", "octrees have correct node count ");
   if (octree_nodes_ref.size() >= octree_nodes_7.size() && octree_nodes_ref.size() >= octree_nodes_8.size())
     printf("passed\n");
   else
@@ -1281,6 +1282,140 @@ void litert_test_16_SVS_nodes_removal()
     printf("FAILED, psnr = %f\n", psnr_2);
 }
 
+void litert_test_17_all_types_sanity_check()
+{
+  auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "scenes/01_simple_scenes/data/teapot.vsgf").c_str());
+  cmesh4::normalize_mesh(mesh);
+
+  unsigned W = 512, H = 512;
+  MultiRenderPreset preset = getDefaultPreset();
+  preset.mode = MULTI_RENDER_MODE_LAMBERT;
+
+  LiteImage::Image2D<uint32_t> image_ref(W, H);
+  LiteImage::Image2D<uint32_t> image_1(W, H);
+  LiteImage::Image2D<uint32_t> image_2(W, H);
+  LiteImage::Image2D<uint32_t> image_3(W, H);
+  LiteImage::Image2D<uint32_t> image_4(W, H);
+  LiteImage::Image2D<uint32_t> image_5(W, H);
+  LiteImage::Image2D<uint32_t> image_6(W, H);
+  
+  {
+    auto pRender = CreateMultiRenderer("GPU");
+    pRender->SetPreset(preset);
+    pRender->SetScene(mesh);
+    render(image_ref, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+    LiteImage::SaveImage<uint32_t>("saves/test_17_ref.bmp", image_ref);
+  }
+
+  {
+    auto grid = sdf_converter::create_sdf_grid(GridSettings(6), mesh);
+    auto pRender = CreateMultiRenderer("GPU");
+    pRender->SetPreset(preset);
+    pRender->SetScene(grid);
+    render(image_1, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+    LiteImage::SaveImage<uint32_t>("saves/test_17_grid.bmp", image_1);    
+  }
+
+  {
+    auto octree = sdf_converter::create_sdf_octree(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 8, 64*64*64), mesh);
+    auto pRender = CreateMultiRenderer("GPU");
+    pRender->SetPreset(preset);
+    pRender->SetScene({(unsigned)octree.size(), octree.data()});
+    render(image_2, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+    LiteImage::SaveImage<uint32_t>("saves/test_17_octree.bmp", image_2);
+  }
+
+  {
+    auto octree = sdf_converter::create_sdf_frame_octree(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 8, 64*64*64), mesh);
+    auto pRender = CreateMultiRenderer("GPU");
+    pRender->SetPreset(preset);
+    pRender->SetScene({(unsigned)octree.size(), octree.data()});
+    render(image_3, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+    LiteImage::SaveImage<uint32_t>("saves/test_17_frame_octree.bmp", image_3);
+  }
+
+  {
+    auto octree = sdf_converter::create_sdf_SVS(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 8, 64*64*64), mesh);
+    auto pRender = CreateMultiRenderer("GPU");
+    pRender->SetPreset(preset);
+    pRender->SetScene({(unsigned)octree.size(), octree.data()});
+    render(image_4, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+    LiteImage::SaveImage<uint32_t>("saves/test_17_SVS.bmp", image_4);
+  }
+
+  {
+    SdfSBSHeader header;
+    header.brick_size = 2;
+    header.brick_pad = 0;
+    header.bytes_per_value = 1;
+
+    auto sbs = sdf_converter::create_sdf_SBS(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 8, 64*64*64), header, mesh);
+    auto pRender = CreateMultiRenderer("GPU");
+    pRender->SetPreset(preset);
+    pRender->SetScene(sbs);
+    render(image_5, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+    LiteImage::SaveImage<uint32_t>("saves/test_17_SBS.bmp", image_5);
+  }
+
+  {
+    HPOctreeBuilder::BuildSettings settings;
+    settings.target_error = 1e-7f;
+    settings.nodesLimit = 7500;
+    settings.threads = 15;
+
+    auto hp_octree = sdf_converter::create_sdf_hp_octree(settings, mesh);
+    auto pRender = CreateMultiRenderer("GPU");
+    pRender->SetPreset(preset);
+    pRender->SetScene(hp_octree);
+    render(image_6, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+    LiteImage::SaveImage<uint32_t>("saves/test_17_hp_octree.bmp", image_6);
+  }
+
+  float psnr_1 = PSNR(image_1, image_ref);
+  float psnr_2 = PSNR(image_2, image_ref);
+  float psnr_3 = PSNR(image_3, image_ref);
+  float psnr_4 = PSNR(image_4, image_ref);
+  float psnr_5 = PSNR(image_5, image_ref);
+  float psnr_6 = PSNR(image_6, image_ref);
+
+  printf("TEST 17. all types sanity check\n");
+  printf("  17.1. %-64s", "SDF grid");
+  if (psnr_1 >= 30)
+    printf("passed %f\n", psnr_1);
+  else
+    printf("FAILED, psnr = %f\n", psnr_1);
+  
+  printf("  17.2. %-64s", "SDF octree");
+  if (psnr_2 >= 30)
+    printf("passed %f\n", psnr_2);
+  else
+    printf("FAILED, psnr = %f\n", psnr_2);
+  
+  printf("  17.3. %-64s", "SDF frame octree");
+  if (psnr_3 >= 30)
+    printf("passed %f\n", psnr_3);
+  else
+    printf("FAILED, psnr = %f\n", psnr_3);
+  
+  printf("  17.4. %-64s", "SDF SVS");
+  if (psnr_4 >= 30)
+    printf("passed %f\n", psnr_4);
+  else
+    printf("FAILED, psnr = %f\n", psnr_4);
+  
+  printf("  17.5. %-64s", "SDF SBS");
+  if (psnr_5 >= 30)
+    printf("passed %f\n", psnr_5);
+  else
+    printf("FAILED, psnr = %f\n", psnr_5);
+  
+  printf("  17.6. %-64s", "SDF hp octree");
+  if (psnr_6 >= 30)
+    printf("passed %f\n", psnr_6);
+  else
+    printf("FAILED, psnr = %f\n", psnr_6);
+}
+
 
 void perform_tests_litert(const std::vector<int> &test_ids)
 {
@@ -1292,7 +1427,8 @@ void perform_tests_litert(const std::vector<int> &test_ids)
       test_7_neural_SDF, litert_test_8_SDF_grid, litert_test_9_mesh, 
       litert_test_10_save_load, litert_test_11_hp_octree_legacy, litert_test_12_hp_octree_render,
       litert_test_13_hp_octree_build, litert_test_14_octree_nodes_removal, 
-      litert_test_15_frame_octree_nodes_removal, litert_test_16_SVS_nodes_removal};
+      litert_test_15_frame_octree_nodes_removal, litert_test_16_SVS_nodes_removal,
+      litert_test_17_all_types_sanity_check};
 
   if (tests.empty())
   {

@@ -4,6 +4,7 @@
 #include <fstream>
 #include "../sdfScene/sdf_scene.h"
 #include "../utils/mesh.h"
+#include "../utils/sdf_converter.h"
 /*
 A class that is able to represent and arbitrary function f : R^3 -> T 
 as a sparse octree, where every leaf contains value of function in it's
@@ -12,27 +13,6 @@ T - is a type that can be meaningfully interpolated (i.e. float, double, float2,
 It should have T+T and float*T operator and be POD of course. 
 Octree always represents unit cube [-1,1]^3
 */
-
-enum class SparseOctreeBuildType
-{
-  DEFAULT = 0, //build from abstrace distance function, quite slow, but reliable
-  MESH_TLO = 1 //works only if building from mesh, faster for detailed octrees and medium-sized meshes
-};
-
-struct SparseOctreeSettings
-{
-  SparseOctreeSettings() = default;
-  SparseOctreeSettings(SparseOctreeBuildType type, unsigned _depth)
-  {
-    build_type = type;
-    depth = _depth;
-  }
-  unsigned depth = 1;
-  unsigned min_remove_level = 4; //used only with SparseOctreeBuildType::DEFAULT
-  float remove_thr = 0.0001; //used only with SparseOctreeBuildType::DEFAULT
-  SparseOctreeBuildType build_type = SparseOctreeBuildType::DEFAULT;
-};
-
 template <typename T>
 struct BlockSparseOctree
 {
@@ -154,4 +134,5 @@ protected:
   std::shared_ptr<ISdfOctreeFunction> octree_f; //0 node is root
   DistanceFunction sdf;
   SparseOctreeSettings settings;
+  unsigned min_remove_level = 4;
 };
