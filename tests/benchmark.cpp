@@ -333,7 +333,7 @@ void hydra_benchmark(const std::string &path)
     for (int s_id = 0; s_id < structures.size(); s_id++)
     {
       unsigned nodes_limit = size_limit_Mb[d_id] * 1000 * 1000 / average_bytes_per_node[s_id];
-      printf("nodes_limit = %u\n", nodes_limit);
+      //printf("nodes_limit = %u\n", nodes_limit);
       std::string structure = structures[s_id];
       std::string full_name = mesh_name + "_" + structure + "_" + std::to_string(size_limit_Mb[d_id]);
       std::string filename = path + "/" + full_name + ".bin";
@@ -460,5 +460,6 @@ void hydra_benchmark(const std::string &path)
       building_results[full_name] = res;
       printf("  %32s: %6u nodes, %8u kb, %5.1f s\n", full_name.c_str(), res.nodes, res.memory / 1000, res.build_time_ms/1000.0f);
     }
+    printf("\n");
   }
 }

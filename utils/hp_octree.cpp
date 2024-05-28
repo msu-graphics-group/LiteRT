@@ -528,12 +528,12 @@ void HPOctreeBuilder::readLegacy(const std::string &path)
 }
 void HPOctreeBuilder::readLegacy(unsigned char *bytes, unsigned size)
 {
-  printf("size: %u\n", size);
+  //printf("size: %u\n", size);
 
   assert(size > 0);
 
   unsigned nCoeffs = *((unsigned *)(bytes + 0));
-  printf("nCoeffs: %u\n", nCoeffs);
+  //printf("nCoeffs: %u\n", nCoeffs);
   coeffStore.resize(nCoeffs);
   memcpy(coeffStore.data(), bytes + sizeof(unsigned), sizeof(double) * nCoeffs);
 
@@ -743,5 +743,5 @@ void HPOctreeBuilder::transformFromLegacy(const std::vector<double> &coeffStore,
     }
   }
 
-  printf("new size: %d\n nCoeffs: %d\n", (int)octree.nodes.size(), (int)octree.data.size());
+  //printf("new size: %d\n nCoeffs: %d\n", (int)octree.nodes.size(), (int)octree.data.size());
 }
