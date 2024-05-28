@@ -378,7 +378,7 @@ namespace cmesh4
       node_ofs += thread_local_nodes[i].size() - 1;
       tri_ids_ofs += thread_local_tri_ids[i].size();
     }
-    printf("created octee with %d nodes and %d tri ids\n", (int)octree.nodes.size(), (int)octree.triangle_ids.size());
+    //printf("created octee with %d nodes and %d tri ids\n", (int)octree.nodes.size(), (int)octree.triangle_ids.size());
     return octree;
   }
 

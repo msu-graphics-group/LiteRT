@@ -863,15 +863,15 @@ void frame_octree_to_SVS_rec(const std::vector<SdfFrameOctreeNode> &frame,
   if (is_leaf(ofs)) 
   {
     float d_max = 2*sqrt(3)/lod_size;
-    bool less_node = false;
-    bool more_node = false;
+    float min_val = 1000;
+    float max_val = -1000;
     for (int i=0;i<8;i++)
     {
-      less_node = less_node || (frame[idx].values[i] <= 0);
-      more_node = more_node || (frame[idx].values[i] > -d_max);
+      min_val = std::min(min_val, frame[idx].values[i]);
+      max_val = std::max(max_val, frame[idx].values[i]);
     }
     
-    if (less_node && more_node)
+    if (is_border_node(min_val, max_val, lod_size))
     {
       nodes.emplace_back();
       nodes.back().pos_xy = (p.x << 16) | p.y;
@@ -919,6 +919,11 @@ void frame_octree_to_SBS_rec(std::function<SparseOctreeBuilder::T(const float3 &
     std::vector<float> values(header.v_size*header.v_size*header.v_size, 1000.0f);
     float min_val = 1000;
     float max_val = -1000;
+    for (int i=0;i<8;i++)
+    {
+      min_val = std::min(min_val, nodes[idx].values[i]);
+      max_val = std::max(max_val, nodes[idx].values[i]);
+    }
     float3 p0 = 2.0f*(d*float3(p)) - 1.0f;
     float dp = 2.0f*d/header.brick_size;
 
@@ -930,12 +935,6 @@ void frame_octree_to_SBS_rec(std::function<SparseOctreeBuilder::T(const float3 &
         {
           float3 p = p0 + dp*float3(i,j,k);
           float val = sdf(p);
-          if (i >= 0 && i <= header.brick_size && j >= 0 && j <= header.brick_size && k >= 0 && k <= header.brick_size)
-          {
-            //max and min values inside the brick, not the padding
-            min_val = std::min(min_val, val);
-            max_val = std::max(max_val, val);
-          }
           values[i*header.v_size*header.v_size + j*header.v_size + k] = val;
         }
       }      
@@ -950,7 +949,7 @@ void frame_octree_to_SBS_rec(std::function<SparseOctreeBuilder::T(const float3 &
     }
 
     //add not only if there is really a border
-    if (min_val <= 0 && max_val >= 0)
+    if (is_border_node(min_val, max_val, 1 << level))
     {
       unsigned off = out_values.size();
       out_nodes.emplace_back();
