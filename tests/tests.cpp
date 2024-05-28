@@ -1308,7 +1308,7 @@ void litert_test_17_all_types_sanity_check()
   }
 
   {
-    auto grid = sdf_converter::create_sdf_grid(GridSettings(6), mesh);
+    auto grid = sdf_converter::create_sdf_grid(GridSettings(64), mesh);
     auto pRender = CreateMultiRenderer("GPU");
     pRender->SetPreset(preset);
     pRender->SetScene(grid);
