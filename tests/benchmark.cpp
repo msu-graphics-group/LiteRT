@@ -8,6 +8,7 @@
 #include "../utils/sdf_converter.h"
 #include "LiteScene/hydraxml.h"
 #include "LiteMath/Image2d.h"
+#include <filesystem>
 
 #include <functional>
 #include <cassert>
@@ -296,7 +297,7 @@ void quality_check(const char *path)
   }
 }
 
-void hydra_benchmark(const std::string &path)
+void hydra_benchmark(const std::string &path, unsigned flags)
 {
   struct StructureInfo
   {
@@ -320,146 +321,265 @@ void hydra_benchmark(const std::string &path)
 
   std::map<std::string, StructureInfo> building_results;
 
-  std::vector<std::string> structures =          {"sdf_grid", "sdf_octree", "sdf_frame_octree", "sdf_SVS", "sdf_SBS-2-1", "sdf_SBS-2-2", "sdf_hp_octree"};
-  std::vector<unsigned> average_bytes_per_node = {         4,            8,                 36,        16,            44,            72,              71};
+  constexpr unsigned base_pass_size = 50;
+  constexpr unsigned iters = 2;
+  unsigned W = 1000, H = 1000;
+
+  //different types of structures
+  std::vector<std::string> structures =          {"mesh", "sdf_grid", "sdf_octree", "sdf_frame_octree", "sdf_SVS", "sdf_SBS-2-1", "sdf_SBS-2-2", "sdf_hp_octree"};
+  std::vector<unsigned> average_bytes_per_node = {      0,         4,            8,                 36,        16,            44,            72,              71};
   
-  std::vector<unsigned> max_depths = {    8,   8,     9,    10};
-  std::vector<float> size_limit_Mb = {0.25f, 1.0f, 4.0f, 16.0f};
-  
-  for (int d_id = 0; d_id < max_depths.size(); d_id++)
+  //different sizes
+  std::vector<unsigned> max_depths =          {      8,     8,     9,     10};
+  std::vector<float> size_limit_Mb =          {  0.25f,  1.0f,  4.0f,  16.0f};
+  std::vector<std::string> size_limit_names = {"250Kb", "1Mb", "4Mb", "16Mb"};
+
+  //different render modes
+  //
+
+  if (flags & BENCHMARK_FLAG_BUILD)
   {
-    unsigned max_depth = max_depths[d_id];
-
-    for (int s_id = 0; s_id < structures.size(); s_id++)
+    for (int d_id = 0; d_id < max_depths.size(); d_id++)
     {
-      unsigned nodes_limit = size_limit_Mb[d_id] * 1000 * 1000 / average_bytes_per_node[s_id];
-      //printf("nodes_limit = %u\n", nodes_limit);
-      std::string structure = structures[s_id];
-      std::string full_name = mesh_name + "_" + structure + "_" + std::to_string(size_limit_Mb[d_id]);
-      std::string filename = path + "/" + full_name + ".bin";
-      StructureInfo res;
-      res.max_depth = max_depth;
+      unsigned max_depth = max_depths[d_id];
 
-      if (structure == "sdf_grid")
+      for (int s_id = 0; s_id < structures.size(); s_id++)
       {
-        unsigned size = cbrt(nodes_limit);
-        t1 = std::chrono::steady_clock::now();
-        auto grid = sdf_converter::create_sdf_grid(GridSettings(size), mesh);
-        t2 = std::chrono::steady_clock::now();
-        float build_time = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+        if (structures[s_id] == "mesh")
+          continue;
+        unsigned nodes_limit = size_limit_Mb[d_id] * 1000 * 1000 / average_bytes_per_node[s_id];
+        //printf("nodes_limit = %u\n", nodes_limit);
+        std::string structure = structures[s_id];
+        std::string full_name = mesh_name + "_" + structure + "_" + size_limit_names[d_id];
+        std::filesystem::create_directory(path + "/" + full_name);
+        std::string filename = path + "/" + full_name + "/data.bin";
+        StructureInfo res;
+        res.max_depth = max_depth;
 
-        res.build_time_ms = build_time + mesh_bvh_build_time;
-        res.nodes = grid.data.size();
-        res.memory = sizeof(float) * res.nodes;
-        res.valid = true;
+        if (structure == "sdf_grid")
+        {
+          unsigned size = cbrt(nodes_limit);
+          t1 = std::chrono::steady_clock::now();
+          auto grid = sdf_converter::create_sdf_grid(GridSettings(size), mesh);
+          t2 = std::chrono::steady_clock::now();
+          float build_time = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
 
-        save_sdf_grid(grid, filename);
+          res.build_time_ms = build_time + mesh_bvh_build_time;
+          res.nodes = grid.data.size();
+          res.memory = sizeof(float) * res.nodes;
+          res.valid = true;
+
+          save_sdf_grid(grid, filename);
+        }
+        else if (structure == "sdf_hp_octree")
+        {
+          HPOctreeBuilder::BuildSettings settings;
+          settings.threads = 16;
+          settings.target_error = 0.0f;
+          settings.nodesLimit = 9*nodes_limit/8 + 2000;
+
+          t1 = std::chrono::steady_clock::now();
+          auto scene = sdf_converter::create_sdf_hp_octree(settings, mesh);
+          t2 = std::chrono::steady_clock::now();
+          float build_time = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+
+          res.build_time_ms = build_time;
+          res.nodes = scene.nodes.size();
+          res.memory = sizeof(SdfHPOctreeNode) * scene.nodes.size() + sizeof(float)*scene.data.size();
+          res.valid = true;
+
+          save_sdf_hp_octree(scene, filename);
+        }
+        else if (structure == "sdf_octree")
+        {
+          unsigned all_nodes_limit = 8*nodes_limit/9;
+          t1 = std::chrono::steady_clock::now();
+          auto scene = sdf_converter::create_sdf_octree(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, max_depth, all_nodes_limit), mesh);
+          t2 = std::chrono::steady_clock::now();
+          float build_time = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+
+          res.build_time_ms = build_time + mesh_bvh_build_time;
+          res.nodes = scene.size();
+          res.memory = sizeof(SdfOctreeNode) * res.nodes;
+          res.valid = true;
+
+          save_sdf_octree({(unsigned)scene.size(), scene.data()}, filename);
+        }
+        else if (structure == "sdf_frame_octree")
+        {
+          unsigned all_nodes_limit = 8*nodes_limit/9;
+          t1 = std::chrono::steady_clock::now();
+          auto scene = sdf_converter::create_sdf_frame_octree(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, max_depth, all_nodes_limit), mesh);
+          t2 = std::chrono::steady_clock::now();
+          float build_time = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+
+          res.build_time_ms = build_time + mesh_bvh_build_time;
+          res.nodes = scene.size();
+          res.memory = sizeof(SdfFrameOctreeNode) * res.nodes;
+          res.valid = true;
+
+          save_sdf_frame_octree({(unsigned)scene.size(), scene.data()}, filename);
+        }
+        else if (structure == "sdf_SVS")
+        {
+          t1 = std::chrono::steady_clock::now();
+          auto scene = sdf_converter::create_sdf_SVS(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, max_depth, nodes_limit), mesh);
+          t2 = std::chrono::steady_clock::now();
+          float build_time = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+
+          res.build_time_ms = build_time + mesh_bvh_build_time;
+          res.nodes = scene.size();
+          res.memory = sizeof(SdfSVSNode) * res.nodes;
+          res.valid = true;
+
+          save_sdf_SVS({(unsigned)scene.size(), scene.data()}, filename);
+        }
+        else if (structure == "sdf_SBS-2-1")
+        {
+          SdfSBSHeader header;
+          header.brick_size = 2;
+          header.brick_pad = 0;
+          header.bytes_per_value = 1;
+
+          t1 = std::chrono::steady_clock::now();
+          auto scene = sdf_converter::create_sdf_SBS(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, max_depth, nodes_limit), header, mesh);
+          t2 = std::chrono::steady_clock::now();
+          float build_time = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+
+          res.build_time_ms = build_time + mesh_bvh_build_time;
+          res.nodes = scene.nodes.size();
+          res.memory = sizeof(SdfSBSNode) * res.nodes + sizeof(uint32_t) * scene.values.size();
+          res.valid = true;
+
+          save_sdf_SBS(scene, filename);
+        }
+        else if (structure == "sdf_SBS-2-2")
+        {
+          SdfSBSHeader header;
+          header.brick_size = 2;
+          header.brick_pad = 0;
+          header.bytes_per_value = 2;
+
+          t1 = std::chrono::steady_clock::now();
+          auto scene = sdf_converter::create_sdf_SBS(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, max_depth, nodes_limit), header, mesh);
+          t2 = std::chrono::steady_clock::now();
+          float build_time = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+
+          res.build_time_ms = build_time + mesh_bvh_build_time;
+          res.nodes = scene.nodes.size();
+          res.memory = sizeof(SdfSBSNode) * res.nodes + sizeof(uint32_t) * scene.values.size();
+          res.valid = true;
+
+          save_sdf_SBS(scene, filename);
+        }
+
+        building_results[full_name] = res;
+        printf("  %32s: %6u nodes, %8u kb, %5.1f s\n", full_name.c_str(), res.nodes, res.memory / 1000, res.build_time_ms/1000.0f);
       }
-      else if (structure == "sdf_hp_octree")
-      {
-        HPOctreeBuilder::BuildSettings settings;
-        settings.threads = 16;
-        settings.target_error = 0.0f;
-        settings.nodesLimit = 9*nodes_limit/8 + 2000;
-
-        t1 = std::chrono::steady_clock::now();
-        auto scene = sdf_converter::create_sdf_hp_octree(settings, mesh);
-        t2 = std::chrono::steady_clock::now();
-        float build_time = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
-
-        res.build_time_ms = build_time;
-        res.nodes = scene.nodes.size();
-        res.memory = sizeof(SdfHPOctreeNode) * scene.nodes.size() + sizeof(float)*scene.data.size();
-        res.valid = true;
-
-        save_sdf_hp_octree(scene, filename);
-      }
-      else if (structure == "sdf_octree")
-      {
-        unsigned all_nodes_limit = 8*nodes_limit/9;
-        t1 = std::chrono::steady_clock::now();
-        auto scene = sdf_converter::create_sdf_octree(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, max_depth, all_nodes_limit), mesh);
-        t2 = std::chrono::steady_clock::now();
-        float build_time = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
-
-        res.build_time_ms = build_time + mesh_bvh_build_time;
-        res.nodes = scene.size();
-        res.memory = sizeof(SdfOctreeNode) * res.nodes;
-        res.valid = true;
-
-        save_sdf_octree({(unsigned)scene.size(), scene.data()}, filename);
-      }
-      else if (structure == "sdf_frame_octree")
-      {
-        unsigned all_nodes_limit = 8*nodes_limit/9;
-        t1 = std::chrono::steady_clock::now();
-        auto scene = sdf_converter::create_sdf_frame_octree(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, max_depth, all_nodes_limit), mesh);
-        t2 = std::chrono::steady_clock::now();
-        float build_time = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
-
-        res.build_time_ms = build_time + mesh_bvh_build_time;
-        res.nodes = scene.size();
-        res.memory = sizeof(SdfFrameOctreeNode) * res.nodes;
-        res.valid = true;
-
-        save_sdf_frame_octree({(unsigned)scene.size(), scene.data()}, filename);
-      }
-      else if (structure == "sdf_SVS")
-      {
-        t1 = std::chrono::steady_clock::now();
-        auto scene = sdf_converter::create_sdf_SVS(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, max_depth, nodes_limit), mesh);
-        t2 = std::chrono::steady_clock::now();
-        float build_time = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
-
-        res.build_time_ms = build_time + mesh_bvh_build_time;
-        res.nodes = scene.size();
-        res.memory = sizeof(SdfSVSNode) * res.nodes;
-        res.valid = true;
-
-        save_sdf_SVS({(unsigned)scene.size(), scene.data()}, filename);
-      }
-      else if (structure == "sdf_SBS-2-1")
-      {
-        SdfSBSHeader header;
-        header.brick_size = 2;
-        header.brick_pad = 0;
-        header.bytes_per_value = 1;
-
-        t1 = std::chrono::steady_clock::now();
-        auto scene = sdf_converter::create_sdf_SBS(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, max_depth, nodes_limit), header, mesh);
-        t2 = std::chrono::steady_clock::now();
-        float build_time = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
-
-        res.build_time_ms = build_time + mesh_bvh_build_time;
-        res.nodes = scene.nodes.size();
-        res.memory = sizeof(SdfSBSNode) * res.nodes + sizeof(uint32_t) * scene.values.size();
-        res.valid = true;
-
-        save_sdf_SBS(scene, filename);
-      }
-      else if (structure == "sdf_SBS-2-2")
-      {
-        SdfSBSHeader header;
-        header.brick_size = 2;
-        header.brick_pad = 0;
-        header.bytes_per_value = 2;
-
-        t1 = std::chrono::steady_clock::now();
-        auto scene = sdf_converter::create_sdf_SBS(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, max_depth, nodes_limit), header, mesh);
-        t2 = std::chrono::steady_clock::now();
-        float build_time = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
-
-        res.build_time_ms = build_time + mesh_bvh_build_time;
-        res.nodes = scene.nodes.size();
-        res.memory = sizeof(SdfSBSNode) * res.nodes + sizeof(uint32_t) * scene.values.size();
-        res.valid = true;
-
-        save_sdf_SBS(scene, filename);
-      }
-
-      building_results[full_name] = res;
-      printf("  %32s: %6u nodes, %8u kb, %5.1f s\n", full_name.c_str(), res.nodes, res.memory / 1000, res.build_time_ms/1000.0f);
+      printf("\n");
     }
-    printf("\n");
+  }
+
+  if (flags & BENCHMARK_FLAG_RENDER_RT)
+  {
+    //render reference image
+    LiteImage::Image2D<uint32_t> image_ref(W, H);
+    MultiRenderPreset preset = getDefaultPreset();
+    preset.mode = MULTI_RENDER_MODE_LAMBERT;
+
+    for (int d_id = 0; d_id < max_depths.size(); d_id++)
+    {
+      for (int s_id = 0; s_id < structures.size(); s_id++)
+      {
+        std::string structure = structures[s_id];
+        std::string full_name = mesh_name + "_" + structure + "_" + size_limit_names[d_id];
+        std::string filename = path + "/" + full_name + "/data.bin";
+        unsigned pass_size = structure == "sdf_octree" ? 1 : base_pass_size;
+
+        LiteImage::Image2D<uint32_t> image(W, H);
+        auto pRender = CreateMultiRenderer("GPU");
+          pRender->SetPreset(preset);
+          if (structure == "mesh")
+            pRender->SetScene(mesh);
+          else if (structure == "sdf_grid")
+          {
+            SdfGrid grid;
+            load_sdf_grid(grid, filename);
+            pRender->SetScene(grid);
+          }
+          else if (structure == "sdf_octree")
+          {
+            std::vector<SdfOctreeNode> octree;
+            load_sdf_octree(octree, filename);
+            pRender->SetScene({ (unsigned)octree.size(), octree.data() });
+          }
+          else if (structure == "sdf_frame_octree")
+          {
+            std::vector<SdfFrameOctreeNode> frame_nodes;
+            load_sdf_frame_octree(frame_nodes, filename);
+            pRender->SetScene({(unsigned)frame_nodes.size(), frame_nodes.data()});
+          }
+          else if (structure == "sdf_SVS")
+          {
+            std::vector<SdfSVSNode> svs_nodes;
+            load_sdf_SVS(svs_nodes, filename);
+            pRender->SetScene({(unsigned)svs_nodes.size(), svs_nodes.data()});
+          }
+          else if (structure == "sdf_SBS-2-1" || structure == "sdf_SBS-2-2")
+          {
+            SdfSBS sbs;
+            load_sdf_SBS(sbs, filename);
+            pRender->SetScene(sbs);
+          }
+          else if (structure == "sdf_hp_octree")
+          {
+            SdfHPOctree hp_octree;
+            load_sdf_hp_octree(hp_octree, filename);
+            pRender->SetScene(hp_octree);
+          }
+
+          double sum_ms[4] = {0,0,0,0};
+          double min_ms[4] = {1e6,1e6,1e6,1e6};
+          double max_ms[4] = {0,0,0,0};
+          render(image, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset, 1);
+          for (int iter = 0; iter<iters; iter++)
+          {
+            float timings[4] = {0,0,0,0};
+            
+            auto t1 = std::chrono::steady_clock::now();
+            pRender->Render(image.data(), image.width(), image.height(), "color", pass_size); 
+            pRender->GetExecutionTime("CastRaySingleBlock", timings);
+            auto t2 = std::chrono::steady_clock::now();
+            
+            float time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+            //printf("%s rendered in %.1f ms. %d kRays/s\n", "SDF Framed Octree", time_ms, (int)((W * H) / time_ms));
+            //printf("CastRaySingleBlock took %.1f ms\n", timings[0]);
+
+            if (iter == 0)
+              LiteImage::SaveImage<uint32_t>((path + "/" + full_name + "/image.bmp").c_str(), image); 
+            for (int i=0;i<4;i++)
+            {
+              min_ms[i] = std::min(min_ms[i], (double)timings[i]);
+              max_ms[i] = std::max(max_ms[i], (double)timings[i]);
+              sum_ms[i] += timings[i];
+            }
+          }
+
+          if (structure == "mesh")
+            image_ref = image;
+
+          float psnr = PSNR(image_ref, image);
+          float4 render_average_time_ms = float4(sum_ms[0], sum_ms[1], sum_ms[2], sum_ms[3])/(iters*pass_size);
+          float4 render_min_time_ms = float4(min_ms[0], min_ms[1], min_ms[2], min_ms[3])/pass_size;
+
+          printf("%40s: PSNR =%6.2f, min:%7.2f + %5.2f, av:%7.2f + %5.2f ms/frame \n", 
+                 full_name.c_str(), 
+                 psnr,
+                 render_min_time_ms.x,
+                 render_min_time_ms.y + render_min_time_ms.z + render_min_time_ms.w,
+                 render_average_time_ms.x,
+                 render_average_time_ms.y + render_average_time_ms.z + render_average_time_ms.w);
+      }
+    }
   }
 }
