@@ -8,8 +8,8 @@
 struct GridSettings
 {
   GridSettings() {};
-  GridSettings(unsigned _depth) { depth = _depth; }
-  unsigned depth = 4;
+  GridSettings(unsigned _size) { size = _size; }
+  unsigned size = 16;
 };
 
 enum class SparseOctreeBuildType

@@ -27,9 +27,9 @@ namespace sdf_converter
 
   SdfGrid create_sdf_grid(GridSettings settings, MultithreadedDistanceFunction sdf, unsigned max_threads)
   {
-    assert(settings.depth >= 1);
+    assert(settings.size >= 1);
 
-    unsigned sz = 1 << settings.depth;
+    unsigned sz = settings.size;
     SdfGrid grid;
     grid.size = uint3(sz, sz, sz);
     //printf("creating grid: %ux%ux%u\n", grid.size.x, grid.size.y, grid.size.z);

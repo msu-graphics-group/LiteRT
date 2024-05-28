@@ -43,7 +43,7 @@ void HPOctreeBuilder::construct(std::function<float(const float3 &, unsigned thr
   //check if nodes actually have surface inside it
   //and mark nodes that are fully inside or outside object as invalid
   //we do not need them in final octree
-  if (true)
+  if (false)
   {
     unsigned remained = 0;
     float distance_thr = 1e-5f;

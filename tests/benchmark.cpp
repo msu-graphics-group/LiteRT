@@ -323,22 +323,28 @@ void hydra_benchmark(const std::string &path)
   std::vector<std::string> structures =          {"sdf_grid", "sdf_octree", "sdf_frame_octree", "sdf_SVS", "sdf_SBS-2-1", "sdf_SBS-2-2", "sdf_hp_octree"};
   std::vector<unsigned> average_bytes_per_node = {         4,            8,                 36,        16,            44,            72,              71};
   
-  std::vector<unsigned> max_depths = {5, 6, 7, 8};
+  std::vector<unsigned> max_depths = {    8,   8,     9,    10};
+  std::vector<float> size_limit_Mb = {0.25f, 1.0f, 4.0f, 16.0f};
   
-  for (auto depth : max_depths)
+  for (int d_id = 0; d_id < max_depths.size(); d_id++)
   {
+    unsigned max_depth = max_depths[d_id];
+
     for (int s_id = 0; s_id < structures.size(); s_id++)
     {
+      unsigned nodes_limit = size_limit_Mb[d_id] * 1000 * 1000 / average_bytes_per_node[s_id];
+      printf("nodes_limit = %u\n", nodes_limit);
       std::string structure = structures[s_id];
-      std::string full_name = mesh_name + "_" + structure + "_" + std::to_string(depth);
+      std::string full_name = mesh_name + "_" + structure + "_" + std::to_string(size_limit_Mb[d_id]);
       std::string filename = path + "/" + full_name + ".bin";
       StructureInfo res;
-      res.max_depth = depth;
+      res.max_depth = max_depth;
 
       if (structure == "sdf_grid")
       {
+        unsigned size = cbrt(nodes_limit);
         t1 = std::chrono::steady_clock::now();
-        auto grid = sdf_converter::create_sdf_grid(GridSettings(depth), mesh);
+        auto grid = sdf_converter::create_sdf_grid(GridSettings(size), mesh);
         t2 = std::chrono::steady_clock::now();
         float build_time = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
 
@@ -353,8 +359,8 @@ void hydra_benchmark(const std::string &path)
       {
         HPOctreeBuilder::BuildSettings settings;
         settings.threads = 16;
-        settings.target_error = 1e-7f;
-        settings.nodesLimit = 5000 + 5000*(depth-5);
+        settings.target_error = 0.0f;
+        settings.nodesLimit = 9*nodes_limit/8 + 2000;
 
         t1 = std::chrono::steady_clock::now();
         auto scene = sdf_converter::create_sdf_hp_octree(settings, mesh);
@@ -370,22 +376,24 @@ void hydra_benchmark(const std::string &path)
       }
       else if (structure == "sdf_octree")
       {
-          t1 = std::chrono::steady_clock::now();
-          auto scene = sdf_converter::create_sdf_octree(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, depth), mesh);
-          t2 = std::chrono::steady_clock::now();
-          float build_time = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+        unsigned all_nodes_limit = 8*nodes_limit/9;
+        t1 = std::chrono::steady_clock::now();
+        auto scene = sdf_converter::create_sdf_octree(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, max_depth, all_nodes_limit), mesh);
+        t2 = std::chrono::steady_clock::now();
+        float build_time = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
 
-          res.build_time_ms = build_time + mesh_bvh_build_time;
-          res.nodes = scene.size();
-          res.memory = sizeof(SdfOctreeNode) * res.nodes;
-          res.valid = true;
+        res.build_time_ms = build_time + mesh_bvh_build_time;
+        res.nodes = scene.size();
+        res.memory = sizeof(SdfOctreeNode) * res.nodes;
+        res.valid = true;
 
-          save_sdf_octree({(unsigned)scene.size(), scene.data()}, filename);
+        save_sdf_octree({(unsigned)scene.size(), scene.data()}, filename);
       }
       else if (structure == "sdf_frame_octree")
       {
+        unsigned all_nodes_limit = 8*nodes_limit/9;
         t1 = std::chrono::steady_clock::now();
-        auto scene = sdf_converter::create_sdf_frame_octree(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, depth), mesh);
+        auto scene = sdf_converter::create_sdf_frame_octree(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, max_depth, all_nodes_limit), mesh);
         t2 = std::chrono::steady_clock::now();
         float build_time = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
 
@@ -399,7 +407,7 @@ void hydra_benchmark(const std::string &path)
       else if (structure == "sdf_SVS")
       {
         t1 = std::chrono::steady_clock::now();
-        auto scene = sdf_converter::create_sdf_SVS(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, depth), mesh);
+        auto scene = sdf_converter::create_sdf_SVS(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, max_depth, nodes_limit), mesh);
         t2 = std::chrono::steady_clock::now();
         float build_time = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
 
@@ -418,7 +426,7 @@ void hydra_benchmark(const std::string &path)
         header.bytes_per_value = 1;
 
         t1 = std::chrono::steady_clock::now();
-        auto scene = sdf_converter::create_sdf_SBS(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, depth), header, mesh);
+        auto scene = sdf_converter::create_sdf_SBS(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, max_depth, nodes_limit), header, mesh);
         t2 = std::chrono::steady_clock::now();
         float build_time = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
 
@@ -437,7 +445,7 @@ void hydra_benchmark(const std::string &path)
         header.bytes_per_value = 2;
 
         t1 = std::chrono::steady_clock::now();
-        auto scene = sdf_converter::create_sdf_SBS(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, depth), header, mesh);
+        auto scene = sdf_converter::create_sdf_SBS(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, max_depth, nodes_limit), header, mesh);
         t2 = std::chrono::steady_clock::now();
         float build_time = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
 
