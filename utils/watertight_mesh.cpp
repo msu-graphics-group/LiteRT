@@ -35,6 +35,116 @@ namespace cmesh4
   LiteMath::float3 float4_to_float3(LiteMath::float4 m);
 
 
+
+  float coarse_triangulation(std::vector<LiteMath::float4>& mesh_vertices,
+                            std::map<uint2, std::vector<float>, cmpUint2>& weights_of_sides,
+                            std::vector<unsigned int>& vertex_numbs,
+                            unsigned int a, unsigned int c){
+    if(c == a + 1){
+      return 0;
+    }
+
+    auto it = weights_of_sides.find({a, c});
+    if (it != weights_of_sides.end()){
+      return weights_of_sides[{a, c}][0];
+    }
+
+
+    float w, w1, w2;
+    LiteMath::float4 p1 = mesh_vertices[vertex_numbs[a]];
+    LiteMath::float4 p2 = mesh_vertices[vertex_numbs[c]];
+    LiteMath::float4 p3;
+    float p = 0;
+
+    for(unsigned int b = a + 1; b < c; b++){
+      w1 = coarse_triangulation(mesh_vertices, weights_of_sides, vertex_numbs, std::min(a, b), std::max(a, b));
+      w2 = coarse_triangulation(mesh_vertices, weights_of_sides, vertex_numbs, std::min(b, c), std::max(b, c));
+      p3 = mesh_vertices[vertex_numbs[b]];
+
+      p += sqrt(pow((p1.x - p2.x), 2) + pow((p1.y - p2.y), 2) + pow((p1.z - p2.z), 2));
+      p += sqrt(pow((p1.x - p3.x), 2) + pow((p1.y - p3.y), 2) + pow((p1.z - p3.z), 2));
+      p += sqrt(pow((p3.x - p2.x), 2) + pow((p3.y - p2.y), 2) + pow((p3.z - p2.z), 2));
+
+
+      w = w1 + w2 + p;
+
+      auto it = weights_of_sides.find({a, c});
+      if (it == weights_of_sides.end())
+        weights_of_sides[{a, c}] = {w, float(a), float(b), float(c)};
+      else
+        if(weights_of_sides[{a, c}][0] > w)
+          weights_of_sides[{a, c}] = {w, float(a), float(b), float(c)};
+    }
+    return weights_of_sides[{a, c}][0];
+  }
+
+
+  void instead_of_hole(std::vector<unsigned int>& no_hole,
+                       std::vector<unsigned int> vertex_numbs,
+                       std::map<uint2, std::vector<float>, cmpUint2>& weights_of_sides,
+                       unsigned int m1, unsigned int m2){
+    unsigned int a, b, c;
+
+    auto it = weights_of_sides.find({m1, m2});
+    if(it != weights_of_sides.end()){
+      a = vertex_numbs[weights_of_sides[{m1, m2}][1]];
+      b = vertex_numbs[weights_of_sides[{m1, m2}][2]];
+      c = vertex_numbs[weights_of_sides[{m1, m2}][3]];
+
+      no_hole.push_back(a);
+      no_hole.push_back(b);
+      no_hole.push_back(c);
+
+      auto p = find(vertex_numbs.begin(), vertex_numbs.end(), b);
+      if(p != vertex_numbs.end()){
+        b = p - vertex_numbs.begin();
+      }
+
+      p = find(vertex_numbs.begin(), vertex_numbs.end(), a);
+      if(p != vertex_numbs.end()){
+        a = p - vertex_numbs.begin();
+        instead_of_hole(no_hole, vertex_numbs, weights_of_sides, std::min(a, b), std::max(a, b));
+      }
+
+      p = find(vertex_numbs.begin(), vertex_numbs.end(), c);
+      if(p != vertex_numbs.end()){
+        c = p - vertex_numbs.begin();
+        instead_of_hole(no_hole, vertex_numbs, weights_of_sides, std::min(b, c), std::max(b, c));
+      }
+    }
+  }
+
+  cmesh4::SimpleMesh filling_holes(cmesh4::SimpleMesh mesh,
+                                         std::vector<std::vector<unsigned int>>& vect_of_holes,
+                                         std::vector<LiteMath::float4>& mesh_vertices,
+                                         std::vector<unsigned int>& mesh_indices){
+    std::map<uint2, std::vector<float>, cmpUint2> weights_of_sides;
+    std::vector<unsigned int> vertex_numbs; // the element in vertex_numbers is the vertex itself, and its position is its number
+
+    for(unsigned int i = 0; i < vect_of_holes[0].size(); i+=2)
+      vertex_numbs.push_back(vect_of_holes[0][i]);
+
+    coarse_triangulation(mesh_vertices, weights_of_sides, vertex_numbs, 0, vertex_numbs.size() - 1);
+
+    std::vector<unsigned int> mesh_indices_without_holes = mesh_indices;
+
+
+    std::vector<unsigned int> no_hole; // 3 numbers form a triangle
+    instead_of_hole(no_hole, vertex_numbs, weights_of_sides, 0, vertex_numbs.size() - 1);
+
+    
+    for(unsigned int i = 0; i < no_hole.size(); i+=3){
+      mesh_indices_without_holes.push_back(no_hole[i]);
+      mesh_indices_without_holes.push_back(no_hole[i + 1]);
+      mesh_indices_without_holes.push_back(no_hole[i + 2]);
+    }
+
+    mesh.indices = mesh_indices_without_holes;
+
+    return mesh;
+  }
+
+
   // Looking for holes in the mesh
   std::vector<std::vector<unsigned int>> holes_search(std::vector<uint2>& vec_edge_occurs_1time){
     std::vector<unsigned int> vertex_vec;
@@ -102,13 +212,29 @@ namespace cmesh4
         }
       }
       if(fl){
+        for(unsigned int q = 0; q < del_vect.size() - 2; q+=2){
+          if(del_vect[q + 1] == del_vect[q + 2])
+            continue;
+          else if(del_vect[q] == del_vect[q + 2])
+            std::swap(del_vect[q], del_vect[q + 1]);
+          else if (del_vect[q] == del_vect[q + 3]){
+            std::swap(del_vect[q], del_vect[q + 1]);
+            std::swap(del_vect[q + 2], del_vect[q + 3]);
+          }
+          else if(del_vect[q + 1] == del_vect[q + 3])
+            std::swap(del_vect[q + 2], del_vect[q + 3]);
+        }
+
+
         vect_of_holes.push_back(del_vect);
         std::cout << "size vect_of_holes: " << vect_of_holes.size() << std::endl;
         std::cout << "size del_vect: " << del_vect.size() << std::endl;
+
         i = -2;
       }
       del_vect.clear();
     }
+
     return vect_of_holes;
   }
 
@@ -141,7 +267,6 @@ namespace cmesh4
 
     std::map<uint2, std::vector<unsigned int>, cmpUint2> edge_in_planes;
 
-    //printf("indices %d\n", (int)(mesh_indices.size()/3));
     for (int i=0;i<mesh_indices.size();i+=3)
     {
       unsigned i1 = vert_remap[mesh_indices[i]];
@@ -177,6 +302,7 @@ namespace cmesh4
     for (auto it = edge_in_planes.begin(); it != edge_in_planes.end(); it++)
     {
       if (it->second.size() < 2){
+        // printf("%d edge (%u %u), %d triangles\n", i, it->first.x, it->first.y, (int)it->second.size());
         hanging_edges++;
         if(it->second.size() == 1){
           // count++;
@@ -189,8 +315,18 @@ namespace cmesh4
       i++;
     }
 
-    //holes_search(vec_edge_occurs_1time);
+    if(vec_edge_occurs_1time.size() != 0){
+      std::vector<std::vector<unsigned int>> vect_of_holes = holes_search(vec_edge_occurs_1time);
 
+      if(vect_of_holes.size() != 0){
+        if(vect_of_holes[0].size() != 0){
+          const cmesh4::SimpleMesh mesh_without_holes = filling_holes(mesh, vect_of_holes, mesh_vertices, mesh_indices);
+          std::cout << "\n----------------------------\n";
+          fast_watertight(mesh_without_holes, verbose);
+        }
+      }
+    }
+    
     bool watertight = true;
     if (hanging_edges > 0)
     {
