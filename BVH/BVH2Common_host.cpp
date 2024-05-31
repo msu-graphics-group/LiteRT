@@ -454,8 +454,9 @@ uint32_t BVHRT::AddGeom_SdfSVS(SdfSVSView octree, BuildOptions a_qualityLevel)
   float4 mx = float4( 1, 1, 1,1);
 
   //choose only those node that have both positive and negative values in distance array, i.e. borders
-  std::vector<SdfSVSNode> border_nodes;
-  border_nodes.reserve(octree.size);
+  std::vector<SdfSVSNode> border_nodes(octree.nodes, octree.nodes+octree.size);
+
+/*border_nodes.reserve(octree.size);
   for (int i=0;i<octree.size;i++)
   {
     float sz = octree.nodes[i].pos_z_lod_size & 0x0000FFFF;
@@ -474,7 +475,7 @@ uint32_t BVHRT::AddGeom_SdfSVS(SdfSVSView octree, BuildOptions a_qualityLevel)
 
     if (less)
       border_nodes.push_back(octree.nodes[i]);
-  }
+  }*/ 
 
   //fill geom data array
   GeomData geomData;
@@ -974,11 +975,11 @@ void add_border_nodes_rec(const SdfFrameOctreeView &octree, std::vector<BVHNode>
     {
       if (octree.nodes[idx].values[i] <= 0)
         less = true;
-      else if (octree.nodes[idx].values[i] >= 0)
+      else if (octree.nodes[idx].values[i] >= -sqrt(3)*d)
         more = true;
     }
 
-    if (less && more)
+    if (true)
     {
       float3 min_pos = 2.0f*(d*p) - 1.0f;
       float3 max_pos = min_pos + 2.0f*d*float3(1,1,1);

@@ -216,9 +216,9 @@ void BVHRT::OctreeNodeIntersect(uint32_t type, const float3 ray_pos, const float
     fNearFar = RayBoxIntersection2(ray_pos, SafeInverse(ray_dir), min_pos, max_pos);
     float3 start_pos = ray_pos + fNearFar.x*ray_dir;
     d = std::max(size.x, std::max(size.y, size.z));
-    start_q = (start_pos - min_pos)/(2.0f*d);
-    qFar = (fNearFar.y - fNearFar.x) / (2.0f * d);
-    qNear = tNear > fNearFar.x ? (tNear - fNearFar.x) / (2.0f * d) : 0.0f;
+    start_q = (start_pos - min_pos) / d;
+    qFar = (fNearFar.y - fNearFar.x) / d;
+    qNear = tNear > fNearFar.x ? (tNear - fNearFar.x) / d : 0.0f;
 #endif
   }
   else if (type == TYPE_SDF_SVS)
@@ -244,9 +244,9 @@ void BVHRT::OctreeNodeIntersect(uint32_t type, const float3 ray_pos, const float
     fNearFar = RayBoxIntersection2(ray_pos, SafeInverse(ray_dir), min_pos, max_pos);
     float3 start_pos = ray_pos + fNearFar.x*ray_dir;
     d = std::max(size.x, std::max(size.y, size.z));
-    start_q = (start_pos - min_pos)/(2.0f*d);
-    qFar = (fNearFar.y - fNearFar.x) / (2.0f * d);
-    qNear = tNear > fNearFar.x ? (tNear - fNearFar.x) / (2.0f * d) : 0.0f;
+    start_q = (start_pos - min_pos) / d;
+    qFar = (fNearFar.y - fNearFar.x) / d;
+    qNear = tNear > fNearFar.x ? (tNear - fNearFar.x) / d : 0.0f;
 #endif
   }
   else //if (type == TYPE_SDF_SBS)
@@ -285,9 +285,9 @@ void BVHRT::OctreeNodeIntersect(uint32_t type, const float3 ray_pos, const float
     fNearFar = RayBoxIntersection2(ray_pos, SafeInverse(ray_dir), min_pos, max_pos);
     float3 start_pos = ray_pos + fNearFar.x*ray_dir;
     d = std::max(size.x, std::max(size.y, size.z));
-    start_q = (start_pos - min_pos)/(2.0f*d);
-    qFar = (fNearFar.y - fNearFar.x) / (2.0f * d);
-    qNear = tNear > fNearFar.x ? (tNear - fNearFar.x) / (2.0f * d) : 0.0f;
+    start_q = (start_pos - min_pos) / d;
+    qFar = (fNearFar.y - fNearFar.x) / d;
+    qNear = tNear > fNearFar.x ? (tNear - fNearFar.x) / d : 0.0f;
 #endif
   }
 
@@ -312,7 +312,7 @@ void BVHRT::OctreeNodeIntersect(uint32_t type, const float3 ray_pos, const float
 
     while (t < qFar && dist > EPS && iter < ST_max_iters)
     {
-      t += dist / (2.0f * d);
+      t += dist / d;
       dist = eval_dist_trilinear(values, start_q + t * ray_dir);
       float3 pp = start_q + t * ray_dir;
       iter++;
@@ -541,7 +541,7 @@ void BVHRT::OctreeNodeIntersect(uint32_t type, const float3 ray_pos, const float
         float df_2 = 3*c3*(t+e)*(t+e) + 2*c2*(t+e) + c1;
         float L = (t_max > t && t_max < t + e) ? std::max(df_max, std::max(df_1, df_2)) : std::max(df_1, df_2);
         L = std::max(L, EPS);
-        float s = std::min((dist / (2.0f * d))/L, e);
+        float s = std::min((dist / d)/L, e);
         t += s;
         e = k*s;
         dist = eval_dist_trilinear(values, start_q + t * ray_dir);
