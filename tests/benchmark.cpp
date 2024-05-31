@@ -301,7 +301,10 @@ void hydra_benchmark(const std::string &path, unsigned flags,
                      std::string image_prefix,
                      std::vector<std::string> use_structure,
                      std::vector<std::string> use_size,
-                     std::vector<std::string> use_render)
+                     std::vector<std::string> use_intersect,
+                     unsigned base_pass_size = 10,
+                     unsigned base_iters = 10,
+                     std::string render_device = "GPU")
 {
   struct StructureInfo
   {
@@ -312,6 +315,7 @@ void hydra_benchmark(const std::string &path, unsigned flags,
     bool valid = false;
   };
 
+  unsigned W = 1000, H = 1000;
   const std::string mesh_name = "teapot";
   const std::string mesh_path = path + "/mesh.vsgf";
   auto mesh = cmesh4::LoadMeshFromVSGF(mesh_path.c_str());
@@ -325,18 +329,14 @@ void hydra_benchmark(const std::string &path, unsigned flags,
 
   std::map<std::string, StructureInfo> building_results;
 
-  constexpr unsigned base_pass_size = 10;
-  constexpr unsigned base_iters = 10;
-  unsigned W = 1000, H = 1000;
-
   //different types of structures
   std::vector<std::string> structures =          {"mesh", "sdf_grid", "sdf_octree", "sdf_frame_octree", "sdf_SVS", "sdf_SBS-2-1", "sdf_SBS-2-2", "sdf_hp_octree"};
-  std::vector<unsigned> average_bytes_per_node = {      0,         4,            8,                 36,        16,            44,            72,              71};
+  std::vector<unsigned> average_bytes_per_node = {     0,          4,            8,                 36,        16,            44,            72,              71};
   
   //different sizes
-  std::vector<unsigned> max_depths =          {      8,     8,     9,     10};
-  std::vector<float> size_limit_Mb =          {  0.25f,  1.0f,  4.0f,  16.0f};
-  std::vector<std::string> size_limit_names = {"250Kb", "1Mb", "4Mb", "16Mb"};
+  std::vector<unsigned> max_depths =          {      8,      8,      8,     8,     8,     9,     9,     10,     10,     10};
+  std::vector<float> size_limit_Mb =          { 0.125f,  0.25f,   0.5f,  1.0f,  2.0f,  4.0f,  8.0f,  16.0f,  32.0f,  64.0f};
+  std::vector<std::string> size_limit_names = {"125Kb","250Kb","500Kb", "1Mb", "2Mb", "4Mb", "8Mb", "16Mb", "32Mb", "64Mb"};
 
   //different render modes
   std::vector<unsigned> blas_mode      = {SDF_OCTREE_BLAS_NO, 
@@ -352,31 +352,34 @@ void hydra_benchmark(const std::string &path, unsigned flags,
                                           SDF_OCTREE_NODE_INTERSECT_ST, 
                                           SDF_OCTREE_NODE_INTERSECT_ANALYTIC, 
                                           SDF_OCTREE_NODE_INTERSECT_NEWTON,
-                                          SDF_OCTREE_NODE_INTERSECT_BBOX,
-                                          SDF_OCTREE_NODE_INTERSECT_IT};
+                                          SDF_OCTREE_NODE_INTERSECT_IT,
+                                          SDF_OCTREE_NODE_INTERSECT_BBOX};
 
-  std::vector<std::string> render_mode_names = {"no_bvh_traversal",
-                                                "bvh_traversal",
-                                                "bvh_sphere_tracing",
-                                                "bvh_analytic",
-                                                "bvh_newton",
-                                                "bvh_interval_tracing",
-                                                "bvh_nodes"};
+  std::vector<std::string> intersect_mode_names = {"no_bvh_traversal",
+                                                   "bvh_traversal",
+                                                   "bvh_sphere_tracing",
+                                                   "bvh_analytic",
+                                                   "bvh_newton",
+                                                   "bvh_interval_tracing",
+                                                   "bvh_nodes"};
 
   if (flags & BENCHMARK_FLAG_BUILD)
   {
     for (int d_id = 0; d_id < max_depths.size(); d_id++)
     {
       unsigned max_depth = max_depths[d_id];
+      std::string size_limit = size_limit_names[d_id];
+      if (std::find(use_size.begin(), use_size.end(), size_limit) == use_size.end())
+        continue;
 
       for (int s_id = 0; s_id < structures.size(); s_id++)
       {
-        if (structures[s_id] == "mesh")
-          continue;
-        unsigned nodes_limit = size_limit_Mb[d_id] * 1000 * 1000 / average_bytes_per_node[s_id];
-        //printf("nodes_limit = %u\n", nodes_limit);
         std::string structure = structures[s_id];
-        std::string full_name = mesh_name + "_" + structure + "_" + size_limit_names[d_id];
+        if (structure == "mesh" || std::find(use_structure.begin(), use_structure.end(), structure) == use_structure.end())
+          continue;
+        
+        unsigned nodes_limit = size_limit_Mb[d_id] * 1000 * 1000 / average_bytes_per_node[s_id];
+        std::string full_name = mesh_name + "_" + structure + "_" + size_limit;
         std::filesystem::create_directory(path + "/" + full_name);
         std::string filename = path + "/" + full_name + "/data.bin";
         StructureInfo res;
@@ -506,7 +509,7 @@ void hydra_benchmark(const std::string &path, unsigned flags,
     }
   }
 
-  if (flags & BENCHMARK_FLAG_RENDER_RT)
+  if (flags & BENCHMARK_FLAG_RENDER_RT || flags & BENCHMARK_FLAG_RENDER_DEPTH)
   {
     //render reference image
     std::vector<LiteImage::Image2D<uint32_t>> image_ref(base_iters, LiteImage::Image2D<uint32_t>(W, H));
@@ -524,10 +527,10 @@ void hydra_benchmark(const std::string &path, unsigned flags,
           continue;
         bool mesh_rendered = false;
 
-        for (int r_id = 0; r_id < render_mode_names.size(); r_id++)
+        for (int r_id = 0; r_id < intersect_mode_names.size(); r_id++)
         {
-          std::string render_mode = render_mode_names[r_id];
-          if (std::find(use_render.begin(), use_render.end(), render_mode) == use_render.end())
+          std::string render_mode = intersect_mode_names[r_id];
+          if (std::find(use_intersect.begin(), use_intersect.end(), render_mode) == use_intersect.end())
             continue;
           
           if (structure == "mesh")
@@ -544,12 +547,21 @@ void hydra_benchmark(const std::string &path, unsigned flags,
           unsigned iters = structure == "sdf_octree" ? 1 : base_iters;
 
           MultiRenderPreset preset = getDefaultPreset();
-          preset.mode = MULTI_RENDER_MODE_LAMBERT;
+          preset.mode = flags & BENCHMARK_FLAG_RENDER_RT ? MULTI_RENDER_MODE_LAMBERT : MULTI_RENDER_MODE_LINEAR_DEPTH;
           preset.sdf_frame_octree_blas = blas_mode[r_id];
           preset.sdf_frame_octree_intersect = intersect_mode[r_id];
 
           LiteImage::Image2D<uint32_t> image(W, H);
-          auto pRender = CreateMultiRenderer("GPU");
+            double sum_ms[4] = {0,0,0,0};
+            double min_ms[4] = {1e6,1e6,1e6,1e6};
+            double max_ms[4] = {0,0,0,0};
+            float psnr = 0.0f;
+
+            for (int iter = 0; iter<iters; iter++)
+            {
+              const float dist = 3;
+              const float3 pos = dist*float3(sin(2.0f*M_PI*iter/iters), 0, cos(2.0f*M_PI*iter/iters));
+              auto pRender = CreateMultiRenderer(render_device.c_str());
             pRender->SetPreset(preset);
             if (structure == "mesh")
             {
@@ -593,15 +605,6 @@ void hydra_benchmark(const std::string &path, unsigned flags,
               pRender->SetScene(hp_octree);
             }
 
-            double sum_ms[4] = {0,0,0,0};
-            double min_ms[4] = {1e6,1e6,1e6,1e6};
-            double max_ms[4] = {0,0,0,0};
-            float psnr = 0.0f;
-
-            for (int iter = 0; iter<iters; iter++)
-            {
-              const float dist = 3;
-              const float3 pos = dist*float3(sin(2.0f*M_PI*iter/iters), 0, cos(2.0f*M_PI*iter/iters));
               render(image, pRender, pos, float3(0,0,0), float3(0,1,0), preset, 1);
 
               float timings[4] = {0,0,0,0};  
@@ -645,17 +648,17 @@ void hydra_benchmark(const std::string &path, unsigned flags,
 void hydra_benchmark(const std::string &path, unsigned flags)
 {
   hydra_benchmark(path, flags, "image", 
-  std::vector<std::string>{"sdf_frame_octree", "sdf_SVS"},
-  std::vector<std::string>{"250Kb", "1Mb", "4Mb", "16Mb"},
-  std::vector<std::string>{"bvh_traversal", "bvh_sphere_tracing", "bvh_analytic", "bvh_newton", "bvh_interval_tracing", "bvh_nodes"});
-
-  hydra_benchmark(path, flags, "image", 
-  std::vector<std::string>{"mesh", "sdf_octree"},
-  std::vector<std::string>{"250Kb", "1Mb", "4Mb", "16Mb"},
-  std::vector<std::string>{"no_bvh_traversal", "bvh_traversal", "bvh_sphere_tracing"});
-
-  hydra_benchmark(path, flags, "image", 
   std::vector<std::string>{"mesh", "sdf_grid", "sdf_octree", "sdf_frame_octree", "sdf_SVS", "sdf_SBS-2-1", "sdf_SBS-2-2", "sdf_hp_octree"},
-  std::vector<std::string>{"250Kb", "1Mb", "4Mb", "16Mb"},
+  std::vector<std::string>{"125Kb","250Kb","500Kb", "1Mb", "2Mb", "4Mb", "8Mb", "16Mb", "32Mb", "64Mb"},
   std::vector<std::string>{"bvh_newton"});
+
+  hydra_benchmark(path, BENCHMARK_FLAG_RENDER_RT, "image", 
+  std::vector<std::string>{"sdf_SVS"},
+  std::vector<std::string>{"125Kb","250Kb","500Kb", "1Mb", "2Mb", "4Mb", "8Mb", "16Mb", "32Mb", "64Mb"},
+  std::vector<std::string>{"bvh_traversal", "bvh_sphere_tracing", "bvh_analytic", "bvh_newton", "bvh_interval_tracing"});
+
+  hydra_benchmark(path, BENCHMARK_FLAG_RENDER_DEPTH, "depth", 
+  std::vector<std::string>{"sdf_SVS"},
+  std::vector<std::string>{"125Kb","250Kb","500Kb", "1Mb", "2Mb", "4Mb", "8Mb", "16Mb", "32Mb", "64Mb"},
+  std::vector<std::string>{"bvh_traversal", "bvh_sphere_tracing", "bvh_analytic", "bvh_newton", "bvh_interval_tracing"});
 }
