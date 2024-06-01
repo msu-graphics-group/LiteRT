@@ -166,7 +166,7 @@ struct BVHRT : public ISceneObject
 
 #ifndef KERNEL_SLICER  
   std::vector<BVHNode> GetBoxes_RFGrid(RFScene grid, std::vector<float>& sparseGrid, std::vector<uint4>& sparsePtrs);
-  std::vector<BVHNode> GetBoxes_GSGrid(const GSScene& grid, std::vector<int32_t>& m_gs_indices, std::vector<Box4f>& m_gs_nodes);
+  std::vector<BVHNode> GetBoxes_GSGrid(GSScene& grid, std::vector<int32_t>& m_gs_indices, std::vector<Box4f>& m_gs_nodes);
   std::vector<BVHNode> GetBoxes_SdfGrid(SdfGridView grid);
   std::vector<BVHNode> GetBoxes_SdfOctree(SdfOctreeView octree);
   std::vector<BVHNode> GetBoxes_SdfFrameOctree(SdfFrameOctreeView octree);
@@ -228,7 +228,12 @@ struct BVHRT : public ISceneObject
   // GS data
   std::vector<float4x4> m_gs_data_0{};
 
-  std::vector<float4x4> m_gs_conic{};
+  std::vector<float3> m_gs_cov_2d{};
+  std::vector<float3> m_gs_conic_2d{};
+
+  std::vector<float4x4> m_gs_cov_3d{};
+  std::vector<float4x4> m_gs_conic_3d{};
+
   std::vector<int32_t> m_gs_indices{};
   std::vector<Box4f> m_gs_nodes{};
 

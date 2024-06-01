@@ -1,7 +1,5 @@
 #include <cfloat>
 #include <cstring>
-#include <sstream>
-//#include <iomanip>   
 
 #include "eye_ray.h"
 #include "../render_common.h"
@@ -44,27 +42,6 @@ void MultiRenderer::kernel_InitEyeRay(uint32_t tidX, float4* rayPosAndNear, floa
   transform_ray3f(m_worldViewInv, 
                   &rayPos, &rayDir);
   
-  rayPos = float3(0.0, 2.73726, 2.9592917);
-
-  float x_coords = float(x) + 0.5f;
-  float y_coords = float(y) + 0.5f;
-
-  float focal = 1111.1110311937682;
-
-  LiteMath::float3x3 rotation = {
-    float3(-0.99999994, 0.0, 0.0),
-    float3(0.0, -0.73411, 0.6790306),
-    float3(0.0, 0.67903066, 0.7341099)
-  };
-
-  rayDir = normalize(
-    rotation * float3(
-      (x_coords - m_width  * 0.5f) / focal,
-      -(y_coords - m_height * 0.5f) / focal,
-      -1.0f
-    )
-  );
-
   *rayPosAndNear = to_float4(rayPos, 0.0f);
   *rayDirAndFar  = to_float4(rayDir, 1e9f);
 }
@@ -92,14 +69,6 @@ void MultiRenderer::kernel_RayTrace(uint32_t tidX, const float4* rayPosAndNear,
     out_color[y * m_width + x] = 0;
     return;
   }
-  else
-  {
-    float3 norm(hit.coords[2], hit.coords[3], sqrt(max(0.0f, 1-hit.coords[2]*hit.coords[2] - hit.coords[3]*hit.coords[3])));
-    float q = max(0.1f, dot(norm, normalize(float3(1,1,1))));
-    uint32_t col= uint32_t(255*q);
-    out_color[y * m_width + x] = 0xFF000000 | (col<<16) | (col<<8) | col;
-    //out_color[y * m_width + x] = m_palette[(hit.primId) % palette_size];
-  } 
 
   float z = hit.t;
   float z_near = 0.1;
@@ -231,8 +200,78 @@ void MultiRenderer::kernel_RayTrace(uint32_t tidX, const float4* rayPosAndNear,
     break;
     case MULTI_RENDER_MODE_GS:
     {
-      uint3 col = uint3(255.0f * clamp(float3(hit.coords[1], hit.coords[2], hit.coords[3]), 0.0f, 1.0f));
-      out_color[y * m_width + x] = 0xFF000000U | (col.z << 16U) | (col.y << 8U) | col.x;
+      std::sort(
+        hit.gaussians.begin(),
+        hit.gaussians.end(),
+        [](const auto& left, const auto& right) {
+          return std::get<1>(left) < std::get<1>(right);
+        }
+      );
+
+      // const auto last = std::unique(
+      //   hit.gaussians.begin(),
+      //   hit.gaussians.end(), 
+      //   [](const auto& left, const auto& right) {
+      //     return std::get<0>(left) == std::get<0>(right);
+      //   }
+      // );
+
+      // hit.gaussians.erase(last, hit.gaussians.end());
+
+      // std::sort(
+      //   hit.gaussians.begin(),
+      //   hit.gaussians.end(),
+      //   [](const auto& left, const auto& right) {
+      //     return std::get<1>(left) < std::get<1>(right);
+      //   }
+      // );
+
+      float4 col = float4(0.0f, 0.0f, 0.0f, 1.0f);
+
+      for (auto& [i, distance_to_center, intersection, mean, diffuse_color, opacity, conic_3d] : hit.gaussians) {
+        const auto distance_to_intersection = intersection - mean;
+
+        const auto power_a = (
+            conic_3d[0][0] * distance_to_intersection.x * distance_to_intersection.x +
+            conic_3d[1][1] * distance_to_intersection.y * distance_to_intersection.y +
+            conic_3d[2][2] * distance_to_intersection.z * distance_to_intersection.z
+        );
+
+        const auto power_b = (
+            conic_3d[0][1] * distance_to_intersection.x * distance_to_intersection.y +
+            conic_3d[0][2] * distance_to_intersection.x * distance_to_intersection.z +
+            conic_3d[1][2] * distance_to_intersection.y * distance_to_intersection.z
+        );
+
+        const auto power  = -0.5f * power_a - power_b;
+
+        if (power > 0.0f) {
+            continue;
+        }
+
+        const auto alpha = min(0.99f, opacity * float(exp(power)));
+
+        if (alpha < 1.0f / 255.0f) {
+            continue;
+        }
+
+        const auto transparency = col.w * (1.0f - alpha);
+
+        if (transparency < 0.0001f) { 
+            break;
+        }
+
+        const auto weight = alpha * col.w;
+
+        col.x += (0.5f + diffuse_color.x) * weight;
+        col.y += (0.5f + diffuse_color.y) * weight;
+        col.z += (0.5f + diffuse_color.z) * weight;
+
+        col.w = transparency;
+      }
+
+      const auto color = uint3(255.0f * clamp(float3(col.x, col.y, col.z), 0.0f, 1.0f));
+      out_color[y * m_width + x] = 0xFF000000U | (color.z << 16U) | (color.y << 8U) | color.x;
     }
     break;
     default:

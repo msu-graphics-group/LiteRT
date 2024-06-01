@@ -237,8 +237,9 @@ float4x4 Transpose(float4x4& a) {
     return b;
 }
 
-std::vector<float4x4> ComputeCovarianceMatrices(std::vector<float4x4>& m_gs_data_0) {
+std::vector<float4x4> ComputeCovarianceMatrices3D(std::vector<float4x4>& m_gs_data_0) {
     std::vector<float4x4> covariance_matrices;
+    covariance_matrices.reserve(m_gs_data_0.size());
 
     for (int i = 0; i < m_gs_data_0.size(); ++i) {
         float4x4 S = float4x4(
@@ -270,7 +271,81 @@ std::vector<float4x4> ComputeCovarianceMatrices(std::vector<float4x4>& m_gs_data
     return covariance_matrices;
 }
 
-std::vector<float4x4> InvertMatrices(std::vector<float4x4>&& matrices) {
+std::vector<float3> ComputeCovarianceMatrices2D(std::vector<float4x4>& m_gs_data_0,
+                                                std::vector<float4x4>& m_gs_cov_3d,
+                                                float4x4& view_matrix,
+                                                const float focal_x,
+                                                const float focal_y,
+                                                const float tan_fovx,
+                                                const float tan_fovy) {
+    std::vector<float3> covariance_matrices;
+    covariance_matrices.reserve(m_gs_data_0.size());
+
+    for (int i = 0; i < m_gs_data_0.size(); ++i) {
+      float3 t = float3(
+        m_gs_data_0[i][0][0],
+        -m_gs_data_0[i][0][1],
+        5.0f - m_gs_data_0[i][0][2]
+      );
+
+      const float limx = 1.3f * tan_fovx;
+      const float limy = 1.3f * tan_fovy;
+
+      const float txtz = t.x / t.z;
+      const float tytz = t.y / t.z;
+
+      t.x = min(limx, max(-limx, txtz)) * t.z;
+      t.y = min(limy, max(-limy, tytz)) * t.z;
+
+      float4x4 J = float4x4(
+        focal_x / t.z, 0.0f,          -(focal_x * t.x) / (t.z * t.z), 0.0f,
+        0.0f,          focal_y / t.z, -(focal_y * t.y) / (t.z * t.z), 0.0f,
+        0.0f,          0.0f,          0.0f,                           0.0f,
+        0.0f,          0.0f,          0.0f,                           0.0f);
+
+      m_gs_cov_3d[i][0][1] *= -1.0f;
+      m_gs_cov_3d[i][0][2] *= -1.0f;
+      m_gs_cov_3d[i][1][0] *= -1.0f;
+      m_gs_cov_3d[i][2][0] *= -1.0f;
+
+      float4x4 cov = J * transpose(m_gs_cov_3d[i]) * transpose(J);
+
+      cov[0][0] += 0.3f;
+      cov[1][1] += 0.3f;
+
+      covariance_matrices.push_back(float3(cov[0][0], cov[0][1], cov[1][1]));
+    }
+
+    return covariance_matrices;
+}
+
+std::vector<float3> InvertMatrices(std::vector<float3>& matrices) {
+    std::vector<float3> inverted_matrices;
+    inverted_matrices.reserve(matrices.size());
+
+    for (int i = 0; i < matrices.size(); ++i) {
+        float determinant = matrices[i].x * matrices[i].z - matrices[i].y * matrices[i].y;
+
+        if (determinant < std::numeric_limits<float>().epsilon()) {
+            matrices[i].x += std::numeric_limits<float>().epsilon();
+            matrices[i].z += std::numeric_limits<float>().epsilon();
+
+            determinant = matrices[i].x * matrices[i].z - matrices[i].y * matrices[i].y;
+        }
+
+        float3 inverse_matrix;
+
+        inverse_matrix.x = matrices[i].z / determinant;
+        inverse_matrix.y = -matrices[i].y / determinant;
+        inverse_matrix.z = matrices[i].x / determinant;
+
+        inverted_matrices.push_back(std::move(inverse_matrix));
+    }
+
+    return inverted_matrices;
+}
+
+std::vector<float4x4> InvertMatrices(std::vector<float4x4>& matrices) {
     std::vector<float4x4> inverted_matrices;
     inverted_matrices.reserve(matrices.size());
 
@@ -309,12 +384,24 @@ std::vector<float4x4> InvertMatrices(std::vector<float4x4>&& matrices) {
 
 uint32_t BVHRT::AddGeom_GSScene(GSScene grid, BuildOptions a_qualityLevel) {
     m_geomOffsets.push_back(uint2(grid.data_0.size(), 0));
-    m_geomBoxes.push_back(grid.box);
+    m_geomBoxes.push_back(Box4f(float4(-10.0f, -10.0f, -10.0f, 0.0f), float4(10.0f, 10.0f, 10.0f, 0.0f))); // FIXME!
     m_geomTypeByGeomId.push_back(TYPE_GS_PRIMITIVE);
     m_bvhOffsets.push_back(m_allNodePairs.size());
 
     m_gs_data_0 = grid.data_0;
-    m_gs_conic = InvertMatrices(ComputeCovarianceMatrices(m_gs_data_0));
+
+    // float4x4 view_matrix = float4x4(
+    //   1.0f, 0.0f, 0.0f, 0.0f,
+    //   0.0f, -1.0f, 0.0f, 0.0f,
+    //   0.0f, 0.0f, -1.0f, 5.0f,
+    //   0.0f, 0.0f, 0.0f, 1.0f
+    // );
+
+    m_gs_cov_3d = ComputeCovarianceMatrices3D(m_gs_data_0);
+    // m_gs_cov_2d = ComputeCovarianceMatrices2D(m_gs_data_0, m_gs_cov_3d, view_matrix, 1492.820312, 1492.820312, 0.267949, 0.267949);
+
+    m_gs_conic_3d = InvertMatrices(m_gs_cov_3d);
+    // m_gs_conic_2d = InvertMatrices(m_gs_cov_2d);
 
     m_origNodes = GetBoxes_GSGrid(grid, m_gs_indices, m_gs_nodes);
 
@@ -872,34 +959,22 @@ std::vector<BVHNode> BVHRT::GetBoxes_RFGrid(RFScene grid, std::vector<float>& sp
   return nodes;
 }
 
-std::vector<BVHNode> BVHRT::GetBoxes_GSGrid(const GSScene& grid,
+std::vector<BVHNode> BVHRT::GetBoxes_GSGrid(GSScene& grid,
                                             std::vector<int32_t>& m_gs_indices,
                                             std::vector<Box4f>& m_gs_nodes) {
   std::vector<BVHNode> nodes;
-  nodes.reserve(grid.octree_data.size());
+  nodes.reserve(grid.data_0.size());
 
-  std::size_t offset = 0;
-
-  for (std::size_t i = 0; i < grid.octree_data.size(); ++i) {
+  for (std::size_t i = 0; i < grid.data_0.size(); ++i) {
     BVHNode node;
 
-    node.boxMin = float3(grid.octree_data[i].bbox[0], grid.octree_data[i].bbox[1], grid.octree_data[i].bbox[2]);
-    node.boxMax = float3(grid.octree_data[i].bbox[3], grid.octree_data[i].bbox[4], grid.octree_data[i].bbox[5]);
+    node.boxMin = float3(grid.data_0[i][0][0], -grid.data_0[i][0][1], grid.data_0[i][0][2]);
+    node.boxMax = float3(grid.data_0[i][0][0], -grid.data_0[i][0][1], grid.data_0[i][0][2]);
 
-    nodes.push_back(node);
+    node.boxMin -= exp(max(max(m_gs_data_0[i][1][3], m_gs_data_0[i][2][0]), m_gs_data_0[i][2][1])) * 3.5f;
+    node.boxMax += exp(max(max(m_gs_data_0[i][1][3], m_gs_data_0[i][2][0]), m_gs_data_0[i][2][1])) * 3.5f;
 
-    for (const auto& item : grid.octree_data[i].indices) {
-      m_gs_indices.push_back(item);
-    }
-
-    m_gs_nodes.push_back(
-      Box4f(
-        float4(grid.octree_data[i].bbox[0], grid.octree_data[i].bbox[1], grid.octree_data[i].bbox[2], LiteMath::as_float(offset)),
-        float4(grid.octree_data[i].bbox[3], grid.octree_data[i].bbox[4], grid.octree_data[i].bbox[5], LiteMath::as_float(grid.octree_data[i].indices.size()))
-      )
-    );
-
-    offset += grid.octree_data[i].indices.size();
+    nodes.push_back(std::move(node));
   }
 
   return nodes;

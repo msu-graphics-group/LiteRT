@@ -23,9 +23,6 @@ struct GSScene {
   // scale_1   scale_2   rot_0     rot_1
   // rot_2     rot_3     [empty]   [empty]
   std::vector<LiteMath::float4x4> data_0{};
-
-  std::vector<OctreeData> octree_data{};
-  LiteMath::Box4f box{};
 };
 
 void load_gs_scene(

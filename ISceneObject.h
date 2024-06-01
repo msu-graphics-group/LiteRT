@@ -2,7 +2,6 @@
 
 #include <cstdint>
 #include <cstddef>
-#include <unordered_set>
 
 #include "LiteMath.h"
 #include "sdfScene/sdf_scene.h"
@@ -31,6 +30,9 @@ struct CRT_Hit
   uint32_t geomId;    ///< use 4 most significant bits for geometry type; thay are zero for triangles 
   float    coords[4]; ///< custom intersection data; for triangles coords[0] and coords[1] stores baricentric coords (u,v)
                       // coords[2] and coords[3] stores normal.xy
+
+  // intersected gaussians (gaussian index, distance from camera to center, distance from intersection point to center)
+  std::vector<std::tuple<int, float, float3, float3, float3, float, float4x4>> gaussians;
 };
 
 static constexpr unsigned SH_TYPE = 28; //4 bits for type
