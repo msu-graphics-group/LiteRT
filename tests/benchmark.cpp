@@ -297,7 +297,7 @@ void quality_check(const char *path)
   }
 }
 
-void hydra_benchmark(const std::string &path, unsigned flags,
+void hydra_benchmark(const std::string &path, const std::string &mesh_name, unsigned flags,
                      std::string image_prefix,
                      std::vector<std::string> use_structure,
                      std::vector<std::string> use_size,
@@ -316,7 +316,6 @@ void hydra_benchmark(const std::string &path, unsigned flags,
   };
 
   unsigned W = 1000, H = 1000;
-  const std::string mesh_name = "teapot";
   const std::string mesh_path = path + "/mesh.vsgf";
   auto mesh = cmesh4::LoadMeshFromVSGF(mesh_path.c_str());
   cmesh4::normalize_mesh(mesh);
@@ -326,8 +325,6 @@ void hydra_benchmark(const std::string &path, unsigned flags,
   mesh_bvh.init(mesh);
   auto t2 = std::chrono::steady_clock::now();
   float mesh_bvh_build_time  = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
-
-  std::map<std::string, StructureInfo> building_results;
 
   //different types of structures
   std::vector<std::string> structures =          {"mesh", "sdf_grid", "sdf_octree", "sdf_frame_octree", "sdf_SVS", "sdf_SBS-2-1", "sdf_SBS-2-2", "sdf_hp_octree"};
@@ -365,6 +362,8 @@ void hydra_benchmark(const std::string &path, unsigned flags,
 
   if (flags & BENCHMARK_FLAG_BUILD)
   {
+    printf("mesh_name, structure, size_limit, nodes, memory (Kb), build_time (s)\n");
+
     for (int d_id = 0; d_id < max_depths.size(); d_id++)
     {
       unsigned max_depth = max_depths[d_id];
@@ -502,15 +501,17 @@ void hydra_benchmark(const std::string &path, unsigned flags,
           save_sdf_SBS(scene, filename);
         }
 
-        building_results[full_name] = res;
-        printf("  %32s: %6u nodes, %8u kb, %5.1f s\n", full_name.c_str(), res.nodes, res.memory / 1000, res.build_time_ms/1000.0f);
+        printf("%20s, %20s, %6s, %8u, %8u, %5.1f\n", 
+               mesh_name.c_str(), structure.c_str(), size_limit.c_str(), 
+               res.nodes, res.memory / 1000, res.build_time_ms/1000.0f);
       }
-      printf("\n");
     }
   }
 
   if (flags & BENCHMARK_FLAG_RENDER_RT || flags & BENCHMARK_FLAG_RENDER_DEPTH)
   {
+    printf("mesh_name, render_type, structure, size_limit, render_mode, PSNR, average_time (ms), min_time (ms)\n");
+
     //render reference image
     std::vector<LiteImage::Image2D<uint32_t>> image_ref(base_iters, LiteImage::Image2D<uint32_t>(W, H));
 
@@ -632,32 +633,38 @@ void hydra_benchmark(const std::string &path, unsigned flags,
             float4 render_average_time_ms = float4(sum_ms[0], sum_ms[1], sum_ms[2], sum_ms[3])/(iters*pass_size);
             float4 render_min_time_ms = float4(min_ms[0], min_ms[1], min_ms[2], min_ms[3])/pass_size;
 
-            printf("%50s: PSNR =%6.2f, min:%7.2f + %5.2f, av:%7.2f + %5.2f ms/frame \n", 
-                  experiment_name.c_str(), 
+            printf("%20s, %20s, %20s, %6s, %20s, %6.2f, %7.2f, %7.2f\n", 
+                  mesh_name.c_str(), image_prefix.c_str(), structure.c_str(), size_limit.c_str(), render_mode.c_str(),
                   psnr/iters,
-                  render_min_time_ms.x,
-                  render_min_time_ms.y + render_min_time_ms.z + render_min_time_ms.w,
                   render_average_time_ms.x,
-                  render_average_time_ms.y + render_average_time_ms.z + render_average_time_ms.w);
+                  render_min_time_ms.x);
         }
       }
     }
   }
 }
 
-void hydra_benchmark(const std::string &path, unsigned flags)
+void hydra_benchmark(const std::string &path, const std::string &mesh_name, unsigned flags)
 {
-  hydra_benchmark(path, flags, "image", 
-  std::vector<std::string>{"mesh", "sdf_grid", "sdf_octree", "sdf_frame_octree", "sdf_SVS", "sdf_SBS-2-1", "sdf_SBS-2-2", "sdf_hp_octree"},
+/*
+  hydra_benchmark(path, mesh_name, BENCHMARK_FLAG_RENDER_RT, "image", 
+  std::vector<std::string>{"sdf_SVS"},
   std::vector<std::string>{"125Kb","250Kb","500Kb", "1Mb", "2Mb", "4Mb", "8Mb", "16Mb", "32Mb", "64Mb"},
+  std::vector<std::string>{"bvh_sphere_tracing", "bvh_analytic", "bvh_newton", "bvh_interval_tracing"}, 25, 10);
+  return;
+*/
+
+  hydra_benchmark(path, mesh_name, flags, "image", 
+  std::vector<std::string>{"sdf_SVS", "sdf_SBS-2-1", "sdf_SBS-2-2", "sdf_hp_octree"},
+  std::vector<std::string>{"125Kb","250Kb"},
   std::vector<std::string>{"bvh_newton"});
 
-  hydra_benchmark(path, BENCHMARK_FLAG_RENDER_RT, "image", 
+  hydra_benchmark(path, mesh_name, BENCHMARK_FLAG_RENDER_RT, "image", 
   std::vector<std::string>{"sdf_SVS"},
   std::vector<std::string>{"125Kb","250Kb","500Kb", "1Mb", "2Mb", "4Mb", "8Mb", "16Mb", "32Mb", "64Mb"},
   std::vector<std::string>{"bvh_traversal", "bvh_sphere_tracing", "bvh_analytic", "bvh_newton", "bvh_interval_tracing"});
 
-  hydra_benchmark(path, BENCHMARK_FLAG_RENDER_DEPTH, "depth", 
+  hydra_benchmark(path, mesh_name, BENCHMARK_FLAG_RENDER_DEPTH, "depth", 
   std::vector<std::string>{"sdf_SVS"},
   std::vector<std::string>{"125Kb","250Kb","500Kb", "1Mb", "2Mb", "4Mb", "8Mb", "16Mb", "32Mb", "64Mb"},
   std::vector<std::string>{"bvh_traversal", "bvh_sphere_tracing", "bvh_analytic", "bvh_newton", "bvh_interval_tracing"});

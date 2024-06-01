@@ -16,5 +16,5 @@ enum BenchmarkFlags
   BENCHMARK_FLAG_RENDER_HYDRA = 8  //render with hydra, realistic path tracer
 };
 
-void hydra_benchmark(const std::string &path, unsigned flags = BENCHMARK_FLAG_BUILD | BENCHMARK_FLAG_RENDER_RT);
+void hydra_benchmark(const std::string &path, const std::string &mesh_name, unsigned flags = BENCHMARK_FLAG_BUILD | BENCHMARK_FLAG_RENDER_RT);
 void quality_check(const char *path);
