@@ -77,68 +77,6 @@ void SparseOctreeBuilder::add_node_rec(unsigned node_idx, unsigned depth, unsign
 
 bool DBG = false;
 
-void SparseOctreeBuilder::split_children(unsigned node_idx, float threshold, float3 p, float d, unsigned level)
-{
-  auto &nodes = get_nodes();
-  assert(!is_leaf(nodes[node_idx].offset));
-  unsigned idx = nodes[node_idx].offset;
-  T n_distances[8];
-  for (unsigned cid = 0; cid < 8; cid++)
-    n_distances[cid] = nodes[idx + cid].value;
-  for (unsigned cid = 0; cid < 8; cid++)
-  {
-    if (!is_leaf(nodes[idx + cid].offset)) // go deeper
-    {
-      split_children(idx + cid, threshold, 2 * p + float3((cid & 4) >> 2, (cid & 2) >> 1, cid & 1), d/2, level+1);
-    }
-    else if (is_border(std::abs(nodes[idx + cid].value), level+1)) // child is leaf, check if we should split it
-    {
-      //printf("LOL %u %u %u\n",(cid & 4) >> 2, (cid & 2) >> 1, cid & 1);
-      float3 p1 = 2 * p + float3((cid & 4) >> 2, (cid & 2) >> 1, cid & 1);
-      float3 p2 = (p1+float3(0.5,0.5,0.5)) * (d/2);
-      float d1 = sdf(2.0f*p2-1.0f);
-      float d2 = sample_closest(2.0f*p2-1.0f);
-      if (std::abs(d1-d2)>1e-4)
-        printf("ERRRR %f %f %f --- %f %f\n",p2.x, p2.y, p2.z, d1,d2);
-
-      bool need_split = false;
-      unsigned samples = 64;
-      float av_diff = 0;
-      for (unsigned s=0;s<samples;s++)
-      {
-        float3 n_pos = 0.5f*float3(0.5f + ((s & 4) >> 2), 0.5f + ((s & 2) >> 1), 0.5f + (s & 1));
-        float3 pos = (p1 + n_pos) * (d/2);
-        pos = (p1 + float3(urand(), urand(), urand())) * (d/2);
-        float d_ref = sdf(2.0f*pos-1.0f);
-        float d_sample = sample(2.0f*pos-1.0f);
-        float diff = std::abs(d_ref - d_sample);
-        av_diff += diff;
-        //if (diff > threshold)
-        //  printf("%f %f %f %f %f %f diff = %f (%f %f)\n", p1.x, p1.y, p1.z, pos.x, pos.y, pos.z, diff, d_ref, d_sample);
-      }
-      av_diff /= samples;
-      if (av_diff > threshold)
-      {
-        printf("Performing split. Level %u size %d\n", level, (int)nodes.size());
-        need_split = true;
-      }
-
-      if (need_split && level<10)
-      {
-        nodes[idx + cid].offset = nodes.size();
-        
-        nodes.resize(nodes.size() + 8);
-        unsigned gc_idx = nodes[idx + cid].offset;
-        for (unsigned gcid = 0; gcid < 8; gcid++)
-        {
-          float3 pos = (p1 + 0.5f*float3(0.5f + ((gcid & 4) >> 2), 0.5f + ((gcid & 2) >> 1), 0.5f + (gcid & 1))) * (d/2);
-          nodes[gc_idx + gcid].value = sdf(2.0f*pos-1.0f);
-        }        
-      }
-    }
-  }
-}
-
 SparseOctreeBuilder::T SparseOctreeBuilder::sample(const float3 &position, unsigned max_level) const
 {
   return octree_f->eval_distance_level(position, max_level);
@@ -246,13 +184,6 @@ std::pair<float,float> SparseOctreeBuilder::estimate_quality(float dist_thr, uns
     {
       differences[i] = sample(p) - ref_d;
       stat_box.add(std::abs(differences[i]));
-      //if (std::abs(differences[i]) > 0.005)
-      //{
-      //  printf("AAAA %f %f %f, d = %f %f\n", p.x, p.y, p.z, sample(p), ref_d);
-      //  DBG = true;
-      //  sample(p);
-      //  DBG = false;
-      //}
       i++;
     }
   }
@@ -392,19 +323,9 @@ void SparseOctreeBuilder::construct_bottom_up_base(unsigned start_depth, float3 
   add_node_rec(0, start_depth, settings.depth, start_p, start_d);
 
   //remove some nodes with estimated error is lower than given threshold
-  if (settings.remove_thr > 0)
-    remove_linear_rec(*this, settings.remove_thr, min_remove_level, 0, start_depth, start_p, start_d);  
-}
-
-void SparseOctreeBuilder::construct_bottom_up(DistanceFunction _sdf, SparseOctreeSettings _settings)
-{
-  sdf = _sdf;
-  settings = _settings;
-  min_remove_level = std::min(settings.depth, 4u);
-  octree_f->get_nodes().clear();
-
-  construct_bottom_up_base(0u, float3(0,0,0), 1.0f);
-  construct_bottom_up_finish();
+  //currently not used, use nodes_limit instead
+  //if (settings.remove_thr > 0)
+  //  remove_linear_rec(*this, settings.remove_thr, min_remove_level, 0, start_depth, start_p, start_d);  
 }
 
 struct cmpUint3 {
@@ -825,34 +746,6 @@ void SparseOctreeBuilder::convert_to_frame_octree(std::vector<SdfFrameOctreeNode
   auto &nodes = get_nodes();
   out_frame.resize(nodes.size());
   fill_octree_frame_rec(sdf, nodes, out_frame, 0, float3(0,0,0), 1);
-}
-
-void SparseOctreeBuilder::construct_bottom_up_frame(DistanceFunction _sdf, SparseOctreeSettings _settings, 
-                                                    std::vector<SdfFrameOctreeNode> &out_frame)
-{
-  sdf = _sdf;
-  settings = _settings;
-  min_remove_level = std::min(settings.depth, 4u);
-  octree_f->get_nodes().clear();
-
-std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
-  construct_bottom_up_base(0u, float3(0,0,0), 1.0f);
-std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
-  construct_bottom_up_finish();
-std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
-
-  convert_to_frame_octree(out_frame);
-  
-std::chrono::steady_clock::time_point t4 = std::chrono::steady_clock::now();
-  
-  float time_1 = 1e-3f*std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count();
-  float time_2 = 1e-3f*std::chrono::duration_cast<std::chrono::microseconds>(t3 - t2).count();
-  float time_3 = 1e-3f*std::chrono::duration_cast<std::chrono::microseconds>(t4 - t3).count();
-  unsigned long n_real = get_nodes().size();
-  unsigned long n_max = pow(8, settings.depth);
-  
-  //printf("SDF octree created with %lu (%5.2lf%%) nodes (dense one would have %lu)\n", n_real, 100.0*n_real/n_max, n_max);
-  //printf("time spent (ms) %.1f %.1f %.1f\n", time_1, time_2, time_3);
 }
 
 void frame_octree_to_SVS_rec(const std::vector<SdfFrameOctreeNode> &frame,

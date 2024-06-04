@@ -101,11 +101,8 @@ public:
                                  std::vector<SdfSVSNode> &out_frame);
   SparseOctreeBuilder();
   void construct(DistanceFunction f, SparseOctreeSettings settings);
-  void construct_bottom_up(DistanceFunction f, SparseOctreeSettings settings);
   void construct_bottom_up_blocks(DistanceFunction f, SparseOctreeSettings settings, 
                                   BlockSparseOctree<T> &out_bso);
-  void construct_bottom_up_frame(DistanceFunction f, SparseOctreeSettings settings, 
-                                 std::vector<SdfFrameOctreeNode> &out_frame);
   
   void convert_to_frame_octree(std::vector<SdfFrameOctreeNode> &out_frame);
   void convert_to_sparse_voxel_set(std::vector<SdfSVSNode> &out_nodes);
@@ -125,13 +122,12 @@ public:
   const Node &get_node(unsigned idx) const { return octree_f->get_nodes()[idx]; }
 protected:
   void add_node_rec(unsigned node_idx, unsigned depth, unsigned max_depth, float3 p, float d);
-  void split_children(unsigned node_idx, float threshold, float3 p, float d, unsigned level);
 
   void construct_bottom_up_base(unsigned start_depth, float3 start_p, float start_d);
   void construct_bottom_up_finish();
   void construct_large_cell_rec(std::vector<Node> &final_nodes, unsigned root_idx, unsigned level, float3 p, float d);
 
-  std::shared_ptr<ISdfOctreeFunction> octree_f; //0 node is root
+  std::shared_ptr<ISdfOctreeFunction> octree_f; //unsafe for multi-threading
   DistanceFunction sdf;
   SparseOctreeSettings settings;
   unsigned min_remove_level = 4;
