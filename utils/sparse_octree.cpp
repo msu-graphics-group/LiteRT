@@ -36,7 +36,7 @@ static double urand(double from=0, double to=1)
 SparseOctreeBuilder::SparseOctreeBuilder()
 {
   std::vector<Node> nodes;
-  octree_f = get_SdfOctreeFunction({0, nodes.data()});
+  octree_f = get_SdfOctreeFunction(nodes);
 }
 
 bool SparseOctreeBuilder::is_border(float distance, int level)
@@ -1384,7 +1384,7 @@ void octree_limit_nodes(std::vector<SdfOctreeNode> &frame, unsigned nodes_limit)
 
   while (cnt > nodes_limit && active_layer > 0)
   {
-    std::shared_ptr<ISdfOctreeFunction> octree_f = get_SdfOctreeFunction({(unsigned)frame.size(), frame.data()});
+    std::shared_ptr<ISdfOctreeFunction> octree_f = get_SdfOctreeFunction(frame);
     std::vector<OctreeNodeQualitySort> merge_candidates;
     for (auto &p_idx : layers[active_layer-1])
     {

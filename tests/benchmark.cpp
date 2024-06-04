@@ -182,9 +182,9 @@ void benchmark_framed_octree_intersection()
           auto pRender = CreateMultiRenderer("GPU");
           pRender->SetPreset(preset);
           if (AS_types[as_n] == TYPE_SDF_FRAME_OCTREE)
-            pRender->SetScene({(unsigned)frame_nodes.size(), frame_nodes.data()});
+            pRender->SetScene(frame_nodes);
           else if (AS_types[as_n] == TYPE_SDF_SVS) 
-            pRender->SetScene({(unsigned)svs_nodes.size(), svs_nodes.data()});
+            pRender->SetScene(svs_nodes);
           else if (AS_types[as_n] == TYPE_MESH_TRIANGLE) 
             pRender->SetScene(mesh);
           else if (AS_types[as_n] == TYPE_SDF_SBS)
@@ -281,16 +281,14 @@ void quality_check(const char *path)
                       settings);
     builder.convert_to_sparse_voxel_set(svs_nodes);
 
-    save_sdf_SVS({(unsigned)svs_nodes.size(), svs_nodes.data()}, 
-                 ("saves/svs_"+std::to_string(depth)+".bin").c_str());
+    save_sdf_SVS(svs_nodes, ("saves/svs_"+std::to_string(depth)+".bin").c_str());
 
     LiteImage::Image2D<uint32_t> image_1(W, H);
     auto pRender_1 = CreateMultiRenderer("GPU");
     pRender_1->SetPreset(preset);
-    pRender_1->SetScene({(unsigned)svs_nodes.size(), svs_nodes.data()});
+    pRender_1->SetScene(svs_nodes);
     render(image_1, pRender_1, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset, 1);
-    LiteImage::SaveImage<uint32_t>(("saves/svs_"+std::to_string(depth)+".bmp").c_str(), 
-                                   image_1);
+    LiteImage::SaveImage<uint32_t>(("saves/svs_"+std::to_string(depth)+".bmp").c_str(), image_1);
 
     float psnr_1 = PSNR(image_ref, image_1);
     printf("depth = %d PSNR = %f\n", depth, psnr_1);
@@ -431,7 +429,7 @@ void main_benchmark(const std::string &path, const std::string &mesh_name, unsig
           res.memory = sizeof(SdfOctreeNode) * res.nodes;
           res.valid = true;
 
-          save_sdf_octree({(unsigned)scene.size(), scene.data()}, filename);
+          save_sdf_octree(scene, filename);
         }
         else if (structure == "sdf_frame_octree")
         {
@@ -446,7 +444,7 @@ void main_benchmark(const std::string &path, const std::string &mesh_name, unsig
           res.memory = sizeof(SdfFrameOctreeNode) * res.nodes;
           res.valid = true;
 
-          save_sdf_frame_octree({(unsigned)scene.size(), scene.data()}, filename);
+          save_sdf_frame_octree(scene, filename);
         }
         else if (structure == "sdf_SVS")
         {
@@ -460,7 +458,7 @@ void main_benchmark(const std::string &path, const std::string &mesh_name, unsig
           res.memory = sizeof(SdfSVSNode) * res.nodes;
           res.valid = true;
 
-          save_sdf_SVS({(unsigned)scene.size(), scene.data()}, filename);
+          save_sdf_SVS(scene, filename);
         }
         else if (structure == "sdf_SBS-2-1")
         {
@@ -579,19 +577,19 @@ void main_benchmark(const std::string &path, const std::string &mesh_name, unsig
             {
               std::vector<SdfOctreeNode> octree;
               load_sdf_octree(octree, filename);
-              pRender->SetScene({ (unsigned)octree.size(), octree.data() });
+              pRender->SetScene(octree);
             }
             else if (structure == "sdf_frame_octree")
             {
               std::vector<SdfFrameOctreeNode> frame_nodes;
               load_sdf_frame_octree(frame_nodes, filename);
-              pRender->SetScene({(unsigned)frame_nodes.size(), frame_nodes.data()});
+              pRender->SetScene(frame_nodes);
             }
             else if (structure == "sdf_SVS")
             {
               std::vector<SdfSVSNode> svs_nodes;
               load_sdf_SVS(svs_nodes, filename);
-              pRender->SetScene({(unsigned)svs_nodes.size(), svs_nodes.data()});
+              pRender->SetScene(svs_nodes);
             }
             else if (structure == "sdf_SBS-2-1" || structure == "sdf_SBS-2-2")
             {

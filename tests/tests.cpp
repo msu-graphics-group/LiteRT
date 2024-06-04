@@ -95,8 +95,7 @@ void litert_test_1_framed_octree()
 
       auto pRender = CreateMultiRenderer("GPU");
       pRender->SetPreset(preset);
-      pRender->SetScene({(unsigned)frame_nodes.size(), 
-                        frame_nodes.data()});
+      pRender->SetScene(frame_nodes);
 
   auto t1 = std::chrono::steady_clock::now();
       render(image, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset);
@@ -156,8 +155,7 @@ void litert_test_2_SVS()
 
       auto pRender = CreateMultiRenderer("GPU");
       pRender->SetPreset(preset);
-      pRender->SetScene({(unsigned)frame_nodes.size(), 
-                        frame_nodes.data()});
+      pRender->SetScene(frame_nodes);
 
   auto t1 = std::chrono::steady_clock::now();
       render(image, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset);
@@ -237,7 +235,7 @@ void litert_test_3_SBS_verify()
   {
     auto pRender = CreateMultiRenderer("CPU");
     pRender->SetPreset(preset);
-    pRender->SetScene({(unsigned)svs_nodes.size(), svs_nodes.data()});
+    pRender->SetScene(svs_nodes);
 
     render(image, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset);
     LiteImage::SaveImage<uint32_t>("saves/test_3_SVS.bmp", image); 
@@ -540,7 +538,7 @@ void test_7_neural_SDF()
 
   auto pRender_2 = CreateMultiRenderer("GPU");
   pRender_2->SetPreset(preset_1);
-  pRender_2->SetScene({(unsigned)frame_nodes.size(), frame_nodes.data()});
+  pRender_2->SetScene(frame_nodes);
 
   std::shared_ptr<NeuralRT> neuralRT1 = CreateNeuralRT("CPU");
   std::shared_ptr<NeuralRT> neuralRT2 = CreateNeuralRT("GPU");
@@ -722,9 +720,9 @@ void litert_test_10_save_load()
     builder.convert_to_sparse_voxel_set(svs_nodes);
     builder.convert_to_sparse_brick_set(sbs.header, sbs.nodes, sbs.values);
 
-    save_sdf_octree({(unsigned)octree_nodes.size(), octree_nodes.data()}, "saves/test_10_octree.bin");
-    save_sdf_frame_octree({(unsigned)frame_nodes.size(), frame_nodes.data()}, "saves/test_10_frame_octree.bin");
-    save_sdf_SVS({(unsigned)svs_nodes.size(), svs_nodes.data()}, "saves/test_10_svs.bin");
+    save_sdf_octree(octree_nodes, "saves/test_10_octree.bin");
+    save_sdf_frame_octree(frame_nodes, "saves/test_10_frame_octree.bin");
+    save_sdf_SVS(svs_nodes, "saves/test_10_svs.bin");
     save_sdf_SBS(sbs, "saves/test_10_sbs.bin");
   }
 
@@ -753,21 +751,21 @@ void litert_test_10_save_load()
   LiteImage::Image2D<uint32_t> image_1(W, H);
   auto pRender_1 = CreateMultiRenderer("GPU");
   pRender_1->SetPreset(preset);
-  pRender_1->SetScene({(unsigned)octree_nodes.size(), octree_nodes.data()});
+  pRender_1->SetScene(octree_nodes);
   render(image_1, pRender_1, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
   LiteImage::SaveImage<uint32_t>("saves/test_10_octree.bmp", image_1);
 
   LiteImage::Image2D<uint32_t> image_2(W, H);
   auto pRender_2 = CreateMultiRenderer("GPU");
   pRender_2->SetPreset(preset);
-  pRender_2->SetScene({(unsigned)frame_nodes.size(), frame_nodes.data()});
+  pRender_2->SetScene(frame_nodes);
   render(image_2, pRender_2, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
   LiteImage::SaveImage<uint32_t>("saves/test_10_frame_octree.bmp", image_2);
 
   LiteImage::Image2D<uint32_t> image_3(W, H);
   auto pRender_3 = CreateMultiRenderer("GPU");
   pRender_3->SetPreset(preset);
-  pRender_3->SetScene({(unsigned)svs_nodes.size(), svs_nodes.data()});
+  pRender_3->SetScene(svs_nodes);
   render(image_3, pRender_3, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
   LiteImage::SaveImage<uint32_t>("saves/test_10_svs.bmp", image_3);
 
@@ -1036,7 +1034,7 @@ void litert_test_14_octree_nodes_removal()
   {
     auto pRender_1 = CreateMultiRenderer("GPU");
     pRender_1->SetPreset(preset);
-    pRender_1->SetScene({(unsigned)octree_nodes_ref.size(), octree_nodes_ref.data()});
+    pRender_1->SetScene(octree_nodes_ref);
     render(image_1, pRender_1, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
     LiteImage::SaveImage<uint32_t>("saves/test_14_ref.bmp", image_1);
   }
@@ -1044,7 +1042,7 @@ void litert_test_14_octree_nodes_removal()
   {
     auto pRender_2 = CreateMultiRenderer("GPU");
     pRender_2->SetPreset(preset);
-    pRender_2->SetScene({(unsigned)octree_nodes_7.size(), octree_nodes_7.data()});
+    pRender_2->SetScene(octree_nodes_7);
     render(image_2, pRender_2, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
     LiteImage::SaveImage<uint32_t>("saves/test_14_trimmed_7.bmp", image_2);
   }
@@ -1052,7 +1050,7 @@ void litert_test_14_octree_nodes_removal()
   {
     auto pRender_3 = CreateMultiRenderer("GPU");
     pRender_3->SetPreset(preset);
-    pRender_3->SetScene({(unsigned)octree_nodes_8.size(), octree_nodes_8.data()});
+    pRender_3->SetScene(octree_nodes_8);
     render(image_3, pRender_3, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
     LiteImage::SaveImage<uint32_t>("saves/test_14_trimmed_8.bmp", image_3);
   }
@@ -1134,7 +1132,7 @@ void litert_test_15_frame_octree_nodes_removal()
   {
     auto pRender_1 = CreateMultiRenderer("GPU");
     pRender_1->SetPreset(preset);
-    pRender_1->SetScene({(unsigned)octree_nodes_ref.size(), octree_nodes_ref.data()});
+    pRender_1->SetScene(octree_nodes_ref);
     render(image_1, pRender_1, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
     LiteImage::SaveImage<uint32_t>("saves/test_15_ref.bmp", image_1);
   }
@@ -1142,7 +1140,7 @@ void litert_test_15_frame_octree_nodes_removal()
   {
     auto pRender_2 = CreateMultiRenderer("GPU");
     pRender_2->SetPreset(preset);
-    pRender_2->SetScene({(unsigned)octree_nodes_7.size(), octree_nodes_7.data()});
+    pRender_2->SetScene(octree_nodes_7);
     render(image_2, pRender_2, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
     LiteImage::SaveImage<uint32_t>("saves/test_15_trimmed_7.bmp", image_2);
   }
@@ -1150,7 +1148,7 @@ void litert_test_15_frame_octree_nodes_removal()
   {
     auto pRender_3 = CreateMultiRenderer("GPU");
     pRender_3->SetPreset(preset);
-    pRender_3->SetScene({(unsigned)octree_nodes_8.size(), octree_nodes_8.data()});
+    pRender_3->SetScene(octree_nodes_8);
     render(image_3, pRender_3, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
     LiteImage::SaveImage<uint32_t>("saves/test_15_trimmed_8.bmp", image_3);
   }
@@ -1239,7 +1237,7 @@ void litert_test_16_SVS_nodes_removal()
   {
     auto pRender_1 = CreateMultiRenderer("GPU");
     pRender_1->SetPreset(preset);
-    pRender_1->SetScene({(unsigned)octree_nodes_ref.size(), octree_nodes_ref.data()});
+    pRender_1->SetScene(octree_nodes_ref);
     render(image_1, pRender_1, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
     LiteImage::SaveImage<uint32_t>("saves/test_16_ref.bmp", image_1);
   }
@@ -1247,7 +1245,7 @@ void litert_test_16_SVS_nodes_removal()
   {
     auto pRender_2 = CreateMultiRenderer("GPU");
     pRender_2->SetPreset(preset);
-    pRender_2->SetScene({(unsigned)octree_nodes_7.size(), octree_nodes_7.data()});
+    pRender_2->SetScene(octree_nodes_7);
     render(image_2, pRender_2, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
     LiteImage::SaveImage<uint32_t>("saves/test_16_trimmed_7.bmp", image_2);
   }
@@ -1255,7 +1253,7 @@ void litert_test_16_SVS_nodes_removal()
   {
     auto pRender_3 = CreateMultiRenderer("GPU");
     pRender_3->SetPreset(preset);
-    pRender_3->SetScene({(unsigned)octree_nodes_8.size(), octree_nodes_8.data()});
+    pRender_3->SetScene(octree_nodes_8);
     render(image_3, pRender_3, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
     LiteImage::SaveImage<uint32_t>("saves/test_16_trimmed_8.bmp", image_3);
   }
@@ -1320,7 +1318,7 @@ void litert_test_17_all_types_sanity_check()
     auto octree = sdf_converter::create_sdf_octree(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 8, 64*64*64), mesh);
     auto pRender = CreateMultiRenderer("GPU");
     pRender->SetPreset(preset);
-    pRender->SetScene({(unsigned)octree.size(), octree.data()});
+    pRender->SetScene(octree);
     render(image_2, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
     LiteImage::SaveImage<uint32_t>("saves/test_17_octree.bmp", image_2);
   }
@@ -1329,7 +1327,7 @@ void litert_test_17_all_types_sanity_check()
     auto octree = sdf_converter::create_sdf_frame_octree(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 8, 64*64*64), mesh);
     auto pRender = CreateMultiRenderer("GPU");
     pRender->SetPreset(preset);
-    pRender->SetScene({(unsigned)octree.size(), octree.data()});
+    pRender->SetScene(octree);
     render(image_3, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
     LiteImage::SaveImage<uint32_t>("saves/test_17_frame_octree.bmp", image_3);
   }
@@ -1338,7 +1336,7 @@ void litert_test_17_all_types_sanity_check()
     auto octree = sdf_converter::create_sdf_SVS(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 8, 64*64*64), mesh);
     auto pRender = CreateMultiRenderer("GPU");
     pRender->SetPreset(preset);
-    pRender->SetScene({(unsigned)octree.size(), octree.data()});
+    pRender->SetScene(octree);
     render(image_4, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
     LiteImage::SaveImage<uint32_t>("saves/test_17_SVS.bmp", image_4);
   }

@@ -124,7 +124,7 @@ bool MultiRenderer::LoadSceneHydra(const std::string& a_path, unsigned type, Spa
           builder.check_quality([&mesh_bvh](const float3 &p)
                             { return mesh_bvh.get_signed_distance(p); }, svs_nodes);
         }
-        m_pAccelStruct->AddGeom_SdfSVS({(unsigned)svs_nodes.size(), svs_nodes.data()});
+        m_pAccelStruct->AddGeom_SdfSVS(svs_nodes);
       }
       break;
       case TYPE_SDF_GRID:
@@ -172,21 +172,21 @@ bool MultiRenderer::LoadSceneHydra(const std::string& a_path, unsigned type, Spa
       std::cout << "[LoadScene]: sdf octree = " << dir.c_str() << std::endl;
       std::vector<SdfOctreeNode> scene;
       load_sdf_octree(scene, dir);
-      m_pAccelStruct->AddGeom_SdfOctree({(unsigned)scene.size(), scene.data()});
+      m_pAccelStruct->AddGeom_SdfOctree(scene);
     }
     else if (name == "sdf_frame_octree")
     {
       std::cout << "[LoadScene]: sdf frame octree = " << dir.c_str() << std::endl;
       std::vector<SdfFrameOctreeNode> scene;
       load_sdf_frame_octree(scene, dir);
-      m_pAccelStruct->AddGeom_SdfFrameOctree({(unsigned)scene.size(), scene.data()});
+      m_pAccelStruct->AddGeom_SdfFrameOctree(scene);
     }
     else if (name == "sdf_svs")
     {
       std::cout << "[LoadScene]: sdf svs = " << dir.c_str() << std::endl;
       std::vector<SdfSVSNode> scene;
       load_sdf_SVS(scene, dir);
-      m_pAccelStruct->AddGeom_SdfSVS({(unsigned)scene.size(), scene.data()});
+      m_pAccelStruct->AddGeom_SdfSVS(scene);
     }
     else if (name == "sdf_sbs")
     {

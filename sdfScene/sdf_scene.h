@@ -187,36 +187,36 @@ struct SdfGridView
 
 struct SdfOctreeView
 {
-  //SdfOctreeView() = default;
-  //SdfOctreeView(const std::vector<SdfOctreeNode> &a_nodes)
-  //{
-  //  size = a_nodes.size();
-  //  nodes = a_nodes.data();
-  //}
+  SdfOctreeView() = default;
+  SdfOctreeView(const std::vector<SdfOctreeNode> &a_nodes)
+  {
+    size = a_nodes.size();
+    nodes = a_nodes.data();
+  }
   unsigned size;
   const SdfOctreeNode *nodes;
 };
 
 struct SdfFrameOctreeView
 {
-  //SdfFrameOctreeView() = default;
-  //SdfFrameOctreeView(const std::vector<SdfFrameOctreeNode> &a_nodes)
-  //{
-  //  size = a_nodes.size();
-  //  nodes = a_nodes.data();
-  //}
+  SdfFrameOctreeView() = default;
+  SdfFrameOctreeView(const std::vector<SdfFrameOctreeNode> &a_nodes)
+  {
+    size = a_nodes.size();
+    nodes = a_nodes.data();
+  }
   unsigned size;
   const SdfFrameOctreeNode *nodes;
 };
 
 struct SdfSVSView
 {
-  //SdfSVSView() = default;
-  //SdfSVSView(const std::vector<SdfSVSNode> &a_nodes)
-  //{
-  //  size = a_nodes.size();
-  //  nodes = a_nodes.data();
-  //}
+  SdfSVSView() = default;
+  SdfSVSView(const std::vector<SdfSVSNode> &a_nodes)
+  {
+    size = a_nodes.size();
+    nodes = a_nodes.data();
+  }
   unsigned size;
   const SdfSVSNode *nodes;
 };
