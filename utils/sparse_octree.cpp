@@ -44,14 +44,14 @@ bool SparseOctreeBuilder::is_border(float distance, int level)
   return level < 2  ? true : std::abs(distance) < sqrt(3)*pow(2, -level);
 }
 
-constexpr unsigned INVALID_IDX = 1u<<31u;
-bool is_leaf(unsigned offset)
+static constexpr unsigned INVALID_IDX = 1u<<31u;
+static bool is_leaf(unsigned offset)
 {
   return (offset == 0) || (offset & INVALID_IDX);
 }
 
 //level_size is (1 << level)
-bool is_border_node(float min_val, float max_val, unsigned level_size)
+static bool is_border_node(float min_val, float max_val, unsigned level_size)
 {
     float d_max = 2*sqrt(3)/level_size;
     return (min_val <= 0) && (max_val > -d_max);

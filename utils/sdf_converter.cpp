@@ -2,6 +2,8 @@
 #include "mesh_bvh.h"
 #include "omp.h"
 #include "sparse_octree.h"
+#include "sparse_octree_2.h"
+#include <chrono>
 #include "mesh.h"
 
 void octree_limit_nodes(std::vector<SdfOctreeNode> &frame, unsigned nodes_limit);
@@ -69,25 +71,28 @@ namespace sdf_converter
     assert(settings.depth > 1);
     assert(settings.build_type == SparseOctreeBuildType::DEFAULT); //MESH_TLO available only when building from mesh
 
-    SparseOctreeBuilder builder;
-    builder.construct(sdf, settings);
-    auto nodes = builder.get_nodes();
+    auto nodes = construct_sdf_octree(settings, [&](const float3 &p, unsigned idx) -> float { return sdf(p); }, 1);
     octree_limit_nodes(nodes, settings.nodes_limit);
     return nodes;
   }
 
   std::vector<SdfOctreeNode> create_sdf_octree(SparseOctreeSettings settings, MultithreadedDistanceFunction sdf, unsigned max_threads)
   {
-    return create_sdf_octree(settings, [&](const float3 &p) -> float { return sdf(p, 0); });
+    auto nodes = construct_sdf_octree(settings, sdf, max_threads);
+    octree_limit_nodes(nodes, settings.nodes_limit);
+    return nodes;
   }
 
   std::vector<SdfOctreeNode> create_sdf_octree(SparseOctreeSettings settings, const cmesh4::SimpleMesh &mesh)
   {
-    MeshBVH bvh;
-    bvh.init(mesh);
+    unsigned max_threads = omp_get_max_threads();
 
-    return create_sdf_octree(settings, [&bvh](const float3 &p) -> float
-                             { return bvh.get_signed_distance(p); });
+    std::vector<MeshBVH> bvh(max_threads);
+    for (unsigned i = 0; i < max_threads; i++)
+      bvh[i].init(mesh);
+    
+    return create_sdf_octree(settings, [&](const float3 &p, unsigned idx) -> float 
+                             { return bvh[idx].get_signed_distance(p); }, max_threads);
   }
 
   std::vector<SdfFrameOctreeNode> create_sdf_frame_octree(SparseOctreeSettings settings, DistanceFunction sdf)
