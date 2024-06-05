@@ -1,6 +1,7 @@
 #include "sparse_octree_2.h"
 #include "omp.h"
 #include <chrono>
+#include <unordered_map>
 
 static constexpr unsigned INVALID_IDX = 1u<<31u;
 
@@ -270,6 +271,28 @@ std::chrono::steady_clock::time_point t5 = std::chrono::steady_clock::now();
     }
   }
 
+  struct PositionHasher
+  {
+    std::size_t operator()(const float3& k) const
+    {
+      // Compute individual hash values for first,
+      // second and third and combine them using XOR
+      // and bit shifting:
+
+      return (  (std::hash<float>()(k.x)
+              ^ (std::hash<float>()(k.y) << 1)) >> 1)
+              ^ (std::hash<float>()(k.z) << 1);
+    }
+  };
+
+  struct PositionEqual
+  {
+    bool operator()(const float3& lhs, const float3& rhs) const
+    {
+      return std::abs(lhs.x - rhs.x) < 1e-12f && std::abs(lhs.y - rhs.y) < 1e-12f && std::abs(lhs.z - rhs.z) < 1e-12f;
+    }
+  };
+
   std::vector<SdfFrameOctreeNode> convert_to_frame_octree(SparseOctreeSettings settings, MultithreadedDistanceFunction sdf, unsigned max_threads,
                                                           const std::vector<SdfOctreeNode> &nodes)
   {
@@ -287,6 +310,8 @@ std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
     #pragma omp parallel for
     for (int thread_id=0;thread_id<max_threads;thread_id++)
     {
+      std::unordered_map<float3, float, PositionHasher, PositionEqual> distance_cache;
+
       unsigned start = thread_id * step;
       unsigned end = std::min(start + step, (unsigned)nodes.size());
       for (int idx = start; idx < end; idx++)
@@ -302,7 +327,16 @@ std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
         for (int i = 0; i < 8; i++)
         {
           float3 ch_pos = pos + 2 * d * float3((i & 4) >> 2, (i & 2) >> 1, i & 1);
-          frame[idx].values[i] = sdf(ch_pos, thread_id);
+          auto it = distance_cache.find(ch_pos);
+          float distance = 0.0f;
+          if (it == distance_cache.end())
+          {
+            distance = sdf(ch_pos, thread_id);
+            distance_cache[ch_pos] = distance;
+          }
+          else
+            distance = it->second;
+          frame[idx].values[i] = distance;
           min_val = std::min(min_val, frame[idx].values[i]);
           max_val = std::max(max_val, frame[idx].values[i]);
         }
