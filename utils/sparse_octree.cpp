@@ -1144,8 +1144,16 @@ void frame_octree_limit_nodes(std::vector<SdfFrameOctreeNode> &frame, unsigned n
 
     assert(merge_candidates.size() > 0);
 
-    std::sort(merge_candidates.begin(), merge_candidates.end(), 
-              [](const FrameNodeQualitySort &a, const FrameNodeQualitySort &b){return a.weighted_diff < b.weighted_diff;});
+    unsigned delete_potential = 0;
+    for (auto &mc : merge_candidates)
+      delete_potential += mc.active_children-1;
+
+    if (cnt - delete_potential < nodes_limit)
+    {
+      std::sort(merge_candidates.begin(), merge_candidates.end(), 
+                [](const FrameNodeQualitySort &a, const FrameNodeQualitySort &b){return a.weighted_diff < b.weighted_diff;});
+    }
+    //else we have to delete the whole layer
 
     int c_i = 0;
     while (cnt > nodes_limit && c_i < merge_candidates.size())
@@ -1299,8 +1307,16 @@ void octree_limit_nodes(std::vector<SdfOctreeNode> &frame, unsigned nodes_limit)
 
     assert(merge_candidates.size() > 0);
 
-    std::sort(merge_candidates.begin(), merge_candidates.end(), 
-              [](const OctreeNodeQualitySort &a, const OctreeNodeQualitySort &b){return a.diff < b.diff;});
+    unsigned delete_potential = 0;
+    for (auto &mc : merge_candidates)
+      delete_potential += 8-1;
+
+    if (cnt - delete_potential < nodes_limit)
+    {
+      std::sort(merge_candidates.begin(), merge_candidates.end(), 
+                [](const OctreeNodeQualitySort &a, const OctreeNodeQualitySort &b){return a.diff < b.diff;});
+    }
+    //else we have to delete the whole layer
 
     int c_i = 0;
     while (cnt > nodes_limit && c_i < merge_candidates.size())
