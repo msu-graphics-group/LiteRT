@@ -217,4 +217,112 @@ std::chrono::steady_clock::time_point t5 = std::chrono::steady_clock::now();
 
     return res_nodes;
   }
+
+  void fill_octree_frame_rec(MultithreadedDistanceFunction sdf,   
+                             const std::vector<SdfOctreeNode> &nodes,
+                             std::vector<SdfFrameOctreeNode> &frame,
+                             unsigned thread_id, unsigned idx, float3 p, float d)
+  {
+    unsigned ofs = nodes[idx].offset;
+    frame[idx].offset = ofs;
+    float min_val = nodes[idx].value;
+    float max_val = nodes[idx].value;
+
+    float3 pos = 2.0f * (d * p) - 1.0f;
+    for (int i = 0; i < 8; i++)
+    {
+      float3 ch_pos = pos + 2 * d * float3((i & 4) >> 2, (i & 2) >> 1, i & 1);
+      frame[idx].values[i] = sdf(ch_pos, thread_id);
+      min_val = std::min(min_val, frame[idx].values[i]);
+      max_val = std::max(max_val, frame[idx].values[i]);
+    }
+
+    if (max_val - min_val > 2 * sqrt(3) * d)
+    {
+      // printf("inconsistent distance %f - %f with d=%f\n", max_val, min_val, d);
+      for (int i = 0; i < 8; i++)
+        frame[idx].values[i] = LiteMath::sign(max_val) * std::abs(frame[idx].values[i]);
+    }
+
+    if (!is_leaf(ofs)) 
+    {
+      for (int i = 0; i < 8; i++)
+      {
+        float ch_d = d / 2;
+        float3 ch_p = 2 * p + float3((i & 4) >> 2, (i & 2) >> 1, i & 1);
+        fill_octree_frame_rec(sdf, nodes, frame, thread_id, ofs + i, ch_p, ch_d);
+      }
+    }
+  }
+
+  void octree_to_layers(const std::vector<SdfOctreeNode> &nodes, std::vector<float4> &layers, unsigned idx, float3 p, float d)
+  {
+    layers[idx] = float4(p.x, p.y, p.z, d);
+    unsigned ofs = nodes[idx].offset;
+    if (!is_leaf(ofs)) 
+    {
+      for (int i = 0; i < 8; i++)
+      {
+        float ch_d = d / 2;
+        float3 ch_p = 2 * p + float3((i & 4) >> 2, (i & 2) >> 1, i & 1);
+        octree_to_layers(nodes, layers, ofs + i, ch_p, ch_d);
+      }
+    }
+  }
+
+  std::vector<SdfFrameOctreeNode> convert_to_frame_octree(SparseOctreeSettings settings, MultithreadedDistanceFunction sdf, unsigned max_threads,
+                                                          const std::vector<SdfOctreeNode> &nodes)
+  {
+std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
+
+    omp_set_num_threads(max_threads);
+    std::vector<float4> layers(nodes.size());
+    std::vector<SdfFrameOctreeNode> frame(nodes.size());
+    octree_to_layers(nodes, layers, 0, float3(0,0,0), 1.0f);
+
+std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
+
+    unsigned step = (nodes.size() + max_threads - 1) / max_threads;
+
+    #pragma omp parallel for
+    for (int thread_id=0;thread_id<max_threads;thread_id++)
+    {
+      unsigned start = thread_id * step;
+      unsigned end = std::min(start + step, (unsigned)nodes.size());
+      for (int idx = start; idx < end; idx++)
+      {
+        unsigned ofs = nodes[idx].offset;
+        float3 p = float3(layers[idx].x, layers[idx].y, layers[idx].z);
+        float d = layers[idx].w;
+        frame[idx].offset = ofs;
+        float min_val = nodes[idx].value;
+        float max_val = nodes[idx].value;
+
+        float3 pos = 2.0f * (d * p) - 1.0f;
+        for (int i = 0; i < 8; i++)
+        {
+          float3 ch_pos = pos + 2 * d * float3((i & 4) >> 2, (i & 2) >> 1, i & 1);
+          frame[idx].values[i] = sdf(ch_pos, thread_id);
+          min_val = std::min(min_val, frame[idx].values[i]);
+          max_val = std::max(max_val, frame[idx].values[i]);
+        }
+
+        if (max_val - min_val > 2 * sqrt(3) * d)
+        {
+          for (int i = 0; i < 8; i++)
+            frame[idx].values[i] = LiteMath::sign(max_val) * std::abs(frame[idx].values[i]);
+        }
+      }
+    }
+
+std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
+
+    float time_1 = 1e-3f*std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count();
+    float time_2 = 1e-3f*std::chrono::duration_cast<std::chrono::microseconds>(t3 - t2).count();
+    printf("octree to frame octree: time = %6.2f ms (%.1f+%.1f)\n", time_1 + time_2, time_1, time_2);
+
+    omp_set_num_threads(omp_get_max_threads());
+
+    return frame;
+  }
 }

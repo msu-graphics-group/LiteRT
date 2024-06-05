@@ -17,6 +17,8 @@ Octree always represents unit cube [-1,1]^3
 namespace sdf_converter
 {
   std::vector<SdfOctreeNode> construct_sdf_octree(SparseOctreeSettings settings, MultithreadedDistanceFunction sdf, unsigned max_threads);
+  std::vector<SdfFrameOctreeNode> convert_to_frame_octree(SparseOctreeSettings settings, MultithreadedDistanceFunction sdf, unsigned max_threads,
+                                                          const std::vector<SdfOctreeNode> &nodes);
 }
 
 class SparseOctreeBuilder2
