@@ -211,8 +211,8 @@ std::chrono::steady_clock::time_point t5 = std::chrono::steady_clock::now();
     float time_3 = 1e-3f*std::chrono::duration_cast<std::chrono::microseconds>(t4 - t3).count();
     float time_4 = 1e-3f*std::chrono::duration_cast<std::chrono::microseconds>(t5 - t4).count();
 
-    printf("total nodes = %d, time = %6.2f ms (%.1f+%.1f+%.1f+%.1f)\n", 
-           (int)res_nodes.size(), time_1 + time_2 + time_3 + time_4, time_1, time_2, time_3, time_4);
+    //printf("total nodes = %d, time = %6.2f ms (%.1f+%.1f+%.1f+%.1f)\n", 
+    //       (int)res_nodes.size(), time_1 + time_2 + time_3 + time_4, time_1, time_2, time_3, time_4);
 
     omp_set_num_threads(omp_get_max_threads());
 
@@ -353,7 +353,7 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
 
     float time_1 = 1e-3f*std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count();
     float time_2 = 1e-3f*std::chrono::duration_cast<std::chrono::microseconds>(t3 - t2).count();
-    printf("octree to frame octree: time = %6.2f ms (%.1f+%.1f)\n", time_1 + time_2, time_1, time_2);
+    //printf("octree to frame octree: time = %6.2f ms (%.1f+%.1f)\n", time_1 + time_2, time_1, time_2);
 
     omp_set_num_threads(omp_get_max_threads());
 
@@ -519,7 +519,7 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
 
     float time_1 = 1e-3f*std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count();
     float time_2 = 1e-3f*std::chrono::duration_cast<std::chrono::microseconds>(t3 - t2).count();
-    printf("frame octree to SBS: time = %6.2f ms (%.1f+%.1f)\n", time_1 + time_2, time_1, time_2);
+    //printf("frame octree to SBS: time = %6.2f ms (%.1f+%.1f)\n", time_1 + time_2, time_1, time_2);
 
     sbs.nodes.shrink_to_fit();
     sbs.values.shrink_to_fit();
@@ -664,7 +664,7 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
         if (node.is_leaf && (!count_only_border_nodes || node.is_border))
           l_cnt++;
       }
-      printf("layer %u (%u)\n", (unsigned)layer.size(), l_cnt);
+      //printf("layer %u (%u)\n", (unsigned)layer.size(), l_cnt);
     }
   }
 
@@ -780,23 +780,6 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
     }
 
     frame = new_frame;
-
-    if (false)
-    {
-      std::vector<std::vector<LayerFrameNodeInfo>> layers2;
-      fill_layers_rec(frame, layers2, 0, 0);
-
-      unsigned cnt = 0;
-      unsigned cur_l = 0;
-      for (auto &layer : layers2)
-      {
-        printf("layer %u\n", (unsigned)layer.size());
-        for (auto &node : layer)
-          printf("%d, node[%u] %d %d %u values %f %f\n", cur_l, node.idx, node.is_leaf, node.is_border,
-                node.border_children, frame[node.idx].values[0], frame[node.idx].values[7]);
-        cur_l++;
-      }
-    }
 
     //printf("cnt left %u\n", cnt);
   }

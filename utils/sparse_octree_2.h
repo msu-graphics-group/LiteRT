@@ -35,16 +35,3 @@ namespace sdf_converter
                                std::vector<SdfSVSNode> &nodes,
                                unsigned idx, uint3 p, unsigned lod_size);
 }
-
-class SparseOctreeBuilder2
-{
-public:
-  static constexpr unsigned MAX_OCTREE_DEPTH = 16;
-
-  void construct(sdf_converter::MultithreadedDistanceFunction sdf, SparseOctreeSettings settings);
-private:
-  sdf_converter::MultithreadedDistanceFunction sdf;
-  SparseOctreeSettings settings;
-  unsigned max_threads = 16;
-  unsigned min_remove_level = 4;
-};
