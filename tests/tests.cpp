@@ -1317,6 +1317,162 @@ void litert_test_17_all_types_sanity_check()
     printf("FAILED, psnr = %f\n", psnr_6);
 }
 
+void litert_test_18_mesh_normalization()
+{
+  //create renderers for SDF scene and mesh scene
+  cmesh4::SimpleMesh mesh, mesh_filled, mesh_compressed, mesh_n_fixed, mesh_normalized;
+  mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "saves/dragon/mesh.vsgf").c_str());
+  cmesh4::rescale_mesh(mesh, 0.999f*float3(-1, -1, -1), 0.999f*float3(1, 1, 1));
+
+  printf("mesh size = %d\n", (int)mesh.TrianglesNum());
+
+  unsigned W = 2048, H = 2048;
+
+  MultiRenderPreset preset = getDefaultPreset();
+
+  LiteImage::Image2D<uint32_t> ref_image(W, H);
+  LiteImage::Image2D<uint32_t> image_1(W, H);
+  LiteImage::Image2D<uint32_t> image_2(W, H);
+  LiteImage::Image2D<uint32_t> image_3(W, H);
+  LiteImage::Image2D<uint32_t> image_4(W, H);
+
+  LiteImage::Image2D<uint32_t> ref_sdf(W, H);
+  LiteImage::Image2D<uint32_t> sdf_1(W, H);
+  LiteImage::Image2D<uint32_t> sdf_2(W, H);
+  LiteImage::Image2D<uint32_t> sdf_3(W, H);
+  LiteImage::Image2D<uint32_t> sdf_4(W, H);
+
+  {
+    auto pRender = CreateMultiRenderer("GPU");
+    pRender->SetPreset(preset);
+    pRender->SetViewport(0,0,W,H);
+    pRender->SetScene(mesh);
+    render(ref_image, pRender, float3(2, 0, 2), float3(0, 0, 0), float3(0, 1, 0), preset);
+    LiteImage::SaveImage<uint32_t>("saves/test_18_1ref.bmp", ref_image);
+
+    auto sdf = sdf_converter::create_sdf_SVS(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 9), mesh);
+    auto pRenderSdf = CreateMultiRenderer("GPU");
+    pRenderSdf->SetPreset(preset);
+    pRenderSdf->SetViewport(0,0,W,H);
+    pRenderSdf->SetScene(sdf);
+    render(ref_sdf, pRenderSdf, float3(2, 0, 2), float3(0, 0, 0), float3(0, 1, 0), preset);
+    LiteImage::SaveImage<uint32_t>("saves/test_18_sdf_1ref.bmp", ref_sdf);
+  }
+
+  {
+    int ind = -1;
+    bool fl = false;
+    mesh_filled = cmesh4::check_watertight_mesh(mesh, true) ? mesh : cmesh4::removing_holes(mesh, ind, fl);
+    mesh_filled = mesh;
+    printf("mesh_filled size = %d\n", (int)mesh_filled.TrianglesNum());
+
+    auto pRender = CreateMultiRenderer("GPU");
+    pRender->SetPreset(preset);
+    pRender->SetViewport(0,0,W,H);
+    pRender->SetScene(mesh_filled);
+    render(image_1, pRender, float3(2, 0, 2), float3(0, 0, 0), float3(0, 1, 0), preset);
+    LiteImage::SaveImage<uint32_t>("saves/test_18_2removed_holes.bmp", image_1);
+
+
+    auto sdf = sdf_converter::create_sdf_SVS(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 9), mesh_filled);
+    auto pRenderSdf = CreateMultiRenderer("GPU");
+    pRenderSdf->SetPreset(preset);
+    pRenderSdf->SetViewport(0,0,W,H);
+    pRenderSdf->SetScene(sdf);
+    render(sdf_1, pRenderSdf, float3(2, 0, 2), float3(0, 0, 0), float3(0, 1, 0), preset);
+    LiteImage::SaveImage<uint32_t>("saves/test_18_sdf_2removed_holes.bmp", sdf_1);
+  }
+
+  {
+    mesh_compressed = mesh_filled;
+    cmesh4::compress_close_vertices(mesh_compressed, 1e-9f, true);
+    printf("mesh_compressed size = %d\n", (int)mesh_compressed.TrianglesNum());
+
+    auto pRender = CreateMultiRenderer("GPU");
+    pRender->SetPreset(preset);
+    pRender->SetViewport(0,0,W,H);
+    pRender->SetScene(mesh_compressed);
+    render(image_2, pRender, float3(2, 0, 2), float3(0, 0, 0), float3(0, 1, 0), preset);
+    LiteImage::SaveImage<uint32_t>("saves/test_18_3compressed.bmp", image_2);
+
+
+    auto sdf = sdf_converter::create_sdf_SVS(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 9), mesh_compressed);
+    auto pRenderSdf = CreateMultiRenderer("GPU");
+    pRenderSdf->SetPreset(preset);
+    pRenderSdf->SetViewport(0,0,W,H);
+    pRenderSdf->SetScene(sdf);
+    render(sdf_2, pRenderSdf, float3(2, 0, 2), float3(0, 0, 0), float3(0, 1, 0), preset);
+    LiteImage::SaveImage<uint32_t>("saves/test_18_sdf_3compressed.bmp", sdf_2);
+  }
+
+  {
+    mesh_n_fixed = mesh_compressed;
+    cmesh4::fix_normals(mesh_n_fixed, true);
+    printf("mesh_compressed size = %d\n", (int)mesh_n_fixed.TrianglesNum());
+
+    auto pRender = CreateMultiRenderer("GPU");
+    pRender->SetPreset(preset);
+    pRender->SetViewport(0,0,W,H);
+    pRender->SetScene(mesh_n_fixed);
+    render(image_3, pRender, float3(2, 0, 2), float3(0, 0, 0), float3(0, 1, 0), preset);
+    LiteImage::SaveImage<uint32_t>("saves/test_18_4n_fixed.bmp", image_3);
+
+
+    auto sdf = sdf_converter::create_sdf_SVS(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 9), mesh_n_fixed);
+    auto pRenderSdf = CreateMultiRenderer("GPU");
+    pRenderSdf->SetPreset(preset);
+    pRenderSdf->SetViewport(0,0,W,H);
+    pRenderSdf->SetScene(sdf);
+    render(sdf_3, pRenderSdf, float3(2, 0, 2), float3(0, 0, 0), float3(0, 1, 0), preset);
+    LiteImage::SaveImage<uint32_t>("saves/test_18_sdf_4n_fixed.bmp", sdf_3);
+  }
+
+  float psnr_1 = PSNR(ref_image, image_1);
+  float psnr_2 = PSNR(ref_image, image_2);
+  float psnr_3 = PSNR(ref_image, image_3);
+
+  float psnr_sdf_1 = PSNR(ref_sdf, sdf_1);
+  float psnr_sdf_2 = PSNR(ref_sdf, sdf_2);
+  float psnr_sdf_3 = PSNR(ref_sdf, sdf_3);
+
+  printf("TEST 18. Mesh normalization\n");
+
+  printf(" 18.1. %-64s", "Removing holes left mesh intact");
+  if (psnr_1 >= 45)
+    printf("passed    (%.2f)\n", psnr_1);
+  else
+    printf("FAILED, psnr = %f\n", psnr_1); 
+
+  printf(" 18.2. %-64s", "Removing holes left SDF intact");
+  if (psnr_sdf_1 >= 45)
+    printf("passed    (%.2f)\n", psnr_sdf_1);
+  else
+    printf("FAILED, psnr = %f\n", psnr_sdf_1);   
+
+  printf(" 18.1. %-64s", "Removing holes left mesh intact");
+  if (psnr_2 >= 45)
+    printf("passed    (%.2f)\n", psnr_2);
+  else
+    printf("FAILED, psnr = %f\n", psnr_2); 
+
+  printf(" 18.2. %-64s", "Removing holes left SDF intact");
+  if (psnr_sdf_2 >= 45)
+    printf("passed    (%.2f)\n", psnr_sdf_2);
+  else
+    printf("FAILED, psnr = %f\n", psnr_sdf_2);   
+
+  printf(" 18.1. %-64s", "Removing holes left mesh intact");
+  if (psnr_3 >= 45)
+    printf("passed    (%.2f)\n", psnr_3);
+  else
+    printf("FAILED, psnr = %f\n", psnr_3); 
+
+  printf(" 18.2. %-64s", "Removing holes left SDF intact");
+  if (psnr_sdf_3 >= 45)
+    printf("passed    (%.2f)\n", psnr_sdf_3);
+  else
+    printf("FAILED, psnr = %f\n", psnr_sdf_3);
+}
 
 void perform_tests_litert(const std::vector<int> &test_ids)
 {
@@ -1329,7 +1485,7 @@ void perform_tests_litert(const std::vector<int> &test_ids)
       litert_test_10_save_load, litert_test_11_hp_octree_legacy, litert_test_12_hp_octree_render,
       litert_test_13_hp_octree_build, litert_test_14_octree_nodes_removal, 
       litert_test_15_frame_octree_nodes_removal, litert_test_16_SVS_nodes_removal,
-      litert_test_17_all_types_sanity_check};
+      litert_test_17_all_types_sanity_check, litert_test_18_mesh_normalization};
 
   if (tests.empty())
   {

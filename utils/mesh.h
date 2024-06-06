@@ -49,8 +49,8 @@ namespace cmesh4
   //checks if mesh is watertight (it is required to build proper SDF from it)
   bool check_watertight_mesh(const cmesh4::SimpleMesh& mesh, bool verbose = false);
   cmesh4::SimpleMesh removing_holes(const cmesh4::SimpleMesh& mesh, int& ind, bool& fl);
-
-  void fix_normals(cmesh4::SimpleMesh &mesh);
+  void compress_close_vertices(cmesh4::SimpleMesh &mesh, double threshold, bool verbose);
+  void fix_normals(cmesh4::SimpleMesh &mesh, bool verbose);
 
   //checks for mesh defects and issues, notifies about them and tries to fix (e.g. wrong normal direction) 
   //it also rescales mesh so that the AABB is fit inside [-1,1]^3, and returns transform that does it
