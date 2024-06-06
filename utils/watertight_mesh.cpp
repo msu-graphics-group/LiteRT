@@ -115,9 +115,9 @@ namespace cmesh4
   }
 
   cmesh4::SimpleMesh filling_holes(cmesh4::SimpleMesh mesh,
-                                         std::vector<std::vector<unsigned int>>& vect_of_holes,
-                                         std::vector<LiteMath::float4>& mesh_vertices,
-                                         std::vector<unsigned int>& mesh_indices){
+                                   std::vector<std::vector<unsigned int>>& vect_of_holes,
+                                   std::vector<LiteMath::float4>& mesh_vertices,
+                                   std::vector<unsigned int>& mesh_indices){
     std::map<uint2, std::vector<float>, cmpUint2> weights_of_sides;
     std::vector<unsigned int> vertex_numbs; // the element in vertex_numbers is the vertex itself, and its position is its number
 
@@ -152,6 +152,7 @@ namespace cmesh4
     std::vector<std::vector<unsigned int>> vect_of_holes;
     uint2 start_edge; 
     uint2 checkpoint;
+    int del_vect_size;
     bool fl;
     int fl2; // if fl = 1, then compares the value of checkpoint.x with the values of start_edge
              // if fl = 2, then compares the value of checkpoint.y with the values of start_edge
@@ -169,7 +170,7 @@ namespace cmesh4
       fl = 0;
       fl2 = 0;
       k = i;
-      while (fl < 2){
+      while (true){
         del_vect.push_back(vertex_vec[k]);
         checkpoint.x = vertex_vec[k];
         vertex_vec.erase(vertex_vec.begin() + k);
@@ -224,27 +225,22 @@ namespace cmesh4
           else if(del_vect[q + 1] == del_vect[q + 3])
             std::swap(del_vect[q + 2], del_vect[q + 3]);
         }
-
-
         vect_of_holes.push_back(del_vect);
-        std::cout << "size vect_of_holes: " << vect_of_holes.size() << std::endl;
-        std::cout << "size del_vect: " << del_vect.size() << std::endl;
-
         i = -2;
       }
+      del_vect_size = del_vect.size();
       del_vect.clear();
     }
+    // std::cout << "There are " << vect_of_holes.size() << " holes left to close\n";
+    // std::cout << "There are " << del_vect_size << " vertices in the last hole\n\n";
 
     return vect_of_holes;
   }
 
-  bool fast_watertight(const cmesh4::SimpleMesh& mesh, bool verbose)
-  {
+
+  std::map<uint2, std::vector<unsigned int>, cmpUint2> presence_of_edges_in_the_planes(const cmesh4::SimpleMesh& mesh){
     std::vector<LiteMath::float4> mesh_vertices = mesh.vPos4f;
     std::vector<unsigned int> mesh_indices = mesh.indices;
-
-    if (mesh_vertices.size() == 0 || mesh_indices.size() == 0 || mesh_indices.size()%3 != 0)
-      return false;
 
     std::map<int3, unsigned, cmpInt3> vert_indices;
     float eps = 1e-5;
@@ -296,18 +292,24 @@ namespace cmesh4
       edge_in_planes[{a, c}].push_back(i);
     }
 
+    return edge_in_planes;
+  }
+
+  // ind - Quantity of holes found; if x = 1, then all the holes are patched
+  cmesh4::SimpleMesh removing_holes(const cmesh4::SimpleMesh& mesh, int& ind, bool& fl){
+    std::vector<LiteMath::float4> mesh_vertices = mesh.vPos4f;
+    std::vector<unsigned int> mesh_indices = mesh.indices;
+
+    std::map<uint2, std::vector<unsigned int>, cmpUint2> edge_in_planes;
+    edge_in_planes = presence_of_edges_in_the_planes(mesh);
+    
     int i=0;
-    int hanging_edges = 0;
     std::vector<uint2> vec_edge_occurs_1time;
     for (auto it = edge_in_planes.begin(); it != edge_in_planes.end(); it++)
     {
       if (it->second.size() < 2){
-        // printf("%d edge (%u %u), %d triangles\n", i, it->first.x, it->first.y, (int)it->second.size());
-        hanging_edges++;
         if(it->second.size() == 1){
-          // count++;
           if(it->first.x != it->first.y){
-            // printf("%d edge (%u %u), %d triangles\n", i, it->first.x, it->first.y, (int)it->second.size());
             vec_edge_occurs_1time.push_back(it->first);
           }
         }
@@ -315,16 +317,46 @@ namespace cmesh4
       i++;
     }
 
+    cmesh4::SimpleMesh mesh_without_holes;
     if(vec_edge_occurs_1time.size() != 0){
       std::vector<std::vector<unsigned int>> vect_of_holes = holes_search(vec_edge_occurs_1time);
+      if(ind == -1){
+        ind = vect_of_holes.size();
+      }
 
       if(vect_of_holes.size() != 0){
         if(vect_of_holes[0].size() != 0){
-          const cmesh4::SimpleMesh mesh_without_holes = filling_holes(mesh, vect_of_holes, mesh_vertices, mesh_indices);
-          std::cout << "\n----------------------------\n";
-          fast_watertight(mesh_without_holes, verbose);
+          mesh_without_holes = filling_holes(mesh, vect_of_holes, mesh_vertices, mesh_indices);
+          removing_holes(mesh_without_holes, ind, fl);
         }
       }
+    }
+    else
+      fl = 1;
+    
+    return mesh_without_holes;
+  }
+
+  bool fast_watertight(const cmesh4::SimpleMesh& mesh, bool verbose)
+  {
+    std::vector<LiteMath::float4> mesh_vertices = mesh.vPos4f;
+    std::vector<unsigned int> mesh_indices = mesh.indices;
+
+    if (mesh_vertices.size() == 0 || mesh_indices.size() == 0 || mesh_indices.size()%3 != 0)
+      return false;
+
+    std::map<uint2, std::vector<unsigned int>, cmpUint2> edge_in_planes;
+
+    edge_in_planes = presence_of_edges_in_the_planes(mesh);
+
+    int i=0;
+    int hanging_edges = 0;
+    for (auto it = edge_in_planes.begin(); it != edge_in_planes.end(); it++)
+    {
+      if (it->second.size() < 2){
+        hanging_edges++;
+      }
+      i++;
     }
     
     bool watertight = true;
