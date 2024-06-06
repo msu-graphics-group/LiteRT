@@ -181,37 +181,38 @@ namespace sdf_converter
 
   SdfSBS create_sdf_SBS(SparseOctreeSettings settings, SdfSBSHeader header, DistanceFunction sdf)
   {
-    assert(settings.remove_thr >= 0);
-    assert(settings.depth > 1);
     assert(settings.build_type == SparseOctreeBuildType::DEFAULT); //MESH_TLO available only when building from mesh
 
-    assert(header.brick_size >= 1 && header.brick_size <= 16);
-    assert(header.brick_pad == 0 || header.brick_pad == 1);
-    assert(header.bytes_per_value == 1 || header.bytes_per_value == 2 || header.bytes_per_value == 4);
-
-    SparseOctreeBuilder builder;
-    builder.construct(sdf, settings);
-    std::vector<SdfFrameOctreeNode> frame;
-    SdfSBS sbs;
-    sbs.header = header;
-    sbs.header.v_size = header.brick_size + 2*header.brick_pad + 1;
-    builder.convert_to_frame_octree(frame);
-    frame_octree_limit_nodes(frame, settings.nodes_limit, true);
-
-    frame_octree_to_SBS_rec(sdf, frame, sbs.header, sbs.nodes, sbs.values, 0, uint3(0,0,0), 0, 1);
-    return sbs;
+    return create_sdf_SBS(settings, header, [&](const float3 &p, unsigned idx) -> float { return sdf(p); }, 1);
   }
 
   SdfSBS create_sdf_SBS(SparseOctreeSettings settings, SdfSBSHeader header, MultithreadedDistanceFunction sdf, unsigned max_threads)
   {
-    return create_sdf_SBS(settings, header, [&](const float3 &p) -> float { return sdf(p, 0); });
+    assert(settings.remove_thr >= 0);
+    assert(settings.depth > 1);
+    assert(header.brick_size >= 1 && header.brick_size <= 16);
+    assert(header.brick_pad == 0 || header.brick_pad == 1);
+    assert(header.bytes_per_value == 1 || header.bytes_per_value == 2 || header.bytes_per_value == 4);
+
+    header.v_size = header.brick_size + 2*header.brick_pad + 1;
+
+    auto raw_nodes = construct_sdf_octree(settings, sdf, max_threads);
+    auto frame = convert_to_frame_octree(settings, sdf, max_threads, raw_nodes);
+    frame_octree_limit_nodes(frame, settings.nodes_limit, true);
+    auto sbs = frame_octree_to_SBS(sdf, max_threads, frame, header);
+    return sbs;
   }
 
   SdfSBS create_sdf_SBS(SparseOctreeSettings settings, SdfSBSHeader header, const cmesh4::SimpleMesh &mesh)
   {
-    MeshBVH bvh;
-    bvh.init(mesh);
-    return create_sdf_SBS(settings, header, [&bvh](const float3 &p) -> float { return bvh.get_signed_distance(p); });
+    unsigned max_threads = omp_get_max_threads();
+
+    std::vector<MeshBVH> bvh(max_threads);
+    for (unsigned i = 0; i < max_threads; i++)
+      bvh[i].init(mesh);
+      
+    return create_sdf_SBS(settings, header, [&](const float3 &p, unsigned idx) -> float 
+                          { return bvh[idx].get_signed_distance(p); }, max_threads);
   }
 
   SdfHPOctree create_sdf_hp_octree(HPOctreeBuilder::BuildSettings settings, DistanceFunction sdf)

@@ -19,6 +19,10 @@ namespace sdf_converter
   std::vector<SdfOctreeNode> construct_sdf_octree(SparseOctreeSettings settings, MultithreadedDistanceFunction sdf, unsigned max_threads);
   std::vector<SdfFrameOctreeNode> convert_to_frame_octree(SparseOctreeSettings settings, MultithreadedDistanceFunction sdf, unsigned max_threads,
                                                           const std::vector<SdfOctreeNode> &nodes);
+  SdfSBS frame_octree_to_SBS(MultithreadedDistanceFunction sdf, 
+                             unsigned max_threads,
+                             const std::vector<SdfFrameOctreeNode> &nodes,
+                             const SdfSBSHeader &header);
 }
 
 class SparseOctreeBuilder2
