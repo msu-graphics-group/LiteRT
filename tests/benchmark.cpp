@@ -3,7 +3,6 @@
 #include "../Renderer/eye_ray.h"
 #include "../utils/mesh_bvh.h"
 #include "../utils/mesh.h"
-#include "../utils/sparse_octree.h"
 #include "../utils/hp_octree.h"
 #include "../utils/sdf_converter.h"
 #include "LiteScene/hydraxml.h"
@@ -143,6 +142,7 @@ void benchmark_framed_octree_intersection()
   for (int scene_n = 0; scene_n < scene_paths.size(); scene_n++)
   {
     auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path+scene_paths[scene_n]).c_str());
+    cmesh4::rescale_mesh(mesh, float3(-0.9,-0.9,-0.9), float3(0.9,0.9,0.9));
 
     float3 mb1,mb2, ma1,ma2;
     cmesh4::get_bbox(mesh, &mb1, &mb2);
@@ -151,17 +151,9 @@ void benchmark_framed_octree_intersection()
     MeshBVH mesh_bvh;
     mesh_bvh.init(mesh);
 
-    SparseOctreeBuilder builder;
-
-    std::vector<SdfFrameOctreeNode> frame_nodes;
-    std::vector<SdfSVSNode> svs_nodes;
-    std::vector<SdfSBSNode> sbs_nodes;
-    std::vector<uint32_t>   sbs_data;
-
-    builder.construct([&mesh_bvh](const float3 &p) { return mesh_bvh.get_signed_distance(p); }, settings);
-    builder.convert_to_frame_octree(frame_nodes);
-    builder.convert_to_sparse_voxel_set(svs_nodes);
-    builder.convert_to_sparse_brick_set(header, sbs_nodes, sbs_data);
+    std::vector<SdfFrameOctreeNode> frame_nodes = sdf_converter::create_sdf_frame_octree(settings, mesh);
+    std::vector<SdfSVSNode> svs_nodes = sdf_converter::create_sdf_SVS(settings, mesh);
+    SdfSBS sbs = sdf_converter::create_sdf_SBS(settings, header, mesh);
     
     HPOctreeBuilder hp_builder;
     hp_builder.construct(mesh);
@@ -188,7 +180,7 @@ void benchmark_framed_octree_intersection()
           else if (AS_types[as_n] == TYPE_MESH_TRIANGLE) 
             pRender->SetScene(mesh);
           else if (AS_types[as_n] == TYPE_SDF_SBS)
-            pRender->SetScene(SdfSBSView(header, sbs_nodes, sbs_data));
+            pRender->SetScene(sbs);
           else if (AS_types[as_n] == TYPE_SDF_HP)
             pRender->SetScene(SdfHPOctreeView(hp_builder.octree.nodes, hp_builder.octree.data));
 
@@ -246,17 +238,7 @@ void benchmark_framed_octree_intersection()
 void quality_check(const char *path)
 {
   auto mesh = cmesh4::LoadMeshFromVSGF(path);
-
-  float3 mb1, mb2, ma1, ma2;
-  cmesh4::get_bbox(mesh, &mb1, &mb2);
   cmesh4::rescale_mesh(mesh, float3(-0.99, -0.99, -0.99), float3(0.99, 0.99, 0.99));
-  cmesh4::get_bbox(mesh, &ma1, &ma2);
-
-  printf("total triangles %d\n", (int)mesh.TrianglesNum());
-  printf("bbox [(%f %f %f)-(%f %f %f)] to [(%f %f %f)-(%f %f %f)]\n",
-         mb1.x, mb1.y, mb1.z, mb2.x, mb2.y, mb2.z, ma1.x, ma1.y, ma1.z, ma2.x, ma2.y, ma2.z);
-  MeshBVH mesh_bvh;
-  mesh_bvh.init(mesh);
 
   unsigned W = 1024, H = 1024;
   MultiRenderPreset preset = getDefaultPreset();
@@ -272,14 +254,8 @@ void quality_check(const char *path)
 
   for (int depth = 6; depth <= 10; depth++)
   {
-    std::vector<SdfSVSNode> svs_nodes;
-    SparseOctreeBuilder builder;
     SparseOctreeSettings settings(SparseOctreeBuildType::MESH_TLO, depth);
-
-    builder.construct([&mesh_bvh](const float3 &p)
-                      { return mesh_bvh.get_signed_distance(p); },
-                      settings);
-    builder.convert_to_sparse_voxel_set(svs_nodes);
+    std::vector<SdfSVSNode> svs_nodes = sdf_converter::create_sdf_SVS(settings, mesh);
 
     save_sdf_SVS(svs_nodes, ("saves/svs_"+std::to_string(depth)+".bin").c_str());
 

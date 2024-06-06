@@ -23,6 +23,17 @@ namespace sdf_converter
                              unsigned max_threads,
                              const std::vector<SdfFrameOctreeNode> &nodes,
                              const SdfSBSHeader &header);
+
+  void mesh_octree_to_sdf_frame_octree(const cmesh4::SimpleMesh &mesh,
+                                       const cmesh4::TriangleListOctree &tl_octree, 
+                                       std::vector<SdfFrameOctreeNode> &out_frame);
+
+  void octree_limit_nodes(std::vector<SdfOctreeNode> &frame, unsigned nodes_limit);
+  void frame_octree_limit_nodes(std::vector<SdfFrameOctreeNode> &frame, unsigned nodes_limit,
+                                bool count_only_border_nodes);
+  void frame_octree_to_SVS_rec(const std::vector<SdfFrameOctreeNode> &frame,
+                               std::vector<SdfSVSNode> &nodes,
+                               unsigned idx, uint3 p, unsigned lod_size);
 }
 
 class SparseOctreeBuilder2

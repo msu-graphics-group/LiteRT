@@ -9,7 +9,7 @@
 #include "../Timer.h"
 #include "../utils/mesh.h"
 #include "../utils/mesh_bvh.h"
-#include "../utils/sparse_octree.h"
+#include "../utils/sdf_converter.h"
 
 using LiteMath::float2;
 using LiteMath::float3;
@@ -97,33 +97,7 @@ bool MultiRenderer::LoadSceneHydra(const std::string& a_path, unsigned type, Spa
       break;
       case TYPE_SDF_SVS:
       {
-        std::vector<SdfSVSNode> svs_nodes;
-        if (so_settings.build_type == SparseOctreeBuildType::DEFAULT)
-        {
-          MeshBVH mesh_bvh;
-          mesh_bvh.init(currMesh);
-          SparseOctreeBuilder builder;
-          builder.construct([&mesh_bvh](const float3 &p)
-                            { return mesh_bvh.get_signed_distance(p); },
-                            so_settings);
-          builder.convert_to_sparse_voxel_set(svs_nodes);
-        }
-        else if (so_settings.build_type == SparseOctreeBuildType::MESH_TLO)
-        {
-          // search_range_mult is selected by experiments, more is better, but slower.
-          // 2.0 is probably the right value in theory.
-          constexpr float search_range_mult = 2.0f;
-          auto oct = cmesh4::create_triangle_list_octree(currMesh, so_settings.depth, 1, search_range_mult);
-          SparseOctreeBuilder::mesh_octree_to_SVS(currMesh, oct, svs_nodes);
-        }
-        if (false) //use to check quality
-        {
-          MeshBVH mesh_bvh;
-          mesh_bvh.init(currMesh);
-          SparseOctreeBuilder builder;
-          builder.check_quality([&mesh_bvh](const float3 &p)
-                            { return mesh_bvh.get_signed_distance(p); }, svs_nodes);
-        }
+        std::vector<SdfSVSNode> svs_nodes = sdf_converter::create_sdf_SVS(so_settings, currMesh);
         m_pAccelStruct->AddGeom_SdfSVS(svs_nodes);
       }
       break;

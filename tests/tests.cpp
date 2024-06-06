@@ -3,12 +3,12 @@
 #include "../Renderer/eye_ray.h"
 #include "../utils/mesh_bvh.h"
 #include "../utils/mesh.h"
-#include "../utils/sparse_octree.h"
 #include "LiteScene/hydraxml.h"
 #include "LiteMath/Image2d.h"
 #include "../NeuralRT/NeuralRT.h"
 #include "../utils/hp_octree.h"
 #include "../utils/sdf_converter.h"
+#include "../utils/sparse_octree_2.h"
 
 #include <functional>
 #include <cassert>
@@ -62,15 +62,9 @@ void litert_test_1_framed_octree()
     printf("total triangles %d\n", (int)mesh.TrianglesNum());
     printf("bbox [(%f %f %f)-(%f %f %f)] to [(%f %f %f)-(%f %f %f)]\n",
            mb1.x, mb1.y, mb1.z, mb2.x, mb2.y, mb2.z, ma1.x, ma1.y, ma1.z, ma2.x, ma2.y, ma2.z);
-    MeshBVH mesh_bvh;
-    mesh_bvh.init(mesh);
 
-    SparseOctreeBuilder builder;
     SparseOctreeSettings settings(SparseOctreeBuildType::DEFAULT, 9);
-    std::vector<SdfFrameOctreeNode> frame_nodes;
-
-    builder.construct([&mesh_bvh](const float3 &p) { return mesh_bvh.get_signed_distance(p); }, settings);
-    builder.convert_to_frame_octree(frame_nodes);
+    std::vector<SdfFrameOctreeNode> frame_nodes = sdf_converter::create_sdf_frame_octree(settings, mesh);
 
     unsigned W = 2048, H = 2048;
     LiteImage::Image2D<uint32_t> image(W, H);
@@ -122,15 +116,9 @@ void litert_test_2_SVS()
     printf("total triangles %d\n", (int)mesh.TrianglesNum());
     printf("bbox [(%f %f %f)-(%f %f %f)] to [(%f %f %f)-(%f %f %f)]\n",
            mb1.x, mb1.y, mb1.z, mb2.x, mb2.y, mb2.z, ma1.x, ma1.y, ma1.z, ma2.x, ma2.y, ma2.z);
-    MeshBVH mesh_bvh;
-    mesh_bvh.init(mesh);
 
-    SparseOctreeBuilder builder;
     SparseOctreeSettings settings(SparseOctreeBuildType::DEFAULT, 9);
-    std::vector<SdfSVSNode> frame_nodes;
-
-    builder.construct([&mesh_bvh](const float3 &p) { return mesh_bvh.get_signed_distance(p); }, settings);
-    builder.convert_to_sparse_voxel_set(frame_nodes);
+    std::vector<SdfSVSNode> frame_nodes = sdf_converter::create_sdf_SVS(settings, mesh);
 
     unsigned W = 2048, H = 2048;
     LiteImage::Image2D<uint32_t> image(W, H);
@@ -178,45 +166,20 @@ void litert_test_3_SBS_verify()
   preset.sdf_frame_octree_intersect = SDF_OCTREE_NODE_INTERSECT_ST;
 
   auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path+"scenes/01_simple_scenes/data/teapot.vsgf").c_str());
-
-  float3 mb1, mb2, ma1, ma2;
-  cmesh4::get_bbox(mesh, &mb1, &mb2);
   cmesh4::rescale_mesh(mesh, float3(-0.9, -0.9, -0.9), float3(0.9, 0.9, 0.9));
-  cmesh4::get_bbox(mesh, &ma1, &ma2);
-  MeshBVH mesh_bvh;
-  mesh_bvh.init(mesh);
 
-  SparseOctreeBuilder builder;
   SparseOctreeSettings settings(SparseOctreeBuildType::DEFAULT, 8);
-
-  std::vector<SdfFrameOctreeNode> frame_nodes;
-  std::vector<SdfSVSNode> svs_nodes;
-  std::vector<SdfSBSNode> sbs_nodes_1_1;
-  std::vector<SdfSBSNode> sbs_nodes_1_2;
-  std::vector<SdfSBSNode> sbs_nodes_2_1;
-  std::vector<SdfSBSNode> sbs_nodes_2_2;
-  std::vector<uint32_t> sbs_data_1_1;
-  std::vector<uint32_t> sbs_data_1_2;
-  std::vector<uint32_t> sbs_data_2_1;
-  std::vector<uint32_t> sbs_data_2_2;
-
-  builder.construct([&mesh_bvh](const float3 &p)
-                    { return mesh_bvh.get_signed_distance(p); },
-                    settings);
-  builder.convert_to_frame_octree(frame_nodes);
-  builder.convert_to_sparse_voxel_set(svs_nodes);
-
   SdfSBSHeader header_1_1{1,0,1,2};
-  builder.convert_to_sparse_brick_set(header_1_1, sbs_nodes_1_1, sbs_data_1_1);
-
   SdfSBSHeader header_1_2{1,0,2,2};
-  builder.convert_to_sparse_brick_set(header_1_2, sbs_nodes_1_2, sbs_data_1_2);
-
   SdfSBSHeader header_2_1{2,0,1,3};
-  builder.convert_to_sparse_brick_set(header_2_1, sbs_nodes_2_1, sbs_data_2_1);
-
   SdfSBSHeader header_2_2{2,0,2,3};
-  builder.convert_to_sparse_brick_set(header_2_2, sbs_nodes_2_2, sbs_data_2_2);
+
+  SdfSBS sbs_1_1 = sdf_converter::create_sdf_SBS(settings, header_1_1, mesh);
+  SdfSBS sbs_1_2 = sdf_converter::create_sdf_SBS(settings, header_1_2, mesh);
+  SdfSBS sbs_2_1 = sdf_converter::create_sdf_SBS(settings, header_2_1, mesh);
+  SdfSBS sbs_2_2 = sdf_converter::create_sdf_SBS(settings, header_2_2, mesh);
+
+  std::vector<SdfSVSNode> svs_nodes = sdf_converter::create_sdf_SVS(settings, mesh);
 
   unsigned W = 1024, H = 1024;
   LiteImage::Image2D<uint32_t> image(W, H);
@@ -252,7 +215,7 @@ void litert_test_3_SBS_verify()
   {
     auto pRender = CreateMultiRenderer("CPU");
     pRender->SetPreset(preset);
-    pRender->SetScene(SdfSBSView(header_1_1, sbs_nodes_1_1, sbs_data_1_1));
+    pRender->SetScene(sbs_1_1);
 
     render(image, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset);
     LiteImage::SaveImage<uint32_t>("saves/test_3_SBS_1_1.bmp", image); 
@@ -274,7 +237,7 @@ void litert_test_3_SBS_verify()
   {
     auto pRender = CreateMultiRenderer("GPU");
     pRender->SetPreset(preset);
-    pRender->SetScene(SdfSBSView(header_1_1, sbs_nodes_1_1, sbs_data_1_1));
+    pRender->SetScene(sbs_1_1);
 
     render(image, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset);
     LiteImage::SaveImage<uint32_t>("saves/test_3_SBS_1_1.bmp", image); 
@@ -296,7 +259,7 @@ void litert_test_3_SBS_verify()
   {
     auto pRender = CreateMultiRenderer("GPU");
     pRender->SetPreset(preset);
-    pRender->SetScene(SdfSBSView(header_1_2, sbs_nodes_1_2, sbs_data_1_2));
+    pRender->SetScene(sbs_1_2);
 
     render(image, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset);
     LiteImage::SaveImage<uint32_t>("saves/test_3_SBS_1_2.bmp", image); 
@@ -311,7 +274,7 @@ void litert_test_3_SBS_verify()
   {
     auto pRender = CreateMultiRenderer("GPU");
     pRender->SetPreset(preset);
-    pRender->SetScene(SdfSBSView(header_2_1, sbs_nodes_2_1, sbs_data_2_1));
+    pRender->SetScene(sbs_2_1);
 
     render(image, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset);
     LiteImage::SaveImage<uint32_t>("saves/test_3_SBS_2_1.bmp", image); 
@@ -326,7 +289,7 @@ void litert_test_3_SBS_verify()
   {
     auto pRender = CreateMultiRenderer("GPU");
     pRender->SetPreset(preset);
-    pRender->SetScene(SdfSBSView(header_2_2, sbs_nodes_2_2, sbs_data_2_2));
+    pRender->SetScene(sbs_2_2);
 
     render(image, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset);
     LiteImage::SaveImage<uint32_t>("saves/test_3_SBS_2_2.bmp", image); 
@@ -529,12 +492,9 @@ void test_7_neural_SDF()
   pRender_1->LoadSceneHydra((scenes_folder_path+scene_name).c_str());
 
   ISdfSceneFunction *sdf_func = dynamic_cast<ISdfSceneFunction*>(pRender_1->GetAccelStruct().get());
-  SparseOctreeBuilder builder;
   SparseOctreeSettings settings(SparseOctreeBuildType::DEFAULT, 8);
-  std::vector<SdfSVSNode> frame_nodes;
-
-  builder.construct([&sdf_func](const float3 &p) { return sdf_func->eval_distance(p); }, settings);
-  builder.convert_to_sparse_voxel_set(frame_nodes);
+  std::vector<SdfSVSNode> frame_nodes = sdf_converter::create_sdf_SVS(settings, 
+                                          [&sdf_func](const float3 &p) -> float { return sdf_func->eval_distance(p); });
 
   auto pRender_2 = CreateMultiRenderer("GPU");
   pRender_2->SetPreset(preset_1);
@@ -703,22 +663,12 @@ void litert_test_10_save_load()
   mesh_bvh.init(mesh);
 
   {
-    SparseOctreeBuilder builder;
     SparseOctreeSettings settings(SparseOctreeBuildType::DEFAULT, 7);
 
-    std::vector<SdfOctreeNode> octree_nodes;
-    std::vector<SdfFrameOctreeNode> frame_nodes;
-    std::vector<SdfSVSNode> svs_nodes;
-    SdfSBS sbs;
-    sbs.header = SdfSBSHeader{1, 0, 1, 2};
-
-    builder.construct([&mesh_bvh](const float3 &p)
-                      { return mesh_bvh.get_signed_distance(p); },
-                      settings);
-    octree_nodes = builder.get_nodes();
-    builder.convert_to_frame_octree(frame_nodes);
-    builder.convert_to_sparse_voxel_set(svs_nodes);
-    builder.convert_to_sparse_brick_set(sbs.header, sbs.nodes, sbs.values);
+    std::vector<SdfOctreeNode> octree_nodes = sdf_converter::create_sdf_octree(settings, mesh);
+    std::vector<SdfFrameOctreeNode> frame_nodes = sdf_converter::create_sdf_frame_octree(settings, mesh);
+    std::vector<SdfSVSNode> svs_nodes = sdf_converter::create_sdf_SVS(settings, mesh);
+    SdfSBS sbs = sdf_converter::create_sdf_SBS(settings, SdfSBSHeader{1, 0, 1, 2}, mesh);
 
     save_sdf_octree(octree_nodes, "saves/test_10_octree.bin");
     save_sdf_frame_octree(frame_nodes, "saves/test_10_frame_octree.bin");
@@ -980,13 +930,10 @@ void litert_test_13_hp_octree_build()
 #endif
 }
 
-void octree_limit_nodes(std::vector<SdfOctreeNode> &frame, unsigned nodes_limit);
 void litert_test_14_octree_nodes_removal()
 {
   auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "scenes/01_simple_scenes/data/teapot.vsgf").c_str());
   cmesh4::normalize_mesh(mesh);
-  MeshBVH mesh_bvh;
-  mesh_bvh.init(mesh);
 
   std::vector<SdfOctreeNode> octree_nodes_ref;
   std::vector<SdfOctreeNode> octree_nodes_7;
@@ -995,32 +942,20 @@ void litert_test_14_octree_nodes_removal()
 
   {
     SparseOctreeSettings settings(SparseOctreeBuildType::DEFAULT, 6);
-    SparseOctreeBuilder builder;
-    builder.construct([&mesh_bvh](const float3 &p)
-                      { return mesh_bvh.get_signed_distance(p); },
-                      settings);
-    octree_nodes_ref = builder.get_nodes();
-    octree_limit_nodes(octree_nodes_ref, level_6_nodes);
+    octree_nodes_ref = sdf_converter::create_sdf_octree(settings, mesh);
+    sdf_converter::octree_limit_nodes(octree_nodes_ref, level_6_nodes);
   }
 
   {
     SparseOctreeSettings settings(SparseOctreeBuildType::DEFAULT, 7);
-    SparseOctreeBuilder builder;
-    builder.construct([&mesh_bvh](const float3 &p)
-                      { return mesh_bvh.get_signed_distance(p); },
-                      settings);
-    octree_nodes_7 = builder.get_nodes();
-    octree_limit_nodes(octree_nodes_7, level_6_nodes);
+    octree_nodes_7 = sdf_converter::create_sdf_octree(settings, mesh);
+    sdf_converter::octree_limit_nodes(octree_nodes_7, level_6_nodes);
   }
 
   {
     SparseOctreeSettings settings(SparseOctreeBuildType::DEFAULT, 8);
-    SparseOctreeBuilder builder;
-    builder.construct([&mesh_bvh](const float3 &p)
-                      { return mesh_bvh.get_signed_distance(p); },
-                      settings);
-    octree_nodes_8 = builder.get_nodes();
-    octree_limit_nodes(octree_nodes_8, level_6_nodes);
+    octree_nodes_8 = sdf_converter::create_sdf_octree(settings, mesh);
+    sdf_converter::octree_limit_nodes(octree_nodes_8, level_6_nodes);
   }
 
   unsigned W = 1024, H = 1024;
@@ -1077,8 +1012,6 @@ void litert_test_14_octree_nodes_removal()
     printf("FAILED, psnr = %f\n", psnr_2);
 }
 
-void frame_octree_limit_nodes(std::vector<SdfFrameOctreeNode> &frame, unsigned nodes_limit,
-                              bool count_only_border_nodes);
 void litert_test_15_frame_octree_nodes_removal()
 {
   auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "scenes/01_simple_scenes/data/teapot.vsgf").c_str());
@@ -1093,32 +1026,20 @@ void litert_test_15_frame_octree_nodes_removal()
 
   {
     SparseOctreeSettings settings(SparseOctreeBuildType::DEFAULT, 6);
-    SparseOctreeBuilder builder;
-    builder.construct([&mesh_bvh](const float3 &p)
-                      { return mesh_bvh.get_signed_distance(p); },
-                      settings);
-    builder.convert_to_frame_octree(octree_nodes_ref);
-    frame_octree_limit_nodes(octree_nodes_ref, level_6_nodes, false);
+    octree_nodes_ref = sdf_converter::create_sdf_frame_octree(settings, mesh);
+    sdf_converter::frame_octree_limit_nodes(octree_nodes_ref, level_6_nodes, false);
   }
 
   {
     SparseOctreeSettings settings(SparseOctreeBuildType::DEFAULT, 7);
-    SparseOctreeBuilder builder;
-    builder.construct([&mesh_bvh](const float3 &p)
-                      { return mesh_bvh.get_signed_distance(p); },
-                      settings);
-    builder.convert_to_frame_octree(octree_nodes_7);
-    frame_octree_limit_nodes(octree_nodes_7, level_6_nodes, false);
+    octree_nodes_7 = sdf_converter::create_sdf_frame_octree(settings, mesh);
+    sdf_converter::frame_octree_limit_nodes(octree_nodes_7, level_6_nodes, false);
   }
 
   {
     SparseOctreeSettings settings(SparseOctreeBuildType::DEFAULT, 8);
-    SparseOctreeBuilder builder;
-    builder.construct([&mesh_bvh](const float3 &p)
-                      { return mesh_bvh.get_signed_distance(p); },
-                      settings);
-    builder.convert_to_frame_octree(octree_nodes_8);
-    frame_octree_limit_nodes(octree_nodes_8, level_6_nodes, false);
+    octree_nodes_8 = sdf_converter::create_sdf_frame_octree(settings, mesh);
+    sdf_converter::frame_octree_limit_nodes(octree_nodes_8, level_6_nodes, false);
   }
 
   unsigned W = 1024, H = 1024;
@@ -1175,9 +1096,6 @@ void litert_test_15_frame_octree_nodes_removal()
     printf("FAILED, psnr = %f\n", psnr_2);
 }
 
-void frame_octree_to_SVS_rec(const std::vector<SdfFrameOctreeNode> &frame,
-                             std::vector<SdfSVSNode> &nodes,
-                             unsigned idx, uint3 p, unsigned lod_size);
 void litert_test_16_SVS_nodes_removal()
 {
   auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "scenes/01_simple_scenes/data/teapot.vsgf").c_str());
@@ -1192,38 +1110,23 @@ void litert_test_16_SVS_nodes_removal()
 
   {
     SparseOctreeSettings settings(SparseOctreeBuildType::DEFAULT, 6);
-    SparseOctreeBuilder builder;
-    builder.construct([&mesh_bvh](const float3 &p)
-                      { return mesh_bvh.get_signed_distance(p); },
-                      settings);
-    std::vector<SdfFrameOctreeNode> nodes;
-    builder.convert_to_frame_octree(nodes);
-    frame_octree_limit_nodes(nodes, level_6_nodes, true);
-    frame_octree_to_SVS_rec(nodes, octree_nodes_ref, 0, uint3(0,0,0), 1);
+    std::vector<SdfFrameOctreeNode> nodes = sdf_converter::create_sdf_frame_octree(settings, mesh);
+    sdf_converter::frame_octree_limit_nodes(nodes, level_6_nodes, true);
+    sdf_converter::frame_octree_to_SVS_rec(nodes, octree_nodes_ref, 0, uint3(0,0,0), 1);
   }
 
   {
     SparseOctreeSettings settings(SparseOctreeBuildType::DEFAULT, 7);
-    SparseOctreeBuilder builder;
-    builder.construct([&mesh_bvh](const float3 &p)
-                      { return mesh_bvh.get_signed_distance(p); },
-                      settings);
-    std::vector<SdfFrameOctreeNode> nodes;
-    builder.convert_to_frame_octree(nodes);
-    frame_octree_limit_nodes(nodes, level_6_nodes, true);
-    frame_octree_to_SVS_rec(nodes, octree_nodes_7, 0, uint3(0,0,0), 1);
+    std::vector<SdfFrameOctreeNode> nodes = sdf_converter::create_sdf_frame_octree(settings, mesh);
+    sdf_converter::frame_octree_limit_nodes(nodes, level_6_nodes, true);
+    sdf_converter::frame_octree_to_SVS_rec(nodes, octree_nodes_7, 0, uint3(0,0,0), 1);
   }
 
   {
     SparseOctreeSettings settings(SparseOctreeBuildType::DEFAULT, 8);
-    SparseOctreeBuilder builder;
-    builder.construct([&mesh_bvh](const float3 &p)
-                      { return mesh_bvh.get_signed_distance(p); },
-                      settings);
-    std::vector<SdfFrameOctreeNode> nodes;
-    builder.convert_to_frame_octree(nodes);
-    frame_octree_limit_nodes(nodes, level_6_nodes, true);
-    frame_octree_to_SVS_rec(nodes, octree_nodes_8, 0, uint3(0,0,0), 1);
+    std::vector<SdfFrameOctreeNode> nodes = sdf_converter::create_sdf_frame_octree(settings, mesh);
+    sdf_converter::frame_octree_limit_nodes(nodes, level_6_nodes, true);
+    sdf_converter::frame_octree_to_SVS_rec(nodes, octree_nodes_8, 0, uint3(0,0,0), 1);
   }
 
   unsigned W = 1024, H = 1024;

@@ -1,23 +1,9 @@
 #include "sdf_converter.h"
 #include "mesh_bvh.h"
 #include "omp.h"
-#include "sparse_octree.h"
 #include "sparse_octree_2.h"
 #include <chrono>
 #include "mesh.h"
-
-void octree_limit_nodes(std::vector<SdfOctreeNode> &frame, unsigned nodes_limit);
-void frame_octree_limit_nodes(std::vector<SdfFrameOctreeNode> &frame, unsigned nodes_limit,
-                              bool count_only_border_nodes);
-void frame_octree_to_SVS_rec(const std::vector<SdfFrameOctreeNode> &frame,
-                             std::vector<SdfSVSNode> &nodes,
-                             unsigned idx, uint3 p, unsigned lod_size);
-void frame_octree_to_SBS_rec(std::function<SparseOctreeBuilder::T(const float3 &)> sdf, 
-                             const std::vector<SdfFrameOctreeNode> &nodes,
-                             const SdfSBSHeader &header,
-                             std::vector<SdfSBSNode> &out_nodes, 
-                             std::vector<uint32_t> &out_values,
-                             unsigned idx, uint3 p, unsigned level, float d);
 
 namespace sdf_converter
 {
@@ -118,7 +104,7 @@ namespace sdf_converter
     {
       auto tlo = cmesh4::create_triangle_list_octree(mesh, settings.depth, 1, 2.0f);
       std::vector<SdfFrameOctreeNode> nodes;
-      SparseOctreeBuilder::mesh_octree_to_sdf_frame_octree(mesh, tlo, nodes);
+      mesh_octree_to_sdf_frame_octree(mesh, tlo, nodes);
       frame_octree_limit_nodes(nodes, settings.nodes_limit, false);
       return nodes;
     }
@@ -161,7 +147,7 @@ namespace sdf_converter
       auto tlo = cmesh4::create_triangle_list_octree(mesh, settings.depth, 1, 2.0f);
       std::vector<SdfFrameOctreeNode> frame;
       std::vector<SdfSVSNode> nodes;
-      SparseOctreeBuilder::mesh_octree_to_sdf_frame_octree(mesh, tlo, frame);
+      mesh_octree_to_sdf_frame_octree(mesh, tlo, frame);
       frame_octree_limit_nodes(frame, settings.nodes_limit, true);
       frame_octree_to_SVS_rec(frame, nodes, 0, uint3(0,0,0), 1);
       return nodes;
