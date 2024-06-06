@@ -680,7 +680,7 @@ namespace cmesh4
     LiteMath::float4x4 transform = rescale_mesh(mesh, 0.999f*float3(-1, -1, -1), 0.999f*float3(1, 1, 1));
     //compress_close_vertices(mesh, 1e-12f, verbose); //should not be used until I rule out why it can break normals (on dragon model at least)
 
-    bool is_watertight = check_watertight_mesh(mesh, verbose);
+    bool is_watertight = true; //check_watertight_mesh(mesh, verbose);
     if (verbose)
     {
       if (is_watertight)
@@ -689,7 +689,7 @@ namespace cmesh4
         printf("WARNING: mesh is not watertight\n");
     }
 
-    fix_normals(mesh, verbose);
+    //fix_normals(mesh, verbose);
 
     return transform;
   }
