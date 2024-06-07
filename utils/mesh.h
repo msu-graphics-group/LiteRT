@@ -48,9 +48,7 @@ namespace cmesh4
 
   //checks if mesh is watertight (it is required to build proper SDF from it)
   bool check_watertight_mesh(const cmesh4::SimpleMesh& mesh, bool verbose = false);
-  void removing_holes(cmesh4::SimpleMesh& mesh, int& ind, bool& fl);
-  cmesh4::SimpleMesh before_removing_holes(cmesh4::SimpleMesh& mesh, int& ind, bool& fl);
-
+  cmesh4::SimpleMesh removing_holes(const cmesh4::SimpleMesh& mesh, int& ind, bool& fl);
   void compress_close_vertices(cmesh4::SimpleMesh &mesh, double threshold, bool verbose);
   void fix_normals(cmesh4::SimpleMesh &mesh, bool verbose);
 
