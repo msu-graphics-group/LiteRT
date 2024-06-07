@@ -34,6 +34,8 @@ namespace cmesh4
 
   LiteMath::float3 float4_to_float3(LiteMath::float4 m);
 
+  // bool fast_watertight(const cmesh4::SimpleMesh& mesh, bool verbose);
+
 
 
   float coarse_triangulation(std::vector<LiteMath::float4>& mesh_vertices,
@@ -114,7 +116,7 @@ namespace cmesh4
     }
   }
 
-  cmesh4::SimpleMesh filling_holes(cmesh4::SimpleMesh mesh,
+  cmesh4::SimpleMesh filling_holes(cmesh4::SimpleMesh& mesh,
                                    std::vector<std::vector<unsigned int>>& vect_of_holes,
                                    std::vector<LiteMath::float4>& mesh_vertices,
                                    std::vector<unsigned int>& mesh_indices){
@@ -294,9 +296,9 @@ namespace cmesh4
 
     return edge_in_planes;
   }
+  
 
-  // ind - Quantity of holes found; if x = 1, then all the holes are patched
-  cmesh4::SimpleMesh removing_holes(const cmesh4::SimpleMesh& mesh, int& ind, bool& fl){
+  void removing_holes(cmesh4::SimpleMesh& mesh, int& ind, bool& fl){
     std::vector<LiteMath::float4> mesh_vertices = mesh.vPos4f;
     std::vector<unsigned int> mesh_indices = mesh.indices;
 
@@ -326,16 +328,29 @@ namespace cmesh4
 
       if(vect_of_holes.size() != 0){
         if(vect_of_holes[0].size() != 0){
-          mesh_without_holes = filling_holes(mesh, vect_of_holes, mesh_vertices, mesh_indices);
-          removing_holes(mesh_without_holes, ind, fl);
+          filling_holes(mesh, vect_of_holes, mesh_vertices, mesh_indices);
+          removing_holes(mesh, ind, fl);
         }
       }
     }
     else
       fl = 1;
     
-    return mesh_without_holes;
+    // return mesh_without_holes;
   }
+
+  //  // ind - Quantity of holes found; if ind = 1, then all the holes are patched
+  cmesh4::SimpleMesh before_removing_holes(cmesh4::SimpleMesh& mesh, int& ind, bool& fl){
+    bool res = check_watertight_mesh(mesh);
+    if(res == 1){
+      ind = -2;
+      return mesh;
+    }
+    removing_holes(mesh, ind, fl);
+    return mesh;
+  }
+
+  
 
   bool fast_watertight(const cmesh4::SimpleMesh& mesh, bool verbose)
   {
