@@ -271,6 +271,10 @@ void quality_check(const char *path)
   }
 }
 
+void direct_test(std::string path, std::string type, MultiRenderPreset preset,
+                 float rotation_angle, unsigned width, unsigned height, unsigned spp, 
+                 float *out_timings, std::vector<uint32_t> &out_image);
+
 void main_benchmark(const std::string &path, const std::string &mesh_name, unsigned flags,
                      std::string image_prefix,
                      std::vector<std::string> use_structure,
@@ -289,27 +293,31 @@ void main_benchmark(const std::string &path, const std::string &mesh_name, unsig
     bool valid = false;
   };
 
-  unsigned W = 1000, H = 1000;
+  unsigned W = 512, H = 512;
+  unsigned hydra_spp = 64;
   const std::string mesh_path = path + "/mesh.vsgf";
   auto mesh = cmesh4::LoadMeshFromVSGF(mesh_path.c_str());
   cmesh4::normalize_mesh(mesh);
   MeshBVH mesh_bvh;
-
   auto t1 = std::chrono::steady_clock::now();
   mesh_bvh.init(mesh);
   auto t2 = std::chrono::steady_clock::now();
   float mesh_bvh_build_time  = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
 
+  const std::string results_file_path = path + "/results.txt";
+  FILE* log_fd = fopen(results_file_path.c_str(), "a+");
+
   //different types of structures
-  std::vector<std::string> structures =          {"mesh", "sdf_grid", "sdf_octree", "sdf_frame_octree", "sdf_SVS", "sdf_SBS-2-1", "sdf_SBS-2-2", "sdf_hp_octree"};
-  std::vector<unsigned> average_bytes_per_node = {     0,          4,            8,                 36,        16,            44,            72,              71};
+  std::vector<std::string> structures =          {           "mesh", "sdf_grid", "sdf_octree", "sdf_frame_octree", "sdf_SVS", "sdf_SBS-2-1", "sdf_SBS-2-2", "sdf_hp_octree"};
+  std::vector<std::string> structure_types =     {"normalized_mesh", "sdf_grid", "sdf_octree", "sdf_frame_octree", "sdf_svs",     "sdf_sbs",     "sdf_sbs",        "sdf_hp"};
+  std::vector<unsigned> average_bytes_per_node = {                0,          4,            8,                 36,        16,            44,            72,              71};
   
   //different sizes
   std::vector<unsigned> max_depths =          {      7,      7,      7,     8,     8,     9,     9,     10,     10,     10};
   std::vector<float> size_limit_Mb =          { 0.125f,  0.25f,   0.5f,  1.0f,  2.0f,  4.0f,  8.0f,  16.0f,  32.0f,  64.0f};
   std::vector<std::string> size_limit_names = {"125Kb","250Kb","500Kb", "1Mb", "2Mb", "4Mb", "8Mb", "16Mb", "32Mb", "64Mb"};
 
-  //different render modes
+  //different render settings
   std::vector<unsigned> blas_mode      = {SDF_OCTREE_BLAS_NO, 
                                           SDF_OCTREE_BLAS_DEFAULT, 
                                           SDF_OCTREE_BLAS_DEFAULT, 
@@ -334,9 +342,16 @@ void main_benchmark(const std::string &path, const std::string &mesh_name, unsig
                                                    "bvh_interval_tracing",
                                                    "bvh_nodes"};
 
+  std::vector<unsigned> render_modes = {BENCHMARK_FLAG_RENDER_RT,
+                                        BENCHMARK_FLAG_RENDER_DEPTH,
+                                        BENCHMARK_FLAG_RENDER_HYDRA};
+
+  std::vector<std::string> render_mode_names = {"lambert", "depth", "hydra"};
+
   if (flags & BENCHMARK_FLAG_BUILD)
   {
-    printf("mesh_name, structure, size_limit, nodes, memory (Kb), build_time (s)\n");
+    fprintf(log_fd, "mesh_name, structure, size_limit, nodes, memory (Kb), build_time (s)\n");
+    fflush(log_fd);
 
     for (int d_id = 0; d_id < max_depths.size(); d_id++)
     {
@@ -475,16 +490,23 @@ void main_benchmark(const std::string &path, const std::string &mesh_name, unsig
           save_sdf_SBS(scene, filename);
         }
 
-        printf("%20s, %20s, %6s, %8u, %8u, %5.1f\n", 
-               mesh_name.c_str(), structure.c_str(), size_limit.c_str(), 
-               res.nodes, res.memory / 1000, res.build_time_ms/1000.0f);
+        fprintf(log_fd, "%20s, %20s, %6s, %8u, %8u, %5.1f\n", 
+                mesh_name.c_str(), structure.c_str(), size_limit.c_str(), 
+                res.nodes, res.memory / 1000, res.build_time_ms/1000.0f);
+        fflush(log_fd);
       }
     }
   }
 
-  if (flags & BENCHMARK_FLAG_RENDER_RT || flags & BENCHMARK_FLAG_RENDER_DEPTH)
+  fprintf(log_fd, "mesh_name, render_mode, structure, size_limit, intersect_mode, PSNR, average_time (ms), min_time (ms)\n");
+  fflush(log_fd);
+
+  for (int rm_id = 0; rm_id < render_modes.size(); rm_id++)
   {
-    printf("mesh_name, render_type, structure, size_limit, render_mode, PSNR, average_time (ms), min_time (ms)\n");
+    std::string render_mode = render_mode_names[rm_id];
+
+    if ((flags & render_modes[rm_id]) == 0)
+      continue;
 
     //render reference image
     std::vector<LiteImage::Image2D<uint32_t>> image_ref(base_iters, LiteImage::Image2D<uint32_t>(W, H));
@@ -504,8 +526,8 @@ void main_benchmark(const std::string &path, const std::string &mesh_name, unsig
 
         for (int r_id = 0; r_id < intersect_mode_names.size(); r_id++)
         {
-          std::string render_mode = intersect_mode_names[r_id];
-          if (std::find(use_intersect.begin(), use_intersect.end(), render_mode) == use_intersect.end())
+          std::string intersect_mode = intersect_mode_names[r_id];
+          if (std::find(use_intersect.begin(), use_intersect.end(), intersect_mode) == use_intersect.end())
             continue;
           
           if (structure == "mesh")
@@ -517,12 +539,12 @@ void main_benchmark(const std::string &path, const std::string &mesh_name, unsig
           
           std::string full_name = mesh_name + "_" + structure + "_" + size_limit;
           std::string filename = path + "/" + full_name + "/data.bin";
-          std::string experiment_name = mesh_name + "_" + structure + "_" + size_limit + "_" + render_mode;
+          std::string experiment_name = mesh_name + "_" + structure + "_" + size_limit + "_" + intersect_mode;
           unsigned pass_size = structure == "sdf_octree" ? 1 : base_pass_size;
           unsigned iters = structure == "sdf_octree" ? 1 : base_iters;
 
           MultiRenderPreset preset = getDefaultPreset();
-          preset.mode = flags & BENCHMARK_FLAG_RENDER_RT ? MULTI_RENDER_MODE_LAMBERT : MULTI_RENDER_MODE_LINEAR_DEPTH;
+          preset.mode = render_modes[rm_id] == BENCHMARK_FLAG_RENDER_DEPTH ? MULTI_RENDER_MODE_LINEAR_DEPTH : MULTI_RENDER_MODE_LAMBERT;
           preset.sdf_frame_octree_blas = blas_mode[r_id];
           preset.sdf_frame_octree_intersect = intersect_mode[r_id];
 
@@ -532,64 +554,80 @@ void main_benchmark(const std::string &path, const std::string &mesh_name, unsig
             double max_ms[4] = {0,0,0,0};
             float psnr = 0.0f;
 
+            if (structure == "mesh")
+              std::filesystem::create_directory(path + "/" + full_name);
+
             for (int iter = 0; iter<iters; iter++)
             {
               const float dist = 3;
-              const float3 pos = dist*float3(sin(2.0f*M_PI*iter/iters), 0, cos(2.0f*M_PI*iter/iters));
-              auto pRender = CreateMultiRenderer(render_device.c_str());
-            pRender->SetPreset(preset);
-            if (structure == "mesh")
-            {
-              std::filesystem::create_directory(path + "/" + full_name);
-              pRender->SetScene(mesh);
-            }
-            else if (structure == "sdf_grid")
-            {
-              SdfGrid grid;
-              load_sdf_grid(grid, filename);
-              pRender->SetScene(grid);
-            }
-            else if (structure == "sdf_octree")
-            {
-              std::vector<SdfOctreeNode> octree;
-              load_sdf_octree(octree, filename);
-              pRender->SetScene(octree);
-            }
-            else if (structure == "sdf_frame_octree")
-            {
-              std::vector<SdfFrameOctreeNode> frame_nodes;
-              load_sdf_frame_octree(frame_nodes, filename);
-              pRender->SetScene(frame_nodes);
-            }
-            else if (structure == "sdf_SVS")
-            {
-              std::vector<SdfSVSNode> svs_nodes;
-              load_sdf_SVS(svs_nodes, filename);
-              pRender->SetScene(svs_nodes);
-            }
-            else if (structure == "sdf_SBS-2-1" || structure == "sdf_SBS-2-2")
-            {
-              SdfSBS sbs;
-              load_sdf_SBS(sbs, filename);
-              pRender->SetScene(sbs);
-            }
-            else if (structure == "sdf_hp_octree")
-            {
-              SdfHPOctree hp_octree;
-              load_sdf_hp_octree(hp_octree, filename);
-              pRender->SetScene(hp_octree);
-            }
-
-              render(image, pRender, pos, float3(0,0,0), float3(0,1,0), preset, 1);
-
+              float angle = 2.0f*M_PI*iter/iters;
+              const float3 pos = dist*float3(sin(angle), 0, cos(angle));
               float timings[4] = {0,0,0,0};  
-              auto t1 = std::chrono::steady_clock::now();
-              pRender->Render(image.data(), image.width(), image.height(), "color", pass_size); 
-              pRender->GetExecutionTime("CastRaySingleBlock", timings);
-              auto t2 = std::chrono::steady_clock::now();
-              float time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
 
-              LiteImage::SaveImage<uint32_t>((path + "/" + full_name + "/" + image_prefix + "_" + render_mode + "_" + std::to_string(iter)+".bmp").c_str(), image); 
+              if (render_modes[rm_id] == BENCHMARK_FLAG_RENDER_HYDRA)
+              {
+                if (structure != "sdf_octree")
+                {
+                  std::vector<uint32_t> image_vector;
+                  std::string model_path = structure == "mesh" ? mesh_path : filename;
+                  direct_test(model_path, structure_types[s_id], preset, angle, W, H, hydra_spp, timings, image_vector);
+                  image = LiteImage::Image2D<uint32_t>(W, H, image_vector.data());
+                }
+                //else sdf octree is too slow, no need to render with hydra
+              }
+              else
+              {
+                auto pRender = CreateMultiRenderer(render_device.c_str());
+                pRender->SetPreset(preset);
+                if (structure == "mesh")
+                {
+                  std::filesystem::create_directory(path + "/" + full_name);
+                  pRender->SetScene(mesh);
+                }
+                else if (structure == "sdf_grid")
+                {
+                  SdfGrid grid;
+                  load_sdf_grid(grid, filename);
+                  pRender->SetScene(grid);
+                }
+                else if (structure == "sdf_octree")
+                {
+                  std::vector<SdfOctreeNode> octree;
+                  load_sdf_octree(octree, filename);
+                  pRender->SetScene(octree);
+                }
+                else if (structure == "sdf_frame_octree")
+                {
+                  std::vector<SdfFrameOctreeNode> frame_nodes;
+                  load_sdf_frame_octree(frame_nodes, filename);
+                  pRender->SetScene(frame_nodes);
+                }
+                else if (structure == "sdf_SVS")
+                {
+                  std::vector<SdfSVSNode> svs_nodes;
+                  load_sdf_SVS(svs_nodes, filename);
+                  pRender->SetScene(svs_nodes);
+                }
+                else if (structure == "sdf_SBS-2-1" || structure == "sdf_SBS-2-2")
+                {
+                  SdfSBS sbs;
+                  load_sdf_SBS(sbs, filename);
+                  pRender->SetScene(sbs);
+                }
+                else if (structure == "sdf_hp_octree")
+                {
+                  SdfHPOctree hp_octree;
+                  load_sdf_hp_octree(hp_octree, filename);
+                  pRender->SetScene(hp_octree);
+                }
+
+                render(image, pRender, pos, float3(0,0,0), float3(0,1,0), preset, 1);
+
+                pRender->Render(image.data(), image.width(), image.height(), "color", pass_size); 
+                pRender->GetExecutionTime("CastRaySingleBlock", timings);
+              }
+
+              LiteImage::SaveImage<uint32_t>((path + "/" + full_name + "/" + render_mode + "_" + intersect_mode + "_" + std::to_string(iter)+".bmp").c_str(), image); 
 
               for (int i=0;i<4;i++)
               {
@@ -607,11 +645,12 @@ void main_benchmark(const std::string &path, const std::string &mesh_name, unsig
             float4 render_average_time_ms = float4(sum_ms[0], sum_ms[1], sum_ms[2], sum_ms[3])/(iters*pass_size);
             float4 render_min_time_ms = float4(min_ms[0], min_ms[1], min_ms[2], min_ms[3])/pass_size;
 
-            printf("%20s, %20s, %20s, %6s, %20s, %6.2f, %7.2f, %7.2f\n", 
-                  mesh_name.c_str(), image_prefix.c_str(), structure.c_str(), size_limit.c_str(), render_mode.c_str(),
-                  psnr/iters,
-                  render_average_time_ms.x,
-                  render_min_time_ms.x);
+            fprintf(log_fd, "%20s, %20s, %20s, %6s, %20s, %6.2f, %7.2f, %7.2f\n", 
+                    mesh_name.c_str(), render_mode.c_str(), structure.c_str(), size_limit.c_str(), intersect_mode.c_str(),
+                    psnr/iters,
+                    render_average_time_ms.x,
+                    render_min_time_ms.x);
+            fflush(log_fd);
         }
       }
     }
@@ -633,8 +672,10 @@ void main_benchmark(const std::string &path, const std::string &mesh_name, unsig
 
   main_benchmark(path, mesh_name, flags, "image", 
   types,
-  std::vector<std::string>{"125Kb","250Kb","500Kb", "1Mb", "2Mb", "4Mb", "8Mb", "16Mb", "32Mb", "64Mb"},
-  std::vector<std::string>{"bvh_newton"});
+  std::vector<std::string>{"125Kb","250Kb","500Kb", "1Mb"},
+  std::vector<std::string>{"bvh_newton"}, 10, 1);
+
+  return;
 
   if (supported_type == "sdf_SVS")
   {

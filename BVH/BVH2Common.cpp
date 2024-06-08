@@ -132,7 +132,7 @@ void BVHRT::IntersectAllPrimitivesInLeaf(const float3 ray_pos, const float3 ray_
                                              CRT_Hit *pHit)
 {
   uint32_t type = m_geomData[geomId].type;
-  const float SDF_BIAS = 0.01f;
+  const float SDF_BIAS = 0.1f;
   const float tNearSdf = std::max(tNear, SDF_BIAS);
   switch (type)
   {

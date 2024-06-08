@@ -34,10 +34,10 @@ int main(int argc, const char** argv)
     {
       std::string mesh_name = argv[2];
       std::string supported_type = argc == 3  ? "" : argv[3];
-      unsigned flags = BENCHMARK_FLAG_RENDER_RT;
+      unsigned flags = BENCHMARK_FLAG_RENDER_RT | BENCHMARK_FLAG_RENDER_DEPTH;
       if (supported_type == "build")
       {
-        flags |= BENCHMARK_FLAG_BUILD;
+        flags = BENCHMARK_FLAG_BUILD;
         supported_type = "";
       }
       main_benchmark("saves/"+mesh_name, mesh_name, flags, supported_type);
