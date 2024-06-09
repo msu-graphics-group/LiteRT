@@ -223,7 +223,7 @@ struct BVHRT : public ISceneObject
 #endif
   virtual float eval_distance_sdf(unsigned type, unsigned prim_id, float3 p);
   virtual SdfHit sdf_sphere_tracing(unsigned type, unsigned prim_id, const float3 &min_pos, const float3 &max_pos,
-                                    const float3 &pos, const float3 &dir, bool need_norm);    
+                                    float tNear, const float3 &pos, const float3 &dir, bool need_norm);    
 
   virtual float eval_dist_hp_polynomials(unsigned depth, unsigned degree, unsigned data_offset, const float3 &unitPt);
 

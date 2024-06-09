@@ -667,7 +667,7 @@ void BVHRT::IntersectAllSdfsInLeaf(const float3 ray_pos, const float3 ray_dir,
 
   float l = length(ray_dir);
   float3 dir = ray_dir/l;
-  SdfHit hit = sdf_sphere_tracing(type, sdfId, min_pos, max_pos, ray_pos, dir, need_normal());
+  SdfHit hit = sdf_sphere_tracing(type, sdfId, min_pos, max_pos, tNear, ray_pos, dir, need_normal());
   if (hit.hit_pos.w > 0)
   {
     float t = length(to_float3(hit.hit_pos)-ray_pos)/l;
@@ -1126,7 +1126,7 @@ void BVHRT::IntersectGSInLeaf(const float3& ray_pos, const float3& ray_dir,
 #endif
 
 SdfHit BVHRT::sdf_sphere_tracing(uint32_t type, uint32_t sdf_id, const float3 &min_pos, const float3 &max_pos,
-                                 const float3 &pos, const float3 &dir, bool need_norm)
+                                 float tNear, const float3 &pos, const float3 &dir, bool need_norm)
 {
   const float EPS = 1e-5;
 
@@ -1134,7 +1134,7 @@ SdfHit BVHRT::sdf_sphere_tracing(uint32_t type, uint32_t sdf_id, const float3 &m
   hit.hit_pos = float4(0,0,0,-1);
   hit.hit_norm = float4(1,0,0,0);
   float2 tNear_tFar = box_intersects(min_pos, max_pos, pos, dir);
-  float t = tNear_tFar.x;
+  float t = std::max(tNear, tNear_tFar.x);
   float tFar = tNear_tFar.y;
   if (t > tFar)
     return hit;
