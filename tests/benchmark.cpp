@@ -293,8 +293,8 @@ void main_benchmark(const std::string &path, const std::string &mesh_name, unsig
     bool valid = false;
   };
 
-  unsigned W = 512, H = 512;
-  unsigned hydra_spp = 64;
+  unsigned W = 1024, H = 1024;
+  unsigned hydra_spp = 256;
   const std::string mesh_path = path + "/mesh.vsgf";
   auto mesh = cmesh4::LoadMeshFromVSGF(mesh_path.c_str());
   cmesh4::normalize_mesh(mesh);
@@ -540,7 +540,7 @@ void main_benchmark(const std::string &path, const std::string &mesh_name, unsig
           std::string full_name = mesh_name + "_" + structure + "_" + size_limit;
           std::string filename = path + "/" + full_name + "/data.bin";
           std::string experiment_name = mesh_name + "_" + structure + "_" + size_limit + "_" + intersect_mode;
-          unsigned pass_size = structure == "sdf_octree" ? 1 : base_pass_size;
+          unsigned pass_size = (structure == "sdf_octree" || render_modes[rm_id] == BENCHMARK_FLAG_RENDER_HYDRA) ? 1 : base_pass_size;
           unsigned iters = structure == "sdf_octree" ? 1 : base_iters;
 
           MultiRenderPreset preset = getDefaultPreset();
@@ -672,19 +672,12 @@ void main_benchmark(const std::string &path, const std::string &mesh_name, unsig
 
   main_benchmark(path, mesh_name, flags, "image", 
   types,
-  std::vector<std::string>{"125Kb","250Kb","500Kb", "1Mb"},
-  std::vector<std::string>{"bvh_newton"}, 10, 1);
+  std::vector<std::string>{"125Kb","250Kb","500Kb", "1Mb", "2Mb", "4Mb", "8Mb", "16Mb", "32Mb", "64Mb"},
+  std::vector<std::string>{"bvh_newton"});
 
-  return;
-
-  if (supported_type == "sdf_SVS")
+  if (supported_type == "sdf_SVS" && ((flags & BENCHMARK_FLAG_RENDER_HYDRA) == 0))
   {
-    main_benchmark(path, mesh_name, BENCHMARK_FLAG_RENDER_RT, "image", 
-    std::vector<std::string>{"sdf_SVS"},
-    std::vector<std::string>{"125Kb","250Kb","500Kb", "1Mb", "2Mb", "4Mb", "8Mb", "16Mb", "32Mb", "64Mb"},
-    std::vector<std::string>{"bvh_traversal", "bvh_sphere_tracing", "bvh_analytic", "bvh_newton", "bvh_interval_tracing"});
-
-    main_benchmark(path, mesh_name, BENCHMARK_FLAG_RENDER_DEPTH, "depth", 
+    main_benchmark(path, mesh_name, flags & (~BENCHMARK_FLAG_BUILD), "image", 
     std::vector<std::string>{"sdf_SVS"},
     std::vector<std::string>{"125Kb","250Kb","500Kb", "1Mb", "2Mb", "4Mb", "8Mb", "16Mb", "32Mb", "64Mb"},
     std::vector<std::string>{"bvh_traversal", "bvh_sphere_tracing", "bvh_analytic", "bvh_newton", "bvh_interval_tracing"});
