@@ -326,13 +326,13 @@ void main_benchmark(const std::string &path, const std::string &mesh_name, unsig
                                           SDF_OCTREE_BLAS_DEFAULT,
                                           SDF_OCTREE_BLAS_DEFAULT};
 
-  std::vector<unsigned> intersect_mode = {SDF_OCTREE_NODE_INTERSECT_DEFAULT,
-                                          SDF_OCTREE_NODE_INTERSECT_DEFAULT,
-                                          SDF_OCTREE_NODE_INTERSECT_ST, 
-                                          SDF_OCTREE_NODE_INTERSECT_ANALYTIC, 
-                                          SDF_OCTREE_NODE_INTERSECT_NEWTON,
-                                          SDF_OCTREE_NODE_INTERSECT_IT,
-                                          SDF_OCTREE_NODE_INTERSECT_BBOX};
+  std::vector<unsigned> intersect_modes = {SDF_OCTREE_NODE_INTERSECT_DEFAULT,
+                                           SDF_OCTREE_NODE_INTERSECT_DEFAULT,
+                                           SDF_OCTREE_NODE_INTERSECT_ST, 
+                                           SDF_OCTREE_NODE_INTERSECT_ANALYTIC, 
+                                           SDF_OCTREE_NODE_INTERSECT_NEWTON,
+                                           SDF_OCTREE_NODE_INTERSECT_IT,
+                                           SDF_OCTREE_NODE_INTERSECT_BBOX};
 
   std::vector<std::string> intersect_mode_names = {"no_bvh_traversal",
                                                    "bvh_traversal",
@@ -546,7 +546,7 @@ void main_benchmark(const std::string &path, const std::string &mesh_name, unsig
           MultiRenderPreset preset = getDefaultPreset();
           preset.mode = render_modes[rm_id] == BENCHMARK_FLAG_RENDER_DEPTH ? MULTI_RENDER_MODE_LINEAR_DEPTH : MULTI_RENDER_MODE_LAMBERT;
           preset.sdf_frame_octree_blas = blas_mode[r_id];
-          preset.sdf_frame_octree_intersect = intersect_mode[r_id];
+          preset.sdf_frame_octree_intersect = intersect_modes[r_id];
 
           LiteImage::Image2D<uint32_t> image(W, H);
             double sum_ms[4] = {0,0,0,0};
@@ -680,6 +680,7 @@ void main_benchmark(const std::string &path, const std::string &mesh_name, unsig
     main_benchmark(path, mesh_name, flags & (~BENCHMARK_FLAG_BUILD), "image", 
     std::vector<std::string>{"sdf_SVS"},
     std::vector<std::string>{"125Kb","250Kb","500Kb", "1Mb", "2Mb", "4Mb", "8Mb", "16Mb", "32Mb", "64Mb"},
-    std::vector<std::string>{"bvh_traversal", "bvh_sphere_tracing", "bvh_analytic", "bvh_newton", "bvh_interval_tracing"});
+    std::vector<std::string>{"bvh_sphere_tracing", "bvh_analytic", "bvh_newton", "bvh_interval_tracing", "bvh_nodes"},
+    50, 10);
   }
 }
