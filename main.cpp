@@ -34,7 +34,7 @@ int main(int argc, const char** argv)
     {
       std::string mesh_name = argv[2];
       std::string supported_type = argc == 3  ? "" : argv[3];
-      unsigned flags = BENCHMARK_FLAG_RENDER_RT | BENCHMARK_FLAG_RENDER_DEPTH;
+      unsigned flags = BENCHMARK_FLAG_RENDER_RT;
       if (supported_type == "build")
       {
         flags = BENCHMARK_FLAG_BUILD;

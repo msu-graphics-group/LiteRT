@@ -313,7 +313,7 @@ void main_benchmark(const std::string &path, const std::string &mesh_name, unsig
   std::vector<unsigned> average_bytes_per_node = {                0,          4,            8,                 36,        16,            44,            72,              71};
   
   //different sizes
-  std::vector<unsigned> max_depths =          {      7,      7,      7,     8,     8,     9,     9,     10,     10,     10};
+  std::vector<unsigned> max_depths =          {      7,      7,      7,     8,     8,     9,     9,     10,     10,     11};
   std::vector<float> size_limit_Mb =          { 0.125f,  0.25f,   0.5f,  1.0f,  2.0f,  4.0f,  8.0f,  16.0f,  32.0f,  64.0f};
   std::vector<std::string> size_limit_names = {"125Kb","250Kb","500Kb", "1Mb", "2Mb", "4Mb", "8Mb", "16Mb", "32Mb", "64Mb"};
 
@@ -522,7 +522,7 @@ void main_benchmark(const std::string &path, const std::string &mesh_name, unsig
         std::string structure = structures[s_id];
         if (structure != "mesh" && std::find(use_structure.begin(), use_structure.end(), structure) == use_structure.end())
           continue;
-        bool mesh_rendered = d_id > 0;
+        bool mesh_rendered = (size_limit != use_size[0]);
 
         for (int r_id = 0; r_id < intersect_mode_names.size(); r_id++)
         {
@@ -627,7 +627,8 @@ void main_benchmark(const std::string &path, const std::string &mesh_name, unsig
                 pRender->GetExecutionTime("CastRaySingleBlock", timings);
               }
 
-              LiteImage::SaveImage<uint32_t>((path + "/" + full_name + "/" + render_mode + "_" + intersect_mode + "_" + std::to_string(iter)+".bmp").c_str(), image); 
+              if (iter == 0)
+                LiteImage::SaveImage<uint32_t>((path + "/" + full_name + "/" + render_mode + "_" + intersect_mode + "_" + std::to_string(iter)+".bmp").c_str(), image); 
 
               for (int i=0;i<4;i++)
               {
@@ -672,14 +673,14 @@ void main_benchmark(const std::string &path, const std::string &mesh_name, unsig
 
   main_benchmark(path, mesh_name, flags, "image", 
   types,
-  std::vector<std::string>{"125Kb","250Kb","500Kb", "1Mb", "2Mb", "4Mb", "8Mb", "16Mb", "32Mb", "64Mb"},
+  std::vector<std::string>{"250Kb","1Mb","4Mb","16Mb", "64Mb"},
   std::vector<std::string>{"bvh_newton"});
 
-  if (supported_type == "sdf_SVS" && ((flags & BENCHMARK_FLAG_RENDER_HYDRA) == 0))
+  if (supported_type == "sdf_SVS")
   {
     main_benchmark(path, mesh_name, flags & (~BENCHMARK_FLAG_BUILD), "image", 
     std::vector<std::string>{"sdf_SVS"},
-    std::vector<std::string>{"125Kb","250Kb","500Kb", "1Mb", "2Mb", "4Mb", "8Mb", "16Mb", "32Mb", "64Mb"},
+    std::vector<std::string>{"250Kb","1Mb","4Mb","16Mb", "64Mb"},
     std::vector<std::string>{"bvh_sphere_tracing", "bvh_analytic", "bvh_newton", "bvh_interval_tracing", "bvh_nodes"},
     50, 10);
   }
