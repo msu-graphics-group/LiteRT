@@ -41,9 +41,10 @@ static constexpr unsigned MULTI_RENDER_MODE_GEOM = 7; //each geodId has distinct
 static constexpr unsigned MULTI_RENDER_MODE_NORMAL = 8; //visualize normals (abs for each coordinate)
 static constexpr unsigned MULTI_RENDER_MODE_BARYCENTRIC = 9; //visualize barycentric coordinates for triangle mesh
 static constexpr unsigned MULTI_RENDER_MODE_SPHERE_TRACE_ITERATIONS = 10; //for SDFs replace primId with number of iterations for sphere tracing
-static constexpr unsigned MULTI_RENDER_MODE_RF = 11;
-static constexpr unsigned MULTI_RENDER_MODE_PHONG = 12;
-static constexpr unsigned MULTI_RENDER_MODE_GS = 13;
+static constexpr unsigned MULTI_RENDER_MODE_RF = 11; //default mode for rendering radiance fields
+static constexpr unsigned MULTI_RENDER_MODE_PHONG = 12; //rendering meshes/SDFs woth Phong shading
+static constexpr unsigned MULTI_RENDER_MODE_GS = 13; //rendering Gaussian splats
+static constexpr unsigned MULTI_RENDER_MODE_RF_DENSITY = 14; //rendering density from radiance field
 
 //enum MeshNormalMode
 static constexpr unsigned MESH_NORMAL_MODE_GEOMETRY = 0; //geometry normal, faceted look but it do not rely on vertex normals

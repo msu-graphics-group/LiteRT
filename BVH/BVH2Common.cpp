@@ -1016,6 +1016,8 @@ void BVHRT::IntersectRFInLeaf(const float3 ray_pos, const float3 ray_dir,
   pHit->coords[2] = colour[1];
   pHit->coords[3] = colour[2];
 
+  pHit->t = depth;
+
   /* float3 edge = ray_pos + ray_dir * zNearAndFar.y; */
   /* pHit->adds[0] = length(edge - p); */
   /* pHit->adds[1] = 0.0f; */
@@ -1623,9 +1625,13 @@ void BVHRT::BVH2TraverseF32(const float3 ray_pos, const float3 ray_dir, float tN
       const float2 tm0 = RayBoxIntersection2(ray_pos, rayDirInv, fatNode.left.boxMin, fatNode.left.boxMax);
       const float2 tm1 = RayBoxIntersection2(ray_pos, rayDirInv, fatNode.right.boxMin, fatNode.right.boxMax);
 
+#ifndef DISABLE_RF_GRID
+      const bool hitChild0 = (tm0.x <= tm0.y) && (tm0.y >= tNear) && (tm0.x <= pHit->t || !stopOnFirstHit);
+      const bool hitChild1 = (tm1.x <= tm1.y) && (tm1.y >= tNear) && (tm1.x <= pHit->t || !stopOnFirstHit);
+#else
       const bool hitChild0 = (tm0.x <= tm0.y) && (tm0.y >= tNear) && (tm0.x <= pHit->t);
       const bool hitChild1 = (tm1.x <= tm1.y) && (tm1.y >= tNear) && (tm1.x <= pHit->t);
-
+#endif
       // traversal decision
       leftNodeOffset = hitChild0 ? node0_leftOffset : node1_leftOffset;
 
