@@ -9,6 +9,7 @@
 #include "../utils/hp_octree.h"
 #include "../utils/sdf_converter.h"
 #include "../utils/sparse_octree_2.h"
+#include "../utils/marching_cubes.h"
 
 #include <functional>
 #include <cassert>
@@ -1474,6 +1475,39 @@ void litert_test_18_mesh_normalization()
     printf("FAILED, psnr = %f\n", psnr_sdf_3);
 }
 
+void litert_test_19_marching_cubes()
+{
+  cmesh4::MultithreadedDensityFunction sdf = [](const float3 &pos, unsigned idx) -> float
+  {
+    return length(pos) - 0.75f;
+    const float radius = 0.95f;
+    const float max_A = 0.25f;
+    float l = sqrt(pos.x * pos.x + pos.z * pos.z);
+    float A = max_A*(1.0f - l / radius);
+    float c = A*(cos(10*M_PI*l) + 1.1f) - std::abs(pos.y) - 1e-6f;
+    return c;
+  };
+  cmesh4::MarchingCubesSettings settings;
+  settings.size = LiteMath::uint3(64, 64, 64);
+  settings.min_pos = float3(-1, -1, -1);
+  settings.max_pos = float3(1, 1, 1);
+  settings.iso_level = 0.0f;
+
+  cmesh4::SimpleMesh mesh = cmesh4::create_mesh_marching_cubes(settings, sdf, 15);
+
+  unsigned W = 4096, H = 4096;
+  MultiRenderPreset preset = getDefaultPreset();
+  LiteImage::Image2D<uint32_t> image_1(W, H);
+  {
+    auto pRender = CreateMultiRenderer("GPU");
+    pRender->SetPreset(preset);
+    pRender->SetViewport(0,0,W,H);
+    pRender->SetScene(mesh);
+    render(image_1, pRender, float3(2, 1, 2), float3(0, 0, 0), float3(0, 1, 0), preset);
+    LiteImage::SaveImage<uint32_t>("saves/test_19_1.bmp", image_1);
+  }
+}
+
 void perform_tests_litert(const std::vector<int> &test_ids)
 {
   std::vector<int> tests = test_ids;
@@ -1485,7 +1519,8 @@ void perform_tests_litert(const std::vector<int> &test_ids)
       litert_test_10_save_load, litert_test_11_hp_octree_legacy, litert_test_12_hp_octree_render,
       litert_test_13_hp_octree_build, litert_test_14_octree_nodes_removal, 
       litert_test_15_frame_octree_nodes_removal, litert_test_16_SVS_nodes_removal,
-      litert_test_17_all_types_sanity_check, litert_test_18_mesh_normalization};
+      litert_test_17_all_types_sanity_check, litert_test_18_mesh_normalization,
+      litert_test_19_marching_cubes};
 
   if (tests.empty())
   {
