@@ -1477,6 +1477,8 @@ void litert_test_18_mesh_normalization()
 
 void litert_test_19_marching_cubes()
 {
+  printf("TEST 19. Marching cubes\n");
+
   cmesh4::MultithreadedDensityFunction sdf = [](const float3 &pos, unsigned idx) -> float
   {
     float3 rp = float3(pos.x, pos.y, pos.z);
@@ -1509,6 +1511,112 @@ void litert_test_19_marching_cubes()
   }
 }
 
+void litert_test_20_radiance_fields()
+{
+  printf("TEST 20. Radiance fields\n");
+
+  const char *scene_name = "scenes/02_sdf_scenes/relu_fields.xml";
+  unsigned W = 1024, H = 1024;
+
+  MultiRenderPreset preset = getDefaultPreset();
+  preset.mode = MULTI_RENDER_MODE_RF;
+  LiteImage::Image2D<uint32_t> image(W, H);
+
+  auto pRender = CreateMultiRenderer("GPU");
+  pRender->SetPreset(preset);
+  pRender->SetViewport(0,0,W,H);
+  pRender->LoadScene((scenes_folder_path+scene_name).c_str());
+
+  auto m1 = pRender->getWorldView();
+  auto m2 = pRender->getProj();
+
+  preset.mode = MULTI_RENDER_MODE_RF;
+  pRender->Render(image.data(), image.width(), image.height(), m1, m2, preset);
+  LiteImage::SaveImage<uint32_t>("saves/test_20_rf.bmp", image); 
+
+  preset.mode = MULTI_RENDER_MODE_RF_DENSITY;
+  pRender->Render(image.data(), image.width(), image.height(), m1, m2, preset);
+  LiteImage::SaveImage<uint32_t>("saves/test_20_rf_density.bmp", image); 
+
+  preset.mode = MULTI_RENDER_MODE_LINEAR_DEPTH;
+  pRender->Render(image.data(), image.width(), image.height(), m1, m2, preset);
+  LiteImage::SaveImage<uint32_t>("saves/test_20_depth.bmp", image); 
+}
+
+void litert_test_21_rf_to_mesh()
+{
+  printf("TEST 21. Radiance field to mesh\n");
+
+  const char *scene_name = "scenes/02_sdf_scenes/relu_fields.xml";
+  RFScene scene;
+  load_rf_scene(scene, "scenes/02_sdf_scenes/model.dat");
+
+  cmesh4::MultithreadedDensityFunction sdf = [&scene](const float3 &pos, unsigned idx) -> float
+  {
+    if (pos.x < 0.01f || pos.x > 0.99f || pos.y < 0.01f || pos.y > 0.99f || pos.z < 0.01f || pos.z > 0.99f)
+      return -1.0f;
+    float3 f_idx = scene.size*pos;
+    uint3 idx0 = uint3(f_idx);
+    float3 dp = f_idx - float3(idx0);
+    float values[8];
+    for (int i = 0; i < 8; i++)
+    {
+      uint3 idx = clamp(idx0 + uint3((i & 4) >> 2, (i & 2) >> 1, i & 1), uint3(0u), uint3((unsigned)(scene.size - 1)));
+      values[i] = scene.data[CellSize*(idx.z*scene.size*scene.size + idx.y*scene.size + idx.x)];
+    }
+
+    //bilinear sampling
+    return (1-dp.x)*(1-dp.y)*(1-dp.z)*values[0] + 
+           (1-dp.x)*(1-dp.y)*(  dp.z)*values[1] + 
+           (1-dp.x)*(  dp.y)*(1-dp.z)*values[2] + 
+           (1-dp.x)*(  dp.y)*(  dp.z)*values[3] + 
+           (  dp.x)*(1-dp.y)*(1-dp.z)*values[4] + 
+           (  dp.x)*(1-dp.y)*(  dp.z)*values[5] + 
+           (  dp.x)*(  dp.y)*(1-dp.z)*values[6] + 
+           (  dp.x)*(  dp.y)*(  dp.z)*values[7];
+  };
+  cmesh4::MarchingCubesSettings settings;
+  settings.size = LiteMath::uint3(768, 768, 768);
+  settings.min_pos = float3(-1, -1, -1);
+  settings.max_pos = float3(1, 1, 1);
+  settings.iso_level = 0.5f;
+
+  cmesh4::SimpleMesh mesh = cmesh4::create_mesh_marching_cubes(settings, sdf, 15);
+
+  unsigned W = 2048, H = 2048;
+  MultiRenderPreset preset = getDefaultPreset();
+  preset.mesh_normal_mode = MESH_NORMAL_MODE_VERTEX;
+  float4x4 m1, m2;
+  LiteImage::Image2D<uint32_t> image_1(W, H);
+  LiteImage::Image2D<uint32_t> image_2(W, H);
+
+  {
+    preset = getDefaultPreset();
+    preset.mode = MULTI_RENDER_MODE_RF;
+
+    auto pRender = CreateMultiRenderer("GPU");
+    pRender->SetPreset(preset);
+    pRender->SetViewport(0,0,W,H);
+    pRender->LoadScene((scenes_folder_path+scene_name).c_str());
+    m1 = pRender->getWorldView();
+    m2 = pRender->getProj();
+
+    pRender->Render(image_1.data(), image_1.width(), image_1.height(), m1, m2, preset);
+    LiteImage::SaveImage<uint32_t>("saves/test_21_rf.bmp", image_1); 
+  }
+
+  {
+    preset = getDefaultPreset();
+    preset.mesh_normal_mode = MESH_NORMAL_MODE_VERTEX;
+    auto pRender = CreateMultiRenderer("GPU");
+    pRender->SetPreset(preset);
+    pRender->SetViewport(0,0,W,H);
+    pRender->SetScene(mesh);
+    pRender->Render(image_1.data(), image_1.width(), image_1.height(), m1, m2, preset);
+    LiteImage::SaveImage<uint32_t>("saves/test_21_mesh.bmp", image_1);
+  }
+}
+
 void perform_tests_litert(const std::vector<int> &test_ids)
 {
   std::vector<int> tests = test_ids;
@@ -1521,7 +1629,7 @@ void perform_tests_litert(const std::vector<int> &test_ids)
       litert_test_13_hp_octree_build, litert_test_14_octree_nodes_removal, 
       litert_test_15_frame_octree_nodes_removal, litert_test_16_SVS_nodes_removal,
       litert_test_17_all_types_sanity_check, litert_test_18_mesh_normalization,
-      litert_test_19_marching_cubes};
+      litert_test_19_marching_cubes, litert_test_20_radiance_fields, litert_test_21_rf_to_mesh};
 
   if (tests.empty())
   {
