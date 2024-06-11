@@ -1479,16 +1479,16 @@ void litert_test_19_marching_cubes()
 {
   cmesh4::MultithreadedDensityFunction sdf = [](const float3 &pos, unsigned idx) -> float
   {
-    return length(pos) - 0.75f;
+    float3 rp = float3(pos.x, pos.y, pos.z);
     const float radius = 0.95f;
-    const float max_A = 0.25f;
-    float l = sqrt(pos.x * pos.x + pos.z * pos.z);
+    const float max_A = 0.125f;
+    float l = sqrt(rp.x * rp.x + rp.z * rp.z);
     float A = max_A*(1.0f - l / radius);
-    float c = A*(cos(10*M_PI*l) + 1.1f) - std::abs(pos.y) - 1e-6f;
+    float c = A*(cos(10*M_PI*l) + 1.1f) - std::abs(rp.y) - 1e-6f;
     return c;
   };
   cmesh4::MarchingCubesSettings settings;
-  settings.size = LiteMath::uint3(64, 64, 64);
+  settings.size = LiteMath::uint3(256, 256, 256);
   settings.min_pos = float3(-1, -1, -1);
   settings.max_pos = float3(1, 1, 1);
   settings.iso_level = 0.0f;
@@ -1497,13 +1497,14 @@ void litert_test_19_marching_cubes()
 
   unsigned W = 4096, H = 4096;
   MultiRenderPreset preset = getDefaultPreset();
+  preset.mesh_normal_mode = MESH_NORMAL_MODE_VERTEX;
   LiteImage::Image2D<uint32_t> image_1(W, H);
   {
     auto pRender = CreateMultiRenderer("GPU");
     pRender->SetPreset(preset);
     pRender->SetViewport(0,0,W,H);
     pRender->SetScene(mesh);
-    render(image_1, pRender, float3(2, 1, 2), float3(0, 0, 0), float3(0, 1, 0), preset);
+    render(image_1, pRender, float3(3, 1, 0), float3(0, 0, 0), float3(0, 1, 0), preset);
     LiteImage::SaveImage<uint32_t>("saves/test_19_1.bmp", image_1);
   }
 }

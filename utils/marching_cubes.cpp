@@ -100,7 +100,7 @@ namespace cmesh4
             float dx = (density(p + float3(h, 0, 0), thread_id) - density(p - float3(h, 0, 0), thread_id)) / (2*h);
             float dy = (density(p + float3(0, h, 0), thread_id) - density(p - float3(0, h, 0), thread_id)) / (2*h);
             float dz = (density(p + float3(0, 0, h), thread_id) - density(p - float3(0, 0, h), thread_id)) / (2*h);
-            float3 n = normalize(float3(dx, dy, dz) + float3(1e-8f, 1e-8f, 1e-8f));
+            float3 n = -normalize(float3(dx, dy, dz) + float3(1e-8f, 1e-8f, 1e-8f));
 
             vertices[thread_id].push_back(p);
             normals[thread_id].push_back(n);
