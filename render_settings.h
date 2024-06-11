@@ -45,6 +45,10 @@ static constexpr unsigned MULTI_RENDER_MODE_RF = 11;
 static constexpr unsigned MULTI_RENDER_MODE_PHONG = 12;
 static constexpr unsigned MULTI_RENDER_MODE_GS = 13;
 
+//enum MeshNormalMode
+static constexpr unsigned MESH_NORMAL_MODE_GEOMETRY = 0; //geometry normal, faceted look but it do not rely on vertex normals
+static constexpr unsigned MESH_NORMAL_MODE_VERTEX = 1; //vertex normal, smooth look but vertex normals should be available
+
 struct MultiRenderPreset
 {
   unsigned mode; //enum MultiRenderMode
@@ -52,4 +56,5 @@ struct MultiRenderPreset
   unsigned spp; //samples per pixel, should be a square (1, 4, 9, 16 etc.)
   unsigned sdf_frame_octree_blas; //enum SdfFrameOctreeBLAS
   unsigned sdf_frame_octree_intersect; //enum SdfFrameOctreeIntersect
+  unsigned mesh_normal_mode; //enum MeshNormalMode
 };

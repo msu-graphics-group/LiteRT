@@ -37,6 +37,7 @@ static MultiRenderPreset getDefaultPreset()
   p.spp = 1;
   p.sdf_frame_octree_blas = SDF_OCTREE_BLAS_DEFAULT;
   p.sdf_frame_octree_intersect = SDF_OCTREE_NODE_INTERSECT_ST;
+  p.mesh_normal_mode = MESH_NORMAL_MODE_GEOMETRY;
 
   return p;
 }
@@ -87,6 +88,8 @@ struct BVHRT : public ISceneObject
   uint32_t AddGeom_Triangles3f(const float *a_vpos3f, size_t a_vertNumber, const uint32_t *a_triIndices, size_t a_indNumber, BuildOptions a_qualityLevel, size_t vByteStride) override;
   void     UpdateGeom_Triangles3f(uint32_t a_geomId, const float *a_vpos3f, size_t a_vertNumber, const uint32_t *a_triIndices, size_t a_indNumber, BuildOptions a_qualityLevel, size_t vByteStride) override;
 #ifndef KERNEL_SLICER  
+  uint32_t AddGeom_Triangles3f(const float* a_vpos3f, const float* a_vnorm3f, size_t a_vertNumber, const uint32_t* a_triIndices, 
+                               size_t a_indNumber, BuildOptions a_qualityLevel, size_t vByteStride) override;
   uint32_t AddGeom_SdfScene(SdfSceneView scene, BuildOptions a_qualityLevel = BUILD_HIGH) override;
   uint32_t AddGeom_SdfGrid(SdfGridView grid, BuildOptions a_qualityLevel = BUILD_HIGH) override;
   uint32_t AddGeom_RFScene(RFScene grid, BuildOptions a_qualityLevel = BUILD_HIGH) override;
@@ -298,6 +301,7 @@ struct BVHRT : public ISceneObject
 
   //meshes data
   std::vector<float4>   m_vertPos;
+  std::vector<float4>   m_vertNorm;
   std::vector<uint32_t> m_indices;
   std::vector<uint32_t> m_primIndices;
 

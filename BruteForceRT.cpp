@@ -31,6 +31,9 @@ struct BruteForceRT : public ISceneObject
 
   uint32_t AddGeom_Triangles3f(const float* a_vpos3f, size_t a_vertNumber, const uint32_t* a_triIndices, size_t a_indNumber, BuildOptions a_qualityLevel, size_t vByteStride) override;
   void     UpdateGeom_Triangles3f(uint32_t a_geomId, const float* a_vpos3f, size_t a_vertNumber, const uint32_t* a_triIndices, size_t a_indNumber, BuildOptions a_qualityLevel, size_t vByteStride) override;
+  
+  uint32_t AddGeom_Triangles3f(const float* a_vpos3f, const float* a_vnorm3f, size_t a_vertNumber, const uint32_t* a_triIndices, 
+                               size_t a_indNumber, BuildOptions a_qualityLevel, size_t vByteStride) override;
   uint32_t AddGeom_SdfScene(SdfSceneView scene, BuildOptions a_qualityLevel = BUILD_HIGH) override;
   uint32_t AddGeom_RFScene(RFScene scene, BuildOptions a_qualityLevel = BUILD_HIGH) override;
   uint32_t AddGeom_GSScene(GSScene scene, BuildOptions a_qualityLevel = BUILD_HIGH) override;
@@ -152,6 +155,12 @@ uint32_t BruteForceRT::AddGeom_Triangles3f(const float* a_vpos3f, size_t a_vertN
 void BruteForceRT::UpdateGeom_Triangles3f(uint32_t a_geomId, const float* a_vpos3f, size_t a_vertNumber, const uint32_t* a_triIndices, size_t a_indNumber, BuildOptions a_qualityLevel, size_t vByteStride)
 {
   std::cout << "[BruteForceRT::UpdateGeom_Triangles3f]: " << "not implemeted!" << std::endl;
+}
+
+uint32_t BruteForceRT::AddGeom_Triangles3f(const float* a_vpos3f, const float* a_vnorm3f, size_t a_vertNumber, const uint32_t* a_triIndices, 
+                                           size_t a_indNumber, BuildOptions a_qualityLevel, size_t vByteStride)
+{
+  return AddGeom_Triangles3f(a_vpos3f, a_vertNumber, a_triIndices, a_indNumber, a_qualityLevel, vByteStride);
 }
 
 uint32_t BruteForceRT::AddGeom_SdfScene(SdfSceneView scene, BuildOptions a_qualityLevel)

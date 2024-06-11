@@ -91,7 +91,7 @@ bool MultiRenderer::LoadSceneHydra(const std::string& a_path, unsigned type, Spa
       {
       case TYPE_MESH_TRIANGLE:
       {
-        m_pAccelStruct->AddGeom_Triangles3f((const float *)currMesh.vPos4f.data(), currMesh.vPos4f.size(),
+        m_pAccelStruct->AddGeom_Triangles3f((const float *)currMesh.vPos4f.data(), (const float*)currMesh.vNorm4f.data(), currMesh.vPos4f.size(),
                                             currMesh.indices.data(), currMesh.indices.size(), BUILD_HIGH, sizeof(float) * 4);
       }
       break;
@@ -251,7 +251,7 @@ void MultiRenderer::GetExecutionTime(const char* a_funcName, float a_out[4])
 void MultiRenderer::SetScene(const cmesh4::SimpleMesh &scene)
 {
   GetAccelStruct()->ClearGeom();
-  GetAccelStruct()->AddGeom_Triangles3f((const float*)scene.vPos4f.data(), scene.vPos4f.size(),
+  GetAccelStruct()->AddGeom_Triangles3f((const float*)scene.vPos4f.data(), (const float*)scene.vNorm4f.data(), scene.vPos4f.size(),
                                         scene.indices.data(), scene.indices.size(), BUILD_HIGH, sizeof(float)*4);
   GetAccelStruct()->ClearScene();
   GetAccelStruct()->AddInstance(0, LiteMath::float4x4());

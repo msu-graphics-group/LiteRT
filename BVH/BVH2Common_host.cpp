@@ -56,6 +56,11 @@ void BVHRT::AppendTreeData(const std::vector<BVHNodePair>& a_nodes, const std::v
 
 uint32_t BVHRT::AddGeom_Triangles3f(const float *a_vpos3f, size_t a_vertNumber, const uint32_t *a_triIndices, size_t a_indNumber, BuildOptions a_qualityLevel, size_t vByteStride)
 {
+  return AddGeom_Triangles3f(a_vpos3f, nullptr, a_vertNumber, a_triIndices, a_indNumber, a_qualityLevel, vByteStride);
+}
+uint32_t BVHRT::AddGeom_Triangles3f(const float* a_vpos3f, const float* a_vnorm3f, size_t a_vertNumber, const uint32_t* a_triIndices, 
+                                    size_t a_indNumber, BuildOptions a_qualityLevel, size_t vByteStride)
+{
   const size_t vStride = vByteStride / 4;
   assert(vByteStride % 4 == 0);
 
@@ -64,12 +69,14 @@ uint32_t BVHRT::AddGeom_Triangles3f(const float *a_vpos3f, size_t a_vertNumber, 
   const size_t oldSizeInd   = m_indices.size();
 
   m_vertPos.resize(oldSizeVert + a_vertNumber);
+  m_vertNorm.resize(oldSizeVert + a_vertNumber);
 
   Box4f bbox;
   for (size_t i = 0; i < a_vertNumber; i++)
   {
     const float4 v = float4(a_vpos3f[i * vStride + 0], a_vpos3f[i * vStride + 1], a_vpos3f[i * vStride + 2], 1.0f);
     m_vertPos[oldSizeVert + i] = v;
+    m_vertNorm[oldSizeVert + i] = a_vnorm3f ? float4(a_vnorm3f[i * vStride + 0], a_vnorm3f[i * vStride + 1], a_vnorm3f[i * vStride + 2], 1.0f) : float4(1.0f, 0.0f, 0.0f, 1.0f);
     bbox.include(v);
   }
 

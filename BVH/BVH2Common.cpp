@@ -1574,7 +1574,15 @@ void BVHRT::IntersectAllTrianglesInLeaf(const float3 ray_pos, const float3 ray_d
 
       if (need_normal())
       {
-        float3 n = normalize(cross(edge1, edge2));
+        float3 n = float3(1,0,0);
+        if (m_preset.mesh_normal_mode == MESH_NORMAL_MODE_GEOMETRY)
+        {
+          n = normalize(cross(edge1, edge2));
+        }
+        else if (m_preset.mesh_normal_mode == MESH_NORMAL_MODE_VERTEX)
+        {
+          n = to_float3(m_vertNorm[a_geomOffsets.y + A] * (1.0f - u - v) + m_vertNorm[a_geomOffsets.y + B] * v + u * m_vertNorm[a_geomOffsets.y + C]);
+        }
         pHit->coords[2] = n.x;
         pHit->coords[3] = n.y;
       }
