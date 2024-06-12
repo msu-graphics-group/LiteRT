@@ -1576,7 +1576,7 @@ void litert_test_21_rf_to_mesh()
            (  dp.x)*(  dp.y)*(  dp.z)*values[7];
   };
   cmesh4::MarchingCubesSettings settings;
-  settings.size = LiteMath::uint3(768, 768, 768);
+  settings.size = LiteMath::uint3(1024, 1024, 1024);
   settings.min_pos = float3(-1, -1, -1);
   settings.max_pos = float3(1, 1, 1);
   settings.iso_level = 0.5f;
@@ -1589,6 +1589,7 @@ void litert_test_21_rf_to_mesh()
   float4x4 m1, m2;
   LiteImage::Image2D<uint32_t> image_1(W, H);
   LiteImage::Image2D<uint32_t> image_2(W, H);
+  LiteImage::Image2D<uint32_t> image_3(W, H);
 
   {
     preset = getDefaultPreset();
@@ -1614,6 +1615,16 @@ void litert_test_21_rf_to_mesh()
     pRender->SetScene(mesh);
     pRender->Render(image_1.data(), image_1.width(), image_1.height(), m1, m2, preset);
     LiteImage::SaveImage<uint32_t>("saves/test_21_mesh.bmp", image_1);
+  }
+
+  {
+    auto octree = sdf_converter::create_sdf_SVS(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 10), mesh);
+    auto pRender = CreateMultiRenderer("GPU");
+    pRender->SetPreset(preset);
+    pRender->SetViewport(0,0,W,H);
+    pRender->SetScene(octree);
+    pRender->Render(image_1.data(), image_1.width(), image_1.height(), m1, m2, preset);
+    LiteImage::SaveImage<uint32_t>("saves/test_21_SVS.bmp", image_1);
   }
 }
 
