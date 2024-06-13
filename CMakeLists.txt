@@ -56,6 +56,7 @@ set(SCENE_LOADER_SRC
     ${CMAKE_SOURCE_DIR}/utils/sdf_converter.cpp
     ${CMAKE_SOURCE_DIR}/utils/hydra_stub.cpp
     ${CMAKE_SOURCE_DIR}/utils/marching_cubes.cpp
+    ${CMAKE_SOURCE_DIR}/utils/sdf_smoother.cpp
     ${CMAKE_SOURCE_DIR}/tests/tests.cpp
     ${CMAKE_SOURCE_DIR}/tests/benchmark.cpp
     ${CMAKE_SOURCE_DIR}/NeuralRT/NeuralRT.cpp

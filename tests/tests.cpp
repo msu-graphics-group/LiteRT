@@ -10,6 +10,7 @@
 #include "../utils/sdf_converter.h"
 #include "../utils/sparse_octree_2.h"
 #include "../utils/marching_cubes.h"
+#include "../utils/sdf_smoother.h"
 
 #include <functional>
 #include <cassert>
@@ -1628,6 +1629,95 @@ void litert_test_21_rf_to_mesh()
   }
 }
 
+float2 get_quality(sdf_converter::MultithreadedDistanceFunction sdf, SdfGridView grid, unsigned points = 100000)
+{
+  long double sum = 0;
+  long double sum_abs = 0;
+
+  auto grid_sdf = get_SdfGridFunction(grid);
+
+  for (unsigned i = 0; i < points; i++)
+  {
+    float3 p = float3(urand(), urand(), urand())*2.0f - 1.0f;
+    float d1 = sdf(p, 0);
+    float d2 = grid_sdf->eval_distance(p);
+
+    sum += d1-d2;
+    sum_abs += std::abs(d1-d2);
+  }
+
+  return float2(sum/points, sum_abs/points);
+}
+
+void litert_test_22_sdf_grid_smoothing()
+{
+  auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "scenes/01_simple_scenes/data/bunny.vsgf").c_str());
+  cmesh4::rescale_mesh(mesh, float3(-0.95, -0.95, -0.95), float3(0.95, 0.95, 0.95));
+  unsigned W = 2048, H = 2048;
+  MultiRenderPreset preset = getDefaultPreset();
+
+    unsigned max_threads = 15;
+    float noise = 0.05f;
+
+    std::vector<MeshBVH> bvh(max_threads);
+    for (unsigned i = 0; i < max_threads; i++)
+      bvh[i].init(mesh);
+    auto noisy_sdf = [&](const float3 &p, unsigned idx) -> float { return bvh[idx].get_signed_distance(p) + urand()*noise; };
+    auto real_sdf = [&](const float3 &p, unsigned idx) -> float { return bvh[idx].get_signed_distance(p); };
+
+
+  LiteImage::Image2D<uint32_t> image_1(W, H);
+  LiteImage::Image2D<uint32_t> image_2(W, H);
+  LiteImage::Image2D<uint32_t> image_3(W, H);
+
+  {
+    preset = getDefaultPreset();
+    preset.mesh_normal_mode = MESH_NORMAL_MODE_VERTEX;
+    auto pRender = CreateMultiRenderer("GPU");
+    pRender->SetPreset(preset);
+    pRender->SetViewport(0,0,W,H);
+    pRender->SetScene(mesh);
+    render(image_1, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+    LiteImage::SaveImage<uint32_t>("saves/test_22_mesh.bmp", image_1);
+  } 
+
+  auto grid = sdf_converter::create_sdf_grid(GridSettings(100), real_sdf, max_threads);
+  {
+    auto pRender = CreateMultiRenderer("GPU");
+    pRender->SetPreset(preset);
+    pRender->SetViewport(0,0,W,H);
+    pRender->SetScene(grid);
+    render(image_1, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+    LiteImage::SaveImage<uint32_t>("saves/test_22_grid.bmp", image_1);
+  }
+  float2 q_best = get_quality(real_sdf, grid);
+  printf("q_best = %f, %f\n", q_best.x, q_best.y);
+
+  auto noisy_grid = sdf_converter::create_sdf_grid(GridSettings(100), noisy_sdf, max_threads);
+  {
+    auto pRender = CreateMultiRenderer("GPU");
+    pRender->SetPreset(preset);
+    pRender->SetViewport(0,0,W,H);
+    pRender->SetScene(noisy_grid);
+    render(image_1, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+    LiteImage::SaveImage<uint32_t>("saves/test_22_grid_noisy.bmp", image_1);
+  }
+  float2 q_noisy = get_quality(real_sdf, grid);
+  printf("q_noisy = %f, %f\n", q_noisy.x, q_noisy.y);
+
+  auto smoothed_grid = sdf_converter::sdf_grid_smoother(grid, 1.1, 0.025, 0.02, 100);
+  {
+    auto pRender = CreateMultiRenderer("GPU");
+    pRender->SetPreset(preset);
+    pRender->SetViewport(0,0,W,H);
+    pRender->SetScene(smoothed_grid);
+    render(image_1, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+    LiteImage::SaveImage<uint32_t>("saves/test_22_grid_smoothed.bmp", image_1);    
+  }
+  float2 q_smoothed = get_quality(real_sdf, grid);
+  printf("q_smoothed = %f, %f\n", q_smoothed.x, q_smoothed.y);
+}
+
 void perform_tests_litert(const std::vector<int> &test_ids)
 {
   std::vector<int> tests = test_ids;
@@ -1640,7 +1730,8 @@ void perform_tests_litert(const std::vector<int> &test_ids)
       litert_test_13_hp_octree_build, litert_test_14_octree_nodes_removal, 
       litert_test_15_frame_octree_nodes_removal, litert_test_16_SVS_nodes_removal,
       litert_test_17_all_types_sanity_check, litert_test_18_mesh_normalization,
-      litert_test_19_marching_cubes, litert_test_20_radiance_fields, litert_test_21_rf_to_mesh};
+      litert_test_19_marching_cubes, litert_test_20_radiance_fields, litert_test_21_rf_to_mesh,
+      litert_test_22_sdf_grid_smoothing};
 
   if (tests.empty())
   {
