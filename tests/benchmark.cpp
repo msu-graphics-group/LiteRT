@@ -308,9 +308,9 @@ void main_benchmark(const std::string &path, const std::string &mesh_name, unsig
   FILE* log_fd = fopen(results_file_path.c_str(), "a+");
 
   //different types of structures
-  std::vector<std::string> structures =          {           "mesh", "sdf_grid", "sdf_octree", "sdf_frame_octree", "sdf_SVS", "sdf_SBS-2-1", "sdf_SBS-2-2", "sdf_hp_octree"};
-  std::vector<std::string> structure_types =     {"normalized_mesh", "sdf_grid", "sdf_octree", "sdf_frame_octree", "sdf_svs",     "sdf_sbs",     "sdf_sbs",        "sdf_hp"};
-  std::vector<unsigned> average_bytes_per_node = {                0,          4,            8,                 36,        16,            44,            72,              71};
+  std::vector<std::string> structures =          {           "mesh",        "mesh_lod", "sdf_grid", "sdf_octree", "sdf_frame_octree", "sdf_SVS", "sdf_SBS-2-1", "sdf_SBS-2-2", "sdf_hp_octree"};
+  std::vector<std::string> structure_types =     {"normalized_mesh", "normalized_mesh", "sdf_grid", "sdf_octree", "sdf_frame_octree", "sdf_svs",     "sdf_sbs",     "sdf_sbs",        "sdf_hp"};
+  std::vector<unsigned> average_bytes_per_node = {                0,                 0,          4,            8,                 36,        16,            44,            72,              71};
   
   //different sizes
   std::vector<unsigned> max_depths =          {      7,      7,      7,     8,     8,     9,     9,     10,     10,     11};
@@ -363,7 +363,8 @@ void main_benchmark(const std::string &path, const std::string &mesh_name, unsig
       for (int s_id = 0; s_id < structures.size(); s_id++)
       {
         std::string structure = structures[s_id];
-        if (structure == "mesh" || std::find(use_structure.begin(), use_structure.end(), structure) == use_structure.end())
+        if (structure == "mesh" || structure == "mesh_lod" ||
+            std::find(use_structure.begin(), use_structure.end(), structure) == use_structure.end())
           continue;
         
         unsigned nodes_limit = size_limit_Mb[d_id] * 1000 * 1000 / average_bytes_per_node[s_id];
@@ -584,6 +585,12 @@ void main_benchmark(const std::string &path, const std::string &mesh_name, unsig
                   std::filesystem::create_directory(path + "/" + full_name);
                   pRender->SetScene(mesh);
                 }
+                else if (structure == "mesh_lod")
+                {
+                  auto mesh_lod = cmesh4::LoadMeshFromVSGF(filename.c_str());
+                  cmesh4::normalize_mesh(mesh_lod);
+                  pRender->SetScene(mesh_lod);
+                }
                 else if (structure == "sdf_grid")
                 {
                   SdfGrid grid;
@@ -667,7 +674,7 @@ void main_benchmark(const std::string &path, const std::string &mesh_name, unsig
   std::vector<std::string>{"bvh_sphere_tracing", "bvh_analytic", "bvh_newton", "bvh_interval_tracing"}, 25, 10);
   return;
 */
-  std::vector<std::string> types = {"mesh", "sdf_grid", "sdf_octree", "sdf_frame_octree", "sdf_SVS", "sdf_SBS-2-1", "sdf_SBS-2-2", "sdf_hp_octree"};
+  std::vector<std::string> types = {"mesh", "mesh_lod", "sdf_grid", "sdf_octree", "sdf_frame_octree", "sdf_SVS", "sdf_SBS-2-1", "sdf_SBS-2-2", "sdf_hp_octree"};
   if (supported_type != "")
     types = {supported_type};
 
