@@ -114,7 +114,7 @@ namespace cmesh4
     }
   }
 
-  cmesh4::SimpleMesh filling_holes(cmesh4::SimpleMesh mesh,
+  cmesh4::SimpleMesh filling_holes(cmesh4::SimpleMesh& mesh,
                                    std::vector<std::vector<unsigned int>>& vect_of_holes,
                                    std::vector<LiteMath::float4>& mesh_vertices,
                                    std::vector<unsigned int>& mesh_indices){
@@ -296,7 +296,7 @@ namespace cmesh4
   }
 
   // ind - Quantity of holes found; if x = 1, then all the holes are patched
-  cmesh4::SimpleMesh removing_holes(const cmesh4::SimpleMesh& mesh, int& ind, bool& fl){
+  cmesh4::SimpleMesh removing_holes(cmesh4::SimpleMesh& mesh, int& ind, bool& fl){
     std::vector<LiteMath::float4> mesh_vertices = mesh.vPos4f;
     std::vector<unsigned int> mesh_indices = mesh.indices;
 
@@ -336,6 +336,17 @@ namespace cmesh4
     
     return mesh_without_holes;
   }
+
+  cmesh4::SimpleMesh before_removing_holes(cmesh4::SimpleMesh mesh, int& ind, bool& fl){
+      bool res = check_watertight_mesh(mesh);
+      if(res){
+        ind = -2;
+        return mesh;
+      }
+
+      removing_holes(mesh, ind, fl);
+      return mesh;
+    }
 
   bool fast_watertight(const cmesh4::SimpleMesh& mesh, bool verbose)
   {
