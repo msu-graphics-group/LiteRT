@@ -1629,12 +1629,14 @@ void litert_test_21_rf_to_mesh()
   }
 }
 
-float2 get_quality(sdf_converter::MultithreadedDistanceFunction sdf, SdfGridView grid, unsigned points = 100000)
+float2 get_quality(sdf_converter::MultithreadedDistanceFunction sdf, SdfGridView grid, unsigned points = 250000)
 {
   long double sum = 0;
   long double sum_abs = 0;
 
   auto grid_sdf = get_SdfGridFunction(grid);
+
+  uint4 e_mat = uint4(0.0f, 0.0f, 0.0f, 0.0f);
 
   for (unsigned i = 0; i < points; i++)
   {
@@ -1644,10 +1646,49 @@ float2 get_quality(sdf_converter::MultithreadedDistanceFunction sdf, SdfGridView
 
     sum += d1-d2;
     sum_abs += std::abs(d1-d2);
+
+    e_mat.x += d1 > 0 && d2 > 0;
+    e_mat.y += d1 > 0 && d2 < 0;
+    e_mat.z += d1 < 0 && d2 > 0;
+    e_mat.w += d1 < 0 && d2 < 0;
   }
+
+  printf("E: %u, %u, %u, %u\n", e_mat.x, e_mat.y, e_mat.z, e_mat.w);
+  printf("IoU: %f\n", float(e_mat.w)/float(e_mat.y+e_mat.z+e_mat.w));
+  printf("V: %f\n", float(e_mat.y+e_mat.w)/float(e_mat.z+e_mat.w));
 
   return float2(sum/points, sum_abs/points);
 }
+
+  float sdBox(float3 p)
+  {
+    float3 q = abs(p) - float3(1.0f);
+    return length(LiteMath::max(q, float3(0.0f))) + LiteMath::min(LiteMath::max(q.x, LiteMath::max(q.y, q.z)), 0.0f);
+  }
+
+  float sdMengerSponge(float3 p)
+  {
+    float d = sdBox(p);
+    float3 res = float3(d, 1.0f, 0.0f);
+
+    int Iterations = 2;
+    float s = 1.0f;
+    for (int m = 0; m < Iterations; m++)
+    {
+      float3 a = mod(p * s, float3(2.0f)) - 1.0f;
+      s *= 3.0f;
+      float3 r = abs(1.0f - 3.0f * abs(a));
+
+      float da = LiteMath::max(r.x, r.y);
+      float db = LiteMath::max(r.y, r.z);
+      float dc = LiteMath::max(r.z, r.x);
+      float c = (LiteMath::min(da, LiteMath::min(db, dc)) - 1.0f) / s;
+
+      d = std::max(d, c);
+    }
+
+    return d;
+  }
 
 void litert_test_22_sdf_grid_smoothing()
 {
@@ -1656,14 +1697,20 @@ void litert_test_22_sdf_grid_smoothing()
   unsigned W = 2048, H = 2048;
   MultiRenderPreset preset = getDefaultPreset();
 
+    unsigned grid_size = 100;
     unsigned max_threads = 15;
-    float noise = 0.05f;
+    float noise = 0.03f;
 
     std::vector<MeshBVH> bvh(max_threads);
     for (unsigned i = 0; i < max_threads; i++)
       bvh[i].init(mesh);
-    auto noisy_sdf = [&](const float3 &p, unsigned idx) -> float { return bvh[idx].get_signed_distance(p) + urand()*noise; };
-    auto real_sdf = [&](const float3 &p, unsigned idx) -> float { return bvh[idx].get_signed_distance(p); };
+    auto real_sdf = [&](const float3 &p, unsigned idx) -> float 
+    {
+      return sdMengerSponge(1.5f*float3((p.x+p.z)/sqrt(2), p.y, (p.x-p.z)/sqrt(2)))/1.5f;
+    };
+    //{ return bvh[idx].get_signed_distance(p); };
+    
+    auto noisy_sdf = [&](const float3 &p, unsigned idx) -> float { return real_sdf(p, idx) + urand(-1 - 2.0f/grid_size, 1 - 2.0f/grid_size)*noise; };
 
 
   LiteImage::Image2D<uint32_t> image_1(W, H);
@@ -1681,7 +1728,7 @@ void litert_test_22_sdf_grid_smoothing()
     LiteImage::SaveImage<uint32_t>("saves/test_22_mesh.bmp", image_1);
   } 
 
-  auto grid = sdf_converter::create_sdf_grid(GridSettings(100), real_sdf, max_threads);
+  auto grid = sdf_converter::create_sdf_grid(GridSettings(grid_size), real_sdf, max_threads);
   {
     auto pRender = CreateMultiRenderer("GPU");
     pRender->SetPreset(preset);
@@ -1693,7 +1740,7 @@ void litert_test_22_sdf_grid_smoothing()
   float2 q_best = get_quality(real_sdf, grid);
   printf("q_best = %f, %f\n", q_best.x, q_best.y);
 
-  auto noisy_grid = sdf_converter::create_sdf_grid(GridSettings(100), noisy_sdf, max_threads);
+  auto noisy_grid = sdf_converter::create_sdf_grid(GridSettings(grid_size), noisy_sdf, max_threads);
   {
     auto pRender = CreateMultiRenderer("GPU");
     pRender->SetPreset(preset);
@@ -1702,10 +1749,11 @@ void litert_test_22_sdf_grid_smoothing()
     render(image_1, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
     LiteImage::SaveImage<uint32_t>("saves/test_22_grid_noisy.bmp", image_1);
   }
-  float2 q_noisy = get_quality(real_sdf, grid);
+  float2 q_noisy = get_quality(real_sdf, noisy_grid);
   printf("q_noisy = %f, %f\n", q_noisy.x, q_noisy.y);
 
-  auto smoothed_grid = sdf_converter::sdf_grid_smoother(grid, 1.1, 0.025, 0.02, 100);
+  float lambda = 0.3f;
+  auto smoothed_grid = sdf_converter::sdf_grid_smoother(noisy_grid, 1, 0.001, lambda, 100);
   {
     auto pRender = CreateMultiRenderer("GPU");
     pRender->SetPreset(preset);
@@ -1714,7 +1762,8 @@ void litert_test_22_sdf_grid_smoothing()
     render(image_1, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
     LiteImage::SaveImage<uint32_t>("saves/test_22_grid_smoothed.bmp", image_1);    
   }
-  float2 q_smoothed = get_quality(real_sdf, grid);
+  printf("\nlambda = %f\n", lambda);
+  float2 q_smoothed = get_quality(real_sdf, smoothed_grid);
   printf("q_smoothed = %f, %f\n", q_smoothed.x, q_smoothed.y);
 }
 

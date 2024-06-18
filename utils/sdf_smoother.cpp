@@ -2,6 +2,42 @@
 
 namespace sdf_converter
 {
+  template<typename T>
+  class AdamOptimizer
+  {
+  public:
+    AdamOptimizer(int _params_count, T _lr = T(0.15f), T _beta_1 = T(0.9f), T _beta_2 = T(0.999f), T _eps = T(1e-8)) 
+    {
+      lr = _lr;
+      beta_1 = _beta_1;
+      beta_2 = _beta_2;
+      eps = _eps;
+      V = std::vector<T>(_params_count, 0);
+      S = std::vector<T>(_params_count, 0);
+      params_count = _params_count;
+    }
+    
+    void step(T *params_ptr, const T* grad_ptr, int iter)
+    {
+      const auto b1 = std::pow(beta_1, iter + 1);
+      const auto b2 = std::pow(beta_2, iter + 1);
+      for (size_t i = 0; i < params_count; i++)
+      {
+        auto g = grad_ptr[i];
+        V[i] = beta_1 * V[i] + (1 - beta_1) * g;
+        auto Vh = V[i] / (T(1) - b1);
+        S[i] = beta_2 * S[i] + (1 - beta_2) * g * g;
+        auto Sh = S[i] / (T(1) - b2);
+        params_ptr[i] -= lr * Vh / (std::sqrt(Sh) + eps);
+      }
+    }
+  private:
+    T lr, beta_1, beta_2, eps;
+    std::vector<T> V;
+    std::vector<T> S;
+    size_t params_count;
+  };
+
   SdfGrid sdf_grid_smoother(const SdfGrid &original_grid, float power, float lr, float lambda, unsigned steps)
   {
     SdfGrid grid;
@@ -10,12 +46,15 @@ namespace sdf_converter
 
     std::vector<float> diff(grid.data.size());
 
+    AdamOptimizer optimizer(grid.data.size(), lr);
+
     for (int step = 0; step < steps; step++)
     {
       double total_loss = 0.0;
       double total_reg_loss = 0.0;
       std::fill(diff.begin(), diff.end(), 0.0f);
       
+      #pragma omp parallel for
       for (int i0 = 0; i0 < grid.size.x; i0++)
       {
         for (int j0 = 0; j0 < grid.size.y; j0++)
@@ -96,12 +135,14 @@ namespace sdf_converter
         }
       }
 
-      //printf("step = %d, loss = %f, reg_loss = %f\n", step, total_loss, total_reg_loss);
+      optimizer.step(grid.data.data(), diff.data(), step);
 
-      for (int i = 0; i < grid.data.size(); i++)
-      {
-        grid.data[i] -= lr * diff[i];
-      }
+      printf("step = %d, loss = %f(%f + %f*%f)\n", step, total_loss + lambda*total_reg_loss, total_loss, lambda, total_reg_loss);
+
+      //for (int i = 0; i < grid.data.size(); i++)
+      //{
+      //  grid.data[i] -= lr * diff[i];
+      //}
     }
 
     return grid;
