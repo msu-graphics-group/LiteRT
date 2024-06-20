@@ -668,6 +668,45 @@ uint32_t BVHRT::AddGeom_SdfHpOctree(SdfHPOctreeView octree, BuildOptions a_quali
   return m_geomData.size()-1;
 }
 
+uint32_t BVHRT::AddGeom_SdfFrameOctreeTex(SdfFrameOctreeTexView octree, BuildOptions a_qualityLevel)
+{
+  assert(octree.size > 0);
+  assert(octree.size < (1u<<28)); //huge grids shouldn't be here
+  //SDF octree is always a unit cube
+  float4 mn = float4(-1,-1,-1,1);
+  float4 mx = float4( 1, 1, 1,1);
+
+  //fill geom data array
+  GeomData geomData;
+  geomData.boxMin = mn;
+  geomData.boxMax = mx;
+  geomData.offset = uint2(m_SdfFrameOctreeTexRoots.size(), 0);
+  geomData.bvhOffset = m_allNodePairs.size();
+  geomData.type = TYPE_SDF_FRAME_OCTREE_TEX;
+  m_geomData.push_back(geomData);
+
+  //fill octree-specific data arrays
+  unsigned n_offset = m_SdfFrameOctreeTexNodes.size();
+  m_SdfFrameOctreeTexRoots.push_back(n_offset);
+  m_SdfFrameOctreeTexNodes.insert(m_SdfFrameOctreeTexNodes.end(), octree.nodes, octree.nodes + octree.size);
+  for (int i=n_offset;i<m_SdfFrameOctreeTexNodes.size();i++)
+    m_SdfFrameOctreeTexNodes[i].offset += n_offset;
+
+  //create list of bboxes for BLAS
+  std::vector<BVHNode> orig_nodes = GetBoxes_SdfFrameOctreeTex(octree);
+  m_origNodes = orig_nodes;
+
+  // Build BVH for each geom and append it to big buffer;
+  // append data to global arrays and fix offsets
+  auto presets = BuilderPresetsFromString(m_buildName.c_str());
+  auto layout  = LayoutPresetsFromString(m_layoutName.c_str());
+  auto bvhData = BuildBVHFatCustom(orig_nodes.data(), orig_nodes.size(), presets, layout);
+
+  m_allNodePairs.insert(m_allNodePairs.end(), bvhData.nodes.begin(), bvhData.nodes.end());
+
+  return m_geomData.size()-1;
+}
+
 void BVHRT::set_debug_mode(bool enable)
 {
   debug_cur_pixel = enable;
@@ -1028,6 +1067,60 @@ std::vector<BVHNode> BVHRT::GetBoxes_SdfFrameOctree(SdfFrameOctreeView octree)
   {
     add_border_nodes_rec(octree, nodes, 0, float3(0,0,0), 1);
   }
+
+  return nodes;
+}
+
+void add_border_nodes_rec(const SdfFrameOctreeTexView &octree, std::vector<BVHNode> &nodes,
+                          unsigned idx, float3 p, float d)
+{
+  unsigned ofs = octree.nodes[idx].offset;
+  if (ofs == 0) 
+  {
+    bool less = false;
+    bool more = false;
+    for (int i=0;i<8;i++)
+    {
+      if (octree.nodes[idx].values[i] <= 0)
+        less = true;
+      else if (octree.nodes[idx].values[i] >= -sqrt(3)*d)
+        more = true;
+    }
+
+    if (true)
+    {
+      float3 min_pos = 2.0f*(d*p) - 1.0f;
+      float3 max_pos = min_pos + 2.0f*d*float3(1,1,1);
+      nodes.emplace_back();
+      nodes.back().boxMax = max_pos;
+      nodes.back().boxMin = min_pos;
+      nodes.back().leftOffset = idx; //just store idx here, it will be later replaced by real offset in BVHBuilder anyway
+    }
+  }
+  else
+  {
+    for (int i = 0; i < 8; i++)
+    {
+      float ch_d = d / 2;
+      float3 ch_p = 2 * p + float3((i & 4) >> 2, (i & 2) >> 1, i & 1);
+      add_border_nodes_rec(octree, nodes, ofs + i, ch_p, ch_d);
+    }
+  }
+}
+
+std::vector<BVHNode> BVHRT::GetBoxes_SdfFrameOctreeTex(SdfFrameOctreeTexView octree)
+{
+  std::vector<BVHNode> nodes;
+  if (m_preset.sdf_frame_octree_blas == SDF_OCTREE_BLAS_NO)
+  {
+    nodes.resize(2);
+    nodes[0].boxMin = float3(-1,-1,-1);
+    nodes[0].boxMax = float3(1,1,0);
+    nodes[1].boxMin = float3(-1,-1,0);
+    nodes[1].boxMax = float3(1,1,1);
+  }
+  else if (m_preset.sdf_frame_octree_blas == SDF_OCTREE_BLAS_DEFAULT)
+    add_border_nodes_rec(octree, nodes, 0, float3(0,0,0), 1);
 
   return nodes;
 }

@@ -1767,6 +1767,50 @@ void litert_test_22_sdf_grid_smoothing()
   printf("q_smoothed = %f, %f\n", q_smoothed.x, q_smoothed.y);
 }
 
+void litert_test_23_textured_sdf()
+{
+  //create renderers for SDF scene and mesh scene
+  auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "scenes/01_simple_scenes/data/teapot.vsgf").c_str());
+  cmesh4::rescale_mesh(mesh, float3(-0.95, -0.95, -0.95), float3(0.95, 0.95, 0.95));
+
+  unsigned W = 2048, H = 2048;
+
+  MultiRenderPreset preset = getDefaultPreset();
+  SparseOctreeSettings settings(SparseOctreeBuildType::MESH_TLO, 8);
+  auto textured_octree = sdf_converter::create_sdf_frame_octree_tex(settings, mesh);
+
+  LiteImage::Image2D<uint32_t> image(W, H);
+  LiteImage::Image2D<uint32_t> ref_image(W, H);
+  
+  LiteImage::Image2D<uint32_t> image_tc(W, H);
+  LiteImage::Image2D<uint32_t> ref_image_tc(W, H);
+
+  auto pRenderRef = CreateMultiRenderer("GPU");
+  pRenderRef->SetPreset(preset);
+  pRenderRef->SetViewport(0,0,W,H);
+  pRenderRef->SetScene(mesh);
+  render(ref_image, pRenderRef, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+
+  //preset.mode = MULTI_RENDER_MODE_TEX_COORDS;
+
+  auto pRender = CreateMultiRenderer("GPU");
+  pRender->SetPreset(preset);
+  pRender->SetViewport(0,0,W,H);
+  pRender->SetScene(textured_octree);
+  render(image, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+
+  LiteImage::SaveImage<uint32_t>("saves/test_23_mesh.bmp", image); 
+  LiteImage::SaveImage<uint32_t>("saves/test_23_tc.bmp", ref_image);
+
+  float psnr = PSNR(ref_image, image);
+  printf("TEST 23. Textured SDF\n");
+  printf(" 23.1. %-64s", "Surface of textured SDF is close to mesh surface");
+  if (psnr >= 35)
+    printf("passed    (%.2f)\n", psnr);
+  else
+    printf("FAILED, psnr = %f\n", psnr);  
+}
+
 void perform_tests_litert(const std::vector<int> &test_ids)
 {
   std::vector<int> tests = test_ids;
@@ -1780,7 +1824,7 @@ void perform_tests_litert(const std::vector<int> &test_ids)
       litert_test_15_frame_octree_nodes_removal, litert_test_16_SVS_nodes_removal,
       litert_test_17_all_types_sanity_check, litert_test_18_mesh_normalization,
       litert_test_19_marching_cubes, litert_test_20_radiance_fields, litert_test_21_rf_to_mesh,
-      litert_test_22_sdf_grid_smoothing};
+      litert_test_22_sdf_grid_smoothing, litert_test_23_textured_sdf};
 
   if (tests.empty())
   {

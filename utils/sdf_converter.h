@@ -73,4 +73,6 @@ namespace sdf_converter
   SdfHPOctree create_sdf_hp_octree(HPOctreeBuilder::BuildSettings settings, DistanceFunction sdf);
   SdfHPOctree create_sdf_hp_octree(HPOctreeBuilder::BuildSettings settings, MultithreadedDistanceFunction sdf, unsigned max_threads);
   SdfHPOctree create_sdf_hp_octree(HPOctreeBuilder::BuildSettings settings, const cmesh4::SimpleMesh &mesh);
+
+  std::vector<SdfFrameOctreeTexNode> create_sdf_frame_octree_tex(SparseOctreeSettings settings, const cmesh4::SimpleMesh &mesh);
 }

@@ -129,7 +129,7 @@ void MultiRenderer::kernel_RayTrace(uint32_t tidX, const float4* rayPosAndNear,
 
     case MULTI_RENDER_MODE_TYPE:
     {
-    unsigned type = hit.geomId >> SH_TYPE;
+      unsigned type = hit.geomId >> SH_TYPE;
       out_color[y * m_width + x] = m_palette[type % palette_size];
     }
     break;
@@ -218,6 +218,20 @@ void MultiRenderer::kernel_RayTrace(uint32_t tidX, const float4* rayPosAndNear,
     {
       uint3 col = uint3(255 * float3(1.0f - hit.coords[0], 1.0f - hit.coords[0], 1.0f - hit.coords[0]));
       out_color[y * m_width + x] = 0xFF000000 | (col.z<<16) | (col.y<<8) | col.x;
+    }
+    break;
+    case MULTI_RENDER_MODE_TEX_COORDS:
+    {
+      unsigned type = hit.geomId >> SH_TYPE;
+      float2 tc = float2(0,0);
+      if (type == TYPE_SDF_FRAME_OCTREE_TEX)
+        tc = float2(hit.coords[0], hit.coords[1]);
+      else if (type == TYPE_MESH_TRIANGLE)
+      {
+        //const uint2 a_geomOffsets = m_pAccelStruct-> m_geomData[geomId].offset;
+      }
+      uint3 col = uint3(255*float3(tc.x, tc.y, 0));
+      out_color[y * m_width + x] = 0xFF000000 | (col.z<<16) | (col.y<<8) | col.x; 
     }
     break;
     default:

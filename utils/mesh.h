@@ -34,6 +34,7 @@ namespace cmesh4
   };
 
   float3 closest_point_triangle(const float3 &p, const float3 &a, const float3 &b, const float3 &c);
+  float3 barycentric(const float3 &p, const float3 &a, const float3 &b, const float3 &c);
   float get_signed_distance(const cmesh4::SimpleMesh &mesh, const TriangleListGrid &grid, const float3 &pos);
   void get_bbox(const cmesh4::SimpleMesh &mesh, float3 *min_pos, float3 *max_pos);
   bool triangle_aabb_intersect(const float3 &a, const float3 &b, const float3 &c, 

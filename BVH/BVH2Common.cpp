@@ -162,6 +162,7 @@ void BVHRT::IntersectAllPrimitivesInLeaf(const float3 ray_pos, const float3 ray_
 #endif
   case TYPE_SDF_SVS:
   case TYPE_SDF_SBS:
+  case TYPE_SDF_FRAME_OCTREE_TEX:
     OctreeNodeIntersect(type, ray_pos, ray_dir, tNearSdf, instId, geomId, a_start, a_count, pHit);
     break;
   case TYPE_SDF_HP:
@@ -212,6 +213,27 @@ void BVHRT::OctreeNodeIntersect(uint32_t type, const float3 ray_pos, const float
 
     for (int i=0;i<8;i++)
       values[i] = m_SdfFrameOctreeNodes[nodeId].values[i];
+
+    fNearFar = RayBoxIntersection2(ray_pos, SafeInverse(ray_dir), min_pos, max_pos);
+    float3 start_pos = ray_pos + fNearFar.x*ray_dir;
+    d = std::max(size.x, std::max(size.y, size.z));
+    start_q = (start_pos - min_pos) / d;
+    qFar = (fNearFar.y - fNearFar.x) / d;
+    qNear = tNear > fNearFar.x ? (tNear - fNearFar.x) / d : 0.0f;
+#endif
+  }
+  else if (type == TYPE_SDF_FRAME_OCTREE_TEX)
+  {
+#ifndef DISABLE_SDF_FRAME_OCTREE_TEX
+    uint32_t sdfId =  m_geomData[geomId].offset.x;
+    primId = m_origNodes[a_start].leftOffset;
+    nodeId = primId + m_SdfFrameOctreeTexRoots[sdfId];
+    min_pos = m_origNodes[a_start].boxMin;
+    max_pos = m_origNodes[a_start].boxMax;
+    float3 size = max_pos - min_pos;
+
+    for (int i=0;i<8;i++)
+      values[i] = m_SdfFrameOctreeTexNodes[nodeId].values[i];
 
     fNearFar = RayBoxIntersection2(ray_pos, SafeInverse(ray_dir), min_pos, max_pos);
     float3 start_pos = ray_pos + fNearFar.x*ray_dir;
@@ -602,6 +624,31 @@ void BVHRT::OctreeNodeIntersect(uint32_t type, const float3 ray_pos, const float
 
     if (m_preset.mode == MULTI_RENDER_MODE_SPHERE_TRACE_ITERATIONS)
       pHit->primId = iter;
+    
+  #ifndef DISABLE_SDF_FRAME_OCTREE_TEX
+    if (type == TYPE_SDF_FRAME_OCTREE_TEX)
+    {
+      float3 dp = start_q + t * ray_dir;
+      
+      pHit->coords[0] = (1-dp.x)*(1-dp.y)*(1-dp.z)*m_SdfFrameOctreeTexNodes[nodeId].tex_coords[0] + 
+                        (1-dp.x)*(1-dp.y)*(  dp.z)*m_SdfFrameOctreeTexNodes[nodeId].tex_coords[2] + 
+                        (1-dp.x)*(  dp.y)*(1-dp.z)*m_SdfFrameOctreeTexNodes[nodeId].tex_coords[4] + 
+                        (1-dp.x)*(  dp.y)*(  dp.z)*m_SdfFrameOctreeTexNodes[nodeId].tex_coords[6] + 
+                        (  dp.x)*(1-dp.y)*(1-dp.z)*m_SdfFrameOctreeTexNodes[nodeId].tex_coords[8] + 
+                        (  dp.x)*(1-dp.y)*(  dp.z)*m_SdfFrameOctreeTexNodes[nodeId].tex_coords[10] + 
+                        (  dp.x)*(  dp.y)*(1-dp.z)*m_SdfFrameOctreeTexNodes[nodeId].tex_coords[12] + 
+                        (  dp.x)*(  dp.y)*(  dp.z)*m_SdfFrameOctreeTexNodes[nodeId].tex_coords[14];
+
+      pHit->coords[1] = (1-dp.x)*(1-dp.y)*(1-dp.z)*m_SdfFrameOctreeTexNodes[nodeId].tex_coords[1] + 
+                        (1-dp.x)*(1-dp.y)*(  dp.z)*m_SdfFrameOctreeTexNodes[nodeId].tex_coords[3] + 
+                        (1-dp.x)*(  dp.y)*(1-dp.z)*m_SdfFrameOctreeTexNodes[nodeId].tex_coords[5] + 
+                        (1-dp.x)*(  dp.y)*(  dp.z)*m_SdfFrameOctreeTexNodes[nodeId].tex_coords[7] + 
+                        (  dp.x)*(1-dp.y)*(1-dp.z)*m_SdfFrameOctreeTexNodes[nodeId].tex_coords[9] + 
+                        (  dp.x)*(1-dp.y)*(  dp.z)*m_SdfFrameOctreeTexNodes[nodeId].tex_coords[11] + 
+                        (  dp.x)*(  dp.y)*(1-dp.z)*m_SdfFrameOctreeTexNodes[nodeId].tex_coords[13] + 
+                        (  dp.x)*(  dp.y)*(  dp.z)*m_SdfFrameOctreeTexNodes[nodeId].tex_coords[15];
+    }
+  #endif
   }
 }
 

@@ -226,6 +226,23 @@ namespace cmesh4
     return a + v * ab + w * ac; // #0
   }
 
+  // Compute barycentric coordinates (u, v, w) for
+  // point p with respect to triangle (a, b, c)
+  float3 barycentric(const float3 &p, const float3 &a, const float3 &b, const float3 &c)
+  {
+    float3 v0 = b - a, v1 = c - a, v2 = p - a;
+    float d00 = dot(v0, v0);
+    float d01 = dot(v0, v1);
+    float d11 = dot(v1, v1);
+    float d20 = dot(v2, v0);
+    float d21 = dot(v2, v1);
+    float denom = d00 * d11 - d01 * d01;
+    float v = (d11 * d20 - d01 * d21) / denom;
+    float w = (d00 * d21 - d01 * d20) / denom;
+    float u = 1.0f - v - w;
+    return float3(u, v, w);
+  }
+
   float get_signed_distance(const cmesh4::SimpleMesh &mesh, const TriangleListGrid &grid, const float3 &pos)
   {
     float3 bbox_size = grid.max_pos - grid.min_pos;

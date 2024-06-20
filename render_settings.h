@@ -11,6 +11,7 @@ static constexpr unsigned TYPE_SDF_SVS             = 6;
 static constexpr unsigned TYPE_SDF_SBS             = 7;
 static constexpr unsigned TYPE_GS_PRIMITIVE        = 8;
 static constexpr unsigned TYPE_SDF_HP              = 9;
+static constexpr unsigned TYPE_SDF_FRAME_OCTREE_TEX=10;
 
 //enum SdfOctreeSampler
 static constexpr unsigned SDF_OCTREE_SAMPLER_MIPSKIP_3X3 = 0; //go to the deepest level possible, resampling larger nodes
@@ -45,6 +46,7 @@ static constexpr unsigned MULTI_RENDER_MODE_RF = 11; //default mode for renderin
 static constexpr unsigned MULTI_RENDER_MODE_PHONG = 12; //rendering meshes/SDFs woth Phong shading
 static constexpr unsigned MULTI_RENDER_MODE_GS = 13; //rendering Gaussian splats
 static constexpr unsigned MULTI_RENDER_MODE_RF_DENSITY = 14; //rendering density from radiance field
+static constexpr unsigned MULTI_RENDER_MODE_TEX_COORDS = 15; //rendering texture coordinates in RG channels
 
 //enum MeshNormalMode
 static constexpr unsigned MESH_NORMAL_MODE_GEOMETRY = 0; //geometry normal, faceted look but it do not rely on vertex normals

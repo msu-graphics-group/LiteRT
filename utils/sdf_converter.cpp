@@ -219,4 +219,21 @@ namespace sdf_converter
     builder.construct(mesh, settings);
     return builder.octree;
   }
+
+  std::vector<SdfFrameOctreeTexNode> create_sdf_frame_octree_tex(SparseOctreeSettings settings, const cmesh4::SimpleMesh &mesh)
+  {
+    if (settings.build_type == SparseOctreeBuildType::MESH_TLO)
+    {
+      auto tlo = cmesh4::create_triangle_list_octree(mesh, settings.depth, 1, 2.0f);
+      std::vector<SdfFrameOctreeTexNode> frame;
+      mesh_octree_to_sdf_frame_octree_tex(mesh, tlo, frame);
+      //frame_octree_limit_nodes(frame, settings.nodes_limit, true); //TODO
+      return frame;
+    }
+    else
+    {
+      printf("Frame octree with texture can be built only from mesh with MESH_TLO build type\n");
+      return {};
+    }
+  }
 }

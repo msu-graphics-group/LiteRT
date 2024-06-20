@@ -44,6 +44,8 @@ struct BruteForceRT : public ISceneObject
   uint32_t AddGeom_SdfSBS(SdfSBSView octree, BuildOptions a_qualityLevel = BUILD_HIGH) override;
   uint32_t AddGeom_SdfHpOctree(SdfHPOctreeView octree, BuildOptions a_qualityLevel = BUILD_HIGH) override;
 
+  uint32_t AddGeom_SdfFrameOctreeTex(SdfFrameOctreeTexView octree, BuildOptions a_qualityLevel = BUILD_HIGH) override;
+
   void ClearScene() override; 
   void CommitScene  (uint32_t a_qualityLevel) override; 
   
@@ -253,6 +255,12 @@ uint32_t BruteForceRT::AddGeom_SdfSBS(SdfSBSView octree, BuildOptions a_qualityL
 uint32_t BruteForceRT::AddGeom_SdfHpOctree(SdfHPOctreeView octree, BuildOptions a_qualityLevel)
 {
   printf("AddGeom_SdfHpOctree not implemented!!!\n");
+  return 0u;
+}
+
+uint32_t BruteForceRT::AddGeom_SdfFrameOctreeTex(SdfFrameOctreeTexView octree, BuildOptions a_qualityLevel)
+{
+  printf("AddGeom_SdfFrameOctreeTex not implemented!!!\n");
   return 0u;
 }
 

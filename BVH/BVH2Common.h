@@ -100,6 +100,8 @@ struct BVHRT : public ISceneObject
   uint32_t AddGeom_SdfSBS(SdfSBSView octree, BuildOptions a_qualityLevel = BUILD_HIGH) override;
   uint32_t AddGeom_SdfHpOctree(SdfHPOctreeView octree, BuildOptions a_qualityLevel = BUILD_HIGH) override;
 
+  uint32_t AddGeom_SdfFrameOctreeTex(SdfFrameOctreeTexView octree, BuildOptions a_qualityLevel = BUILD_HIGH) override;
+
   void set_debug_mode(bool enable) override;
 #endif
 
@@ -198,6 +200,7 @@ struct BVHRT : public ISceneObject
   std::vector<BVHNode> GetBoxes_SdfGrid(SdfGridView grid);
   std::vector<BVHNode> GetBoxes_SdfOctree(SdfOctreeView octree);
   std::vector<BVHNode> GetBoxes_SdfFrameOctree(SdfFrameOctreeView octree);
+  std::vector<BVHNode> GetBoxes_SdfFrameOctreeTex(SdfFrameOctreeTexView octree);
 #endif
 
   //helper functions to calculate SDF
@@ -297,6 +300,17 @@ struct BVHRT : public ISceneObject
   std::vector<SdfHPOctreeNode> m_SdfHpOctreeNodes; //nodes for all SDF hp-Octrees
   std::vector<float> m_SdfHpOctreeData;            //raw data for all SDF hp-Octrees
   std::vector<uint32_t> m_SdfHpOctreeRoots;           //header for each SDF hp-Octree
+#endif
+
+  //SDF textured frame octree data
+#ifndef DISABLE_SDF_FRAME_OCTREE_TEX
+  std::vector<SdfFrameOctreeTexNode> m_SdfFrameOctreeTexNodes;//nodes for all SDF octrees
+  std::vector<uint32_t> m_SdfFrameOctreeTexRoots;          //root node ids for each SDF octree
+  #ifdef DISABLE_SDF_FRAME_OCTREE
+    #ifdef DISABLE_RF_GRID
+      std::vector<BVHNode> m_origNodes;
+    #endif
+  #endif
 #endif
 
   //meshes data

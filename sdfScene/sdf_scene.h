@@ -135,6 +135,13 @@ struct SdfHPOctreeNode
   uint32_t degree_lod; //polynomial degree and LOD
 };
 
+struct SdfFrameOctreeTexNode
+{
+  float tex_coords[16];
+  float values[8];
+  unsigned offset; // offset for children (they are stored together). 0 offset means it's a leaf  
+};
+
 //################################################################################
 // CPU-specific functions and data structures
 //################################################################################
@@ -314,6 +321,18 @@ struct SdfHPOctreeView
   const float *data;
   unsigned nodes_size;
   unsigned data_size;
+};
+
+struct SdfFrameOctreeTexView
+{
+  SdfFrameOctreeTexView() = default;
+  SdfFrameOctreeTexView(const std::vector<SdfFrameOctreeTexNode> &a_nodes)
+  {
+    size = a_nodes.size();
+    nodes = a_nodes.data();
+  }
+  unsigned size;
+  const SdfFrameOctreeTexNode *nodes;
 };
 
 // interface to evaluate SdfScene out of context of rendering
