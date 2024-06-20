@@ -169,6 +169,25 @@ void load_sdf_hp_octree(SdfHPOctree &scene, const std::string &path)
   fs.close();
 }
 
+void save_sdf_frame_octree_tex(const SdfFrameOctreeTexView &scene, const std::string &path)
+{
+  std::ofstream fs(path, std::ios::binary);
+  fs.write((const char *)&scene.size, sizeof(unsigned));
+  fs.write((const char *)scene.nodes, scene.size * sizeof(SdfFrameOctreeTexNode));
+  fs.flush();
+  fs.close();
+}
+
+void load_sdf_frame_octree_tex(std::vector<SdfFrameOctreeTexNode> &scene, const std::string &path)
+{
+  std::ifstream fs(path, std::ios::binary);
+  unsigned sz = 0;
+  fs.read((char *)&sz, sizeof(unsigned));
+  scene.resize(sz);
+  fs.read((char *)scene.data(), scene.size() * sizeof(SdfFrameOctreeTexNode));
+  fs.close();
+}
+
 void load_neural_sdf_scene_SIREN(SdfScene &scene, const std::string &path)
 {
   constexpr unsigned layers = 4;

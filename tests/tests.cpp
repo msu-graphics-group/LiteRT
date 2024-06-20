@@ -1770,7 +1770,7 @@ void litert_test_22_sdf_grid_smoothing()
 void litert_test_23_textured_sdf()
 {
   //create renderers for SDF scene and mesh scene
-  auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "scenes/01_simple_scenes/data/teapot.vsgf").c_str());
+  auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "scenes/01_simple_scenes/data/bunny.vsgf").c_str());
   cmesh4::rescale_mesh(mesh, float3(-0.95, -0.95, -0.95), float3(0.95, 0.95, 0.95));
 
   unsigned W = 2048, H = 2048;
@@ -1785,30 +1785,59 @@ void litert_test_23_textured_sdf()
   LiteImage::Image2D<uint32_t> image_tc(W, H);
   LiteImage::Image2D<uint32_t> ref_image_tc(W, H);
 
-  auto pRenderRef = CreateMultiRenderer("GPU");
-  pRenderRef->SetPreset(preset);
-  pRenderRef->SetViewport(0,0,W,H);
-  pRenderRef->SetScene(mesh);
-  render(ref_image, pRenderRef, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+  {
+    auto pRender = CreateMultiRenderer("GPU");
+    pRender->SetPreset(preset);
+    pRender->SetViewport(0,0,W,H);
+    pRender->SetScene(mesh);
+    render(ref_image, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+  }
 
-  //preset.mode = MULTI_RENDER_MODE_TEX_COORDS;
+  {
+    auto pRender = CreateMultiRenderer("GPU");
+    pRender->SetPreset(preset);
+    pRender->SetViewport(0,0,W,H);
+    pRender->SetScene(textured_octree);
+    render(image, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+  }
 
-  auto pRender = CreateMultiRenderer("GPU");
-  pRender->SetPreset(preset);
-  pRender->SetViewport(0,0,W,H);
-  pRender->SetScene(textured_octree);
-  render(image, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+  preset.mode = MULTI_RENDER_MODE_TEX_COORDS;
+  {
+    auto pRender = CreateMultiRenderer("GPU");
+    pRender->SetPreset(preset);
+    pRender->SetViewport(0,0,W,H);
+    pRender->SetScene(mesh);
+    render(ref_image_tc, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+  }
+
+  {
+    auto pRender = CreateMultiRenderer("GPU");
+    pRender->SetPreset(preset);
+    pRender->SetViewport(0,0,W,H);
+    pRender->SetScene(textured_octree);
+    render(image_tc, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+  }
 
   LiteImage::SaveImage<uint32_t>("saves/test_23_mesh.bmp", image); 
-  LiteImage::SaveImage<uint32_t>("saves/test_23_tc.bmp", ref_image);
+  LiteImage::SaveImage<uint32_t>("saves/test_23_textured_sdf.bmp", ref_image);
+  LiteImage::SaveImage<uint32_t>("saves/test_23_tc_mesh.bmp", image_tc);
+  LiteImage::SaveImage<uint32_t>("saves/test_23_tc_textured_sdf.bmp", ref_image_tc);
 
   float psnr = PSNR(ref_image, image);
+  float psnr_tc = PSNR(ref_image_tc, image_tc);
   printf("TEST 23. Textured SDF\n");
+
   printf(" 23.1. %-64s", "Surface of textured SDF is close to mesh surface");
   if (psnr >= 35)
     printf("passed    (%.2f)\n", psnr);
   else
     printf("FAILED, psnr = %f\n", psnr);  
+
+  printf(" 23.2. %-64s", "Correct texture coordinates on textured SDF");
+  if (psnr_tc >= 35)
+    printf("passed    (%.2f)\n", psnr_tc);
+  else
+    printf("FAILED, psnr = %f\n", psnr_tc);
 }
 
 void perform_tests_litert(const std::vector<int> &test_ids)

@@ -228,6 +228,16 @@ void MultiRenderer::kernel_RayTrace(uint32_t tidX, const float4* rayPosAndNear,
         tc = float2(hit.coords[0], hit.coords[1]);
       else if (type == TYPE_MESH_TRIANGLE)
       {
+        const uint2 a_geomOffsets = m_geomOffsets[hit.geomId];
+        const uint32_t A = m_indices[a_geomOffsets.x + hit.primId*3 + 0];
+        const uint32_t B = m_indices[a_geomOffsets.x + hit.primId*3 + 1];
+        const uint32_t C = m_indices[a_geomOffsets.x + hit.primId*3 + 2];
+
+        const float2 A_tc = float2(m_vertices[a_geomOffsets.y + A].w, m_normals[a_geomOffsets.y + A].w);
+        const float2 B_tc = float2(m_vertices[a_geomOffsets.y + B].w, m_normals[a_geomOffsets.y + B].w);
+        const float2 C_tc = float2(m_vertices[a_geomOffsets.y + C].w, m_normals[a_geomOffsets.y + C].w);
+
+        tc = (1.0f - hit.coords[0] - hit.coords[1]) * A_tc + hit.coords[0] * B_tc + hit.coords[1] * C_tc;
         //const uint2 a_geomOffsets = m_pAccelStruct-> m_geomData[geomId].offset;
       }
       uint3 col = uint3(255*float3(tc.x, tc.y, 0));

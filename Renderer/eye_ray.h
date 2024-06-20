@@ -96,6 +96,10 @@ protected:
   void kernel_InitEyeRay(uint32_t tidX, LiteMath::float4* rayPosAndNear, LiteMath::float4* rayDirAndFar);
   void kernel_RayTrace(uint32_t tidX, const LiteMath::float4* rayPosAndNear, const LiteMath::float4* rayDirAndFar, uint32_t* out_color);
 
+#ifndef KERNEL_SLICER 
+  void add_mesh_internal(const cmesh4::SimpleMesh& mesh, unsigned geomId);
+#endif  
+
   uint32_t m_width;
   uint32_t m_height;
   MultiRenderPreset m_preset;
@@ -110,6 +114,14 @@ protected:
 
   float4 m_mainLightDir; //direction to main light, normalized
   float4 m_mainLightColor; //color of main light, also intensity
+
+  //duplicating data for meshes if we want to visualize them with textures
+#ifndef DISABLE_MESH_TEX
+  std::vector<float4> m_vertices; //.w is tc.x
+  std::vector<float4> m_normals;  //.w is tc.y
+  std::vector<uint32_t> m_indices;
+  std::vector<uint2> m_geomOffsets;
+#endif
 
   // color palette to select color for objects based on mesh/instance id
   static constexpr uint32_t palette_size = 20;

@@ -91,8 +91,9 @@ bool MultiRenderer::LoadSceneHydra(const std::string& a_path, unsigned type, Spa
       {
       case TYPE_MESH_TRIANGLE:
       {
-        m_pAccelStruct->AddGeom_Triangles3f((const float *)currMesh.vPos4f.data(), (const float*)currMesh.vNorm4f.data(), currMesh.vPos4f.size(),
-                                            currMesh.indices.data(), currMesh.indices.size(), BUILD_HIGH, sizeof(float) * 4);
+        unsigned geomId = m_pAccelStruct->AddGeom_Triangles3f((const float *)currMesh.vPos4f.data(), (const float*)currMesh.vNorm4f.data(), currMesh.vPos4f.size(),
+                                                              currMesh.indices.data(), currMesh.indices.size(), BUILD_HIGH, sizeof(float) * 4);
+        add_mesh_internal(currMesh, geomId);
       }
       break;
       case TYPE_SDF_SVS:
@@ -251,8 +252,9 @@ void MultiRenderer::GetExecutionTime(const char* a_funcName, float a_out[4])
 void MultiRenderer::SetScene(const cmesh4::SimpleMesh &scene)
 {
   GetAccelStruct()->ClearGeom();
-  GetAccelStruct()->AddGeom_Triangles3f((const float*)scene.vPos4f.data(), (const float*)scene.vNorm4f.data(), scene.vPos4f.size(),
-                                        scene.indices.data(), scene.indices.size(), BUILD_HIGH, sizeof(float)*4);
+  unsigned geomId =  GetAccelStruct()->AddGeom_Triangles3f((const float*)scene.vPos4f.data(), (const float*)scene.vNorm4f.data(), scene.vPos4f.size(),
+                                                           scene.indices.data(), scene.indices.size(), BUILD_HIGH, sizeof(float)*4);
+  add_mesh_internal(scene, geomId);
   GetAccelStruct()->ClearScene();
   GetAccelStruct()->AddInstance(0, LiteMath::float4x4());
   GetAccelStruct()->CommitScene();
@@ -354,6 +356,29 @@ void MultiRenderer::Render(uint32_t* imageData, uint32_t a_width, uint32_t a_hei
   CommitDeviceData();
   Clear(a_width, a_height, "color");
   Render(imageData, a_width, a_height, "color", a_passNum); 
+}
+
+void MultiRenderer::add_mesh_internal(const cmesh4::SimpleMesh &scene, uint32_t geomId)
+{
+#ifndef DISABLE_MESH_TEX
+  m_geomOffsets.resize(geomId + 1, uint2(0,0));
+  m_geomOffsets[geomId].x = m_indices.size();
+  m_geomOffsets[geomId].y = m_vertices.size();
+  m_indices.insert(m_indices.end(), scene.indices.begin(), scene.indices.end());
+
+  unsigned sz = scene.vPos4f.size();
+  m_vertices.resize(m_vertices.size() + sz);
+  m_normals.resize(m_normals.size() + sz);
+
+  for (unsigned i = 0; i < sz; ++i)
+  {
+    m_vertices[m_geomOffsets[geomId].y + i] = scene.vPos4f[i];
+    m_vertices[m_geomOffsets[geomId].y + i].w = scene.vTexCoord2f[i].x;
+
+    m_normals[m_geomOffsets[geomId].y + i] = scene.vNorm4f[i];
+    m_normals[m_geomOffsets[geomId].y + i].w = scene.vTexCoord2f[i].y;
+  }
+#endif
 }
 
 #if defined(USE_GPU)
