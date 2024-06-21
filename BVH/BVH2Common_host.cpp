@@ -765,6 +765,8 @@ void BVHRT::CommitScene(uint32_t a_qualityLevel)
     m_nodesTLAS.emplace_back();
     m_nodesTLAS[0].boxMin = to_float3(m_instanceData[0].boxMin);
     m_nodesTLAS[0].boxMax = to_float3(m_instanceData[0].boxMax);
+    m_nodesTLAS[0].leftOffset = LEAF_BIT;
+    m_nodesTLAS[0].escapeIndex = LEAF_NORMAL;
   }
 
   m_firstSceneCommit = false;

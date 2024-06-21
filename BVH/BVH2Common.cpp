@@ -1732,25 +1732,6 @@ CRT_Hit BVHRT::RayQuery_NearestHit(float4 posAndNear, float4 dirAndFar)
   hit.coords[2] = 0.0f;
   hit.coords[3] = 0.0f;
 
-  // std::cout << "-----------------------------------------" << std::endl;
-
-  //no TLAS, only one instance
-  if (m_nodesTLAS.size() == 1)
-  {
-    const float2 boxHit    = RayBoxIntersection2(to_float3(posAndNear), rayDirInv, m_nodesTLAS[0].boxMin, m_nodesTLAS[0].boxMax);
-    const bool intersects  = (boxHit.x <= boxHit.y) && (boxHit.y > posAndNear.w);
-    if (intersects)
-    {
-      const uint32_t instId = 0;
-      const uint32_t geomId = m_instanceData[instId].geomId;
-
-      // transform ray with matrix to local space
-      const float3 ray_pos = matmul4x3(m_instanceData[0].transformInv, to_float3(posAndNear));
-      const float3 ray_dir = matmul3x3(m_instanceData[0].transformInv, to_float3(dirAndFar));
-      BVH2TraverseF32(ray_pos, ray_dir, posAndNear.w, instId, geomId, stopOnFirstHit, &hit);
-    }
-  }
-  else
   {
     uint32_t nodeIdx = 0;
     do
