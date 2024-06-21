@@ -177,6 +177,7 @@ struct ISceneObject
   virtual const LiteMath::float4* GetGeomBoxes() const { return nullptr; };
 
   void SetPreset(const MultiRenderPreset& a_preset){ m_preset = a_preset; }
+  MultiRenderPreset GetPreset() const { return m_preset; }
 
   MultiRenderPreset m_preset;
 };
