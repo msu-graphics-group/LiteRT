@@ -64,30 +64,30 @@ namespace cmesh4
             continue;
           
           /* Find the vertices where the surface intersects the cube */
-            if (edgeTable[cubeIndex] & 1)
-                vertlist[0] = VertexInterp(settings.iso_level,cubePositions[0],cubePositions[1],cubeValues[0],cubeValues[1]);
-            if (edgeTable[cubeIndex] & 2)
-                vertlist[1] = VertexInterp(settings.iso_level,cubePositions[1],cubePositions[2],cubeValues[1],cubeValues[2]);
-            if (edgeTable[cubeIndex] & 4)
-                vertlist[2] = VertexInterp(settings.iso_level,cubePositions[2],cubePositions[3],cubeValues[2],cubeValues[3]);
-            if (edgeTable[cubeIndex] & 8)
-                vertlist[3] = VertexInterp(settings.iso_level,cubePositions[3],cubePositions[0],cubeValues[3],cubeValues[0]);
-            if (edgeTable[cubeIndex] & 16)
-                vertlist[4] = VertexInterp(settings.iso_level,cubePositions[4],cubePositions[5],cubeValues[4],cubeValues[5]);
-            if (edgeTable[cubeIndex] & 32)
-                vertlist[5] = VertexInterp(settings.iso_level,cubePositions[5],cubePositions[6],cubeValues[5],cubeValues[6]);
-            if (edgeTable[cubeIndex] & 64)
-                vertlist[6] = VertexInterp(settings.iso_level,cubePositions[6],cubePositions[7],cubeValues[6],cubeValues[7]);
-            if (edgeTable[cubeIndex] & 128)
-                vertlist[7] = VertexInterp(settings.iso_level,cubePositions[7],cubePositions[4],cubeValues[7],cubeValues[4]);
-            if (edgeTable[cubeIndex] & 256)
-                vertlist[8] = VertexInterp(settings.iso_level,cubePositions[0],cubePositions[4],cubeValues[0],cubeValues[4]);
-            if (edgeTable[cubeIndex] & 512)
-                vertlist[9] = VertexInterp(settings.iso_level,cubePositions[1],cubePositions[5],cubeValues[1],cubeValues[5]);
-            if (edgeTable[cubeIndex] & 1024)
-                vertlist[10] = VertexInterp(settings.iso_level,cubePositions[2],cubePositions[6],cubeValues[2],cubeValues[6]);
-            if (edgeTable[cubeIndex] & 2048)
-                vertlist[11] = VertexInterp(settings.iso_level,cubePositions[3],cubePositions[7],cubeValues[3],cubeValues[7]);
+          if (edgeTable[cubeIndex] & 1)
+            vertlist[0] = VertexInterp(settings.iso_level, cubePositions[0], cubePositions[1], cubeValues[0], cubeValues[1]);
+          if (edgeTable[cubeIndex] & 2)
+            vertlist[1] = VertexInterp(settings.iso_level, cubePositions[1], cubePositions[2], cubeValues[1], cubeValues[2]);
+          if (edgeTable[cubeIndex] & 4)
+            vertlist[2] = VertexInterp(settings.iso_level, cubePositions[2], cubePositions[3], cubeValues[2], cubeValues[3]);
+          if (edgeTable[cubeIndex] & 8)
+            vertlist[3] = VertexInterp(settings.iso_level, cubePositions[3], cubePositions[0], cubeValues[3], cubeValues[0]);
+          if (edgeTable[cubeIndex] & 16)
+            vertlist[4] = VertexInterp(settings.iso_level, cubePositions[4], cubePositions[5], cubeValues[4], cubeValues[5]);
+          if (edgeTable[cubeIndex] & 32)
+            vertlist[5] = VertexInterp(settings.iso_level, cubePositions[5], cubePositions[6], cubeValues[5], cubeValues[6]);
+          if (edgeTable[cubeIndex] & 64)
+            vertlist[6] = VertexInterp(settings.iso_level, cubePositions[6], cubePositions[7], cubeValues[6], cubeValues[7]);
+          if (edgeTable[cubeIndex] & 128)
+            vertlist[7] = VertexInterp(settings.iso_level, cubePositions[7], cubePositions[4], cubeValues[7], cubeValues[4]);
+          if (edgeTable[cubeIndex] & 256)
+            vertlist[8] = VertexInterp(settings.iso_level, cubePositions[0], cubePositions[4], cubeValues[0], cubeValues[4]);
+          if (edgeTable[cubeIndex] & 512)
+            vertlist[9] = VertexInterp(settings.iso_level, cubePositions[1], cubePositions[5], cubeValues[1], cubeValues[5]);
+          if (edgeTable[cubeIndex] & 1024)
+            vertlist[10] = VertexInterp(settings.iso_level, cubePositions[2], cubePositions[6], cubeValues[2], cubeValues[6]);
+          if (edgeTable[cubeIndex] & 2048)
+            vertlist[11] = VertexInterp(settings.iso_level, cubePositions[3], cubePositions[7], cubeValues[3], cubeValues[7]);
 
           float3 worldPos = settings.min_pos + size*(float3(xi, yi, zi) / float3(settings.size));
           const int *edges = triTable[cubeIndex];
