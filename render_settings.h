@@ -47,6 +47,7 @@ static constexpr unsigned MULTI_RENDER_MODE_PHONG = 12; //rendering meshes/SDFs 
 static constexpr unsigned MULTI_RENDER_MODE_GS = 13; //rendering Gaussian splats
 static constexpr unsigned MULTI_RENDER_MODE_RF_DENSITY = 14; //rendering density from radiance field
 static constexpr unsigned MULTI_RENDER_MODE_TEX_COORDS = 15; //rendering texture coordinates in RG channels
+static constexpr unsigned MULTI_RENDER_MODE_DIFFUSE = 16; //rendering diffuse color from material
 
 //enum MeshNormalMode
 static constexpr unsigned MESH_NORMAL_MODE_GEOMETRY = 0; //geometry normal, faceted look but it do not rely on vertex normals

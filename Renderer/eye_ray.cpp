@@ -221,9 +221,11 @@ void MultiRenderer::kernel_RayTrace(uint32_t tidX, const float4* rayPosAndNear,
     }
     break;
     case MULTI_RENDER_MODE_TEX_COORDS:
+    case MULTI_RENDER_MODE_DIFFUSE:
     {
       unsigned type = hit.geomId >> SH_TYPE;
       float2 tc = float2(0,0);
+      float4 color = float4(0,1,1,1);
       if (type == TYPE_SDF_FRAME_OCTREE_TEX)
         tc = float2(hit.coords[0], hit.coords[1]);
       else if (type == TYPE_MESH_TRIANGLE)
@@ -237,10 +239,20 @@ void MultiRenderer::kernel_RayTrace(uint32_t tidX, const float4* rayPosAndNear,
         const float2 B_tc = float2(m_vertices[a_geomOffsets.y + B].w, m_normals[a_geomOffsets.y + B].w);
         const float2 C_tc = float2(m_vertices[a_geomOffsets.y + C].w, m_normals[a_geomOffsets.y + C].w);
 
-        tc = (1.0f - hit.coords[0] - hit.coords[1]) * A_tc + hit.coords[0] * B_tc + hit.coords[1] * C_tc;
+        tc = (1.0f - hit.coords[0] - hit.coords[1]) * A_tc + hit.coords[1] * B_tc + hit.coords[0] * C_tc;
         //const uint2 a_geomOffsets = m_pAccelStruct-> m_geomData[geomId].offset;
       }
-      uint3 col = uint3(255*float3(tc.x, tc.y, 0));
+      
+      if (m_preset.mode == MULTI_RENDER_MODE_TEX_COORDS)
+        color = float4(tc.x, tc.y, 0, 1);
+      else if (m_preset.mode == MULTI_RENDER_MODE_DIFFUSE)
+      {
+        unsigned matId = m_matIdbyInstId[hit.instId];
+        color = m_materials[matId].type == MULTI_RENDER_MATERIAL_TYPE_COLORED ? 
+                m_materials[matId].base_color : m_textures[m_materials[matId].texId]->sample(tc);
+      }
+      
+      uint3 col = uint3(255*to_float3(color));
       out_color[y * m_width + x] = 0xFF000000 | (col.z<<16) | (col.y<<8) | col.x; 
     }
     break;

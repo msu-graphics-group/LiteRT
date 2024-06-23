@@ -13,10 +13,26 @@
 #include "../IRenderer.h"
 #include "../BVH/BVH2Common.h"
 #include "LiteScene/cmesh4.h"
+#include "Image2d.h"
 
 using LiteMath::uint;
+using LiteImage::Image2D;
+using LiteImage::Sampler;
+using LiteImage::ICombinedImageSampler;
 
 struct SparseOctreeSettings;
+
+//enum MultiRendererMaterialType
+static constexpr unsigned MULTI_RENDER_MATERIAL_TYPE_COLORED  = 0;
+static constexpr unsigned MULTI_RENDER_MATERIAL_TYPE_TEXTURED = 1;
+
+struct MultiRendererMaterial
+{
+  unsigned type;
+  unsigned texId; // valid if type == MULTI_RENDER_MATERIAL_TYPE_TEXTURED
+  unsigned _pad[2];
+  float4 base_color; // valid if type == MULTI_RENDER_MATERIAL_TYPE_COLORED
+};
 
 class MultiRenderer : public IRenderer
 {
@@ -80,6 +96,10 @@ public:
   //so_settings is used only when type is soem kind of SDF octree
   bool LoadSceneHydra(const std::string& a_path, unsigned type, SparseOctreeSettings so_settings);  
 
+  uint32_t AddTexture(const Image2D<float4> &image);
+  uint32_t AddMaterial(const MultiRendererMaterial &material);
+  void     SetMaterial(uint32_t matId, uint32_t instId);
+
   LiteMath::float4x4 getProj() { return m_proj; }
   LiteMath::float4x4 getWorldView() { return m_worldView; }
 
@@ -122,6 +142,13 @@ protected:
   std::vector<uint32_t> m_indices;
   std::vector<uint2> m_geomOffsets;
 #endif
+
+  //materials and textures if at least one textured type is enabled
+//#if !defined(DISABLE_MESH_TEX) || !defined(DISABLE_SDF_TEX)
+  std::vector<MultiRendererMaterial> m_materials;
+  std::vector< std::shared_ptr<ICombinedImageSampler> > m_textures;
+  std::vector<uint32_t> m_matIdbyInstId;
+//#endif
 
   // color palette to select color for objects based on mesh/instance id
   static constexpr uint32_t palette_size = 20;

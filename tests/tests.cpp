@@ -1785,6 +1785,9 @@ void litert_test_23_textured_sdf()
   LiteImage::Image2D<uint32_t> image_tc(W, H);
   LiteImage::Image2D<uint32_t> ref_image_tc(W, H);
 
+  LiteImage::Image2D<uint32_t> image_tex(W, H);
+  LiteImage::Image2D<uint32_t> ref_image_tex(W, H);
+
   {
     auto pRender = CreateMultiRenderer("GPU");
     pRender->SetPreset(preset);
@@ -1818,13 +1821,51 @@ void litert_test_23_textured_sdf()
     render(image_tc, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
   }
 
+  LiteImage::Image2D<float4> texture = LiteImage::LoadImage<float4>("scenes/test_image.bmp");
+
+  preset.mode = MULTI_RENDER_MODE_DIFFUSE;
+  {
+    auto pRender = CreateMultiRenderer("CPU");
+    pRender->SetPreset(preset);
+    pRender->SetViewport(0,0,W,H);
+
+    uint32_t texId = pRender->AddTexture(texture);
+    MultiRendererMaterial mat;
+    mat.type = MULTI_RENDER_MATERIAL_TYPE_TEXTURED;
+    mat.texId = texId;
+    uint32_t matId = pRender->AddMaterial(mat);
+    pRender->SetMaterial(matId, 0);
+
+    pRender->SetScene(mesh);
+    render(ref_image_tex, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+  }
+
+  {
+    auto pRender = CreateMultiRenderer("CPU");
+    pRender->SetPreset(preset);
+    pRender->SetViewport(0,0,W,H);
+
+    uint32_t texId = pRender->AddTexture(texture);
+    MultiRendererMaterial mat;
+    mat.type = MULTI_RENDER_MATERIAL_TYPE_TEXTURED;
+    mat.texId = texId;
+    uint32_t matId = pRender->AddMaterial(mat);
+    pRender->SetMaterial(matId, 0);
+
+    pRender->SetScene(textured_octree);
+    render(image_tex, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+  }
+
   LiteImage::SaveImage<uint32_t>("saves/test_23_mesh.bmp", image); 
   LiteImage::SaveImage<uint32_t>("saves/test_23_textured_sdf.bmp", ref_image);
   LiteImage::SaveImage<uint32_t>("saves/test_23_tc_mesh.bmp", image_tc);
   LiteImage::SaveImage<uint32_t>("saves/test_23_tc_textured_sdf.bmp", ref_image_tc);
+  LiteImage::SaveImage<uint32_t>("saves/test_23_tex_mesh.bmp", ref_image_tex);
+  LiteImage::SaveImage<uint32_t>("saves/test_23_tex_textured_sdf.bmp", image_tex);
 
   float psnr = PSNR(ref_image, image);
   float psnr_tc = PSNR(ref_image_tc, image_tc);
+  float psnr_tex = PSNR(ref_image_tex, image_tex);
   printf("TEST 23. Textured SDF\n");
 
   printf(" 23.1. %-64s", "Surface of textured SDF is close to mesh surface");
@@ -1838,6 +1879,12 @@ void litert_test_23_textured_sdf()
     printf("passed    (%.2f)\n", psnr_tc);
   else
     printf("FAILED, psnr = %f\n", psnr_tc);
+  
+  printf(" 23.3. %-64s", "Correct texture on textured SDF");
+  if (psnr_tex >= 35)
+    printf("passed    (%.2f)\n", psnr_tex);
+  else
+    printf("FAILED, psnr = %f\n", psnr_tex);
 }
 
 void perform_tests_litert(const std::vector<int> &test_ids)
