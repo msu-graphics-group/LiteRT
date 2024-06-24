@@ -6,6 +6,8 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
 project(loader_app CXX)
 
+include_directories(${CMAKE_SOURCE_DIR}/dependencies/LiteMath/external)
+
 include(FetchContent)
 FetchContent_Declare(
   LiteMath
@@ -92,6 +94,11 @@ add_compile_definitions(ON_CPU=1)
 
 option(MODULE_VULKAN "include GPU support for neural networks" ON)
 option(MODULE_HP_OCTREE "include GPU module for building hp-octrees" OFF)
+
+option(USE_STB_IMAGE "Enable STB image " ON)
+if(USE_STB_IMAGE)
+  add_definitions(-DUSE_STB_IMAGE)
+endif()
 
 set(MODULES_SRC "")
 set(MODULES_INCLUDE_DIRS "modules")

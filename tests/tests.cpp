@@ -1776,7 +1776,7 @@ void litert_test_23_textured_sdf()
   unsigned W = 2048, H = 2048;
 
   MultiRenderPreset preset = getDefaultPreset();
-  SparseOctreeSettings settings(SparseOctreeBuildType::MESH_TLO, 8);
+  SparseOctreeSettings settings(SparseOctreeBuildType::MESH_TLO, 9);
   auto textured_octree = sdf_converter::create_sdf_frame_octree_tex(settings, mesh);
 
   LiteImage::Image2D<uint32_t> image(W, H);
@@ -1821,7 +1821,7 @@ void litert_test_23_textured_sdf()
     render(image_tc, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
   }
 
-  LiteImage::Image2D<float4> texture = LiteImage::LoadImage<float4>("scenes/test_image.bmp");
+  LiteImage::Image2D<float4> texture = LiteImage::LoadImage<float4>("scenes/porcelain.png");
 
   preset.mode = MULTI_RENDER_MODE_DIFFUSE;
   {
