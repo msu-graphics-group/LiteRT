@@ -26,9 +26,13 @@ MultiRenderer::MultiRenderer()
   m_mainLightDir = normalize3(float4(1,0.5,0.5,1));
   m_mainLightColor = 1.0f*normalize3(float4(1,1,0.98,1));
 
+  m_textures.resize(16);
+
   LiteImage::Image2D<float4> texture = LiteImage::Image2D<float4>(16, 16, float4(0,1,1,1)); //LiteImage::LoadImage<float4>("scenes/porcelain.png");
-  uint32_t texId = AddTexture(texture);
-  AddMaterial({MULTI_RENDER_MATERIAL_TYPE_TEXTURED, texId});
+  for (int i=0;i<16;i++)
+    AddTexture(texture);
+  AddMaterial({MULTI_RENDER_MATERIAL_TYPE_TEXTURED, 0});
+  active_textures_count = 1;
 }
 
 void MultiRenderer::SetViewport(int a_xStart, int a_yStart, int a_width, int a_height)
@@ -387,14 +391,16 @@ void MultiRenderer::add_mesh_internal(const cmesh4::SimpleMesh &scene, uint32_t 
 
 uint32_t MultiRenderer::AddTexture(const Image2D<LiteMath::float4> &image)
 {
+  assert(active_textures_count < m_textures.size());
   std::shared_ptr<Image2D<LiteMath::float4>> pTexture1 = std::make_shared<Image2D<LiteMath::float4>>(image.width(), image.height(), image.data());
   Sampler sampler;
   sampler.filter   = Sampler::Filter::LINEAR; 
   sampler.addressU = Sampler::AddressMode::CLAMP;
   sampler.addressV = Sampler::AddressMode::CLAMP;
-  m_textures.push_back(MakeCombinedTexture2D(pTexture1, sampler));
+  m_textures[active_textures_count] = MakeCombinedTexture2D(pTexture1, sampler);
+  active_textures_count++;
 
-  return m_textures.size() - 1;
+  return active_textures_count - 1;
 }
 uint32_t MultiRenderer::AddMaterial(const MultiRendererMaterial &material)
 {

@@ -1825,7 +1825,7 @@ void litert_test_23_textured_sdf()
 
   preset.mode = MULTI_RENDER_MODE_DIFFUSE;
   {
-    auto pRender = CreateMultiRenderer("CPU");
+    auto pRender = CreateMultiRenderer("GPU");
     pRender->SetPreset(preset);
     pRender->SetViewport(0,0,W,H);
 
@@ -1841,7 +1841,7 @@ void litert_test_23_textured_sdf()
   }
 
   {
-    auto pRender = CreateMultiRenderer("CPU");
+    auto pRender = CreateMultiRenderer("GPU");
     pRender->SetPreset(preset);
     pRender->SetViewport(0,0,W,H);
 

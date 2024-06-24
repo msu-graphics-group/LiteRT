@@ -148,6 +148,7 @@ protected:
   std::vector<MultiRendererMaterial> m_materials;
   std::vector< std::shared_ptr<ICombinedImageSampler> > m_textures;
   std::vector<uint32_t> m_matIdbyInstId;
+  unsigned active_textures_count = 0;
 //#endif
 
   // color palette to select color for objects based on mesh/instance id
