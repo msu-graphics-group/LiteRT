@@ -25,8 +25,10 @@ void DeleteSceneRT(ISceneObject* a_pScene)
 
 bool BVHRT::need_normal()
 {
-  return m_preset.mode == MULTI_RENDER_MODE_LAMBERT || 
+  return m_preset.mode == MULTI_RENDER_MODE_LAMBERT_NO_TEX || 
          m_preset.mode == MULTI_RENDER_MODE_NORMAL  ||
+         m_preset.mode == MULTI_RENDER_MODE_PHONG_NO_TEX ||
+         m_preset.mode == MULTI_RENDER_MODE_LAMBERT ||
          m_preset.mode == MULTI_RENDER_MODE_PHONG;
 }
 

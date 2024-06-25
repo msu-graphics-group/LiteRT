@@ -85,7 +85,7 @@ void litert_test_1_framed_octree()
     for (int i=0; i<presets_ob.size(); i++)
     {
       MultiRenderPreset preset = getDefaultPreset();
-      preset.mode = MULTI_RENDER_MODE_PHONG;
+      preset.mode = MULTI_RENDER_MODE_PHONG_NO_TEX;
       preset.sdf_frame_octree_blas = presets_ob[i];
       preset.sdf_frame_octree_intersect = presets_oi[i];
 
@@ -139,7 +139,7 @@ void litert_test_2_SVS()
     for (int i=0; i<presets_ob.size(); i++)
     {
       MultiRenderPreset preset = getDefaultPreset();
-      preset.mode = MULTI_RENDER_MODE_PHONG;
+      preset.mode = MULTI_RENDER_MODE_PHONG_NO_TEX;
       preset.sdf_frame_octree_blas = presets_ob[i];
       preset.sdf_frame_octree_intersect = presets_oi[i];
 
@@ -314,7 +314,7 @@ void litert_test_4_hydra_scene()
   unsigned W = 2048, H = 2048;
 
   MultiRenderPreset preset = getDefaultPreset();
-  preset.mode = MULTI_RENDER_MODE_LAMBERT;
+  preset.mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
   preset.sdf_frame_octree_blas = SDF_OCTREE_BLAS_DEFAULT;
   preset.sdf_frame_octree_intersect = SDF_OCTREE_NODE_INTERSECT_ANALYTIC;
   LiteImage::Image2D<uint32_t> image(W, H);
@@ -583,7 +583,7 @@ void litert_test_8_SDF_grid()
   unsigned W = 2048, H = 2048;
 
   MultiRenderPreset preset = getDefaultPreset();
-  preset.mode = MULTI_RENDER_MODE_LAMBERT;
+  preset.mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
   preset.sdf_frame_octree_blas = SDF_OCTREE_BLAS_DEFAULT;
   preset.sdf_frame_octree_intersect = SDF_OCTREE_NODE_INTERSECT_ANALYTIC;
   LiteImage::Image2D<uint32_t> image(W, H);
@@ -690,7 +690,7 @@ void litert_test_10_save_load()
 
   unsigned W = 1024, H = 1024;
   MultiRenderPreset preset = getDefaultPreset();
-  preset.mode = MULTI_RENDER_MODE_LAMBERT;
+  preset.mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
   preset.sdf_octree_sampler = SDF_OCTREE_SAMPLER_MIPSKIP_3X3;
 
   LiteImage::Image2D<uint32_t> image_ref(W, H);
@@ -962,7 +962,7 @@ void litert_test_14_octree_nodes_removal()
 
   unsigned W = 1024, H = 1024;
   MultiRenderPreset preset = getDefaultPreset();
-  preset.mode = MULTI_RENDER_MODE_LAMBERT;
+  preset.mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
   preset.sdf_octree_sampler = SDF_OCTREE_SAMPLER_MIPSKIP_3X3;
   LiteImage::Image2D<uint32_t> image_1(W, H);
   LiteImage::Image2D<uint32_t> image_2(W, H);
@@ -1046,7 +1046,7 @@ void litert_test_15_frame_octree_nodes_removal()
 
   unsigned W = 1024, H = 1024;
   MultiRenderPreset preset = getDefaultPreset();
-  preset.mode = MULTI_RENDER_MODE_LAMBERT;
+  preset.mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
   preset.sdf_octree_sampler = SDF_OCTREE_SAMPLER_MIPSKIP_3X3;
   LiteImage::Image2D<uint32_t> image_1(W, H);
   LiteImage::Image2D<uint32_t> image_2(W, H);
@@ -1133,7 +1133,7 @@ void litert_test_16_SVS_nodes_removal()
 
   unsigned W = 1024, H = 1024;
   MultiRenderPreset preset = getDefaultPreset();
-  preset.mode = MULTI_RENDER_MODE_LAMBERT;
+  preset.mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
   preset.sdf_octree_sampler = SDF_OCTREE_SAMPLER_MIPSKIP_3X3;
   LiteImage::Image2D<uint32_t> image_1(W, H);
   LiteImage::Image2D<uint32_t> image_2(W, H);
@@ -1192,7 +1192,7 @@ void litert_test_17_all_types_sanity_check()
 
   unsigned W = 512, H = 512;
   MultiRenderPreset preset = getDefaultPreset();
-  preset.mode = MULTI_RENDER_MODE_LAMBERT;
+  preset.mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
 
   LiteImage::Image2D<uint32_t> image_ref(W, H);
   LiteImage::Image2D<uint32_t> image_1(W, H);
@@ -1823,7 +1823,7 @@ void litert_test_23_textured_sdf()
 
   LiteImage::Image2D<float4> texture = LiteImage::LoadImage<float4>("scenes/porcelain.png");
 
-  preset.mode = MULTI_RENDER_MODE_DIFFUSE;
+  preset.mode = MULTI_RENDER_MODE_LAMBERT;
   {
     auto pRender = CreateMultiRenderer("GPU");
     pRender->SetPreset(preset);

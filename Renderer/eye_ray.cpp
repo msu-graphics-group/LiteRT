@@ -84,13 +84,34 @@ void MultiRenderer::kernel_RayTrace(uint32_t tidX, const float4* rayPosAndNear,
   float z_near = 0.1;
   float z_far = 10;
   out_color[y * m_width + x] = 0xFFFF00FF; //if pixel is purple at the end, then something gone wrong!
+
+  unsigned type = hit.geomId >> SH_TYPE;
+  float2 tc = float2(0, 0);
+
+  if (type == TYPE_SDF_FRAME_OCTREE_TEX)
+    tc = float2(hit.coords[0], hit.coords[1]);
+  else if (type == TYPE_MESH_TRIANGLE)
+  {
+    const uint2 a_geomOffsets = m_geomOffsets[hit.geomId];
+    const uint32_t A = m_indices[a_geomOffsets.x + hit.primId * 3 + 0];
+    const uint32_t B = m_indices[a_geomOffsets.x + hit.primId * 3 + 1];
+    const uint32_t C = m_indices[a_geomOffsets.x + hit.primId * 3 + 2];
+
+    const float2 A_tc = float2(m_vertices[a_geomOffsets.y + A].w, m_normals[a_geomOffsets.y + A].w);
+    const float2 B_tc = float2(m_vertices[a_geomOffsets.y + B].w, m_normals[a_geomOffsets.y + B].w);
+    const float2 C_tc = float2(m_vertices[a_geomOffsets.y + C].w, m_normals[a_geomOffsets.y + C].w);
+
+    tc = (1.0f - hit.coords[0] - hit.coords[1]) * A_tc + hit.coords[1] * B_tc + hit.coords[0] * C_tc;
+    // const uint2 a_geomOffsets = m_pAccelStruct-> m_geomData[geomId].offset;
+  }
+
   switch (m_preset.mode)
   {
     case MULTI_RENDER_MODE_MASK:
     out_color[y * m_width + x] = 0xFFFFFFFF;
     break;
 
-    case MULTI_RENDER_MODE_LAMBERT:
+    case MULTI_RENDER_MODE_LAMBERT_NO_TEX:
     {
       float3 norm(hit.coords[2], hit.coords[3], sqrt(max(0.0f, 1-hit.coords[2]*hit.coords[2] - hit.coords[3]*hit.coords[3])));
       float q = max(0.1f, dot(norm, normalize(float3(1,1,1))));
@@ -155,6 +176,7 @@ void MultiRenderer::kernel_RayTrace(uint32_t tidX, const float4* rayPosAndNear,
       out_color[y * m_width + x] = 0xFF000000 | (col.z<<16) | (col.y<<8) | col.x; 
     }
     break;
+
     case MULTI_RENDER_MODE_SPHERE_TRACE_ITERATIONS:
     {
       uint3 col;
@@ -175,13 +197,15 @@ void MultiRenderer::kernel_RayTrace(uint32_t tidX, const float4* rayPosAndNear,
       out_color[y * m_width + x] = 0xFF000000 | (col.z<<16) | (col.y<<8) | col.x; 
     }
     break;
+
     case MULTI_RENDER_MODE_RF:
     {
       uint3 col = uint3(255 * float3(hit.coords[1], hit.coords[2], hit.coords[3]));
       out_color[y * m_width + x] = 0xFF000000 | (col.z<<16) | (col.y<<8) | col.x;
     }
     break;
-    case MULTI_RENDER_MODE_PHONG:
+
+    case MULTI_RENDER_MODE_PHONG_NO_TEX:
     {
       const float3 ambient_light_color = float3(1,1,1);
       const float Ka = 0.1;
@@ -208,54 +232,83 @@ void MultiRenderer::kernel_RayTrace(uint32_t tidX, const float4* rayPosAndNear,
       out_color[y * m_width + x] = 0xFF000000 | (col.z<<16) | (col.y<<8) | col.x;
     }
     break;
+
     case MULTI_RENDER_MODE_GS:
     {
       uint3 col = uint3(255.0f * clamp(float3(hit.coords[1], hit.coords[2], hit.coords[3]), 0.0f, 1.0f));
       out_color[y * m_width + x] = 0xFF000000U | (col.z << 16U) | (col.y << 8U) | col.x;
     }
     break;
+
     case MULTI_RENDER_MODE_RF_DENSITY:
     {
       uint3 col = uint3(255 * float3(1.0f - hit.coords[0], 1.0f - hit.coords[0], 1.0f - hit.coords[0]));
       out_color[y * m_width + x] = 0xFF000000 | (col.z<<16) | (col.y<<8) | col.x;
     }
     break;
+
     case MULTI_RENDER_MODE_TEX_COORDS:
+    {
+      uint3 col = uint3(255*float3(tc.x, tc.y, 0));
+      out_color[y * m_width + x] = 0xFF000000 | (col.z<<16) | (col.y<<8) | col.x; 
+    }
+    break;
+
     case MULTI_RENDER_MODE_DIFFUSE:
     {
-      unsigned type = hit.geomId >> SH_TYPE;
-      float2 tc = float2(0,0);
-      float4 color = float4(0,1,1,1);
-      if (type == TYPE_SDF_FRAME_OCTREE_TEX)
-        tc = float2(hit.coords[0], hit.coords[1]);
-      else if (type == TYPE_MESH_TRIANGLE)
-      {
-        const uint2 a_geomOffsets = m_geomOffsets[hit.geomId];
-        const uint32_t A = m_indices[a_geomOffsets.x + hit.primId*3 + 0];
-        const uint32_t B = m_indices[a_geomOffsets.x + hit.primId*3 + 1];
-        const uint32_t C = m_indices[a_geomOffsets.x + hit.primId*3 + 2];
-
-        const float2 A_tc = float2(m_vertices[a_geomOffsets.y + A].w, m_normals[a_geomOffsets.y + A].w);
-        const float2 B_tc = float2(m_vertices[a_geomOffsets.y + B].w, m_normals[a_geomOffsets.y + B].w);
-        const float2 C_tc = float2(m_vertices[a_geomOffsets.y + C].w, m_normals[a_geomOffsets.y + C].w);
-
-        tc = (1.0f - hit.coords[0] - hit.coords[1]) * A_tc + hit.coords[1] * B_tc + hit.coords[0] * C_tc;
-        //const uint2 a_geomOffsets = m_pAccelStruct-> m_geomData[geomId].offset;
-      }
-      
-      if (m_preset.mode == MULTI_RENDER_MODE_TEX_COORDS)
-        color = float4(tc.x, tc.y, 0, 1);
-      else if (m_preset.mode == MULTI_RENDER_MODE_DIFFUSE)
-      {
-        unsigned matId = m_matIdbyInstId[hit.instId];
-        color = m_materials[matId].type == MULTI_RENDER_MATERIAL_TYPE_COLORED ? 
-                m_materials[matId].base_color : m_textures[m_materials[matId].texId]->sample(tc);
-      }
-      
+      unsigned matId = m_matIdbyInstId[hit.instId];
+      float4 color = m_materials[matId].type == MULTI_RENDER_MATERIAL_TYPE_COLORED ? 
+                     m_materials[matId].base_color : m_textures[m_materials[matId].texId]->sample(tc);
       uint3 col = uint3(255*to_float3(color));
       out_color[y * m_width + x] = 0xFF000000 | (col.z<<16) | (col.y<<8) | col.x; 
     }
     break;
+
+    case MULTI_RENDER_MODE_LAMBERT:
+    {
+      unsigned matId = m_matIdbyInstId[hit.instId];
+      float4 color = m_materials[matId].type == MULTI_RENDER_MATERIAL_TYPE_COLORED ? 
+                     m_materials[matId].base_color : m_textures[m_materials[matId].texId]->sample(tc);
+
+      float3 norm(hit.coords[2], hit.coords[3], sqrt(max(0.0f, 1-hit.coords[2]*hit.coords[2] - hit.coords[3]*hit.coords[3])));
+      float q = max(0.1f, dot(norm, normalize(float3(1,1,1))));
+      uint3 col= uint3(255.0f*q*to_float3(color));
+      out_color[y * m_width + x] = 0xFF000000 | (col.z<<16) | (col.y<<8) | col.x;     
+    }
+    break;
+
+    case MULTI_RENDER_MODE_PHONG:
+    {
+      const float3 ambient_light_color = float3(1,1,1);
+      const float Ka = 0.1;
+      const float Kd = 1;
+      const float Ks = 1;
+      const int spec_pow = 32;
+      const float BIAS = 1e-6f;
+
+      unsigned matId = m_matIdbyInstId[hit.instId];
+      float4 color = m_materials[matId].type == MULTI_RENDER_MATERIAL_TYPE_COLORED ? 
+                     m_materials[matId].base_color : m_textures[m_materials[matId].texId]->sample(tc);
+
+      float3 diffuse = to_float3(color);
+      float3 norm(hit.coords[2], hit.coords[3], sqrt(max(0.0f, 1-hit.coords[2]*hit.coords[2] - hit.coords[3]*hit.coords[3])));
+      float3 light_dir = -1.0f*to_float3(m_mainLightDir);
+      float3 light_color = to_float3(m_mainLightColor);
+
+      float3 surf_pos = to_float3(rayPos) + (hit.t-BIAS)*to_float3(rayDir);
+      CRT_Hit shadowHit = m_pAccelStruct->RayQuery_NearestHit(to_float4(surf_pos, rayPos.w), to_float4(-1.0f*light_dir, rayDir.w));
+      float shade = (shadowHit.primId == 0xFFFFFFFF) ? 1 : 0;
+      float3 view_dir = to_float3(rayDir);
+      float3 reflect = light_dir - 2.0f*dot(norm,light_dir)*norm;
+      float3 f_col = (shade*light_color*(Kd*std::max(0.0f,dot(norm,-1.0f*light_dir)) + 
+                      Ks*pow(std::max(0.0f,dot(norm,reflect)),spec_pow)) + 
+                      ambient_light_color*Ka)*diffuse;
+
+      uint3 col = uint3(255 * clamp(f_col, float3(0,0,0), float3(1,1,1)));
+      out_color[y * m_width + x] = 0xFF000000 | (col.z<<16) | (col.y<<8) | col.x;
+    }
+    break;
+
     default:
     break;
   }

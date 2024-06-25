@@ -32,10 +32,10 @@ static constexpr unsigned SDF_OCTREE_NODE_INTERSECT_IT = 5;// only with SDF_OCTR
 
 //enum MultiRenderMode
 static constexpr unsigned MULTI_RENDER_MODE_MASK = 0; //white object, black background
-static constexpr unsigned MULTI_RENDER_MODE_LAMBERT = 1;
-static constexpr unsigned MULTI_RENDER_MODE_DEPTH = 2;
-static constexpr unsigned MULTI_RENDER_MODE_LINEAR_DEPTH = 3;
-static constexpr unsigned MULTI_RENDER_MODE_INVERSE_LINEAR_DEPTH = 4;
+static constexpr unsigned MULTI_RENDER_MODE_LAMBERT_NO_TEX = 1; //Lambert shading, no texture, no shadows
+static constexpr unsigned MULTI_RENDER_MODE_DEPTH = 2; //visualize depth
+static constexpr unsigned MULTI_RENDER_MODE_LINEAR_DEPTH = 3; //visualize depth, color changes linearly in predefined range
+static constexpr unsigned MULTI_RENDER_MODE_INVERSE_LINEAR_DEPTH = 4; //visualize depth, color changes linearly in predefined range (inverted)
 static constexpr unsigned MULTI_RENDER_MODE_PRIMIVIVE = 5; //each primitive has distinct color from palette
 static constexpr unsigned MULTI_RENDER_MODE_TYPE = 6; //each type has distinct color from palette
 static constexpr unsigned MULTI_RENDER_MODE_GEOM = 7; //each geodId has distinct color from palette
@@ -43,11 +43,13 @@ static constexpr unsigned MULTI_RENDER_MODE_NORMAL = 8; //visualize normals (abs
 static constexpr unsigned MULTI_RENDER_MODE_BARYCENTRIC = 9; //visualize barycentric coordinates for triangle mesh
 static constexpr unsigned MULTI_RENDER_MODE_SPHERE_TRACE_ITERATIONS = 10; //for SDFs replace primId with number of iterations for sphere tracing
 static constexpr unsigned MULTI_RENDER_MODE_RF = 11; //default mode for rendering radiance fields
-static constexpr unsigned MULTI_RENDER_MODE_PHONG = 12; //rendering meshes/SDFs woth Phong shading
+static constexpr unsigned MULTI_RENDER_MODE_PHONG_NO_TEX = 12; //Phong shading, no texture, shadows
 static constexpr unsigned MULTI_RENDER_MODE_GS = 13; //rendering Gaussian splats
 static constexpr unsigned MULTI_RENDER_MODE_RF_DENSITY = 14; //rendering density from radiance field
 static constexpr unsigned MULTI_RENDER_MODE_TEX_COORDS = 15; //rendering texture coordinates in RG channels
 static constexpr unsigned MULTI_RENDER_MODE_DIFFUSE = 16; //rendering diffuse color from material
+static constexpr unsigned MULTI_RENDER_MODE_LAMBERT = 17; //Lambert shading, no shadows
+static constexpr unsigned MULTI_RENDER_MODE_PHONG = 18; //Phong shading
 
 //enum MeshNormalMode
 static constexpr unsigned MESH_NORMAL_MODE_GEOMETRY = 0; //geometry normal, faceted look but it do not rely on vertex normals

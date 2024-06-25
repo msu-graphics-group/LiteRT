@@ -47,7 +47,7 @@ void benchmark_framed_octree_intersection()
   std::vector<std::string> scene_paths = {"scenes/01_simple_scenes/data/teapot.vsgf"}; 
   std::vector<std::string> scene_names = {"Teapot", "Bunny"};
 
-  std::vector<unsigned> render_modes = {MULTI_RENDER_MODE_LAMBERT};
+  std::vector<unsigned> render_modes = {MULTI_RENDER_MODE_LAMBERT_NO_TEX};
   std::vector<std::string> render_names = {"lambert"};
 
   std::vector<unsigned> AS_types = {TYPE_SDF_FRAME_OCTREE, TYPE_SDF_SVS, TYPE_SDF_HP, TYPE_SDF_SBS, TYPE_MESH_TRIANGLE};
@@ -242,7 +242,7 @@ void quality_check(const char *path)
 
   unsigned W = 1024, H = 1024;
   MultiRenderPreset preset = getDefaultPreset();
-  preset.mode = MULTI_RENDER_MODE_PHONG;
+  preset.mode = MULTI_RENDER_MODE_PHONG_NO_TEX;
   preset.sdf_octree_sampler = SDF_OCTREE_SAMPLER_MIPSKIP_3X3;
 
   LiteImage::Image2D<uint32_t> image_ref(W, H);
@@ -545,7 +545,7 @@ void main_benchmark(const std::string &path, const std::string &mesh_name, unsig
           unsigned iters = structure == "sdf_octree" ? 1 : base_iters;
 
           MultiRenderPreset preset = getDefaultPreset();
-          preset.mode = render_modes[rm_id] == BENCHMARK_FLAG_RENDER_DEPTH ? MULTI_RENDER_MODE_LINEAR_DEPTH : MULTI_RENDER_MODE_LAMBERT;
+          preset.mode = render_modes[rm_id] == BENCHMARK_FLAG_RENDER_DEPTH ? MULTI_RENDER_MODE_LINEAR_DEPTH : MULTI_RENDER_MODE_LAMBERT_NO_TEX;
           preset.sdf_frame_octree_blas = blas_mode[r_id];
           preset.sdf_frame_octree_intersect = intersect_modes[r_id];
 
