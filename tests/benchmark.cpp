@@ -350,6 +350,8 @@ void main_benchmark(const std::string &path, const std::string &mesh_name, unsig
 
   if (flags & BENCHMARK_FLAG_BUILD)
   {
+    fprintf(log_fd, "mesh %u vertices, %u triangles, %f kb\n", (unsigned)mesh.vPos4f.size(), (unsigned)mesh.TrianglesNum(), 
+            (mesh.vPos4f.size() * 8 * sizeof(float) + mesh.TrianglesNum() * 3 * sizeof(unsigned)) / 1000.0f);
     fprintf(log_fd, "mesh_name, structure, size_limit, nodes, memory (Kb), build_time (s)\n");
     fflush(log_fd);
 
