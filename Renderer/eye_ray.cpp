@@ -256,7 +256,7 @@ void MultiRenderer::kernel_RayTrace(uint32_t tidX, const float4* rayPosAndNear,
 
     case MULTI_RENDER_MODE_DIFFUSE:
     {
-      unsigned matId = m_matIdbyInstId[hit.instId];
+      unsigned matId = m_matIdbyPrimId[m_matIdOffsets[hit.geomId].x + hit.primId % m_matIdOffsets[hit.geomId].y];
       float4 color = m_materials[matId].type == MULTI_RENDER_MATERIAL_TYPE_COLORED ? 
                      m_materials[matId].base_color : m_textures[m_materials[matId].texId]->sample(tc);
       uint3 col = uint3(255*to_float3(color));
@@ -266,7 +266,7 @@ void MultiRenderer::kernel_RayTrace(uint32_t tidX, const float4* rayPosAndNear,
 
     case MULTI_RENDER_MODE_LAMBERT:
     {
-      unsigned matId = m_matIdbyInstId[hit.instId];
+      unsigned matId = m_matIdbyPrimId[m_matIdOffsets[hit.geomId].x + hit.primId % m_matIdOffsets[hit.geomId].y];
       float4 color = m_materials[matId].type == MULTI_RENDER_MATERIAL_TYPE_COLORED ? 
                      m_materials[matId].base_color : m_textures[m_materials[matId].texId]->sample(tc);
 
@@ -286,7 +286,7 @@ void MultiRenderer::kernel_RayTrace(uint32_t tidX, const float4* rayPosAndNear,
       const int spec_pow = 32;
       const float BIAS = 1e-6f;
 
-      unsigned matId = m_matIdbyInstId[hit.instId];
+      unsigned matId = m_matIdbyPrimId[m_matIdOffsets[hit.geomId].x + hit.primId % m_matIdOffsets[hit.geomId].y];
       float4 color = m_materials[matId].type == MULTI_RENDER_MATERIAL_TYPE_COLORED ? 
                      m_materials[matId].base_color : m_textures[m_materials[matId].texId]->sample(tc);
 

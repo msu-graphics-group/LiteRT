@@ -33,6 +33,8 @@ MultiRenderer::MultiRenderer()
     AddTexture(texture);
   AddMaterial({MULTI_RENDER_MATERIAL_TYPE_TEXTURED, 0});
   active_textures_count = 1;
+
+  m_matIdbyPrimId.push_back(0);
 }
 
 void MultiRenderer::SetViewport(int a_xStart, int a_yStart, int a_width, int a_height)
@@ -407,11 +409,12 @@ uint32_t MultiRenderer::AddMaterial(const MultiRendererMaterial &material)
   m_materials.push_back(material);
   return m_materials.size() - 1;
 }
-void MultiRenderer::SetMaterial(uint32_t matId, uint32_t instId)
+void MultiRenderer::SetMaterial(uint32_t matId, uint32_t geomId)
 {
-  if (instId >= m_matIdbyInstId.size())
-    m_matIdbyInstId.resize(instId + 1, 0);
-  m_matIdbyInstId[instId] = matId;
+  m_matIdbyPrimId.push_back(matId);
+  if (geomId >= m_matIdOffsets.size())
+    m_matIdOffsets.resize(geomId + 1, uint2(0,1));
+  m_matIdOffsets[geomId] = uint2(m_matIdbyPrimId.size()-1, 1);
 }
 
 #if defined(USE_GPU)

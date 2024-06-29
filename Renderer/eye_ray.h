@@ -98,7 +98,7 @@ public:
 
   uint32_t AddTexture(const Image2D<float4> &image);
   uint32_t AddMaterial(const MultiRendererMaterial &material);
-  void     SetMaterial(uint32_t matId, uint32_t instId);
+  void     SetMaterial(uint32_t matId, uint32_t geomId);
 
   LiteMath::float4x4 getProj() { return m_proj; }
   LiteMath::float4x4 getWorldView() { return m_worldView; }
@@ -147,7 +147,8 @@ protected:
 //#if !defined(DISABLE_MESH_TEX) || !defined(DISABLE_SDF_TEX)
   std::vector<MultiRendererMaterial> m_materials;
   std::vector< std::shared_ptr<ICombinedImageSampler> > m_textures;
-  std::vector<uint32_t> m_matIdbyInstId;
+  std::vector<uint32_t> m_matIdbyPrimId;
+  std::vector<uint2> m_matIdOffsets; //for every geometry, start and size of it's part of m_matIdbyPrimId
   unsigned active_textures_count = 0;
 //#endif
 
