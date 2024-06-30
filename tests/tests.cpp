@@ -11,6 +11,7 @@
 #include "../utils/sparse_octree_2.h"
 #include "../utils/marching_cubes.h"
 #include "../utils/sdf_smoother.h"
+#include "../utils/demo_meshes.h"
 
 #include <functional>
 #include <cassert>
@@ -1887,6 +1888,53 @@ void litert_test_23_textured_sdf()
     printf("FAILED, psnr = %f\n", psnr_tex);
 }
 
+void litert_test_24_demo_meshes()
+{
+  auto mesh = cmesh4_demo::create_cube(float3(1,1,1), false);
+  cmesh4::rescale_mesh(mesh, float3(-0.95, -0.95, -0.95), float3(0.95, 0.95, 0.95));
+
+  unsigned W = 2048, H = 2048;
+
+  MultiRenderPreset preset = getDefaultPreset();
+  preset.mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
+  //preset.mode = MULTI_RENDER_MODE_NORMAL;
+  //SparseOctreeSettings settings(SparseOctreeBuildType::MESH_TLO, 9);
+  //auto textured_octree = sdf_converter::create_sdf_frame_octree_tex(settings, mesh);
+
+  LiteImage::Image2D<uint32_t> ref_image(W, H);
+
+  float3 p = float3(0,0,12);
+  unsigned rots_x = 5;
+  unsigned rots_y = 5;
+  unsigned rots_z = 5;
+
+  {
+    auto pRender = CreateMultiRenderer("CPU");
+    pRender->SetPreset(preset);
+    pRender->SetViewport(0,0,W,H);
+    pRender->SetScene(mesh);
+
+    {
+      pRender->GetAccelStruct()->ClearGeom();
+      unsigned geomId =  pRender->GetAccelStruct()->AddGeom_Triangles3f((const float*)mesh.vPos4f.data(), (const float*)mesh.vNorm4f.data(), mesh.vPos4f.size(),
+                                                                        mesh.indices.data(), mesh.indices.size(), BUILD_HIGH, sizeof(float)*4);
+      pRender->add_mesh_internal(mesh, geomId);
+      pRender->GetAccelStruct()->ClearScene();
+      for (unsigned x_i = 0; x_i < rots_x; x_i++)
+      {
+        LiteMath::float4x4 m = LiteMath::translate4x4(float3(3.0f*((float)x_i - rots_x/2.0f + 0.5f), 3.0f, 0)) * 
+                               LiteMath::rotate4x4X(2.0f*3.1415f*float(x_i)/float(rots_x));
+        pRender->GetAccelStruct()->AddInstance(geomId, m);
+      }
+      pRender->GetAccelStruct()->CommitScene();
+    }
+
+    render(ref_image, pRender, p, float3(0, 0, 0), 1.0f*cross(p, float3(1, 0, 0)), preset);
+  }
+
+  LiteImage::SaveImage<uint32_t>("saves/test_24_cube_mesh.bmp", ref_image);
+}
+
 void perform_tests_litert(const std::vector<int> &test_ids)
 {
   std::vector<int> tests = test_ids;
@@ -1900,7 +1948,7 @@ void perform_tests_litert(const std::vector<int> &test_ids)
       litert_test_15_frame_octree_nodes_removal, litert_test_16_SVS_nodes_removal,
       litert_test_17_all_types_sanity_check, litert_test_18_mesh_normalization,
       litert_test_19_marching_cubes, litert_test_20_radiance_fields, litert_test_21_rf_to_mesh,
-      litert_test_22_sdf_grid_smoothing, litert_test_23_textured_sdf};
+      litert_test_22_sdf_grid_smoothing, litert_test_23_textured_sdf, litert_test_24_demo_meshes};
 
   if (tests.empty())
   {

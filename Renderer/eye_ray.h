@@ -99,6 +99,7 @@ public:
   uint32_t AddTexture(const Image2D<float4> &image);
   uint32_t AddMaterial(const MultiRendererMaterial &material);
   void     SetMaterial(uint32_t matId, uint32_t geomId);
+  void add_mesh_internal(const cmesh4::SimpleMesh& mesh, unsigned geomId);
 
   LiteMath::float4x4 getProj() { return m_proj; }
   LiteMath::float4x4 getWorldView() { return m_worldView; }
@@ -115,10 +116,6 @@ protected:
 
   void kernel_InitEyeRay(uint32_t tidX, LiteMath::float4* rayPosAndNear, LiteMath::float4* rayDirAndFar);
   void kernel_RayTrace(uint32_t tidX, const LiteMath::float4* rayPosAndNear, const LiteMath::float4* rayDirAndFar, uint32_t* out_color);
-
-#ifndef KERNEL_SLICER 
-  void add_mesh_internal(const cmesh4::SimpleMesh& mesh, unsigned geomId);
-#endif  
 
   uint32_t m_width;
   uint32_t m_height;
