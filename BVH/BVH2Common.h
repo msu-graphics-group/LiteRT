@@ -60,6 +60,7 @@ struct InstanceData
   uint32_t _pad[7];
   float4x4 transform;
   float4x4 transformInv;
+  float4x4 transformInvTransposed; //for normals
 };
 
 // main class

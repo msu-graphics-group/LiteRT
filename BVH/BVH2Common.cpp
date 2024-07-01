@@ -613,7 +613,7 @@ void BVHRT::OctreeNodeIntersect(uint32_t type, const float3 ray_pos, const float
                    eval_dist_trilinear(values, p0 + float3(0, 0, -h))) /
                   (2 * h);
 
-      norm = normalize(float3(ddx, ddy, ddz));
+      norm = normalize(matmul4x3(m_instanceData[instId].transformInvTransposed, float3(ddx, ddy, ddz)));
     }
     pHit->t = tReal;
     pHit->primId = primId;
@@ -722,14 +722,15 @@ void BVHRT::IntersectAllSdfsInLeaf(const float3 ray_pos, const float3 ray_dir,
     float t = length(to_float3(hit.hit_pos)-ray_pos)/l;
     if (t > tNear && t < pHit->t)
     {
+      float3 n = normalize(matmul4x3(m_instanceData[instId].transformInvTransposed, to_float3(hit.hit_norm)));
       pHit->t         = t;
       pHit->primId    = primId;
       pHit->instId    = instId;
       pHit->geomId    = geomId | (type << SH_TYPE);  
       pHit->coords[0] = 0;
       pHit->coords[1] = 0;
-      pHit->coords[2] = hit.hit_norm.x;
-      pHit->coords[3] = hit.hit_norm.y;
+      pHit->coords[2] = n.x;
+      pHit->coords[3] = n.y;
 
       if (m_preset.mode == MULTI_RENDER_MODE_SPHERE_TRACE_ITERATIONS)
         pHit->primId = uint32_t(hit.hit_norm.w);
@@ -895,7 +896,7 @@ void BVHRT::PolynomialOctreeNodeIntersect(uint32_t type, const float3 ray_pos, c
                    eval_dist_hp_polynomials(depth, degree, data_offset, p0 + float3(0, 0, -h))) /
                   (2 * h);
 
-      norm = normalize(float3(ddx, ddy, ddz));
+      norm = normalize(matmul4x3(m_instanceData[instId].transformInvTransposed, float3(ddx, ddy, ddz)));
     }
     pHit->t = tReal;
     pHit->primId = primId;
@@ -1628,12 +1629,15 @@ void BVHRT::IntersectAllTrianglesInLeaf(const float3 ray_pos, const float3 ray_d
         float3 n = float3(1,0,0);
         if (m_preset.mesh_normal_mode == MESH_NORMAL_MODE_GEOMETRY)
         {
-          n = normalize(cross(edge1, edge2));
+          n = cross(edge1, edge2);
         }
         else if (m_preset.mesh_normal_mode == MESH_NORMAL_MODE_VERTEX)
         {
           n = to_float3(m_vertNorm[a_geomOffsets.y + A] * (1.0f - u - v) + m_vertNorm[a_geomOffsets.y + B] * v + u * m_vertNorm[a_geomOffsets.y + C]);
         }
+
+        n = normalize(matmul4x3(m_instanceData[instId].transformInvTransposed, n));
+
         pHit->coords[2] = n.x;
         pHit->coords[3] = n.y;
       }

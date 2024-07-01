@@ -801,6 +801,7 @@ uint32_t BVHRT::AddInstance(uint32_t a_geomId, const float4x4 &a_matrix)
   instance.geomId = a_geomId;
   instance.transform = a_matrix;
   instance.transformInv = inverse4x4(a_matrix);
+  instance.transformInvTransposed = transpose(inverse4x4(a_matrix));
 
   m_instanceData.push_back(instance);
 
