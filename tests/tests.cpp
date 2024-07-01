@@ -1890,16 +1890,11 @@ void litert_test_23_textured_sdf()
 
 void litert_test_24_demo_meshes()
 {
-  auto mesh = cmesh4_demo::create_cube(float3(1,1,1), false);
-  cmesh4::rescale_mesh(mesh, float3(-0.95, -0.95, -0.95), float3(0.95, 0.95, 0.95));
-
-  unsigned W = 2048, H = 2048;
+  unsigned W = 4096, H = 4096;
 
   MultiRenderPreset preset = getDefaultPreset();
+  preset.mesh_normal_mode = MESH_NORMAL_MODE_VERTEX;
   preset.mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
-  //preset.mode = MULTI_RENDER_MODE_NORMAL;
-  //SparseOctreeSettings settings(SparseOctreeBuildType::MESH_TLO, 9);
-  //auto textured_octree = sdf_converter::create_sdf_frame_octree_tex(settings, mesh);
 
   LiteImage::Image2D<uint32_t> ref_image(W, H);
 
@@ -1908,31 +1903,72 @@ void litert_test_24_demo_meshes()
   unsigned rots_y = 5;
   unsigned rots_z = 5;
 
+  std::vector<std::string> type_names = {"mesh", "sdf_SVS"};
+
+  std::vector<std::string> names = {"cube", "cylinder_ug", "cylinder_uv", "cylinder_sv"};
+  std::vector<cmesh4::SimpleMesh> meshes = {
+    cmesh4_demo::create_cube(float3(1,1,1), false, cmesh4_demo::VerticesType::UNIQUE, cmesh4_demo::NormalsType::GEOMETRY),
+    cmesh4_demo::create_cylinder(float3(0.4,1,0.4), 32, 32, cmesh4_demo::VerticesType::UNIQUE, cmesh4_demo::NormalsType::GEOMETRY),
+    cmesh4_demo::create_cylinder(float3(0.4,1,0.4), 32, 32, cmesh4_demo::VerticesType::UNIQUE, cmesh4_demo::NormalsType::VERTEX),
+    cmesh4_demo::create_cylinder(float3(0.4,1,0.4), 32, 32, cmesh4_demo::VerticesType::SHARED, cmesh4_demo::NormalsType::VERTEX),};
+
+  for (int type_i = 0; type_i < type_names.size(); type_i++)
   {
-    auto pRender = CreateMultiRenderer("CPU");
-    pRender->SetPreset(preset);
-    pRender->SetViewport(0,0,W,H);
-    pRender->SetScene(mesh);
-
+    for (int i=0;i<names.size();i++)
     {
-      pRender->GetAccelStruct()->ClearGeom();
-      unsigned geomId =  pRender->GetAccelStruct()->AddGeom_Triangles3f((const float*)mesh.vPos4f.data(), (const float*)mesh.vNorm4f.data(), mesh.vPos4f.size(),
-                                                                        mesh.indices.data(), mesh.indices.size(), BUILD_HIGH, sizeof(float)*4);
-      pRender->add_mesh_internal(mesh, geomId);
-      pRender->GetAccelStruct()->ClearScene();
-      for (unsigned x_i = 0; x_i < rots_x; x_i++)
+      auto name = names[i];
+      auto mesh = meshes[i];
+      cmesh4::rescale_mesh(mesh, float3(-0.95, -0.95, -0.95), float3(0.95, 0.95, 0.95));
+
+      auto pRender = CreateMultiRenderer("GPU");
+      pRender->SetPreset(preset);
+      pRender->SetViewport(0,0,W,H);
+
       {
-        LiteMath::float4x4 m = LiteMath::translate4x4(float3(3.0f*((float)x_i - rots_x/2.0f + 0.5f), 3.0f, 0)) * 
-                               LiteMath::rotate4x4X(2.0f*3.1415f*float(x_i)/float(rots_x));
-        pRender->GetAccelStruct()->AddInstance(geomId, m);
+        pRender->SetPreset(preset);
+        pRender->GetAccelStruct()->ClearGeom();
+        unsigned geomId = 0;
+        if (type_names[type_i] == "mesh")
+        {
+          unsigned geomId =  pRender->GetAccelStruct()->AddGeom_Triangles3f((const float*)mesh.vPos4f.data(), (const float*)mesh.vNorm4f.data(), mesh.vPos4f.size(),
+                                                                            mesh.indices.data(), mesh.indices.size(), BUILD_HIGH, sizeof(float)*4);
+          pRender->add_mesh_internal(mesh, geomId);
+        }
+        else if (type_names[type_i] == "sdf_SVS")
+        {
+          auto sdf_SVS = sdf_converter::create_sdf_SVS(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 8), mesh);
+          pRender->GetAccelStruct()->AddGeom_SdfSVS(sdf_SVS);
+        }
+        pRender->GetAccelStruct()->ClearScene();
+
+        for (unsigned x_i = 0; x_i < rots_x; x_i++)
+        {
+          LiteMath::float4x4 m = LiteMath::translate4x4(float3(3.0f*((float)x_i - rots_x/2.0f + 0.5f), 3.0f, 0)) * 
+                                LiteMath::rotate4x4X(M_PI*float(x_i)/float(rots_x));
+          pRender->GetAccelStruct()->AddInstance(geomId, m);
+        }
+
+        for (unsigned y_i = 0; y_i < rots_y; y_i++)
+        {
+          LiteMath::float4x4 m = LiteMath::translate4x4(float3(3.0f*((float)y_i - rots_y/2.0f + 0.5f), 0, 0)) * 
+                                LiteMath::rotate4x4Y(M_PI*float(y_i)/float(rots_y));
+          pRender->GetAccelStruct()->AddInstance(geomId, m);
+        }
+
+        for (unsigned z_i = 0; z_i < rots_z; z_i++)
+        {
+          LiteMath::float4x4 m = LiteMath::translate4x4(float3(3.0f*((float)z_i - rots_z/2.0f + 0.5f), -3.0f, 0)) * 
+                                LiteMath::rotate4x4Z(M_PI*float(z_i)/float(rots_z));
+          pRender->GetAccelStruct()->AddInstance(geomId, m);
+        }
+
+        pRender->GetAccelStruct()->CommitScene();
       }
-      pRender->GetAccelStruct()->CommitScene();
+
+      render(ref_image, pRender, p, float3(0, 0, 0), 1.0f*cross(p, float3(1, 0, 0)), preset);
+      LiteImage::SaveImage<uint32_t>((std::string("saves/test_24_") +name+"_"+type_names[type_i]+".bmp").c_str(), ref_image);
     }
-
-    render(ref_image, pRender, p, float3(0, 0, 0), 1.0f*cross(p, float3(1, 0, 0)), preset);
   }
-
-  LiteImage::SaveImage<uint32_t>("saves/test_24_cube_mesh.bmp", ref_image);
 }
 
 void perform_tests_litert(const std::vector<int> &test_ids)

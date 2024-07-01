@@ -19,7 +19,7 @@ namespace cmesh4_demo
     float2 tc;
   };
 
-  static cmesh4::SimpleMesh create_mesh(const std::vector<RawVertex>& a_vertices, const std::vector<uint3>& a_triangles,
+  static cmesh4::SimpleMesh create_mesh(const std::vector<RawVertex>& a_vertices, std::vector<uint3>& a_triangles,
                                         const std::vector<unsigned>& a_materials,
                                         VerticesType a_verticesType, NormalsType a_normalsType, bool fix_normals, float3 center)  
   {
@@ -40,7 +40,12 @@ namespace cmesh4_demo
         float3 c = a_vertices[tri.z].pos;
         float3 normal = LiteMath::cross(b - a, c - a);
         if (LiteMath::dot(normal, a - center) < 0)
-          std::swap(tri.x, tri.z);
+        {
+          unsigned t = tri.z;
+          tri.z = tri.y;
+          tri.y = t;
+        }
+        a_triangles[i] = tri;
       }
     }
 
@@ -55,6 +60,7 @@ namespace cmesh4_demo
       float3 b = a_vertices[tri.y].pos;
       float3 c = a_vertices[tri.z].pos;
       float3 normal = LiteMath::normalize(LiteMath::cross(b - a, c - a));
+      //printf("triangle %u: a: %f %f %f b: %f %f %f c: %f %f %f normal: %f %f %f\n", i, a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z, normal.x, normal.y, normal.z);
 
       normals[tri.x] += normal;
       normals[tri.y] += normal;
@@ -124,20 +130,20 @@ namespace cmesh4_demo
         float3 a = a_vertices[tri.x].pos;
         float3 b = a_vertices[tri.y].pos;
         float3 c = a_vertices[tri.z].pos;
-        float3 normal = a_normalsType == NormalsType::VERTEX ? normals[tri.x] : LiteMath::normalize(LiteMath::cross(b - a, c - a));
-        float3 tangent = a_normalsType == NormalsType::VERTEX ? tangents[tri.x] : LiteMath::normalize(b - a);
+        float3 geom_normal = LiteMath::normalize(LiteMath::cross(b - a, c - a));
+        float3 geom_tangent = LiteMath::normalize(b - a);
 
         mesh.vPos4f[i * 3 + 0] = LiteMath::to_float4(a, 1);
         mesh.vPos4f[i * 3 + 1] = LiteMath::to_float4(b, 1);
         mesh.vPos4f[i * 3 + 2] = LiteMath::to_float4(c, 1);
 
-        mesh.vNorm4f[i * 3 + 0] = LiteMath::to_float4(normal, 0);
-        mesh.vNorm4f[i * 3 + 1] = LiteMath::to_float4(normal, 0);
-        mesh.vNorm4f[i * 3 + 2] = LiteMath::to_float4(normal, 0);
+        mesh.vNorm4f[i * 3 + 0] = LiteMath::to_float4(a_normalsType == NormalsType::VERTEX ? normals[tri.x] : geom_normal, 0);
+        mesh.vNorm4f[i * 3 + 1] = LiteMath::to_float4(a_normalsType == NormalsType::VERTEX ? normals[tri.y] : geom_normal, 0);
+        mesh.vNorm4f[i * 3 + 2] = LiteMath::to_float4(a_normalsType == NormalsType::VERTEX ? normals[tri.z] : geom_normal, 0);
 
-        mesh.vTang4f[i * 3 + 0] = LiteMath::to_float4(tangent, 0);
-        mesh.vTang4f[i * 3 + 1] = LiteMath::to_float4(tangent, 0);
-        mesh.vTang4f[i * 3 + 2] = LiteMath::to_float4(tangent, 0);
+        mesh.vTang4f[i * 3 + 0] = LiteMath::to_float4(a_normalsType == NormalsType::VERTEX ? tangents[tri.x] : geom_tangent, 0);
+        mesh.vTang4f[i * 3 + 1] = LiteMath::to_float4(a_normalsType == NormalsType::VERTEX ? tangents[tri.y] : geom_tangent, 0);
+        mesh.vTang4f[i * 3 + 2] = LiteMath::to_float4(a_normalsType == NormalsType::VERTEX ? tangents[tri.z] : geom_tangent, 0);
 
         mesh.vTexCoord2f[i * 3 + 0] = a_vertices[tri.x].tc;
         mesh.vTexCoord2f[i * 3 + 1] = a_vertices[tri.y].tc;
@@ -206,6 +212,63 @@ namespace cmesh4_demo
   cmesh4::SimpleMesh create_cylinder(float3 scale, unsigned c_segments, unsigned h_segments, 
                                      VerticesType a_verticesType, NormalsType a_normalsType)
   {
-    return cmesh4::SimpleMesh();
+    float3 c(0,0,0);
+    float d = scale.y;
+    float r = std::min(scale.x, scale.z);
+    float delta = 0.0;
+
+    std::vector<RawVertex> vertices;
+    std::vector<uint3> triangles;
+    unsigned prev_start = 0;
+    for (int i=0;i<=h_segments;i++)
+    {
+      unsigned start = vertices.size();
+
+      for (int j=0;j<c_segments;j++)
+      {
+        float angle = float(j) / float(c_segments) * 2.0f * LiteMath::M_PI;
+        float x = r*std::cos(angle);
+        float y = d*(-1 + 2*float(i) / float(h_segments));
+        float z = r*std::sin(angle);
+
+        vertices.push_back(RawVertex(c + float3(x,y,z), float2(angle/(2*LiteMath::M_PI),0.25 + 0.5*float(i) / float(h_segments))));
+      }
+
+      if (i == 0 || i == h_segments)
+      {
+        //smooth border from side to cap
+        for (int j=0;j<c_segments;j++)
+          vertices.push_back(RawVertex(vertices[start + j].pos*float3(1-delta,1+delta,1-delta), vertices[start + j].tc + float2(0,delta*(i-0.5))));
+        for (int j=1;j<=c_segments;j++)
+        {
+          //triangles.push_back(uint3(start + j - 1, start + j%c_segments, start+c_segments + j - 1));
+          //triangles.push_back(uint3(start + j%c_segments, start+c_segments + j%c_segments, start+c_segments + j - 1));
+        }
+
+        if (i == 0)
+          vertices.push_back(RawVertex(c + float3(0,-d*(1+delta),0), float2(0.5,0)));
+        else
+          vertices.push_back(RawVertex(c + float3(0,d*(1+delta),0), float2(0.5,1.0)));
+      
+        for (int j=1;j<=c_segments;j++)
+        {
+          triangles.push_back(uint3(start + c_segments + j - 1, start + c_segments + j%c_segments, vertices.size()-1));
+        }
+      }
+
+      if (i > 0)
+      {
+        for (int j=1;j<=c_segments;j++)
+        {
+          triangles.push_back(uint3(prev_start + j - 1, prev_start + j%c_segments, start + j - 1));
+          triangles.push_back(uint3(prev_start + j%c_segments, start + j%c_segments, start + j - 1));
+        }
+      }
+      prev_start = start;
+    }
+
+
+    std::vector<uint32_t> materials(triangles.size(), 0);
+    return create_mesh(vertices, triangles, materials, a_verticesType, a_normalsType, true, c);
   }
 }
