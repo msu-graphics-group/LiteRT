@@ -168,33 +168,57 @@ namespace cmesh4_demo
       RawVertex(c + float3(1,-1,-1) * scale, float2(1,0)),
       RawVertex(c + float3(1,1,-1) * scale, float2(1,1)),
       RawVertex(c + float3(-1,1,-1) * scale, float2(0,1)),
+
       RawVertex(c + float3(-1,-1,1) * scale, float2(0,0)),
       RawVertex(c + float3(1,-1,1) * scale, float2(1,0)),
       RawVertex(c + float3(1,1,1) * scale, float2(1,1)),
-      RawVertex(c + float3(-1,1,1) * scale, float2(0,1))
+      RawVertex(c + float3(-1,1,1) * scale, float2(0,1)),
+
+      RawVertex(c + float3(-1,-1,-1) * scale, float2(0,0)),
+      RawVertex(c + float3(-1,1,-1) * scale, float2(1,0)),
+      RawVertex(c + float3(-1,1,1) * scale, float2(1,1)),
+      RawVertex(c + float3(-1,-1,1) * scale, float2(0,1)),
+
+      RawVertex(c + float3(1,-1,-1) * scale, float2(0,0)),
+      RawVertex(c + float3(1,1,-1) * scale, float2(1,0)),
+      RawVertex(c + float3(1,1,1) * scale, float2(1,1)),
+      RawVertex(c + float3(1,-1,1) * scale, float2(0,1)),
+
+      RawVertex(c + float3(-1,-1,-1) * scale, float2(0,0)),
+      RawVertex(c + float3(1,-1,-1) * scale, float2(1,0)),
+      RawVertex(c + float3(1,-1,1) * scale, float2(1,1)),
+      RawVertex(c + float3(-1,-1,1) * scale, float2(0,1)),
+
+      RawVertex(c + float3(-1,1,-1) * scale, float2(0,0)),
+      RawVertex(c + float3(1,1,-1) * scale, float2(1,0)),
+      RawVertex(c + float3(1,1,1) * scale, float2(1,1)),
+      RawVertex(c + float3(-1,1,1) * scale, float2(0,1)),
     };
 
     std::vector<uint3> triangles = {
       uint3(0,1,2),
       uint3(0,2,3),
-      uint3(1,5,6),
-      uint3(1,6,2),
 
-      uint3(5,4,7),
-      uint3(5,7,6),
-      uint3(4,0,3),
-      uint3(4,3,7),
+      uint3(4,5,6),
+      uint3(4,6,7),
 
-      uint3(0,4,5),
-      uint3(0,5,1),
-      uint3(3,2,6),
-      uint3(3,6,7),
+      uint3(8,9,10),
+      uint3(8,10,11),
+
+      uint3(12,13,14),
+      uint3(12,14,15),
+
+      uint3(16,17,18),
+      uint3(16,18,19),
+      
+      uint3(20,21,22),
+      uint3(20,22,23),
     };
 
     std::vector<uint32_t> materials;
     if (six_materials)
     {
-      materials = {0,0, 1,1, 2,2, 3,3, 4,4, 5,5};
+      materials = {1,1, 2,2, 3,3, 4,4, 5,5, 6,6};
     }
     else
     {

@@ -962,6 +962,27 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
     }
   }
 
+  static void closest_triangle_idx(const cmesh4::SimpleMesh &mesh, const cmesh4::TriangleListOctree &tl_octree,
+                                   float3 pos, unsigned idx, int &min_ti, float &min_dist_sq)
+  {
+    for (int j = 0; j < tl_octree.nodes[idx].tid_count; j++)
+    {
+      int t_i = tl_octree.triangle_ids[tl_octree.nodes[idx].tid_offset + j];
+
+      float3 a = to_float3(mesh.vPos4f[mesh.indices[3 * t_i + 0]]);
+      float3 b = to_float3(mesh.vPos4f[mesh.indices[3 * t_i + 1]]);
+      float3 c = to_float3(mesh.vPos4f[mesh.indices[3 * t_i + 2]]);
+      float3 vt = pos - cmesh4::closest_point_triangle(pos, a, b, c);
+      float dist_sq = LiteMath::dot(vt, vt);
+
+      if (dist_sq < min_dist_sq)
+      {
+        min_dist_sq = dist_sq;
+        min_ti = t_i;
+      }
+    }
+  }
+
   void mesh_octree_to_sdf_frame_octree_tex_rec(const cmesh4::SimpleMesh &mesh,
                                                const cmesh4::TriangleListOctree &tl_octree,
                                                std::vector<SdfFrameOctreeTexNode> &frame,
@@ -978,22 +999,7 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
         float3 ch_pos = pos + 2*d*float3((i & 4) >> 2, (i & 2) >> 1, i & 1);
         float min_dist_sq = 1000;
         int min_ti = -1;
-        for (int j=0; j<tl_octree.nodes[idx].tid_count; j++)
-        {
-          int t_i = tl_octree.triangle_ids[tl_octree.nodes[idx].tid_offset+j];
-
-          float3 a = to_float3(mesh.vPos4f[mesh.indices[3*t_i+0]]);
-          float3 b = to_float3(mesh.vPos4f[mesh.indices[3*t_i+1]]);
-          float3 c = to_float3(mesh.vPos4f[mesh.indices[3*t_i+2]]);
-          float3 vt = ch_pos - cmesh4::closest_point_triangle(ch_pos, a, b, c);
-          float dist_sq = LiteMath::dot(vt, vt);
-
-          if (dist_sq < min_dist_sq)
-          {
-            min_dist_sq = dist_sq; 
-            min_ti = t_i;
-          }
-        }
+        closest_triangle_idx(mesh, tl_octree, ch_pos, idx, min_ti, min_dist_sq);
 
         if (min_ti >= 0)
         {
@@ -1019,6 +1025,25 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
           frame[idx].tex_coords[2*i+1] = 0;
         }
       }
+
+      //material id from triangle closest to the center
+      if (mesh.matIndices.size() == mesh.TrianglesNum())
+      {
+        float3 center = pos + d*float3(1,1,1);
+        float min_dist_sq = 1000;
+        int min_ti = -1;
+        closest_triangle_idx(mesh, tl_octree, center, idx, min_ti, min_dist_sq);
+        if (min_ti >= 0)
+          frame[idx].material_id = mesh.matIndices[min_ti];
+        else
+          frame[idx].material_id = 0;
+        //printf("material id %u\n", frame[idx].material_id);
+      }
+      else
+      {
+        frame[idx].material_id = 0;
+      }
+
     }
     else
     {

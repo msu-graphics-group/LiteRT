@@ -342,7 +342,8 @@ void MultiRenderer::SetScene(SdfFrameOctreeTexView scene)
 {
   SetPreset(m_preset);
   GetAccelStruct()->ClearGeom();
-  GetAccelStruct()->AddGeom_SdfFrameOctreeTex(scene);
+  auto geomId = GetAccelStruct()->AddGeom_SdfFrameOctreeTex(scene);
+  add_SdfFrameOctreeTex_internal(scene, geomId);
   GetAccelStruct()->ClearScene();
   GetAccelStruct()->AddInstance(0, LiteMath::float4x4());
   GetAccelStruct()->CommitScene();
@@ -388,7 +389,41 @@ void MultiRenderer::add_mesh_internal(const cmesh4::SimpleMesh &scene, uint32_t 
     m_normals[m_geomOffsets[geomId].y + i] = scene.vNorm4f[i];
     m_normals[m_geomOffsets[geomId].y + i].w = scene.vTexCoord2f[i].y;
   }
+
+  //add material if it was not explicitly set before
+  if (geomId >= m_matIdOffsets.size())
+  {
+    m_matIdOffsets.resize(geomId + 1, uint2(0,1));
+    
+    //no material, set default
+    if (scene.matIndices.empty())
+    {
+      m_matIdbyPrimId.push_back(0);
+      m_matIdOffsets[geomId] = uint2(m_matIdbyPrimId.size()-1, 1);
+    }
+    else
+    {
+      m_matIdbyPrimId.insert(m_matIdbyPrimId.end(), scene.matIndices.begin(), scene.matIndices.end());
+      m_matIdOffsets[geomId] = uint2(m_matIdbyPrimId.size()-scene.matIndices.size(), scene.matIndices.size());
+    }
+  }
 #endif
+}
+
+void MultiRenderer::add_SdfFrameOctreeTex_internal(SdfFrameOctreeTexView scene, unsigned geomId)
+{
+  //add material if it was not explicitly set before
+  if (geomId >= m_matIdOffsets.size())
+  {
+    m_matIdOffsets.resize(geomId + 1, uint2(0,1));
+    unsigned start_idx = m_matIdbyPrimId.size();
+    
+    m_matIdbyPrimId.resize(start_idx + scene.size);
+    for (unsigned i = 0; i < scene.size; ++i)
+      m_matIdbyPrimId[start_idx + i] = scene.nodes[i].material_id;
+    
+    m_matIdOffsets[geomId] = uint2(start_idx, scene.size);
+  }
 }
 
 uint32_t MultiRenderer::AddTexture(const Image2D<LiteMath::float4> &image)

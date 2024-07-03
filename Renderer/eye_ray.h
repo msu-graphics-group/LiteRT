@@ -99,7 +99,9 @@ public:
   uint32_t AddTexture(const Image2D<float4> &image);
   uint32_t AddMaterial(const MultiRendererMaterial &material);
   void     SetMaterial(uint32_t matId, uint32_t geomId);
+  
   void add_mesh_internal(const cmesh4::SimpleMesh& mesh, unsigned geomId);
+  void add_SdfFrameOctreeTex_internal(SdfFrameOctreeTexView scene, unsigned geomId);
 
   LiteMath::float4x4 getProj() { return m_proj; }
   LiteMath::float4x4 getWorldView() { return m_worldView; }

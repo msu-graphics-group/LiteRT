@@ -140,6 +140,7 @@ struct SdfFrameOctreeTexNode
   float tex_coords[16];
   float values[8];
   unsigned offset; // offset for children (they are stored together). 0 offset means it's a leaf  
+  unsigned material_id;
 };
 
 //################################################################################

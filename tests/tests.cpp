@@ -1888,14 +1888,28 @@ void litert_test_23_textured_sdf()
     printf("FAILED, psnr = %f\n", psnr_tex);
 }
 
+void demo_meshes_set_textures(std::shared_ptr<MultiRenderer> pRender)
+{
+  for (int i=1;i<=8;i++)
+  {
+    LiteImage::Image2D<float4> texture = LiteImage::LoadImage<float4>((std::string("scenes/textures/block_")+std::to_string(i)+".png").c_str());
+    unsigned texId = pRender->AddTexture(texture);
+    MultiRendererMaterial mat;
+    mat.type = MULTI_RENDER_MATERIAL_TYPE_TEXTURED;
+    mat.texId = texId;
+    pRender->AddMaterial(mat);
+  }
+}
+
 void litert_test_24_demo_meshes()
 {
   unsigned W = 4096, H = 4096;
 
   MultiRenderPreset preset = getDefaultPreset();
   preset.mesh_normal_mode = MESH_NORMAL_MODE_VERTEX;
-  preset.mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
+  preset.mode = MULTI_RENDER_MODE_LAMBERT;
 
+  LiteImage::Image2D<uint32_t> image(W, H);
   LiteImage::Image2D<uint32_t> ref_image(W, H);
 
   float3 p = float3(0,0,12);
@@ -1905,22 +1919,27 @@ void litert_test_24_demo_meshes()
 
   std::vector<std::string> type_names = {"mesh", "sdf_SVS"};
 
-  std::vector<std::string> names = {"cube", "cylinder_ug", "cylinder_uv", "cylinder_sv"};
+  std::vector<std::string> names = {"cube", "cube_textured", "cylinder_ug", "cylinder_uv", "cylinder_sv"};
   std::vector<cmesh4::SimpleMesh> meshes = {
     cmesh4_demo::create_cube(float3(1,1,1), false, cmesh4_demo::VerticesType::UNIQUE, cmesh4_demo::NormalsType::GEOMETRY),
+    cmesh4_demo::create_cube(float3(1,1,1), true, cmesh4_demo::VerticesType::UNIQUE, cmesh4_demo::NormalsType::GEOMETRY),
     cmesh4_demo::create_cylinder(float3(0.4,1,0.4), 32, 32, cmesh4_demo::VerticesType::UNIQUE, cmesh4_demo::NormalsType::GEOMETRY),
     cmesh4_demo::create_cylinder(float3(0.4,1,0.4), 32, 32, cmesh4_demo::VerticesType::UNIQUE, cmesh4_demo::NormalsType::VERTEX),
     cmesh4_demo::create_cylinder(float3(0.4,1,0.4), 32, 32, cmesh4_demo::VerticesType::SHARED, cmesh4_demo::NormalsType::VERTEX),};
 
-  for (int type_i = 0; type_i < type_names.size(); type_i++)
+  int test_n = 1;
+  printf("TEST 24. Demo meshes texturing tests\n");
+  
+  for (int i=0;i<names.size();i++)
   {
-    for (int i=0;i<names.size();i++)
+    for (int type_i = 0; type_i < type_names.size(); type_i++)    
     {
       auto name = names[i];
       auto mesh = meshes[i];
       cmesh4::rescale_mesh(mesh, float3(-0.95, -0.95, -0.95), float3(0.95, 0.95, 0.95));
 
       auto pRender = CreateMultiRenderer("GPU");
+      demo_meshes_set_textures(pRender);
       pRender->SetPreset(preset);
       pRender->SetViewport(0,0,W,H);
 
@@ -1936,8 +1955,9 @@ void litert_test_24_demo_meshes()
         }
         else if (type_names[type_i] == "sdf_SVS")
         {
-          auto sdf_SVS = sdf_converter::create_sdf_SVS(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 8), mesh);
-          pRender->GetAccelStruct()->AddGeom_SdfSVS(sdf_SVS);
+          auto sdf_SVS = sdf_converter::create_sdf_frame_octree_tex(SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, 7), mesh);
+          unsigned geomId = pRender->GetAccelStruct()->AddGeom_SdfFrameOctreeTex(sdf_SVS);
+          pRender->add_SdfFrameOctreeTex_internal(sdf_SVS, geomId);
         }
         pRender->GetAccelStruct()->ClearScene();
 
@@ -1965,8 +1985,25 @@ void litert_test_24_demo_meshes()
         pRender->GetAccelStruct()->CommitScene();
       }
 
-      render(ref_image, pRender, p, float3(0, 0, 0), 1.0f*cross(p, float3(1, 0, 0)), preset);
-      LiteImage::SaveImage<uint32_t>((std::string("saves/test_24_") +name+"_"+type_names[type_i]+".bmp").c_str(), ref_image);
+      render(image, pRender, p, float3(0, 0, 0), 1.0f*cross(p, float3(1, 0, 0)), preset);
+      LiteImage::SaveImage<uint32_t>((std::string("saves/test_24_") +name+"_"+type_names[type_i]+".bmp").c_str(), image);
+
+      if (type_names[type_i] == "mesh")
+      {
+        ref_image = image;
+      }
+      else
+      {
+        float psnr = PSNR(ref_image, image);
+
+        printf(" 24.%d. %-64s", test_n, name.c_str());
+        if (psnr >= 30)
+          printf("passed    (%.2f)\n", psnr);
+        else
+          printf("FAILED, psnr = %f\n", psnr);  
+
+        test_n++;
+      }
     }
   }
 }
