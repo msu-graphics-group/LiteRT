@@ -224,7 +224,8 @@ namespace sdf_converter
   {
     if (settings.build_type == SparseOctreeBuildType::MESH_TLO)
     {
-      auto tlo = cmesh4::create_triangle_list_octree(mesh, settings.depth, 1, 2.0f);
+      //we set max_triangles_per_leaf = 0 to prevent issues with big, textured triangles (see test with textured cube)
+      auto tlo = cmesh4::create_triangle_list_octree(mesh, settings.depth, 0, 2.0f);
       std::vector<SdfFrameOctreeTexNode> frame;
       mesh_octree_to_sdf_frame_octree_tex(mesh, tlo, frame);
       //frame_octree_limit_nodes(frame, settings.nodes_limit, true); //TODO
