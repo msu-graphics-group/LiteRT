@@ -47,8 +47,8 @@
     <indices type="array1i" bytesize="120" offset="1144" apply="tlist" />
     <matindices type="array1i" bytesize="40" offset="1264" apply="primitive" />
   </mesh>
-  <normalized_mesh id="1" name="teapot" type="vsgf" type="normalized_mesh" loc="../../saves/teapot/mesh.vsgf" mat_id="4">
-  </normalized_mesh>
+  <sdf_svs id="1" name="roadbike" type="vsgf" type="sdf_svs" loc="../../saves/roadbike/roadbike_sdf_SVS_4Mb/data.bin" mat_id="4">
+  </sdf_svs>
   <mesh id="2" name="my_area_light_lightmesh" type="vsgf" bytesize="280" loc="data/chunk_00003.vsgf" offset="0" vertNum="4" triNum="2" dl="0" path="" light_id="0" bbox="    -1 1 0 0 -1 1">
     <positions type="array4f" bytesize="64" offset="24" apply="vertex" />
     <normals type="array4f" bytesize="64" offset="88" apply="vertex" />
@@ -69,12 +69,12 @@
 </lights_lib>
 <cam_lib>
   <camera id="0" name="my camera" type="uvn">
-    <fov>45</fov>
+    <fov>10</fov>
     <nearClipPlane>0.01</nearClipPlane>
     <farClipPlane>100.0</farClipPlane>
     <up>0 1 0</up>
-    <position>0 -1.5 8</position>
-    <look_at>0 -1.5 0</look_at>
+    <position>-1.5 -3 8</position>
+    <look_at>-1.5 -3 0</look_at>
   </camera>
 </cam_lib>
 <render_lib>
@@ -96,7 +96,7 @@
     <remap_lists>
       <remap_list id="0" size="2" val="0 4 " />
     </remap_lists>
-    <instance id="0" mesh_id="1" rmap_id="0" scn_id="0" scn_sid="0" matrix="2.5 0 0 0   0 2.5 0 -1.6   0 0 -2.5 0   0 0 0 1 " />
+    <instance id="0" mesh_id="1" rmap_id="0" scn_id="0" scn_sid="0" matrix="0 0 2.5 0  0 2.5 0 -1.53  -2.5 0 0 -1  0 0 0 1 " />
     <instance id="1" mesh_id="0" rmap_id="-1" scn_id="0" scn_sid="0" matrix="-1 0 -8.74228e-08 0 0 1 0 0 8.74228e-08 0 -1 0 0 0 0 1 " />
     <instance_light id="0" light_id="0" matrix="1 0 0 0 0 1 0 3.85 0 0 1 0 0 0 0 1 " lgroup_id="-1" />
     <instance id="2" mesh_id="2" rmap_id="-1" matrix="1 0 0 0 0 1 0 3.85 0 0 1 0 0 0 0 1 " light_id="0" linst_id="0" />
