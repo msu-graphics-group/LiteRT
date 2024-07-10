@@ -26,15 +26,15 @@ MultiRenderer::MultiRenderer()
   m_mainLightDir = normalize3(float4(1,0.5,0.5,1));
   m_mainLightColor = 1.0f*normalize3(float4(1,1,0.98,1));
 
-  m_textures.resize(16);
+  m_textures.resize(MULTI_RENDER_MAX_TEXTURES);
 
   LiteImage::Image2D<float4> texture = LiteImage::Image2D<float4>(16, 16, float4(0,1,1,1)); //LiteImage::LoadImage<float4>("scenes/porcelain.png");
-  for (int i=0;i<16;i++)
+  for (int i=0;i<MULTI_RENDER_MAX_TEXTURES;i++)
     AddTexture(texture);
-  AddMaterial({MULTI_RENDER_MATERIAL_TYPE_TEXTURED, 0});
+  AddMaterial({MULTI_RENDER_MATERIAL_TYPE_TEXTURED, DEFAULT_TEXTURE});
   active_textures_count = 1;
 
-  m_matIdbyPrimId.push_back(0);
+  m_matIdbyPrimId.push_back(DEFAULT_MATERIAL);
 }
 
 void MultiRenderer::SetViewport(int a_xStart, int a_yStart, int a_width, int a_height)
@@ -398,7 +398,7 @@ void MultiRenderer::add_mesh_internal(const cmesh4::SimpleMesh &scene, uint32_t 
     //no material, set default
     if (scene.matIndices.empty())
     {
-      m_matIdbyPrimId.push_back(0);
+      m_matIdbyPrimId.push_back(DEFAULT_MATERIAL);
       m_matIdOffsets[geomId] = uint2(m_matIdbyPrimId.size()-1, 1);
     }
     else

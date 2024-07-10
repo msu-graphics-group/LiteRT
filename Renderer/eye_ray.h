@@ -26,6 +26,11 @@ struct SparseOctreeSettings;
 static constexpr unsigned MULTI_RENDER_MATERIAL_TYPE_COLORED  = 0;
 static constexpr unsigned MULTI_RENDER_MATERIAL_TYPE_TEXTURED = 1;
 
+static constexpr unsigned DEFAULT_MATERIAL = 0u;
+static constexpr unsigned DEFAULT_TEXTURE = 0u;
+
+static constexpr unsigned MULTI_RENDER_MAX_TEXTURES = 16;
+
 struct MultiRendererMaterial
 {
   unsigned type;
