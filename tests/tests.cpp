@@ -12,6 +12,7 @@
 #include "../utils/marching_cubes.h"
 #include "../utils/sdf_smoother.h"
 #include "../utils/demo_meshes.h"
+#include "../utils/image_metrics.h"
 
 #include <functional>
 #include <cassert>
@@ -31,46 +32,6 @@ void render(LiteImage::Image2D<uint32_t> &image, std::shared_ptr<MultiRenderer> 
   auto worldView = LiteMath::lookAt(pos, target, up);
 
   pRender->Render(image.data(), image.width(), image.height(), worldView, proj, preset, a_passNum);
-}
-
-float PSNR(const LiteImage::Image2D<uint32_t> &image_1, const LiteImage::Image2D<uint32_t> &image_2)
-{
-  assert(image_1.vector().size() == image_2.vector().size());
-  unsigned sz = image_1.vector().size();
-  double sum = 0.0;
-  for (int i=0;i<sz;i++)
-  {
-    unsigned r1 = (image_1.vector()[i] & 0x000000FF);
-    unsigned g1 = (image_1.vector()[i] & 0x0000FF00) >> 8;
-    unsigned b1 = (image_1.vector()[i] & 0x00FF0000) >> 16;
-    unsigned r2 = (image_2.vector()[i] & 0x000000FF);
-    unsigned g2 = (image_2.vector()[i] & 0x0000FF00) >> 8;
-    unsigned b2 = (image_2.vector()[i] & 0x00FF0000) >> 16;
-    sum += ((r1-r2)*(r1-r2)+(g1-g2)*(g1-g2)+(b1-b2)*(b1-b2)) / (3.0f*255.0f*255.0f);
-  }
-  float mse = sum / sz;
-
-  return -10*log10(std::max<double>(1e-10, mse));
-}
-
-float PSNR(const LiteImage::Image2D<float4> &image_1, const LiteImage::Image2D<float4> &image_2)
-{
-  assert(image_1.vector().size() == image_2.vector().size());
-  unsigned sz = image_1.vector().size();
-  double sum = 0.0;
-  for (int i=0;i<sz;i++)
-  {
-    float r1 = image_1.vector()[i].x;
-    float g1 = image_1.vector()[i].y;
-    float b1 = image_1.vector()[i].z;
-    float r2 = image_2.vector()[i].x;
-    float g2 = image_2.vector()[i].y;
-    float b2 = image_2.vector()[i].z;
-    sum += ((r1-r2)*(r1-r2)+(g1-g2)*(g1-g2)+(b1-b2)*(b1-b2)) / (3.0f);
-  }
-  float mse = sum / sz;
-
-  return -10*log10(std::max<double>(1e-10, mse));
 }
 
 void litert_test_1_framed_octree()
@@ -227,9 +188,9 @@ void litert_test_3_SBS_verify()
     LiteImage::SaveImage<uint32_t>("saves/test_3_SVS.bmp", image); 
     svs_image = image;
 
-    float psnr = PSNR(ref_image, image);
+    float psnr = image_metrics::PSNR(ref_image, image);
 
-    printf("  3.1. %-64s", "[CPU] SVS and mesh PSNR > 40 ");
+    printf("  3.1. %-64s", "[CPU] SVS and mesh image_metrics::PSNR > 40 ");
     if (psnr >= 40)
       printf("passed    (%.2f)\n", psnr);
     else
@@ -243,14 +204,14 @@ void litert_test_3_SBS_verify()
     render(image, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset);
     LiteImage::SaveImage<uint32_t>("saves/test_3_SBS_1_1.bmp", image); 
 
-    float psnr = PSNR(ref_image, image);
-    printf("  3.2. %-64s", "[CPU] 1-voxel,1-byte SBS and mesh PSNR > 40 ");
+    float psnr = image_metrics::PSNR(ref_image, image);
+    printf("  3.2. %-64s", "[CPU] 1-voxel,1-byte SBS and mesh image_metrics::PSNR > 40 ");
     if (psnr >= 40)
       printf("passed    (%.2f)\n", psnr);
     else
       printf("FAILED, psnr = %f\n", psnr);
 
-    float svs_psnr = PSNR(svs_image, image);
+    float svs_psnr = image_metrics::PSNR(svs_image, image);
     printf("  3.3. %-64s", "[CPU] 1-voxel,1-byte SBS matches SVS");
     if (svs_psnr >= 40)
       printf("passed\n");
@@ -265,14 +226,14 @@ void litert_test_3_SBS_verify()
     render(image, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset);
     LiteImage::SaveImage<uint32_t>("saves/test_3_SBS_1_1.bmp", image); 
 
-    float psnr = PSNR(ref_image, image);
-    printf("  3.4. %-64s", "1-voxel,1-byte SBS and mesh PSNR > 40 ");
+    float psnr = image_metrics::PSNR(ref_image, image);
+    printf("  3.4. %-64s", "1-voxel,1-byte SBS and mesh image_metrics::PSNR > 40 ");
     if (psnr >= 40)
       printf("passed    (%.2f)\n", psnr);
     else
       printf("FAILED, psnr = %f\n", psnr);
 
-    float svs_psnr = PSNR(svs_image, image);
+    float svs_psnr = image_metrics::PSNR(svs_image, image);
     printf("  3.5. %-64s", "1-voxel,1-byte SBS matches SVS");
     if (svs_psnr >= 40)
       printf("passed\n");
@@ -287,8 +248,8 @@ void litert_test_3_SBS_verify()
     render(image, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset);
     LiteImage::SaveImage<uint32_t>("saves/test_3_SBS_1_2.bmp", image); 
 
-    float psnr = PSNR(ref_image, image);
-    printf("  3.6. %-64s", "1-voxel,2-byte SBS and mesh PSNR > 40 ");
+    float psnr = image_metrics::PSNR(ref_image, image);
+    printf("  3.6. %-64s", "1-voxel,2-byte SBS and mesh image_metrics::PSNR > 40 ");
     if (psnr >= 40)
       printf("passed    (%.2f)\n", psnr);
     else
@@ -302,8 +263,8 @@ void litert_test_3_SBS_verify()
     render(image, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset);
     LiteImage::SaveImage<uint32_t>("saves/test_3_SBS_2_1.bmp", image); 
 
-    float psnr = PSNR(ref_image, image);
-    printf("  3.7. %-64s", "8-voxel,1-byte SBS and mesh PSNR > 40 ");
+    float psnr = image_metrics::PSNR(ref_image, image);
+    printf("  3.7. %-64s", "8-voxel,1-byte SBS and mesh image_metrics::PSNR > 40 ");
     if (psnr >= 40)
       printf("passed    (%.2f)\n", psnr);
     else
@@ -317,8 +278,8 @@ void litert_test_3_SBS_verify()
     render(image, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset);
     LiteImage::SaveImage<uint32_t>("saves/test_3_SBS_2_2.bmp", image); 
 
-    float psnr = PSNR(ref_image, image);
-    printf("  3.8. %-64s", "8-voxel,2-byte SBS and mesh PSNR > 40 ");
+    float psnr = image_metrics::PSNR(ref_image, image);
+    printf("  3.8. %-64s", "8-voxel,2-byte SBS and mesh image_metrics::PSNR > 40 ");
     if (psnr >= 40)
       printf("passed    (%.2f)\n", psnr);
     else
@@ -363,9 +324,9 @@ void litert_test_4_hydra_scene()
   LiteImage::SaveImage<uint32_t>("saves/test_4_res.bmp", image); 
   LiteImage::SaveImage<uint32_t>("saves/test_4_ref.bmp", ref_image);
 
-  float psnr = PSNR(ref_image, image);
+  float psnr = image_metrics::PSNR(ref_image, image);
   printf("TEST 4. Rendering Hydra scene\n");
-  printf("  4.1. %-64s", "mesh and SDF PSNR > 30 ");
+  printf("  4.1. %-64s", "mesh and SDF image_metrics::PSNR > 30 ");
   if (psnr >= 30)
     printf("passed    (%.2f)\n", psnr);
   else
@@ -412,15 +373,15 @@ void litert_test_5_interval_tracing()
   LiteImage::SaveImage<uint32_t>("saves/test_5_IT.bmp", image_2); 
   LiteImage::SaveImage<uint32_t>("saves/test_5_ref.bmp", ref_image);
 
-  float psnr_1 = PSNR(image_1, image_2);
-  float psnr_2 = PSNR(ref_image, image_2);
+  float psnr_1 = image_metrics::PSNR(image_1, image_2);
+  float psnr_2 = image_metrics::PSNR(ref_image, image_2);
   printf("TEST 5. Interval tracing\n");
-  printf("  5.1. %-64s", "mesh and SDF PSNR > 30 ");
+  printf("  5.1. %-64s", "mesh and SDF image_metrics::PSNR > 30 ");
   if (psnr_2 >= 30)
     printf("passed    (%.2f)\n", psnr_2);
   else
     printf("FAILED, psnr = %f\n", psnr_2);
-  printf("  5.2. %-64s", "Interval and Sphere tracing PSNR > 45 ");
+  printf("  5.2. %-64s", "Interval and Sphere tracing image_metrics::PSNR > 45 ");
   if (psnr_1 >= 45)
     printf("passed    (%.2f)\n", psnr_1);
   else
@@ -479,15 +440,15 @@ auto t4 = std::chrono::steady_clock::now();
   LiteImage::SaveImage<uint32_t>("saves/test_6_mesh_tlo.bmp", image_2); 
   LiteImage::SaveImage<uint32_t>("saves/test_6_ref.bmp", ref_image);
 
-  float psnr_1 = PSNR(image_1, image_2);
-  float psnr_2 = PSNR(ref_image, image_2);
+  float psnr_1 = image_metrics::PSNR(image_1, image_2);
+  float psnr_2 = image_metrics::PSNR(ref_image, image_2);
   printf("TEST 6. MESH_TLO SDF BVH build. default %.1f s, mesh TLO %.1f s\n", time_1/1000.0f, time_2/1000.0f);
-  printf("  6.1. %-64s", "mesh and SDF PSNR > 30 ");
+  printf("  6.1. %-64s", "mesh and SDF image_metrics::PSNR > 30 ");
   if (psnr_2 >= 30)
     printf("passed    (%.2f)\n", psnr_2);
   else
     printf("FAILED, psnr = %f\n", psnr_2);
-  printf("  6.2. %-64s", "DEFAULT and MESH_TLO PSNR > 45 ");
+  printf("  6.2. %-64s", "DEFAULT and MESH_TLO image_metrics::PSNR > 45 ");
   if (psnr_1 >= 45)
     printf("passed    (%.2f)\n", psnr_1);
   else
@@ -557,37 +518,37 @@ void test_7_neural_SDF()
   LiteImage::SaveImage<uint32_t>("saves/test_7_NeuralRT_GPU_coop_matrices.bmp", image_5); 
   LiteImage::SaveImage<uint32_t>("saves/test_7_octree.bmp", image_6); 
 
-  float psnr_1 = PSNR(image_1, image_2);
-  float psnr_2 = PSNR(image_1, image_3);
-  float psnr_3 = PSNR(image_1, image_4);
-  float psnr_4 = PSNR(image_1, image_5);
-  float psnr_5 = PSNR(image_1, image_6);
+  float psnr_1 = image_metrics::PSNR(image_1, image_2);
+  float psnr_2 = image_metrics::PSNR(image_1, image_3);
+  float psnr_3 = image_metrics::PSNR(image_1, image_4);
+  float psnr_4 = image_metrics::PSNR(image_1, image_5);
+  float psnr_5 = image_metrics::PSNR(image_1, image_6);
   printf("TEST 7. NEURAL SDF rendering\n");
-  printf("  7.1. %-64s", "default and NeuralRT CPU PSNR > 45 ");
+  printf("  7.1. %-64s", "default and NeuralRT CPU image_metrics::PSNR > 45 ");
   if (psnr_1 >= 45)
     printf("passed    (%.2f)\n", psnr_1);
   else
     printf("FAILED, psnr = %f\n", psnr_1);
 
-  printf("  7.2. %-64s", "default and NeuralRT GPU default PSNR > 45 ");
+  printf("  7.2. %-64s", "default and NeuralRT GPU default image_metrics::PSNR > 45 ");
   if (psnr_2 >= 45)
     printf("passed    (%.2f)\n", psnr_2);
   else
     printf("FAILED, psnr = %f\n", psnr_2);
 
-  printf("  7.3. %-64s", "default and NeuralRT GPU blocked PSNR > 45 ");
+  printf("  7.3. %-64s", "default and NeuralRT GPU blocked image_metrics::PSNR > 45 ");
   if (psnr_3 >= 45)
     printf("passed    (%.2f)\n", psnr_3);
   else
     printf("FAILED, psnr = %f\n", psnr_3);
 
-  printf("  7.4. %-64s", "default and NeuralRT GPU coop matrices PSNR > 45 ");
+  printf("  7.4. %-64s", "default and NeuralRT GPU coop matrices image_metrics::PSNR > 45 ");
   if (psnr_4 >= 45)
     printf("passed    (%.2f)\n", psnr_4);
   else
     printf("FAILED, psnr = %f\n", psnr_4);
 
-  printf("  7.5. %-64s", "default and SDF octree PSNR > 25 ");
+  printf("  7.5. %-64s", "default and SDF octree image_metrics::PSNR > 25 ");
   if (psnr_5 >= 25)
     printf("passed    (%.2f)\n", psnr_5);
   else
@@ -630,9 +591,9 @@ void litert_test_8_SDF_grid()
   LiteImage::SaveImage<uint32_t>("saves/test_8_res.bmp", image); 
   LiteImage::SaveImage<uint32_t>("saves/test_8_ref.bmp", ref_image);
 
-  float psnr = PSNR(ref_image, image);
+  float psnr = image_metrics::PSNR(ref_image, image);
   printf("TEST 8. Rendering Hydra scene\n");
-  printf("  8.1. %-64s", "mesh and SDF grid PSNR > 30 ");
+  printf("  8.1. %-64s", "mesh and SDF grid image_metrics::PSNR > 30 ");
   if (psnr >= 30)
     printf("passed    (%.2f)\n", psnr);
   else
@@ -668,9 +629,9 @@ void litert_test_9_mesh()
   LiteImage::SaveImage<uint32_t>("saves/test_9_res.bmp", image); 
   LiteImage::SaveImage<uint32_t>("saves/test_9_ref.bmp", ref_image);
 
-  float psnr = PSNR(ref_image, image);
+  float psnr = image_metrics::PSNR(ref_image, image);
   printf("TEST 9. Rendering simple mesh\n");
-  printf("  9.1. %-64s", "CPU and GPU render PSNR > 45 ");
+  printf("  9.1. %-64s", "CPU and GPU render image_metrics::PSNR > 45 ");
   if (psnr >= 45)
     printf("passed    (%.2f)\n", psnr);
   else
@@ -756,11 +717,11 @@ void litert_test_10_save_load()
   render(image_5, pRender_5, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
   LiteImage::SaveImage<uint32_t>("saves/test_10_hydra_scene.bmp", image_5);
 
-  float psnr_1 = PSNR(image_ref, image_1);
-  float psnr_2 = PSNR(image_ref, image_2);
-  float psnr_3 = PSNR(image_ref, image_3);
-  float psnr_4 = PSNR(image_ref, image_4);
-  float psnr_5 = PSNR(image_ref, image_5);
+  float psnr_1 = image_metrics::PSNR(image_ref, image_1);
+  float psnr_2 = image_metrics::PSNR(image_ref, image_2);
+  float psnr_3 = image_metrics::PSNR(image_ref, image_3);
+  float psnr_4 = image_metrics::PSNR(image_ref, image_4);
+  float psnr_5 = image_metrics::PSNR(image_ref, image_5);
 
   printf(" 10.1. %-64s", "SDF Octree ");
   if (psnr_1 >= 25)
@@ -851,9 +812,9 @@ void litert_test_12_hp_octree_render()
   LiteImage::SaveImage<uint32_t>("saves/test_12_res.bmp", image); 
   LiteImage::SaveImage<uint32_t>("saves/test_12_ref.bmp", ref_image);
 
-  float psnr = PSNR(ref_image, image);
+  float psnr = image_metrics::PSNR(ref_image, image);
   printf("TEST 12. Rendering hp-adaptive SDF octree\n");
-  printf("  12.1. %-64s", "CPU and GPU render PSNR > 45 ");
+  printf("  12.1. %-64s", "CPU and GPU render image_metrics::PSNR > 45 ");
   if (psnr >= 45)
     printf("passed    (%.2f)\n", psnr);
   else
@@ -926,24 +887,24 @@ void litert_test_13_hp_octree_build()
   LiteImage::SaveImage<uint32_t>("saves/test_13_res_l.bmp", image_l);
   LiteImage::SaveImage<uint32_t>("saves/test_13_res_limited.bmp", image_limited);
 
-  float psnr = PSNR(ref_image, image);
-  float psnr_l = PSNR(ref_image, image_l);
-  float psnr_limited = PSNR(ref_image, image_limited);
+  float psnr = image_metrics::PSNR(ref_image, image);
+  float psnr_l = image_metrics::PSNR(ref_image, image_l);
+  float psnr_limited = image_metrics::PSNR(ref_image, image_limited);
 
   printf("TEST 13. Rendering hp-adaptive SDF octree\n");
-  printf("  13.1. %-64s", "CPU and GPU render PSNR > 45 ");
+  printf("  13.1. %-64s", "CPU and GPU render image_metrics::PSNR > 45 ");
   if (psnr >= 45)
     printf("passed    (%.2f)\n", psnr);
   else
     printf("FAILED, psnr = %f\n", psnr);
   
-  printf("  13.2. %-64s", "original and loaded render PSNR > 45 ");
+  printf("  13.2. %-64s", "original and loaded render image_metrics::PSNR > 45 ");
   if (psnr_l >= 45)
     printf("passed    (%.2f)\n", psnr_l);
   else
     printf("FAILED, psnr = %f\n", psnr_l);
   
-  printf("  13.3. %-64s", "limited and loaded render PSNR > 30 ");
+  printf("  13.3. %-64s", "limited and loaded render image_metrics::PSNR > 30 ");
   if (psnr_limited >= 30)
     printf("passed    (%.2f)\n", psnr_limited);
   else
@@ -1013,8 +974,8 @@ void litert_test_14_octree_nodes_removal()
     LiteImage::SaveImage<uint32_t>("saves/test_14_trimmed_8.bmp", image_3);
   }
 
-  float psnr_1 = PSNR(image_1, image_2);
-  float psnr_2 = PSNR(image_1, image_3);
+  float psnr_1 = image_metrics::PSNR(image_1, image_2);
+  float psnr_2 = image_metrics::PSNR(image_1, image_3);
 
   printf("TEST 14. Octree nodes removal\n");
   printf("  14.1. %-64s", "octrees have the same node count ");
@@ -1097,8 +1058,8 @@ void litert_test_15_frame_octree_nodes_removal()
     LiteImage::SaveImage<uint32_t>("saves/test_15_trimmed_8.bmp", image_3);
   }
 
-  float psnr_1 = PSNR(image_1, image_2);
-  float psnr_2 = PSNR(image_1, image_3);
+  float psnr_1 = image_metrics::PSNR(image_1, image_2);
+  float psnr_2 = image_metrics::PSNR(image_1, image_3);
 
   printf("TEST 15. Frame octree nodes removal\n");
   printf("  15.1. %-64s", "octrees have the same node count ");
@@ -1184,8 +1145,8 @@ void litert_test_16_SVS_nodes_removal()
     LiteImage::SaveImage<uint32_t>("saves/test_16_trimmed_8.bmp", image_3);
   }
 
-  float psnr_1 = PSNR(image_1, image_2);
-  float psnr_2 = PSNR(image_1, image_3);
+  float psnr_1 = image_metrics::PSNR(image_1, image_2);
+  float psnr_2 = image_metrics::PSNR(image_1, image_3);
 
   printf("TEST 16. SVS nodes removal\n");
   printf("  16.1. %-64s", "octrees have correct node count ");
@@ -1295,12 +1256,12 @@ void litert_test_17_all_types_sanity_check()
     LiteImage::SaveImage<uint32_t>("saves/test_17_hp_octree.bmp", image_6);
   }
 
-  float psnr_1 = PSNR(image_1, image_ref);
-  float psnr_2 = PSNR(image_2, image_ref);
-  float psnr_3 = PSNR(image_3, image_ref);
-  float psnr_4 = PSNR(image_4, image_ref);
-  float psnr_5 = PSNR(image_5, image_ref);
-  float psnr_6 = PSNR(image_6, image_ref);
+  float psnr_1 = image_metrics::PSNR(image_1, image_ref);
+  float psnr_2 = image_metrics::PSNR(image_2, image_ref);
+  float psnr_3 = image_metrics::PSNR(image_3, image_ref);
+  float psnr_4 = image_metrics::PSNR(image_4, image_ref);
+  float psnr_5 = image_metrics::PSNR(image_5, image_ref);
+  float psnr_6 = image_metrics::PSNR(image_6, image_ref);
 
   printf("TEST 17. all types sanity check\n");
   printf("  17.1. %-64s", "SDF grid");
@@ -1450,13 +1411,13 @@ void litert_test_18_mesh_normalization()
     LiteImage::SaveImage<uint32_t>("saves/test_18_sdf_4n_fixed.bmp", sdf_3);
   }
 
-  float psnr_1 = PSNR(ref_image, image_1);
-  float psnr_2 = PSNR(ref_image, image_2);
-  float psnr_3 = PSNR(ref_image, image_3);
+  float psnr_1 = image_metrics::PSNR(ref_image, image_1);
+  float psnr_2 = image_metrics::PSNR(ref_image, image_2);
+  float psnr_3 = image_metrics::PSNR(ref_image, image_3);
 
-  float psnr_sdf_1 = PSNR(ref_sdf, sdf_1);
-  float psnr_sdf_2 = PSNR(ref_sdf, sdf_2);
-  float psnr_sdf_3 = PSNR(ref_sdf, sdf_3);
+  float psnr_sdf_1 = image_metrics::PSNR(ref_sdf, sdf_1);
+  float psnr_sdf_2 = image_metrics::PSNR(ref_sdf, sdf_2);
+  float psnr_sdf_3 = image_metrics::PSNR(ref_sdf, sdf_3);
 
   printf("TEST 18. Mesh normalization\n");
 
@@ -1884,9 +1845,9 @@ void litert_test_23_textured_sdf()
   LiteImage::SaveImage<uint32_t>("saves/test_23_tex_mesh.bmp", ref_image_tex);
   LiteImage::SaveImage<uint32_t>("saves/test_23_tex_textured_sdf.bmp", image_tex);
 
-  float psnr = PSNR(ref_image, image);
-  float psnr_tc = PSNR(ref_image_tc, image_tc);
-  float psnr_tex = PSNR(ref_image_tex, image_tex);
+  float psnr = image_metrics::PSNR(ref_image, image);
+  float psnr_tc = image_metrics::PSNR(ref_image_tc, image_tc);
+  float psnr_tex = image_metrics::PSNR(ref_image_tex, image_tex);
   printf("TEST 23. Textured SDF\n");
 
   printf(" 23.1. %-64s", "Surface of textured SDF is close to mesh surface");
@@ -2014,7 +1975,7 @@ void litert_test_24_demo_meshes()
       }
       else
       {
-        float psnr = PSNR(ref_image, image);
+        float psnr = image_metrics::PSNR(ref_image, image);
 
         printf(" 24.%d. %-64s", test_n, name.c_str());
         if (psnr >= 30)
@@ -2057,9 +2018,9 @@ void litert_test_25_float_images()
   LiteImage::SaveImage<float4>("saves/test_25_res.bmp", image); 
   LiteImage::SaveImage<float4>("saves/test_25_ref.bmp", ref_image);
 
-  float psnr = PSNR(ref_image, image);
+  float psnr = image_metrics::PSNR(ref_image, image);
   printf("TEST 25. Rendering simple mesh with floating-point colors (32 bits per channel)\n");
-  printf(" 25.1. %-64s", "CPU and GPU render PSNR > 45 ");
+  printf(" 25.1. %-64s", "CPU and GPU render image_metrics::PSNR > 45 ");
   if (psnr >= 45)
     printf("passed    (%.2f)\n", psnr);
   else

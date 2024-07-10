@@ -5,6 +5,7 @@
 #include "../utils/mesh.h"
 #include "../utils/hp_octree.h"
 #include "../utils/sdf_converter.h"
+#include "../utils/image_metrics.h"
 #include "LiteScene/hydraxml.h"
 #include "LiteMath/Image2d.h"
 #include <filesystem>
@@ -17,7 +18,6 @@
 void render(LiteImage::Image2D<uint32_t> &image, std::shared_ptr<MultiRenderer> pRender, 
             float3 pos, float3 target, float3 up, 
             MultiRenderPreset preset, int a_passNum);
-float PSNR(const LiteImage::Image2D<uint32_t> &image_1, const LiteImage::Image2D<uint32_t> &image_2);
 
 struct BenchmarkResult
 {
@@ -266,8 +266,8 @@ void quality_check(const char *path)
     render(image_1, pRender_1, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset, 1);
     LiteImage::SaveImage<uint32_t>(("saves/svs_"+std::to_string(depth)+".bmp").c_str(), image_1);
 
-    float psnr_1 = PSNR(image_ref, image_1);
-    printf("depth = %d PSNR = %f\n", depth, psnr_1);
+    float psnr_1 = image_metrics::PSNR(image_ref, image_1);
+    printf("depth = %d image_metrics::PSNR = %f\n", depth, psnr_1);
   }
 }
 
@@ -501,7 +501,7 @@ void main_benchmark(const std::string &path, const std::string &mesh_name, unsig
     }
   }
 
-  fprintf(log_fd, "mesh_name, render_mode, structure, size_limit, intersect_mode, PSNR, average_time (ms), min_time (ms)\n");
+  fprintf(log_fd, "mesh_name, render_mode, structure, size_limit, intersect_mode, image_metrics::PSNR, average_time (ms), min_time (ms)\n");
   fflush(log_fd);
 
   for (int rm_id = 0; rm_id < render_modes.size(); rm_id++)
@@ -649,7 +649,7 @@ void main_benchmark(const std::string &path, const std::string &mesh_name, unsig
               if (structure == "mesh")
                 image_ref[iter] = image;
 
-              psnr += PSNR(image_ref[iter], image);
+              psnr += image_metrics::PSNR(image_ref[iter], image);
             }
 
             float4 render_average_time_ms = float4(sum_ms[0], sum_ms[1], sum_ms[2], sum_ms[3])/(iters*pass_size);
