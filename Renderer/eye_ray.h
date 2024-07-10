@@ -59,6 +59,9 @@ public:
   void Render(uint32_t* imageData, uint32_t a_width, uint32_t a_height, 
               const LiteMath::float4x4& a_worldView, const LiteMath::float4x4& a_proj,
               MultiRenderPreset preset = getDefaultPreset(), int a_passNum = 1);
+  void RenderFloat(LiteMath::float4* imageData, uint32_t a_width, uint32_t a_height, 
+                   const LiteMath::float4x4& a_worldView, const LiteMath::float4x4& a_proj,
+                   MultiRenderPreset preset = getDefaultPreset(), int a_passNum = 1);
 
   void SetPreset(const MultiRenderPreset& a_preset);
 
@@ -84,6 +87,7 @@ public:
 
   void Clear (uint32_t a_width, uint32_t a_height, const char* a_what) override;
   void Render(uint32_t* imageData, uint32_t a_width, uint32_t a_height, const char* a_what, int a_passNum = 1) override;
+  void RenderFloat(LiteMath::float4* imageData, uint32_t a_width, uint32_t a_height, const char* a_what, int a_passNum = 1);
   void SetViewport(int a_xStart, int a_yStart, int a_width, int a_height) override;
 
   void SetAccelStruct(std::shared_ptr<ISceneObject> a_customAccelStruct) override { m_pAccelStruct = a_customAccelStruct;}
@@ -105,8 +109,10 @@ public:
   uint32_t AddMaterial(const MultiRendererMaterial &material);
   void     SetMaterial(uint32_t matId, uint32_t geomId);
   
+#ifndef KERNEL_SLICER 
   void add_mesh_internal(const cmesh4::SimpleMesh& mesh, unsigned geomId);
   void add_SdfFrameOctreeTex_internal(SdfFrameOctreeTexView scene, unsigned geomId);
+#endif
 
   LiteMath::float4x4 getProj() { return m_proj; }
   LiteMath::float4x4 getWorldView() { return m_worldView; }
@@ -118,11 +124,16 @@ protected:
   virtual void kernel_PackXY(uint tidX, uint tidY, uint* out_pakedXY);
   
   virtual void CastRaySingle(uint32_t tidX, uint32_t* out_color __attribute__((size("tidX"))));
-
   virtual void CastRaySingleBlock(uint32_t tidX, uint32_t* out_color, uint32_t a_numPasses = 1);
 
+  virtual void CastRayFloatSingle(uint32_t tidX, LiteMath::float4* out_color __attribute__((size("tidX"))));
+  virtual void CastRayFloatSingleBlock(uint32_t tidX, LiteMath::float4* out_color, uint32_t a_numPasses = 1);
+
   void kernel_InitEyeRay(uint32_t tidX, LiteMath::float4* rayPosAndNear, LiteMath::float4* rayDirAndFar);
-  void kernel_RayTrace(uint32_t tidX, const LiteMath::float4* rayPosAndNear, const LiteMath::float4* rayDirAndFar, uint32_t* out_color);
+  LiteMath::float4 kernel_RayTrace(uint32_t tidX, const LiteMath::float4* rayPosAndNear, const LiteMath::float4* rayDirAndFar);
+
+  uint32_t encode_RGBA8(LiteMath::float4 c);
+  LiteMath::float4 decode_RGBA8(uint32_t c);
 
   uint32_t m_width;
   uint32_t m_height;

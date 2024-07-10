@@ -161,4 +161,3 @@ static inline float2 mulRows2x4(const float4 row0, const float4 row1, float2 v)
 }
 
 static inline float clamp1f(float u, float a, float b) { return std::min(std::max(a, u), b); }
-

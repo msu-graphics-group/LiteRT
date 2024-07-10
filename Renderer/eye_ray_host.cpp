@@ -246,6 +246,25 @@ void MultiRenderer::CastRaySingleBlock(uint32_t tidX, uint32_t * out_color, uint
     CastRaySingle(i, out_color);
 }
 
+void MultiRenderer::RenderFloat(float4* a_outColor, uint32_t a_width, uint32_t a_height, const char* a_what, int a_passNum)
+{
+  profiling::Timer timer;
+  for (int i=0;i<a_passNum;i++)
+    CastRayFloatSingleBlock(a_width*a_height, a_outColor, a_passNum);
+  timeDataByName["CastRayFloatSingleBlock"] = timer.getElapsedTime().asMilliseconds();
+}
+
+void MultiRenderer::CastRayFloatSingleBlock(uint32_t tidX, float4 * out_color, uint32_t a_numPasses)
+{
+  //CPU version is mostly used by debug, so better make it single-threaded
+  //also per-pixel debug does not work with multithreading
+  //#ifndef _DEBUG
+  //#pragma omp parallel for default(shared)
+  //#endif
+  for(int i=0;i<tidX;i++)
+    CastRayFloatSingle(i, out_color);
+}
+
 const char* MultiRenderer::Name() const
 {
   return m_pAccelStruct->Name();
@@ -367,6 +386,18 @@ void MultiRenderer::Render(uint32_t* imageData, uint32_t a_width, uint32_t a_hei
   CommitDeviceData();
   Clear(a_width, a_height, "color");
   Render(imageData, a_width, a_height, "color", a_passNum); 
+}
+
+void MultiRenderer::RenderFloat(float4* imageData, uint32_t a_width, uint32_t a_height, 
+                                const LiteMath::float4x4& a_worldView, const LiteMath::float4x4& a_proj,
+                                MultiRenderPreset preset, int a_passNum)
+{
+  SetViewport(0,0, a_width, a_height);
+  UpdateCamera(a_worldView, a_proj);
+  SetPreset(preset);
+  CommitDeviceData();
+  Clear(a_width, a_height, "color");
+  RenderFloat(imageData, a_width, a_height, "color", a_passNum); 
 }
 
 void MultiRenderer::add_mesh_internal(const cmesh4::SimpleMesh &scene, uint32_t geomId)

@@ -53,6 +53,26 @@ float PSNR(const LiteImage::Image2D<uint32_t> &image_1, const LiteImage::Image2D
   return -10*log10(std::max<double>(1e-10, mse));
 }
 
+float PSNR(const LiteImage::Image2D<float4> &image_1, const LiteImage::Image2D<float4> &image_2)
+{
+  assert(image_1.vector().size() == image_2.vector().size());
+  unsigned sz = image_1.vector().size();
+  double sum = 0.0;
+  for (int i=0;i<sz;i++)
+  {
+    float r1 = image_1.vector()[i].x;
+    float g1 = image_1.vector()[i].y;
+    float b1 = image_1.vector()[i].z;
+    float r2 = image_2.vector()[i].x;
+    float g2 = image_2.vector()[i].y;
+    float b2 = image_2.vector()[i].z;
+    sum += ((r1-r2)*(r1-r2)+(g1-g2)*(g1-g2)+(b1-b2)*(b1-b2)) / (3.0f);
+  }
+  float mse = sum / sz;
+
+  return -10*log10(std::max<double>(1e-10, mse));
+}
+
 void litert_test_1_framed_octree()
 {
     auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path+"scenes/01_simple_scenes/data/teapot.vsgf").c_str());
@@ -2008,6 +2028,45 @@ void litert_test_24_demo_meshes()
   }
 }
 
+void litert_test_25_float_images()
+{
+  //create renderers for SDF scene and mesh scene
+  const char *scene_name = "scenes/01_simple_scenes/teapot.xml";
+  unsigned W = 2048, H = 2048;
+
+  MultiRenderPreset preset = getDefaultPreset();
+  LiteImage::Image2D<float4> image(W, H);
+  LiteImage::Image2D<float4> ref_image(W, H);
+
+  auto pRenderRef = CreateMultiRenderer("CPU");
+  pRenderRef->SetPreset(preset);
+  pRenderRef->SetViewport(0,0,W,H);
+  pRenderRef->LoadSceneHydra((scenes_folder_path+scene_name).c_str());
+
+  auto pRender = CreateMultiRenderer("GPU");
+  pRender->SetPreset(preset);
+  pRender->SetViewport(0,0,W,H);
+  pRender->LoadSceneHydra((scenes_folder_path+scene_name).c_str());
+
+  auto m1 = pRender->getWorldView();
+  auto m2 = pRender->getProj();
+
+  pRender->RenderFloat(image.data(), image.width(), image.height(), m1, m2, preset);
+  pRenderRef->RenderFloat(ref_image.data(), ref_image.width(), ref_image.height(), m1, m2, preset);
+
+  LiteImage::SaveImage<float4>("saves/test_25_res.bmp", image); 
+  LiteImage::SaveImage<float4>("saves/test_25_ref.bmp", ref_image);
+
+  float psnr = PSNR(ref_image, image);
+  printf("TEST 25. Rendering simple mesh with floating-point colors (32 bits per channel)\n");
+  printf(" 25.1. %-64s", "CPU and GPU render PSNR > 45 ");
+  if (psnr >= 45)
+    printf("passed    (%.2f)\n", psnr);
+  else
+    printf("FAILED, psnr = %f\n", psnr);
+}
+
+
 void perform_tests_litert(const std::vector<int> &test_ids)
 {
   std::vector<int> tests = test_ids;
@@ -2021,7 +2080,8 @@ void perform_tests_litert(const std::vector<int> &test_ids)
       litert_test_15_frame_octree_nodes_removal, litert_test_16_SVS_nodes_removal,
       litert_test_17_all_types_sanity_check, litert_test_18_mesh_normalization,
       litert_test_19_marching_cubes, litert_test_20_radiance_fields, litert_test_21_rf_to_mesh,
-      litert_test_22_sdf_grid_smoothing, litert_test_23_textured_sdf, litert_test_24_demo_meshes};
+      litert_test_22_sdf_grid_smoothing, litert_test_23_textured_sdf, litert_test_24_demo_meshes,
+      litert_test_25_float_images};
 
   if (tests.empty())
   {
