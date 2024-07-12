@@ -1,5 +1,6 @@
 #include "image_metrics.h"
 #include "omp.h"
+#include "FLIP.h"
 
 namespace image_metrics
 {
@@ -154,5 +155,71 @@ namespace image_metrics
     for (int i = 0; i < omp_get_max_threads(); i++)
       ssim += similarities[i] / counts[i];
     return ssim / omp_get_max_threads();
+  }
+
+  float FLIP(const LiteImage::Image2D<float> &image_1, const LiteImage::Image2D<float> &image_2)
+  {
+    assert(image_1.width() == image_2.width());
+    assert(image_1.height() == image_2.height());
+
+    FLIP::image<FLIP::color3> referenceImageInput(FLIP::int3{(int)image_1.width(), (int)image_1.height(), 1});
+    FLIP::image<FLIP::color3> testImageInput(FLIP::int3{(int)image_1.width(), (int)image_1.height(), 1});
+    FLIP::image<float> errorMapFLIPOutput(FLIP::int3{(int)image_1.width(), (int)image_1.height(), 1});
+
+    for (int i = 0; i < image_1.width(); i++)
+    {
+      for (int j = 0; j < image_1.height(); j++)
+      {
+        float4 col1 = decode_RGBA8(image_1.data()[j*image_1.width() + i]);
+        float4 col2 = decode_RGBA8(image_2.data()[j*image_1.width() + i]);
+        referenceImageInput.set(i, j, FLIP::color3{col1.x, col1.y, col1.z});
+        testImageInput.set(i, j, FLIP::color3{col2.x, col2.y, col2.z});
+      }
+    }
+
+    FLIP::Parameters parameters;
+    FLIP::evaluate(referenceImageInput, testImageInput, false, parameters, errorMapFLIPOutput);
+
+    double average_flip = 0;
+
+    for (int i = 0; i < image_1.width(); i++)
+      for (int j = 0; j < image_1.height(); j++)
+        average_flip += errorMapFLIPOutput.get(i, j);
+
+    average_flip /= image_1.width() * image_1.height();
+    return average_flip;
+  }
+
+  float FLIP(const LiteImage::Image2D<float4> &image_1, const LiteImage::Image2D<float4> &image_2)
+  {
+    assert(image_1.width() == image_2.width());
+    assert(image_1.height() == image_2.height());
+
+    FLIP::image<FLIP::color3> referenceImageInput(FLIP::int3{(int)image_1.width(), (int)image_1.height(), 1});
+    FLIP::image<FLIP::color3> testImageInput(FLIP::int3{(int)image_1.width(), (int)image_1.height(), 1});
+    FLIP::image<float> errorMapFLIPOutput(FLIP::int3{(int)image_1.width(), (int)image_1.height(), 1});
+
+    for (int i = 0; i < image_1.width(); i++)
+    {
+      for (int j = 0; j < image_1.height(); j++)
+      {
+        float4 col1 = image_1.data()[j*image_1.width() + i];
+        float4 col2 = image_2.data()[j*image_1.width() + i];
+        referenceImageInput.set(i, j, FLIP::color3{col1.x, col1.y, col1.z});
+        testImageInput.set(i, j, FLIP::color3{col2.x, col2.y, col2.z});
+      }
+    }
+
+    FLIP::Parameters parameters;
+    FLIP::evaluate(referenceImageInput, testImageInput, false, parameters, errorMapFLIPOutput);
+
+    double average_flip = 0;
+    
+    for (int i = 0; i < image_1.width(); i++)
+      for (int j = 0; j < image_1.height(); j++)
+        average_flip += errorMapFLIPOutput.get(i, j);
+
+    average_flip /= image_1.width() * image_1.height();
+    return average_flip;
   }
 }

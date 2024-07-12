@@ -13,4 +13,7 @@ namespace image_metrics
   float SSIM(const LiteImage::Image2D<uint32_t> &image_1, const LiteImage::Image2D<uint32_t> &image_2, int win_size, float data_range = 255.0f);
   float SSIM(const LiteImage::Image2D<float4> &image_1, const LiteImage::Image2D<float4> &image_2, int win_size, float data_range = 255.0f);
   float SSIM(const LiteImage::Image2D<float> &image_1, const LiteImage::Image2D<float> &image_2, int win_size, float data_range = 255.0f);
+
+  float FLIP(const LiteImage::Image2D<uint32_t> &image_1, const LiteImage::Image2D<uint32_t> &image_2);
+  float FLIP(const LiteImage::Image2D<float4> &image_1, const LiteImage::Image2D<float4> &image_2);
 }
