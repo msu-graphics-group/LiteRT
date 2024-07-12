@@ -53,64 +53,34 @@ void benchmark_framed_octree_intersection()
   std::vector<unsigned> AS_types = {TYPE_SDF_FRAME_OCTREE, TYPE_SDF_SVS, TYPE_SDF_HP, TYPE_SDF_SBS, TYPE_MESH_TRIANGLE};
   std::vector<std::string> AS_names = {"framed_octree", "sparse_voxel_set", "hp-adaptive_octree","sparse_brick_set", "mesh"};
 
-  std::vector<std::vector<unsigned>> presets_ob(5);
   std::vector<std::vector<unsigned>> presets_oi(5);
   std::vector<std::vector<std::string>> preset_names(5);
 
-  presets_ob[0] = {SDF_OCTREE_BLAS_NO, 
-                   SDF_OCTREE_BLAS_DEFAULT, 
-                   SDF_OCTREE_BLAS_DEFAULT, 
-                   SDF_OCTREE_BLAS_DEFAULT, 
-                   SDF_OCTREE_BLAS_DEFAULT,
-                   SDF_OCTREE_BLAS_DEFAULT,
-                   SDF_OCTREE_BLAS_DEFAULT};
-
-  presets_oi[0] = {SDF_OCTREE_NODE_INTERSECT_DEFAULT, 
-                   SDF_OCTREE_NODE_INTERSECT_DEFAULT, 
-                   SDF_OCTREE_NODE_INTERSECT_ST, 
+  presets_oi[0] = {SDF_OCTREE_NODE_INTERSECT_ST, 
                    SDF_OCTREE_NODE_INTERSECT_ANALYTIC, 
                    SDF_OCTREE_NODE_INTERSECT_NEWTON,
                    SDF_OCTREE_NODE_INTERSECT_IT,
                    SDF_OCTREE_NODE_INTERSECT_BBOX};
 
-  preset_names[0] = {"no_bvh_traversal",
-                     "bvh_traversal",
-                     "bvh_sphere_tracing",
+  preset_names[0] = {"bvh_sphere_tracing",
                      "bvh_analytic",
                      "bvh_newton",
                      "bvh_interval_tracing",
                      "bvh_nodes"};
 
-  presets_ob[1] = {SDF_OCTREE_BLAS_DEFAULT, 
-                   SDF_OCTREE_BLAS_DEFAULT, 
-                   SDF_OCTREE_BLAS_DEFAULT, 
-                   SDF_OCTREE_BLAS_DEFAULT,
-                   SDF_OCTREE_BLAS_DEFAULT,
-                   SDF_OCTREE_BLAS_DEFAULT};
-
-  presets_oi[1] = {SDF_OCTREE_NODE_INTERSECT_DEFAULT, 
-                   SDF_OCTREE_NODE_INTERSECT_ST, 
+  presets_oi[1] = {SDF_OCTREE_NODE_INTERSECT_ST, 
                    SDF_OCTREE_NODE_INTERSECT_ANALYTIC, 
                    SDF_OCTREE_NODE_INTERSECT_NEWTON,
                    SDF_OCTREE_NODE_INTERSECT_IT,
                    SDF_OCTREE_NODE_INTERSECT_BBOX};
 
-  preset_names[1] = {"bvh_traversal",
-                     "bvh_sphere_tracing",
+  preset_names[1] = {"bvh_sphere_tracing",
                      "bvh_analytic",
                      "bvh_newton",
                      "bvh_interval_tracing",
                      "bvh_nodes"};
 
-  presets_ob[2] = {SDF_OCTREE_BLAS_DEFAULT, 
-                   SDF_OCTREE_BLAS_DEFAULT, 
-                   SDF_OCTREE_BLAS_DEFAULT, 
-                   SDF_OCTREE_BLAS_DEFAULT,
-                   SDF_OCTREE_BLAS_DEFAULT,
-                   SDF_OCTREE_BLAS_DEFAULT};
-
-  presets_oi[2] = {SDF_OCTREE_NODE_INTERSECT_DEFAULT, 
-                   SDF_OCTREE_NODE_INTERSECT_ST, 
+  presets_oi[2] = {SDF_OCTREE_NODE_INTERSECT_ST, 
                    SDF_OCTREE_NODE_INTERSECT_ANALYTIC, 
                    SDF_OCTREE_NODE_INTERSECT_NEWTON,
                    SDF_OCTREE_NODE_INTERSECT_IT,
@@ -123,19 +93,16 @@ void benchmark_framed_octree_intersection()
                      "bvh_interval_tracing",
                      "bvh_nodes"};
 
-  presets_ob[3] = {SDF_OCTREE_BLAS_DEFAULT};
   presets_oi[3] = {SDF_OCTREE_NODE_INTERSECT_ST};
   preset_names[3] = {"bvh_sphere_tracing"};
 
-  presets_ob[4] = {SDF_OCTREE_BLAS_DEFAULT};
-  presets_oi[4] = {SDF_OCTREE_NODE_INTERSECT_DEFAULT};
+  presets_oi[4] = {SDF_OCTREE_NODE_INTERSECT_ST};
   preset_names[4] = {"default"};
 
   assert(scene_names.size() >= scene_paths.size());
   assert(render_modes.size() >= render_names.size());
 
   assert(AS_types.size() >= AS_names.size());
-  assert(AS_types.size() >= presets_ob.size());
   assert(AS_types.size() >= presets_oi.size());
   assert(AS_types.size() >= preset_names.size());
 
@@ -164,12 +131,11 @@ void benchmark_framed_octree_intersection()
     {
       for (int as_n=0; as_n<AS_types.size(); as_n++)
       {
-        for (int i=0; i<presets_ob[as_n].size(); i++)
+        for (int i=0; i<presets_oi[as_n].size(); i++)
         {
           MultiRenderPreset preset = getDefaultPreset();
-          preset.mode = render_modes[rm];
-          preset.sdf_frame_octree_blas = presets_ob[as_n][i];
-          preset.sdf_frame_octree_intersect = presets_oi[as_n][i];
+          preset.render_mode = render_modes[rm];
+          preset.sdf_node_intersect = presets_oi[as_n][i];
 
           auto pRender = CreateMultiRenderer("GPU");
           pRender->SetPreset(preset);
@@ -242,7 +208,7 @@ void quality_check(const char *path)
 
   unsigned W = 1024, H = 1024;
   MultiRenderPreset preset = getDefaultPreset();
-  preset.mode = MULTI_RENDER_MODE_PHONG_NO_TEX;
+  preset.render_mode = MULTI_RENDER_MODE_PHONG_NO_TEX;
   preset.sdf_octree_sampler = SDF_OCTREE_SAMPLER_MIPSKIP_3X3;
 
   LiteImage::Image2D<uint32_t> image_ref(W, H);
@@ -318,25 +284,13 @@ void main_benchmark(const std::string &path, const std::string &mesh_name, unsig
   std::vector<std::string> size_limit_names = {"125Kb","250Kb","500Kb", "1Mb", "2Mb", "4Mb", "8Mb", "16Mb", "32Mb", "64Mb"};
 
   //different render settings
-  std::vector<unsigned> blas_mode      = {SDF_OCTREE_BLAS_NO, 
-                                          SDF_OCTREE_BLAS_DEFAULT, 
-                                          SDF_OCTREE_BLAS_DEFAULT, 
-                                          SDF_OCTREE_BLAS_DEFAULT, 
-                                          SDF_OCTREE_BLAS_DEFAULT,
-                                          SDF_OCTREE_BLAS_DEFAULT,
-                                          SDF_OCTREE_BLAS_DEFAULT};
-
-  std::vector<unsigned> intersect_modes = {SDF_OCTREE_NODE_INTERSECT_DEFAULT,
-                                           SDF_OCTREE_NODE_INTERSECT_DEFAULT,
-                                           SDF_OCTREE_NODE_INTERSECT_ST, 
+  std::vector<unsigned> intersect_modes = {SDF_OCTREE_NODE_INTERSECT_ST, 
                                            SDF_OCTREE_NODE_INTERSECT_ANALYTIC, 
                                            SDF_OCTREE_NODE_INTERSECT_NEWTON,
                                            SDF_OCTREE_NODE_INTERSECT_IT,
                                            SDF_OCTREE_NODE_INTERSECT_BBOX};
 
-  std::vector<std::string> intersect_mode_names = {"no_bvh_traversal",
-                                                   "bvh_traversal",
-                                                   "bvh_sphere_tracing",
+  std::vector<std::string> intersect_mode_names = {"bvh_sphere_tracing",
                                                    "bvh_analytic",
                                                    "bvh_newton",
                                                    "bvh_interval_tracing",
@@ -547,9 +501,8 @@ void main_benchmark(const std::string &path, const std::string &mesh_name, unsig
           unsigned iters = structure == "sdf_octree" ? 1 : base_iters;
 
           MultiRenderPreset preset = getDefaultPreset();
-          preset.mode = render_modes[rm_id] == BENCHMARK_FLAG_RENDER_DEPTH ? MULTI_RENDER_MODE_LINEAR_DEPTH : MULTI_RENDER_MODE_LAMBERT_NO_TEX;
-          preset.sdf_frame_octree_blas = blas_mode[r_id];
-          preset.sdf_frame_octree_intersect = intersect_modes[r_id];
+          preset.render_mode = render_modes[rm_id] == BENCHMARK_FLAG_RENDER_DEPTH ? MULTI_RENDER_MODE_LINEAR_DEPTH : MULTI_RENDER_MODE_LAMBERT_NO_TEX;
+          preset.sdf_node_intersect = intersect_modes[r_id];
 
           LiteImage::Image2D<uint32_t> image(W, H);
             double sum_ms[4] = {0,0,0,0};

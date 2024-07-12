@@ -54,22 +54,16 @@ void litert_test_1_framed_octree()
     LiteImage::Image2D<uint32_t> image(W, H);
     float timings[4] = {0,0,0,0};
 
-    std::vector<unsigned> presets_ob = {SDF_OCTREE_BLAS_NO, SDF_OCTREE_BLAS_DEFAULT,
-                                        SDF_OCTREE_BLAS_DEFAULT, SDF_OCTREE_BLAS_DEFAULT,
-                                        SDF_OCTREE_BLAS_DEFAULT, SDF_OCTREE_BLAS_DEFAULT};
-
-    std::vector<unsigned> presets_oi = {SDF_OCTREE_NODE_INTERSECT_DEFAULT, SDF_OCTREE_NODE_INTERSECT_DEFAULT, 
-                                        SDF_OCTREE_NODE_INTERSECT_ST, SDF_OCTREE_NODE_INTERSECT_ANALYTIC, 
+    std::vector<unsigned> presets_oi = {SDF_OCTREE_NODE_INTERSECT_ST, SDF_OCTREE_NODE_INTERSECT_ANALYTIC, 
                                         SDF_OCTREE_NODE_INTERSECT_NEWTON, SDF_OCTREE_NODE_INTERSECT_BBOX};
 
-    std::vector<std::string> names = {"no_bvh_traversal", "bvh_traversal", "bvh_sphere_tracing", "bvh_analytic", "bvh_newton", "bvh_bboxes"};
+    std::vector<std::string> names = {"bvh_sphere_tracing", "bvh_analytic", "bvh_newton", "bvh_bboxes"};
 
-    for (int i=0; i<presets_ob.size(); i++)
+    for (int i=0; i<presets_oi.size(); i++)
     {
       MultiRenderPreset preset = getDefaultPreset();
-      preset.mode = MULTI_RENDER_MODE_PHONG_NO_TEX;
-      preset.sdf_frame_octree_blas = presets_ob[i];
-      preset.sdf_frame_octree_intersect = presets_oi[i];
+      preset.render_mode = MULTI_RENDER_MODE_PHONG_NO_TEX;
+      preset.sdf_node_intersect = presets_oi[i];
 
       auto pRender = CreateMultiRenderer("GPU");
       pRender->SetPreset(preset);
@@ -108,22 +102,16 @@ void litert_test_2_SVS()
     LiteImage::Image2D<uint32_t> image(W, H);
     float timings[4] = {0,0,0,0};
 
-    std::vector<unsigned> presets_ob = {SDF_OCTREE_BLAS_NO, SDF_OCTREE_BLAS_DEFAULT,
-                                        SDF_OCTREE_BLAS_DEFAULT, SDF_OCTREE_BLAS_DEFAULT,
-                                        SDF_OCTREE_BLAS_DEFAULT, SDF_OCTREE_BLAS_DEFAULT};
-
-    std::vector<unsigned> presets_oi = {SDF_OCTREE_NODE_INTERSECT_DEFAULT, SDF_OCTREE_NODE_INTERSECT_DEFAULT, 
-                                        SDF_OCTREE_NODE_INTERSECT_ST, SDF_OCTREE_NODE_INTERSECT_ANALYTIC, 
+    std::vector<unsigned> presets_oi = {SDF_OCTREE_NODE_INTERSECT_ST, SDF_OCTREE_NODE_INTERSECT_ANALYTIC, 
                                         SDF_OCTREE_NODE_INTERSECT_NEWTON, SDF_OCTREE_NODE_INTERSECT_BBOX};
 
-    std::vector<std::string> names = {"no_bvh_traversal", "bvh_traversal", "bvh_sphere_tracing", "bvh_analytic", "bvh_newton", "bvh_bboxes"};
+    std::vector<std::string> names = {"bvh_sphere_tracing", "bvh_analytic", "bvh_newton", "bvh_bboxes"};
 
-    for (int i=0; i<presets_ob.size(); i++)
+    for (int i=0; i<presets_oi.size(); i++)
     {
       MultiRenderPreset preset = getDefaultPreset();
-      preset.mode = MULTI_RENDER_MODE_PHONG_NO_TEX;
-      preset.sdf_frame_octree_blas = presets_ob[i];
-      preset.sdf_frame_octree_intersect = presets_oi[i];
+      preset.render_mode = MULTI_RENDER_MODE_PHONG_NO_TEX;
+      preset.sdf_node_intersect = presets_oi[i];
 
       auto pRender = CreateMultiRenderer("GPU");
       pRender->SetPreset(preset);
@@ -145,9 +133,8 @@ void litert_test_2_SVS()
 void litert_test_3_SBS_verify()
 {
   MultiRenderPreset preset = getDefaultPreset();
-  preset.mode = MULTI_RENDER_MODE_LINEAR_DEPTH;
-  preset.sdf_frame_octree_blas = SDF_OCTREE_BLAS_DEFAULT;
-  preset.sdf_frame_octree_intersect = SDF_OCTREE_NODE_INTERSECT_ST;
+  preset.render_mode = MULTI_RENDER_MODE_LINEAR_DEPTH;
+  preset.sdf_node_intersect = SDF_OCTREE_NODE_INTERSECT_ST;
 
   auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path+"scenes/01_simple_scenes/data/teapot.vsgf").c_str());
   cmesh4::rescale_mesh(mesh, float3(-0.9, -0.9, -0.9), float3(0.9, 0.9, 0.9));
@@ -296,9 +283,8 @@ void litert_test_4_hydra_scene()
   unsigned W = 2048, H = 2048;
 
   MultiRenderPreset preset = getDefaultPreset();
-  preset.mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
-  preset.sdf_frame_octree_blas = SDF_OCTREE_BLAS_DEFAULT;
-  preset.sdf_frame_octree_intersect = SDF_OCTREE_NODE_INTERSECT_ANALYTIC;
+  preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
+  preset.sdf_node_intersect = SDF_OCTREE_NODE_INTERSECT_ANALYTIC;
   LiteImage::Image2D<uint32_t> image(W, H);
   LiteImage::Image2D<uint32_t> ref_image(W, H);
 
@@ -344,9 +330,9 @@ void litert_test_5_interval_tracing()
 
   MultiRenderPreset preset_ref = getDefaultPreset();
   MultiRenderPreset preset_1 = getDefaultPreset();
-  preset_1.sdf_frame_octree_intersect = SDF_OCTREE_NODE_INTERSECT_ST;
+  preset_1.sdf_node_intersect = SDF_OCTREE_NODE_INTERSECT_ST;
   MultiRenderPreset preset_2 = getDefaultPreset();
-  preset_2.sdf_frame_octree_intersect = SDF_OCTREE_NODE_INTERSECT_IT;
+  preset_2.sdf_node_intersect = SDF_OCTREE_NODE_INTERSECT_IT;
   LiteImage::Image2D<uint32_t> image_1(W, H);
   LiteImage::Image2D<uint32_t> image_2(W, H);
   LiteImage::Image2D<uint32_t> ref_image(W, H);
@@ -399,9 +385,9 @@ void litert_test_6_faster_bvh_build()
 
   MultiRenderPreset preset_ref = getDefaultPreset();
   MultiRenderPreset preset_1 = getDefaultPreset();
-  preset_1.sdf_frame_octree_intersect = SDF_OCTREE_NODE_INTERSECT_NEWTON;
+  preset_1.sdf_node_intersect = SDF_OCTREE_NODE_INTERSECT_NEWTON;
   MultiRenderPreset preset_2 = getDefaultPreset();
-  preset_2.sdf_frame_octree_intersect = SDF_OCTREE_NODE_INTERSECT_NEWTON;
+  preset_2.sdf_node_intersect = SDF_OCTREE_NODE_INTERSECT_NEWTON;
   LiteImage::Image2D<uint32_t> image_1(W, H);
   LiteImage::Image2D<uint32_t> image_2(W, H);
   LiteImage::Image2D<uint32_t> ref_image(W, H);
@@ -461,7 +447,7 @@ void test_7_neural_SDF()
   unsigned W = 1024, H = 1024;
 
   MultiRenderPreset preset_1 = getDefaultPreset();
-  preset_1.mode = MULTI_RENDER_MODE_LINEAR_DEPTH;
+  preset_1.render_mode = MULTI_RENDER_MODE_LINEAR_DEPTH;
 
   LiteImage::Image2D<uint32_t> image_1(W, H);
   LiteImage::Image2D<uint32_t> image_2(W, H);
@@ -565,9 +551,8 @@ void litert_test_8_SDF_grid()
   unsigned W = 2048, H = 2048;
 
   MultiRenderPreset preset = getDefaultPreset();
-  preset.mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
-  preset.sdf_frame_octree_blas = SDF_OCTREE_BLAS_DEFAULT;
-  preset.sdf_frame_octree_intersect = SDF_OCTREE_NODE_INTERSECT_ANALYTIC;
+  preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
+  preset.sdf_node_intersect = SDF_OCTREE_NODE_INTERSECT_ANALYTIC;
   LiteImage::Image2D<uint32_t> image(W, H);
   LiteImage::Image2D<uint32_t> ref_image(W, H);
 
@@ -672,7 +657,7 @@ void litert_test_10_save_load()
 
   unsigned W = 1024, H = 1024;
   MultiRenderPreset preset = getDefaultPreset();
-  preset.mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
+  preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
   preset.sdf_octree_sampler = SDF_OCTREE_SAMPLER_MIPSKIP_3X3;
 
   LiteImage::Image2D<uint32_t> image_ref(W, H);
@@ -790,7 +775,7 @@ void litert_test_12_hp_octree_render()
   unsigned W = 1024, H = 1024;
 
   MultiRenderPreset preset = getDefaultPreset();
-  //preset.sdf_frame_octree_intersect = SDF_OCTREE_NODE_INTERSECT_BBOX;
+  //preset.sdf_node_intersect = SDF_OCTREE_NODE_INTERSECT_BBOX;
   LiteImage::Image2D<uint32_t> image(W, H);
   LiteImage::Image2D<uint32_t> ref_image(W, H);
 
@@ -848,7 +833,7 @@ void litert_test_13_hp_octree_build()
   unsigned W = 1024, H = 1024;
 
   MultiRenderPreset preset = getDefaultPreset();
-  //preset.sdf_frame_octree_intersect = SDF_OCTREE_NODE_INTERSECT_BBOX;
+  //preset.sdf_node_intersect = SDF_OCTREE_NODE_INTERSECT_BBOX;
   LiteImage::Image2D<uint32_t> image(W, H);
   LiteImage::Image2D<uint32_t> image_l(W, H);
   LiteImage::Image2D<uint32_t> image_limited(W, H);
@@ -944,7 +929,7 @@ void litert_test_14_octree_nodes_removal()
 
   unsigned W = 1024, H = 1024;
   MultiRenderPreset preset = getDefaultPreset();
-  preset.mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
+  preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
   preset.sdf_octree_sampler = SDF_OCTREE_SAMPLER_MIPSKIP_3X3;
   LiteImage::Image2D<uint32_t> image_1(W, H);
   LiteImage::Image2D<uint32_t> image_2(W, H);
@@ -1028,7 +1013,7 @@ void litert_test_15_frame_octree_nodes_removal()
 
   unsigned W = 1024, H = 1024;
   MultiRenderPreset preset = getDefaultPreset();
-  preset.mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
+  preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
   preset.sdf_octree_sampler = SDF_OCTREE_SAMPLER_MIPSKIP_3X3;
   LiteImage::Image2D<uint32_t> image_1(W, H);
   LiteImage::Image2D<uint32_t> image_2(W, H);
@@ -1115,7 +1100,7 @@ void litert_test_16_SVS_nodes_removal()
 
   unsigned W = 1024, H = 1024;
   MultiRenderPreset preset = getDefaultPreset();
-  preset.mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
+  preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
   preset.sdf_octree_sampler = SDF_OCTREE_SAMPLER_MIPSKIP_3X3;
   LiteImage::Image2D<uint32_t> image_1(W, H);
   LiteImage::Image2D<uint32_t> image_2(W, H);
@@ -1174,7 +1159,7 @@ void litert_test_17_all_types_sanity_check()
 
   unsigned W = 512, H = 512;
   MultiRenderPreset preset = getDefaultPreset();
-  preset.mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
+  preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
 
   LiteImage::Image2D<uint32_t> image_ref(W, H);
   LiteImage::Image2D<uint32_t> image_1(W, H);
@@ -1502,7 +1487,7 @@ void litert_test_20_radiance_fields()
   unsigned W = 1024, H = 1024;
 
   MultiRenderPreset preset = getDefaultPreset();
-  preset.mode = MULTI_RENDER_MODE_RF;
+  preset.render_mode = MULTI_RENDER_MODE_RF;
   LiteImage::Image2D<uint32_t> image(W, H);
 
   auto pRender = CreateMultiRenderer("GPU");
@@ -1513,15 +1498,15 @@ void litert_test_20_radiance_fields()
   auto m1 = pRender->getWorldView();
   auto m2 = pRender->getProj();
 
-  preset.mode = MULTI_RENDER_MODE_RF;
+  preset.render_mode = MULTI_RENDER_MODE_RF;
   pRender->Render(image.data(), image.width(), image.height(), m1, m2, preset);
   LiteImage::SaveImage<uint32_t>("saves/test_20_rf.bmp", image); 
 
-  preset.mode = MULTI_RENDER_MODE_RF_DENSITY;
+  preset.render_mode = MULTI_RENDER_MODE_RF_DENSITY;
   pRender->Render(image.data(), image.width(), image.height(), m1, m2, preset);
   LiteImage::SaveImage<uint32_t>("saves/test_20_rf_density.bmp", image); 
 
-  preset.mode = MULTI_RENDER_MODE_LINEAR_DEPTH;
+  preset.render_mode = MULTI_RENDER_MODE_LINEAR_DEPTH;
   pRender->Render(image.data(), image.width(), image.height(), m1, m2, preset);
   LiteImage::SaveImage<uint32_t>("saves/test_20_depth.bmp", image); 
 }
@@ -1576,7 +1561,7 @@ void litert_test_21_rf_to_mesh()
 
   {
     preset = getDefaultPreset();
-    preset.mode = MULTI_RENDER_MODE_RF;
+    preset.render_mode = MULTI_RENDER_MODE_RF;
 
     auto pRender = CreateMultiRenderer("GPU");
     pRender->SetPreset(preset);
@@ -1786,7 +1771,7 @@ void litert_test_23_textured_sdf()
     render(image, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
   }
 
-  preset.mode = MULTI_RENDER_MODE_TEX_COORDS;
+  preset.render_mode = MULTI_RENDER_MODE_TEX_COORDS;
   {
     auto pRender = CreateMultiRenderer("GPU");
     pRender->SetPreset(preset);
@@ -1805,7 +1790,7 @@ void litert_test_23_textured_sdf()
 
   LiteImage::Image2D<float4> texture = LiteImage::LoadImage<float4>("scenes/porcelain.png");
 
-  preset.mode = MULTI_RENDER_MODE_LAMBERT;
+  preset.render_mode = MULTI_RENDER_MODE_LAMBERT;
   {
     auto pRender = CreateMultiRenderer("GPU");
     pRender->SetPreset(preset);
@@ -1888,7 +1873,7 @@ void litert_test_24_demo_meshes()
 
   MultiRenderPreset preset = getDefaultPreset();
   preset.mesh_normal_mode = MESH_NORMAL_MODE_VERTEX;
-  preset.mode = MULTI_RENDER_MODE_LAMBERT;
+  preset.render_mode = MULTI_RENDER_MODE_LAMBERT;
 
   LiteImage::Image2D<uint32_t> image(W, H);
   LiteImage::Image2D<uint32_t> ref_image(W, H);

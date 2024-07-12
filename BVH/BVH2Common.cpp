@@ -25,11 +25,11 @@ void DeleteSceneRT(ISceneObject* a_pScene)
 
 bool BVHRT::need_normal()
 {
-  return m_preset.mode == MULTI_RENDER_MODE_LAMBERT_NO_TEX || 
-         m_preset.mode == MULTI_RENDER_MODE_NORMAL  ||
-         m_preset.mode == MULTI_RENDER_MODE_PHONG_NO_TEX ||
-         m_preset.mode == MULTI_RENDER_MODE_LAMBERT ||
-         m_preset.mode == MULTI_RENDER_MODE_PHONG;
+  return m_preset.render_mode == MULTI_RENDER_MODE_LAMBERT_NO_TEX || 
+         m_preset.render_mode == MULTI_RENDER_MODE_NORMAL  ||
+         m_preset.render_mode == MULTI_RENDER_MODE_PHONG_NO_TEX ||
+         m_preset.render_mode == MULTI_RENDER_MODE_LAMBERT ||
+         m_preset.render_mode == MULTI_RENDER_MODE_PHONG;
 }
 
 float2 BVHRT::box_intersects(const float3 &min_pos, const float3 &max_pos, const float3 &origin, const float3 &dir)
@@ -146,12 +146,6 @@ void BVHRT::IntersectAllPrimitivesInLeaf(const float3 ray_pos, const float3 ray_
   case TYPE_SDF_OCTREE:
     IntersectAllSdfsInLeaf(ray_pos, ray_dir, tNearSdf, instId, geomId, a_start, a_count, pHit);
     break;
-  case TYPE_SDF_FRAME_OCTREE:
-    if (m_preset.sdf_frame_octree_intersect == SDF_OCTREE_NODE_INTERSECT_DEFAULT)
-      IntersectAllSdfsInLeaf(ray_pos, ray_dir, tNearSdf, instId, geomId, a_start, a_count, pHit);
-    else
-      OctreeNodeIntersect(type, ray_pos, ray_dir, tNearSdf, instId, geomId, a_start, a_count, pHit);
-    break;
 #ifndef DISABLE_RF_GRID
   case TYPE_RF_GRID:
     IntersectRFInLeaf(ray_pos, ray_dir, tNear, instId, geomId, a_start, a_count, pHit);
@@ -164,6 +158,7 @@ void BVHRT::IntersectAllPrimitivesInLeaf(const float3 ray_pos, const float3 ray_
 #endif
   case TYPE_SDF_SVS:
   case TYPE_SDF_SBS:
+  case TYPE_SDF_FRAME_OCTREE:
   case TYPE_SDF_FRAME_OCTREE_TEX:
     OctreeNodeIntersect(type, ray_pos, ray_dir, tNearSdf, instId, geomId, a_start, a_count, pHit);
     break;
@@ -324,11 +319,11 @@ void BVHRT::OctreeNodeIntersect(uint32_t type, const float3 ray_pos, const float
   unsigned iter = 0;
 
   float start_dist = eval_dist_trilinear(values, start_q + t * ray_dir);
-  if (start_dist <= EPS || m_preset.sdf_frame_octree_intersect == SDF_OCTREE_NODE_INTERSECT_BBOX)
+  if (start_dist <= EPS || m_preset.sdf_node_intersect == SDF_OCTREE_NODE_INTERSECT_BBOX)
   {
     hit = true;
   }
-  else if (m_preset.sdf_frame_octree_intersect == SDF_OCTREE_NODE_INTERSECT_ST)
+  else if (m_preset.sdf_node_intersect == SDF_OCTREE_NODE_INTERSECT_ST)
   {
     const unsigned ST_max_iters = 256;
     float dist = start_dist;
@@ -343,9 +338,9 @@ void BVHRT::OctreeNodeIntersect(uint32_t type, const float3 ray_pos, const float
     }
     hit = (dist <= EPS);
   }
-  else //if (m_preset.sdf_frame_octree_intersect == SDF_OCTREE_NODE_INTERSECT_ANALYTIC ||
-       //    m_preset.sdf_frame_octree_intersect == SDF_OCTREE_NODE_INTERSECT_NEWTON ||
-       //    m_preset.sdf_frame_octree_intersect == SDF_OCTREE_NODE_INTERSECT_IT)
+  else //if (m_preset.sdf_node_intersect == SDF_OCTREE_NODE_INTERSECT_ANALYTIC ||
+       //    m_preset.sdf_node_intersect == SDF_OCTREE_NODE_INTERSECT_NEWTON ||
+       //    m_preset.sdf_node_intersect == SDF_OCTREE_NODE_INTERSECT_IT)
   {
     //finding exact intersection between surface sdf(x,y,z) = 0 and ray
     // based on paper "Ray Tracing of Signed Distance Function Grids, 
@@ -392,7 +387,7 @@ void BVHRT::OctreeNodeIntersect(uint32_t type, const float3 ray_pos, const float
     // solve this equation analytically or numerically using the Newton's method
     // see "Numerical Recipes - The Art of Scientific Computing - 3rd Edition" for details
 
-    if (m_preset.sdf_frame_octree_intersect == SDF_OCTREE_NODE_INTERSECT_ANALYTIC)
+    if (m_preset.sdf_node_intersect == SDF_OCTREE_NODE_INTERSECT_ANALYTIC)
     {
       float x1 = 1000;
       float x2 = 1000;
@@ -462,7 +457,7 @@ void BVHRT::OctreeNodeIntersect(uint32_t type, const float3 ray_pos, const float
       t = std::min(x1, std::min(x2,x3));
       hit = (t >= 0 && t <= qFar);
     }
-    else if (m_preset.sdf_frame_octree_intersect == SDF_OCTREE_NODE_INTERSECT_NEWTON)
+    else if (m_preset.sdf_node_intersect == SDF_OCTREE_NODE_INTERSECT_NEWTON)
     {
       // our polynom is c3*t^3 + c2*t^2 + c1*t + c0 = 0;
       // it's derivative is  3*c3*t^2 + 2*c2*t + c1 = 0; 
@@ -547,7 +542,7 @@ void BVHRT::OctreeNodeIntersect(uint32_t type, const float3 ray_pos, const float
       //if (prev_hit && std::abs(t - nt) > 0.1)
       //  printf("%f-%f -- %f %f %f %f -- %f -- %f %f %f %f %d %d %d %d\n",t, nt, c3,c2,c1,c0, rtn, t0, t1, t2, t3, s0, s1, s2, s3);
     }
-    else //if (m_preset.sdf_frame_octree_intersect == SDF_OCTREE_NODE_INTERSECT_IT)
+    else //if (m_preset.sdf_node_intersect == SDF_OCTREE_NODE_INTERSECT_IT)
     {
       const unsigned IT_max_iters = 256;
       const float k = 2;
@@ -624,7 +619,7 @@ void BVHRT::OctreeNodeIntersect(uint32_t type, const float3 ray_pos, const float
     pHit->coords[2] = norm.x;
     pHit->coords[3] = norm.y;
 
-    if (m_preset.mode == MULTI_RENDER_MODE_SPHERE_TRACE_ITERATIONS)
+    if (m_preset.render_mode == MULTI_RENDER_MODE_ST_ITERATIONS)
       pHit->primId = iter;
     
   #ifndef DISABLE_SDF_FRAME_OCTREE_TEX
@@ -695,19 +690,9 @@ void BVHRT::IntersectAllSdfsInLeaf(const float3 ray_pos, const float3 ray_dir,
 #ifndef DISABLE_SDF_FRAME_OCTREE
   case TYPE_SDF_FRAME_OCTREE:
     sdfId =  m_geomData[geomId].offset.x;
-
-    if (m_preset.sdf_frame_octree_blas == SDF_OCTREE_BLAS_NO)
-    {
-      primId = 0;
-      min_pos = float3(-1,-1,-1);
-      max_pos = float3( 1, 1, 1);
-    }
-    else if (m_preset.sdf_frame_octree_blas == SDF_OCTREE_BLAS_DEFAULT)
-    {
-      primId = m_origNodes[a_start].leftOffset;
-      min_pos = m_origNodes[a_start].boxMin;
-      max_pos = m_origNodes[a_start].boxMax;
-    }
+    primId = m_origNodes[a_start].leftOffset;
+    min_pos = m_origNodes[a_start].boxMin;
+    max_pos = m_origNodes[a_start].boxMax;
     break;
 #endif
   default:
@@ -732,7 +717,7 @@ void BVHRT::IntersectAllSdfsInLeaf(const float3 ray_pos, const float3 ray_dir,
       pHit->coords[2] = n.x;
       pHit->coords[3] = n.y;
 
-      if (m_preset.mode == MULTI_RENDER_MODE_SPHERE_TRACE_ITERATIONS)
+      if (m_preset.render_mode == MULTI_RENDER_MODE_ST_ITERATIONS)
         pHit->primId = uint32_t(hit.hit_norm.w);
     }
   }
@@ -844,11 +829,11 @@ void BVHRT::PolynomialOctreeNodeIntersect(uint32_t type, const float3 ray_pos, c
   unsigned iter = 0;
 
   float start_dist = eval_dist_hp_polynomials(depth, degree, data_offset, start_q + t * ray_dir);
-  if (start_dist <= EPS || m_preset.sdf_frame_octree_intersect == SDF_OCTREE_NODE_INTERSECT_BBOX)
+  if (start_dist <= EPS || m_preset.sdf_node_intersect == SDF_OCTREE_NODE_INTERSECT_BBOX)
   {
     hit = true;
   }
-  else //if (m_preset.sdf_frame_octree_intersect == SDF_OCTREE_NODE_INTERSECT_ST)
+  else //if (m_preset.sdf_node_intersect == SDF_OCTREE_NODE_INTERSECT_ST)
   {
     const unsigned ST_max_iters = 256;
     float dist = start_dist;
@@ -907,7 +892,7 @@ void BVHRT::PolynomialOctreeNodeIntersect(uint32_t type, const float3 ray_pos, c
     pHit->coords[2] = norm.x;
     pHit->coords[3] = norm.y;
 
-    if (m_preset.mode == MULTI_RENDER_MODE_SPHERE_TRACE_ITERATIONS)
+    if (m_preset.render_mode == MULTI_RENDER_MODE_ST_ITERATIONS)
       pHit->primId = iter;
   }
 }

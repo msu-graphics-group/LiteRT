@@ -1052,25 +1052,7 @@ void add_border_nodes_rec(const SdfFrameOctreeView &octree, std::vector<BVHNode>
 std::vector<BVHNode> BVHRT::GetBoxes_SdfFrameOctree(SdfFrameOctreeView octree)
 {
   std::vector<BVHNode> nodes;
-  /*  nodes.resize(2);
-  nodes[0].boxMin = float3(-1,-1,-1);
-  nodes[0].boxMax = float3(1,1,0);
-  nodes[1].boxMin = float3(-1,-1,0);
-  nodes[1].boxMax = float3(1,1,1);
-  return nodes;*/
-  if (m_preset.sdf_frame_octree_blas == SDF_OCTREE_BLAS_NO)
-  {
-    nodes.resize(2);
-    nodes[0].boxMin = float3(-1,-1,-1);
-    nodes[0].boxMax = float3(1,1,0);
-    nodes[1].boxMin = float3(-1,-1,0);
-    nodes[1].boxMax = float3(1,1,1);
-  }
-  else if (m_preset.sdf_frame_octree_blas == SDF_OCTREE_BLAS_DEFAULT)
-  {
-    add_border_nodes_rec(octree, nodes, 0, float3(0,0,0), 1);
-  }
-
+  add_border_nodes_rec(octree, nodes, 0, float3(0,0,0), 1);
   return nodes;
 }
 
@@ -1114,16 +1096,7 @@ void add_border_nodes_rec(const SdfFrameOctreeTexView &octree, std::vector<BVHNo
 std::vector<BVHNode> BVHRT::GetBoxes_SdfFrameOctreeTex(SdfFrameOctreeTexView octree)
 {
   std::vector<BVHNode> nodes;
-  if (m_preset.sdf_frame_octree_blas == SDF_OCTREE_BLAS_NO)
-  {
-    nodes.resize(2);
-    nodes[0].boxMin = float3(-1,-1,-1);
-    nodes[0].boxMax = float3(1,1,0);
-    nodes[1].boxMin = float3(-1,-1,0);
-    nodes[1].boxMax = float3(1,1,1);
-  }
-  else if (m_preset.sdf_frame_octree_blas == SDF_OCTREE_BLAS_DEFAULT)
-    add_border_nodes_rec(octree, nodes, 0, float3(0,0,0), 1);
+  add_border_nodes_rec(octree, nodes, 0, float3(0,0,0), 1);
 
   return nodes;
 }

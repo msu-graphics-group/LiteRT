@@ -107,7 +107,7 @@ float4 MultiRenderer::kernel_RayTrace(uint32_t tidX, const float4* rayPosAndNear
     // const uint2 a_geomOffsets = m_pAccelStruct-> m_geomData[geomId].offset;
   }
 
-  switch (m_preset.mode)
+  switch (m_preset.render_mode)
   {
   case MULTI_RENDER_MODE_MASK:
     res_color = float4(1, 1, 1, 1);
@@ -175,7 +175,7 @@ float4 MultiRenderer::kernel_RayTrace(uint32_t tidX, const float4* rayPosAndNear
   }
   break;
 
-  case MULTI_RENDER_MODE_SPHERE_TRACE_ITERATIONS:
+  case MULTI_RENDER_MODE_ST_ITERATIONS:
   {
     if (hit.primId == 0)
     {
