@@ -165,6 +165,9 @@ void BVHRT::IntersectAllPrimitivesInLeaf(const float3 ray_pos, const float3 ray_
   case TYPE_SDF_HP:
     PolynomialOctreeNodeIntersect(type, ray_pos, ray_dir, tNearSdf, instId, geomId, a_start, a_count, pHit);
     break;
+  case TYPE_SDF_SBS_SINGLE_NODE:
+    OctreeBrickIntersect(type, ray_pos, ray_dir, tNearSdf, instId, geomId, a_start, a_count, pHit);
+    break;
   default:
     break;
   }
@@ -668,6 +671,75 @@ void BVHRT::OctreeNodeIntersect(uint32_t type, const float3 ray_pos, const float
   
   LocalSurfaceIntersection(type, ray_dir, instId, geomId, values, nodeId, primId, d, qNear, qFar, fNearFar, start_q, /*in */
                            pHit); /*out*/
+}
+
+void BVHRT::OctreeBrickIntersect(uint32_t type, const float3 ray_pos, const float3 ray_dir,
+                                 float tNear, uint32_t instId, uint32_t geomId,
+                                 uint32_t bvhNodeId, uint32_t a_count,
+                                 CRT_Hit *pHit)
+{
+  float values[8];
+  uint32_t nodeId, primId;
+  float d, qNear, qFar;
+  float2 fNearFar;
+  float3 start_q;
+
+  qNear = 1.0f;
+
+  uint32_t sdfId =  m_geomData[geomId].offset.x;
+  primId = bvhNodeId; //id of bbox in BLAS
+  nodeId = primId + m_SdfSBSRoots[sdfId];
+  SdfSBSHeader header = m_SdfSBSHeaders[sdfId];
+
+  float px = m_SdfSBSNodes[nodeId].pos_xy >> 16;
+  float py = m_SdfSBSNodes[nodeId].pos_xy & 0x0000FFFF;
+  float pz = m_SdfSBSNodes[nodeId].pos_z_lod_size >> 16;
+  float sz = m_SdfSBSNodes[nodeId].pos_z_lod_size & 0x0000FFFF;
+
+  float3 brick_min_pos = float3(-1,-1,-1) + 2.0f*(float3(px,py,pz)/sz);
+  float3 brick_max_pos = brick_min_pos + 2.0f*float3(1,1,1)/sz;
+  float3 brick_size = brick_max_pos - brick_min_pos;
+
+  float2 brick_fNearFar = RayBoxIntersection2(ray_pos, SafeInverse(ray_dir), brick_min_pos, brick_max_pos);
+  while (brick_fNearFar.x < brick_fNearFar.y)
+  {
+    float3 hit_pos = ray_pos + brick_fNearFar.x*ray_dir;
+    float3 local_pos = (hit_pos - brick_min_pos) / (2.0f/(sz*header.brick_size));
+    uint3 voxelPos = uint3(floor(clamp(local_pos, 1e-6f, header.brick_size-1e-6f)));
+
+    float3 min_pos = float3(-1,-1,-1) + 2.0f*(float3(px,py,pz)/sz + float3(voxelPos)/(sz*header.brick_size));
+    float3 max_pos = min_pos + 2.0f*float3(1,1,1)/(sz*header.brick_size);
+    float3 size = max_pos - min_pos;
+
+    //TODO: make it works with brick_size > 1
+    uint32_t v_off = m_SdfSBSNodes[nodeId].data_offset;
+    uint32_t vals_per_int = 4/header.bytes_per_value; 
+    uint32_t bits = 8*header.bytes_per_value;
+    uint32_t max_val = header.bytes_per_value == 4 ? 0xFFFFFFFF : ((1 << bits) - 1);
+    float d_max = 2*1.41421356f/sz;
+    float mult = 2*d_max/max_val;
+    for (int i=0;i<8;i++)
+    {
+      uint3 vPos = voxelPos + uint3((i & 4) >> 2, (i & 2) >> 1, i & 1);
+      uint32_t vId = vPos.x*header.v_size*header.v_size + vPos.y*header.v_size + vPos.z;
+      values[i] = -d_max + mult*((m_SdfSBSData[v_off + vId/vals_per_int] >> (bits*(vId%vals_per_int))) & max_val);
+    }
+
+    fNearFar = RayBoxIntersection2(ray_pos, SafeInverse(ray_dir), min_pos, max_pos);
+    float3 start_pos = ray_pos + fNearFar.x*ray_dir;
+    d = std::max(size.x, std::max(size.y, size.z));
+    start_q = (start_pos - min_pos) / d;
+    qFar = (fNearFar.y - fNearFar.x) / d;
+    qNear = tNear > fNearFar.x ? (tNear - fNearFar.x) / d : 0.0f;
+
+    if (qNear > 0.0f) 
+      continue;
+  
+    LocalSurfaceIntersection(type, ray_dir, instId, geomId, values, nodeId, primId, d, qNear, qFar, fNearFar, start_q, /*in */
+                             pHit); /*out*/
+
+    brick_fNearFar.x += std::max(0.0f, fNearFar.y-brick_fNearFar.x) + 1e-6f;
+  }
 }
 
 void BVHRT::IntersectAllSdfsInLeaf(const float3 ray_pos, const float3 ray_dir,

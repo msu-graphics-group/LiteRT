@@ -191,6 +191,11 @@ struct BVHRT : public ISceneObject
                                 float qFar, float2 fNearFar, float3 start_q,
                                 CRT_Hit *pHit);
   
+  void OctreeBrickIntersect(uint32_t type, const float3 ray_pos, const float3 ray_dir,
+                            float tNear, uint32_t instId, uint32_t geomId,
+                            uint32_t a_start, uint32_t a_count,
+                            CRT_Hit *pHit);
+
   void PolynomialOctreeNodeIntersect(uint32_t type, const float3 ray_pos, const float3 ray_dir,
                                      float tNear, uint32_t instId, uint32_t geomId,
                                      uint32_t a_start, uint32_t a_count,
