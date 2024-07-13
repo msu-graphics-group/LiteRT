@@ -52,7 +52,7 @@ static constexpr unsigned MESH_NORMAL_MODE_VERTEX   = 1; //vertex normal, smooth
 
 struct MultiRenderPreset
 {
-  unsigned render_mode;               //enum MultiRenderMode
+  unsigned render_mode;        //enum MultiRenderMode
   unsigned sdf_octree_sampler; //enum SdfOctreeSampler
   unsigned sdf_node_intersect; //enum SdfNodeIntersect
   unsigned mesh_normal_mode;   //enum MeshNormalMode

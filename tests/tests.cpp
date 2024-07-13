@@ -2012,6 +2012,46 @@ void litert_test_25_float_images()
     printf("FAILED, psnr = %f\n", psnr);
 }
 
+void litert_test_26_sbs_shallow_bvh()
+{
+  auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "scenes/01_simple_scenes/data/bunny.vsgf").c_str());
+  cmesh4::normalize_mesh(mesh);
+  unsigned W = 2048, H = 2048;
+
+  MultiRenderPreset preset = getDefaultPreset();
+  LiteImage::Image2D<uint32_t> image(W, H);
+  LiteImage::Image2D<uint32_t> ref_image(W, H);
+
+  {
+    auto pRender = CreateMultiRenderer("GPU");
+    pRender->SetPreset(preset);
+    pRender->SetViewport(0,0,W,H);
+    pRender->SetScene(mesh);
+    render(ref_image, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+    LiteImage::SaveImage<uint32_t>("saves/test_26_ref.bmp", ref_image);
+  }
+
+  for (int brick_size = 1; brick_size < 8; brick_size++)
+  {
+    SdfSBSHeader header;
+    header.brick_size = brick_size;
+    header.brick_pad = 0;
+    header.bytes_per_value = 2;
+
+    auto sbs = sdf_converter::create_sdf_SBS(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 5), header, mesh);
+
+    auto pRender = CreateMultiRenderer("GPU");
+    pRender->SetPreset(preset);
+    pRender->SetViewport(0,0,W,H);
+    pRender->SetScene(sbs);
+    render(image, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+    LiteImage::SaveImage<uint32_t>(("saves/test_26_sbs_"+std::to_string(brick_size)+".bmp").c_str(), image); 
+
+    float psnr = image_metrics::PSNR(ref_image, image);
+    printf("SBS testing: brick size = %dx%dx%d, psnr = %f\n", brick_size+1, brick_size+1, brick_size+1, psnr);
+  }
+}
+
 
 void perform_tests_litert(const std::vector<int> &test_ids)
 {
@@ -2027,7 +2067,7 @@ void perform_tests_litert(const std::vector<int> &test_ids)
       litert_test_17_all_types_sanity_check, litert_test_18_mesh_normalization,
       litert_test_19_marching_cubes, litert_test_20_radiance_fields, litert_test_21_rf_to_mesh,
       litert_test_22_sdf_grid_smoothing, litert_test_23_textured_sdf, litert_test_24_demo_meshes,
-      litert_test_25_float_images};
+      litert_test_25_float_images, litert_test_26_sbs_shallow_bvh};
 
   if (tests.empty())
   {
