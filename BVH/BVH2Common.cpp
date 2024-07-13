@@ -182,30 +182,24 @@ float BVHRT::eval_dist_trilinear(const float values[8], float3 dp)
          (  dp.x)*(  dp.y)*(  dp.z)*values[7];
 }
 
-void BVHRT::OctreeNodeIntersect(uint32_t type, const float3 ray_pos, const float3 ray_dir,
-                                float tNear, uint32_t instId, uint32_t geomId,
-                                uint32_t a_start, uint32_t a_count,
-                                CRT_Hit *pHit)
+//intersects ray with the particular leaf node of SDF strcuture
+//it reqires a 1-to-1 mapping between leaf nodes of SDF and BVH
+//like in frame octree, SVS and SBS with multiple BVH nodes per brick
+void BVHRT::RayNodeIntersection(uint32_t type, const float3 ray_pos, const float3 ray_dir, 
+                                float tNear, uint32_t geomId, uint32_t bvhNodeId, 
+                                float values[8], uint32_t &primId, uint32_t &nodeId, float &d, 
+                                float &qNear, float &qFar, float2 &fNearFar, float3 &start_q)
 {
-  const float EPS = 1e-6;
-
-  float values[8];
-  uint32_t nodeId, primId;
-  float d, qNear, qFar;
-  float2 fNearFar;
-  float3 start_q;
   float3 min_pos, max_pos;
-
-  qNear = 1.0f;
 
   if (type == TYPE_SDF_FRAME_OCTREE)
   {
 #ifndef DISABLE_SDF_FRAME_OCTREE
     uint32_t sdfId =  m_geomData[geomId].offset.x;
-    primId = m_origNodes[a_start].leftOffset;
+    primId = m_origNodes[bvhNodeId].leftOffset;
     nodeId = primId + m_SdfFrameOctreeRoots[sdfId];
-    min_pos = m_origNodes[a_start].boxMin;
-    max_pos = m_origNodes[a_start].boxMax;
+    min_pos = m_origNodes[bvhNodeId].boxMin;
+    max_pos = m_origNodes[bvhNodeId].boxMax;
     float3 size = max_pos - min_pos;
 
     for (int i=0;i<8;i++)
@@ -223,10 +217,10 @@ void BVHRT::OctreeNodeIntersect(uint32_t type, const float3 ray_pos, const float
   {
 #ifndef DISABLE_SDF_FRAME_OCTREE_TEX
     uint32_t sdfId =  m_geomData[geomId].offset.x;
-    primId = m_origNodes[a_start].leftOffset;
+    primId = m_origNodes[bvhNodeId].leftOffset;
     nodeId = primId + m_SdfFrameOctreeTexRoots[sdfId];
-    min_pos = m_origNodes[a_start].boxMin;
-    max_pos = m_origNodes[a_start].boxMax;
+    min_pos = m_origNodes[bvhNodeId].boxMin;
+    max_pos = m_origNodes[bvhNodeId].boxMax;
     float3 size = max_pos - min_pos;
 
     for (int i=0;i<8;i++)
@@ -244,7 +238,7 @@ void BVHRT::OctreeNodeIntersect(uint32_t type, const float3 ray_pos, const float
   {
 #ifndef DISABLE_SDF_SVS
     uint32_t sdfId =  m_geomData[geomId].offset.x;
-    primId = a_start;
+    primId = bvhNodeId;
     nodeId = primId + m_SdfSVSRoots[sdfId];
 
     float px = m_SdfSVSNodes[nodeId].pos_xy >> 16;
@@ -272,7 +266,7 @@ void BVHRT::OctreeNodeIntersect(uint32_t type, const float3 ray_pos, const float
   {
 #ifndef DISABLE_SDF_SBS
     uint32_t sdfId =  m_geomData[geomId].offset.x;
-    primId = a_start; //id of bbox in BLAS
+    primId = bvhNodeId; //id of bbox in BLAS
     nodeId = m_SdfSBSRemap[primId + m_geomData[geomId].offset.y].x; //id of node (brick) in SBS
     uint32_t voxelId = m_SdfSBSRemap[primId + m_geomData[geomId].offset.y].y;
     SdfSBSHeader header = m_SdfSBSHeaders[sdfId];
@@ -309,11 +303,14 @@ void BVHRT::OctreeNodeIntersect(uint32_t type, const float3 ray_pos, const float
     qNear = tNear > fNearFar.x ? (tNear - fNearFar.x) / d : 0.0f;
 #endif
   }
+}
 
-  //fast return if starting point in this exacat node or type is not supported
-  if (qNear > 0.0f) 
-    return;
-
+void BVHRT::LocalSurfaceIntersection(uint32_t type, const float3 ray_dir, uint32_t instId, uint32_t geomId,
+                                     float values[8], uint32_t nodeId, uint32_t primId, float d, float qNear, 
+                                     float qFar, float2 fNearFar, float3 start_q,
+                                     CRT_Hit *pHit)
+{
+  const float EPS = 1e-6f;
   float t = qNear;
   bool hit = false;
   unsigned iter = 0;
@@ -580,13 +577,13 @@ void BVHRT::OctreeNodeIntersect(uint32_t type, const float3 ray_pos, const float
   {
     printf("\n");
     printf("sdf type = %u\n", type);
-    printf("node bbox [(%f %f %f)-(%f %f %f)]\n", min_pos.x, min_pos.y, min_pos.z, max_pos.x, max_pos.y, max_pos.z);
+    //printf("node bbox [(%f %f %f)-(%f %f %f)]\n", min_pos.x, min_pos.y, min_pos.z, max_pos.x, max_pos.y, max_pos.z);
     printf("sdf values %f %f %f %f %f %f %f %f\n", 
            values[0], values[1], values[2], values[3],
            values[4], values[5], values[6], values[7]);
     printf("t = %f in [0, %f], tReal = %f in [%f %f]\n",t,qFar,tReal,fNearFar.x,fNearFar.y);
     printf("ray_dir = (%f %f %f)\n", ray_dir.x, ray_dir.y, ray_dir.z);
-    printf("ray_pos = (%f %f %f)\n", ray_pos.x, ray_pos.y, ray_pos.z);
+    //printf("ray_pos = (%f %f %f)\n", ray_pos.x, ray_pos.y, ray_pos.z);
     printf("\n");
   }
 #endif
@@ -647,6 +644,30 @@ void BVHRT::OctreeNodeIntersect(uint32_t type, const float3 ray_pos, const float
     }
   #endif
   }
+}
+
+void BVHRT::OctreeNodeIntersect(uint32_t type, const float3 ray_pos, const float3 ray_dir,
+                                float tNear, uint32_t instId, uint32_t geomId,
+                                uint32_t a_start, uint32_t a_count,
+                                CRT_Hit *pHit)
+{
+  float values[8];
+  uint32_t nodeId, primId;
+  float d, qNear, qFar;
+  float2 fNearFar;
+  float3 start_q;
+
+  qNear = 1.0f;
+
+  RayNodeIntersection(type, ray_pos, ray_dir, tNear, geomId, a_start, /*in */
+                      values, primId, nodeId, d, qNear, qFar, fNearFar, start_q); /*out*/
+
+  //fast return if starting point in this exact node or type is not supported
+  if (qNear > 0.0f) 
+    return;
+  
+  LocalSurfaceIntersection(type, ray_dir, instId, geomId, values, nodeId, primId, d, qNear, qFar, fNearFar, start_q, /*in */
+                           pHit); /*out*/
 }
 
 void BVHRT::IntersectAllSdfsInLeaf(const float3 ray_pos, const float3 ray_dir,
