@@ -337,11 +337,11 @@ void MultiRenderer::SetScene(SdfSVSView scene)
 }
 
 
-void MultiRenderer::SetScene(SdfSBSView scene)
+void MultiRenderer::SetScene(SdfSBSView scene, bool single_bvh_node)
 {
   SetPreset(m_preset);
   GetAccelStruct()->ClearGeom();
-  GetAccelStruct()->AddGeom_SdfSBS(scene);
+  GetAccelStruct()->AddGeom_SdfSBS(scene, single_bvh_node);
   GetAccelStruct()->ClearScene();
   GetAccelStruct()->AddInstance(0, LiteMath::float4x4());
   GetAccelStruct()->CommitScene();

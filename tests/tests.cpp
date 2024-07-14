@@ -2046,12 +2046,11 @@ void litert_test_26_sbs_shallow_bvh()
     for (int single_bvh_node=0;single_bvh_node<=1;single_bvh_node++)
     {
       std::string sb_name = single_bvh_node ? "sb" : "mb";
-      sbs.header.single_bvh_node = single_bvh_node;
 
       auto pRender = CreateMultiRenderer("GPU");
       pRender->SetPreset(preset);
       pRender->SetViewport(0,0,W,H);
-      pRender->SetScene(sbs);
+      pRender->SetScene(sbs, single_bvh_node);
       if (single_bvh_node == 0)
       {
         render(image_1, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);

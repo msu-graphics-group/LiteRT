@@ -90,7 +90,7 @@ struct ISceneObject
   virtual uint32_t AddGeom_SdfOctree(SdfOctreeView octree, BuildOptions a_qualityLevel = BUILD_HIGH) = 0;
   virtual uint32_t AddGeom_SdfFrameOctree(SdfFrameOctreeView octree, BuildOptions a_qualityLevel = BUILD_HIGH) = 0;
   virtual uint32_t AddGeom_SdfSVS(SdfSVSView octree, BuildOptions a_qualityLevel = BUILD_HIGH) = 0;
-  virtual uint32_t AddGeom_SdfSBS(SdfSBSView octree, BuildOptions a_qualityLevel = BUILD_HIGH) = 0;
+  virtual uint32_t AddGeom_SdfSBS(SdfSBSView octree, bool single_bvh_node = false, BuildOptions a_qualityLevel = BUILD_HIGH) = 0;
   virtual uint32_t AddGeom_SdfHpOctree(SdfHPOctreeView octree, BuildOptions a_qualityLevel = BUILD_HIGH) = 0;
 
   virtual uint32_t AddGeom_SdfFrameOctreeTex(SdfFrameOctreeTexView octree, BuildOptions a_qualityLevel = BUILD_HIGH) = 0;

@@ -521,12 +521,12 @@ uint32_t BVHRT::AddGeom_SdfSVS(SdfSVSView octree, BuildOptions a_qualityLevel)
   return m_geomData.size()-1;
 }
 
-uint32_t BVHRT::AddGeom_SdfSBS(SdfSBSView octree, BuildOptions a_qualityLevel)
+uint32_t BVHRT::AddGeom_SdfSBS(SdfSBSView octree, bool single_bvh_node, BuildOptions a_qualityLevel)
 {
   assert(octree.size > 0 && octree.values_count > 0);
   assert(octree.size < (1u<<28) && octree.values_count < (1u<<28));
 
-  bool is_single_node = octree.header.single_bvh_node;
+  bool is_single_node = single_bvh_node;
 
   //SDF octree is always a unit cube
   float4 mn = float4(-1,-1,-1,1);
