@@ -718,26 +718,29 @@ void BVHRT::OctreeBrickIntersect(uint32_t type, const float3 ray_pos, const floa
     uint32_t max_val = header.bytes_per_value == 4 ? 0xFFFFFFFF : ((1 << bits) - 1);
     float d_max = 2*1.41421356f/sz;
     float mult = 2*d_max/max_val;
+    float vmin = 1.0f;
     for (int i=0;i<8;i++)
     {
       uint3 vPos = voxelPos + uint3((i & 4) >> 2, (i & 2) >> 1, i & 1);
       uint32_t vId = vPos.x*header.v_size*header.v_size + vPos.y*header.v_size + vPos.z;
       values[i] = -d_max + mult*((m_SdfSBSData[v_off + vId/vals_per_int] >> (bits*(vId%vals_per_int))) & max_val);
+      vmin = std::min(vmin, values[i]);
     }
 
     fNearFar = RayBoxIntersection2(ray_pos, SafeInverse(ray_dir), min_pos, max_pos);
-    float3 start_pos = ray_pos + fNearFar.x*ray_dir;
-    d = std::max(size.x, std::max(size.y, size.z));
-    start_q = (start_pos - min_pos) / d;
-    qFar = (fNearFar.y - fNearFar.x) / d;
     qNear = tNear > fNearFar.x ? (tNear - fNearFar.x) / d : 0.0f;
 
-    if (qNear > 0.0f) 
-      continue;
-  
-    LocalSurfaceIntersection(type, ray_dir, instId, geomId, values, nodeId, primId, d, qNear, qFar, fNearFar, start_q, /*in */
-                             pHit); /*out*/
-
+    if (qNear == 0.0f && vmin <= 0.0f)    
+    {
+      float3 start_pos = ray_pos + fNearFar.x*ray_dir;
+      d = std::max(size.x, std::max(size.y, size.z));
+      start_q = (start_pos - min_pos) / d;
+      qFar = (fNearFar.y - fNearFar.x) / d;
+    
+      LocalSurfaceIntersection(type, ray_dir, instId, geomId, values, nodeId, primId, d, qNear, qFar, fNearFar, start_q, /*in */
+                              pHit); /*out*/
+    }
+    
     brick_fNearFar.x += std::max(0.0f, fNearFar.y-brick_fNearFar.x) + 1e-6f;
   }
 }
