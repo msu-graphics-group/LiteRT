@@ -678,6 +678,6 @@ void SBS_benchmark(const std::string &path, const std::string &mesh_name, unsign
   main_benchmark(path, mesh_name, flags, "image", 
                  std::vector<std::string>{"sdf_SVS", "sdf_SBS-3-1_SN", "sdf_SBS-3-1"},
                  std::vector<std::string>{"16Mb"},
-                 std::vector<std::string>{"bvh_sphere_tracing"},
-                 50, 10);
+                 std::vector<std::string>{"bvh_analytic"},
+                 25, 10);
 }

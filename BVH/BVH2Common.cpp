@@ -314,6 +314,7 @@ void BVHRT::LocalSurfaceIntersection(uint32_t type, const float3 ray_dir, uint32
                                      CRT_Hit *pHit)
 {
   const float EPS = 1e-6f;
+  float d_inv = 1.0f / d;
   float t = qNear;
   bool hit = false;
   unsigned iter = 0;
@@ -331,7 +332,7 @@ void BVHRT::LocalSurfaceIntersection(uint32_t type, const float3 ray_dir, uint32
 
     while (t < qFar && dist > EPS && iter < ST_max_iters)
     {
-      t += dist / d;
+      t += dist * d_inv;
       dist = eval_dist_trilinear(values, start_q + t * ray_dir);
       float3 pp = start_q + t * ray_dir;
       iter++;
@@ -348,14 +349,14 @@ void BVHRT::LocalSurfaceIntersection(uint32_t type, const float3 ray_dir, uint32
     // http://jcgt.org/published/0011/03/06/
 
     // define values and constants as proposed in paper
-    float s000 = values[0]/d;
-    float s001 = values[1]/d;
-    float s010 = values[2]/d;
-    float s011 = values[3]/d;
-    float s100 = values[4]/d;
-    float s101 = values[5]/d;
-    float s110 = values[6]/d;
-    float s111 = values[7]/d;
+    float s000 = values[0]*d_inv;
+    float s001 = values[1]*d_inv;
+    float s010 = values[2]*d_inv;
+    float s011 = values[3]*d_inv;
+    float s100 = values[4]*d_inv;
+    float s101 = values[5]*d_inv;
+    float s110 = values[6]*d_inv;
+    float s111 = values[7]*d_inv;
 
     float a = s101-s001;
 
@@ -560,7 +561,7 @@ void BVHRT::LocalSurfaceIntersection(uint32_t type, const float3 ray_dir, uint32
         float df_2 = 3*c3*(t+e)*(t+e) + 2*c2*(t+e) + c1;
         float L = (t_max > t && t_max < t + e) ? std::max(df_max, std::max(df_1, df_2)) : std::max(df_1, df_2);
         L = std::max(L, EPS);
-        float s = std::min((dist / d)/L, e);
+        float s = std::min((dist*d_inv)/L, e);
         t += s;
         e = k*s;
         dist = eval_dist_trilinear(values, start_q + t * ray_dir);
@@ -695,50 +696,49 @@ void BVHRT::OctreeBrickIntersect(uint32_t type, const float3 ray_pos, const floa
   float py = m_SdfSBSNodes[nodeId].pos_xy & 0x0000FFFF;
   float pz = m_SdfSBSNodes[nodeId].pos_z_lod_size >> 16;
   float sz = m_SdfSBSNodes[nodeId].pos_z_lod_size & 0x0000FFFF;
+  float sz_inv = 2.0f/sz;
+  
+  d = 2.0f/(sz*header.brick_size);
 
-  float3 brick_min_pos = float3(-1,-1,-1) + 2.0f*(float3(px,py,pz)/sz);
-  float3 brick_max_pos = brick_min_pos + 2.0f*float3(1,1,1)/sz;
+  float3 brick_min_pos = float3(-1,-1,-1) + sz_inv*float3(px,py,pz);
+  float3 brick_max_pos = brick_min_pos + sz_inv*float3(1,1,1);
   float3 brick_size = brick_max_pos - brick_min_pos;
 
   float2 brick_fNearFar = RayBoxIntersection2(ray_pos, SafeInverse(ray_dir), brick_min_pos, brick_max_pos);
   while (brick_fNearFar.x < brick_fNearFar.y)
   {
     float3 hit_pos = ray_pos + brick_fNearFar.x*ray_dir;
-    float3 local_pos = (hit_pos - brick_min_pos) / (2.0f/(sz*header.brick_size));
-    uint3 voxelPos = uint3(floor(clamp(local_pos, 1e-6f, header.brick_size-1e-6f)));
+    float3 local_pos = (hit_pos - brick_min_pos) * (0.5f*sz*header.brick_size);
+    float3 voxelPos = floor(clamp(local_pos, 1e-6f, header.brick_size-1e-6f));
 
-    float3 min_pos = float3(-1,-1,-1) + 2.0f*(float3(px,py,pz)/sz + float3(voxelPos)/(sz*header.brick_size));
-    float3 max_pos = min_pos + 2.0f*float3(1,1,1)/(sz*header.brick_size);
+    float3 min_pos = brick_min_pos + d*voxelPos;
+    float3 max_pos = min_pos + d*float3(1,1,1);
     float3 size = max_pos - min_pos;
 
-    //TODO: make it works with brick_size > 1
     uint32_t v_off = m_SdfSBSNodes[nodeId].data_offset;
     uint32_t vals_per_int = 4/header.bytes_per_value; 
     uint32_t bits = 8*header.bytes_per_value;
     uint32_t max_val = header.bytes_per_value == 4 ? 0xFFFFFFFF : ((1 << bits) - 1);
-    float d_max = 2*1.41421356f/sz;
+    float d_max = 1.41421356f*sz_inv;
     float mult = 2*d_max/max_val;
     float vmin = 1.0f;
     for (int i=0;i<8;i++)
     {
-      uint3 vPos = voxelPos + uint3((i & 4) >> 2, (i & 2) >> 1, i & 1);
+      uint3 vPos = uint3(voxelPos) + uint3((i & 4) >> 2, (i & 2) >> 1, i & 1);
       uint32_t vId = vPos.x*header.v_size*header.v_size + vPos.y*header.v_size + vPos.z;
       values[i] = -d_max + mult*((m_SdfSBSData[v_off + vId/vals_per_int] >> (bits*(vId%vals_per_int))) & max_val);
       vmin = std::min(vmin, values[i]);
     }
 
     fNearFar = RayBoxIntersection2(ray_pos, SafeInverse(ray_dir), min_pos, max_pos);
-    qNear = tNear > fNearFar.x ? (tNear - fNearFar.x) / d : 0.0f;
-
-    if (qNear == 0.0f && vmin <= 0.0f)    
+    if (tNear < fNearFar.x && vmin <= 0.0f)    
     {
       float3 start_pos = ray_pos + fNearFar.x*ray_dir;
-      d = std::max(size.x, std::max(size.y, size.z));
-      start_q = (start_pos - min_pos) / d;
-      qFar = (fNearFar.y - fNearFar.x) / d;
+      start_q = (start_pos - min_pos) * (0.5f*sz*header.brick_size);
+      qFar = (fNearFar.y - fNearFar.x) * (0.5f*sz*header.brick_size);
     
-      LocalSurfaceIntersection(type, ray_dir, instId, geomId, values, nodeId, primId, d, qNear, qFar, fNearFar, start_q, /*in */
-                              pHit); /*out*/
+      LocalSurfaceIntersection(type, ray_dir, instId, geomId, values, nodeId, primId, d, 0.0f, qFar, fNearFar, start_q, /*in */
+                               pHit); /*out*/
     }
     
     brick_fNearFar.x += std::max(0.0f, fNearFar.y-brick_fNearFar.x) + 1e-6f;
