@@ -273,7 +273,8 @@ void BVHRT::RayNodeIntersection(uint32_t type, const float3 ray_pos, const float
     nodeId = m_SdfSBSRemap[primId + m_geomData[geomId].offset.y].x; //id of node (brick) in SBS
     uint32_t voxelId = m_SdfSBSRemap[primId + m_geomData[geomId].offset.y].y;
     SdfSBSHeader header = m_SdfSBSHeaders[sdfId];
-    uint3 voxelPos = uint3(voxelId/(header.v_size*header.v_size), voxelId/header.v_size%header.v_size, voxelId%header.v_size);
+    uint32_t v_size = header.brick_size + 2*header.brick_pad + 1;
+    uint3 voxelPos = uint3(voxelId/(v_size*v_size), voxelId/v_size%v_size, voxelId%v_size);
 
     float px = m_SdfSBSNodes[nodeId].pos_xy >> 16;
     float py = m_SdfSBSNodes[nodeId].pos_xy & 0x0000FFFF;
@@ -294,7 +295,7 @@ void BVHRT::RayNodeIntersection(uint32_t type, const float3 ray_pos, const float
     for (int i=0;i<8;i++)
     {
       uint3 vPos = voxelPos + uint3((i & 4) >> 2, (i & 2) >> 1, i & 1);
-      uint32_t vId = vPos.x*header.v_size*header.v_size + vPos.y*header.v_size + vPos.z;
+      uint32_t vId = vPos.x*v_size*v_size + vPos.y*v_size + vPos.z;
       values[i] = -d_max + mult*((m_SdfSBSData[v_off + vId/vals_per_int] >> (bits*(vId%vals_per_int))) & max_val);
     }
 
@@ -691,6 +692,7 @@ void BVHRT::OctreeBrickIntersect(uint32_t type, const float3 ray_pos, const floa
   primId = bvhNodeId; //id of bbox in BLAS
   nodeId = primId + m_SdfSBSRoots[sdfId];
   SdfSBSHeader header = m_SdfSBSHeaders[sdfId];
+  uint32_t v_size = header.brick_size + 2*header.brick_pad + 1;
 
   float px = m_SdfSBSNodes[nodeId].pos_xy >> 16;
   float py = m_SdfSBSNodes[nodeId].pos_xy & 0x0000FFFF;
@@ -725,7 +727,7 @@ void BVHRT::OctreeBrickIntersect(uint32_t type, const float3 ray_pos, const floa
     for (int i=0;i<8;i++)
     {
       uint3 vPos = uint3(voxelPos) + uint3((i & 4) >> 2, (i & 2) >> 1, i & 1);
-      uint32_t vId = vPos.x*header.v_size*header.v_size + vPos.y*header.v_size + vPos.z;
+      uint32_t vId = vPos.x*v_size*v_size + vPos.y*v_size + vPos.z;
       values[i] = -d_max + mult*((m_SdfSBSData[v_off + vId/vals_per_int] >> (bits*(vId%vals_per_int))) & max_val);
       vmin = std::min(vmin, values[i]);
     }

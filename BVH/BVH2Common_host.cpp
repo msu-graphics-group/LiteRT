@@ -571,6 +571,7 @@ uint32_t BVHRT::AddGeom_SdfSBS(SdfSBSView octree, bool single_bvh_node, BuildOpt
   }
   else  //one node for each border voxel
   {
+    unsigned v_size = octree.header.brick_size + 2*octree.header.brick_pad + 1;
     for (int i=0;i<octree.size;i++)
     {
       float px = octree.nodes[i].pos_xy >> 16;
@@ -586,7 +587,7 @@ uint32_t BVHRT::AddGeom_SdfSBS(SdfSBSView octree, bool single_bvh_node, BuildOpt
           {
             //check if this voxel is on the border, only border voxels became parts of BVH
             uint3 voxelPos = uint3(x,y,z);
-            uint32_t voxelId = voxelPos.x*octree.header.v_size*octree.header.v_size + voxelPos.y*octree.header.v_size + voxelPos.z;
+            uint32_t voxelId = voxelPos.x*v_size*v_size + voxelPos.y*v_size + voxelPos.z;
             uint32_t v_off = m_SdfSBSNodes[n_offset + i].data_offset;
             uint32_t vals_per_int = 4/octree.header.bytes_per_value; 
             uint32_t bits = 8*octree.header.bytes_per_value;
@@ -599,7 +600,7 @@ uint32_t BVHRT::AddGeom_SdfSBS(SdfSBSView octree, bool single_bvh_node, BuildOpt
             for (int j=0;j<8;j++)
             {
               uint3 vPos = voxelPos + uint3((j & 4) >> 2, (j & 2) >> 1, j & 1);
-              uint32_t vId = vPos.x*octree.header.v_size*octree.header.v_size + vPos.y*octree.header.v_size + vPos.z;
+              uint32_t vId = vPos.x*v_size*v_size + vPos.y*v_size + vPos.z;
               float val = -d_max + mult*((m_SdfSBSData[v_off + vId/vals_per_int] >> (bits*(vId%vals_per_int))) & max_val);
 
               low = std::min(low, val);

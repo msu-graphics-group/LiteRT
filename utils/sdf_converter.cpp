@@ -180,8 +180,6 @@ namespace sdf_converter
     assert(header.brick_pad == 0 || header.brick_pad == 1);
     assert(header.bytes_per_value == 1 || header.bytes_per_value == 2 || header.bytes_per_value == 4);
 
-    header.v_size = header.brick_size + 2*header.brick_pad + 1;
-
     auto raw_nodes = construct_sdf_octree(settings, sdf, max_threads);
     auto frame = convert_to_frame_octree(settings, sdf, max_threads, raw_nodes);
     frame_octree_limit_nodes(frame, settings.nodes_limit, true);

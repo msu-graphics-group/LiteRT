@@ -124,7 +124,7 @@ struct SdfSBSHeader
   uint32_t brick_size;      //number of voxels in each brick, 1 to 16
   uint32_t brick_pad;       //how many additional voxels are stored on the borders, 0 is default, 1 is required for tricubic filtration
   uint32_t bytes_per_value; //1, 2 or 4 bytes per value is allowed
-  uint32_t v_size;          //brick_size + 2*brick_pad + 1
+  uint32_t aux_data;        //some misc information about what is stored in SBS data vector
 };
 
 struct SdfHPOctreeNode

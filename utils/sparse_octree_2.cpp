@@ -390,16 +390,17 @@ std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
 std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
 
     SdfSBS sbs;
+    uint32_t v_size = header.brick_size + 2*header.brick_pad + 1;
     sbs.header = header;
     sbs.nodes.reserve(nodes.size());
-    sbs.values.reserve(nodes.size() * header.v_size * header.v_size * header.v_size);
+    sbs.values.reserve(nodes.size() * v_size * v_size * v_size);
 
     unsigned step = (nodes.size() + max_threads - 1) / max_threads;
 
     #pragma omp parallel for
     for (int thread_id=0;thread_id<max_threads;thread_id++)
     {
-      std::vector<float> values(header.v_size*header.v_size*header.v_size, 1000.0f);
+      std::vector<float> values(v_size*v_size*v_size, 1000.0f);
       unsigned start = thread_id * step;
       unsigned end = std::min(start + step, (unsigned)nodes.size());
       for (int idx = start; idx < end; idx++)
@@ -470,7 +471,7 @@ std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
                   val = sdf(pos, thread_id);
                 }
 
-                values[i*header.v_size*header.v_size + j*header.v_size + k] = val;
+                values[i*v_size*v_size + j*v_size + k] = val;
               }
             }      
           }
