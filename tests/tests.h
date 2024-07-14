@@ -17,5 +17,6 @@ enum BenchmarkFlags
 };
 
 void main_benchmark(const std::string &path, const std::string &mesh_name, unsigned flags = BENCHMARK_FLAG_BUILD | BENCHMARK_FLAG_RENDER_RT, 
-                     const std::string &supported_type = "");
+                    const std::string &supported_type = "");
+void SBS_benchmark(const std::string &path, const std::string &mesh_name, unsigned flags);
 void quality_check(const char *path);

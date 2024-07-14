@@ -274,9 +274,9 @@ void main_benchmark(const std::string &path, const std::string &mesh_name, unsig
   FILE* log_fd = fopen(results_file_path.c_str(), "a+");
 
   //different types of structures
-  std::vector<std::string> structures =          {           "mesh",        "mesh_lod", "sdf_grid", "sdf_octree", "sdf_frame_octree", "sdf_SVS", "sdf_SBS-2-1", "sdf_SBS-2-2", "sdf_hp_octree"};
-  std::vector<std::string> structure_types =     {"normalized_mesh", "normalized_mesh", "sdf_grid", "sdf_octree", "sdf_frame_octree", "sdf_svs",     "sdf_sbs",     "sdf_sbs",        "sdf_hp"};
-  std::vector<unsigned> average_bytes_per_node = {                0,                 0,          4,            8,                 36,        16,            44,            72,              71};
+  std::vector<std::string> structures =          {           "mesh",        "mesh_lod", "sdf_grid", "sdf_octree", "sdf_frame_octree", "sdf_SVS", "sdf_SBS-2-1", "sdf_SBS-2-2", "sdf_hp_octree", "sdf_SBS-3-1", "sdf_SBS-3-1_SN"};
+  std::vector<std::string> structure_types =     {"normalized_mesh", "normalized_mesh", "sdf_grid", "sdf_octree", "sdf_frame_octree", "sdf_svs",     "sdf_sbs",     "sdf_sbs",        "sdf_hp",     "sdf_sbs",        "sdf_sbs"};
+  std::vector<unsigned> average_bytes_per_node = {                0,                 0,          4,            8,                 36,        16,            44,            72,              71,            80,               80};
   
   //different sizes
   std::vector<unsigned> max_depths =          {      7,      7,      7,     8,     8,     9,     9,     10,     10,     11};
@@ -446,6 +446,25 @@ void main_benchmark(const std::string &path, const std::string &mesh_name, unsig
 
           save_sdf_SBS(scene, filename);
         }
+        else if (structure == "sdf_SBS-3-1" || structure == "sdf_SBS-3-1_SN")
+        {
+          SdfSBSHeader header;
+          header.brick_size = 3;
+          header.brick_pad = 0;
+          header.bytes_per_value = 1;
+
+          t1 = std::chrono::steady_clock::now();
+          auto scene = sdf_converter::create_sdf_SBS(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, max_depth, nodes_limit), header, mesh);
+          t2 = std::chrono::steady_clock::now();
+          float build_time = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+
+          res.build_time_ms = build_time + mesh_bvh_build_time;
+          res.nodes = scene.nodes.size();
+          res.memory = sizeof(SdfSBSNode) * res.nodes + sizeof(uint32_t) * scene.values.size();
+          res.valid = true;
+
+          save_sdf_SBS(scene, filename);
+        }
 
         fprintf(log_fd, "%20s, %20s, %6s, %8u, %8u, %5.1f\n", 
                 mesh_name.c_str(), structure.c_str(), size_limit.c_str(), 
@@ -570,11 +589,17 @@ void main_benchmark(const std::string &path, const std::string &mesh_name, unsig
                   load_sdf_SVS(svs_nodes, filename);
                   pRender->SetScene(svs_nodes);
                 }
-                else if (structure == "sdf_SBS-2-1" || structure == "sdf_SBS-2-2")
+                else if (structure == "sdf_SBS-2-1" || structure == "sdf_SBS-2-2"|| structure == "sdf_SBS-3-1")
                 {
                   SdfSBS sbs;
                   load_sdf_SBS(sbs, filename);
                   pRender->SetScene(sbs);
+                }
+                else if (structure == "sdf_SBS-3-1_SN")
+                {
+                  SdfSBS sbs;
+                  load_sdf_SBS(sbs, filename);
+                  pRender->SetScene(sbs, true);                  
                 }
                 else if (structure == "sdf_hp_octree")
                 {
@@ -646,4 +671,13 @@ void main_benchmark(const std::string &path, const std::string &mesh_name, unsig
     std::vector<std::string>{"bvh_sphere_tracing", "bvh_analytic", "bvh_newton", "bvh_interval_tracing", "bvh_nodes"},
     50, 10);
   }
+}
+
+void SBS_benchmark(const std::string &path, const std::string &mesh_name, unsigned flags)
+{
+  main_benchmark(path, mesh_name, flags, "image", 
+                 std::vector<std::string>{"sdf_SVS", "sdf_SBS-3-1_SN", "sdf_SBS-3-1"},
+                 std::vector<std::string>{"16Mb"},
+                 std::vector<std::string>{"bvh_sphere_tracing"},
+                 50, 10);
 }

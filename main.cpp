@@ -44,6 +44,13 @@ int main(int argc, const char** argv)
 
       return 0;
     }
+    else if (std::string(argv[1]) == "-sbs_benchmark" && argc > 2)
+    {
+      std::string mesh_name = argv[2];
+      unsigned flags = BENCHMARK_FLAG_RENDER_RT;
+      SBS_benchmark("saves/"+mesh_name, mesh_name, flags);
+      return 0;
+    }
   }
   //auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path+"scenes/01_simple_scenes/data/teapot.vsgf").c_str());
   //cmesh4::create_triangle_list_grid(mesh, LiteMath::uint3(32,32,32));
@@ -83,7 +90,7 @@ int main(int argc, const char** argv)
   std::cout << "Implementation:  " << pRender->Name() << "; builder = '" << buildFormat << "'" << std::endl;
 
   MultiRenderPreset preset;
-  preset.mode = MULTI_RENDER_MODE_GS;
+  preset.render_mode = MULTI_RENDER_MODE_GS;
   dynamic_cast<MultiRenderer*>(pRender.get())->SetPreset(preset);
   pRender->CommitDeviceData();
   pRender->Clear(WIDTH, HEIGHT, "color");
