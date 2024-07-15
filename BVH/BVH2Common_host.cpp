@@ -526,7 +526,21 @@ uint32_t BVHRT::AddGeom_SdfSBS(SdfSBSView octree, bool single_bvh_node, BuildOpt
   assert(octree.size > 0 && octree.values_count > 0);
   assert(octree.size < (1u<<28) && octree.values_count < (1u<<28));
 
-  bool is_single_node = single_bvh_node;
+  uint32_t type = TYPE_SDF_SBS;
+  uint32_t node_layout = octree.header.aux_data & SDF_SBS_NODE_LAYOUT_MASK;
+  if (node_layout == SDF_SBS_NODE_LAYOUT_UNDEFINED || node_layout == SDF_SBS_NODE_LAYOUT_DX) //only distances
+  {
+    type = single_bvh_node ? TYPE_SDF_SBS_SINGLE_NODE : TYPE_SDF_SBS;
+  }
+  else if (node_layout == SDF_SBS_NODE_LAYOUT_DX_UV16) //textured
+  {
+    type = TYPE_SDF_SBS_TEX;
+  }
+  else
+  {
+    printf("unsupported node layout %u\n", node_layout);
+  }
+  bool is_single_node = (type != TYPE_SDF_SBS); //only legacy SDF_SBS allows multiple nodes per brick
 
   //SDF octree is always a unit cube
   float4 mn = float4(-1,-1,-1,1);
@@ -538,7 +552,7 @@ uint32_t BVHRT::AddGeom_SdfSBS(SdfSBSView octree, bool single_bvh_node, BuildOpt
   geomData.boxMax = mx;
   geomData.offset = uint2(m_SdfSBSRoots.size(), m_SdfSBSRemap.size());
   geomData.bvhOffset = m_allNodePairs.size();
-  geomData.type = is_single_node ? TYPE_SDF_SBS_SINGLE_NODE : TYPE_SDF_SBS;
+  geomData.type = type;
   m_geomData.push_back(geomData);
 
   //fill octree-specific data arrays

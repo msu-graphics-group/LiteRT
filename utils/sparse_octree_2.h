@@ -38,4 +38,9 @@ namespace sdf_converter
   void frame_octree_to_SVS_rec(const std::vector<SdfFrameOctreeNode> &frame,
                                std::vector<SdfSVSNode> &nodes,
                                unsigned idx, uint3 p, unsigned lod_size);
+
+  SdfSBS frame_octree_to_SBS_tex(MultithreadedDistanceFunction sdf, 
+                                 unsigned max_threads,
+                                 const std::vector<SdfFrameOctreeTexNode> &nodes,
+                                 const SdfSBSHeader &header);
 }

@@ -235,4 +235,19 @@ namespace sdf_converter
       return {};
     }
   }
+
+  SdfSBS create_sdf_SBS_tex(SparseOctreeSettings settings, SdfSBSHeader header, const cmesh4::SimpleMesh &mesh)
+  {
+    unsigned max_threads = omp_get_max_threads();
+
+    std::vector<MeshBVH> bvh(max_threads);
+    for (unsigned i = 0; i < max_threads; i++)
+      bvh[i].init(mesh);
+    
+    MultithreadedDistanceFunction mt_sdf = [&](const float3 &p, unsigned idx) -> float 
+                                           { return bvh[idx].get_signed_distance(p); };
+  
+    std::vector<SdfFrameOctreeTexNode> frame = create_sdf_frame_octree_tex(settings, mesh);
+    return frame_octree_to_SBS_tex(mt_sdf, max_threads, frame, header);
+  }
 }

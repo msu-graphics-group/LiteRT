@@ -34,6 +34,18 @@ static constexpr unsigned SDF_PRIM_BOX = 1;
 static constexpr unsigned SDF_PRIM_CYLINDER = 2;
 static constexpr unsigned SDF_PRIM_SIREN = 3;
 
+static constexpr unsigned NEURAL_SDF_MAX_LAYERS = 8;
+static constexpr unsigned NEURAL_SDF_MAX_LAYER_SIZE = 1024;
+static constexpr float SIREN_W0 = 30;
+
+// enum SdfSBSNodeLayout
+static constexpr unsigned SDF_SBS_NODE_LAYOUT_UNDEFINED     = 0 << 24u; //should be interpreted as SDF_SBS_NODE_LAYOUT_D for legacy reasons
+static constexpr unsigned SDF_SBS_NODE_LAYOUT_DX            = 1 << 24u; //v_size*3 distance values (<bytes_per_value> bytes each)
+static constexpr unsigned SDF_SBS_NODE_LAYOUT_DX_UV16       = 2 << 24u; //v_size*3 distance values (<bytes_per_value> bytes each), 8 tex coords (2*2 bytes each)
+static constexpr unsigned SDF_SBS_NODE_LAYOUT_DX_RGB8       = 3 << 24u; //v_size*3 distance values (<bytes_per_value> bytes each), 8 RBG colors (4 bytes, with padding)
+static constexpr unsigned SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F = 4 << 24u; //v_size*3 indices to distance values (1 float each), 8 indices to RBG colors (3 float)
+static constexpr unsigned SDF_SBS_NODE_LAYOUT_MASK          = 0xFF000000;
+
 struct SdfObject
 {
   unsigned type;          // from enum SdfPrimitiveType
@@ -59,10 +71,6 @@ struct SdfConjunction
   unsigned size;
   unsigned _pad[2];
 };
-
-constexpr int NEURAL_SDF_MAX_LAYERS = 8;
-constexpr int NEURAL_SDF_MAX_LAYER_SIZE = 1024;
-constexpr float SIREN_W0 = 30;
 
 struct NeuralDenseLayer
 {
@@ -124,7 +132,7 @@ struct SdfSBSHeader
   uint32_t brick_size;      //number of voxels in each brick, 1 to 16
   uint32_t brick_pad;       //how many additional voxels are stored on the borders, 0 is default, 1 is required for tricubic filtration
   uint32_t bytes_per_value; //1, 2 or 4 bytes per value is allowed
-  uint32_t aux_data;        //some misc information about what is stored in SBS data vector
+  uint32_t aux_data;        //SdfSBSNodeLayout
 };
 
 struct SdfHPOctreeNode

@@ -2076,6 +2076,102 @@ void litert_test_26_sbs_shallow_bvh()
   }
 }
 
+void litert_test_27_textured_colored_SBS()
+{
+  //create renderers for SDF scene and mesh scene
+  auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "scenes/01_simple_scenes/data/bunny.vsgf").c_str());
+  cmesh4::rescale_mesh(mesh, float3(-0.95, -0.95, -0.95), float3(0.95, 0.95, 0.95));
+
+  unsigned W = 2048, H = 2048;
+
+  MultiRenderPreset preset = getDefaultPreset();
+  preset.render_mode = MULTI_RENDER_MODE_LAMBERT;
+  SparseOctreeSettings settings(SparseOctreeBuildType::MESH_TLO, 9);
+
+  SdfSBSHeader header;
+  header.brick_size = 2;
+  header.brick_pad = 0;
+  header.bytes_per_value = 1;
+
+  auto textured_octree = sdf_converter::create_sdf_frame_octree_tex(settings, mesh);
+  auto textured_SBS = sdf_converter::create_sdf_SBS_tex(settings, header, mesh);
+
+  LiteImage::Image2D<float4> texture = LiteImage::LoadImage<float4>("scenes/porcelain.png");
+
+  LiteImage::Image2D<uint32_t> image_mesh(W, H);
+  LiteImage::Image2D<uint32_t> image_SVS(W, H);
+  LiteImage::Image2D<uint32_t> image_SBS_tex(W, H);
+
+  {
+    auto pRender = CreateMultiRenderer("GPU");
+    pRender->SetPreset(preset);
+    pRender->SetViewport(0,0,W,H);
+
+    uint32_t texId = pRender->AddTexture(texture);
+    MultiRendererMaterial mat;
+    mat.type = MULTI_RENDER_MATERIAL_TYPE_TEXTURED;
+    mat.texId = texId;
+    uint32_t matId = pRender->AddMaterial(mat);
+    pRender->SetMaterial(matId, 0);
+
+    pRender->SetScene(mesh);
+    render(image_mesh, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+  }
+
+  {
+    auto pRender = CreateMultiRenderer("GPU");
+    pRender->SetPreset(preset);
+    pRender->SetViewport(0,0,W,H);
+
+    uint32_t texId = pRender->AddTexture(texture);
+    MultiRendererMaterial mat;
+    mat.type = MULTI_RENDER_MATERIAL_TYPE_TEXTURED;
+    mat.texId = texId;
+    uint32_t matId = pRender->AddMaterial(mat);
+    pRender->SetMaterial(matId, 0);
+  
+    pRender->SetScene(textured_octree);
+    render(image_SVS, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+  }
+
+  {
+    auto pRender = CreateMultiRenderer("GPU");
+    pRender->SetPreset(preset);
+    pRender->SetViewport(0,0,W,H);
+
+    uint32_t texId = pRender->AddTexture(texture);
+    MultiRendererMaterial mat;
+    mat.type = MULTI_RENDER_MATERIAL_TYPE_TEXTURED;
+    mat.texId = texId;
+    uint32_t matId = pRender->AddMaterial(mat);
+    pRender->SetMaterial(matId, 0);  
+
+    pRender->SetScene(textured_SBS);
+    render(image_SBS_tex, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+  }
+
+  LiteImage::SaveImage<uint32_t>("saves/test_27_mesh.bmp", image_mesh); 
+  LiteImage::SaveImage<uint32_t>("saves/test_27_svs.bmp", image_SVS);
+  LiteImage::SaveImage<uint32_t>("saves/test_27_sbs_tex.bmp", image_SBS_tex);
+
+  float psnr_1 = image_metrics::PSNR(image_mesh, image_SBS_tex);
+  float psnr_2 = image_metrics::PSNR(image_SVS, image_SBS_tex);
+
+  printf("TEST 27. Teatured and colored SBS\n");
+
+  printf(" 27.1. %-64s", "Correct texture on textured SBS");
+  if (psnr_1 >= 35)
+    printf("passed    (%.2f)\n", psnr_1);
+  else
+    printf("FAILED, psnr = %f\n", psnr_1);  
+
+  printf(" 27.2. %-64s", "Textured SBS is close to textured SVS");
+  if (psnr_2 >= 35)
+    printf("passed    (%.2f)\n", psnr_2);
+  else
+    printf("FAILED, psnr = %f\n", psnr_2);
+}
+
 
 void perform_tests_litert(const std::vector<int> &test_ids)
 {
@@ -2091,7 +2187,7 @@ void perform_tests_litert(const std::vector<int> &test_ids)
       litert_test_17_all_types_sanity_check, litert_test_18_mesh_normalization,
       litert_test_19_marching_cubes, litert_test_20_radiance_fields, litert_test_21_rf_to_mesh,
       litert_test_22_sdf_grid_smoothing, litert_test_23_textured_sdf, litert_test_24_demo_meshes,
-      litert_test_25_float_images, litert_test_26_sbs_shallow_bvh};
+      litert_test_25_float_images, litert_test_26_sbs_shallow_bvh, litert_test_27_textured_colored_SBS};
 
   if (tests.empty())
   {
