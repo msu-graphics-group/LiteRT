@@ -250,4 +250,38 @@ namespace sdf_converter
     std::vector<SdfFrameOctreeTexNode> frame = create_sdf_frame_octree_tex(settings, mesh);
     return frame_octree_to_SBS_tex(mt_sdf, max_threads, frame, header);
   }
+
+  SdfSBS create_sdf_SBS_col(SparseOctreeSettings settings, SdfSBSHeader header, const cmesh4::SimpleMesh &mesh, unsigned mat_id,
+                            const std::vector<MultiRendererMaterial> &materials_lib, 
+                            const std::vector<std::shared_ptr<ICombinedImageSampler>> &textures_lib)
+  {
+    SdfSBS sbs = create_sdf_SBS_tex(settings, header, mesh);
+
+    //same header, except for layout
+    //same nodes and offsets (UV and RGB occupy the same space)
+    //same distance data, but instead of 16-bit UV, use 8-bit RGB (32 bit with padding, padding is 0xFF, so it can be used as alpha)
+    sbs.header.aux_data = SDF_SBS_NODE_LAYOUT_DX_RGB8;
+
+
+    auto &tex = textures_lib[mat_id];
+    for (auto &n : sbs.nodes)
+    {
+      unsigned vals_per_int = 4/header.bytes_per_value;
+      unsigned v_size = header.brick_size + 2*header.brick_pad + 1;
+      unsigned dist_size = (v_size*v_size*v_size+vals_per_int-1)/vals_per_int;
+      unsigned off = n.data_offset + dist_size;
+      for (unsigned i = 0; i < 8; i++)
+      {
+        unsigned uv_comp = sbs.values[off + i];
+        float u = (1.0/65535.0) * (uv_comp >> 16);
+        float v = (1.0/65535.0) * (uv_comp & 0xFFFF);
+        //printf("id = %u, u = %f, v = %f\n", n.data_offset, u, v);
+        float4 f_color = tex->sample(float2(u, v));
+        uint4  u_color = uint4(0xFF * clamp(f_color, float4(0, 0, 0, 0), float4(1, 1, 1, 1)));
+        sbs.values[off + i] = (0xFF << 24) | (u_color.z << 16) | (u_color.y << 8) | u_color.x;
+      }
+    }
+
+    return sbs;
+  }
 }

@@ -2093,14 +2093,12 @@ void litert_test_27_textured_colored_SBS()
   header.brick_pad = 0;
   header.bytes_per_value = 1;
 
-  auto textured_octree = sdf_converter::create_sdf_frame_octree_tex(settings, mesh);
-  auto textured_SBS = sdf_converter::create_sdf_SBS_tex(settings, header, mesh);
-
   LiteImage::Image2D<float4> texture = LiteImage::LoadImage<float4>("scenes/porcelain.png");
 
   LiteImage::Image2D<uint32_t> image_mesh(W, H);
   LiteImage::Image2D<uint32_t> image_SVS(W, H);
   LiteImage::Image2D<uint32_t> image_SBS_tex(W, H);
+  LiteImage::Image2D<uint32_t> image_SBS_col(W, H);
 
   {
     auto pRender = CreateMultiRenderer("GPU");
@@ -2130,6 +2128,7 @@ void litert_test_27_textured_colored_SBS()
     uint32_t matId = pRender->AddMaterial(mat);
     pRender->SetMaterial(matId, 0);
   
+    auto textured_octree = sdf_converter::create_sdf_frame_octree_tex(settings, mesh);
     pRender->SetScene(textured_octree);
     render(image_SVS, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
   }
@@ -2146,16 +2145,36 @@ void litert_test_27_textured_colored_SBS()
     uint32_t matId = pRender->AddMaterial(mat);
     pRender->SetMaterial(matId, 0);  
 
+    auto textured_SBS = sdf_converter::create_sdf_SBS_tex(settings, header, mesh);
     pRender->SetScene(textured_SBS);
     render(image_SBS_tex, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+  }
+
+  {
+    auto pRender = CreateMultiRenderer("GPU");
+    pRender->SetPreset(preset);
+    pRender->SetViewport(0,0,W,H);
+
+    uint32_t texId = pRender->AddTexture(texture);
+    MultiRendererMaterial mat;
+    mat.type = MULTI_RENDER_MATERIAL_TYPE_TEXTURED;
+    mat.texId = texId;
+    uint32_t matId = pRender->AddMaterial(mat);
+    pRender->SetMaterial(matId, 0);  
+
+    auto colored_SBS = sdf_converter::create_sdf_SBS_col(settings, header, mesh, matId, pRender->getMaterials(), pRender->getTextures());
+    pRender->SetScene(colored_SBS);
+    render(image_SBS_col, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
   }
 
   LiteImage::SaveImage<uint32_t>("saves/test_27_mesh.bmp", image_mesh); 
   LiteImage::SaveImage<uint32_t>("saves/test_27_svs.bmp", image_SVS);
   LiteImage::SaveImage<uint32_t>("saves/test_27_sbs_tex.bmp", image_SBS_tex);
+  LiteImage::SaveImage<uint32_t>("saves/test_27_sbs_col.bmp", image_SBS_col);
 
   float psnr_1 = image_metrics::PSNR(image_mesh, image_SBS_tex);
   float psnr_2 = image_metrics::PSNR(image_SVS, image_SBS_tex);
+  float psnr_3 = image_metrics::PSNR(image_SBS_col, image_SBS_tex);
 
   printf("TEST 27. Teatured and colored SBS\n");
 
@@ -2170,6 +2189,12 @@ void litert_test_27_textured_colored_SBS()
     printf("passed    (%.2f)\n", psnr_2);
   else
     printf("FAILED, psnr = %f\n", psnr_2);
+  
+  printf(" 27.3. %-64s", "Colored SBS is realtively close to textured SBS");
+  if (psnr_3 >= 30)
+    printf("passed    (%.2f)\n", psnr_3);
+  else
+    printf("FAILED, psnr = %f\n", psnr_3);
 }
 
 

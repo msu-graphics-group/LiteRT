@@ -246,16 +246,36 @@ float4 MultiRenderer::kernel_RayTrace(uint32_t tidX, const float4* rayPosAndNear
 
   case MULTI_RENDER_MODE_DIFFUSE:
   {
-    unsigned matId = m_matIdbyPrimId[m_matIdOffsets[geomId].x + hit.primId % m_matIdOffsets[geomId].y];
-    float4 color = m_materials[matId].type == MULTI_RENDER_MATERIAL_TYPE_COLORED ? m_materials[matId].base_color : m_textures[m_materials[matId].texId]->sample(tc);
+    float4 color = float4(0,0,1,1);
+    if (type == TYPE_SDF_SBS_COL)
+    {
+      color.x = std::round(hit.coords[0])/255.0f;
+      color.y = fract(hit.coords[0]);
+      color.z = std::round(hit.coords[1])/255.0f;
+    }
+    else
+    {
+      unsigned matId = m_matIdbyPrimId[m_matIdOffsets[geomId].x + hit.primId % m_matIdOffsets[geomId].y];
+      color = m_materials[matId].type == MULTI_RENDER_MATERIAL_TYPE_COLORED ? m_materials[matId].base_color : m_textures[m_materials[matId].texId]->sample(tc);
+    }
     res_color = to_float4(to_float3(color), 1);
   }
   break;
 
   case MULTI_RENDER_MODE_LAMBERT:
   {
-    unsigned matId = m_matIdbyPrimId[m_matIdOffsets[geomId].x + hit.primId % m_matIdOffsets[geomId].y];
-    float4 color = m_materials[matId].type == MULTI_RENDER_MATERIAL_TYPE_COLORED ? m_materials[matId].base_color : m_textures[m_materials[matId].texId]->sample(tc);
+    float4 color = float4(0,0,1,1);
+    if (type == TYPE_SDF_SBS_COL)
+    {
+      color.x = std::round(hit.coords[0])/255.0f;
+      color.y = fract(hit.coords[0]);
+      color.z = std::round(hit.coords[1])/255.0f;
+    }
+    else
+    {
+      unsigned matId = m_matIdbyPrimId[m_matIdOffsets[geomId].x + hit.primId % m_matIdOffsets[geomId].y];
+      color = m_materials[matId].type == MULTI_RENDER_MATERIAL_TYPE_COLORED ? m_materials[matId].base_color : m_textures[m_materials[matId].texId]->sample(tc);
+    }
 
     float3 norm(hit.coords[2], hit.coords[3], sqrt(max(0.0f, 1 - hit.coords[2] * hit.coords[2] - hit.coords[3] * hit.coords[3])));
     float q = max(0.1f, dot(norm, normalize(float3(1, 1, 1))));
@@ -272,8 +292,18 @@ float4 MultiRenderer::kernel_RayTrace(uint32_t tidX, const float4* rayPosAndNear
     const int spec_pow = 32;
     const float BIAS = 1e-6f;
 
-    unsigned matId = m_matIdbyPrimId[m_matIdOffsets[geomId].x + hit.primId % m_matIdOffsets[geomId].y];
-    float4 color = m_materials[matId].type == MULTI_RENDER_MATERIAL_TYPE_COLORED ? m_materials[matId].base_color : m_textures[m_materials[matId].texId]->sample(tc);
+    float4 color = float4(0,0,1,1);
+    if (type == TYPE_SDF_SBS_COL)
+    {
+      color.x = std::round(hit.coords[0])/255.0f;
+      color.y = fract(hit.coords[0]);
+      color.z = std::round(hit.coords[1])/255.0f;
+    }
+    else
+    {
+      unsigned matId = m_matIdbyPrimId[m_matIdOffsets[geomId].x + hit.primId % m_matIdOffsets[geomId].y];
+      color = m_materials[matId].type == MULTI_RENDER_MATERIAL_TYPE_COLORED ? m_materials[matId].base_color : m_textures[m_materials[matId].texId]->sample(tc);
+    }
 
     float3 diffuse = to_float3(color);
     float3 norm(hit.coords[2], hit.coords[3], sqrt(max(0.0f, 1 - hit.coords[2] * hit.coords[2] - hit.coords[3] * hit.coords[3])));

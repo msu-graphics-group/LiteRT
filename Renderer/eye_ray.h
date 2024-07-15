@@ -117,6 +117,9 @@ public:
   LiteMath::float4x4 getProj() { return m_proj; }
   LiteMath::float4x4 getWorldView() { return m_worldView; }
 
+  const std::vector<MultiRendererMaterial>& getMaterials() { return m_materials; }
+  const std::vector<std::shared_ptr<ICombinedImageSampler>> &getTextures() { return m_textures; }
+
 protected:
 
   virtual void PackXYBlock(uint tidX, uint tidY, uint a_passNum);

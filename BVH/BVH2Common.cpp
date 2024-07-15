@@ -167,6 +167,7 @@ void BVHRT::IntersectAllPrimitivesInLeaf(const float3 ray_pos, const float3 ray_
     break;
   case TYPE_SDF_SBS_SINGLE_NODE:
   case TYPE_SDF_SBS_TEX:
+  case TYPE_SDF_SBS_COL:
     OctreeBrickIntersect(type, ray_pos, ray_dir, tNearSdf, instId, geomId, a_start, a_count, pHit);
     break;
   default:
@@ -751,13 +752,13 @@ void BVHRT::OctreeBrickIntersect(uint32_t type, const float3 ray_pos, const floa
   //ray hit a brick
   if (pHit->t < old_t)
   {
-    if (type == TYPE_SDF_SBS_TEX)
-    { 
-      float3 pos = ray_pos + pHit->t*ray_dir;
-      float3 dp = (pos - brick_min_pos)*(0.5f*sz);
-      uint32_t vals_per_int = 4/header.bytes_per_value;
-      uint32_t t_off = m_SdfSBSNodes[nodeId].data_offset + (v_size*v_size*v_size+vals_per_int-1)/vals_per_int;
-      
+    float3 pos = ray_pos + pHit->t*ray_dir;
+    float3 dp = (pos - brick_min_pos)*(0.5f*sz);
+    uint32_t vals_per_int = 4/header.bytes_per_value;
+    uint32_t t_off = m_SdfSBSNodes[nodeId].data_offset + (v_size*v_size*v_size+vals_per_int-1)/vals_per_int;
+
+    if (header.aux_data == SDF_SBS_NODE_LAYOUT_DX_UV16)
+    {       
       pHit->coords[0] = (1-dp.x)*(1-dp.y)*(1-dp.z)*(1.5259022e-5f*float(m_SdfSBSData[t_off+0] >> 16)) + 
                         (1-dp.x)*(1-dp.y)*(  dp.z)*(1.5259022e-5f*float(m_SdfSBSData[t_off+1] >> 16)) + 
                         (1-dp.x)*(  dp.y)*(1-dp.z)*(1.5259022e-5f*float(m_SdfSBSData[t_off+2] >> 16)) + 
@@ -775,6 +776,24 @@ void BVHRT::OctreeBrickIntersect(uint32_t type, const float3 ray_pos, const floa
                         (  dp.x)*(1-dp.y)*(  dp.z)*(1.5259022e-5f*float(m_SdfSBSData[t_off+5] & 0xFFFF)) + 
                         (  dp.x)*(  dp.y)*(1-dp.z)*(1.5259022e-5f*float(m_SdfSBSData[t_off+6] & 0xFFFF)) + 
                         (  dp.x)*(  dp.y)*(  dp.z)*(1.5259022e-5f*float(m_SdfSBSData[t_off+7] & 0xFFFF));
+    }
+    else if (header.aux_data == SDF_SBS_NODE_LAYOUT_DX_RGB8)
+    {
+      float3 color = (1-dp.x)*(1-dp.y)*(1-dp.z)*float3((m_SdfSBSData[t_off+0] >> 0) & 0xFF, (m_SdfSBSData[t_off+0] >> 8) & 0xFF, (m_SdfSBSData[t_off+0] >> 16) & 0xFF) + 
+                     (1-dp.x)*(1-dp.y)*(  dp.z)*float3((m_SdfSBSData[t_off+1] >> 0) & 0xFF, (m_SdfSBSData[t_off+1] >> 8) & 0xFF, (m_SdfSBSData[t_off+1] >> 16) & 0xFF) + 
+                     (1-dp.x)*(  dp.y)*(1-dp.z)*float3((m_SdfSBSData[t_off+2] >> 0) & 0xFF, (m_SdfSBSData[t_off+2] >> 8) & 0xFF, (m_SdfSBSData[t_off+2] >> 16) & 0xFF) + 
+                     (1-dp.x)*(  dp.y)*(  dp.z)*float3((m_SdfSBSData[t_off+3] >> 0) & 0xFF, (m_SdfSBSData[t_off+3] >> 8) & 0xFF, (m_SdfSBSData[t_off+3] >> 16) & 0xFF) + 
+                     (  dp.x)*(1-dp.y)*(1-dp.z)*float3((m_SdfSBSData[t_off+4] >> 0) & 0xFF, (m_SdfSBSData[t_off+4] >> 8) & 0xFF, (m_SdfSBSData[t_off+4] >> 16) & 0xFF) + 
+                     (  dp.x)*(1-dp.y)*(  dp.z)*float3((m_SdfSBSData[t_off+5] >> 0) & 0xFF, (m_SdfSBSData[t_off+5] >> 8) & 0xFF, (m_SdfSBSData[t_off+5] >> 16) & 0xFF) + 
+                     (  dp.x)*(  dp.y)*(1-dp.z)*float3((m_SdfSBSData[t_off+6] >> 0) & 0xFF, (m_SdfSBSData[t_off+6] >> 8) & 0xFF, (m_SdfSBSData[t_off+6] >> 16) & 0xFF) + 
+                     (  dp.x)*(  dp.y)*(  dp.z)*float3((m_SdfSBSData[t_off+7] >> 0) & 0xFF, (m_SdfSBSData[t_off+7] >> 8) & 0xFF, (m_SdfSBSData[t_off+7] >> 16) & 0xFF);
+
+      color = clamp(floor(color + 0.5f), 0.0f, 255.0f);
+
+      pHit->coords[0] = color.x + color.y/256.0f;
+      pHit->coords[1] = color.z;
+
+      //printf("color = %f %f %f coords = %f %f\n", color.x, color.y, color.z, pHit->coords[0], pHit->coords[1]);
     }
   }
 }

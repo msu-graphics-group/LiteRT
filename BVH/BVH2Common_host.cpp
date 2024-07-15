@@ -536,6 +536,10 @@ uint32_t BVHRT::AddGeom_SdfSBS(SdfSBSView octree, bool single_bvh_node, BuildOpt
   {
     type = TYPE_SDF_SBS_TEX;
   }
+  else if (node_layout == SDF_SBS_NODE_LAYOUT_DX_RGB8) //colored
+  {
+    type = TYPE_SDF_SBS_COL;
+  }
   else
   {
     printf("unsupported node layout %u\n", node_layout);

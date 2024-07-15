@@ -1223,6 +1223,7 @@ std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
             //add texture coordinates
             for (int i=0;i<8;i++)
             {
+              //printf("id = %u, tc= %f %f\n", off, nodes[idx].tex_coords[2*i+0], nodes[idx].tex_coords[2*i+1]);
               unsigned packed_u = ((1<<16) - 1)*LiteMath::clamp(nodes[idx].tex_coords[2*i+0], 0.0f, 1.0f);
               unsigned packed_v = ((1<<16) - 1)*LiteMath::clamp(nodes[idx].tex_coords[2*i+1], 0.0f, 1.0f);
               sbs.values[off + dist_size + i] = (packed_u << 16) | (packed_v & 0x0000FFFF);
