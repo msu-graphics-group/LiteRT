@@ -182,10 +182,7 @@ bool MultiRenderer::LoadSceneHydra(const std::string& a_path, unsigned type, Spa
     }
     else if (name == "sdf_hp")
     {
-      std::cout << "[LoadScene]: sdf hp = " << dir.c_str() << std::endl;
-      SdfHPOctree scene;
-      load_sdf_hp_octree(scene, dir);
-      m_pAccelStruct->AddGeom_SdfHpOctree(scene);
+      std::cout << "[LoadScene]: sdf hp was removed from LiteRT. Search for legacy version to load it. " << std::endl;
     }
     else if (name == "nsdf")
     {
@@ -342,16 +339,6 @@ void MultiRenderer::SetScene(SdfSBSView scene, bool single_bvh_node)
   SetPreset(m_preset);
   GetAccelStruct()->ClearGeom();
   GetAccelStruct()->AddGeom_SdfSBS(scene, single_bvh_node);
-  GetAccelStruct()->ClearScene();
-  GetAccelStruct()->AddInstance(0, LiteMath::float4x4());
-  GetAccelStruct()->CommitScene();
-}
-
-void MultiRenderer::SetScene(SdfHPOctreeView scene)
-{
-  SetPreset(m_preset);
-  GetAccelStruct()->ClearGeom();
-  GetAccelStruct()->AddGeom_SdfHpOctree(scene);
   GetAccelStruct()->ClearScene();
   GetAccelStruct()->AddInstance(0, LiteMath::float4x4());
   GetAccelStruct()->CommitScene();

@@ -3,8 +3,7 @@
 #include <functional>
 #include "../sdfScene/sdf_scene.h"
 #include "../utils/mesh.h"
-#include "Renderer/eye_ray.h"
-#include "hp_octree.h"
+#include "../Renderer/eye_ray.h"
 
 struct GridSettings
 {
@@ -70,10 +69,6 @@ namespace sdf_converter
   SdfSBS create_sdf_SBS(SparseOctreeSettings settings, SdfSBSHeader header, DistanceFunction sdf);
   SdfSBS create_sdf_SBS(SparseOctreeSettings settings, SdfSBSHeader header, MultithreadedDistanceFunction sdf, unsigned max_threads);
   SdfSBS create_sdf_SBS(SparseOctreeSettings settings, SdfSBSHeader header, const cmesh4::SimpleMesh &mesh);
-
-  SdfHPOctree create_sdf_hp_octree(HPOctreeBuilder::BuildSettings settings, DistanceFunction sdf);
-  SdfHPOctree create_sdf_hp_octree(HPOctreeBuilder::BuildSettings settings, MultithreadedDistanceFunction sdf, unsigned max_threads);
-  SdfHPOctree create_sdf_hp_octree(HPOctreeBuilder::BuildSettings settings, const cmesh4::SimpleMesh &mesh);
 
   std::vector<SdfFrameOctreeTexNode> create_sdf_frame_octree_tex(SparseOctreeSettings settings, const cmesh4::SimpleMesh &mesh);
   

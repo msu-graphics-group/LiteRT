@@ -10,7 +10,6 @@
 #include <map>
 
 #include "BVH2Common.h"
-#include "../utils/hp_octree_precomputed_tables.h"
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -652,64 +651,6 @@ uint32_t BVHRT::AddGeom_SdfSBS(SdfSBSView octree, bool single_bvh_node, BuildOpt
         }      
       }
     }
-  }
-
-  // Build BVH for each geom and append it to big buffer;
-  // append data to global arrays and fix offsets
-  auto presets = BuilderPresetsFromString(m_buildName.c_str());
-  auto layout  = LayoutPresetsFromString(m_layoutName.c_str());
-  auto bvhData = BuildBVHFatCustom(orig_nodes.data(), orig_nodes.size(), presets, layout);
-
-  m_allNodePairs.insert(m_allNodePairs.end(), bvhData.nodes.begin(), bvhData.nodes.end());
-
-  return m_geomData.size()-1;
-}
-
-uint32_t BVHRT::AddGeom_SdfHpOctree(SdfHPOctreeView octree, BuildOptions a_qualityLevel)
-{
-  assert(octree.data_size > 0 && octree.nodes_size > 0);
-  assert(octree.data_size < (1u<<28) && octree.nodes_size < (1u<<28));
-  //SDF octree is always a unit cube
-  float4 mn = float4(-1,-1,-1,1);
-  float4 mx = float4( 1, 1, 1,1);
-
-  //fill geom data array
-  GeomData geomData;
-  geomData.boxMin = mn;
-  geomData.boxMax = mx;
-  geomData.offset = uint2(m_SdfHpOctreeRoots.size(), 0);
-  geomData.bvhOffset = m_allNodePairs.size();
-  geomData.type = TYPE_SDF_HP;
-  m_geomData.push_back(geomData);
-
-  //fill octree-specific data arrays
-  unsigned n_offset = m_SdfHpOctreeNodes.size();
-  unsigned v_offset = m_SdfHpOctreeData.size();
-  m_SdfHpOctreeRoots.push_back(n_offset);
-  m_SdfHpOctreeNodes.insert(m_SdfHpOctreeNodes.end(), octree.nodes, octree.nodes + octree.nodes_size);
-  m_SdfHpOctreeData.insert(m_SdfHpOctreeData.end(), octree.data, octree.data + octree.data_size);
-
-  for (int i=n_offset; i<m_SdfSBSNodes.size(); i++)
-    m_SdfSBSNodes[i].data_offset += v_offset;
-
-  //create list of bboxes for BLAS
-  std::vector<BVHNode> orig_nodes;
-
-  for (int i=0;i<octree.nodes_size;i++)
-  {
-    float px = octree.nodes[i].pos_xy >> 16;
-    float py = octree.nodes[i].pos_xy & 0x0000FFFF;
-    float pz = octree.nodes[i].pos_z_lod_size >> 16;
-    float sz = octree.nodes[i].pos_z_lod_size & 0x0000FFFF;
-    unsigned depth = octree.nodes[i].degree_lod & 0x0000FFFF;
-    unsigned degree = octree.nodes[i].degree_lod >> 16;
-
-    const float3 min_pos = float3(-1,-1,-1) + 2.0f*float3(px,py,pz)/sz;
-    const float3 max_pos = min_pos + 2.0f*float3(1,1,1)/sz;
-    
-    orig_nodes.emplace_back();
-    orig_nodes.back().boxMin = min_pos;
-    orig_nodes.back().boxMax = max_pos;
   }
 
   // Build BVH for each geom and append it to big buffer;

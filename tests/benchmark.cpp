@@ -3,7 +3,6 @@
 #include "../Renderer/eye_ray.h"
 #include "../utils/mesh_bvh.h"
 #include "../utils/mesh.h"
-#include "../utils/hp_octree.h"
 #include "../utils/sdf_converter.h"
 #include "../utils/image_metrics.h"
 #include "LiteScene/hydraxml.h"
@@ -50,8 +49,8 @@ void benchmark_framed_octree_intersection()
   std::vector<unsigned> render_modes = {MULTI_RENDER_MODE_LAMBERT_NO_TEX};
   std::vector<std::string> render_names = {"lambert"};
 
-  std::vector<unsigned> AS_types = {TYPE_SDF_FRAME_OCTREE, TYPE_SDF_SVS, TYPE_SDF_HP, TYPE_SDF_SBS, TYPE_MESH_TRIANGLE};
-  std::vector<std::string> AS_names = {"framed_octree", "sparse_voxel_set", "hp-adaptive_octree","sparse_brick_set", "mesh"};
+  std::vector<unsigned> AS_types = {TYPE_SDF_FRAME_OCTREE, TYPE_SDF_SVS, TYPE_SDF_SBS, TYPE_MESH_TRIANGLE};
+  std::vector<std::string> AS_names = {"framed_octree", "sparse_voxel_set", "sparse_brick_set", "mesh"};
 
   std::vector<std::vector<unsigned>> presets_oi(5);
   std::vector<std::vector<std::string>> preset_names(5);
@@ -121,9 +120,6 @@ void benchmark_framed_octree_intersection()
     std::vector<SdfFrameOctreeNode> frame_nodes = sdf_converter::create_sdf_frame_octree(settings, mesh);
     std::vector<SdfSVSNode> svs_nodes = sdf_converter::create_sdf_SVS(settings, mesh);
     SdfSBS sbs = sdf_converter::create_sdf_SBS(settings, header, mesh);
-    
-    HPOctreeBuilder hp_builder;
-    hp_builder.construct(mesh);
 
     LiteImage::Image2D<uint32_t> image(W, H);
 
@@ -147,8 +143,6 @@ void benchmark_framed_octree_intersection()
             pRender->SetScene(mesh);
           else if (AS_types[as_n] == TYPE_SDF_SBS)
             pRender->SetScene(sbs);
-          else if (AS_types[as_n] == TYPE_SDF_HP)
-            pRender->SetScene(SdfHPOctreeView(hp_builder.octree.nodes, hp_builder.octree.data));
 
           double sum_ms[4] = {0,0,0,0};
           double min_ms[4] = {1e6,1e6,1e6,1e6};
@@ -274,9 +268,9 @@ void main_benchmark(const std::string &path, const std::string &mesh_name, unsig
   FILE* log_fd = fopen(results_file_path.c_str(), "a+");
 
   //different types of structures
-  std::vector<std::string> structures =          {           "mesh",        "mesh_lod", "sdf_grid", "sdf_octree", "sdf_frame_octree", "sdf_SVS", "sdf_SBS-2-1", "sdf_SBS-2-2", "sdf_hp_octree", "sdf_SBS-3-1", "sdf_SBS-3-1_SN"};
-  std::vector<std::string> structure_types =     {"normalized_mesh", "normalized_mesh", "sdf_grid", "sdf_octree", "sdf_frame_octree", "sdf_svs",     "sdf_sbs",     "sdf_sbs",        "sdf_hp",     "sdf_sbs",        "sdf_sbs"};
-  std::vector<unsigned> average_bytes_per_node = {                0,                 0,          4,            8,                 36,        16,            44,            72,              71,            80,               80};
+  std::vector<std::string> structures =          {           "mesh",        "mesh_lod", "sdf_grid", "sdf_octree", "sdf_frame_octree", "sdf_SVS", "sdf_SBS-2-1", "sdf_SBS-2-2", "sdf_SBS-3-1", "sdf_SBS-3-1_SN"};
+  std::vector<std::string> structure_types =     {"normalized_mesh", "normalized_mesh", "sdf_grid", "sdf_octree", "sdf_frame_octree", "sdf_svs",     "sdf_sbs",     "sdf_sbs",     "sdf_sbs",        "sdf_sbs"};
+  std::vector<unsigned> average_bytes_per_node = {                0,                 0,          4,            8,                 36,        16,            44,            72,            80,               80};
   
   //different sizes
   std::vector<unsigned> max_depths =          {      7,      7,      7,     8,     8,     9,     9,     10,     10,     11};
@@ -344,25 +338,6 @@ void main_benchmark(const std::string &path, const std::string &mesh_name, unsig
           res.valid = true;
 
           save_sdf_grid(grid, filename);
-        }
-        else if (structure == "sdf_hp_octree")
-        {
-          HPOctreeBuilder::BuildSettings settings;
-          settings.threads = 16;
-          settings.target_error = 0.0f;
-          settings.nodesLimit = 9*nodes_limit/8 + 2000;
-
-          t1 = std::chrono::steady_clock::now();
-          auto scene = sdf_converter::create_sdf_hp_octree(settings, mesh);
-          t2 = std::chrono::steady_clock::now();
-          float build_time = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
-
-          res.build_time_ms = build_time;
-          res.nodes = scene.nodes.size();
-          res.memory = sizeof(SdfHPOctreeNode) * scene.nodes.size() + sizeof(float)*scene.data.size();
-          res.valid = true;
-
-          save_sdf_hp_octree(scene, filename);
         }
         else if (structure == "sdf_octree")
         {
@@ -601,12 +576,6 @@ void main_benchmark(const std::string &path, const std::string &mesh_name, unsig
                   load_sdf_SBS(sbs, filename);
                   pRender->SetScene(sbs, true);                  
                 }
-                else if (structure == "sdf_hp_octree")
-                {
-                  SdfHPOctree hp_octree;
-                  load_sdf_hp_octree(hp_octree, filename);
-                  pRender->SetScene(hp_octree);
-                }
 
                 render(image, pRender, pos, float3(0,0,0), float3(0,1,0), preset, 1);
 
@@ -654,7 +623,7 @@ void main_benchmark(const std::string &path, const std::string &mesh_name, unsig
   std::vector<std::string>{"bvh_sphere_tracing", "bvh_analytic", "bvh_newton", "bvh_interval_tracing"}, 25, 10);
   return;
 */
-  std::vector<std::string> types = {"mesh", "mesh_lod", "sdf_grid", "sdf_octree", "sdf_frame_octree", "sdf_SVS", "sdf_SBS-2-1", "sdf_SBS-2-2", "sdf_hp_octree"};
+  std::vector<std::string> types = {"mesh", "mesh_lod", "sdf_grid", "sdf_octree", "sdf_frame_octree", "sdf_SVS", "sdf_SBS-2-1", "sdf_SBS-2-2"};
   if (supported_type != "")
     types = {supported_type};
 

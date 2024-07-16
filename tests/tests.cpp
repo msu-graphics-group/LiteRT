@@ -6,7 +6,6 @@
 #include "LiteScene/hydraxml.h"
 #include "LiteMath/Image2d.h"
 #include "../NeuralRT/NeuralRT.h"
-#include "../utils/hp_octree.h"
 #include "../utils/sdf_converter.h"
 #include "../utils/sparse_octree_2.h"
 #include "../utils/marching_cubes.h"
@@ -743,161 +742,6 @@ static double urand(double from=0, double to=1)
 {
   return ((double)rand() / RAND_MAX) * (to - from) + from;
 }
-void litert_test_11_hp_octree_legacy()
-{
-  HPOctreeBuilder builder;
-  builder.readLegacy(scenes_folder_path+"scenes/02_sdf_scenes/sphere_hp.bin");
-
-  double diff = 0.0;
-  int cnt = 10000;
-  for (int i = 0; i < cnt; i++)
-  {
-    float3 rnd_pos = float3(urand(-0.5f, 0.5f), urand(-0.5f, 0.5f), urand(-0.5f, 0.5f));
-    float dist_real = length(rnd_pos) - 0.5f;
-    float dist = builder.QueryLegacy(rnd_pos);
-    diff += abs(dist_real - dist);
-    //printf("%.4f - %.4f = %.4f\n", dist_real, dist, dist_real - dist);
-  }
-  diff /= cnt;
-  printf("TEST 11. hp-Octree legacy\n");
-  printf(" 11.1. %-64s", "reading from Legacy format ");
-  if (diff < 1e-4f)
-    printf("passed    (%f)\n", diff);
-  else
-    printf("FAILED, diff = %f\n", diff);
-}
-
-void litert_test_12_hp_octree_render()
-{
-  HPOctreeBuilder builder;
-  builder.readLegacy(scenes_folder_path+"scenes/02_sdf_scenes/sphere_hp.bin");
-
-  unsigned W = 1024, H = 1024;
-
-  MultiRenderPreset preset = getDefaultPreset();
-  //preset.sdf_node_intersect = SDF_OCTREE_NODE_INTERSECT_BBOX;
-  LiteImage::Image2D<uint32_t> image(W, H);
-  LiteImage::Image2D<uint32_t> ref_image(W, H);
-
-  auto pRenderRef = CreateMultiRenderer("CPU");
-  pRenderRef->SetPreset(preset);
-  pRenderRef->SetViewport(0,0,W,H);
-  pRenderRef->SetScene(SdfHPOctreeView(builder.octree.nodes, builder.octree.data));
-  auto pRender = CreateMultiRenderer("GPU");
-  pRender->SetPreset(preset);
-  pRender->SetViewport(0,0,W,H);
-  pRender->SetScene(SdfHPOctreeView(builder.octree.nodes, builder.octree.data));
-
-  auto m1 = pRender->getWorldView();
-  auto m2 = pRender->getProj();
-
-  render(ref_image, pRenderRef, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
-  render(image, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
-
-  LiteImage::SaveImage<uint32_t>("saves/test_12_res.bmp", image); 
-  LiteImage::SaveImage<uint32_t>("saves/test_12_ref.bmp", ref_image);
-
-  float psnr = image_metrics::PSNR(ref_image, image);
-  printf("TEST 12. Rendering hp-adaptive SDF octree\n");
-  printf("  12.1. %-64s", "CPU and GPU render image_metrics::PSNR > 45 ");
-  if (psnr >= 45)
-    printf("passed    (%.2f)\n", psnr);
-  else
-    printf("FAILED, psnr = %f\n", psnr);
-}
-
-void litert_test_13_hp_octree_build()
-{
-#ifdef HP_OCTREE_BUILDER
-
-  HPOctreeBuilder builder;
-  HPOctreeBuilder::BuildSettings settings;
-  settings.threads = 15;
-  settings.target_error = 1e-5f;
-
-  auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "scenes/01_simple_scenes/data/teapot.vsgf").c_str());
-  cmesh4::normalize_mesh(mesh);
-  builder.construct(mesh, settings);
-
-  save_sdf_hp_octree(builder.octree, "saves/test_13_hp_octree.bin");
-  SdfHPOctree loaded_octree;
-  load_sdf_hp_octree(loaded_octree, "saves/test_13_hp_octree.bin");
-
-  HPOctreeBuilder::BuildSettings settings2;
-  settings2.threads = 15;
-  settings2.target_error = 1e-5f;
-  settings2.nodesLimit = 15000;
-  HPOctreeBuilder builder2;
-  builder2.construct(mesh, settings2);
-
-  unsigned W = 1024, H = 1024;
-
-  MultiRenderPreset preset = getDefaultPreset();
-  //preset.sdf_node_intersect = SDF_OCTREE_NODE_INTERSECT_BBOX;
-  LiteImage::Image2D<uint32_t> image(W, H);
-  LiteImage::Image2D<uint32_t> image_l(W, H);
-  LiteImage::Image2D<uint32_t> image_limited(W, H);
-  LiteImage::Image2D<uint32_t> ref_image(W, H);
-
-  auto pRenderRef = CreateMultiRenderer("CPU");
-  pRenderRef->SetPreset(preset);
-  pRenderRef->SetViewport(0,0,W,H);
-  pRenderRef->SetScene(SdfHPOctreeView(builder.octree.nodes, builder.octree.data));
-
-  auto pRender = CreateMultiRenderer("GPU");
-  pRender->SetPreset(preset);
-  pRender->SetViewport(0,0,W,H);
-  pRender->SetScene(SdfHPOctreeView(builder.octree.nodes, builder.octree.data));
-
-  auto pRender_l = CreateMultiRenderer("GPU");
-  pRender_l->SetPreset(preset);
-  pRender_l->SetViewport(0,0,W,H);
-  pRender_l->SetScene(SdfHPOctreeView(loaded_octree.nodes, loaded_octree.data));
-
-  auto pRender_limited = CreateMultiRenderer("GPU");
-  pRender_limited->SetPreset(preset);
-  pRender_limited->SetViewport(0,0,W,H);
-  pRender_limited->SetScene(SdfHPOctreeView(builder2.octree.nodes, builder2.octree.data));
-
-  auto m1 = pRender->getWorldView();
-  auto m2 = pRender->getProj();
-
-  render(ref_image, pRenderRef, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
-  render(image, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
-  render(image_l, pRender_l, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
-  render(image_limited, pRender_limited, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
-
-  LiteImage::SaveImage<uint32_t>("saves/test_13_res.bmp", image); 
-  LiteImage::SaveImage<uint32_t>("saves/test_13_ref.bmp", ref_image);
-  LiteImage::SaveImage<uint32_t>("saves/test_13_res_l.bmp", image_l);
-  LiteImage::SaveImage<uint32_t>("saves/test_13_res_limited.bmp", image_limited);
-
-  float psnr = image_metrics::PSNR(ref_image, image);
-  float psnr_l = image_metrics::PSNR(ref_image, image_l);
-  float psnr_limited = image_metrics::PSNR(ref_image, image_limited);
-
-  printf("TEST 13. Rendering hp-adaptive SDF octree\n");
-  printf("  13.1. %-64s", "CPU and GPU render image_metrics::PSNR > 45 ");
-  if (psnr >= 45)
-    printf("passed    (%.2f)\n", psnr);
-  else
-    printf("FAILED, psnr = %f\n", psnr);
-  
-  printf("  13.2. %-64s", "original and loaded render image_metrics::PSNR > 45 ");
-  if (psnr_l >= 45)
-    printf("passed    (%.2f)\n", psnr_l);
-  else
-    printf("FAILED, psnr = %f\n", psnr_l);
-  
-  printf("  13.3. %-64s", "limited and loaded render image_metrics::PSNR > 30 ");
-  if (psnr_limited >= 30)
-    printf("passed    (%.2f)\n", psnr_limited);
-  else
-    printf("FAILED, psnr = %f\n", psnr_limited);
-#else
-  printf("TEST 13. Skipping hp-adaptive SDF octree test: HP_OCTREE_BUILDER is disabled\n");
-#endif
-}
 
 void litert_test_14_octree_nodes_removal()
 {
@@ -1167,7 +1011,6 @@ void litert_test_17_all_types_sanity_check()
   LiteImage::Image2D<uint32_t> image_3(W, H);
   LiteImage::Image2D<uint32_t> image_4(W, H);
   LiteImage::Image2D<uint32_t> image_5(W, H);
-  LiteImage::Image2D<uint32_t> image_6(W, H);
   
   {
     auto pRender = CreateMultiRenderer("GPU");
@@ -1227,26 +1070,11 @@ void litert_test_17_all_types_sanity_check()
     LiteImage::SaveImage<uint32_t>("saves/test_17_SBS.bmp", image_5);
   }
 
-  {
-    HPOctreeBuilder::BuildSettings settings;
-    settings.target_error = 1e-7f;
-    settings.nodesLimit = 7500;
-    settings.threads = 15;
-
-    auto hp_octree = sdf_converter::create_sdf_hp_octree(settings, mesh);
-    auto pRender = CreateMultiRenderer("GPU");
-    pRender->SetPreset(preset);
-    pRender->SetScene(hp_octree);
-    render(image_6, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
-    LiteImage::SaveImage<uint32_t>("saves/test_17_hp_octree.bmp", image_6);
-  }
-
   float psnr_1 = image_metrics::PSNR(image_1, image_ref);
   float psnr_2 = image_metrics::PSNR(image_2, image_ref);
   float psnr_3 = image_metrics::PSNR(image_3, image_ref);
   float psnr_4 = image_metrics::PSNR(image_4, image_ref);
   float psnr_5 = image_metrics::PSNR(image_5, image_ref);
-  float psnr_6 = image_metrics::PSNR(image_6, image_ref);
 
   printf("TEST 17. all types sanity check\n");
   printf("  17.1. %-64s", "SDF grid");
@@ -1278,12 +1106,6 @@ void litert_test_17_all_types_sanity_check()
     printf("passed %f\n", psnr_5);
   else
     printf("FAILED, psnr = %f\n", psnr_5);
-  
-  printf("  17.6. %-64s", "SDF hp octree");
-  if (psnr_6 >= 30)
-    printf("passed %f\n", psnr_6);
-  else
-    printf("FAILED, psnr = %f\n", psnr_6);
 }
 
 void litert_test_18_mesh_normalization()
@@ -2232,8 +2054,7 @@ void perform_tests_litert(const std::vector<int> &test_ids)
       litert_test_1_framed_octree, litert_test_2_SVS, litert_test_3_SBS_verify,
       litert_test_4_hydra_scene, litert_test_5_interval_tracing, litert_test_6_faster_bvh_build,
       test_7_neural_SDF, litert_test_8_SDF_grid, litert_test_9_mesh, 
-      litert_test_10_save_load, litert_test_11_hp_octree_legacy, litert_test_12_hp_octree_render,
-      litert_test_13_hp_octree_build, litert_test_14_octree_nodes_removal, 
+      litert_test_10_save_load, litert_test_14_octree_nodes_removal, 
       litert_test_15_frame_octree_nodes_removal, litert_test_16_SVS_nodes_removal,
       litert_test_17_all_types_sanity_check, litert_test_18_mesh_normalization,
       litert_test_19_marching_cubes, litert_test_20_radiance_fields, litert_test_21_rf_to_mesh,

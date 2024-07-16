@@ -53,7 +53,6 @@ set(SCENE_LOADER_SRC
     ${CMAKE_SOURCE_DIR}/utils/sparse_octree_2.cpp
     ${CMAKE_SOURCE_DIR}/utils/radiance_field.cpp
     ${CMAKE_SOURCE_DIR}/utils/gaussian_field.cpp
-    ${CMAKE_SOURCE_DIR}/utils/hp_octree.cpp
     ${CMAKE_SOURCE_DIR}/utils/watertight_mesh.cpp
     ${CMAKE_SOURCE_DIR}/utils/sdf_converter.cpp
     ${CMAKE_SOURCE_DIR}/utils/hydra_stub.cpp
@@ -95,7 +94,6 @@ endif()
 add_compile_definitions(ON_CPU=1)
 
 option(MODULE_VULKAN "include GPU support for neural networks" ON)
-option(MODULE_HP_OCTREE "include GPU module for building hp-octrees" OFF)
 
 option(USE_STB_IMAGE "Enable STB image " ON)
 if(USE_STB_IMAGE)
@@ -159,19 +157,6 @@ if (MODULE_VULKAN)
   set(MODULES_SRC ${MODULES_SRC} ${VKGEN_SOURCE} ${VKUTILS_SOURCE})
 
   set(MODULES_LIBRARIES ${MODULES_LIBRARIES} ${Vulkan_LIBRARY} OpenMP::OpenMP_CXX volk dl)
-endif()
-
-if (MODULE_HP_OCTREE)
-  add_compile_definitions(HP_OCTREE_BUILDER)
-  set(MODULES_LIBRARIES ${MODULES_LIBRARIES} ${CMAKE_SOURCE_DIR}/dependencies/hp_octree/libLib_HP.a)
-  set(MODULES_INCLUDE_DIRS ${MODULES_INCLUDE_DIRS}
-                          ${CMAKE_SOURCE_DIR}/dependencies/hp_octree/Include
-                          ${CMAKE_SOURCE_DIR}/dependencies/hp_octree/External/eigen)
-  set(MODULES_SRC ${MODULES_SRC}
-                  ${CMAKE_SOURCE_DIR}/utils/hp_octree_builder.cpp)
-  else()
-  set(MODULES_SRC ${MODULES_SRC}
-                  ${CMAKE_SOURCE_DIR}/utils/hp_octree_builder_stub.cpp)
 endif()
 
 add_executable(render_app)

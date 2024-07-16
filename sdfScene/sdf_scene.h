@@ -135,14 +135,6 @@ struct SdfSBSHeader
   uint32_t aux_data;        //SdfSBSNodeLayout
 };
 
-struct SdfHPOctreeNode
-{
-  uint32_t pos_xy; //position of start voxel of the block in it's LOD
-  uint32_t pos_z_lod_size; //size of it's LOD, (i.e. 2^LOD)
-  uint32_t data_offset; //offset in data vector for block with polynomial coefficients, offset is in float, not bytes   
-  uint32_t degree_lod; //polynomial degree and LOD
-};
-
 struct SdfFrameOctreeTexNode
 {
   float tex_coords[16];
@@ -177,12 +169,6 @@ struct SdfScene
   std::vector<SdfObject> objects;
   std::vector<SdfConjunction> conjunctions;
   std::vector<NeuralProperties> neural_properties;
-};
-
-struct SdfHPOctree
-{
-  std::vector<SdfHPOctreeNode> nodes;
-  std::vector<float> data;
 };
 
 struct SdfGridView
@@ -328,29 +314,6 @@ struct SdfSceneView
   unsigned neural_properties_count;
 };
 
-struct SdfHPOctreeView
-{
-  SdfHPOctreeView() = default;
-  SdfHPOctreeView(const SdfHPOctree &octree)
-  {
-    nodes = octree.nodes.data();
-    data = octree.data.data();
-    nodes_size = octree.nodes.size();
-    data_size = octree.data.size();
-  }
-  SdfHPOctreeView(const std::vector<SdfHPOctreeNode> &_nodes, const std::vector<float> &_data)
-  {
-    nodes = _nodes.data();
-    data = _data.data();
-    nodes_size = _nodes.size();
-    data_size = _data.size();
-  }
-  const SdfHPOctreeNode *nodes;
-  const float *data;
-  unsigned nodes_size;
-  unsigned data_size;
-};
-
 struct SdfFrameOctreeTexView
 {
   SdfFrameOctreeTexView() = default;
@@ -414,9 +377,6 @@ void load_sdf_SVS(std::vector<SdfSVSNode> &scene, const std::string &path);
 
 void save_sdf_SBS(const SdfSBSView &scene, const std::string &path);
 void load_sdf_SBS(SdfSBS &scene, const std::string &path);
-
-void save_sdf_hp_octree(const SdfHPOctreeView &scene, const std::string &path);
-void load_sdf_hp_octree(SdfHPOctree &scene, const std::string &path);
 
 void save_sdf_frame_octree_tex(const SdfFrameOctreeTexView &scene, const std::string &path);
 void load_sdf_frame_octree_tex(std::vector<SdfFrameOctreeTexNode> &scene, const std::string &path);

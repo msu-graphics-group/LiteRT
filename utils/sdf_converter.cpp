@@ -199,25 +199,6 @@ namespace sdf_converter
                           { return bvh[idx].get_signed_distance(p); }, max_threads);
   }
 
-  SdfHPOctree create_sdf_hp_octree(HPOctreeBuilder::BuildSettings settings, DistanceFunction sdf)
-  {
-    return create_sdf_hp_octree(settings, [&](const float3 &p, unsigned idx) -> float { return sdf(p); }, 1);
-  }
-
-  SdfHPOctree create_sdf_hp_octree(HPOctreeBuilder::BuildSettings settings, MultithreadedDistanceFunction sdf, unsigned max_threads)
-  {
-    HPOctreeBuilder builder;
-    builder.construct(sdf, settings);
-    return builder.octree;
-  }
-
-  SdfHPOctree create_sdf_hp_octree(HPOctreeBuilder::BuildSettings settings, const cmesh4::SimpleMesh &mesh)
-  {
-    HPOctreeBuilder builder;
-    builder.construct(mesh, settings);
-    return builder.octree;
-  }
-
   std::vector<SdfFrameOctreeTexNode> create_sdf_frame_octree_tex(SparseOctreeSettings settings, const cmesh4::SimpleMesh &mesh)
   {
     if (settings.build_type == SparseOctreeBuildType::MESH_TLO)

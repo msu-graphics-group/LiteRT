@@ -1,6 +1,6 @@
 #include "image_metrics.h"
 #include "omp.h"
-#include "FLIP.h"
+#include "../dependencies/FLIP.h"
 
 namespace image_metrics
 {

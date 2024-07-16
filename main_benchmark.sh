@@ -24,11 +24,6 @@ make -j15
 ./render_app -benchmark $3 sdf_SBS-2-1 >> ./saves/${3}/auto_results.txt
 ./render_app -benchmark $3 sdf_SBS-2-2 >> ./saves/${3}/auto_results.txt
 
-bash scripts/slicer_preprocess_hp_only.sh $1 $2
-bash scripts/slicer_build_shaders.sh $1 $2
-make -j15
-./render_app -benchmark $3 sdf_hp_octree >> ./saves/${3}/auto_results.txt
-
 bash scripts/slicer_preprocess_svs_only.sh $1 $2
 bash scripts/slicer_build_shaders.sh $1 $2
 make -j15
