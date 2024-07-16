@@ -62,7 +62,6 @@ set(SCENE_LOADER_SRC
     ${CMAKE_SOURCE_DIR}/utils/image_metrics.cpp
     ${CMAKE_SOURCE_DIR}/tests/tests.cpp
     ${CMAKE_SOURCE_DIR}/tests/benchmark.cpp
-    ${CMAKE_SOURCE_DIR}/NeuralRT/NeuralRT.cpp
     )
 
 set(CORE_SRC
@@ -139,11 +138,7 @@ if (MODULE_VULKAN)
   set(VKGEN_SOURCE 
       ${CMAKE_SOURCE_DIR}/Renderer/eye_ray_gpu.cpp 
       ${CMAKE_SOURCE_DIR}/Renderer/eye_ray_gpu_ds.cpp 
-      ${CMAKE_SOURCE_DIR}/Renderer/eye_ray_gpu_init.cpp
-      
-      ${CMAKE_SOURCE_DIR}/NeuralRT/NeuralRT_gpu.cpp
-      ${CMAKE_SOURCE_DIR}/NeuralRT/NeuralRT_gpu_ds.cpp
-      ${CMAKE_SOURCE_DIR}/NeuralRT/NeuralRT_gpu_init.cpp)
+      ${CMAKE_SOURCE_DIR}/Renderer/eye_ray_gpu_init.cpp)
 
   set(VKUTILS_SOURCE ${CMAKE_SOURCE_DIR}/dependencies/vkutils/vk_utils.cpp
                      ${CMAKE_SOURCE_DIR}/dependencies/vkutils/vk_copy.cpp

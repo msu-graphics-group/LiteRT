@@ -26,18 +26,4 @@ $2 $start_dir/Renderer/eye_ray.cpp $start_dir/BVH/BVH2Common.cpp \
 -DDISABLE_RF_GRID \
 -DDISABLE_GS_PRIMITIVE
 
-$2 $start_dir/NeuralRT/NeuralRT.cpp \
--mainClass NeuralRT \
--stdlibfolder $PWD/TINYSTL \
--pattern ipv \
--I$PWD/TINYSTL                  ignore \
--I$PWD/apps                     ignore \
--I$PWD/apps/LiteMath            ignore \
--I$start_dir                   process \
--I$start_dir/BVH               process \
--I$start_dir/sdfScene           ignore \
--shaderCC glsl \
--suffix _GPU \
--DPUGIXML_NO_EXCEPTIONS -DKERNEL_SLICER -v 
-
 cd $start_dir

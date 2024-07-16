@@ -55,10 +55,6 @@ Renderer/**/*temp*
 Renderer/**/*gpu*
 Renderer/**/*.comp
 Renderer/shaders_gpu/build.sh
-NeuralRT/**/*temp*
-NeuralRT/**/*gpu*
-NeuralRT/**/*.comp
-NeuralRT/shaders_gpu/build.sh
 .cache
 .DS_Store
 scenes/03_gs_scenes/nerf_synthetic
