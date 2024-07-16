@@ -43,4 +43,6 @@ namespace sdf_converter
                                  unsigned max_threads,
                                  const std::vector<SdfFrameOctreeTexNode> &nodes,
                                  const SdfSBSHeader &header);
+
+  SdfSBS SBS_col_to_SBS_ind(const SdfSBS &sbs);
 }

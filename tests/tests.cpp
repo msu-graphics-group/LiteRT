@@ -2099,6 +2099,7 @@ void litert_test_27_textured_colored_SBS()
   LiteImage::Image2D<uint32_t> image_SVS(W, H);
   LiteImage::Image2D<uint32_t> image_SBS_tex(W, H);
   LiteImage::Image2D<uint32_t> image_SBS_col(W, H);
+  LiteImage::Image2D<uint32_t> image_SBS_ind(W, H);
 
   {
     auto pRender = CreateMultiRenderer("GPU");
@@ -2167,14 +2168,33 @@ void litert_test_27_textured_colored_SBS()
     render(image_SBS_col, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
   }
 
+  {
+    auto pRender = CreateMultiRenderer("GPU");
+    pRender->SetPreset(preset);
+    pRender->SetViewport(0,0,W,H);
+
+    uint32_t texId = pRender->AddTexture(texture);
+    MultiRendererMaterial mat;
+    mat.type = MULTI_RENDER_MATERIAL_TYPE_TEXTURED;
+    mat.texId = texId;
+    uint32_t matId = pRender->AddMaterial(mat);
+    pRender->SetMaterial(matId, 0);  
+
+    auto indexed_SBS = sdf_converter::create_sdf_SBS_indexed(settings, header, mesh, matId, pRender->getMaterials(), pRender->getTextures());
+    pRender->SetScene(indexed_SBS);
+    render(image_SBS_ind, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);    
+  }
+
   LiteImage::SaveImage<uint32_t>("saves/test_27_mesh.bmp", image_mesh); 
   LiteImage::SaveImage<uint32_t>("saves/test_27_svs.bmp", image_SVS);
   LiteImage::SaveImage<uint32_t>("saves/test_27_sbs_tex.bmp", image_SBS_tex);
   LiteImage::SaveImage<uint32_t>("saves/test_27_sbs_col.bmp", image_SBS_col);
+  LiteImage::SaveImage<uint32_t>("saves/test_27_sbs_ind.bmp", image_SBS_ind);
 
   float psnr_1 = image_metrics::PSNR(image_mesh, image_SBS_tex);
   float psnr_2 = image_metrics::PSNR(image_SVS, image_SBS_tex);
   float psnr_3 = image_metrics::PSNR(image_SBS_col, image_SBS_tex);
+  float psnr_4 = image_metrics::PSNR(image_SBS_ind, image_SBS_col);
 
   printf("TEST 27. Teatured and colored SBS\n");
 
@@ -2195,6 +2215,12 @@ void litert_test_27_textured_colored_SBS()
     printf("passed    (%.2f)\n", psnr_3);
   else
     printf("FAILED, psnr = %f\n", psnr_3);
+
+  printf(" 27.4. %-64s", "Indexed SBS perfectly match colored SBS");
+  if (psnr_4 >= 50)
+    printf("passed    (%.2f)\n", psnr_4);
+  else
+    printf("FAILED, psnr = %f\n", psnr_4);
 }
 
 

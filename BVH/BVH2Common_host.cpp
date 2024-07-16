@@ -536,7 +536,8 @@ uint32_t BVHRT::AddGeom_SdfSBS(SdfSBSView octree, bool single_bvh_node, BuildOpt
   {
     type = TYPE_SDF_SBS_TEX;
   }
-  else if (node_layout == SDF_SBS_NODE_LAYOUT_DX_RGB8) //colored
+  else if (node_layout == SDF_SBS_NODE_LAYOUT_DX_RGB8 ||     //colored
+           node_layout == SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F) 
   {
     type = TYPE_SDF_SBS_COL;
   }
@@ -569,6 +570,20 @@ uint32_t BVHRT::AddGeom_SdfSBS(SdfSBSView octree, bool single_bvh_node, BuildOpt
 
   for (int i=n_offset; i<m_SdfSBSNodes.size(); i++)
     m_SdfSBSNodes[i].data_offset += v_offset;
+  
+  if (node_layout == SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F) //indexed layout reqires float values
+  {
+    unsigned f_offset = m_SdfSBSDataF.size();
+    m_SdfSBSDataF.insert(m_SdfSBSDataF.end(), octree.values_f, octree.values_f + octree.values_f_count);
+
+    //all integer values are indices, so we need to remap them
+    for (int i=v_offset; i<m_SdfSBSData.size(); i++)
+      m_SdfSBSData[i] += f_offset;
+  }
+  else
+  {
+    assert(octree.values_f_count == 0);
+  }
 
   //create list of bboxes for BLAS
   std::vector<BVHNode> orig_nodes;

@@ -167,6 +167,7 @@ struct SdfSBS
   SdfSBSHeader header;
   std::vector<SdfSBSNode> nodes;
   std::vector<uint32_t> values;
+  std::vector<float> values_f; //used with indexed SBS layouts, as it is easier to have float values as a separate vector
 };
 
 // structure to actually store SdfScene data
@@ -247,6 +248,8 @@ struct SdfSBSView
     nodes = sbs.nodes.data();
     values_count = sbs.values.size();
     values = sbs.values.data();
+    values_f_count = sbs.values_f.size();
+    values_f = sbs.values_f.data();
   }
   SdfSBSView(SdfSBSHeader a_header, const std::vector<SdfSBSNode> &a_nodes, 
              const std::vector<uint32_t> &a_values)
@@ -256,6 +259,20 @@ struct SdfSBSView
     nodes = a_nodes.data();
     values_count = a_values.size();
     values = a_values.data();
+    values_f_count = 0;
+    values_f = nullptr;
+  }
+
+  SdfSBSView(SdfSBSHeader a_header, const std::vector<SdfSBSNode> &a_nodes,
+             const std::vector<uint32_t> &a_values, const std::vector<float> &a_values_f)
+  {
+    header = a_header;
+    size = a_nodes.size();
+    nodes = a_nodes.data();
+    values_count = a_values.size();
+    values = a_values.data();
+    values_f_count = a_values_f.size();
+    values_f = a_values_f.data();
   }
 
   SdfSBSHeader header;
@@ -263,6 +280,8 @@ struct SdfSBSView
   const SdfSBSNode *nodes;
   unsigned values_count;
   const uint32_t *values;
+  unsigned values_f_count;
+  const float *values_f;
 };
 
 // structure to access and transfer SdfScene data

@@ -82,4 +82,8 @@ namespace sdf_converter
   SdfSBS create_sdf_SBS_col(SparseOctreeSettings settings, SdfSBSHeader header, const cmesh4::SimpleMesh &mesh, unsigned mat_id,
                             const std::vector<MultiRendererMaterial> &materials_lib, 
                             const std::vector<std::shared_ptr<ICombinedImageSampler>> &textures_lib);
+
+  SdfSBS create_sdf_SBS_indexed(SparseOctreeSettings settings, SdfSBSHeader header, const cmesh4::SimpleMesh &mesh, unsigned mat_id,
+                                const std::vector<MultiRendererMaterial> &materials_lib, 
+                                const std::vector<std::shared_ptr<ICombinedImageSampler>> &textures_lib);
 }

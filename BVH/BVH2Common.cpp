@@ -720,19 +720,35 @@ void BVHRT::OctreeBrickIntersect(uint32_t type, const float3 ray_pos, const floa
     float3 max_pos = min_pos + d*float3(1,1,1);
     float3 size = max_pos - min_pos;
 
-    uint32_t v_off = m_SdfSBSNodes[nodeId].data_offset;
-    uint32_t vals_per_int = 4/header.bytes_per_value; 
-    uint32_t bits = 8*header.bytes_per_value;
-    uint32_t max_val = header.bytes_per_value == 4 ? 0xFFFFFFFF : ((1 << bits) - 1);
-    float d_max = 1.41421356f*sz_inv;
-    float mult = 2*d_max/max_val;
     float vmin = 1.0f;
-    for (int i=0;i<8;i++)
+
+    if (header.aux_data == SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F)
     {
-      uint3 vPos = uint3(voxelPos) + uint3((i & 4) >> 2, (i & 2) >> 1, i & 1);
-      uint32_t vId = vPos.x*v_size*v_size + vPos.y*v_size + vPos.z;
-      values[i] = -d_max + mult*((m_SdfSBSData[v_off + vId/vals_per_int] >> (bits*(vId%vals_per_int))) & max_val);
-      vmin = std::min(vmin, values[i]);
+      uint32_t v_off = m_SdfSBSNodes[nodeId].data_offset;
+      for (int i=0;i<8;i++)
+      {
+        uint3 vPos = uint3(voxelPos) + uint3((i & 4) >> 2, (i & 2) >> 1, i & 1);
+        uint32_t vId = vPos.x*v_size*v_size + vPos.y*v_size + vPos.z;
+        values[i] = m_SdfSBSDataF[m_SdfSBSData[v_off + vId]];
+        //printf("%f\n", values[i]);
+        vmin = std::min(vmin, values[i]);
+      }
+    }
+    else
+    {
+      uint32_t v_off = m_SdfSBSNodes[nodeId].data_offset;
+      uint32_t vals_per_int = 4/header.bytes_per_value; 
+      uint32_t bits = 8*header.bytes_per_value;
+      uint32_t max_val = header.bytes_per_value == 4 ? 0xFFFFFFFF : ((1 << bits) - 1);
+      float d_max = 1.41421356f*sz_inv;
+      float mult = 2*d_max/max_val;
+      for (int i=0;i<8;i++)
+      {
+        uint3 vPos = uint3(voxelPos) + uint3((i & 4) >> 2, (i & 2) >> 1, i & 1);
+        uint32_t vId = vPos.x*v_size*v_size + vPos.y*v_size + vPos.z;
+        values[i] = -d_max + mult*((m_SdfSBSData[v_off + vId/vals_per_int] >> (bits*(vId%vals_per_int))) & max_val);
+        vmin = std::min(vmin, values[i]);
+      }
     }
 
     fNearFar = RayBoxIntersection2(ray_pos, SafeInverse(ray_dir), min_pos, max_pos);
@@ -754,11 +770,12 @@ void BVHRT::OctreeBrickIntersect(uint32_t type, const float3 ray_pos, const floa
   {
     float3 pos = ray_pos + pHit->t*ray_dir;
     float3 dp = (pos - brick_min_pos)*(0.5f*sz);
-    uint32_t vals_per_int = 4/header.bytes_per_value;
-    uint32_t t_off = m_SdfSBSNodes[nodeId].data_offset + (v_size*v_size*v_size+vals_per_int-1)/vals_per_int;
 
     if (header.aux_data == SDF_SBS_NODE_LAYOUT_DX_UV16)
-    {       
+    {   
+      uint32_t vals_per_int = 4/header.bytes_per_value;
+      uint32_t t_off = m_SdfSBSNodes[nodeId].data_offset + (v_size*v_size*v_size+vals_per_int-1)/vals_per_int;
+
       pHit->coords[0] = (1-dp.x)*(1-dp.y)*(1-dp.z)*(1.5259022e-5f*float(m_SdfSBSData[t_off+0] >> 16)) + 
                         (1-dp.x)*(1-dp.y)*(  dp.z)*(1.5259022e-5f*float(m_SdfSBSData[t_off+1] >> 16)) + 
                         (1-dp.x)*(  dp.y)*(1-dp.z)*(1.5259022e-5f*float(m_SdfSBSData[t_off+2] >> 16)) + 
@@ -779,6 +796,9 @@ void BVHRT::OctreeBrickIntersect(uint32_t type, const float3 ray_pos, const floa
     }
     else if (header.aux_data == SDF_SBS_NODE_LAYOUT_DX_RGB8)
     {
+      uint32_t vals_per_int = 4/header.bytes_per_value;
+      uint32_t t_off = m_SdfSBSNodes[nodeId].data_offset + (v_size*v_size*v_size+vals_per_int-1)/vals_per_int;
+
       float3 color = (1-dp.x)*(1-dp.y)*(1-dp.z)*float3((m_SdfSBSData[t_off+0] >> 0) & 0xFF, (m_SdfSBSData[t_off+0] >> 8) & 0xFF, (m_SdfSBSData[t_off+0] >> 16) & 0xFF) + 
                      (1-dp.x)*(1-dp.y)*(  dp.z)*float3((m_SdfSBSData[t_off+1] >> 0) & 0xFF, (m_SdfSBSData[t_off+1] >> 8) & 0xFF, (m_SdfSBSData[t_off+1] >> 16) & 0xFF) + 
                      (1-dp.x)*(  dp.y)*(1-dp.z)*float3((m_SdfSBSData[t_off+2] >> 0) & 0xFF, (m_SdfSBSData[t_off+2] >> 8) & 0xFF, (m_SdfSBSData[t_off+2] >> 16) & 0xFF) + 
@@ -793,6 +813,25 @@ void BVHRT::OctreeBrickIntersect(uint32_t type, const float3 ray_pos, const floa
       pHit->coords[0] = color.x + color.y/256.0f;
       pHit->coords[1] = color.z;
 
+      //printf("color = %f %f %f coords = %f %f\n", color.x, color.y, color.z, pHit->coords[0], pHit->coords[1]);
+    }
+    else if (header.aux_data == SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F)
+    {
+      uint32_t t_off = m_SdfSBSNodes[nodeId].data_offset + v_size*v_size*v_size;
+
+      float3 color = (1-dp.x)*(1-dp.y)*(1-dp.z)*float3(m_SdfSBSDataF[m_SdfSBSData[t_off+0]+0], m_SdfSBSDataF[m_SdfSBSData[t_off+0]+1], m_SdfSBSDataF[m_SdfSBSData[t_off+0]+2]) + 
+                     (1-dp.x)*(1-dp.y)*(  dp.z)*float3(m_SdfSBSDataF[m_SdfSBSData[t_off+1]+0], m_SdfSBSDataF[m_SdfSBSData[t_off+1]+1], m_SdfSBSDataF[m_SdfSBSData[t_off+1]+2]) + 
+                     (1-dp.x)*(  dp.y)*(1-dp.z)*float3(m_SdfSBSDataF[m_SdfSBSData[t_off+2]+0], m_SdfSBSDataF[m_SdfSBSData[t_off+2]+1], m_SdfSBSDataF[m_SdfSBSData[t_off+2]+2]) + 
+                     (1-dp.x)*(  dp.y)*(  dp.z)*float3(m_SdfSBSDataF[m_SdfSBSData[t_off+3]+0], m_SdfSBSDataF[m_SdfSBSData[t_off+3]+1], m_SdfSBSDataF[m_SdfSBSData[t_off+3]+2]) + 
+                     (  dp.x)*(1-dp.y)*(1-dp.z)*float3(m_SdfSBSDataF[m_SdfSBSData[t_off+4]+0], m_SdfSBSDataF[m_SdfSBSData[t_off+4]+1], m_SdfSBSDataF[m_SdfSBSData[t_off+4]+2]) + 
+                     (  dp.x)*(1-dp.y)*(  dp.z)*float3(m_SdfSBSDataF[m_SdfSBSData[t_off+5]+0], m_SdfSBSDataF[m_SdfSBSData[t_off+5]+1], m_SdfSBSDataF[m_SdfSBSData[t_off+5]+2]) + 
+                     (  dp.x)*(  dp.y)*(1-dp.z)*float3(m_SdfSBSDataF[m_SdfSBSData[t_off+6]+0], m_SdfSBSDataF[m_SdfSBSData[t_off+6]+1], m_SdfSBSDataF[m_SdfSBSData[t_off+6]+2]) + 
+                     (  dp.x)*(  dp.y)*(  dp.z)*float3(m_SdfSBSDataF[m_SdfSBSData[t_off+7]+0], m_SdfSBSDataF[m_SdfSBSData[t_off+7]+1], m_SdfSBSDataF[m_SdfSBSData[t_off+7]+2]);
+
+      color = clamp(floor(255.0f*color + 0.5f), 0.0f, 255.0f);
+
+      pHit->coords[0] = color.x + color.y/256.0f;
+      pHit->coords[1] = color.z;
       //printf("color = %f %f %f coords = %f %f\n", color.x, color.y, color.z, pHit->coords[0], pHit->coords[1]);
     }
   }
