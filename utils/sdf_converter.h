@@ -3,7 +3,7 @@
 #include <functional>
 #include "../sdfScene/sdf_scene.h"
 #include "../utils/mesh.h"
-#include "Renderer/eye_ray.h"
+#include "../Renderer/eye_ray.h"
 #include "hp_octree.h"
 
 struct GridSettings
