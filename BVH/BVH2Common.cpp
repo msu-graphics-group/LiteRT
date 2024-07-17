@@ -52,6 +52,10 @@ void BVHRT::IntersectAllPrimitivesInLeaf(const float3 ray_pos, const float3 ray_
   uint32_t type = m_geomData[geomId].type;
   const float SDF_BIAS = 0.1f;
   const float tNearSdf = std::max(tNear, SDF_BIAS);
+  
+  (m_geomData.data() + geomId)->Intersect(type, ray_pos, ray_dir, tNearSdf, instId, geomId, a_start, a_count, pHit, this);
+
+/*
   switch (type)
   {
   case TYPE_MESH_TRIANGLE:
@@ -85,6 +89,7 @@ void BVHRT::IntersectAllPrimitivesInLeaf(const float3 ray_pos, const float3 ray_
   default:
     break;
   }
+*/
 }
 
 float BVHRT::eval_dist_trilinear(const float values[8], float3 dp)

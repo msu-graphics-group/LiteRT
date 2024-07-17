@@ -40,13 +40,35 @@ static MultiRenderPreset getDefaultPreset()
   return p;
 }
 
+struct BVHRT;
 struct GeomData
 {
+  static constexpr uint32_t TAG_UNKNOWN    = 0;    // !!! #REQUIRED by kernel slicer: Empty/Default impl must have zero both tag and offset
+  static constexpr uint32_t TAG_TRIANGLE   = 1; 
+  static constexpr uint32_t TAG_SDF_GRID   = 2; 
+  static constexpr uint32_t TAG_SDF_NODE   = 3; 
+  static constexpr uint32_t TAG_SDF_BRICK  = 4;
+  static constexpr uint32_t TAG_RF         = 5;
+  static constexpr uint32_t TAG_GS         = 6;
+
+  GeomData(){}  // Dispatching on GPU hierarchy must not have destructors, especially virtual   
+  virtual uint32_t GetTag()   const  { return TAG_UNKNOWN; }; // !!! #REQUIRED by kernel slicer
+  virtual uint32_t Intersect(uint32_t type, const float3 ray_pos, const float3 ray_dir,
+                             float tNear, uint32_t instId, uint32_t geomId,
+                             uint32_t a_start, uint32_t a_count,
+                             CRT_Hit *pHit, BVHRT *bvhrt)   const  { return 0; }; // !!! #REQUIRED by kernel slicer
+
   float4 boxMin;
   float4 boxMax;
+
   uint2 offset;
   uint32_t bvhOffset;
   uint32_t type; // enum GeomType
+
+  uint32_t tag;
+  uint32_t _pad1;
+  uint32_t _pad2;
+  uint32_t _pad3;
 };
 
 // common data for arch instance on scene
@@ -319,4 +341,94 @@ struct BVHRT : public ISceneObject
 
   bool m_firstSceneCommit = true;
   bool debug_cur_pixel = false;
+};
+
+struct GeomDataTriangle : public GeomData
+{
+  GeomDataTriangle() {tag = GetTag();} 
+
+  uint32_t GetTag() const override { return TAG_TRIANGLE; }  
+  uint32_t Intersect(uint32_t type, const float3 ray_pos, const float3 ray_dir,
+                     float tNear, uint32_t instId, uint32_t geomId,
+                     uint32_t a_start, uint32_t a_count,
+                     CRT_Hit *pHit, BVHRT *bvhrt)   const override
+  {
+    bvhrt->IntersectAllTrianglesInLeaf(ray_pos, ray_dir, tNear, instId, geomId, a_start, a_count, pHit);
+    return TAG_TRIANGLE;
+  }
+};
+
+struct GeomDataSdfGrid : public GeomData
+{
+  GeomDataSdfGrid() {tag = GetTag();} 
+
+  uint32_t GetTag() const override { return TAG_SDF_GRID; }  
+  uint32_t Intersect(uint32_t type, const float3 ray_pos, const float3 ray_dir,
+                     float tNear, uint32_t instId, uint32_t geomId,
+                     uint32_t a_start, uint32_t a_count,
+                     CRT_Hit *pHit, BVHRT *bvhrt)   const override
+  {
+    bvhrt->IntersectAllSdfsInLeaf(ray_pos, ray_dir, tNear, instId, geomId, a_start, a_count, pHit);
+    return TAG_SDF_GRID;
+  }
+};
+
+struct GeomDataSdfNode : public GeomData
+{
+  GeomDataSdfNode() {tag = GetTag();} 
+
+  uint32_t GetTag() const override { return TAG_SDF_NODE; }  
+  uint32_t Intersect(uint32_t type, const float3 ray_pos, const float3 ray_dir,
+                     float tNear, uint32_t instId, uint32_t geomId,
+                     uint32_t a_start, uint32_t a_count,
+                     CRT_Hit *pHit, BVHRT *bvhrt) const override
+  {
+    bvhrt->OctreeNodeIntersect(type, ray_pos, ray_dir, tNear, instId, geomId, a_start, a_count, pHit);
+    return TAG_SDF_NODE;
+  }
+};
+
+struct GeomDataSdfBrick : public GeomData
+{
+  GeomDataSdfBrick() {tag = GetTag();} 
+
+  uint32_t GetTag() const override { return TAG_SDF_BRICK; }  
+  uint32_t Intersect(uint32_t type, const float3 ray_pos, const float3 ray_dir,
+                     float tNear, uint32_t instId, uint32_t geomId,
+                     uint32_t a_start, uint32_t a_count,
+                     CRT_Hit *pHit, BVHRT *bvhrt)   const override
+  {
+    bvhrt->OctreeBrickIntersect(type, ray_pos, ray_dir, tNear, instId, geomId, a_start, a_count, pHit);
+    return TAG_SDF_BRICK;
+  }
+};
+
+struct GeomDataRF : public GeomData
+{
+  GeomDataRF() {tag = GetTag();} 
+
+  uint32_t GetTag() const override { return TAG_RF; }  
+  uint32_t Intersect(uint32_t type, const float3 ray_pos, const float3 ray_dir,
+                     float tNear, uint32_t instId, uint32_t geomId,
+                     uint32_t a_start, uint32_t a_count,
+                     CRT_Hit *pHit, BVHRT *bvhrt)   const override
+  {
+    bvhrt->IntersectRFInLeaf(ray_pos, ray_dir, tNear, instId, geomId, a_start, a_count, pHit);
+    return TAG_RF;
+  }
+};
+
+struct GeomDataGS : public GeomData
+{
+  GeomDataGS() {tag = GetTag();} 
+
+  uint32_t GetTag() const override { return TAG_GS; }  
+  uint32_t Intersect(uint32_t type, const float3 ray_pos, const float3 ray_dir,
+                     float tNear, uint32_t instId, uint32_t geomId,
+                     uint32_t a_start, uint32_t a_count,
+                     CRT_Hit *pHit, BVHRT *bvhrt)   const override
+  {
+    bvhrt->IntersectGSInLeaf(ray_pos, ray_dir, tNear, instId, geomId, a_start, a_count, pHit);
+    return TAG_GS;
+  }
 };
