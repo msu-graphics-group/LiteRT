@@ -326,16 +326,6 @@ struct SdfFrameOctreeTexView
   const SdfFrameOctreeTexNode *nodes;
 };
 
-// interface to evaluate SdfScene out of context of rendering
-class ISdfSceneFunction
-{
-public:
-  //copies data from scene
-  virtual void init(SdfSceneView scene) = 0; 
-  virtual float eval_distance(float3 pos) = 0;
-};
-std::shared_ptr<ISdfSceneFunction> get_SdfSceneFunction(SdfSceneView scene);
-
 // interface to evaluate SdfOctree out of context of rendering
 class ISdfOctreeFunction
 {

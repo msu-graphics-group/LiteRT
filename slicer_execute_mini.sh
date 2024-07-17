@@ -21,7 +21,6 @@ $2 $start_dir/Renderer/eye_ray.cpp $start_dir/BVH/BVH2Common.cpp \
 -suffix _GPU \
 -megakernel 1 \
 -DPUGIXML_NO_EXCEPTIONS -DKERNEL_SLICER -v \
--DDISABLE_SDF_PRIMITIVE \
 -DDISABLE_SDF_OCTREE \
 -DDISABLE_SDF_GRID \
 -DDISABLE_SDF_FRAME_OCTREE \

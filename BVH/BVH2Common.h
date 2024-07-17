@@ -65,7 +65,6 @@ struct InstanceData
 //
 struct BVHRT : public ISceneObject
 #ifndef KERNEL_SLICER  
-, public ISdfSceneFunction
 , public ISdfOctreeFunction
 , public ISdfGridFunction
 #endif
@@ -89,7 +88,6 @@ struct BVHRT : public ISceneObject
 #ifndef KERNEL_SLICER  
   uint32_t AddGeom_Triangles3f(const float* a_vpos3f, const float* a_vnorm3f, size_t a_vertNumber, const uint32_t* a_triIndices, 
                                size_t a_indNumber, BuildOptions a_qualityLevel, size_t vByteStride) override;
-  uint32_t AddGeom_SdfScene(SdfSceneView scene, BuildOptions a_qualityLevel = BUILD_HIGH) override;
   uint32_t AddGeom_SdfGrid(SdfGridView grid, BuildOptions a_qualityLevel = BUILD_HIGH) override;
   uint32_t AddGeom_RFScene(RFScene grid, BuildOptions a_qualityLevel = BUILD_HIGH) override;
   uint32_t AddGeom_GSScene(GSScene grid, BuildOptions a_qualityLevel = BUILD_HIGH) override;
@@ -105,10 +103,6 @@ struct BVHRT : public ISceneObject
   //common functions for a few Sdf...Function interfaces
 #ifndef KERNEL_SLICER 
   float eval_distance(float3 pos) override;
-#endif
-  //overiding SdfSceneFunction interface
-#ifndef KERNEL_SLICER 
-  void init(SdfSceneView scene) override; 
 #endif
 
   //overiding SdfOctreeFunction interface
@@ -218,10 +212,6 @@ struct BVHRT : public ISceneObject
   virtual float eval_dist_trilinear(const float values[8], float3 dp);
   virtual bool need_normal();
 
-#ifndef DISABLE_SDF_PRIMITIVE
-  virtual float eval_dist_prim(unsigned prim_id, float3 p);
-  virtual float eval_dist_sdf_conjunction(unsigned conj_id, float3 p);
-#endif
 #ifndef DISABLE_SDF_OCTREE
   virtual float sdf_octree_sample_mipskip_3x3(unsigned octree_id, float3 p, unsigned max_level);
   virtual float sdf_octree_sample_mipskip_closest(unsigned octree_id, float3 p, unsigned max_level);
@@ -237,15 +227,6 @@ struct BVHRT : public ISceneObject
   virtual float eval_distance_sdf(unsigned type, unsigned prim_id, float3 p);
   virtual SdfHit sdf_sphere_tracing(unsigned type, unsigned prim_id, const float3 &min_pos, const float3 &max_pos,
                                     float tNear, const float3 &pos, const float3 &dir, bool need_norm);    
-
-  //SDFs data
-#ifndef DISABLE_SDF_PRIMITIVE
-  std::vector<float> m_SdfParameters;
-  std::vector<SdfObject> m_SdfObjects;
-  std::vector<SdfConjunction> m_SdfConjunctions;
-  std::vector<NeuralProperties> m_SdfNeuralProperties;
-  std::vector<uint32_t> m_ConjIndices; //conjunction index for each leaf node in Fat BVH related to SDF
-#endif
 
   //SDF grid data
 #ifndef DISABLE_SDF_GRID

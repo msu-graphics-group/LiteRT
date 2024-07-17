@@ -106,82 +106,6 @@ void BVHRT::UpdateGeom_Triangles3f(uint32_t a_geomId, const float *a_vpos3f, siz
   std::cout << "[BVHRT::UpdateGeom_Triangles3f]: " << "not implemeted!" << std::endl; // not planned for this implementation (possible in general)
 }
 
-uint32_t BVHRT::AddGeom_SdfScene(SdfSceneView scene, BuildOptions a_qualityLevel)
-{
-  assert(scene.conjunctions_count > 0);
-  assert(scene.objects_count > 0);
-  assert(scene.parameters_count > 0);
-  float4 mn = scene.conjunctions[0].min_pos;
-  float4 mx = scene.conjunctions[0].max_pos;
-  for (int i=0; i<scene.conjunctions_count; i++) 
-  {
-    mn = min(mn, scene.conjunctions[i].min_pos);
-    mx = max(mx, scene.conjunctions[i].max_pos);
-  }
-
-  GeomData geomData;
-  geomData.boxMin = mn;
-  geomData.boxMax = mx;
-  geomData.offset = uint2(m_ConjIndices.size(), 0);
-  geomData.bvhOffset = m_allNodePairs.size();
-  geomData.type = TYPE_SDF_PRIMITIVE;
-  m_geomData.push_back(geomData);
-
-  unsigned p_offset = m_SdfParameters.size();
-  unsigned o_offset = m_SdfObjects.size();
-  unsigned c_offset = m_SdfConjunctions.size();
-  unsigned np_offset = m_SdfNeuralProperties.size();
-
-  m_SdfParameters.insert(m_SdfParameters.end(), scene.parameters, scene.parameters + scene.parameters_count);
-  m_SdfObjects.insert(m_SdfObjects.end(), scene.objects, scene.objects + scene.objects_count);
-  m_SdfConjunctions.insert(m_SdfConjunctions.end(), scene.conjunctions, scene.conjunctions + scene.conjunctions_count);
-  m_SdfNeuralProperties.insert(m_SdfNeuralProperties.end(), scene.neural_properties, scene.neural_properties + scene.neural_properties_count);
-
-  for (int i=o_offset;i<m_SdfObjects.size();i++)
-  {
-    m_SdfObjects[i].params_offset += p_offset;
-    m_SdfObjects[i].neural_id += np_offset;
-  }
-  
-  for (int i=c_offset;i<m_SdfConjunctions.size();i++)
-    m_SdfConjunctions[i].offset += o_offset;
-
-  std::vector<unsigned> conj_indices;
-  std::vector<BVHNode> orig_nodes;
-  for (int i=0;i<scene.conjunctions_count;i++)
-  {
-    auto &c = scene.conjunctions[i];
-    conj_indices.push_back(c_offset + i);
-    orig_nodes.emplace_back();
-    orig_nodes.back().boxMin = to_float3(c.min_pos);
-    orig_nodes.back().boxMax = to_float3(c.max_pos);
-  }
-  while (orig_nodes.size() < 2)
-  {
-    conj_indices.push_back(conj_indices.back());
-    orig_nodes.emplace_back();
-    orig_nodes.back().boxMin = float3(1000,1000,1000);
-    orig_nodes.back().boxMax = float3(1000.1,1000.1,1000.1);
-  }
-  m_ConjIndices.insert(m_ConjIndices.end(), conj_indices.begin(), conj_indices.end());
-  //orig_nodes.resize(1);
-  //orig_nodes[0].boxMin = aabb.min_pos;
-  //orig_nodes[0].boxMax = aabb.max_pos;
-
-  // Build BVH for each geom and append it to big buffer;
-  // append data to global arrays and fix offsets
-  auto presets = BuilderPresetsFromString(m_buildName.c_str());
-  auto layout  = LayoutPresetsFromString(m_layoutName.c_str());
-  auto bvhData = BuildBVHFatCustom(orig_nodes.data(), orig_nodes.size(), presets, layout);
-
-  for (auto &i : bvhData.indices)
-    printf("ind %d\n",(int)i);
-
-  m_allNodePairs.insert(m_allNodePairs.end(), bvhData.nodes.begin(), bvhData.nodes.end());
-
-  return m_geomData.size()-1;
-}
-
 uint32_t BVHRT::AddGeom_RFScene(RFScene grid, BuildOptions a_qualityLevel)
 {
   //RF grid is always a unit cube
@@ -1096,26 +1020,10 @@ std::vector<BVHNode> BVHRT::GetBoxes_SdfFrameOctreeTex(SdfFrameOctreeTexView oct
 
   return nodes;
 }
-
-//SdfSceneFunction interface implementation
-void BVHRT::init(SdfSceneView scene)
-{
-  m_SdfParameters.insert(m_SdfParameters.end(), scene.parameters, scene.parameters + scene.parameters_count);
-  m_SdfObjects.insert(m_SdfObjects.end(), scene.objects, scene.objects + scene.objects_count);
-  m_SdfConjunctions.insert(m_SdfConjunctions.end(), scene.conjunctions, scene.conjunctions + scene.conjunctions_count);
-  m_SdfNeuralProperties.insert(m_SdfNeuralProperties.end(), scene.neural_properties, scene.neural_properties + scene.neural_properties_count);
-} 
   
 float BVHRT::eval_distance(float3 pos)
 {
-  if (!m_SdfConjunctions.empty())
-  {
-    float dist = 1e6;
-    for (int i=0; i<m_SdfConjunctions.size(); i++)
-      dist = std::min(dist, eval_dist_sdf_conjunction(i, pos));
-    return dist;
-  }
-  else if (!m_SdfOctreeNodes.empty())
+  if (!m_SdfOctreeNodes.empty())
     return eval_distance_sdf_octree(0, pos, 1000);
   else if (!m_SdfGridData.empty())
     return eval_distance_sdf_grid(0, pos);
@@ -1152,15 +1060,6 @@ void BVHRT::init(SdfGridView grid)
   m_SdfGridSizes.push_back(grid.size);
   m_SdfGridData.insert(m_SdfGridData.end(), grid.data, grid.data + grid.size.x*grid.size.y*grid.size.z);
 } 
-
-//implementation of different constructor-like functions
-
-std::shared_ptr<ISdfSceneFunction> get_SdfSceneFunction(SdfSceneView scene)
-{
-  std::shared_ptr<ISdfSceneFunction> rt(new BVHRT("", "")); 
-  rt->init(scene);
-  return rt;
-}
 
 std::shared_ptr<ISdfOctreeFunction> get_SdfOctreeFunction(SdfOctreeView scene)
 {

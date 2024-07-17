@@ -140,10 +140,7 @@ bool MultiRenderer::LoadSceneHydra(const std::string& a_path, unsigned type, Spa
     }
     else if (name == "sdf")
     {
-      std::cout << "[LoadScene]: sdf = " << dir.c_str() << std::endl;
-      SdfScene scene;
-      load_sdf_scene(scene, dir);
-      m_pAccelStruct->AddGeom_SdfScene(scene);
+      std::cout << "[LoadScene]: sdf primitives scene was removed from LiteRT. Search for legacy version to load it. " << std::endl;
     }
     else if (name == "sdf_grid")
     {
@@ -186,10 +183,7 @@ bool MultiRenderer::LoadSceneHydra(const std::string& a_path, unsigned type, Spa
     }
     else if (name == "nsdf")
     {
-      std::cout << "[LoadScene]: neural sdf = " << dir.c_str() << std::endl;
-      SdfScene scene;
-      load_neural_sdf_scene_SIREN(scene, dir);
-      m_pAccelStruct->AddGeom_SdfScene(scene);
+      std::cout << "[LoadScene]: neural sdf scene was removed from LiteRT. Search for legacy version to load it. " << std::endl;
     }
     else if (name == "rf")
     {
@@ -281,15 +275,6 @@ void MultiRenderer::SetScene(const cmesh4::SimpleMesh &scene)
   unsigned geomId =  GetAccelStruct()->AddGeom_Triangles3f((const float*)scene.vPos4f.data(), (const float*)scene.vNorm4f.data(), scene.vPos4f.size(),
                                                            scene.indices.data(), scene.indices.size(), BUILD_HIGH, sizeof(float)*4);
   add_mesh_internal(scene, geomId);
-  GetAccelStruct()->ClearScene();
-  GetAccelStruct()->AddInstance(0, LiteMath::float4x4());
-  GetAccelStruct()->CommitScene();
-}
-
-void MultiRenderer::SetScene(SdfSceneView scene)
-{
-  GetAccelStruct()->ClearGeom();
-  GetAccelStruct()->AddGeom_SdfScene(scene);
   GetAccelStruct()->ClearScene();
   GetAccelStruct()->AddInstance(0, LiteMath::float4x4());
   GetAccelStruct()->CommitScene();

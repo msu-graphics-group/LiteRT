@@ -2,18 +2,17 @@
 
 //enum GeomType
 static constexpr unsigned TYPE_MESH_TRIANGLE        =  0;
-static constexpr unsigned TYPE_SDF_PRIMITIVE        =  1;
-static constexpr unsigned TYPE_SDF_GRID             =  2;
-static constexpr unsigned TYPE_SDF_OCTREE           =  3;
-static constexpr unsigned TYPE_SDF_FRAME_OCTREE     =  4;
-static constexpr unsigned TYPE_RF_GRID              =  5;
-static constexpr unsigned TYPE_SDF_SVS              =  6;
-static constexpr unsigned TYPE_SDF_SBS              =  7;
-static constexpr unsigned TYPE_GS_PRIMITIVE         =  8;
-static constexpr unsigned TYPE_SDF_FRAME_OCTREE_TEX =  9;
-static constexpr unsigned TYPE_SDF_SBS_SINGLE_NODE  = 10;
-static constexpr unsigned TYPE_SDF_SBS_TEX          = 11;
-static constexpr unsigned TYPE_SDF_SBS_COL          = 12;
+static constexpr unsigned TYPE_SDF_GRID             =  1;
+static constexpr unsigned TYPE_SDF_OCTREE           =  2;
+static constexpr unsigned TYPE_SDF_FRAME_OCTREE     =  3;
+static constexpr unsigned TYPE_RF_GRID              =  4;
+static constexpr unsigned TYPE_SDF_SVS              =  5;
+static constexpr unsigned TYPE_SDF_SBS              =  6;
+static constexpr unsigned TYPE_GS_PRIMITIVE         =  7;
+static constexpr unsigned TYPE_SDF_FRAME_OCTREE_TEX =  8;
+static constexpr unsigned TYPE_SDF_SBS_SINGLE_NODE  =  9;
+static constexpr unsigned TYPE_SDF_SBS_TEX          = 10;
+static constexpr unsigned TYPE_SDF_SBS_COL          = 11;
 
 //enum SdfOctreeSampler
 static constexpr unsigned SDF_OCTREE_SAMPLER_MIPSKIP_3X3     = 0; //go to the deepest level possible, resampling larger nodes

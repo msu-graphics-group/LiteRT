@@ -44,89 +44,6 @@ float2 BVHRT::box_intersects(const float3 &min_pos, const float3 &max_pos, const
   return float2(tNear, tFar);
 }
 
-#ifndef DISABLE_SDF_PRIMITIVE
-float BVHRT::eval_dist_prim(uint32_t prim_id, float3 p)
-{
-  SdfObject prim = m_SdfObjects[prim_id];
-  float3 pos = to_float3(prim.transform * to_float4(p, 1));
-
-  switch (prim.type)
-  {
-  case SDF_PRIM_SPHERE:
-  {
-    float r = m_SdfParameters[prim.params_offset + 0];
-    // fprintf(stderr, "sphere %f %f %f - %f",pos.x, pos.y, pos.z, r);
-    return length(pos) - r;
-  }
-  case SDF_PRIM_BOX:
-  {
-    float3 size(m_SdfParameters[prim.params_offset + 0],
-                m_SdfParameters[prim.params_offset + 1],
-                m_SdfParameters[prim.params_offset + 2]);
-    // fprintf(stderr, "box %f %f %f - %f %f %f - %f %f %f",p.x, p.y, p.z, pos.x, pos.y, pos.z, size.x, size.y, size.z);
-    float3 q = abs(pos) - size;
-    return length(max(q, float3(0.0f))) + min(max(q.x, max(q.y, q.z)), 0.0f);
-  }
-  case SDF_PRIM_CYLINDER:
-  {
-    float h = m_SdfParameters[prim.params_offset + 0];
-    float r = m_SdfParameters[prim.params_offset + 1];
-    float2 d = abs(float2(sqrt(pos.x * pos.x + pos.z * pos.z), pos.y)) - float2(r, h);
-    return min(max(d.x, d.y), 0.0f) + length(max(d, float2(0.0f)));
-  }
-  case SDF_PRIM_SIREN:
-  {
-    float tmp_mem[2 * NEURAL_SDF_MAX_LAYER_SIZE];
-
-    NeuralProperties prop = m_SdfNeuralProperties[prim.neural_id];
-    uint32_t t_ofs1 = 0;
-    uint32_t t_ofs2 = NEURAL_SDF_MAX_LAYER_SIZE;
-
-    tmp_mem[t_ofs1 + 0] = p.x;
-    tmp_mem[t_ofs1 + 1] = p.y;
-    tmp_mem[t_ofs1 + 2] = p.z;
-
-    for (int l = 0; l < prop.layer_count; l++)
-    {
-      uint32_t m_ofs = prop.layers[l].offset;
-      uint32_t b_ofs = prop.layers[l].offset + prop.layers[l].in_size * prop.layers[l].out_size;
-      for (int i = 0; i < prop.layers[l].out_size; i++)
-      {
-        tmp_mem[t_ofs2 + i] = m_SdfParameters[b_ofs + i];
-        for (int j = 0; j < prop.layers[l].in_size; j++)
-          tmp_mem[t_ofs2 + i] += tmp_mem[t_ofs1 + j] * m_SdfParameters[m_ofs + i * prop.layers[l].in_size + j];
-        if (l < prop.layer_count - 1)
-          tmp_mem[t_ofs2 + i] = std::sin(SIREN_W0 * tmp_mem[t_ofs2 + i]);
-      }
-
-      t_ofs2 = t_ofs1;
-      t_ofs1 = (t_ofs1 + NEURAL_SDF_MAX_LAYER_SIZE) % (2 * NEURAL_SDF_MAX_LAYER_SIZE);
-    }
-
-    return tmp_mem[t_ofs1];
-  }
-  default:
-    //fprintf(stderr, "unknown type %u", prim.type);
-    //assert(false);
-    break;
-  }
-  return -1000;
-}
-
-float BVHRT::eval_dist_sdf_conjunction(uint32_t conj_id, float3 p)
-{
-  SdfConjunction conj = m_SdfConjunctions[conj_id];
-  float conj_d = -1e6;
-  for (uint32_t pid = conj.offset; pid < conj.offset + conj.size; pid++)
-  {
-    float prim_d = m_SdfObjects[pid].distance_mult * eval_dist_prim(pid, p) +
-                   m_SdfObjects[pid].distance_add;
-    conj_d = max(conj_d, m_SdfObjects[pid].complement == 1 ? -prim_d : prim_d);
-  }
-  return conj_d;
-}
-#endif
-
 void BVHRT::IntersectAllPrimitivesInLeaf(const float3 ray_pos, const float3 ray_dir,
                                              float tNear, uint32_t instId, uint32_t geomId,
                                              uint32_t a_start, uint32_t a_count,
@@ -140,7 +57,6 @@ void BVHRT::IntersectAllPrimitivesInLeaf(const float3 ray_pos, const float3 ray_
   case TYPE_MESH_TRIANGLE:
     IntersectAllTrianglesInLeaf(ray_pos, ray_dir, tNear, instId, geomId, a_start, a_count, pHit);
     break;
-  case TYPE_SDF_PRIMITIVE:
   case TYPE_SDF_GRID:
   case TYPE_SDF_OCTREE:
     IntersectAllSdfsInLeaf(ray_pos, ray_dir, tNearSdf, instId, geomId, a_start, a_count, pHit);
@@ -847,14 +763,6 @@ void BVHRT::IntersectAllSdfsInLeaf(const float3 ray_pos, const float3 ray_dir,
 
   switch (type)
   {
-#ifndef DISABLE_SDF_PRIMITIVE
-  case TYPE_SDF_PRIMITIVE:
-    sdfId = m_ConjIndices[m_geomData[geomId].offset.x + a_start];
-    primId = sdfId;
-    min_pos = to_float3(m_SdfConjunctions[sdfId].min_pos);
-    max_pos = to_float3(m_SdfConjunctions[sdfId].max_pos);
-    break;
-#endif
 #ifndef DISABLE_SDF_GRID
   case TYPE_SDF_GRID:
     sdfId = m_geomData[geomId].offset.x;
@@ -869,14 +777,6 @@ void BVHRT::IntersectAllSdfsInLeaf(const float3 ray_pos, const float3 ray_dir,
     primId = 0;
     min_pos = float3(-1,-1,-1);
     max_pos = float3( 1, 1, 1);
-    break;
-#endif
-#ifndef DISABLE_SDF_FRAME_OCTREE
-  case TYPE_SDF_FRAME_OCTREE:
-    sdfId =  m_geomData[geomId].offset.x;
-    primId = m_origNodes[a_start].leftOffset;
-    min_pos = m_origNodes[a_start].boxMin;
-    max_pos = m_origNodes[a_start].boxMax;
     break;
 #endif
   default:
@@ -1227,11 +1127,6 @@ float BVHRT::eval_distance_sdf(uint32_t type, uint32_t sdf_id, float3 pos)
   float val = 1000;
   switch (type)
   {
-#ifndef DISABLE_SDF_PRIMITIVE
-  case TYPE_SDF_PRIMITIVE:
-    val = eval_dist_sdf_conjunction(sdf_id, pos);
-    break;
-#endif
 #ifndef DISABLE_SDF_GRID
   case TYPE_SDF_GRID:
     val = eval_distance_sdf_grid(sdf_id, pos);
@@ -1240,11 +1135,6 @@ float BVHRT::eval_distance_sdf(uint32_t type, uint32_t sdf_id, float3 pos)
 #ifndef DISABLE_SDF_OCTREE
   case TYPE_SDF_OCTREE:
     val = eval_distance_sdf_octree(sdf_id, pos, 1000);
-    break;
-#endif
-#ifndef DISABLE_SDF_FRAME_OCTREE
-  case TYPE_SDF_FRAME_OCTREE:
-    val = eval_distance_sdf_frame_octree(sdf_id, pos);
     break;
 #endif
   default:

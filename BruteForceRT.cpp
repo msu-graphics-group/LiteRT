@@ -34,7 +34,6 @@ struct BruteForceRT : public ISceneObject
   
   uint32_t AddGeom_Triangles3f(const float* a_vpos3f, const float* a_vnorm3f, size_t a_vertNumber, const uint32_t* a_triIndices, 
                                size_t a_indNumber, BuildOptions a_qualityLevel, size_t vByteStride) override;
-  uint32_t AddGeom_SdfScene(SdfSceneView scene, BuildOptions a_qualityLevel = BUILD_HIGH) override;
   uint32_t AddGeom_RFScene(RFScene scene, BuildOptions a_qualityLevel = BUILD_HIGH) override;
   uint32_t AddGeom_GSScene(GSScene scene, BuildOptions a_qualityLevel = BUILD_HIGH) override;
   uint32_t AddGeom_SdfGrid(SdfGridView grid, BuildOptions a_qualityLevel = BUILD_HIGH) override;
@@ -161,37 +160,6 @@ uint32_t BruteForceRT::AddGeom_Triangles3f(const float* a_vpos3f, const float* a
                                            size_t a_indNumber, BuildOptions a_qualityLevel, size_t vByteStride)
 {
   return AddGeom_Triangles3f(a_vpos3f, a_vertNumber, a_triIndices, a_indNumber, a_qualityLevel, vByteStride);
-}
-
-uint32_t BruteForceRT::AddGeom_SdfScene(SdfSceneView scene, BuildOptions a_qualityLevel)
-{
-  assert(scene.conjunctions_count > 0);
-  assert(scene.objects_count > 0);
-  assert(scene.parameters_count > 0);
-  float4 mn = scene.conjunctions[0].min_pos;
-  float4 mx = scene.conjunctions[0].max_pos;
-  for (int i=0; i<scene.conjunctions_count; i++) 
-  {
-    mn = min(mn, scene.conjunctions[i].min_pos);
-    mx = max(mx, scene.conjunctions[i].max_pos);
-  }
-  m_indStartSize.push_back (uint2(0, scene.conjunctions_count));
-  m_geomBoxes.push_back(Box4f(mn, mx));
-  m_geomTypeByGeomId.push_back(TYPE_SDF_PRIMITIVE);
-
-
-  SdfScene scene_copy;
-  scene_copy.conjunctions = std::vector<SdfConjunction>(scene.conjunctions, scene.conjunctions + scene.conjunctions_count);
-  scene_copy.neural_properties = std::vector<NeuralProperties>(scene.neural_properties, scene.neural_properties + scene.neural_properties_count);
-  scene_copy.objects = std::vector<SdfObject>(scene.objects, scene.objects + scene.objects_count);
-  scene_copy.parameters = std::vector<float>(scene.parameters, scene.parameters + scene.parameters_count);
-
-  m_SdfScenes.push_back(scene_copy);
-  while (m_SdfSceneIdByGeomId.size() < m_geomTypeByGeomId.size())
-    m_SdfSceneIdByGeomId.push_back(0u);
-  m_SdfSceneIdByGeomId.back() = m_SdfScenes.size() - 1;
-
-  return m_geomTypeByGeomId.size()-1;
 }
 
 void BruteForceRT::ClearScene()
