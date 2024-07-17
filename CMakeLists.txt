@@ -67,7 +67,6 @@ set(SCENE_LOADER_SRC
 set(CORE_SRC
     ${CMAKE_SOURCE_DIR}/dependencies/LiteMath/Image2d.cpp
     ${CMAKE_SOURCE_DIR}/Timer.cpp
-    ${CMAKE_SOURCE_DIR}/BruteForceRT.cpp
     ${CMAKE_SOURCE_DIR}/Renderer/eye_ray.cpp
     ${CMAKE_SOURCE_DIR}/Renderer/eye_ray_host.cpp
     )

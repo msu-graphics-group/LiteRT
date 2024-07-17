@@ -64,8 +64,8 @@ int main(int argc, const char** argv)
   
 
   const char* scenePath   = "scenes/03_gs_scenes/lego.xml";
-  const char* accelStruct  = "BVH2Common"; // BruteForce BVH2Common
-  const char* buildFormat  = "cbvh_embree2";///"NanoRT";  // BVH2Common
+  const char* accelStruct  = "BVH2Common";
+  const char* buildFormat  = "cbvh_embree2";
   const char* layout       = "SuperTreeletAlignedMerged4"; ///"opt";
 
   const char* outImageFile = "z_out.bmp";

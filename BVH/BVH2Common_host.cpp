@@ -1075,17 +1075,11 @@ std::shared_ptr<ISdfGridFunction> get_SdfGridFunction(SdfGridView scene)
   return rt;    
 }
 
-ISceneObject* MakeBruteForceRT(const char* a_implName);
 ISceneObject* MakeBVH2CommonRT(const char* a_implName, const char* a_buildName, const char* a_layoutName) 
 {
   return new BVHRT(a_buildName, a_layoutName); 
 }
 std::shared_ptr<ISceneObject> CreateSceneRT(const char* a_implName, const char* a_buildName, const char* a_layoutName)
 {
-  const std::string className(a_implName); //
-  if (className.find("BruteForce") != std::string::npos)
-    return std::shared_ptr<ISceneObject>(MakeBruteForceRT(a_implName));
-  else if (className.find("BVH2Common") != std::string::npos || className.find("BVH2") != std::string::npos)
-    return std::shared_ptr<ISceneObject>(MakeBVH2CommonRT(a_implName, a_buildName, a_layoutName));
-  return nullptr;
+  return std::shared_ptr<ISceneObject>(MakeBVH2CommonRT(a_implName, a_buildName, a_layoutName));
 }
