@@ -67,8 +67,6 @@ struct GeomData
 
   uint32_t tag;
   uint32_t _pad1;
-  uint32_t _pad2;
-  uint32_t _pad3;
 };
 
 // common data for arch instance on scene
@@ -341,6 +339,20 @@ struct BVHRT : public ISceneObject
 
   bool m_firstSceneCommit = true;
   bool debug_cur_pixel = false;
+};
+
+struct EmptyGeomData : public GeomData
+{
+  EmptyGeomData() {tag = GetTag();} 
+
+  uint32_t GetTag() const override { return TAG_UNKNOWN; }  
+  uint32_t Intersect(uint32_t type, const float3 ray_pos, const float3 ray_dir,
+                     float tNear, uint32_t instId, uint32_t geomId,
+                     uint32_t a_start, uint32_t a_count,
+                     CRT_Hit *pHit, BVHRT *bvhrt)   const override
+  {
+    return TAG_UNKNOWN;
+  }
 };
 
 struct GeomDataTriangle : public GeomData
