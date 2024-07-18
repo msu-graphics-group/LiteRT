@@ -35,6 +35,8 @@ MultiRenderer::MultiRenderer()
   active_textures_count = 1;
 
   m_matIdbyPrimId.push_back(DEFAULT_MATERIAL);
+
+  m_seed = rand();
 }
 
 void MultiRenderer::SetViewport(int a_xStart, int a_yStart, int a_width, int a_height)

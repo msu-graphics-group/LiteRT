@@ -118,6 +118,9 @@ public:
   const std::vector<MultiRendererMaterial>& getMaterials() { return m_materials; }
   const std::vector<std::shared_ptr<ICombinedImageSampler>> &getTextures() { return m_textures; }
 
+  void setSeed(uint32_t seed) { m_seed = seed; }
+  uint32_t getSeed() const { return m_seed; }
+
 protected:
 
   virtual void PackXYBlock(uint tidX, uint tidY, uint a_passNum);
@@ -130,15 +133,18 @@ protected:
   virtual void CastRayFloatSingle(uint32_t tidX, LiteMath::float4* out_color __attribute__((size("tidX"))));
   virtual void CastRayFloatSingleBlock(uint32_t tidX, LiteMath::float4* out_color, uint32_t a_numPasses = 1);
 
-  void kernel_InitEyeRay(uint32_t tidX, LiteMath::float4* rayPosAndNear, LiteMath::float4* rayDirAndFar);
+  void kernel_InitEyeRay(uint32_t tidX, float2 d, LiteMath::float4* rayPosAndNear, LiteMath::float4* rayDirAndFar);
   LiteMath::float4 kernel_RayTrace(uint32_t tidX, const LiteMath::float4* rayPosAndNear, const LiteMath::float4* rayDirAndFar);
 
   uint32_t encode_RGBA8(LiteMath::float4 c);
   LiteMath::float4 decode_RGBA8(uint32_t c);
+  float3 rand3(uint32_t x, uint32_t y, uint32_t iter);
+  float2 rand2(uint32_t x, uint32_t y, uint32_t iter);
 
   uint32_t m_width;
   uint32_t m_height;
   MultiRenderPreset m_preset;
+  uint32_t m_seed;
 
   LiteMath::float4x4 m_proj;
   LiteMath::float4x4 m_worldView;

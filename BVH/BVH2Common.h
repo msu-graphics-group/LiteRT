@@ -36,6 +36,8 @@ static MultiRenderPreset getDefaultPreset()
   p.sdf_octree_sampler = SDF_OCTREE_SAMPLER_MIPSKIP_3X3;
   p.sdf_node_intersect = SDF_OCTREE_NODE_INTERSECT_ST;
   p.mesh_normal_mode = MESH_NORMAL_MODE_GEOMETRY;
+  p.ray_gen_mode = RAY_GEN_MODE_REGULAR;
+  p.spp = 1;
 
   return p;
 }

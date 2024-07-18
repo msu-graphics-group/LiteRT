@@ -18,6 +18,55 @@ float4 MultiRenderer::decode_RGBA8(uint32_t c)
   return float4(col.x * (1.0f/255.0f), col.y * (1.0f/255.0f), col.z * (1.0f/255.0f), col.w * (1.0f/255.0f));
 }
 
+uint3 pcg3d(uint3 v) 
+{
+    v = v * 1664525u + 1013904223u;
+
+    v.x += v.y*v.z;
+    v.y += v.z*v.x;
+    v.z += v.x*v.y;
+
+    v.x ^= v.x >> 16u;
+    v.y ^= v.y >> 16u;
+    v.z ^= v.z >> 16u;
+
+    v.x += v.y*v.z;
+    v.y += v.z*v.x;
+    v.z += v.x*v.y;
+
+    return v;
+}
+
+float3 MultiRenderer::rand3(uint32_t x, uint32_t y, uint32_t iter)
+{
+  x = x + 1233*(iter+m_seed) % 171;
+  y = y + 453*(iter+m_seed) % 765;
+  uint3 v = uint3(x, y, uint32_t(x) ^ uint32_t(y));
+
+  // http://www.jcgt.org/published/0009/03/02/
+  v = v * 1664525u + 1013904223u;
+
+  v.x += v.y * v.z;
+  v.y += v.z * v.x;
+  v.z += v.x * v.y;
+
+  v.x ^= v.x >> 16u;
+  v.y ^= v.y >> 16u;
+  v.z ^= v.z >> 16u;
+
+  v.x += v.y * v.z;
+  v.y += v.z * v.x;
+  v.z += v.x * v.y;
+
+  return float3(v) * (1.0/float(0xffffffffu));
+}
+
+float2 MultiRenderer::rand2(uint32_t x, uint32_t y, uint32_t iter)
+{
+  float3 r3 = rand3(x, y, iter);
+  return float2(r3.x, r3.y);
+}
+
 void MultiRenderer::CastRaySingle(uint32_t tidX, uint32_t* out_color)
 {
   if (tidX >= m_packedXY.size())
@@ -27,10 +76,18 @@ void MultiRenderer::CastRaySingle(uint32_t tidX, uint32_t* out_color)
   const uint x  = (XY & 0x0000FFFF);
   const uint y  = (XY & 0xFFFF0000) >> 16;
 
-  float4 rayPosAndNear, rayDirAndFar;
-  kernel_InitEyeRay(tidX, &rayPosAndNear, &rayDirAndFar);
-  float4 res_color = kernel_RayTrace(tidX, &rayPosAndNear, &rayDirAndFar);
-  
+  float4 res_color = float4(0,0,0,0);
+  uint32_t spp_sqrt = uint32_t(sqrt(m_preset.spp));
+  float i_spp_sqrt = 1.0f/spp_sqrt;
+
+  for (uint32_t i = 0; i < m_preset.spp; i++)
+  {
+    float2 d = m_preset.ray_gen_mode == RAY_GEN_MODE_RANDOM ? rand2(x, y, i) : i_spp_sqrt*float2(i/spp_sqrt+0.5, i%spp_sqrt+0.5);
+    float4 rayPosAndNear, rayDirAndFar;
+    kernel_InitEyeRay(tidX, d, &rayPosAndNear, &rayDirAndFar);
+    res_color += kernel_RayTrace(tidX, &rayPosAndNear, &rayDirAndFar);
+  }
+  res_color /= float4(m_preset.spp);
   uint4 col = uint4(255 * clamp(res_color, float4(0,0,0,0), float4(1,1,1,1)));
   out_color[y * m_width + x] = (col.w<<24) | (col.z<<16) | (col.y<<8) | col.x;
 }
@@ -43,21 +100,30 @@ void MultiRenderer::CastRayFloatSingle(uint32_t tidX, float4* out_color)
   const uint XY = m_packedXY[tidX];
   const uint x  = (XY & 0x0000FFFF);
   const uint y  = (XY & 0xFFFF0000) >> 16;
+  
+  float4 res_color = float4(0,0,0,0);
+  uint32_t spp_sqrt = uint32_t(sqrt(m_preset.spp));
+  float i_spp_sqrt = 1.0f/spp_sqrt;
 
-  float4 rayPosAndNear, rayDirAndFar;
-  kernel_InitEyeRay(tidX, &rayPosAndNear, &rayDirAndFar);
-  out_color[y * m_width + x] = kernel_RayTrace(tidX, &rayPosAndNear, &rayDirAndFar);
+  for (uint32_t i = 0; i < m_preset.spp; i++)
+  {
+    float2 d = m_preset.ray_gen_mode == RAY_GEN_MODE_RANDOM ? rand2(x, y, i) : i_spp_sqrt*float2(i/spp_sqrt+0.5, i%spp_sqrt+0.5);
+    float4 rayPosAndNear, rayDirAndFar;
+    kernel_InitEyeRay(tidX, d, &rayPosAndNear, &rayDirAndFar);
+    res_color += kernel_RayTrace(tidX, &rayPosAndNear, &rayDirAndFar);
+  }
+  out_color[y * m_width + x] = res_color / float4(m_preset.spp);
 }
 
 //bool g_debugPrint = false;
 
-void MultiRenderer::kernel_InitEyeRay(uint32_t tidX, float4* rayPosAndNear, float4* rayDirAndFar)
+void MultiRenderer::kernel_InitEyeRay(uint32_t tidX, float2 d, float4* rayPosAndNear, float4* rayDirAndFar)
 {
   const uint XY = m_packedXY[tidX];
   const uint x  = (XY & 0x0000FFFF);
   const uint y  = (XY & 0xFFFF0000) >> 16;
   
-  float3 rayDir = EyeRayDirNormalized((float(x)+0.5f)/float(m_width), (float(y)+0.5f)/float(m_height), m_projInv);
+  float3 rayDir = EyeRayDirNormalized((float(x)+d.x)/float(m_width), (float(y)+d.y)/float(m_height), m_projInv);
   float3 rayPos = float3(0,0,0);
 
   transform_ray3f(m_worldViewInv, 
