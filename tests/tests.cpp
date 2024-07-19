@@ -439,6 +439,11 @@ auto t4 = std::chrono::steady_clock::now();
     printf("FAILED, psnr = %f\n", psnr_1);
 }
 
+void litert_test_7_stub()
+{
+
+}
+
 void litert_test_8_SDF_grid()
 {
   //create renderers for SDF scene and mesh scene
@@ -637,6 +642,21 @@ void litert_test_10_save_load()
 static double urand(double from=0, double to=1)
 {
   return ((double)rand() / RAND_MAX) * (to - from) + from;
+}
+
+void litert_test_11_stub()
+{
+
+}
+
+void litert_test_12_stub()
+{
+
+}
+
+void litert_test_13_stub()
+{
+
 }
 
 void litert_test_14_octree_nodes_removal()
@@ -1949,13 +1969,14 @@ void perform_tests_litert(const std::vector<int> &test_ids)
   std::vector<std::function<void(void)>> test_functions = {
       litert_test_1_framed_octree, litert_test_2_SVS, litert_test_3_SBS_verify,
       litert_test_4_hydra_scene, litert_test_5_interval_tracing, litert_test_6_faster_bvh_build,
-      litert_test_8_SDF_grid, litert_test_9_mesh, 
-      litert_test_10_save_load, litert_test_14_octree_nodes_removal, 
-      litert_test_15_frame_octree_nodes_removal, litert_test_16_SVS_nodes_removal,
-      litert_test_17_all_types_sanity_check, litert_test_18_mesh_normalization,
+      litert_test_7_stub, litert_test_8_SDF_grid, litert_test_9_mesh, 
+      litert_test_10_save_load, litert_test_11_stub, litert_test_12_stub,
+      litert_test_13_stub, litert_test_14_octree_nodes_removal, litert_test_15_frame_octree_nodes_removal, 
+      litert_test_16_SVS_nodes_removal, litert_test_17_all_types_sanity_check, litert_test_18_mesh_normalization,
       litert_test_19_marching_cubes, litert_test_20_radiance_fields, litert_test_21_rf_to_mesh,
       litert_test_22_sdf_grid_smoothing, litert_test_23_textured_sdf, litert_test_24_demo_meshes,
-      litert_test_25_float_images, litert_test_26_sbs_shallow_bvh, litert_test_27_textured_colored_SBS};
+      litert_test_25_float_images, litert_test_26_sbs_shallow_bvh, litert_test_27_textured_colored_SBS,
+      };
 
   if (tests.empty())
   {
