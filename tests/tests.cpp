@@ -1941,6 +1941,55 @@ void litert_test_27_textured_colored_SBS()
     printf("FAILED, psnr = %f\n", psnr_4);
 }
 
+#ifdef USE_ENZYME
+int enzyme_const, enzyme_dup, enzyme_out; // must be global
+double __enzyme_autodiff(void*, ...);
+
+double litert_test_28_enzyme_ad_sqr_1(double  x) { return  x *  x; }
+double litert_test_28_enzyme_ad_sqr_2(double* x) { return *x * *x; }
+double litert_test_28_enzyme_ad_mul(double k, double x) { return k * x; }
+#endif
+
+void litert_test_28_enzyme_ad()
+{
+  printf("TEST 28. Enzyme AD\n");
+#ifdef USE_ENZYME
+  double x = 5.;
+  double df_dx_res = 2*x;
+
+  // Output argument
+  printf(" 28.1. %-64s", "Basic square derivative");
+  double df_dx_out = __enzyme_autodiff((void*)litert_test_28_enzyme_ad_sqr_1, x);
+  if ((df_dx_out - df_dx_res) < 1e-7 && (df_dx_out - df_dx_res) > -1e-7) // actually even (df_dx_out == df_dx_res) works
+    printf("passed    (d(x^2) = %.1f, x = %.1f)\n", df_dx_out, x);
+  else
+    printf("FAILED,   (df_dx_out = %f, must be %.1f)\n", df_dx_out, df_dx_res);
+
+  // Duplicated argument
+  printf(" 28.2. %-64s", "Square derivative, dx is stored in an argument");
+  double df_dx_arg = 0.;
+  __enzyme_autodiff((void*)litert_test_28_enzyme_ad_sqr_2, &x, &df_dx_arg);
+  if ((df_dx_arg - df_dx_res) < 1e-7 && (df_dx_arg - df_dx_res) > -1e-7) // actually even (df_dx_arg == df_dx_res) works
+    printf("passed    (d(x^2) = %.1f, x = %.1f)\n", df_dx_arg, x);
+  else
+    printf("FAILED,   (df_dx_arg = %f, must be %.1f)\n", df_dx_arg, df_dx_res);
+
+  // Inactive (const) argument (explicit)
+  printf(" 28.3. %-64s", "Derivative d(k*x)/dx, k - parameter");
+  double k = 7;
+  df_dx_out = 0.; // only to verify the result
+  df_dx_out = __enzyme_autodiff((void*)litert_test_28_enzyme_ad_mul, enzyme_const, k, x); // enzyme_const not needed if k is int
+  if ((df_dx_out - k) < 1e-7 && (df_dx_out - k) > -1e-7) // actually even (df_dx_out == k) works
+    printf("passed    (d(k*x)/dx = %.1f, k = %.1f)\n", df_dx_out, k);
+  else
+    printf("FAILED,   (df_dx_out = %f, must be %.1f)\n", df_dx_out, k);
+
+#else
+  printf("  Enzyme AD is not used.\n");
+
+#endif
+}
+
 
 void perform_tests_litert(const std::vector<int> &test_ids)
 {
@@ -1955,7 +2004,8 @@ void perform_tests_litert(const std::vector<int> &test_ids)
       litert_test_17_all_types_sanity_check, litert_test_18_mesh_normalization,
       litert_test_19_marching_cubes, litert_test_20_radiance_fields, litert_test_21_rf_to_mesh,
       litert_test_22_sdf_grid_smoothing, litert_test_23_textured_sdf, litert_test_24_demo_meshes,
-      litert_test_25_float_images, litert_test_26_sbs_shallow_bvh, litert_test_27_textured_colored_SBS};
+      litert_test_25_float_images, litert_test_26_sbs_shallow_bvh, litert_test_27_textured_colored_SBS,
+      litert_test_28_enzyme_ad };
 
   if (tests.empty())
   {
