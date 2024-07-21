@@ -577,6 +577,16 @@ uint32_t BVHRT::AddGeom_SdfSBS(SdfSBSView octree, bool single_bvh_node, BuildOpt
     }
   }
 
+  //edge case - one node for whole scene
+  //add one more node, because embree breaks when
+  //it tries to build BVH with only one node
+  if (orig_nodes.size() == 1)
+  {
+    orig_nodes.resize(2);
+    orig_nodes[1].boxMin = orig_nodes[0].boxMin - 0.001f*float3(-1,-1,-1);
+    orig_nodes[1].boxMax = orig_nodes[0].boxMin;
+  }
+
   // Build BVH for each geom and append it to big buffer;
   // append data to global arrays and fix offsets
   auto presets = BuilderPresetsFromString(m_buildName.c_str());

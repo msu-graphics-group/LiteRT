@@ -22,6 +22,149 @@ static double urand(double from=0, double to=1)
   return ((double)rand() / RAND_MAX) * (to - from) + from;
 }
 
+float circle_sdf(float3 center, float radius, float3 p)
+{
+  return length(p - center) - radius;
+}
+float3 gradient_color(float3 p)
+{
+  return  (1-p.x)*(1-p.y)*(1-p.z)*float3(0,0,0) + 
+          (1-p.x)*(1-p.y)*(  p.z)*float3(0,0,1) + 
+          (1-p.x)*(  p.y)*(1-p.z)*float3(0,1,0) + 
+          (1-p.x)*(  p.y)*(  p.z)*float3(0,1,1) + 
+          (  p.x)*(1-p.y)*(1-p.z)*float3(1,0,0) + 
+          (  p.x)*(1-p.y)*(  p.z)*float3(1,0,1) + 
+          (  p.x)*(  p.y)*(1-p.z)*float3(1,1,0) + 
+          (  p.x)*(  p.y)*(  p.z)*float3(1,1,1);
+}
+
+//creates SBS where all nodes are present, i.e.
+//it is really a regular grid, but with more indexes
+//distance and color fields must be given
+//it is for test purposes only
+//SBS is created in [-1,1]^3 cube, as usual
+SdfSBS create_grid_sbs(unsigned brick_count, unsigned brick_size, 
+                       std::function<float(float3)>  sdf_func,
+                       std::function<float3(float3)> color_func)
+{
+  unsigned v_size = brick_size+1;
+  unsigned dist_per_node = v_size*v_size*v_size;
+  unsigned colors_per_node = 8;
+  unsigned p_count = brick_count*brick_size + 1u;
+  unsigned c_count = brick_count + 1u;
+  unsigned c_offset = p_count*p_count*p_count;
+
+  SdfSBS scene;
+  scene.header.brick_size = brick_size;
+  scene.header.brick_pad  = 0;
+  scene.header.bytes_per_value = 4;
+  scene.header.aux_data = SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F;
+
+  scene.values_f.resize(p_count*p_count*p_count + 3*c_count*c_count*c_count);
+  scene.values.resize(brick_count*brick_count*brick_count*(dist_per_node+colors_per_node));
+  scene.nodes.resize(brick_count*brick_count*brick_count);
+
+  //fill the distances
+  for (unsigned x = 0; x < p_count; x++)
+  {
+    for (unsigned y = 0; y < p_count; y++)
+    {
+      for (unsigned z = 0; z < p_count; z++)
+      {
+        unsigned idx = x*p_count*p_count + y*p_count + z;
+        float3 p = 2.0f*(float3(x, y, z) / float3(brick_count*brick_size)) - 1.0f;
+        scene.values_f[idx] = sdf_func(p);
+      }
+    }
+  }
+
+  //fill the colors
+  for (unsigned x = 0; x < c_count; x++)
+  {
+    for (unsigned y = 0; y < c_count; y++)
+    {
+      for (unsigned z = 0; z < c_count; z++)
+      {
+        unsigned idx = x*c_count*c_count + y*c_count + z;
+        float3 p = 2.0f*(float3(x, y, z) / float3(brick_count)) - 1.0f;
+        float3 color = color_func(p);
+        scene.values_f[c_offset + 3*idx + 0] = color.x;
+        scene.values_f[c_offset + 3*idx + 1] = color.y;
+        scene.values_f[c_offset + 3*idx + 2] = color.z;
+      }
+    }
+  }
+
+  //fill the nodes and indices
+  for (unsigned bx = 0; bx < brick_count; bx++)
+  {
+    for (unsigned by = 0; by < brick_count; by++)
+    {
+      for (unsigned bz = 0; bz < brick_count; bz++)
+      {
+
+        //nodes
+        unsigned n_idx = bx*brick_count*brick_count + by*brick_count + bz;
+        unsigned offset = n_idx*(dist_per_node+colors_per_node);
+        scene.nodes[n_idx].pos_xy = (bx << 16) | by;
+        scene.nodes[n_idx].pos_z_lod_size = (bz << 16) | brick_count;
+        scene.nodes[n_idx].data_offset = offset;
+
+        //indices for distances
+        for (unsigned x = 0; x < v_size; x++)
+        {
+          for (unsigned y = 0; y < v_size; y++)
+          {
+            for (unsigned z = 0; z < v_size; z++)
+            {
+              unsigned idx = x*v_size*v_size + y*v_size + z;
+              unsigned val_idx = (bx*brick_size + x)*p_count*p_count + (by*brick_size + y)*p_count + (bz*brick_size + z);
+              scene.values[offset + idx] = val_idx;
+            }
+          }
+        }
+
+        //indices for colors
+        for (unsigned x = 0; x < 2; x++)
+        {
+          for (unsigned y = 0; y < 2; y++)
+          {
+            for (unsigned z = 0; z < 2; z++)
+            {
+              unsigned idx = x*2*2 + y*2 + z;
+              unsigned val_idx = c_offset + 3*((bx + x)*c_count*c_count + (by + y)*c_count + (bz + z));
+              scene.values[offset + dist_per_node + idx] = val_idx;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  return scene;  
+}
+
+SdfSBS circle_one_brick_scene()
+{
+  return create_grid_sbs(1, 16, 
+                         [&](float3 p){return circle_sdf(float3(0,0,0), 0.8f, p);}, 
+                         gradient_color);
+}
+
+SdfSBS circle_small_scene()
+{
+  return create_grid_sbs(4, 4, 
+                         [&](float3 p){return circle_sdf(float3(0,0,0), 0.8f, p);}, 
+                         gradient_color);
+}
+
+SdfSBS circle_medium_scene()
+{
+  return create_grid_sbs(16, 4, 
+                         [&](float3 p){return circle_sdf(float3(0,0,0), 0.8f, p);}, 
+                         gradient_color);
+}
+
 void render(LiteImage::Image2D<float4> &image, std::shared_ptr<MultiRenderer> pRender, 
             float3 pos, float3 target, float3 up, 
             MultiRenderPreset preset, int a_passNum = 1)
@@ -283,12 +426,82 @@ void diff_render_test_3_optimize_color()
     printf("FAILED, psnr = %f\n", psnr_2);
 }
 
+void diff_render_test_4_render_simple_scenes()
+{
+  unsigned W = 1024, H = 1024;
+  MultiRenderPreset preset = getDefaultPreset();
+  preset.render_mode = MULTI_RENDER_MODE_DIFFUSE;
+
+  LiteImage::Image2D<float4> image_med(W, H);
+  LiteImage::Image2D<float4> image_small(W, H);
+  LiteImage::Image2D<float4> image_one_brick(W, H);
+
+  {
+    auto pRender = CreateMultiRenderer("GPU");
+    pRender->SetPreset(preset);
+    pRender->SetViewport(0,0,W,H);
+
+    auto scene = circle_medium_scene();
+    pRender->SetScene(scene);
+    render(image_med, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+  }
+
+  {
+    auto pRender = CreateMultiRenderer("GPU");
+    pRender->SetPreset(preset);
+    pRender->SetViewport(0,0,W,H);
+
+    auto scene = circle_small_scene();
+    pRender->SetScene(scene);
+    render(image_small, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+  }
+
+  {
+    auto pRender = CreateMultiRenderer("GPU");
+    pRender->SetPreset(preset);
+    pRender->SetViewport(0,0,W,H);
+
+    auto scene = circle_one_brick_scene();
+    pRender->SetScene(scene);
+    render(image_one_brick, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+  }
+
+  LiteImage::SaveImage<float4>("saves/test_dr_4_medium.bmp", image_med); 
+  LiteImage::SaveImage<float4>("saves/test_dr_4_small.bmp", image_small);
+  LiteImage::SaveImage<float4>("saves/test_dr_4_one_brick.bmp", image_one_brick);
+
+  float psnr_1 = image_metrics::PSNR(image_med, image_small);
+  float psnr_2 = image_metrics::PSNR(image_med, image_one_brick);
+  float psnr_3 = image_metrics::PSNR(image_small, image_one_brick);
+
+  printf("TEST 4. Render simple scenes\n");
+
+  printf(" 4.1. %-64s", "Small scene is ok");
+  if (psnr_1 >= 30)
+    printf("passed    (%.2f)\n", psnr_1);
+  else
+    printf("FAILED, psnr = %f\n", psnr_1);
+  
+  printf(" 4.2. %-64s", "One brick scene is ok");
+  if (psnr_2 >= 30)
+    printf("passed    (%.2f)\n", psnr_2);
+  else
+    printf("FAILED, psnr = %f\n", psnr_2);
+  
+  printf(" 4.3. %-64s", "Small and one brick scene are equal");
+  if (psnr_3 >= 40)
+    printf("passed    (%.2f)\n", psnr_3);
+  else
+    printf("FAILED, psnr = %f\n", psnr_3);
+}
+
 void perform_tests_diff_render(const std::vector<int> &test_ids)
 {
   std::vector<int> tests = test_ids;
 
   std::vector<std::function<void(void)>> test_functions = {
-      diff_render_test_1_enzyme_ad, diff_render_test_2_forward_pass, diff_render_test_3_optimize_color};
+      diff_render_test_1_enzyme_ad, diff_render_test_2_forward_pass, diff_render_test_3_optimize_color,
+      diff_render_test_4_render_simple_scenes};
 
   if (tests.empty())
   {
