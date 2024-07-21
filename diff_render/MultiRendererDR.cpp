@@ -112,7 +112,10 @@ namespace dr
         Clear(m_width, m_height, "color");
         std::fill(m_dLoss_dS_tmp.begin(), m_dLoss_dS_tmp.end(), 0.0f);
 
-        RenderDR(m_imagesRef[image_id].data(), m_images[image_id].data(), m_dLoss_dS_tmp.data(), params_count);
+        float loss = RenderDR(m_imagesRef[image_id].data(), m_images[image_id].data(), m_dLoss_dS_tmp.data(), params_count);
+
+        if (true && iter % 10 == 0)
+        printf("Iter:%4d, image_id: %2d, loss: %f\n", iter, image_id, loss);
       }
 
       //accumulate
@@ -129,12 +132,25 @@ namespace dr
     } 
   }
 
-  void MultiRendererDR::RenderDR(const float4 *image_ref, LiteMath::float4 *out_image,
-                                 float *out_dLoss_dS, unsigned params_count)
+  float MultiRendererDR::RenderDR(const float4 *image_ref, LiteMath::float4 *out_image,
+                                  float *out_dLoss_dS, unsigned params_count)
   {
+    unsigned max_threads = omp_get_max_threads();
+    unsigned steps = (m_width * m_height + max_threads - 1)/max_threads;
+    std::vector<double> loss_v(max_threads, 0.0f);
     #pragma omp parallel for
-    for (int i = 0; i < m_width * m_height; i++)
-      CastRayWithGrad(i, image_ref, out_image, out_dLoss_dS + (params_count * omp_get_thread_num()));
+    for (int thread_id = 0; thread_id < max_threads; thread_id++)
+    {
+      unsigned start = thread_id * steps;
+      unsigned end = std::min((thread_id + 1) * steps, m_width * m_height);
+      for (int i = start; i < end; i++)
+        loss_v[thread_id] += CastRayWithGrad(i, image_ref, out_image, out_dLoss_dS + (params_count * thread_id));
+    }
+    double loss = 0.0f;
+    for (auto &l : loss_v)
+      loss += l;
+    
+    return loss/(m_width * m_height);
   }
 
   void MultiRendererDR::OptimizeStepAdam(unsigned iter, const float* dX, float *X, float *tmp, unsigned size, MultiRendererDRPreset preset)

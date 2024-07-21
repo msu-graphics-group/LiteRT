@@ -81,6 +81,8 @@
         "__tree": "cpp",
         "queue": "cpp",
         "stack": "cpp",
-        "shared_mutex": "cpp"
+        "shared_mutex": "cpp",
+        "complex": "cpp",
+        "list": "cpp"
     }
 }
