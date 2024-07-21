@@ -61,6 +61,7 @@ set(SCENE_LOADER_SRC
     ${CMAKE_SOURCE_DIR}/utils/demo_meshes.cpp
     ${CMAKE_SOURCE_DIR}/utils/image_metrics.cpp
     ${CMAKE_SOURCE_DIR}/tests/tests.cpp
+    ${CMAKE_SOURCE_DIR}/tests/tests_diff_render.cpp
     ${CMAKE_SOURCE_DIR}/tests/benchmark.cpp
 
     ${CMAKE_SOURCE_DIR}/diff_render/DR_common.cpp
