@@ -165,6 +165,56 @@ SdfSBS circle_medium_scene()
                          gradient_color);
 }
 
+std::vector<float4x4> get_cameras_uniform_sphere(int count, float3 center, float radius)
+{
+  std::vector<float4x4> cameras;
+  for (int i = 0; i < count; i++)
+  {
+    float phi = 2 * M_PI * urand();
+    float psi = (M_PI / 2) * (1 - sqrtf(urand()));
+    if (urand() > 0.5)
+      psi = -psi;
+
+    float3 view_dir = -float3(cos(psi) * sin(phi), sin(psi), cos(psi) * cos(phi));
+    float3 tangent = normalize(cross(view_dir, float3(0, 1, 0)));
+    float3 new_up = normalize(cross(view_dir, tangent));
+    cameras.push_back(LiteMath::lookAt(center - radius * view_dir, center, new_up));
+  }
+
+  return cameras;
+}
+
+std::vector<float4x4> get_cameras_turntable(int count, float3 center, float radius, float height)
+{
+  std::vector<float4x4> cameras;
+  for (int i = 0; i < count; i++)
+  {
+    float phi = 2 * M_PI * urand();
+
+    float3 view_dir = -float3(sin(phi), height/radius, cos(phi));
+    float3 tangent = normalize(cross(view_dir, float3(0, 1, 0)));
+    float3 new_up = normalize(cross(view_dir, tangent));
+    cameras.push_back(LiteMath::lookAt(center - radius * view_dir, center, new_up));
+  }
+
+  return cameras;
+}
+
+void randomize_color(SdfSBS &sbs)
+{
+  int v_size = sbs.header.brick_size + 2 * sbs.header.brick_pad + 1;
+  int dist_per_node = v_size * v_size * v_size;
+  for (auto &n : sbs.nodes)
+  {
+    for (int i = 0; i < 8; i++)
+    {
+      unsigned off = sbs.values[n.data_offset + dist_per_node + i];
+      for (int j = 0; j < 3; j++)
+        sbs.values_f[off + j] = urand();
+    }
+  }
+}
+
 void render(LiteImage::Image2D<float4> &image, std::shared_ptr<MultiRenderer> pRender, 
             float3 pos, float3 target, float3 up, 
             MultiRenderPreset preset, int a_passNum = 1)
@@ -386,17 +436,8 @@ void diff_render_test_3_optimize_color()
 
   {
     //put random colors to SBS
-    int v_size = header.brick_size + 2*header.brick_pad + 1;
-    int dist_per_node = v_size*v_size*v_size;
-    for (auto &n : indexed_SBS.nodes)
-    {
-      for (int i=0;i<8;i++)
-      {
-        unsigned off = indexed_SBS.values[n.data_offset + dist_per_node + i];
-        for (int j=0;j<3;j++)
-          indexed_SBS.values_f[off + j] = urand();
-      }
-    }
+    randomize_color(indexed_SBS);
+
     dr::MultiRendererDR dr_render;
     dr::MultiRendererDRPreset dr_preset = dr::getDefaultPresetDR();
 
