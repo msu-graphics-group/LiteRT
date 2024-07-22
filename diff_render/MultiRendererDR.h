@@ -25,6 +25,7 @@ namespace dr
     float opt_beta_2;
     float opt_eps;
     unsigned opt_iterations;
+    unsigned image_batch_size;
   };
 
   static MultiRendererDRPreset getDefaultPresetDR()
@@ -40,6 +41,7 @@ namespace dr
     preset.opt_beta_2 = 0.999f;
     preset.opt_eps = 1e-8f;
     preset.opt_iterations = 500;
+    preset.image_batch_size = 1;
 
     return preset;
   }
@@ -51,7 +53,7 @@ namespace dr
     void SetReference(const std::vector<LiteImage::Image2D<float4>>& images, 
                       const std::vector<LiteMath::float4x4>& worldView, 
                       const std::vector<LiteMath::float4x4>& proj);
-    void OptimizeColor(MultiRendererDRPreset preset, SdfSBS &sbs);
+    void OptimizeColor(MultiRendererDRPreset preset, SdfSBS &sbs, bool verbose = false);
 
     const LiteImage::Image2D<float4> &getLastImage(unsigned view_id) const { return m_images[view_id]; }
 

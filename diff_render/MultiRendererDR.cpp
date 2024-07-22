@@ -66,7 +66,7 @@ namespace dr
 
   }
 
-  void MultiRendererDR::OptimizeColor(MultiRendererDRPreset preset, SdfSBS &sbs)
+  void MultiRendererDR::OptimizeColor(MultiRendererDRPreset preset, SdfSBS &sbs, bool verbose)
   {
     assert(sbs.nodes.size() > 0);
     assert(sbs.values.size() > 0);
@@ -99,14 +99,20 @@ namespace dr
 
     SetScene(sbs, true);
     float *params = ((BVHDR*)m_pAccelStruct.get())->m_SdfSBSDataF.data();
+    unsigned images_count = m_imagesRef.size();
 
     //SetViewport(0,0, a_width, a_height);
     //UpdateCamera(a_worldView, a_proj);
     for (int iter = 0; iter < preset.opt_iterations; iter++)
     {
+      float loss_sum = 0;
+      float loss_max = -1e6;
+      float loss_min = 1e6;
+
       //render (with multithreading)
-      for (int image_id = 0; image_id < m_imagesRef.size(); image_id++)
+      for (int image_iter = 0; image_iter < preset.image_batch_size; image_iter++)
       {
+        unsigned image_id = rand() % images_count;
         SetViewport(0,0, m_width, m_height);
         UpdateCamera(m_worldViewRef[image_id], m_projRef[image_id]);
         Clear(m_width, m_height, "color");
@@ -114,21 +120,43 @@ namespace dr
 
         float loss = RenderDR(m_imagesRef[image_id].data(), m_images[image_id].data(), m_dLoss_dS_tmp.data(), params_count);
 
-        if (true && iter % 10 == 0)
-        printf("Iter:%4d, image_id: %2d, loss: %f\n", iter, image_id, loss);
+        loss_sum += loss;
+        loss_max = std::max(loss_max, loss);
+        loss_min = std::min(loss_min, loss);
+
+        if (verbose && iter % 10 == 0)
+          printf("%f\n", loss);
       }
+
+      if (verbose && iter % 10 == 0)
+        printf("Iter:%4d, loss: %f (%f-%f)\n", iter, loss_sum/preset.image_batch_size, loss_min, loss_max);
 
       //accumulate
       for (int i=1; i< max_threads; i++)
         for (int j = 0; j < params_count; j++)
           m_dLoss_dS_tmp[j] += m_dLoss_dS_tmp[j + params_count * i];
 
+      for (int j = 0; j < params_count; j++)
+        m_dLoss_dS_tmp[j] /= preset.image_batch_size;
+
+      if (verbose && iter % 10 == 0 && false)
+      {
+      printf("[");
+      for (int j= params_count-24; j < params_count; j+=3)
+        printf("(%.2f %.2f %.2f)", m_dLoss_dS_tmp[j+0], m_dLoss_dS_tmp[j+1], m_dLoss_dS_tmp[j+2]);
+      printf("]");
+      printf("[");
+      for (int j= params_count-24; j < params_count; j+=3)
+        printf("(%.2f %.2f %.2f)", params[j+0], params[j+1], params[j+2]);
+      printf("]");
+      printf("\n");
+      }
+
       OptimizeStepAdam(iter, m_dLoss_dS_tmp.data(), params, m_Opt_tmp.data(), params_count, preset);
 
-      if (true && iter % 10 == 0)
-      {
-        LiteImage::SaveImage<float4>(("saves/iter_"+std::to_string(iter)+".bmp").c_str(), m_images[0]); 
-      }
+      if (verbose && iter % 10 == 0)
+        for (int image_id = 0; image_id < images_count; image_id++)
+          LiteImage::SaveImage<float4>(("saves/iter_"+std::to_string(iter)+"_"+std::to_string(image_id)+".bmp").c_str(), m_images[image_id]); 
     } 
   }
 
@@ -163,14 +191,20 @@ namespace dr
     float *V = tmp;
     float *S = tmp + size;
 
-    for (int i = 0; i < size; i++)
+    std::vector<uint2> borders{uint2(0, size)};
+    std::vector<float2> limits{float2(-1000.0f, 1000.0f)};
+
+    for (int border_id = 0; border_id < borders.size(); border_id++)
     {
-      float g = dX[i];
-      V[i] = beta_1 * V[i] + (1 - beta_1) * g;
-      float Vh = V[i] / (1 - pow(beta_1, iter + 1));
-      S[i] = beta_2 * S[i] + (1 - beta_2) * g * g;
-      float Sh = S[i] / (1 - pow(beta_2, iter + 1));
-      X[i] = X[i] - lr * Vh / (sqrt(Sh) + eps);
+      for (int i = borders[border_id].x; i < borders[border_id].y; i++)
+      {
+        float g = dX[i];
+        V[i] = beta_1 * V[i] + (1 - beta_1) * g;
+        float Vh = V[i] / (1 - pow(beta_1, iter + 1));
+        S[i] = beta_2 * S[i] + (1 - beta_2) * g * g;
+        float Sh = S[i] / (1 - pow(beta_2, iter + 1));
+        X[i] = LiteMath::clamp(X[i] - lr * Vh / (sqrt(Sh) + eps), limits[border_id].x, limits[border_id].y);
+      }
     }
   }
 
@@ -240,6 +274,14 @@ namespace dr
       {
         if (pd.index == PD::INVALID_INDEX)
           continue;
+
+        if (x == 128 && y == 128 && false)
+        {
+        printf("%u %u ", x, y);
+        printf("dLoss_dColor, color, ref_color pd.value = (%f, %f, %f), (%f, %f, %f) (%f, %f, %f), %f\n", 
+               dLoss_dColor.x, dLoss_dColor.y, dLoss_dColor.z, color.x, color.y, color.z,
+               image_ref[y * m_width + x].x, image_ref[y * m_width + x].y, image_ref[y * m_width + x].z, pd.value);
+        }
         
         float3 diff = dLoss_dColor * (dColor_dDiffuse * float3(pd.value));
         out_dLoss_dS[pd.index + 0] += diff.x / m_preset.spp;
