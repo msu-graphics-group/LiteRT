@@ -473,9 +473,12 @@ void diff_render_test_4_render_simple_scenes()
   MultiRenderPreset preset = getDefaultPreset();
   preset.render_mode = MULTI_RENDER_MODE_DIFFUSE;
 
+  float4x4 view, proj;
   LiteImage::Image2D<float4> image_med(W, H);
   LiteImage::Image2D<float4> image_small(W, H);
   LiteImage::Image2D<float4> image_one_brick(W, H);
+  LiteImage::Image2D<float4> image_small_dr(W, H);
+  LiteImage::Image2D<float4> image_one_brick_dr(W, H);
 
   {
     auto pRender = CreateMultiRenderer("GPU");
@@ -485,6 +488,8 @@ void diff_render_test_4_render_simple_scenes()
     auto scene = circle_medium_scene();
     pRender->SetScene(scene);
     render(image_med, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+    view = pRender->getWorldView();
+    proj = pRender->getProj();
   }
 
   {
@@ -507,13 +512,47 @@ void diff_render_test_4_render_simple_scenes()
     render(image_one_brick, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
   }
 
+  {
+    auto scene = circle_one_brick_scene();
+    dr::MultiRendererDR dr_render;
+    dr::MultiRendererDRPreset dr_preset = dr::getDefaultPresetDR();
+
+    dr_preset.opt_iterations = 1;
+    dr_preset.opt_lr = 0.0f;
+    dr_preset.spp = 1;
+
+    dr_render.SetReference({image_med}, {view}, {proj});
+    dr_render.OptimizeColor(dr_preset, scene, false);
+    
+    image_one_brick_dr = dr_render.getLastImage(0);
+  }
+
+  {
+    auto scene = circle_small_scene();
+    dr::MultiRendererDR dr_render;
+    dr::MultiRendererDRPreset dr_preset = dr::getDefaultPresetDR();
+
+    dr_preset.opt_iterations = 1;
+    dr_preset.opt_lr = 0.0f;
+    dr_preset.spp = 1;
+
+    dr_render.SetReference({image_med}, {view}, {proj});
+    dr_render.OptimizeColor(dr_preset, scene, false);
+    
+    image_small_dr = dr_render.getLastImage(0);
+  }
+
   LiteImage::SaveImage<float4>("saves/test_dr_4_medium.bmp", image_med); 
   LiteImage::SaveImage<float4>("saves/test_dr_4_small.bmp", image_small);
   LiteImage::SaveImage<float4>("saves/test_dr_4_one_brick.bmp", image_one_brick);
+  LiteImage::SaveImage<float4>("saves/test_dr_4_one_brick_dr.bmp", image_one_brick_dr);
+  LiteImage::SaveImage<float4>("saves/test_dr_4_small_dr.bmp", image_small_dr);
 
   float psnr_1 = image_metrics::PSNR(image_med, image_small);
   float psnr_2 = image_metrics::PSNR(image_med, image_one_brick);
   float psnr_3 = image_metrics::PSNR(image_small, image_one_brick);
+  float psnr_4 = image_metrics::PSNR(image_one_brick, image_one_brick_dr);
+  float psnr_5 = image_metrics::PSNR(image_small, image_small_dr);
 
   printf("TEST 4. Render simple scenes\n");
 
@@ -534,6 +573,18 @@ void diff_render_test_4_render_simple_scenes()
     printf("passed    (%.2f)\n", psnr_3);
   else
     printf("FAILED, psnr = %f\n", psnr_3);
+  
+  printf(" 4.4. %-64s", "DR and common render for one brick scene are equal");
+  if (psnr_4 >= 40)
+    printf("passed    (%.2f)\n", psnr_4);
+  else
+    printf("FAILED, psnr = %f\n", psnr_4);
+  
+  printf(" 4.5. %-64s", "DR and common render for small scene are equal");
+  if (psnr_5 >= 40)
+    printf("passed    (%.2f)\n", psnr_5);
+  else
+    printf("FAILED, psnr = %f\n", psnr_5);
 }
 
 void diff_render_test_5_optimize_color_simpliest()
