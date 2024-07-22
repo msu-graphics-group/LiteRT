@@ -363,14 +363,7 @@ struct GeomDataTriangle : public GeomData
   uint32_t Intersect(uint32_t type, const float3 ray_pos, const float3 ray_dir,
                      float tNear, uint32_t instId, uint32_t geomId,
                      uint32_t a_start, uint32_t a_count,
-                     CRT_Hit *pHit, BVHRT *bvhrt)   const override
-  {
-    //bvhrt->IntersectAllTrianglesInLeaf(ray_pos, ray_dir, tNear, instId, geomId, a_start, a_count, pHit);
-    if (type == TYPE_MESH_TRIANGLE)
-    return TAG_TRIANGLE;
-    else
-    return TAG_UNKNOWN;
-  }
+                     CRT_Hit *pHit, BVHRT *bvhrt)   const override;
 };
 
 struct GeomDataSdfGrid : public GeomData
