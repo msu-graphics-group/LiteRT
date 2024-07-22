@@ -17,12 +17,17 @@ namespace dr
     switch (loss_function)
     {
     case DR_LOSS_FUNCTION_MSE:
-      {
-       float3 diff = color - ref_color;
-       return sqrt(dot(diff, diff));
-      }
-      break;
-    
+    {
+      float3 diff = color - ref_color;
+      return dot(diff, diff);
+    }
+    break;
+    case DR_LOSS_FUNCTION_MAE:
+    {
+      float3 diff = abs(color - ref_color);
+      return diff.x + diff.y + diff.z;
+    }
+    break;    
     default:
       break;
     }
@@ -38,8 +43,13 @@ namespace dr
       float3 diff = color - ref_color;
       return 2.0f * diff;
     }
-      break;
-    
+    break;
+    case DR_LOSS_FUNCTION_MAE:
+    {
+      float3 diff = color - ref_color;
+      return sign(diff);
+    }
+    break;
     default:
       break;
     }

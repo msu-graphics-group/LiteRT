@@ -8,6 +8,7 @@ namespace dr
 {
   //enum DRLossFunction
   static constexpr unsigned DR_LOSS_FUNCTION_MSE =  0;
+  static constexpr unsigned DR_LOSS_FUNCTION_MAE =  1;
 
   //enum DRRenderMode
   static constexpr unsigned DR_RENDER_MODE_DIFFUSE = 0;

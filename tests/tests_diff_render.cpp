@@ -539,7 +539,7 @@ void diff_render_test_4_render_simple_scenes()
 void diff_render_test_5_optimize_color_simpliest()
 {
   //create renderers for SDF scene and mesh scene
-  auto SBS_ref = circle_one_brick_scene();
+  auto SBS_ref = circle_medium_scene();
 
   unsigned W = 256, H = 256;
 
@@ -556,6 +556,8 @@ void diff_render_test_5_optimize_color_simpliest()
   std::vector<LiteImage::Image2D<float4>> images_ref(view.size(), LiteImage::Image2D<float4>(W, H));
   LiteImage::Image2D<float4> image_SBS_single(W, H);
   LiteImage::Image2D<float4> image_SBS_multi(W, H);
+  LiteImage::Image2D<float4> image_SBS_multi_2(W, H);
+  LiteImage::Image2D<float4> image_SBS_multi_mae(W, H);
 
   for (int i = 0; i < view.size(); i++)
   {
@@ -605,23 +607,76 @@ void diff_render_test_5_optimize_color_simpliest()
     image_SBS_multi = dr_render.getLastImage(0);
   }
   LiteImage::SaveImage<float4>("saves/test_dr_5_rec_multi.bmp", image_SBS_multi);
+  
+  {
+    //put random colors to SBS
+    auto indexed_SBS = circle_small_scene();
+    randomize_color(indexed_SBS);
+
+    dr::MultiRendererDR dr_render;
+    dr::MultiRendererDRPreset dr_preset = dr::getDefaultPresetDR();
+
+    dr_preset.opt_iterations = 400;
+    dr_preset.opt_lr = 0.1f;
+    dr_preset.spp = 4;
+
+    dr_render.SetReference(images_ref, view, proj);
+    dr_render.OptimizeColor(dr_preset, indexed_SBS, false);
+    
+    image_SBS_multi_2 = dr_render.getLastImage(0);
+  }
+  LiteImage::SaveImage<float4>("saves/test_dr_5_rec_multi_2.bmp", image_SBS_multi_2);
+
+  {
+    //put random colors to SBS
+    auto indexed_SBS = circle_one_brick_scene();
+    randomize_color(indexed_SBS);
+
+    dr::MultiRendererDR dr_render;
+    dr::MultiRendererDRPreset dr_preset = dr::getDefaultPresetDR();
+
+    dr_preset.opt_iterations = 400;
+    dr_preset.opt_lr = 0.01f;
+    dr_preset.spp = 4;
+    dr_preset.dr_loss_function = dr::DR_LOSS_FUNCTION_MAE;
+
+    dr_render.SetReference(images_ref, view, proj);
+    dr_render.OptimizeColor(dr_preset, indexed_SBS, false);
+    
+    image_SBS_multi_mae = dr_render.getLastImage(0);
+  }
+  LiteImage::SaveImage<float4>("saves/test_dr_5_rec_multi_mae.bmp", image_SBS_multi_mae);
 
   float psnr_1 = image_metrics::PSNR(images_ref[0], image_SBS_single);
   float psnr_2 = image_metrics::PSNR(images_ref[0], image_SBS_multi);
+  float psnr_3 = image_metrics::PSNR(images_ref[0], image_SBS_multi_2);
+  float psnr_4 = image_metrics::PSNR(images_ref[0], image_SBS_multi_mae);
 
   printf("TEST 5. Optimize color from multiple views\n");
   
-  printf(" 5.1. %-64s", "1 view");
+  printf(" 5.1. %-64s", "1 view, 1-brick scene");
   if (psnr_1 >= 30)
     printf("passed    (%.2f)\n", psnr_1);
   else
     printf("FAILED, psnr = %f\n", psnr_1);
 
-  printf(" 5.2. %-64s", "16 views");
+  printf(" 5.2. %-64s", "8 views, 1-brick scene");
   if (psnr_2 >= 30)
     printf("passed    (%.2f)\n", psnr_2);
   else
     printf("FAILED, psnr = %f\n", psnr_2);
+  
+  printf(" 5.3. %-64s", "8 views, 8-brick scene");
+  if (psnr_3 >= 30)
+    printf("passed    (%.2f)\n", psnr_3);
+  else
+    printf("FAILED, psnr = %f\n", psnr_3);
+
+  printf(" 5.4. %-64s", "8 views, MAE loss function");
+  if (psnr_4 >= 30)
+    printf("passed    (%.2f)\n", psnr_4);
+  else
+    printf("FAILED, psnr = %f\n", psnr_4);
 }
 
 void perform_tests_diff_render(const std::vector<int> &test_ids)
