@@ -18,4 +18,13 @@
                 "$gcc"
             ]
         },
+        {
+            "label": "Build Shaders / Renderer",
+            "type": "shell",
+            "command": "cd Renderer/shaders_gpu && bash build.sh",
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
     ]

@@ -58,3 +58,12 @@ struct MultiRenderPreset
   unsigned sdf_node_intersect; //enum SdfNodeIntersect
   unsigned mesh_normal_mode;   //enum MeshNormalMode
 };
+
+static bool need_normal(MultiRenderPreset preset)
+{
+  return preset.render_mode == MULTI_RENDER_MODE_LAMBERT_NO_TEX || 
+         preset.render_mode == MULTI_RENDER_MODE_NORMAL  ||
+         preset.render_mode == MULTI_RENDER_MODE_PHONG_NO_TEX ||
+         preset.render_mode == MULTI_RENDER_MODE_LAMBERT ||
+         preset.render_mode == MULTI_RENDER_MODE_PHONG;
+}
