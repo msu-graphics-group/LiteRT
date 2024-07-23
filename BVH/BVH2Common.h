@@ -57,11 +57,12 @@ struct GeomData
                              float tNear, uint32_t instId, uint32_t geomId,
                              uint32_t a_start, uint32_t a_count,
                              CRT_Hit *pHit, BVHRT *bvhrt)   const  { return 0; }; // !!! #REQUIRED by kernel slicer
+  //uint64_t vtable is here!
+  uint2 offset;
 
   float4 boxMin;
   float4 boxMax;
 
-  uint2 offset;
   uint32_t bvhOffset;
   uint32_t type; // enum GeomType
 
@@ -341,6 +342,21 @@ struct BVHRT : public ISceneObject
   bool debug_cur_pixel = false;
 };
 
+static bool need_normal(MultiRenderPreset preset)
+{
+  return preset.render_mode == MULTI_RENDER_MODE_LAMBERT_NO_TEX || 
+         preset.render_mode == MULTI_RENDER_MODE_NORMAL  ||
+         preset.render_mode == MULTI_RENDER_MODE_PHONG_NO_TEX ||
+         preset.render_mode == MULTI_RENDER_MODE_LAMBERT ||
+         preset.render_mode == MULTI_RENDER_MODE_PHONG;
+}
+
+static uint32_t get_index(uint32_t i, BVHRT *bvhrt)
+{
+  unsigned u = bvhrt->m_indices[i];
+  return u;
+}
+
 struct EmptyGeomData : public GeomData
 {
   EmptyGeomData() {m_tag = GetTag();} 
@@ -370,7 +386,7 @@ struct GeomDataTriangle : public GeomData
   
     for (uint32_t triId = a_start; triId < a_start + a_count; triId++)
     {
-      const uint32_t A = bvhrt->m_indices[a_geomOffsets.x + triId*3 + 0];
+      const uint32_t A = get_index(a_geomOffsets.x + triId*3 + 0, bvhrt);
       const uint32_t B = bvhrt->m_indices[a_geomOffsets.x + triId*3 + 1];
       const uint32_t C = bvhrt->m_indices[a_geomOffsets.x + triId*3 + 2];
   
