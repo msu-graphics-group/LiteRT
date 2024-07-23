@@ -56,6 +56,20 @@ namespace dr
     return float3(0,0,0);
   }
 
+  static uint32_t diff_render_mode_to_multi_render_mode(uint32_t diff_render_mode)
+  {
+    switch (diff_render_mode)
+    {
+    case DR_RENDER_MODE_DIFFUSE:
+      return MULTI_RENDER_MODE_DIFFUSE;
+    case DR_RENDER_MODE_LAMBERT:
+      return MULTI_RENDER_MODE_LAMBERT;    
+    default:
+      printf("Unknown diff_render_mode: %u\n", diff_render_mode);
+      return MULTI_RENDER_MODE_DIFFUSE;
+    }
+  }
+
   MultiRendererDR::MultiRendererDR()
   {
     m_pAccelStruct = std::shared_ptr<ISceneObject>(new BVHDR());
@@ -102,7 +116,7 @@ namespace dr
     m_preset_dr = preset;
     m_preset.spp = preset.spp;
     m_preset.ray_gen_mode = RAY_GEN_MODE_RANDOM;
-    m_preset.render_mode = MULTI_RENDER_MODE_DIFFUSE;
+    m_preset.render_mode = diff_render_mode_to_multi_render_mode(preset.dr_render_mode);
 
     m_width = m_imagesRef[0].width();
     m_height = m_imagesRef[0].height();
@@ -312,12 +326,17 @@ namespace dr
         case DR_RENDER_MODE_DIFFUSE:
           dColor_dDiffuse = LiteMath::make_float3x3(float3(1,0,0), float3(0,1,0), float3(0,0,1));
           color = diffuse;
-          break;
+        break;
         case DR_RENDER_MODE_LAMBERT:
-          /* code */
-          break;      
+        {
+          float3 norm(hit.coords[2], hit.coords[3], sqrt(max(0.0f, 1 - hit.coords[2] * hit.coords[2] - hit.coords[3] * hit.coords[3])));
+          float q = max(0.1f, dot(norm, normalize(float3(1, 1, 1))));
+          color = to_float4(q * to_float3(diffuse), 1);
+          dColor_dDiffuse = LiteMath::make_float3x3(float3(q,0,0), float3(0,q,0), float3(0,0,q));
+        }
+        break;      
         default:
-          break;
+        break;
       }
 
       res_color += color / m_preset.spp;
