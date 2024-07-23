@@ -41,7 +41,7 @@ namespace dr
     preset.spp = 1;
     preset.dr_loss_function = DR_LOSS_FUNCTION_MSE;
     preset.dr_render_mode = DR_RENDER_MODE_DIFFUSE;
-    preset.dr_diff_mode = DR_DIFF_MODE_FINITE_DIFF;
+    preset.dr_diff_mode = DR_DIFF_MODE_DEFAULT;
 
     preset.opt_lr = 0.01f;
     preset.opt_beta_1 = 0.9f;
