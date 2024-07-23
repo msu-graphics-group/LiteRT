@@ -131,10 +131,10 @@ namespace dr
 
         float loss = 1e6f;
         if (preset.dr_diff_mode == DR_DIFF_MODE_DEFAULT)
-          RenderDR(m_imagesRef[image_id].data(), m_images[image_id].data(), m_dLoss_dS_tmp.data(), params_count);
+          loss = RenderDR(m_imagesRef[image_id].data(), m_images[image_id].data(), m_dLoss_dS_tmp.data(), params_count);
         else if (preset.dr_diff_mode == DR_DIFF_MODE_FINITE_DIFF)
-          RenderDRFiniteDiff(m_imagesRef[image_id].data(), m_images[image_id].data(), m_dLoss_dS_tmp.data(), params_count,
-                             params_count - 3*8*sbs.nodes.size(), params_count, 0.1f);
+          loss = RenderDRFiniteDiff(m_imagesRef[image_id].data(), m_images[image_id].data(), m_dLoss_dS_tmp.data(), params_count,
+                                    params_count - 3*8*sbs.nodes.size(), params_count, 0.1f);
 
         loss_sum += loss;
         loss_max = std::max(loss_max, loss);

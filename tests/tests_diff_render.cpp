@@ -878,13 +878,99 @@ void diff_render_test_6_check_color_derivatives()
   }
 }
 
+void diff_render_test_7_optimize_with_finite_diff()
+{
+  //create renderers for SDF scene and mesh scene
+  auto SBS_ref = circle_medium_scene();
+
+  unsigned W = 128, H = 128;
+
+  MultiRenderPreset preset = getDefaultPreset();
+  preset.render_mode = MULTI_RENDER_MODE_DIFFUSE;
+  //preset.ray_gen_mode = RAY_GEN_MODE_RANDOM;
+  preset.spp = 16;
+
+  float4x4 base_proj = LiteMath::perspectiveMatrix(60, 1.0f, 0.01f, 100.0f);
+
+  std::vector<float4x4> view = get_cameras_uniform_sphere(8, float3(0, 0, 0), 3.0f);
+  std::vector<float4x4> proj(view.size(), base_proj);
+
+  std::vector<LiteImage::Image2D<float4>> images_ref(view.size(), LiteImage::Image2D<float4>(W, H));
+  LiteImage::Image2D<float4> image_SBS_def(W, H);
+  LiteImage::Image2D<float4> image_SBS_finite_diff(W, H);
+
+  for (int i = 0; i < view.size(); i++)
+  {
+    auto pRender = CreateMultiRenderer("GPU");
+    pRender->SetPreset(preset);
+    pRender->SetViewport(0,0,W,H);
+
+    pRender->SetScene(SBS_ref);
+    pRender->RenderFloat(images_ref[i].data(), images_ref[i].width(), images_ref[i].height(), view[i], proj[i], preset);
+    LiteImage::SaveImage<float4>(("saves/test_dr_7_ref_"+std::to_string(i)+".bmp").c_str(), images_ref[i]); 
+  }
+  
+  {
+    //put random colors to SBS
+    auto indexed_SBS = circle_one_brick_scene();
+    randomize_color(indexed_SBS);
+
+    dr::MultiRendererDR dr_render;
+    dr::MultiRendererDRPreset dr_preset = dr::getDefaultPresetDR();
+
+    dr_preset.dr_diff_mode = dr::DR_DIFF_MODE_DEFAULT;
+    dr_preset.opt_iterations = 100;
+    dr_preset.opt_lr = 0.1f;
+    dr_preset.spp = 4;
+
+    dr_render.SetReference(images_ref, view, proj);
+    dr_render.OptimizeColor(dr_preset, indexed_SBS, false);
+    
+    image_SBS_def = dr_render.getLastImage(0);
+  }
+  LiteImage::SaveImage<float4>("saves/test_dr_7_def.bmp", image_SBS_def);
+  
+  {
+    //put random colors to SBS
+    auto indexed_SBS = circle_one_brick_scene();
+    randomize_color(indexed_SBS);
+
+    dr::MultiRendererDR dr_render;
+    dr::MultiRendererDRPreset dr_preset = dr::getDefaultPresetDR();
+
+    dr_preset.dr_diff_mode = dr::DR_DIFF_MODE_FINITE_DIFF;
+    dr_preset.opt_iterations = 100;
+    dr_preset.opt_lr = 0.1f;
+    dr_preset.spp = 4;
+
+    dr_render.SetReference(images_ref, view, proj);
+    dr_render.OptimizeColor(dr_preset, indexed_SBS, false);
+    
+    image_SBS_finite_diff = dr_render.getLastImage(0);
+  }
+  LiteImage::SaveImage<float4>("saves/test_dr_7_finite_diff.bmp", image_SBS_finite_diff);
+
+
+  float psnr_1 = image_metrics::PSNR(images_ref[0], image_SBS_finite_diff);
+  float psnr_2 = image_metrics::PSNR(images_ref[0], image_SBS_def);
+
+  printf("TEST 7. Optimize color with default and finite differences PD\n");
+  
+  printf(" 7.1. %-64s", "Diff render gives similar or better optimization result");
+  if (psnr_2 - psnr_1 >= -3)
+    printf("passed    (%.2f)\n", psnr_2 - psnr_1);
+  else
+    printf("FAILED, psnr diff = %f\n", psnr_2 - psnr_1);
+}
+
 void perform_tests_diff_render(const std::vector<int> &test_ids)
 {
   std::vector<int> tests = test_ids;
 
   std::vector<std::function<void(void)>> test_functions = {
       diff_render_test_1_enzyme_ad, diff_render_test_2_forward_pass, diff_render_test_3_optimize_color,
-      diff_render_test_4_render_simple_scenes, diff_render_test_5_optimize_color_simpliest, diff_render_test_6_check_color_derivatives};
+      diff_render_test_4_render_simple_scenes, diff_render_test_5_optimize_color_simpliest, diff_render_test_6_check_color_derivatives,
+      diff_render_test_7_optimize_with_finite_diff};
 
   if (tests.empty())
   {
