@@ -96,12 +96,13 @@ namespace dr
     unsigned max_threads = omp_get_max_threads();
     unsigned params_count = sbs.values_f.size();
 
-    std::vector<float> m_dLoss_dS_tmp = std::vector<float>(params_count*max_threads, 0);
-    std::vector<float> m_Opt_tmp = std::vector<float>(2*params_count, 0);
+    m_dLoss_dS_tmp = std::vector<float>(params_count*max_threads, 0);
+    m_Opt_tmp = std::vector<float>(2*params_count, 0);
 
     m_preset_dr = preset;
     m_preset.spp = preset.spp;
     m_preset.ray_gen_mode = RAY_GEN_MODE_RANDOM;
+    m_preset.render_mode = MULTI_RENDER_MODE_DIFFUSE;
 
     m_width = m_imagesRef[0].width();
     m_height = m_imagesRef[0].height();
@@ -128,7 +129,12 @@ namespace dr
         Clear(m_width, m_height, "color");
         std::fill(m_dLoss_dS_tmp.begin(), m_dLoss_dS_tmp.end(), 0.0f);
 
-        float loss = RenderDR(m_imagesRef[image_id].data(), m_images[image_id].data(), m_dLoss_dS_tmp.data(), params_count);
+        float loss = 1e6f;
+        if (preset.dr_diff_mode == DR_DIFF_MODE_DEFAULT)
+          RenderDR(m_imagesRef[image_id].data(), m_images[image_id].data(), m_dLoss_dS_tmp.data(), params_count);
+        else if (preset.dr_diff_mode == DR_DIFF_MODE_FINITE_DIFF)
+          RenderDRFiniteDiff(m_imagesRef[image_id].data(), m_images[image_id].data(), m_dLoss_dS_tmp.data(), params_count,
+                             params_count - 3*8*sbs.nodes.size(), params_count, 0.1f);
 
         loss_sum += loss;
         loss_max = std::max(loss_max, loss);
@@ -189,6 +195,47 @@ namespace dr
       loss += l;
     
     return loss/(m_width * m_height);
+  }
+
+  float MultiRendererDR::RenderDRFiniteDiff(const float4 *image_ref, LiteMath::float4* out_image, float *out_dLoss_dS, unsigned params_count,
+                                            unsigned start_index, unsigned end_index, float delta)
+  {
+    assert(end_index > start_index);
+    assert(end_index <= params_count);
+    float *params = ((BVHDR*)m_pAccelStruct.get())->m_SdfSBSDataF.data();
+
+    for (unsigned i = start_index; i < end_index; i++)
+    {
+      float p0 = params[i];
+      double loss_plus = 0.0f;
+      double loss_minus = 0.0f;
+
+      params[i] = p0 + delta;
+      RenderFloat(out_image, m_width, m_height, "color");
+      for (int j = 0; j < m_width * m_height; j++)
+        loss_plus += Loss(m_preset_dr.dr_loss_function, to_float3(out_image[j]), to_float3(image_ref[j]));
+    
+      params[i] = p0 - delta;
+      RenderFloat(out_image, m_width, m_height, "color");
+      for (int j = 0; j < m_width * m_height; j++)
+        loss_minus += Loss(m_preset_dr.dr_loss_function, to_float3(out_image[j]), to_float3(image_ref[j]));
+      
+      params[i] = p0;
+
+      //it is the same way as loss is accumulated in RenderDR
+      //loss_plus /= m_width * m_height;
+      //loss_minus /= m_width * m_height;
+      //printf("loss_plus = %f, loss_minus = %f\n", loss_plus, loss_minus);
+
+      out_dLoss_dS[i] = (loss_plus - loss_minus) / (2 * delta);
+    }
+
+    double loss = 0.0f;
+    //RenderFloat(out_image, m_width, m_height, "color");
+    for (int j = 0; j < m_width * m_height; j++)
+      loss += Loss(m_preset_dr.dr_loss_function, to_float3(out_image[j]), to_float3(image_ref[j]));
+    
+    return loss / (m_width * m_height);
   }
 
   void MultiRendererDR::OptimizeStepAdam(unsigned iter, const float* dX, float *X, float *tmp, unsigned size, MultiRendererDRPreset preset)

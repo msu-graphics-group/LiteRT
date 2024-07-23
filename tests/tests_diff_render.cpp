@@ -86,8 +86,8 @@ SdfSBS create_grid_sbs(unsigned brick_count, unsigned brick_size,
       for (unsigned z = 0; z < c_count; z++)
       {
         unsigned idx = x*c_count*c_count + y*c_count + z;
-        float3 p = 2.0f*(float3(x, y, z) / float3(brick_count)) - 1.0f;
-        float3 color = color_func(p);
+        float3 dp = float3(x, y, z) / float3(brick_count);
+        float3 color = color_func(dp);
         scene.values_f[c_offset + 3*idx + 0] = color.x;
         scene.values_f[c_offset + 3*idx + 1] = color.y;
         scene.values_f[c_offset + 3*idx + 2] = color.z;
@@ -146,7 +146,7 @@ SdfSBS create_grid_sbs(unsigned brick_count, unsigned brick_size,
 
 SdfSBS circle_one_brick_scene()
 {
-  return create_grid_sbs(1, 16, 
+  return create_grid_sbs(1, 8, 
                          [&](float3 p){return circle_sdf(float3(0,0,0), 0.8f, p);}, 
                          gradient_color);
 }
@@ -730,13 +730,161 @@ void diff_render_test_5_optimize_color_simpliest()
     printf("FAILED, psnr = %f\n", psnr_4);
 }
 
+void diff_render_test_6_check_color_derivatives()
+{
+  //create renderers for SDF scene and mesh scene
+  auto SBS_ref = circle_medium_scene();
+
+  unsigned W = 128, H = 128;
+
+  MultiRenderPreset preset = getDefaultPreset();
+  preset.render_mode = MULTI_RENDER_MODE_DIFFUSE;
+  //preset.ray_gen_mode = RAY_GEN_MODE_RANDOM;
+  preset.spp = 16;
+
+  float4x4 base_proj = LiteMath::perspectiveMatrix(60, 1.0f, 0.01f, 100.0f);
+
+  std::vector<float4x4> view = get_cameras_uniform_sphere(8, float3(0, 0, 0), 3.0f);
+  std::vector<float4x4> proj(view.size(), base_proj);
+
+  std::vector<LiteImage::Image2D<float4>> images_ref(view.size(), LiteImage::Image2D<float4>(W, H));
+  for (int i = 0; i < view.size(); i++)
+  {
+    auto pRender = CreateMultiRenderer("CPU");
+    pRender->SetPreset(preset);
+    pRender->SetViewport(0,0,W,H);
+
+    pRender->SetScene(SBS_ref);
+    pRender->RenderFloat(images_ref[i].data(), images_ref[i].width(), images_ref[i].height(), view[i], proj[i], preset);
+    LiteImage::SaveImage<float4>(("saves/test_dr_5_ref_"+std::to_string(i)+".bmp").c_str(), images_ref[i]); 
+  }
+
+  {
+    //put random colors to SBS
+    auto indexed_SBS = circle_one_brick_scene();
+    randomize_color(indexed_SBS);
+
+    dr::MultiRendererDRPreset dr_preset = dr::getDefaultPresetDR();
+
+    dr_preset.dr_diff_mode = dr::DR_DIFF_MODE_DEFAULT;
+    dr_preset.opt_iterations = 1;
+    dr_preset.opt_lr = 0.0f;
+    dr_preset.spp = 4;
+
+    unsigned color_param_count = 3*8*indexed_SBS.nodes.size();
+    unsigned color_param_offset = indexed_SBS.values_f.size() - color_param_count;
+
+    std::vector<float> grad_dr(color_param_count, 0);
+    std::vector<float> grad_ref(color_param_count, 0);
+
+    {
+    dr::MultiRendererDR dr_render;
+    dr_render.SetReference({images_ref[0]}, {view[0]}, {proj[0]});
+    dr_render.OptimizeColor(dr_preset, indexed_SBS, false);
+    grad_dr = std::vector<float>(dr_render.getLastdLoss_dS() + color_param_offset, 
+                                 dr_render.getLastdLoss_dS() + color_param_offset + color_param_count);
+    }
+    {
+    dr::MultiRendererDR dr_render;
+    dr_preset.dr_diff_mode = dr::DR_DIFF_MODE_FINITE_DIFF;
+    dr_render.SetReference({images_ref[0]}, {view[0]}, {proj[0]});
+    dr_render.OptimizeColor(dr_preset, indexed_SBS, false);
+    grad_ref = std::vector<float>(dr_render.getLastdLoss_dS() + color_param_offset, 
+                                  dr_render.getLastdLoss_dS() + color_param_offset + color_param_count);
+    }
+
+    long double average_1 = 0;
+    long double abs_average_1 = 0;
+    long double average_2 = 0;
+    long double abs_average_2 = 0;
+    long double diff = 0;
+    long double abs_diff = 0;
+    for (int i = 0; i < color_param_count; i++)
+    {
+      average_1 += grad_ref[i];
+      abs_average_1 += abs(grad_ref[i]);
+      average_2 += grad_dr[i];
+      abs_average_2 += abs(grad_dr[i]);
+      diff += abs(grad_ref[i] - grad_dr[i]);
+      abs_diff += abs(grad_ref[i] - grad_dr[i]);
+    }
+    average_1 /= color_param_count;
+    abs_average_1 /= color_param_count;
+    average_2 /= color_param_count;
+    abs_average_2 /= color_param_count;
+    diff /= color_param_count;
+    abs_diff /= color_param_count;
+
+    /*
+    printf("[");
+    for (int i = 0; i < color_param_count; i++)
+      printf("%f ", grad_ref[i]);
+    printf("]\n");
+
+    printf("[");
+    for (int i = 0; i < color_param_count; i++)
+      printf("%f ", grad_dr[i]);
+    printf("]\n");
+    */
+
+    //image_SBS_single = dr_render.getLastImage(0);
+    float average_error = abs(abs_average_2 - abs_average_1) / (abs_average_1 + abs_average_2);
+    float average_bias = abs(average_2 - average_1) / (abs_average_1 + abs_average_2);
+    float max_error = 0;
+    float average_error_2 = 0;
+    float average_bias_2 = 0;
+    for (int i = 0; i < color_param_count; i++)
+    {
+      float error = abs(grad_dr[i] - grad_ref[i]) / (abs_average_1 + abs_average_2);
+      float bias = (grad_dr[i] - grad_ref[i]) / (abs_average_1 + abs_average_2);
+      max_error = max(max_error, error);
+      average_error_2 += error;
+      average_bias_2 += bias;
+    }
+    average_error_2 /= color_param_count;
+    average_bias_2 /= color_param_count;
+
+    printf("TEST 6. Check color derivatives\n");
+  
+    printf(" 6.1. %-64s", "Relative difference in average PD value");
+    if (average_error <= 0.05f)
+      printf("passed    (%f)\n", average_error);
+    else
+      printf("FAILED, average_error = %f\n", average_error);
+    
+    printf(" 6.2. %-64s", "Relative bias in average PD");
+    if (average_bias <= 0.05f)
+      printf("passed    (%f)\n", average_bias);
+    else
+      printf("FAILED, average_bias = %f\n", average_bias);
+    
+    printf(" 6.3. %-64s", "Max relative difference in PD value");
+    if (max_error <= 0.2f)
+      printf("passed    (%f)\n", max_error);
+    else
+      printf("FAILED, max_error = %f\n", max_error);
+    
+    printf(" 6.4. %-64s", "Average relative difference in PD value");
+    if (average_error_2 <= 0.05f)
+      printf("passed    (%f)\n", average_error_2);
+    else
+      printf("FAILED, max_bias = %f\n", average_error_2);
+    
+    printf(" 6.5. %-64s", "Average relative bias in PD");
+    if (average_bias_2 <= 0.05f)
+      printf("passed    (%f)\n", average_bias_2);
+    else
+      printf("FAILED, average_bias = %f\n", average_bias_2);
+  }
+}
+
 void perform_tests_diff_render(const std::vector<int> &test_ids)
 {
   std::vector<int> tests = test_ids;
 
   std::vector<std::function<void(void)>> test_functions = {
       diff_render_test_1_enzyme_ad, diff_render_test_2_forward_pass, diff_render_test_3_optimize_color,
-      diff_render_test_4_render_simple_scenes, diff_render_test_5_optimize_color_simpliest};
+      diff_render_test_4_render_simple_scenes, diff_render_test_5_optimize_color_simpliest, diff_render_test_6_check_color_derivatives};
 
   if (tests.empty())
   {
