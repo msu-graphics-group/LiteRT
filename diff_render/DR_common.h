@@ -26,8 +26,10 @@ namespace dr
     uint32_t primId; 
     uint32_t instId;
     uint32_t geomId;    ///< use 4 most significant bits for geometry type; thay are zero for triangles 
-    float    coords[4]; ///< custom intersection data; for triangles coords[0] and coords[1] stores baricentric coords (u,v)
-                        // coords[2] and coords[3] stores normal.xy
+    float3   color;
+    uint32_t _pad0;
+    float3   normal;
+    uint32_t _pad1;
 
     PDColor dDiffuse_dSc[8]; //8 color points, PDs for diffuse (PDs for R,G,B are the same)
     PDDist  dDiffuseNormal_dSd[8]; //8 distance points, PDs for diffuse and normal

@@ -312,9 +312,7 @@ namespace dr
       float4 diffuse = float4(1,0,0,1);
       if (type == TYPE_SDF_SBS_COL)
       {
-        diffuse.x = std::round(hit.coords[0])/255.0f;
-        diffuse.y = LiteMath::fract(hit.coords[0]);
-        diffuse.z = std::round(hit.coords[1])/255.0f;
+        diffuse = float4(hit.color.x, hit.color.y, hit.color.z, 1.0f);
       }
 
       color = float4(1,0,1,1); //if pixel is purple at the end, then something gone wrong!
@@ -340,7 +338,7 @@ namespace dr
         case DR_RENDER_MODE_LAMBERT:
         {
           float3 light_dir = normalize(float3(1, 1, 1));
-          float3 norm(hit.coords[2], hit.coords[3], sqrt(max(0.0f, 1 - hit.coords[2] * hit.coords[2] - hit.coords[3] * hit.coords[3])));
+          float3 norm = hit.normal;
           float q0 = dot(norm, light_dir); // = norm.x*light_dir.x + norm.y*light_dir.y + norm.z*light_dir.z
           float q = max(0.1f, q0);
           color = to_float4(q * to_float3(diffuse), 1);

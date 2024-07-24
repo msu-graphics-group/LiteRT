@@ -153,7 +153,7 @@ SdfSBS circle_one_brick_scene()
 
 SdfSBS circle_small_scene()
 {
-  return create_grid_sbs(4, 4, 
+  return create_grid_sbs(2, 4, 
                          [&](float3 p){return circle_sdf(float3(0,0,0), 0.8f, p);}, 
                          gradient_color);
 }

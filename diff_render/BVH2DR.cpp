@@ -19,10 +19,8 @@ namespace dr
     hit.primId = uint32_t(-1);
     hit.instId = uint32_t(-1);
     hit.geomId = uint32_t(-1);
-    hit.coords[0] = 1.0f;
-    hit.coords[1] = 0.0f;
-    hit.coords[2] = 0.0f;
-    hit.coords[3] = 0.0f;
+    hit.color  = float3(0.0f, 0.0, 0.0f);
+    hit.normal = float3(1.0f, 0.0f, 0.0f);
 
     for (int i=0;i<8;i++)
     {
@@ -167,7 +165,7 @@ namespace dr
     //TODO if we want diff rendering of triangles 
   }
 
-  float3 BVHDR::eval_dist_trilinear_diff(const float values[8], float3 dp)
+  static float3 eval_dist_trilinear_diff(const float values[8], float3 dp)
   {
     float ddist_dx = -(1-dp.y)*(1-dp.z)*values[0] + 
                      -(1-dp.y)*(  dp.z)*values[1] + 
@@ -197,6 +195,167 @@ namespace dr
                       (  dp.x)*(  dp.y)*values[7];
   
     return float3(ddist_dx, ddist_dy, ddist_dz);
+  }
+
+  static float3 eval_color_trilinear(const float3 values[8], float3 dp)
+  {
+    return (1-dp.x)*(1-dp.y)*(1-dp.z)*values[0] + 
+           (1-dp.x)*(1-dp.y)*(  dp.z)*values[1] + 
+           (1-dp.x)*(  dp.y)*(1-dp.z)*values[2] + 
+           (1-dp.x)*(  dp.y)*(  dp.z)*values[3] + 
+           (  dp.x)*(1-dp.y)*(1-dp.z)*values[4] + 
+           (  dp.x)*(1-dp.y)*(  dp.z)*values[5] + 
+           (  dp.x)*(  dp.y)*(1-dp.z)*values[6] + 
+           (  dp.x)*(  dp.y)*(  dp.z)*values[7];
+  }
+
+  static float3x3 eval_color_trilinear_diff(const float3 values[8], float3 dp)
+  {
+    float3 dcolor_dx = -(1-dp.y)*(1-dp.z)*values[0] + 
+                       -(1-dp.y)*(  dp.z)*values[1] + 
+                       -(  dp.y)*(1-dp.z)*values[2] + 
+                       -(  dp.y)*(  dp.z)*values[3] + 
+                        (1-dp.y)*(1-dp.z)*values[4] + 
+                        (1-dp.y)*(  dp.z)*values[5] + 
+                        (  dp.y)*(1-dp.z)*values[6] + 
+                        (  dp.y)*(  dp.z)*values[7];
+    
+    float3 dcolor_dy = -(1-dp.x)*(1-dp.z)*values[0] + 
+                       -(1-dp.x)*(  dp.z)*values[1] + 
+                        (1-dp.x)*(1-dp.z)*values[2] + 
+                        (1-dp.x)*(  dp.z)*values[3] + 
+                       -(  dp.x)*(1-dp.z)*values[4] + 
+                       -(  dp.x)*(  dp.z)*values[5] + 
+                        (  dp.x)*(1-dp.z)*values[6] + 
+                        (  dp.x)*(  dp.z)*values[7];
+
+    float3 dcolor_dz = -(1-dp.x)*(1-dp.y)*values[0] + 
+                        (1-dp.x)*(1-dp.y)*values[1] + 
+                       -(1-dp.x)*(  dp.y)*values[2] + 
+                        (1-dp.x)*(  dp.y)*values[3] + 
+                       -(  dp.x)*(1-dp.y)*values[4] + 
+                        (  dp.x)*(1-dp.y)*values[5] + 
+                       -(  dp.x)*(  dp.y)*values[6] + 
+                        (  dp.x)*(  dp.y)*values[7];
+  
+    return LiteMath::make_float3x3_by_columns(dcolor_dx, dcolor_dy, dcolor_dz);
+  }
+
+  static float3x3 normalize_diff(float3 v)
+  {
+    float3 n = v/sqrt(v.x*v.x + v.y*v.y + v.z*v.z);
+    float a = dot(v, v);
+    float b = 1.0/(a*sqrt(a));
+
+    float3 dx_dv = b*float3(v.y*v.y + v.z*v.z, -v.x*v.y, -v.x*v.z);
+    float3 dy_dv = b*float3(-v.x*v.y, v.x*v.x + v.z*v.z, -v.y*v.z);
+    float3 dz_dv = b*float3(-v.x*v.z, -v.y*v.z, v.x*v.x + v.y*v.y);
+
+    return LiteMath::make_float3x3(dx_dv, dy_dv, dz_dv);
+  }
+
+  static float3x3 eval_dist_trilinear_ddp_ddp(const float values[8], float3 dp)
+  {
+    float ddist_dxdx = 0;
+
+    float ddist_dxdy =  (1-dp.z)*values[0] + 
+                        (  dp.z)*values[1] + 
+                       -(1-dp.z)*values[2] + 
+                       -(  dp.z)*values[3] + 
+                       -(1-dp.z)*values[4] + 
+                       -(  dp.z)*values[5] + 
+                        (1-dp.z)*values[6] + 
+                        (  dp.z)*values[7];
+
+    float ddist_dxdz = (1-dp.y)*values[0] + 
+                      -(1-dp.y)*values[1] + 
+                       (  dp.y)*values[2] + 
+                      -(  dp.y)*values[3] + 
+                      -(1-dp.y)*values[4] + 
+                       (1-dp.y)*values[5] + 
+                      -(  dp.y)*values[6] + 
+                       (  dp.y)*values[7];
+
+
+
+    float ddist_dydx = (1-dp.z)*values[0] + 
+                       (  dp.z)*values[1] + 
+                      -(1-dp.z)*values[2] + 
+                      -(  dp.z)*values[3] + 
+                      -(1-dp.z)*values[4] + 
+                      -(  dp.z)*values[5] + 
+                       (1-dp.z)*values[6] + 
+                       (  dp.z)*values[7];
+    
+    float ddist_dydy = 0;
+
+    float ddist_dydz = (1-dp.x)*values[0] + 
+                      -(1-dp.x)*values[1] + 
+                      -(1-dp.x)*values[2] + 
+                       (1-dp.x)*values[3] + 
+                       (  dp.x)*values[4] + 
+                      -(  dp.x)*values[5] + 
+                      -(  dp.x)*values[6] + 
+                       (  dp.x)*values[7];
+    
+  
+
+    float ddist_dzdx = (1-dp.y)*values[0] + 
+                      -(1-dp.y)*values[1] + 
+                       (  dp.y)*values[2] + 
+                      -(  dp.y)*values[3] + 
+                      -(1-dp.y)*values[4] + 
+                       (1-dp.y)*values[5] + 
+                      -(  dp.y)*values[6] + 
+                       (  dp.y)*values[7];
+    
+    float ddist_dzdy = (1-dp.x)*values[0] + 
+                      -(1-dp.x)*values[1] + 
+                       (1-dp.x)*values[2] + 
+                       (1-dp.x)*values[3] + 
+                       (  dp.x)*values[4] + 
+                      -(  dp.x)*values[5] + 
+                      -(  dp.x)*values[6] + 
+                       (  dp.x)*values[7];
+  
+    float ddist_dzdz = 0;
+
+    return LiteMath::make_float3x3(float3(ddist_dxdx, ddist_dxdy, ddist_dxdz),
+                                   float3(ddist_dydx, ddist_dydy, ddist_dydz),
+                                   float3(ddist_dzdx, ddist_dzdy, ddist_dzdz));
+  }
+
+  static void eval_dist_trilinear_ddp_dvalues(const float values[8], float3 dp, float *out_mat /*3x8*/)
+  {
+    //ddist_dx_dvalues
+    out_mat[0]  = -(1-dp.y)*(1-dp.z);
+    out_mat[1]  = -(1-dp.y)*(  dp.z);
+    out_mat[2]  = -(  dp.y)*(1-dp.z);
+    out_mat[3]  = -(  dp.y)*(  dp.z);
+    out_mat[4]  =  (1-dp.y)*(1-dp.z);
+    out_mat[5]  =  (1-dp.y)*(  dp.z);
+    out_mat[6]  =  (  dp.y)*(1-dp.z);
+    out_mat[7]  =  (  dp.y)*(  dp.z);
+
+    //ddist_dy_dvalues
+    out_mat[8]  = -(1-dp.x)*(1-dp.z);
+    out_mat[9]  = -(1-dp.x)*(  dp.z);
+    out_mat[10] =  (1-dp.x)*(1-dp.z);
+    out_mat[11] =  (1-dp.x)*(  dp.z);
+    out_mat[12] = -(  dp.x)*(1-dp.z);
+    out_mat[13] = -(  dp.x)*(  dp.z);
+    out_mat[14] =  (  dp.x)*(1-dp.z);
+    out_mat[15] =  (  dp.x)*(  dp.z);
+
+    //ddist_dz_dvalues
+    out_mat[16] = -(1-dp.x)*(1-dp.y);
+    out_mat[17] =  (1-dp.x)*(1-dp.y);
+    out_mat[18] = -(1-dp.x)*(  dp.y);
+    out_mat[19] =  (1-dp.x)*(  dp.y);
+    out_mat[20] = -(  dp.x)*(1-dp.y);
+    out_mat[21] =  (  dp.x)*(1-dp.y);
+    out_mat[22] = -(  dp.x)*(  dp.y);
+    out_mat[23] =  (  dp.x)*(  dp.y);
   }
 
   //Currently it is and exact copy of BVHRT::LocalSurfaceIntersection, but it will change later
@@ -498,10 +657,8 @@ namespace dr
       pHit->primId = primId;
       pHit->instId = instId;
       pHit->geomId = geomId | (type << SH_TYPE);
-      pHit->coords[0] = 0;
-      pHit->coords[1] = 0;
-      pHit->coords[2] = norm.x;
-      pHit->coords[3] = norm.y;
+      pHit->color = float3(0, 0, 0);
+      pHit->normal = norm;
 
       if (m_preset.render_mode == MULTI_RENDER_MODE_ST_ITERATIONS)
         pHit->primId = iter;
@@ -592,20 +749,12 @@ namespace dr
       {
         uint32_t t_off = m_SdfSBSNodes[nodeId].data_offset + v_size * v_size * v_size;
 
-        float3 color = (1 - dp.x) * (1 - dp.y) * (1 - dp.z) * float3(m_SdfSBSDataF[m_SdfSBSData[t_off + 0] + 0], m_SdfSBSDataF[m_SdfSBSData[t_off + 0] + 1], m_SdfSBSDataF[m_SdfSBSData[t_off + 0] + 2]) +
-                       (1 - dp.x) * (1 - dp.y) * (dp.z) * float3(m_SdfSBSDataF[m_SdfSBSData[t_off + 1] + 0], m_SdfSBSDataF[m_SdfSBSData[t_off + 1] + 1], m_SdfSBSDataF[m_SdfSBSData[t_off + 1] + 2]) +
-                       (1 - dp.x) * (dp.y) * (1 - dp.z) * float3(m_SdfSBSDataF[m_SdfSBSData[t_off + 2] + 0], m_SdfSBSDataF[m_SdfSBSData[t_off + 2] + 1], m_SdfSBSDataF[m_SdfSBSData[t_off + 2] + 2]) +
-                       (1 - dp.x) * (dp.y) * (dp.z) * float3(m_SdfSBSDataF[m_SdfSBSData[t_off + 3] + 0], m_SdfSBSDataF[m_SdfSBSData[t_off + 3] + 1], m_SdfSBSDataF[m_SdfSBSData[t_off + 3] + 2]) +
-                       (dp.x) * (1 - dp.y) * (1 - dp.z) * float3(m_SdfSBSDataF[m_SdfSBSData[t_off + 4] + 0], m_SdfSBSDataF[m_SdfSBSData[t_off + 4] + 1], m_SdfSBSDataF[m_SdfSBSData[t_off + 4] + 2]) +
-                       (dp.x) * (1 - dp.y) * (dp.z) * float3(m_SdfSBSDataF[m_SdfSBSData[t_off + 5] + 0], m_SdfSBSDataF[m_SdfSBSData[t_off + 5] + 1], m_SdfSBSDataF[m_SdfSBSData[t_off + 5] + 2]) +
-                       (dp.x) * (dp.y) * (1 - dp.z) * float3(m_SdfSBSDataF[m_SdfSBSData[t_off + 6] + 0], m_SdfSBSDataF[m_SdfSBSData[t_off + 6] + 1], m_SdfSBSDataF[m_SdfSBSData[t_off + 6] + 2]) +
-                       (dp.x) * (dp.y) * (dp.z) * float3(m_SdfSBSDataF[m_SdfSBSData[t_off + 7] + 0], m_SdfSBSDataF[m_SdfSBSData[t_off + 7] + 1], m_SdfSBSDataF[m_SdfSBSData[t_off + 7] + 2]);
+        float3 colors[8];
+        for (int i = 0; i < 8; i++)
+          colors[i] = float3(m_SdfSBSDataF[m_SdfSBSData[t_off + i] + 0], m_SdfSBSDataF[m_SdfSBSData[t_off + i] + 1], m_SdfSBSDataF[m_SdfSBSData[t_off + i] + 2]);
 
-        color = clamp(floor(255.0f * color + 0.5f), 0.0f, 255.0f);
-
-        pHit->coords[0] = color.x + color.y / 256.0f;
-        pHit->coords[1] = color.z;
-        // printf("color = %f %f %f coords = %f %f\n", color.x, color.y, color.z, pHit->coords[0], pHit->coords[1]);
+        float3 color = eval_color_trilinear(colors, dp);
+        pHit->color = color;
 
         // set dDiffuse_dSc
         for (int i = 0; i < 8; i++)

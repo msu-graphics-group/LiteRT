@@ -30,8 +30,5 @@ namespace dr
     void BVH2TraverseF32WithGrad(const float3 ray_pos, const float3 ray_dir, float tNear,
                                  uint32_t instId, uint32_t geomId, bool stopOnFirstHit,
                                  CRT_HitDR *pHit);
-  
-    //d(dist)/d(dp)
-    float3 eval_dist_trilinear_diff(const float values[8], float3 dp);
   };
 }
