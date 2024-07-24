@@ -159,12 +159,6 @@ struct BVHRT : public ISceneObject
   uint32_t GetGeomNum() const override { return uint32_t(m_geomData.size()); }
   uint32_t GetInstNum() const override { return uint32_t(m_instanceData.size()); }
 
-  uint32_t get_index(uint32_t i)
-  {
-    unsigned u = m_indices[i];
-    return u;
-  }
-
 //protected:
 
   void IntersectAllPrimitivesInLeaf(const float3 ray_pos, const float3 ray_dir,
@@ -382,65 +376,9 @@ struct GeomDataTriangle : public GeomData
                      uint32_t a_start, uint32_t a_count,
                      CRT_Hit *pHit, BVHRT *bvhrt) const override
   {
-    const uint2 a_geomOffsets = offset;
-  
-    for (uint32_t triId = a_start; triId < a_start + a_count; triId++)
-    {
-      const uint32_t A = bvhrt->get_index(a_geomOffsets.x + triId*3 + 0);
-      const uint32_t B = bvhrt->m_indices[a_geomOffsets.x + triId*3 + 1];
-      const uint32_t C = bvhrt->m_indices[a_geomOffsets.x + triId*3 + 2];
-  
-      const float3 A_pos = to_float3(bvhrt->m_vertPos[a_geomOffsets.y + A]);
-      const float3 B_pos = to_float3(bvhrt->m_vertPos[a_geomOffsets.y + B]);
-      const float3 C_pos = to_float3(bvhrt->m_vertPos[a_geomOffsets.y + C]);
-  
-      const float3 edge1 = B_pos - A_pos;
-      const float3 edge2 = C_pos - A_pos;
-      const float3 pvec = cross(ray_dir, edge2);
-      const float3 tvec = ray_pos - A_pos;
-      const float3 qvec = cross(tvec, edge1);
-  
-      const float invDet = 1.0f / dot(edge1, pvec);
-      const float v = dot(tvec, pvec) * invDet;
-      const float u = dot(qvec, ray_dir) * invDet;
-      const float t = dot(edge2, qvec) * invDet;
-  
-      if (v >= -1e-6f && u >= -1e-6f && (u + v <= 1.0f + 1e-6f) && t > tNear && t < pHit->t) 
-      {
-        pHit->t = t;
-        pHit->primId = triId;
-        pHit->instId = instId;
-        pHit->geomId = geomId | (TYPE_MESH_TRIANGLE << SH_TYPE);
-        pHit->coords[0] = u;
-        pHit->coords[1] = v;
-  
-        if (need_normal(bvhrt->m_preset))
-        {
-          float3 n = float3(1,0,0);
-          if (bvhrt->m_preset.mesh_normal_mode == MESH_NORMAL_MODE_GEOMETRY)
-          {
-            n = cross(edge1, edge2);
-          }
-          else if (bvhrt->m_preset.mesh_normal_mode == MESH_NORMAL_MODE_VERTEX)
-          {
-            n = to_float3(bvhrt->m_vertNorm[a_geomOffsets.y + A] * (1.0f - u - v) + 
-                          bvhrt->m_vertNorm[a_geomOffsets.y + B] * v + 
-                          bvhrt->m_vertNorm[a_geomOffsets.y + C] * u);
-          }
-  
-          n = normalize(matmul4x3(bvhrt->m_instanceData[instId].transformInvTransposed, n));
-  
-          pHit->coords[2] = n.x;
-          pHit->coords[3] = n.y;
-        }
-        else
-        {
-          pHit->coords[2] = 0;
-          pHit->coords[3] = 0;
-        }
-      }
-    }
-    return 0;
+    const uint32_t B = bvhrt->m_indices[0];
+    bvhrt->IntersectAllTrianglesInLeaf(ray_pos, ray_dir, tNear, instId, geomId, a_start, a_count, pHit);
+    return TAG_TRIANGLE;
   }  
 };
 
@@ -454,7 +392,7 @@ struct GeomDataSdfGrid : public GeomData
                      uint32_t a_start, uint32_t a_count,
                      CRT_Hit *pHit, BVHRT *bvhrt)   const override
   {
-    //bvhrt->IntersectAllSdfsInLeaf(ray_pos, ray_dir, tNear, instId, geomId, a_start, a_count, pHit);
+    bvhrt->IntersectAllSdfsInLeaf(ray_pos, ray_dir, tNear, instId, geomId, a_start, a_count, pHit);
     return TAG_SDF_GRID;
   }
 };
@@ -469,7 +407,7 @@ struct GeomDataSdfNode : public GeomData
                      uint32_t a_start, uint32_t a_count,
                      CRT_Hit *pHit, BVHRT *bvhrt) const override
   {
-    //bvhrt->OctreeNodeIntersect(type, ray_pos, ray_dir, tNear, instId, geomId, a_start, a_count, pHit);
+    bvhrt->OctreeNodeIntersect(type, ray_pos, ray_dir, tNear, instId, geomId, a_start, a_count, pHit);
     return TAG_SDF_NODE;
   }
 };
@@ -484,7 +422,7 @@ struct GeomDataSdfBrick : public GeomData
                      uint32_t a_start, uint32_t a_count,
                      CRT_Hit *pHit, BVHRT *bvhrt)   const override
   {
-    //bvhrt->OctreeBrickIntersect(type, ray_pos, ray_dir, tNear, instId, geomId, a_start, a_count, pHit);
+    bvhrt->OctreeBrickIntersect(type, ray_pos, ray_dir, tNear, instId, geomId, a_start, a_count, pHit);
     return TAG_SDF_BRICK;
   }
 };
@@ -499,7 +437,9 @@ struct GeomDataRF : public GeomData
                      uint32_t a_start, uint32_t a_count,
                      CRT_Hit *pHit, BVHRT *bvhrt)   const override
   {
-    //bvhrt->IntersectRFInLeaf(ray_pos, ray_dir, tNear, instId, geomId, a_start, a_count, pHit);
+#ifndef DISABLE_RF_GRID
+    bvhrt->IntersectRFInLeaf(ray_pos, ray_dir, tNear, instId, geomId, a_start, a_count, pHit);
+#endif
     return TAG_RF;
   }
 };
@@ -514,7 +454,9 @@ struct GeomDataGS : public GeomData
                      uint32_t a_start, uint32_t a_count,
                      CRT_Hit *pHit, BVHRT *bvhrt)   const override
   {
-    //bvhrt->IntersectGSInLeaf(ray_pos, ray_dir, tNear, instId, geomId, a_start, a_count, pHit);
+#ifndef DISABLE_GS_PRIMITIVE
+    bvhrt->IntersectGSInLeaf(ray_pos, ray_dir, tNear, instId, geomId, a_start, a_count, pHit);
+#endif
     return TAG_GS;
   }
 };
