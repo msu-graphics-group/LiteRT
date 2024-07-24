@@ -164,6 +164,38 @@ namespace dr
     //TODO if we want diff rendering of triangles 
   }
 
+  float3 BVHDR::eval_dist_trilinear_diff(const float values[8], float3 dp)
+  {
+    float ddist_dx = -(1-dp.y)*(1-dp.z)*values[0] + 
+                     -(1-dp.y)*(  dp.z)*values[1] + 
+                     -(  dp.y)*(1-dp.z)*values[2] + 
+                     -(  dp.y)*(  dp.z)*values[3] + 
+                      (1-dp.y)*(1-dp.z)*values[4] + 
+                      (1-dp.y)*(  dp.z)*values[5] + 
+                      (  dp.y)*(1-dp.z)*values[6] + 
+                      (  dp.y)*(  dp.z)*values[7];
+    
+    float ddist_dy = -(1-dp.x)*(1-dp.z)*values[0] + 
+                     -(1-dp.x)*(  dp.z)*values[1] + 
+                      (1-dp.x)*(1-dp.z)*values[2] + 
+                      (1-dp.x)*(  dp.z)*values[3] + 
+                     -(  dp.x)*(1-dp.z)*values[4] + 
+                     -(  dp.x)*(  dp.z)*values[5] + 
+                      (  dp.x)*(1-dp.z)*values[6] + 
+                      (  dp.x)*(  dp.z)*values[7];
+
+    float ddist_dz = -(1-dp.x)*(1-dp.y)*values[0] + 
+                      (1-dp.x)*(1-dp.y)*values[1] + 
+                     -(1-dp.x)*(  dp.y)*values[2] + 
+                      (1-dp.x)*(  dp.y)*values[3] + 
+                     -(  dp.x)*(1-dp.y)*values[4] + 
+                      (  dp.x)*(1-dp.y)*values[5] + 
+                     -(  dp.x)*(  dp.y)*values[6] + 
+                      (  dp.x)*(  dp.y)*values[7];
+  
+    return float3(ddist_dx, ddist_dy, ddist_dz);
+  }
+
   //Currently it is and exact copy of BVHRT::LocalSurfaceIntersection, but it will change later
   //because differential rendering of SDF requires collection additional data during intersection search
   void BVHDR::LocalSurfaceIntersectionWithGrad(uint32_t type, const float3 ray_dir, uint32_t instId, uint32_t geomId,
@@ -456,18 +488,8 @@ namespace dr
       if (need_normal())
       {
         float3 p0 = start_q + t * ray_dir;
-        const float h = 0.001;
-        float ddx = (eval_dist_trilinear(values, p0 + float3(h, 0, 0)) -
-                    eval_dist_trilinear(values, p0 + float3(-h, 0, 0))) /
-                    (2 * h);
-        float ddy = (eval_dist_trilinear(values, p0 + float3(0, h, 0)) -
-                    eval_dist_trilinear(values, p0 + float3(0, -h, 0))) /
-                    (2 * h);
-        float ddz = (eval_dist_trilinear(values, p0 + float3(0, 0, h)) -
-                    eval_dist_trilinear(values, p0 + float3(0, 0, -h))) /
-                    (2 * h);
-
-        norm = normalize(matmul4x3(m_instanceData[instId].transformInvTransposed, float3(ddx, ddy, ddz)));
+        float3 dSDF_dp0 = eval_dist_trilinear_diff(values, p0);
+        norm = normalize(matmul4x3(m_instanceData[instId].transformInvTransposed, dSDF_dp0));
       }
       pHit->t = tReal;
       pHit->primId = primId;
