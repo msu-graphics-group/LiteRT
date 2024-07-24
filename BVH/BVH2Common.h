@@ -159,6 +159,12 @@ struct BVHRT : public ISceneObject
   uint32_t GetGeomNum() const override { return uint32_t(m_geomData.size()); }
   uint32_t GetInstNum() const override { return uint32_t(m_instanceData.size()); }
 
+  uint32_t get_index(uint32_t i)
+  {
+    unsigned u = m_indices[i];
+    return u;
+  }
+
 //protected:
 
   void IntersectAllPrimitivesInLeaf(const float3 ray_pos, const float3 ray_dir,
@@ -351,12 +357,6 @@ static bool need_normal(MultiRenderPreset preset)
          preset.render_mode == MULTI_RENDER_MODE_PHONG;
 }
 
-static uint32_t get_index(uint32_t i, BVHRT *bvhrt)
-{
-  unsigned u = bvhrt->m_indices[i];
-  return u;
-}
-
 struct EmptyGeomData : public GeomData
 {
   EmptyGeomData() {m_tag = GetTag();} 
@@ -386,7 +386,7 @@ struct GeomDataTriangle : public GeomData
   
     for (uint32_t triId = a_start; triId < a_start + a_count; triId++)
     {
-      const uint32_t A = get_index(a_geomOffsets.x + triId*3 + 0, bvhrt);
+      const uint32_t A = bvhrt->get_index(a_geomOffsets.x + triId*3 + 0);
       const uint32_t B = bvhrt->m_indices[a_geomOffsets.x + triId*3 + 1];
       const uint32_t C = bvhrt->m_indices[a_geomOffsets.x + triId*3 + 2];
   
