@@ -376,7 +376,6 @@ struct GeomDataTriangle : public GeomData
                      uint32_t a_start, uint32_t a_count,
                      CRT_Hit *pHit, BVHRT *bvhrt) const override
   {
-    const uint32_t B = bvhrt->m_indices[0];
     bvhrt->IntersectAllTrianglesInLeaf(ray_pos, ray_dir, tNear, instId, geomId, a_start, a_count, pHit);
     return TAG_TRIANGLE;
   }  
