@@ -287,7 +287,7 @@ void diff_render_test_2_forward_pass()
   unsigned W = 1024, H = 1024;
 
   MultiRenderPreset preset = getDefaultPreset();
-  preset.render_mode = MULTI_RENDER_MODE_DIFFUSE;
+  preset.render_mode = MULTI_RENDER_MODE_LAMBERT;
   preset.ray_gen_mode = RAY_GEN_MODE_RANDOM;
   preset.spp = 16;
   
@@ -345,6 +345,7 @@ void diff_render_test_2_forward_pass()
     dr::MultiRendererDR dr_render;
     dr::MultiRendererDRPreset dr_preset = dr::getDefaultPresetDR();
 
+    dr_preset.dr_render_mode = dr::DR_RENDER_MODE_LAMBERT;
     dr_preset.opt_iterations = 1;
     dr_preset.opt_lr = 0;
     dr_preset.spp = 16;
