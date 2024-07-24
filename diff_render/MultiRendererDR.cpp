@@ -318,21 +318,43 @@ namespace dr
       }
 
       color = float4(1,0,1,1); //if pixel is purple at the end, then something gone wrong!
-      LiteMath::float3x3 dColor_dDiffuse = LiteMath::float3x3();
+
+
+      /*
+      color = color(pos, diffuse, norm)
+      dcolor/dS = dcolor/dpos * dpos/dS + dcolor/ddiffuse * ddiffuse/dS + dcolor/dnorm * dnorm/dS
+      dcolor/dpos == 0 for DIFFUSE and LAMBERT render modes
+      */
+      LiteMath::float3x3 dColor_dDiffuse = LiteMath::make_float3x3(float3(1,0,0), float3(0,1,0), float3(0,0,1));
+      LiteMath::float3x3 dColor_dNorm    = LiteMath::make_float3x3(float3(0,0,0), float3(0,0,0), float3(0,0,0));
       //printf("m_preset_dr.dr_render_mode = %u\n", m_preset_dr.dr_render_mode);
 
       switch (m_preset_dr.dr_render_mode)
       {
         case DR_RENDER_MODE_DIFFUSE:
-          dColor_dDiffuse = LiteMath::make_float3x3(float3(1,0,0), float3(0,1,0), float3(0,0,1));
           color = diffuse;
+
+          dColor_dDiffuse = LiteMath::make_float3x3(float3(1,0,0), float3(0,1,0), float3(0,0,1));
+          dColor_dNorm    = LiteMath::make_float3x3(float3(0,0,0), float3(0,0,0), float3(0,0,0));
         break;
         case DR_RENDER_MODE_LAMBERT:
         {
+          float3 light_dir = normalize(float3(1, 1, 1));
           float3 norm(hit.coords[2], hit.coords[3], sqrt(max(0.0f, 1 - hit.coords[2] * hit.coords[2] - hit.coords[3] * hit.coords[3])));
-          float q = max(0.1f, dot(norm, normalize(float3(1, 1, 1))));
+          float q0 = dot(norm, light_dir); // = norm.x*light_dir.x + norm.y*light_dir.y + norm.z*light_dir.z
+          float q = max(0.1f, q0);
           color = to_float4(q * to_float3(diffuse), 1);
+
           dColor_dDiffuse = LiteMath::make_float3x3(float3(q,0,0), float3(0,q,0), float3(0,0,q));
+          if (q0 > 0.1f)
+          {
+            float3 dq_dnorm = light_dir;
+            dColor_dNorm = LiteMath::make_float3x3(diffuse.x*light_dir, 
+                                                   diffuse.y*light_dir, 
+                                                   diffuse.z*light_dir);
+          }
+          else
+            dColor_dNorm = LiteMath::make_float3x3(float3(0,0,0), float3(0,0,0), float3(0,0,0));
         }
         break;      
         default:
@@ -346,23 +368,29 @@ namespace dr
 
       float3 dLoss_dColor = LossGrad(m_preset_dr.dr_loss_function, to_float3(color), to_float3(image_ref[y * m_width + x]));
 
-      for (PD &pd : hit.dDiffuse_dS)
+      if (m_preset_dr.dr_reconstruction_type == DR_RECONSTRUCTION_TYPE_COLOR)
       {
-        if (pd.index == PD::INVALID_INDEX)
-          continue;
-
-        if (x == 128 && y == 128 && false)
+        for (PDColor &pd : hit.dDiffuse_dSc)
         {
-        printf("%u %u ", x, y);
-        printf("dLoss_dColor, color, ref_color pd.value = (%f, %f, %f), (%f, %f, %f) (%f, %f, %f), %f\n", 
-               dLoss_dColor.x, dLoss_dColor.y, dLoss_dColor.z, color.x, color.y, color.z,
-               image_ref[y * m_width + x].x, image_ref[y * m_width + x].y, image_ref[y * m_width + x].z, pd.value);
+          if (pd.index == INVALID_INDEX)
+            continue;
+          
+          float3 diff = dLoss_dColor * (dColor_dDiffuse * float3(pd.value));
+          out_dLoss_dS[pd.index + 0] += diff.x / m_preset.spp;
+          out_dLoss_dS[pd.index + 1] += diff.y / m_preset.spp;
+          out_dLoss_dS[pd.index + 2] += diff.z / m_preset.spp;
         }
-        
-        float3 diff = dLoss_dColor * (dColor_dDiffuse * float3(pd.value));
-        out_dLoss_dS[pd.index + 0] += diff.x / m_preset.spp;
-        out_dLoss_dS[pd.index + 1] += diff.y / m_preset.spp;
-        out_dLoss_dS[pd.index + 2] += diff.z / m_preset.spp;
+      }
+      else if (m_preset_dr.dr_reconstruction_type == DR_RECONSTRUCTION_TYPE_GEOMETRY)
+      {
+        for (PDDist &pd : hit.dDiffuseNormal_dSd)
+        {
+          if (pd.index == INVALID_INDEX)
+            continue;
+          
+          float diff = dot(dLoss_dColor, dColor_dDiffuse * pd.dDiffuse + dColor_dNorm * pd.dNorm);
+          out_dLoss_dS[pd.index] += diff / m_preset.spp;
+        }
       }
 
     }

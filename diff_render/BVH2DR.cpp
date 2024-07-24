@@ -25,7 +25,10 @@ namespace dr
     hit.coords[3] = 0.0f;
 
     for (int i=0;i<8;i++)
-      hit.dDiffuse_dS[i].index = PD::INVALID_INDEX;
+    {
+      hit.dDiffuse_dSc[i].index = INVALID_INDEX;
+      hit.dDiffuseNormal_dSd[i].index = INVALID_INDEX;
+    }
 
     {
       uint32_t nodeIdx = 0;
@@ -604,14 +607,13 @@ namespace dr
         pHit->coords[1] = color.z;
         // printf("color = %f %f %f coords = %f %f\n", color.x, color.y, color.z, pHit->coords[0], pHit->coords[1]);
 
-        // set dDiffuse_dS
+        // set dDiffuse_dSc
         for (int i = 0; i < 8; i++)
         {
           float3 q = float3((i & 4) >> 2, (i & 2) >> 1, i & 1);
           float3 t = q*dp + (1-q)*(1-dp); //linear interpolation quotients, as above
-          pHit->dDiffuse_dS[i].index = m_SdfSBSData[t_off + i];
-          pHit->dDiffuse_dS[i].size = 3;
-          pHit->dDiffuse_dS[i].value = t.x*t.y*t.z;
+          pHit->dDiffuse_dSc[i].index = m_SdfSBSData[t_off + i];
+          pHit->dDiffuse_dSc[i].value = t.x*t.y*t.z;
         }
       }
       // else error

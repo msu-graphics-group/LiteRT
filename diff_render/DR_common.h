@@ -4,12 +4,20 @@
 
 namespace dr
 {
-  struct PD
+  using LiteMath::float3;
+  static constexpr uint32_t INVALID_INDEX = 0xFFFFFFFF;
+  struct PDColor
   {
-    static constexpr uint32_t INVALID_INDEX = 0xFFFFFFFF;
     uint32_t index;
-    uint32_t size;
     float value;
+  };
+
+  struct PDDist
+  {
+    float3 dDiffuse;
+    uint32_t index;
+    float3 dNorm;
+    uint32_t _pad;
   };
 
   struct CRT_HitDR 
@@ -21,6 +29,9 @@ namespace dr
     float    coords[4]; ///< custom intersection data; for triangles coords[0] and coords[1] stores baricentric coords (u,v)
                         // coords[2] and coords[3] stores normal.xy
 
-    PD dDiffuse_dS[8]; //8 points, PDs for R,G,B are the same
+    PDColor dDiffuse_dSc[8]; //8 color points, PDs for diffuse (PDs for R,G,B are the same)
+    PDDist  dDiffuseNormal_dSd[8]; //8 distance points, PDs for diffuse and normal
+    //    dNorm_dSc[8]; is zero, normal vector does not depend on color
+
   };
 }

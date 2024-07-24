@@ -18,12 +18,16 @@ namespace dr
   static constexpr unsigned DR_DIFF_MODE_DEFAULT     = 0;
   static constexpr unsigned DR_DIFF_MODE_FINITE_DIFF = 1;
 
+  //enum DRReconstructionType
+  static constexpr unsigned DR_RECONSTRUCTION_TYPE_COLOR    = 0;
+  static constexpr unsigned DR_RECONSTRUCTION_TYPE_GEOMETRY = 1;
   struct MultiRendererDRPreset
   {
     unsigned spp;
-    unsigned dr_loss_function; //enum DRLossFunction
-    unsigned dr_render_mode;   //enum DRRenderMode
-    unsigned dr_diff_mode;     //enum DRDiffMode
+    unsigned dr_loss_function;       //enum DRLossFunction
+    unsigned dr_render_mode;         //enum DRRenderMode
+    unsigned dr_diff_mode;           //enum DRDiffMode
+    unsigned dr_reconstruction_type; //enum DRReconstructionType
 
     //optimization parameters (Adam optimizer)
     float opt_lr;
@@ -42,6 +46,7 @@ namespace dr
     preset.dr_loss_function = DR_LOSS_FUNCTION_MSE;
     preset.dr_render_mode = DR_RENDER_MODE_DIFFUSE;
     preset.dr_diff_mode = DR_DIFF_MODE_DEFAULT;
+    preset.dr_reconstruction_type = DR_RECONSTRUCTION_TYPE_COLOR;
 
     preset.opt_lr = 0.01f;
     preset.opt_beta_1 = 0.9f;
