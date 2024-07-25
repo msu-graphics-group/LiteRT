@@ -17,10 +17,11 @@ namespace dr
                                              uint32_t a_start, uint32_t a_count,
                                              CRT_HitDR *pHit);
 
-    void LocalSurfaceIntersectionWithGrad(uint32_t type, const float3 ray_dir, uint32_t instId, uint32_t geomId,
-                                          float values[8], uint32_t nodeId, uint32_t primId, float d, float qNear,
-                                          float qFar, float2 fNearFar, float3 start_q,
-                                          CRT_HitDR *pHit);
+    float Intersect(const float3 ray_dir, float values[8], float d, 
+                    float qNear, float qFar, float3 start_q);
+
+    void dIntersect_dValues(const float3 ray_dir, float values[8], float d,
+                            float qNear, float qFar, float3 start_q, float out_dValues[8]);
 
     void OctreeBrickIntersectWithGrad(uint32_t type, const float3 ray_pos, const float3 ray_dir,
                                       float tNear, uint32_t instId, uint32_t geomId,
@@ -30,5 +31,7 @@ namespace dr
     void BVH2TraverseF32WithGrad(const float3 ray_pos, const float3 ray_dir, float tNear,
                                  uint32_t instId, uint32_t geomId, bool stopOnFirstHit,
                                  CRT_HitDR *pHit);
+
+    MultiRendererDRPreset m_preset_dr;
   };
 }

@@ -6,38 +6,6 @@
 
 namespace dr
 {
-  //enum DRLossFunction
-  static constexpr unsigned DR_LOSS_FUNCTION_MSE =  0;
-  static constexpr unsigned DR_LOSS_FUNCTION_MAE =  1;
-
-  //enum DRRenderMode
-  static constexpr unsigned DR_RENDER_MODE_DIFFUSE = 0;
-  static constexpr unsigned DR_RENDER_MODE_LAMBERT = 1;
-
-  //enum DRDiffMode
-  static constexpr unsigned DR_DIFF_MODE_DEFAULT     = 0;
-  static constexpr unsigned DR_DIFF_MODE_FINITE_DIFF = 1;
-
-  //enum DRReconstructionType
-  static constexpr unsigned DR_RECONSTRUCTION_TYPE_COLOR    = 0;
-  static constexpr unsigned DR_RECONSTRUCTION_TYPE_GEOMETRY = 1;
-  struct MultiRendererDRPreset
-  {
-    unsigned spp;
-    unsigned dr_loss_function;       //enum DRLossFunction
-    unsigned dr_render_mode;         //enum DRRenderMode
-    unsigned dr_diff_mode;           //enum DRDiffMode
-    unsigned dr_reconstruction_type; //enum DRReconstructionType
-
-    //optimization parameters (Adam optimizer)
-    float opt_lr;
-    float opt_beta_1;
-    float opt_beta_2;
-    float opt_eps;
-    unsigned opt_iterations;
-    unsigned image_batch_size;
-  };
-
   static MultiRendererDRPreset getDefaultPresetDR()
   {
     MultiRendererDRPreset preset;

@@ -3,6 +3,8 @@
 using LiteMath::M_PI;
 using LiteMath::clamp;
 
+#define VERIFY_DERIVATIVES 0
+
 namespace dr
 {
   //it is an EXACT COPY of BVHRT::RayQuery_NearestHit, just using CRT_HitDR instead of CRT_Hit
@@ -237,7 +239,58 @@ namespace dr
                         (  dp.x)*(1-dp.y)*values[5] + 
                        -(  dp.x)*(  dp.y)*values[6] + 
                         (  dp.x)*(  dp.y)*values[7];
-  
+
+#if VERIFY_DERIVATIVES
+    {
+    static unsigned count = 0;
+    static unsigned e_count = 0;
+    static long double sliding_average = 0;
+    float3x3 deriv_1 = LiteMath::make_float3x3_by_columns(dcolor_dx, dcolor_dy, dcolor_dz);
+    float t = 0.001f;
+    float3x3 deriv_2 = LiteMath::make_float3x3_by_columns(
+                       (eval_color_trilinear(values, dp + t*float3(1,0,0)) - eval_color_trilinear(values, dp - t*float3(1,0,0)))/(2*t),
+                       (eval_color_trilinear(values, dp + t*float3(0,1,0)) - eval_color_trilinear(values, dp - t*float3(0,1,0)))/(2*t),
+                       (eval_color_trilinear(values, dp + t*float3(0,0,1)) - eval_color_trilinear(values, dp - t*float3(0,0,1)))/(2*t));
+
+    float l1 = 0;
+    float l2 = 0;
+    float ldiff = 0;
+
+    for (int i = 0; i < 3; i++)
+    {
+      for (int j = 0; j < 3; j++)
+      {
+        l1 += deriv_1.row[i][j]*deriv_1.row[i][j];
+        l2 += deriv_2.row[i][j]*deriv_2.row[i][j];
+        ldiff += (deriv_1.row[i][j]-deriv_2.row[i][j])*(deriv_1.row[i][j]-deriv_2.row[i][j]);
+      }
+    }
+
+    l1 = sqrt(l1);
+    l2 = sqrt(l2);
+    ldiff = sqrt(ldiff);
+    float l = 0.5f*(l1 + l2);
+
+    sliding_average = (count == 0) ? l : 0.999f*sliding_average + 0.001f*l;
+
+    count++;
+    if (ldiff > 0.01f*l && ldiff > 0.01f*sliding_average)
+    {
+      e_count++;
+      printf("diff error: %f\n", ldiff);
+      printf("deriv_1:\n");
+      printf("%f %f %f\n", deriv_1.row[0][0], deriv_1.row[0][1], deriv_1.row[0][2]);
+      printf("%f %f %f\n", deriv_1.row[1][0], deriv_1.row[1][1], deriv_1.row[1][2]);
+      printf("%f %f %f\n", deriv_1.row[2][0], deriv_1.row[2][1], deriv_1.row[2][2]);
+      printf("deriv_2:\n");
+      printf("%f %f %f\n", deriv_2.row[0][0], deriv_2.row[0][1], deriv_2.row[0][2]);
+      printf("%f %f %f\n", deriv_2.row[1][0], deriv_2.row[1][1], deriv_2.row[1][2]);
+      printf("%f %f %f\n", deriv_2.row[2][0], deriv_2.row[2][1], deriv_2.row[2][2]);
+    }
+    if (count % 1000000 == 0)
+      printf("eval_color_trilinear_diff: %u errors out of %uM tries\n", e_count, count/1000000u);
+    }
+#endif
     return LiteMath::make_float3x3_by_columns(dcolor_dx, dcolor_dy, dcolor_dz);
   }
 
@@ -250,6 +303,58 @@ namespace dr
     float3 dx_dv = b*float3(v.y*v.y + v.z*v.z, -v.x*v.y, -v.x*v.z);
     float3 dy_dv = b*float3(-v.x*v.y, v.x*v.x + v.z*v.z, -v.y*v.z);
     float3 dz_dv = b*float3(-v.x*v.z, -v.y*v.z, v.x*v.x + v.y*v.y);
+
+#if VERIFY_DERIVATIVES
+    {
+    static unsigned count = 0;
+    static unsigned e_count = 0;
+    static long double sliding_average = 0;
+    float3x3 deriv_1 = LiteMath::make_float3x3(dx_dv, dy_dv, dz_dv);
+    float t = 0.001f;
+    float3x3 deriv_2 = LiteMath::make_float3x3_by_columns(
+                       (normalize(v + t*float3(1,0,0)) - normalize(v - t*float3(1,0,0)))/(2*t),
+                       (normalize(v + t*float3(0,1,0)) - normalize(v - t*float3(0,1,0)))/(2*t),
+                       (normalize(v + t*float3(0,0,1)) - normalize(v - t*float3(0,0,1)))/(2*t));
+
+    float l1 = 0;
+    float l2 = 0;
+    float ldiff = 0;
+
+    for (int i = 0; i < 3; i++)
+    {
+      for (int j = 0; j < 3; j++)
+      {
+        l1 += deriv_1.row[i][j]*deriv_1.row[i][j];
+        l2 += deriv_2.row[i][j]*deriv_2.row[i][j];
+        ldiff += (deriv_1.row[i][j]-deriv_2.row[i][j])*(deriv_1.row[i][j]-deriv_2.row[i][j]);
+      }
+    }
+
+    l1 = sqrt(l1);
+    l2 = sqrt(l2);
+    ldiff = sqrt(ldiff);
+    float l = 0.5f*(l1 + l2);
+
+    sliding_average = (count == 0) ? l : 0.999f*sliding_average + 0.001f*l;
+
+    count++;
+    if (ldiff > 0.025f*l && ldiff > 0.025f*sliding_average)
+    {
+      e_count++;
+      printf("normalize_diff error: %f %f\n", ldiff/l, (float)(ldiff/sliding_average));
+      printf("deriv_1:\n");
+      printf("%f %f %f\n", deriv_1.row[0][0], deriv_1.row[0][1], deriv_1.row[0][2]);
+      printf("%f %f %f\n", deriv_1.row[1][0], deriv_1.row[1][1], deriv_1.row[1][2]);
+      printf("%f %f %f\n", deriv_1.row[2][0], deriv_1.row[2][1], deriv_1.row[2][2]);
+      printf("deriv_2:\n");
+      printf("%f %f %f\n", deriv_2.row[0][0], deriv_2.row[0][1], deriv_2.row[0][2]);
+      printf("%f %f %f\n", deriv_2.row[1][0], deriv_2.row[1][1], deriv_2.row[1][2]);
+      printf("%f %f %f\n", deriv_2.row[2][0], deriv_2.row[2][1], deriv_2.row[2][2]);
+    }
+    if (count % 1000000 == 0)
+      printf("normalize_diff: %u errors out of %uM tries\n", e_count, count/1000000u);
+    }
+#endif
 
     return LiteMath::make_float3x3(dx_dv, dy_dv, dz_dv);
   }
@@ -311,7 +416,7 @@ namespace dr
     
     float ddist_dzdy = (1-dp.x)*values[0] + 
                       -(1-dp.x)*values[1] + 
-                       (1-dp.x)*values[2] + 
+                      -(1-dp.x)*values[2] + 
                        (1-dp.x)*values[3] + 
                        (  dp.x)*values[4] + 
                       -(  dp.x)*values[5] + 
@@ -319,6 +424,60 @@ namespace dr
                        (  dp.x)*values[7];
   
     float ddist_dzdz = 0;
+
+#if VERIFY_DERIVATIVES
+    {
+    static unsigned count = 0;
+    static unsigned e_count = 0;
+    static long double sliding_average = 0;
+    float3x3 deriv_1 = LiteMath::make_float3x3(float3(ddist_dxdx, ddist_dxdy, ddist_dxdz),
+                                               float3(ddist_dydx, ddist_dydy, ddist_dydz),
+                                               float3(ddist_dzdx, ddist_dzdy, ddist_dzdz));
+    float t = 0.001f;
+    float3x3 deriv_2 = LiteMath::make_float3x3_by_columns(
+                       (eval_dist_trilinear_diff(values, dp + t*float3(1,0,0)) - eval_dist_trilinear_diff(values, dp - t*float3(1,0,0)))/(2*t),
+                       (eval_dist_trilinear_diff(values, dp + t*float3(0,1,0)) - eval_dist_trilinear_diff(values, dp - t*float3(0,1,0)))/(2*t),
+                       (eval_dist_trilinear_diff(values, dp + t*float3(0,0,1)) - eval_dist_trilinear_diff(values, dp - t*float3(0,0,1)))/(2*t));
+
+    float l1 = 0;
+    float l2 = 0;
+    float ldiff = 0;
+
+    for (int i = 0; i < 3; i++)
+    {
+      for (int j = 0; j < 3; j++)
+      {
+        l1 += deriv_1.row[i][j]*deriv_1.row[i][j];
+        l2 += deriv_2.row[i][j]*deriv_2.row[i][j];
+        ldiff += (deriv_1.row[i][j]-deriv_2.row[i][j])*(deriv_1.row[i][j]-deriv_2.row[i][j]);
+      }
+    }
+
+    l1 = sqrt(l1);
+    l2 = sqrt(l2);
+    ldiff = sqrt(ldiff);
+    float l = 0.5f*(l1 + l2);
+
+    sliding_average = (count == 0) ? l : 0.999f*sliding_average + 0.001f*l;
+
+    count++;
+    if (ldiff > 0.01f*l && ldiff > 0.01f*sliding_average)
+    {
+      e_count++;
+      printf("diff error: %f\n", ldiff);
+      printf("deriv_1:\n");
+      printf("%f %f %f\n", deriv_1.row[0][0], deriv_1.row[0][1], deriv_1.row[0][2]);
+      printf("%f %f %f\n", deriv_1.row[1][0], deriv_1.row[1][1], deriv_1.row[1][2]);
+      printf("%f %f %f\n", deriv_1.row[2][0], deriv_1.row[2][1], deriv_1.row[2][2]);
+      printf("deriv_2:\n");
+      printf("%f %f %f\n", deriv_2.row[0][0], deriv_2.row[0][1], deriv_2.row[0][2]);
+      printf("%f %f %f\n", deriv_2.row[1][0], deriv_2.row[1][1], deriv_2.row[1][2]);
+      printf("%f %f %f\n", deriv_2.row[2][0], deriv_2.row[2][1], deriv_2.row[2][2]);
+    }
+    if (count % 1000000 == 0)
+      printf("eval_dist_trilinear_ddp_ddp: %u errors out of %uM tries\n", e_count, count/1000000u);
+    }
+#endif
 
     return LiteMath::make_float3x3(float3(ddist_dxdx, ddist_dxdy, ddist_dxdz),
                                    float3(ddist_dydx, ddist_dydy, ddist_dydz),
@@ -356,14 +515,62 @@ namespace dr
     out_mat[21] =  (  dp.x)*(1-dp.y);
     out_mat[22] = -(  dp.x)*(  dp.y);
     out_mat[23] =  (  dp.x)*(  dp.y);
+
+#if VERIFY_DERIVATIVES
+    {
+    static unsigned count = 0;
+    static unsigned e_count = 0;
+    static long double sliding_average = 0;
+    float t = 0.001f;
+    float out_mat_ref[3*8]; /*3x8*/
+    for (int i = 0; i < 8; i++)
+    {
+      ((float*)values)[i] += t;
+      float3 t1 = eval_dist_trilinear_diff(values, dp);
+      ((float*)values)[i] -= 2*t;
+      float3 t2 = eval_dist_trilinear_diff(values, dp);
+      ((float*)values)[i] += t;
+      out_mat_ref[0*8 + i] = (t1.x - t2.x)/(2*t);
+      out_mat_ref[1*8 + i] = (t1.y - t2.y)/(2*t);
+      out_mat_ref[2*8 + i] = (t1.z - t2.z)/(2*t);
+    }
+
+    float l1 = 0;
+    float l2 = 0;
+    float ldiff = 0;
+
+    for (int i = 0; i < 3*8; i++)
+    {
+      l1 += out_mat[i]*out_mat[i];
+      l2 += out_mat_ref[i]*out_mat_ref[i];
+      ldiff += (out_mat[i] - out_mat_ref[i])*(out_mat[i] - out_mat_ref[i]);
+    }
+
+    l1 = sqrt(l1);
+    l2 = sqrt(l2);
+    ldiff = sqrt(ldiff);
+    float l = 0.5f*(l1 + l2);
+
+    sliding_average = (count == 0) ? l : 0.999f*sliding_average + 0.001f*l;
+
+    count++;
+    if (ldiff > 0.01f*l && ldiff > 0.01f*sliding_average)
+    {
+      e_count++;
+      printf("diff error: %f\n", ldiff);
+    }
+    if (count % 1000000 == 0)
+      printf("eval_dist_trilinear_ddp_dvalues: %u errors out of %uM tries\n", e_count, count/1000000u);
+    }
+#endif
+
   }
 
   //Currently it is and exact copy of BVHRT::LocalSurfaceIntersection, but it will change later
   //because differential rendering of SDF requires collection additional data during intersection search
-  void BVHDR::LocalSurfaceIntersectionWithGrad(uint32_t type, const float3 ray_dir, uint32_t instId, uint32_t geomId,
-                                               float values[8], uint32_t nodeId, uint32_t primId, float d, float qNear,
-                                               float qFar, float2 fNearFar, float3 start_q,
-                                               CRT_HitDR *pHit)
+
+  float BVHDR::Intersect(const float3 ray_dir, float values[8], float d, 
+                         float qNear, float qFar, float3 start_q)
   {
     const float EPS = 1e-6f;
     float d_inv = 1.0f / d;
@@ -625,43 +832,23 @@ namespace dr
       }
     }
 
-    float tReal = fNearFar.x + 2.0f * d * t;
+    return t;
+  }
 
+  void BVHDR::dIntersect_dValues(const float3 ray_dir, float values[8], float d,
+                                 float qNear, float qFar, float3 start_q, float out_dValues[8])
+  {
+    //use finite differences to calculate dValues
+    float delta = 0.001f;
 
-  #if ON_CPU==1
-    if (debug_cur_pixel)
+    for (int i = 0; i < 8; i++)
     {
-      printf("\n");
-      printf("sdf type = %u\n", type);
-      //printf("node bbox [(%f %f %f)-(%f %f %f)]\n", min_pos.x, min_pos.y, min_pos.z, max_pos.x, max_pos.y, max_pos.z);
-      printf("sdf values %f %f %f %f %f %f %f %f\n", 
-            values[0], values[1], values[2], values[3],
-            values[4], values[5], values[6], values[7]);
-      printf("t = %f in [0, %f], tReal = %f in [%f %f]\n",t,qFar,tReal,fNearFar.x,fNearFar.y);
-      printf("ray_dir = (%f %f %f)\n", ray_dir.x, ray_dir.y, ray_dir.z);
-      //printf("ray_pos = (%f %f %f)\n", ray_pos.x, ray_pos.y, ray_pos.z);
-      printf("\n");
-    }
-  #endif
-
-    if (t <= qFar && hit && tReal < pHit->t)
-    {
-      float3 norm = float3(0, 0, 1);
-      if (need_normal())
-      {
-        float3 p0 = start_q + t * ray_dir;
-        float3 dSDF_dp0 = eval_dist_trilinear_diff(values, p0);
-        norm = normalize(matmul4x3(m_instanceData[instId].transformInvTransposed, dSDF_dp0));
-      }
-      pHit->t = tReal;
-      pHit->primId = primId;
-      pHit->instId = instId;
-      pHit->geomId = geomId | (type << SH_TYPE);
-      pHit->color = float3(0, 0, 0);
-      pHit->normal = norm;
-
-      if (m_preset.render_mode == MULTI_RENDER_MODE_ST_ITERATIONS)
-        pHit->primId = iter;
+      values[i] += delta;
+      float d1 = Intersect(ray_dir, values, d, qNear, qFar, start_q);
+      values[i] -= 2 * delta;
+      float d2 = Intersect(ray_dir, values, d, qNear, qFar, start_q);
+      values[i] += delta;
+      out_dValues[i] = (d1 - d2) / (2 * delta);
     }
   }
 
@@ -733,39 +920,108 @@ namespace dr
         start_q = (start_pos - min_pos) * (0.5f * sz * header.brick_size);
         qFar = (fNearFar.y - fNearFar.x) * (0.5f * sz * header.brick_size);
 
-        LocalSurfaceIntersectionWithGrad(type, ray_dir, instId, geomId, values, nodeId, primId, d, 0.0f, qFar, fNearFar, start_q, /*in */
-                                         pHit);                                                                                   /*out*/
+        float t = Intersect(ray_dir, values, d, 0.0f, qFar, start_q);
+        float tReal = fNearFar.x + 2.0f * d * t;
+        if (t <= qFar && tReal < pHit->t)
+        {
+          //assume 1) header.aux_data == SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F
+          //       2) no instances
+
+          pHit->t = tReal;
+          pHit->primId = primId;
+          pHit->instId = instId;
+          pHit->geomId = geomId | (type << SH_TYPE);
+
+          //calculate dt_dvalues
+          float dt_dvalues[8];
+          if (m_preset_dr.dr_reconstruction_type == DR_RECONSTRUCTION_TYPE_GEOMETRY)
+          {
+            dIntersect_dValues(ray_dir, values, d, 0.0f, qFar, start_q, dt_dvalues);
+            
+            uint32_t v_off = m_SdfSBSNodes[nodeId].data_offset;
+            for (int i = 0; i < 8; i++)
+            {
+              uint3 vPos = uint3(voxelPos) + uint3((i & 4) >> 2, (i & 2) >> 1, i & 1);
+              uint32_t vId = vPos.x * v_size * v_size + vPos.y * v_size + vPos.z;
+              //values[i] = m_SdfSBSDataF[m_SdfSBSData[v_off + vId]];
+              pHit->dDiffuseNormal_dSd[i].index = m_SdfSBSData[v_off + vId];
+            }
+          }
+
+          //calculate hit normal and dNormal_dSd
+          if (need_normal())
+          {
+            //Normal
+            float3 p0 = start_q + t * ray_dir;
+            float3 dSDF_dp0 = eval_dist_trilinear_diff(values, p0);
+            pHit->normal = normalize(dSDF_dp0);
+
+            //dNormal_dSd
+            //if (m_preset_dr.dr_reconstruction_type == DR_RECONSTRUCTION_TYPE_GEOMETRY)
+            {
+              float3x3 dNormalize_dD = normalize_diff(dSDF_dp0);
+              float dD_d1[24];         eval_dist_trilinear_ddp_dvalues(values, p0, dD_d1);
+              float3x3 dD_d2         = eval_dist_trilinear_ddp_ddp(values, p0);
+
+              //normal = normalize(eval_dist_trilinear_diff(values, start_q + t(values) * ray_dir))
+              //dnormal_dvalues[3x8] = dnormalize_dD[3x3] * (dD_d1[3x8] + (dD_d2[3x3] * ray_dir[3x1])[3x1] * dt_dvalues[1x8])
+
+              float3 t1 = dD_d2*ray_dir;
+
+              for (int i = 0; i < 8; i++) //dD_d1 = dD_d1 + (dD_d2 * ray_dir) * dt_dvalues
+              {
+                dD_d1[8*0 + i] += t1.x*dt_dvalues[i];
+                dD_d1[8*1 + i] += t1.y*dt_dvalues[i];
+                dD_d1[8*2 + i] += t1.z*dt_dvalues[i];
+              }
+
+              for (int i = 0; i < 8; i++)
+                pHit->dDiffuseNormal_dSd[i].dNorm = dNormalize_dD * float3(dD_d1[8*0 + i], dD_d1[8*1 + i], dD_d1[8*2 + i]);
+            }
+          }
+
+          //calculate color, dDiffuse_dSc and dDiffuse_dSd
+          if (true)
+          {
+            //Diffuse 
+            float3 pos = ray_pos + pHit->t * ray_dir;
+            float3 dp = (pos - brick_min_pos) * (0.5f * sz);
+            uint32_t t_off = m_SdfSBSNodes[nodeId].data_offset + v_size * v_size * v_size;
+            float3 colors[8];
+            for (int i = 0; i < 8; i++)
+              colors[i] = float3(m_SdfSBSDataF[m_SdfSBSData[t_off + i] + 0], m_SdfSBSDataF[m_SdfSBSData[t_off + i] + 1], m_SdfSBSDataF[m_SdfSBSData[t_off + i] + 2]);
+            pHit->color = eval_color_trilinear(colors, dp);
+
+            //dDiffuse_dSc
+            if (m_preset_dr.dr_reconstruction_type == DR_RECONSTRUCTION_TYPE_COLOR)
+            {
+              for (int i = 0; i < 8; i++)
+              {
+                float3 q = float3((i & 4) >> 2, (i & 2) >> 1, i & 1);
+                float3 lq = q*dp + (1-q)*(1-dp); //linear interpolation quotients, as above
+                pHit->dDiffuse_dSc[i].index = m_SdfSBSData[t_off + i];
+                pHit->dDiffuse_dSc[i].value = lq.x*lq.y*lq.z;
+              }
+            }
+
+            //dDiffuse_dSd
+            //Diffuse = Lerp(colors, (ray_pos + t(values) * ray_dir - brick_min_pos) * (0.5f * sz))
+            //dDiffuse_dValues = dLerp_d1[3x3] * 0.5f*sz*ray_dir[3x1] * dt_dvalues[1x8]
+            //if (m_preset_dr.dr_reconstruction_type == DR_RECONSTRUCTION_TYPE_GEOMETRY)
+            {
+              float3x3 dLerp_d1 = eval_color_trilinear_diff(colors, dp);
+              for (int i = 0; i < 8; i++)
+              {
+                pHit->dDiffuseNormal_dSd[i].dDiffuse = dLerp_d1 * float3(0.5f*sz*ray_dir.x*dt_dvalues[i], 0.5f*sz*ray_dir.y*dt_dvalues[i], 0.5f*sz*ray_dir.z*dt_dvalues[i]);
+              }
+            }
+          }
+
+          break;
+        }
       }
 
       brick_fNearFar.x += std::max(0.0f, fNearFar.y - brick_fNearFar.x) + 1e-6f;
-    }
-
-    // ray hit a brick
-    if (pHit->t < old_t)
-    {
-      float3 pos = ray_pos + pHit->t * ray_dir;
-      float3 dp = (pos - brick_min_pos) * (0.5f * sz);
-      if (header.aux_data == SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F)
-      {
-        uint32_t t_off = m_SdfSBSNodes[nodeId].data_offset + v_size * v_size * v_size;
-
-        float3 colors[8];
-        for (int i = 0; i < 8; i++)
-          colors[i] = float3(m_SdfSBSDataF[m_SdfSBSData[t_off + i] + 0], m_SdfSBSDataF[m_SdfSBSData[t_off + i] + 1], m_SdfSBSDataF[m_SdfSBSData[t_off + i] + 2]);
-
-        float3 color = eval_color_trilinear(colors, dp);
-        pHit->color = color;
-
-        // set dDiffuse_dSc
-        for (int i = 0; i < 8; i++)
-        {
-          float3 q = float3((i & 4) >> 2, (i & 2) >> 1, i & 1);
-          float3 t = q*dp + (1-q)*(1-dp); //linear interpolation quotients, as above
-          pHit->dDiffuse_dSc[i].index = m_SdfSBSData[t_off + i];
-          pHit->dDiffuse_dSc[i].value = t.x*t.y*t.z;
-        }
-      }
-      // else error
     }
   }
 }

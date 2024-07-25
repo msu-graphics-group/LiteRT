@@ -114,6 +114,7 @@ namespace dr
     m_Opt_tmp = std::vector<float>(2*params_count, 0);
 
     m_preset_dr = preset;
+    ((BVHDR*)m_pAccelStruct.get())->m_preset_dr = preset;
     m_preset.spp = preset.spp;
     m_preset.ray_gen_mode = RAY_GEN_MODE_RANDOM;
     m_preset.render_mode = diff_render_mode_to_multi_render_mode(preset.dr_render_mode);
