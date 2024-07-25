@@ -127,6 +127,11 @@ namespace dr
     float *params = ((BVHDR*)m_pAccelStruct.get())->m_SdfSBSDataF.data();
     unsigned images_count = m_imagesRef.size();
 
+    bool is_geometry = preset.dr_reconstruction_type == DR_RECONSTRUCTION_TYPE_GEOMETRY;
+    unsigned color_params = 3*8*sbs.nodes.size();
+    unsigned active_params_start = is_geometry ? 0 : params_count - color_params;
+    unsigned active_params_end   = is_geometry ? params_count - color_params : params_count;
+
     //SetViewport(0,0, a_width, a_height);
     //UpdateCamera(a_worldView, a_proj);
     for (int iter = 0; iter < preset.opt_iterations; iter++)
@@ -149,7 +154,7 @@ namespace dr
           loss = RenderDR(m_imagesRef[image_id].data(), m_images[image_id].data(), m_dLoss_dS_tmp.data(), params_count);
         else if (preset.dr_diff_mode == DR_DIFF_MODE_FINITE_DIFF)
           loss = RenderDRFiniteDiff(m_imagesRef[image_id].data(), m_images[image_id].data(), m_dLoss_dS_tmp.data(), params_count,
-                                    params_count - 3*8*sbs.nodes.size(), params_count, 0.1f);
+                                    active_params_start, active_params_end, 0.1f);
 
         loss_sum += loss;
         loss_max = std::max(loss_max, loss);
