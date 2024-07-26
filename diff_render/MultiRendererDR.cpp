@@ -202,7 +202,7 @@ namespace dr
     unsigned max_threads = omp_get_max_threads();
     unsigned steps = (m_width * m_height + max_threads - 1)/max_threads;
     std::vector<double> loss_v(max_threads, 0.0f);
-    #pragma omp parallel for
+    //#pragma omp parallel for
     for (int thread_id = 0; thread_id < max_threads; thread_id++)
     {
       unsigned start = thread_id * steps;

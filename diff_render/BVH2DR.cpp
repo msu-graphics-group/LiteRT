@@ -341,6 +341,7 @@ namespace dr
     if (ldiff > 0.025f*l && ldiff > 0.025f*sliding_average)
     {
       e_count++;
+      /*
       printf("normalize_diff error: %f %f\n", ldiff/l, (float)(ldiff/sliding_average));
       printf("deriv_1:\n");
       printf("%f %f %f\n", deriv_1.row[0][0], deriv_1.row[0][1], deriv_1.row[0][2]);
@@ -350,6 +351,7 @@ namespace dr
       printf("%f %f %f\n", deriv_2.row[0][0], deriv_2.row[0][1], deriv_2.row[0][2]);
       printf("%f %f %f\n", deriv_2.row[1][0], deriv_2.row[1][1], deriv_2.row[1][2]);
       printf("%f %f %f\n", deriv_2.row[2][0], deriv_2.row[2][1], deriv_2.row[2][2]);
+      */
     }
     if (count % 1000000 == 0)
       printf("normalize_diff: %u errors out of %uM tries\n", e_count, count/1000000u);
@@ -839,7 +841,7 @@ namespace dr
                                  float qNear, float qFar, float3 start_q, float out_dValues[8])
   {
     //use finite differences to calculate dValues
-    float delta = 0.001f;
+    float delta = 0.0001f;
 
     for (int i = 0; i < 8; i++)
     {
@@ -1016,6 +1018,84 @@ namespace dr
               }
             }
           }
+#if VERIFY_DERIVATIVES
+          if (m_preset_dr.dr_reconstruction_type == DR_RECONSTRUCTION_TYPE_GEOMETRY)
+          {
+            static unsigned count = 0;
+            static unsigned e_count = 0;
+            static long double sliding_average = 0;
+
+            float3 dNorm_dValues[8];
+            float3 dDiffuse_dValues[8];
+            float delta = 0.0001f;
+
+            float3 norm[2];
+            float3 color[2];
+            for (int i = 0; i < 8; i++)
+            {
+              for (int j = 0; j < 2; j++)
+              {
+                values[i] += j == 0 ? delta : -delta;
+
+                float t = Intersect(ray_dir, values, d, 0.0f, qFar, start_q);
+                float tReal = fNearFar.x + 2.0f * d * t;
+                float3 p0 = start_q + t * ray_dir;
+                float3 dSDF_dp0 = eval_dist_trilinear_diff(values, p0);
+                norm[j] = normalize(dSDF_dp0);
+                float3 pos = ray_pos + t * ray_dir;
+                float3 dp = (pos - brick_min_pos) * (0.5f * sz);
+                uint32_t t_off = m_SdfSBSNodes[nodeId].data_offset + v_size * v_size * v_size;
+                float3 colors[8];
+                for (int i = 0; i < 8; i++)
+                  colors[i] = float3(m_SdfSBSDataF[m_SdfSBSData[t_off + i] + 0], m_SdfSBSDataF[m_SdfSBSData[t_off + i] + 1], m_SdfSBSDataF[m_SdfSBSData[t_off + i] + 2]);
+                color[j] = eval_color_trilinear(colors, dp);
+
+                values[i] -= j == 0 ? delta : -delta;
+              }
+
+              dNorm_dValues[i] = (norm[0] - norm[1]) / (2.0f * delta);
+              dDiffuse_dValues[i] = (color[0] - color[1]) / (2.0f * delta);
+            }
+
+            float l1 = 0;
+            float l2 = 0;
+            float ldiff = 0;
+
+            for (int i = 0; i < 8; i++)
+            {
+              l1 += dot(dNorm_dValues[i], dNorm_dValues[i]);
+              l2 += dot(pHit->dDiffuseNormal_dSd[i].dNorm, pHit->dDiffuseNormal_dSd[i].dNorm);
+              ldiff += dot(pHit->dDiffuseNormal_dSd[i].dNorm - dNorm_dValues[i], 
+                           pHit->dDiffuseNormal_dSd[i].dNorm - dNorm_dValues[i]);
+            }
+
+            l1 = sqrt(l1);
+            l2 = sqrt(l2);
+            ldiff = sqrt(ldiff);
+            float l = 0.5f*(l1 + l2) + 1e-10f;
+
+            sliding_average = (count == 0) ? l : 0.999f*sliding_average + 0.001f*l;
+
+            count++;
+            if (ldiff > 0.05f*l && ldiff > 0.05f*sliding_average)
+            {
+              e_count++;
+              if (false)
+              {
+              printf("diff error: %f %f\n", ldiff/l, (float)(ldiff/sliding_average));
+              for (int i = 0; i < 8; i++)
+              {
+                printf("(%f %f %f)    (%f %f %f)\n", 
+                       pHit->dDiffuseNormal_dSd[i].dNorm.x, pHit->dDiffuseNormal_dSd[i].dNorm.y, pHit->dDiffuseNormal_dSd[i].dNorm.z,
+                       dNorm_dValues[i].x, dNorm_dValues[i].y, dNorm_dValues[i].z);
+              }
+              printf("\n");
+              }
+            }
+            if (count % 1000000 == 0)
+              printf("dNorm_dValues: %u errors out of %uM tries\n", e_count, count/1000000u);
+          }
+#endif
 
           break;
         }

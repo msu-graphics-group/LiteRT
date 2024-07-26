@@ -325,6 +325,7 @@ void diff_render_test_2_forward_pass()
   LiteImage::Image2D<float4> image_mesh(W, H);
   LiteImage::Image2D<float4> image_SBS(W, H);
   LiteImage::Image2D<float4> image_SBS_dr(W, H);
+  LiteImage::Image2D<float4> image_SBS_dr_2(W, H);
 
   {
     auto pRender = CreateMultiRenderer("GPU");
@@ -366,6 +367,7 @@ void diff_render_test_2_forward_pass()
     dr::MultiRendererDRPreset dr_preset = dr::getDefaultPresetDR();
 
     dr_preset.dr_render_mode = dr::DR_RENDER_MODE_LAMBERT;
+    dr_preset.dr_reconstruction_type = dr::DR_RECONSTRUCTION_TYPE_COLOR;
     dr_preset.opt_iterations = 1;
     dr_preset.opt_lr = 0;
     dr_preset.spp = 16;
@@ -376,20 +378,44 @@ void diff_render_test_2_forward_pass()
     image_SBS_dr = dr_render.getLastImage(0);
   }
 
+  {
+    dr::MultiRendererDR dr_render;
+    dr::MultiRendererDRPreset dr_preset = dr::getDefaultPresetDR();
+
+    dr_preset.dr_render_mode = dr::DR_RENDER_MODE_LAMBERT;
+    dr_preset.dr_reconstruction_type = dr::DR_RECONSTRUCTION_TYPE_GEOMETRY;
+    dr_preset.opt_iterations = 1;
+    dr_preset.opt_lr = 0;
+    dr_preset.spp = 16;
+
+    dr_render.SetReference({image_mesh}, {view}, {proj});
+    dr_render.OptimizeColor(dr_preset, indexed_SBS);
+    
+    image_SBS_dr_2 = dr_render.getLastImage(0);
+  }
+
   LiteImage::SaveImage<float4>("saves/test_dr_2_mesh.bmp", image_mesh); 
   LiteImage::SaveImage<float4>("saves/test_dr_2_sbs.bmp", image_SBS);
   LiteImage::SaveImage<float4>("saves/test_dr_2_sbs_dr.bmp", image_SBS_dr);
+  LiteImage::SaveImage<float4>("saves/test_dr_2_sbs_dr_2.bmp", image_SBS_dr_2);
 
   //float psnr_1 = image_metrics::PSNR(image_mesh, image_SBS);
   float psnr_2 = image_metrics::PSNR(image_SBS, image_SBS_dr);
+  float psnr_3 = image_metrics::PSNR(image_SBS, image_SBS_dr_2);
 
   printf("TEST 2. Differentiable render forward pass\n");
 
-  printf(" 2.1. %-64s", "Diff render of SBS match regular render");
+  printf(" 2.1. %-64s", "Diff render (color reconstruction mode) of SBS match regular render");
   if (psnr_2 >= 40)
     printf("passed    (%.2f)\n", psnr_2);
   else
     printf("FAILED, psnr = %f\n", psnr_2);
+
+  printf(" 2.2. %-64s", "Diff render (geometry reconstruction mode) of SBS match regular render");
+  if (psnr_3 >= 40)
+    printf("passed    (%.2f)\n", psnr_3);
+  else
+    printf("FAILED, psnr = %f\n", psnr_3);
 }
 
 void diff_render_test_3_optimize_color()
