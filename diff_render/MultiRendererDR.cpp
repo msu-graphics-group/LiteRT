@@ -299,70 +299,84 @@ namespace dr
     uint32_t spp_sqrt = uint32_t(sqrt(m_preset.spp));
     float i_spp_sqrt = 1.0f/spp_sqrt;
 
+    const float relax_eps = 1e-4f;
+    const float3 background_color = float3(0.0f, 0.0f, 0.0f);
+
     for (uint32_t i = 0; i < m_preset.spp; i++)
     {
+      PDShape relax_pt{
+                        .f_in  = background_color,
+                        .t = 0.f,
+                        .f_out = background_color,
+                        .sdf = relax_eps, // only choose points with SDF() less than this, no need to pass relax_eps
+                        .indices = { 0, 0, 0, 0, 0, 0, 0, 0 },
+                        .dSDF_dtheta = { 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f }
+                      };
       float2 d = m_preset.ray_gen_mode == RAY_GEN_MODE_RANDOM ? rand2(x, y, i) : i_spp_sqrt*float2(i/spp_sqrt+0.5, i%spp_sqrt+0.5);
       float4 rayPosAndNear, rayDirAndFar;
       kernel_InitEyeRay(tidX, d, &rayPosAndNear, &rayDirAndFar);
       
       float4 color = float4(0,0,0,1);
-      CRT_HitDR hit = ((BVHDR*)m_pAccelStruct.get())->RayQuery_NearestHitWithGrad(rayPosAndNear, rayDirAndFar);
-      if (hit.primId == 0xFFFFFFFF) //no hit
-      {
-        res_color += color / m_preset.spp;
-        continue;
-      }
-      unsigned type = hit.geomId >> SH_TYPE;
-      unsigned geomId = hit.geomId & 0x0FFFFFFF;
-
-      float4 diffuse = float4(1,0,0,1);
-      if (type == TYPE_SDF_SBS_COL)
-      {
-        diffuse = float4(hit.color.x, hit.color.y, hit.color.z, 1.0f);
-      }
-
-      color = float4(1,0,1,1); //if pixel is purple at the end, then something gone wrong!
-
-
-      /*
-      color = color(pos, diffuse, norm)
-      dcolor/dS = dcolor/dpos * dpos/dS + dcolor/ddiffuse * ddiffuse/dS + dcolor/dnorm * dnorm/dS
-      dcolor/dpos == 0 for DIFFUSE and LAMBERT render modes
-      */
       LiteMath::float3x3 dColor_dDiffuse = LiteMath::make_float3x3(float3(1,0,0), float3(0,1,0), float3(0,0,1));
       LiteMath::float3x3 dColor_dNorm    = LiteMath::make_float3x3(float3(0,0,0), float3(0,0,0), float3(0,0,0));
-      //printf("m_preset_dr.dr_render_mode = %u\n", m_preset_dr.dr_render_mode);
-
-      switch (m_preset_dr.dr_render_mode)
+      
+      CRT_HitDR hit = ((BVHDR*)m_pAccelStruct.get())->RayQuery_NearestHitWithGrad(rayPosAndNear, rayDirAndFar, &relax_pt);
+      
+      if (hit.primId == 0xFFFFFFFF) //no hit
       {
-        case DR_RENDER_MODE_DIFFUSE:
-          color = diffuse;
+        color = to_float4(background_color, 1.0f);
+        res_color += color / m_preset.spp;
+      }
+      else
+      {
+        unsigned type = hit.geomId >> SH_TYPE;
+        unsigned geomId = hit.geomId & 0x0FFFFFFF;
 
-          dColor_dDiffuse = LiteMath::make_float3x3(float3(1,0,0), float3(0,1,0), float3(0,0,1));
-          dColor_dNorm    = LiteMath::make_float3x3(float3(0,0,0), float3(0,0,0), float3(0,0,0));
-        break;
-        case DR_RENDER_MODE_LAMBERT:
+        float4 diffuse = float4(1,0,0,1);
+        if (type == TYPE_SDF_SBS_COL)
         {
-          float3 light_dir = normalize(float3(1, 1, 1));
-          float3 norm = hit.normal;
-          float q0 = dot(norm, light_dir); // = norm.x*light_dir.x + norm.y*light_dir.y + norm.z*light_dir.z
-          float q = max(0.1f, q0);
-          color = to_float4(q * to_float3(diffuse), 1);
-
-          dColor_dDiffuse = LiteMath::make_float3x3(float3(q,0,0), float3(0,q,0), float3(0,0,q));
-          if (q0 > 0.1f)
-          {
-            float3 dq_dnorm = light_dir;
-            dColor_dNorm = LiteMath::make_float3x3(diffuse.x*light_dir, 
-                                                   diffuse.y*light_dir, 
-                                                   diffuse.z*light_dir);
-          }
-          else
-            dColor_dNorm = LiteMath::make_float3x3(float3(0,0,0), float3(0,0,0), float3(0,0,0));
+          diffuse = float4(hit.color.x, hit.color.y, hit.color.z, 1.0f);
         }
-        break;      
-        default:
-        break;
+
+        color = float4(1,0,1,1); //if pixel is purple at the end, then something gone wrong!
+
+
+        /*
+        color = color(pos, diffuse, norm)
+        dcolor/dS = dcolor/dpos * dpos/dS + dcolor/ddiffuse * ddiffuse/dS + dcolor/dnorm * dnorm/dS
+        dcolor/dpos == 0 for DIFFUSE and LAMBERT render modes
+        */
+        switch (m_preset_dr.dr_render_mode)
+        {
+          case DR_RENDER_MODE_DIFFUSE:
+            color = diffuse;
+
+            dColor_dDiffuse = LiteMath::make_float3x3(float3(1,0,0), float3(0,1,0), float3(0,0,1));
+            dColor_dNorm    = LiteMath::make_float3x3(float3(0,0,0), float3(0,0,0), float3(0,0,0));
+          break;
+          case DR_RENDER_MODE_LAMBERT:
+          {
+            float3 light_dir = normalize(float3(1, 1, 1));
+            float3 norm = hit.normal;
+            float q0 = dot(norm, light_dir); // = norm.x*light_dir.x + norm.y*light_dir.y + norm.z*light_dir.z
+            float q = max(0.1f, q0);
+            color = to_float4(q * to_float3(diffuse), 1);
+
+            dColor_dDiffuse = LiteMath::make_float3x3(float3(q,0,0), float3(0,q,0), float3(0,0,q));
+            if (q0 > 0.1f)
+            {
+              float3 dq_dnorm = light_dir;
+              dColor_dNorm = LiteMath::make_float3x3(diffuse.x*light_dir, 
+                                                    diffuse.y*light_dir, 
+                                                    diffuse.z*light_dir);
+            }
+            else
+              dColor_dNorm = LiteMath::make_float3x3(float3(0,0,0), float3(0,0,0), float3(0,0,0));
+          }
+          break;      
+          default:
+          break;
+        }
       }
 
       res_color += color / m_preset.spp;
@@ -394,6 +408,12 @@ namespace dr
           
           float diff = dot(dLoss_dColor, dColor_dDiffuse * pd.dDiffuse + dColor_dNorm * pd.dNorm);
           out_dLoss_dS[pd.index] += diff / m_preset.spp;
+        }
+
+        for (int j = 0; j < 8; j++)
+        {
+          float diff = dot(dLoss_dColor, (1.0f/relax_eps)*relax_pt.dSDF_dtheta[j]*(relax_pt.f_in - relax_pt.f_out));
+          out_dLoss_dS[relax_pt.indices[j]] += diff / m_preset.spp;
         }
       }
 

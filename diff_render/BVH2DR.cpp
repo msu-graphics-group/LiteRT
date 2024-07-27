@@ -9,7 +9,7 @@ namespace dr
 {
   //it is an EXACT COPY of BVHRT::RayQuery_NearestHit, just using CRT_HitDR instead of CRT_Hit
   //but no change it TLAS traversal is needed
-  CRT_HitDR BVHDR::RayQuery_NearestHitWithGrad(float4 posAndNear, float4 dirAndFar)
+  CRT_HitDR BVHDR::RayQuery_NearestHitWithGrad(float4 posAndNear, float4 dirAndFar, PDShape *relax_pt)
   {
     bool stopOnFirstHit = (dirAndFar.w <= 0.0f);
     if(stopOnFirstHit)
@@ -58,7 +58,7 @@ namespace dr
           const float3 ray_pos = matmul4x3(m_instanceData[instId].transformInv, to_float3(posAndNear));
           const float3 ray_dir = matmul3x3(m_instanceData[instId].transformInv, to_float3(dirAndFar)); // DON'float NORMALIZE IT !!!! When we transform to local space of node, ray_dir must be unnormalized!!!
       
-          BVH2TraverseF32WithGrad(ray_pos, ray_dir, posAndNear.w, instId, geomId, stopOnFirstHit, &hit);
+          BVH2TraverseF32WithGrad(ray_pos, ray_dir, posAndNear.w, instId, geomId, stopOnFirstHit, relax_pt, &hit);
         }
       } while (nodeIdx < 0xFFFFFFFE && !(stopOnFirstHit && hit.primId != uint32_t(-1))); //
     }
@@ -76,6 +76,7 @@ namespace dr
   //but no change it BLAS traversal is needed
   void BVHDR::BVH2TraverseF32WithGrad(const float3 ray_pos, const float3 ray_dir, float tNear,
                                       uint32_t instId, uint32_t geomId, bool stopOnFirstHit,
+                                      PDShape *relax_pt,
                                       CRT_HitDR *pHit)
   {
     const uint32_t bvhOffset = m_geomData[geomId].bvhOffset;
@@ -124,7 +125,7 @@ namespace dr
       {
         const uint32_t start = EXTRACT_START(leftNodeOffset);
         const uint32_t count = EXTRACT_COUNT(leftNodeOffset);
-        IntersectAllPrimitivesInLeafWithGrad(ray_pos, ray_dir, tNear, instId, geomId, start, count, pHit);
+        IntersectAllPrimitivesInLeafWithGrad(ray_pos, ray_dir, tNear, instId, geomId, start, count, relax_pt, pHit);
       }
 
       // continue BVH traversal
@@ -141,7 +142,7 @@ namespace dr
   void BVHDR::IntersectAllPrimitivesInLeafWithGrad(const float3 ray_pos, const float3 ray_dir,
                                                    float tNear, uint32_t instId, uint32_t geomId,
                                                    uint32_t a_start, uint32_t a_count,
-                                                   CRT_HitDR *pHit)
+                                                   PDShape *relax_pt, CRT_HitDR *pHit)
   {
     uint32_t type = m_geomData[geomId].type;
     const float SDF_BIAS = 0.1f;
@@ -152,7 +153,7 @@ namespace dr
       IntersectAllTrianglesInLeafWithGrad(ray_pos, ray_dir, tNear, instId, geomId, a_start, a_count, pHit);
       break;
     case TYPE_SDF_SBS_COL:
-      OctreeBrickIntersectWithGrad(type, ray_pos, ray_dir, tNearSdf, instId, geomId, a_start, a_count, pHit);
+      OctreeBrickIntersectWithGrad(type, ray_pos, ray_dir, tNearSdf, instId, geomId, a_start, a_count, relax_pt, pHit);
       break;
     default:
       break;
@@ -197,6 +198,18 @@ namespace dr
                       (  dp.x)*(  dp.y)*values[7];
   
     return float3(ddist_dx, ddist_dy, ddist_dz);
+  }
+
+  static void eval_dist_trilinear_d_dtheta(float *dsdf_dtheta, float3 dp)
+  {
+    dsdf_dtheta[0] = (1-dp.x)*(1-dp.y)*(1-dp.z);
+    dsdf_dtheta[1] = (1-dp.x)*(1-dp.y)*(  dp.z);
+    dsdf_dtheta[2] = (1-dp.x)*(  dp.y)*(1-dp.z);
+    dsdf_dtheta[3] = (1-dp.x)*(  dp.y)*(  dp.z);
+    dsdf_dtheta[4] = (  dp.x)*(1-dp.y)*(1-dp.z);
+    dsdf_dtheta[5] = (  dp.x)*(1-dp.y)*(  dp.z);
+    dsdf_dtheta[6] = (  dp.x)*(  dp.y)*(1-dp.z);
+    dsdf_dtheta[7] = (  dp.x)*(  dp.y)*(  dp.z);
   }
 
   static float3 eval_color_trilinear(const float3 values[8], float3 dp)
@@ -572,7 +585,7 @@ namespace dr
   //because differential rendering of SDF requires collection additional data during intersection search
 
   float BVHDR::Intersect(const float3 ray_dir, float values[8], float d, 
-                         float qNear, float qFar, float3 start_q)
+                         float qNear, float qFar, float3 start_q, PDShape *relax_pt)
   {
     const float EPS = 1e-6f;
     float d_inv = 1.0f / d;
@@ -644,6 +657,34 @@ namespace dr
       float c1 = d3.x*m3 + d3.y*m4 + m2*m5 + d3.z*(k4 + k5*o.x + k6*o.y + k7*m0);
       float c2 = m1*m5 + d3.z*(k5*d3.x + k6*d3.y + k7*m2);
       float c3 = k7*m1*d3.z;
+
+      if (m_preset_dr.dr_reconstruction_type == DR_RECONSTRUCTION_TYPE_GEOMETRY && relax_pt != nullptr)
+      {
+        // Looking for SDF min - first or second root of (3*c3)*t^2 + (2*c2)*t + c1 = 0 (if x1 != x2)
+        float a_d = 3*c3, b_d = 2*c2;
+        float t_min = qFar + 1;
+
+        if (std::abs(a_d) > EPS)
+        {
+          float D_d = c2*c2 - a_d*c1;
+          if (D_d > 0.f)
+            t_min = (-c2 + sign(a_d) * std::sqrt(D_d)) / a_d;
+        }
+        else if (b_d > EPS) // (2*c2)*t+c1=0, ALSO there's no need to check if (2*c2)<0 - that's max point, not needed
+        {
+          t_min = -c1 / b_d;
+        }
+
+        if (t_min >= qNear && t_min <= qFar)
+        {
+          float sdf_min = eval_dist_trilinear(values, start_q + t_min * ray_dir);
+          if (sdf_min >= 0.f && sdf_min < relax_pt->sdf) // Found relaxation point
+          {
+            relax_pt->t = t_min;
+            relax_pt->sdf = sdf_min;
+          }
+        }
+      }
 
       // the surface is defined by equation c3*t^3 + c2*t^2 + c1*t + c0 = 0;
       // solve this equation analytically or numerically using the Newton's method
@@ -859,7 +900,7 @@ namespace dr
   void BVHDR::OctreeBrickIntersectWithGrad(uint32_t type, const float3 ray_pos, const float3 ray_dir,
                                            float tNear, uint32_t instId, uint32_t geomId,
                                            uint32_t bvhNodeId, uint32_t a_count,
-                                           CRT_HitDR *pHit)
+                                           PDShape *relax_pt, CRT_HitDR *pHit)
   {
     float values[8];
     uint32_t nodeId, primId;
@@ -898,6 +939,10 @@ namespace dr
       float3 min_pos = brick_min_pos + d * voxelPos;
       float3 max_pos = min_pos + d * float3(1, 1, 1);
       float3 size = max_pos - min_pos;
+      
+      PDShape tmp_relax_pt;
+      if (relax_pt != nullptr)
+        tmp_relax_pt = *relax_pt;
 
       float vmin = 1.0f;
 
@@ -908,6 +953,7 @@ namespace dr
         {
           uint3 vPos = uint3(voxelPos) + uint3((i & 4) >> 2, (i & 2) >> 1, i & 1);
           uint32_t vId = vPos.x * v_size * v_size + vPos.y * v_size + vPos.z;
+          tmp_relax_pt.indices[i] = m_SdfSBSData[v_off + vId];
           values[i] = m_SdfSBSDataF[m_SdfSBSData[v_off + vId]];
           // printf("%f\n", values[i]);
           vmin = std::min(vmin, values[i]);
@@ -922,8 +968,44 @@ namespace dr
         start_q = (start_pos - min_pos) * (0.5f * sz * header.brick_size);
         qFar = (fNearFar.y - fNearFar.x) * (0.5f * sz * header.brick_size);
 
-        float t = Intersect(ray_dir, values, d, 0.0f, qFar, start_q);
+        float t = Intersect(ray_dir, values, d, 0.0f, qFar, start_q, &tmp_relax_pt);
         float tReal = fNearFar.x + 2.0f * d * t;
+        
+        if (m_preset_dr.dr_reconstruction_type == DR_RECONSTRUCTION_TYPE_GEOMETRY && relax_pt != nullptr)
+        {
+          tmp_relax_pt.t = fNearFar.x + 2.0f * d * tmp_relax_pt.t;
+          if (tmp_relax_pt.sdf < relax_pt->sdf && tmp_relax_pt.t < pHit->t)
+          {
+            // These two vectors should be stored in PDShape if next part is moved to a parent function
+            float3 y_ast = start_q + tmp_relax_pt.t * ray_dir;
+            float3 dSDF_dy = eval_dist_trilinear_diff(values, y_ast); // grad
+
+            float dSDF_dy_norm = length(dSDF_dy);
+            if (dSDF_dy_norm > 1e-4f) { // else: result is 0, ignore
+              eval_dist_trilinear_d_dtheta(tmp_relax_pt.dSDF_dtheta, y_ast); // dSDF/dTheta
+
+              // float3 n_y = normalize(dSDF_dy);
+              // float3 v_y = n_y / length(dSDF_dy);
+              // float v_ortho = dot(v_y, n_y);
+              dSDF_dy_norm = 1.f / dSDF_dy_norm;
+              float v_ortho = dot(dSDF_dy, dSDF_dy) * (dSDF_dy_norm * dSDF_dy_norm * dSDF_dy_norm);
+
+              for (int i=0; i<8; ++i)
+                tmp_relax_pt.dSDF_dtheta[i] *= v_ortho;
+
+              uint32_t t_off = m_SdfSBSNodes[nodeId].data_offset + v_size * v_size * v_size;
+              float3 colors[8];
+              for (int i = 0; i < 8; i++)
+                colors[i] = float3(m_SdfSBSDataF[m_SdfSBSData[t_off + i] + 0],
+                                   m_SdfSBSDataF[m_SdfSBSData[t_off + i] + 1],
+                                   m_SdfSBSDataF[m_SdfSBSData[t_off + i] + 2]);
+              tmp_relax_pt.f_in = eval_color_trilinear(colors, y_ast);
+
+              *relax_pt = tmp_relax_pt;
+            }
+          }
+        }
+
         if (t <= qFar && tReal < pHit->t)
         {
           //assume 1) header.aux_data == SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F
@@ -993,6 +1075,12 @@ namespace dr
             for (int i = 0; i < 8; i++)
               colors[i] = float3(m_SdfSBSDataF[m_SdfSBSData[t_off + i] + 0], m_SdfSBSDataF[m_SdfSBSData[t_off + i] + 1], m_SdfSBSDataF[m_SdfSBSData[t_off + i] + 2]);
             pHit->color = eval_color_trilinear(colors, dp);
+
+            // Only when successfully intersected, move to a parent function or just use pHit->color if it takes BG color somewhere
+            if (m_preset_dr.dr_reconstruction_type == DR_RECONSTRUCTION_TYPE_GEOMETRY && relax_pt != nullptr)
+            {
+              relax_pt->f_out = pHit->color;
+            }
 
             //dDiffuse_dSc
             if (m_preset_dr.dr_reconstruction_type == DR_RECONSTRUCTION_TYPE_COLOR)
