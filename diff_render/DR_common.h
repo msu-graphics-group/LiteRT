@@ -20,6 +20,16 @@ namespace dr
     uint32_t _pad;
   };
 
+  struct PDShape
+  {
+    float3  f_in; // at y*
+    float      t; // t = tReal
+    float3 f_out; // at intersection/bg
+    float    sdf; // sdf(pos + t * dir)
+    uint32_t  indices[8];
+    float dSDF_dtheta[8]; // separated, because the array can be passed to a derivative function
+  };
+
   struct CRT_HitDR 
   {
     float    t;         ///< intersection distance from ray origin to object
