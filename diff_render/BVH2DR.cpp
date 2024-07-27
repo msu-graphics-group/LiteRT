@@ -875,7 +875,7 @@ namespace dr
       }
     }
 
-    return t;
+    return hit ? t : qFar + EPS;
   }
 
   void BVHDR::dIntersect_dValues(const float3 ray_dir, float values[8], float d,
