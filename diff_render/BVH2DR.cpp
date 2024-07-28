@@ -594,7 +594,7 @@ namespace dr
     unsigned iter = 0;
 
     float start_dist = eval_dist_trilinear(values, start_q + t * ray_dir);
-    if (start_dist <= EPS || m_preset.sdf_node_intersect == SDF_OCTREE_NODE_INTERSECT_BBOX)
+    if (m_preset.sdf_node_intersect == SDF_OCTREE_NODE_INTERSECT_BBOX)
     {
       hit = true;
     }
@@ -657,34 +657,6 @@ namespace dr
       float c1 = d3.x*m3 + d3.y*m4 + m2*m5 + d3.z*(k4 + k5*o.x + k6*o.y + k7*m0);
       float c2 = m1*m5 + d3.z*(k5*d3.x + k6*d3.y + k7*m2);
       float c3 = k7*m1*d3.z;
-
-      if (m_preset_dr.dr_reconstruction_type == DR_RECONSTRUCTION_TYPE_GEOMETRY && relax_pt != nullptr)
-      {
-        // Looking for SDF min - first or second root of (3*c3)*t^2 + (2*c2)*t + c1 = 0 (if x1 != x2)
-        float a_d = 3*c3, b_d = 2*c2;
-        float t_min = qFar + 1;
-
-        if (std::abs(a_d) > EPS)
-        {
-          float D_d = c2*c2 - a_d*c1;
-          if (D_d > 0.f)
-            t_min = (-c2 + sign(a_d) * std::sqrt(D_d)) / a_d;
-        }
-        else if (b_d > EPS) // (2*c2)*t+c1=0, ALSO there's no need to check if (2*c2)<0 - that's max point, not needed
-        {
-          t_min = -c1 / b_d;
-        }
-
-        if (t_min >= qNear && t_min <= qFar)
-        {
-          float sdf_min = eval_dist_trilinear(values, start_q + t_min * ray_dir);
-          if (sdf_min >= 0.f && sdf_min < relax_pt->sdf) // Found relaxation point
-          {
-            relax_pt->t = t_min;
-            relax_pt->sdf = sdf_min;
-          }
-        }
-      }
 
       // the surface is defined by equation c3*t^3 + c2*t^2 + c1*t + c0 = 0;
       // solve this equation analytically or numerically using the Newton's method
@@ -791,10 +763,15 @@ namespace dr
         }
         
         //calculate sign of initial polynom at each critical point
-        bool s0 = c0 > 0;
-        bool s1 = (c0 + t1*(c1 + t1*(c2 + t1*c3))) > 0;
-        bool s2 = (c0 + t2*(c1 + t2*(c2 + t2*c3))) > 0;
-        bool s3 = (c0 + t3*(c1 + t3*(c2 + t3*c3))) > 0;
+        //sdf0 - sdf3 are inversed sdf values
+        float sdf0 = c0;
+        float sdf1 = (c0 + t1*(c1 + t1*(c2 + t1*c3)));
+        float sdf2 = (c0 + t2*(c1 + t2*(c2 + t2*c3)));
+        float sdf3 = (c0 + t3*(c1 + t3*(c2 + t3*c3)));
+        bool s0 = sdf0 > 0;
+        bool s1 = sdf1 > 0;
+        bool s2 = sdf2 > 0;
+        bool s3 = sdf3 > 0;
 
         //determine the range to apply Newton's method
         float nwt_min = t0;
@@ -838,6 +815,50 @@ namespace dr
         {
           //no hit
           hit = false;
+        }
+
+        if (m_preset_dr.dr_reconstruction_type == DR_RECONSTRUCTION_TYPE_GEOMETRY && relax_pt != nullptr)
+        {
+          // Looking for SDF min - first or second root of (3*c3)*t^2 + (2*c2)*t + c1 = 0 (if x1 != x2)
+          float t_min = t0;
+          float sdf_min = sdf0;
+
+          if (sdf1 > sdf_min)
+          {
+            t_min = t1;
+            sdf_min = sdf1;
+          }
+          if (sdf2 > sdf_min)
+          {
+            t_min = t2;
+            sdf_min = sdf2;
+          }
+          if (sdf3 > sdf_min)
+          {
+            t_min = t3;
+            sdf_min = sdf3;
+          }
+
+          if (false)
+          {
+          printf("dinv = %f\n", d_inv);
+          printf("values %f %f %f %f %f %f %f %f\n", values[0], values[1], values[2], values[3], values[4], values[5], values[6], values[7]);
+          printf("t0 = %f t1 = %f t2 = %f t3 = %f, t = %f\n", t0, t1, t2, t3, t);
+          printf("sdf0 = %f %fsdf1 = %f sdf2 = %f sdf3 = %f, sdf = %f\n\n", 
+                 eval_dist_trilinear(values, start_q + t0 * ray_dir),
+                 sdf0, sdf1, sdf2, sdf3,
+                 c0 + t*(c1 + t*(c2 + t*c3)));
+          }
+
+          //if (!hit)
+          //  printf("t_min = %f in (%f, %f)\n", t_min, qNear, qFar);
+
+          if (sdf_min < 0.f && sdf_min >= -relax_pt->sdf) // Found relaxation point
+          {
+            //printf("t_min = %f in (%f, %f)\n", t_min, qNear, qFar);
+            relax_pt->t = t_min;
+            relax_pt->sdf = -sdf_min;
+          }
         }
 
         //bool prev_hit = hit;
@@ -973,25 +994,20 @@ namespace dr
         
         if (m_preset_dr.dr_reconstruction_type == DR_RECONSTRUCTION_TYPE_GEOMETRY && relax_pt != nullptr)
         {
-          tmp_relax_pt.t = fNearFar.x + 2.0f * d * tmp_relax_pt.t;
-          if (tmp_relax_pt.sdf < relax_pt->sdf && tmp_relax_pt.t < pHit->t)
+          if (tmp_relax_pt.sdf < relax_pt->sdf && tmp_relax_pt.t < t)
           {
             // These two vectors should be stored in PDShape if next part is moved to a parent function
-            float3 y_ast = start_q + tmp_relax_pt.t * ray_dir;
-            float3 dSDF_dy = eval_dist_trilinear_diff(values, y_ast); // grad
+            float3 q_ast = start_q + tmp_relax_pt.t * ray_dir;
+            float3 y_ast = ray_pos + fNearFar.x + (2.0f *d*tmp_relax_pt.t) * ray_dir;
+            float3 dp_ast = (y_ast - brick_min_pos) * (0.5f * sz);
+            float3 dSDF_dy = eval_dist_trilinear_diff(values, q_ast); // grad
+            //printf("dSDF_dy: %f %f %f\n", dSDF_dy.x, dSDF_dy.y, dSDF_dy.z);
 
             float dSDF_dy_norm = length(dSDF_dy);
-            if (dSDF_dy_norm > 1e-4f) { // else: result is 0, ignore
-              eval_dist_trilinear_d_dtheta(tmp_relax_pt.dSDF_dtheta, y_ast); // dSDF/dTheta
-
-              // float3 n_y = normalize(dSDF_dy);
-              // float3 v_y = n_y / length(dSDF_dy);
-              // float v_ortho = dot(v_y, n_y);
-              dSDF_dy_norm = 1.f / dSDF_dy_norm;
-              float v_ortho = dot(dSDF_dy, dSDF_dy) * (dSDF_dy_norm * dSDF_dy_norm * dSDF_dy_norm);
-
+            if (dSDF_dy_norm > 1e-9f) { // else: result is 0, ignore
+              eval_dist_trilinear_d_dtheta(tmp_relax_pt.dSDF_dtheta, q_ast); // dSDF/dTheta
               for (int i=0; i<8; ++i)
-                tmp_relax_pt.dSDF_dtheta[i] *= v_ortho;
+                tmp_relax_pt.dSDF_dtheta[i] /= -1.0f*dSDF_dy_norm;
 
               uint32_t t_off = m_SdfSBSNodes[nodeId].data_offset + v_size * v_size * v_size;
               float3 colors[8];
@@ -999,7 +1015,7 @@ namespace dr
                 colors[i] = float3(m_SdfSBSDataF[m_SdfSBSData[t_off + i] + 0],
                                    m_SdfSBSDataF[m_SdfSBSData[t_off + i] + 1],
                                    m_SdfSBSDataF[m_SdfSBSData[t_off + i] + 2]);
-              tmp_relax_pt.f_in = eval_color_trilinear(colors, y_ast);
+              tmp_relax_pt.f_in = eval_color_trilinear(colors, dp_ast);
 
               *relax_pt = tmp_relax_pt;
             }

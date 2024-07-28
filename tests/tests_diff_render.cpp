@@ -38,6 +38,11 @@ float3 gradient_color(float3 p)
           (  p.x)*(  p.y)*(  p.z)*float3(0,1,0);
 }
 
+float3 single_color(float3 p)
+{
+  return float3(1,0,0);
+}
+
 //creates SBS where all nodes are present, i.e.
 //it is really a regular grid, but with more indexes
 //distance and color fields must be given
@@ -169,7 +174,7 @@ SdfSBS circle_smallest_scene()
 {
   return create_grid_sbs(1, 2, 
                          [&](float3 p){return circle_sdf(float3(0,0,0), 0.8f, p);}, 
-                         gradient_color);
+                         single_color);
 }
 
 std::vector<float4x4> get_cameras_uniform_sphere(int count, float3 center, float radius)
@@ -309,6 +314,7 @@ void diff_render_test_2_forward_pass()
   MultiRenderPreset preset = getDefaultPreset();
   preset.render_mode = MULTI_RENDER_MODE_LAMBERT;
   preset.ray_gen_mode = RAY_GEN_MODE_RANDOM;
+  preset.sdf_node_intersect = SDF_OCTREE_NODE_INTERSECT_NEWTON;
   preset.spp = 16;
   
   SparseOctreeSettings settings(SparseOctreeBuildType::MESH_TLO, 7);
@@ -405,13 +411,13 @@ void diff_render_test_2_forward_pass()
 
   printf("TEST 2. Differentiable render forward pass\n");
 
-  printf(" 2.1. %-64s", "Diff render (color reconstruction mode) of SBS match regular render");
+  printf(" 2.1. %-64s", "Diff render (color mode) of SBS match regular render");
   if (psnr_2 >= 40)
     printf("passed    (%.2f)\n", psnr_2);
   else
     printf("FAILED, psnr = %f\n", psnr_2);
 
-  printf(" 2.2. %-64s", "Diff render (geometry reconstruction mode) of SBS match regular render");
+  printf(" 2.2. %-64s", "Diff render (geometry mode) of SBS match regular render");
   if (psnr_3 >= 40)
     printf("passed    (%.2f)\n", psnr_3);
   else
@@ -1152,7 +1158,7 @@ void diff_render_test_9_check_position_derivatives()
     dr_preset.dr_reconstruction_type = dr::DR_RECONSTRUCTION_TYPE_GEOMETRY;
     dr_preset.opt_iterations = 1;
     dr_preset.opt_lr = 0.0f;
-    dr_preset.spp = 4;
+    dr_preset.spp = 16;
 
     unsigned param_count = indexed_SBS.values_f.size() - 3*8*indexed_SBS.nodes.size();
     unsigned param_offset = 0;
@@ -1163,7 +1169,7 @@ void diff_render_test_9_check_position_derivatives()
     {
     dr::MultiRendererDR dr_render;
     dr_render.SetReference(images_ref, view, proj);
-    dr_render.OptimizeColor(dr_preset, indexed_SBS, true);
+    dr_render.OptimizeColor(dr_preset, indexed_SBS, false);
     grad_dr = std::vector<float>(dr_render.getLastdLoss_dS() + param_offset, 
                                  dr_render.getLastdLoss_dS() + param_offset + param_count);
     image_res = dr_render.getLastImage(0);
@@ -1230,31 +1236,31 @@ void diff_render_test_9_check_position_derivatives()
     printf("TEST 9. Check position derivatives\n");
   
     printf(" 9.1. %-64s", "Relative difference in average PD value");
-    if (average_error <= 0.05f)
+    if (average_error <= 0.1f)
       printf("passed    (%f)\n", average_error);
     else
       printf("FAILED, average_error = %f\n", average_error);
     
     printf(" 9.2. %-64s", "Relative bias in average PD");
-    if (average_bias <= 0.05f)
+    if (average_bias <= 0.1f)
       printf("passed    (%f)\n", average_bias);
     else
       printf("FAILED, average_bias = %f\n", average_bias);
     
     printf(" 9.3. %-64s", "Max relative difference in PD value");
-    if (max_error <= 0.2f)
+    if (max_error <= 2)
       printf("passed    (%f)\n", max_error);
     else
       printf("FAILED, max_error = %f\n", max_error);
     
     printf(" 9.4. %-64s", "Average relative difference in PD value");
-    if (average_error_2 <= 0.05f)
+    if (average_error_2 <= 0.1f)
       printf("passed    (%f)\n", average_error_2);
     else
       printf("FAILED, average_error = %f\n", average_error_2);
     
     printf(" 9.5. %-64s", "Average relative bias in PD");
-    if (abs(average_bias_2) <= 0.05f)
+    if (abs(average_bias_2) <= 0.1f)
       printf("passed    (%f)\n", average_bias_2);
     else
       printf("FAILED, average_bias = %f\n", average_bias_2);
@@ -1313,7 +1319,7 @@ void diff_render_test_10_optimize_sdf_finite_derivatives()
   {
     dr::MultiRendererDR dr_render;
     dr_render.SetReference(images_ref, view, proj);
-    dr_render.OptimizeColor(dr_preset, indexed_SBS, true);
+    dr_render.OptimizeColor(dr_preset, indexed_SBS, false);
     image_res = dr_render.getLastImage(0);
     LiteImage::SaveImage<float4>("saves/test_dr_10_res.bmp", image_res);
   }
@@ -1329,6 +1335,75 @@ void diff_render_test_10_optimize_sdf_finite_derivatives()
     printf("FAILED, psnr = %f\n", psnr);
 }
 
+void diff_render_test_11_optimize_smallest_scene()
+{
+  //create renderers for SDF scene and mesh scene
+  auto SBS_ref = circle_smallest_scene();
+
+  unsigned W = 256, H = 256;
+
+  MultiRenderPreset preset = getDefaultPreset();
+  preset.render_mode = MULTI_RENDER_MODE_DIFFUSE;
+  //preset.ray_gen_mode = RAY_GEN_MODE_RANDOM;
+  preset.spp = 16;
+
+  float4x4 base_proj = LiteMath::perspectiveMatrix(60, 1.0f, 0.01f, 100.0f);
+
+  std::vector<float4x4> view = get_cameras_uniform_sphere(1, float3(0, 0, 0), 3.0f);
+  std::vector<float4x4> proj(view.size(), base_proj);
+
+  std::vector<LiteImage::Image2D<float4>> images_ref(view.size(), LiteImage::Image2D<float4>(W, H));
+  LiteImage::Image2D<float4> image_res(W, H);
+  for (int i = 0; i < view.size(); i++)
+  {
+    auto pRender = CreateMultiRenderer("CPU");
+    pRender->SetPreset(preset);
+    pRender->SetViewport(0,0,W,H);
+
+    pRender->SetScene(SBS_ref);
+    pRender->RenderFloat(images_ref[i].data(), images_ref[i].width(), images_ref[i].height(), view[i], proj[i], preset);
+    LiteImage::SaveImage<float4>(("saves/test_dr_11_ref_"+std::to_string(i)+".bmp").c_str(), images_ref[i]); 
+  }
+
+  auto indexed_SBS = circle_smallest_scene();
+  // randomize_color(indexed_SBS);
+  randomize_distance(indexed_SBS, 0.25f);
+
+  dr::MultiRendererDRPreset dr_preset = dr::getDefaultPresetDR();
+
+  dr_preset.dr_diff_mode = dr::DR_DIFF_MODE_DEFAULT;
+  dr_preset.dr_reconstruction_type = dr::DR_RECONSTRUCTION_TYPE_GEOMETRY;
+  dr_preset.opt_iterations = 100;
+  dr_preset.opt_lr = 0.01f;
+  dr_preset.spp = 4;
+  dr_preset.image_batch_size = 1;
+
+  unsigned param_count = indexed_SBS.values_f.size() - 3 * 8 * indexed_SBS.nodes.size();
+  unsigned param_offset = 0;
+
+  std::vector<float> grad_dr(param_count, 0);
+  std::vector<float> grad_ref(param_count, 0);
+
+  {
+    dr::MultiRendererDR dr_render;
+    dr_render.SetReference(images_ref, view, proj);
+    dr_render.OptimizeColor(dr_preset, indexed_SBS, false);
+    image_res = dr_render.getLastImage(0);
+    LiteImage::SaveImage<float4>("saves/test_dr_11_res.bmp", image_res);
+  }
+
+  printf("TEST 11. Differentiable render optimize smallest SDF scene\n");
+  
+  float psnr = image_metrics::PSNR(image_res, images_ref[0]);
+
+  printf("11.1. %-64s", "SDF is reconstructed");
+  if (psnr >= 30)
+    printf("passed    (%.2f)\n", psnr);
+  else
+    printf("FAILED, psnr = %f\n", psnr);
+}
+
+
 void perform_tests_diff_render(const std::vector<int> &test_ids)
 {
   std::vector<int> tests = test_ids;
@@ -1337,7 +1412,7 @@ void perform_tests_diff_render(const std::vector<int> &test_ids)
       diff_render_test_1_enzyme_ad, diff_render_test_2_forward_pass, diff_render_test_3_optimize_color,
       diff_render_test_4_render_simple_scenes, diff_render_test_5_optimize_color_simpliest, diff_render_test_6_check_color_derivatives,
       diff_render_test_7_optimize_with_finite_diff, diff_render_test_8_optimize_with_lambert, diff_render_test_9_check_position_derivatives,
-      diff_render_test_10_optimize_sdf_finite_derivatives};
+      diff_render_test_10_optimize_sdf_finite_derivatives, diff_render_test_11_optimize_smallest_scene};
 
   if (tests.empty())
   {

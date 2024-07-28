@@ -116,6 +116,7 @@ namespace dr
     m_preset_dr = preset;
     ((BVHDR*)m_pAccelStruct.get())->m_preset_dr = preset;
     m_preset.spp = preset.spp;
+    m_preset.sdf_node_intersect = SDF_OCTREE_NODE_INTERSECT_NEWTON; //we need newton to minimize calculations for border integral
     m_preset.ray_gen_mode = RAY_GEN_MODE_RANDOM;
     m_preset.render_mode = diff_render_mode_to_multi_render_mode(preset.dr_render_mode);
 
@@ -154,7 +155,7 @@ namespace dr
           loss = RenderDR(m_imagesRef[image_id].data(), m_images[image_id].data(), m_dLoss_dS_tmp.data(), params_count);
         else if (preset.dr_diff_mode == DR_DIFF_MODE_FINITE_DIFF)
           loss = RenderDRFiniteDiff(m_imagesRef[image_id].data(), m_images[image_id].data(), m_dLoss_dS_tmp.data(), params_count,
-                                    active_params_start, active_params_end, 0.1f);
+                                    active_params_start, active_params_end, 0.001f);
 
         loss_sum += loss;
         loss_max = std::max(loss_max, loss);
@@ -295,6 +296,8 @@ namespace dr
     const uint y  = (XY & 0xFFFF0000) >> 16;
     
     float4 res_color = float4(0,0,0,0);
+    float4 color_min = float4(1e10f, 1e10f, 1e10f, 1e10f);
+    float4 color_max = float4(-1e10f, -1e10f, -1e10f, -1e10f);
     float res_loss = 0.0f;
     uint32_t spp_sqrt = uint32_t(sqrt(m_preset.spp));
     float i_spp_sqrt = 1.0f/spp_sqrt;
@@ -304,14 +307,6 @@ namespace dr
 
     for (uint32_t i = 0; i < m_preset.spp; i++)
     {
-      PDShape relax_pt{
-                        .f_in  = background_color,
-                        .t = 0.f,
-                        .f_out = background_color,
-                        .sdf = relax_eps, // only choose points with SDF() less than this, no need to pass relax_eps
-                        .indices = { 0, 0, 0, 0, 0, 0, 0, 0 },
-                        .dSDF_dtheta = { 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f }
-                      };
       float2 d = m_preset.ray_gen_mode == RAY_GEN_MODE_RANDOM ? rand2(x, y, i) : i_spp_sqrt*float2(i/spp_sqrt+0.5, i%spp_sqrt+0.5);
       float4 rayPosAndNear, rayDirAndFar;
       kernel_InitEyeRay(tidX, d, &rayPosAndNear, &rayDirAndFar);
@@ -320,7 +315,7 @@ namespace dr
       LiteMath::float3x3 dColor_dDiffuse = LiteMath::make_float3x3(float3(1,0,0), float3(0,1,0), float3(0,0,1));
       LiteMath::float3x3 dColor_dNorm    = LiteMath::make_float3x3(float3(0,0,0), float3(0,0,0), float3(0,0,0));
       
-      CRT_HitDR hit = ((BVHDR*)m_pAccelStruct.get())->RayQuery_NearestHitWithGrad(rayPosAndNear, rayDirAndFar, &relax_pt);
+      CRT_HitDR hit = ((BVHDR*)m_pAccelStruct.get())->RayQuery_NearestHitWithGrad(rayPosAndNear, rayDirAndFar, nullptr);
       
       if (hit.primId == 0xFFFFFFFF) //no hit
       {
@@ -380,6 +375,8 @@ namespace dr
       }
 
       res_color += color / m_preset.spp;
+      color_min = min(color_min, color);
+      color_max = max(color_max, color);
 
       float loss          = Loss(m_preset_dr.dr_loss_function, to_float3(color), to_float3(image_ref[y * m_width + x]));
       res_loss += loss / m_preset.spp;
@@ -409,16 +406,45 @@ namespace dr
           float diff = dot(dLoss_dColor, dColor_dDiffuse * pd.dDiffuse + dColor_dNorm * pd.dNorm);
           out_dLoss_dS[pd.index] += diff / m_preset.spp;
         }
-
-        for (int j = 0; j < 8; j++)
-        {
-          float diff = dot(dLoss_dColor, (1.0f/relax_eps)*relax_pt.dSDF_dtheta[j]*(relax_pt.f_in - relax_pt.f_out));
-          out_dLoss_dS[relax_pt.indices[j]] += diff / m_preset.spp;
-        }
       }
-
     }
     out_image[y * m_width + x] = res_color;
+
+    if (m_preset_dr.dr_reconstruction_type == DR_RECONSTRUCTION_TYPE_GEOMETRY)
+    {
+      unsigned max_border_spp = 1024;
+      unsigned border_spp = max_border_spp * LiteMath::clamp(length(color_min - color_max) - 0.05f, 0.0f, 1.0f);
+      uint32_t spp_sqrt = uint32_t(sqrt(border_spp));
+      float i_spp_sqrt = 1.0f/spp_sqrt;
+      const float debias_mult = 1.0f;
+
+      for (int sample_id = 0; sample_id < border_spp; sample_id++)
+      {
+        float3 dLoss_dColor = LossGrad(m_preset_dr.dr_loss_function, to_float3(out_image[y * m_width + x]), to_float3(image_ref[y * m_width + x]));
+        PDShape relax_pt{
+                        .f_in  = background_color,
+                        .t = 0.f,
+                        .f_out = background_color,
+                        .sdf = relax_eps, // only choose points with SDF() less than this, no need to pass relax_eps
+                        .indices = { 0, 0, 0, 0, 0, 0, 0, 0 },
+                        .dSDF_dtheta = { 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f }
+                      };
+        float2 d = m_preset.ray_gen_mode == RAY_GEN_MODE_RANDOM ? rand2(x, y, sample_id) : i_spp_sqrt*float2(sample_id/spp_sqrt+0.5, sample_id%spp_sqrt+0.5);
+        float4 rayPosAndNear, rayDirAndFar;
+        kernel_InitEyeRay(tidX, d, &rayPosAndNear, &rayDirAndFar);        
+        CRT_HitDR hit = ((BVHDR*)m_pAccelStruct.get())->RayQuery_NearestHitWithGrad(rayPosAndNear, rayDirAndFar, &relax_pt);
+        
+        if (relax_pt.sdf < relax_eps)
+        {
+          float ad = length(relax_pt.f_in - relax_pt.f_out);
+          for (int j = 0; j < 8; j++)
+          {
+            float diff = dot(dLoss_dColor, (1.0f/relax_eps)*relax_pt.dSDF_dtheta[j]*(relax_pt.f_in - relax_pt.f_out));
+            out_dLoss_dS[relax_pt.indices[j]] += debias_mult * diff / border_spp;
+          }
+        }
+      }
+    }
 
     return res_loss;
   }
