@@ -11,6 +11,7 @@ namespace dr
     MultiRendererDRPreset preset;
 
     preset.spp = 1;
+    preset.border_spp = 256;
     preset.dr_loss_function = DR_LOSS_FUNCTION_MSE;
     preset.dr_render_mode = DR_RENDER_MODE_DIFFUSE;
     preset.dr_diff_mode = DR_DIFF_MODE_DEFAULT;

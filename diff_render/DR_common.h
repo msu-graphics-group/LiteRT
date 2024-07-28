@@ -54,6 +54,7 @@ namespace dr
   //enum DRRenderMode
   static constexpr unsigned DR_RENDER_MODE_DIFFUSE = 0;
   static constexpr unsigned DR_RENDER_MODE_LAMBERT = 1;
+  static constexpr unsigned DR_RENDER_MODE_MASK    = 2;
 
   //enum DRDiffMode
   static constexpr unsigned DR_DIFF_MODE_DEFAULT     = 0;
@@ -65,6 +66,7 @@ namespace dr
   struct MultiRendererDRPreset
   {
     unsigned spp;
+    unsigned border_spp;
     unsigned dr_loss_function;       //enum DRLossFunction
     unsigned dr_render_mode;         //enum DRRenderMode
     unsigned dr_diff_mode;           //enum DRDiffMode

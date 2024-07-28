@@ -64,6 +64,8 @@ namespace dr
       return MULTI_RENDER_MODE_DIFFUSE;
     case DR_RENDER_MODE_LAMBERT:
       return MULTI_RENDER_MODE_LAMBERT;    
+    case DR_RENDER_MODE_MASK:
+      return MULTI_RENDER_MODE_MASK;
     default:
       printf("Unknown diff_render_mode: %u\n", diff_render_mode);
       return MULTI_RENDER_MODE_DIFFUSE;
@@ -161,12 +163,14 @@ namespace dr
         loss_max = std::max(loss_max, loss);
         loss_min = std::min(loss_min, loss);
 
-        if (verbose && iter % 10 == 0)
-          printf("%f\n", loss);
+        //if (verbose && iter % 10 == 0)
+        //  printf("%f\n", loss);
+        if (verbose && image_id == 0)
+        {
+          printf("Iter:%4d, loss: %f (%f-%f)\n", iter, loss_sum/preset.image_batch_size, loss_min, loss_max);
+          LiteImage::SaveImage<float4>(("saves/iter_"+std::to_string(iter)+"_"+std::to_string(image_id)+".bmp").c_str(), m_images[image_id]);
+        }
       }
-
-      if (verbose && iter % 10 == 0)
-        printf("Iter:%4d, loss: %f (%f-%f)\n", iter, loss_sum/preset.image_batch_size, loss_min, loss_max);
 
       //accumulate
       for (int i=1; i< max_threads; i++)
@@ -176,24 +180,7 @@ namespace dr
       for (int j = 0; j < params_count; j++)
         m_dLoss_dS_tmp[j] /= preset.image_batch_size;
 
-      if (verbose && iter % 10 == 0 && false)
-      {
-      printf("[");
-      for (int j= params_count-24; j < params_count; j+=3)
-        printf("(%.2f %.2f %.2f)", m_dLoss_dS_tmp[j+0], m_dLoss_dS_tmp[j+1], m_dLoss_dS_tmp[j+2]);
-      printf("]");
-      printf("[");
-      for (int j= params_count-24; j < params_count; j+=3)
-        printf("(%.2f %.2f %.2f)", params[j+0], params[j+1], params[j+2]);
-      printf("]");
-      printf("\n");
-      }
-
       OptimizeStepAdam(iter, m_dLoss_dS_tmp.data(), params, m_Opt_tmp.data(), params_count, preset);
-
-      if (verbose && iter % 10 == 0)
-        for (int image_id = 0; image_id < images_count; image_id++)
-          LiteImage::SaveImage<float4>(("saves/iter_"+std::to_string(iter)+"_"+std::to_string(image_id)+".bmp").c_str(), m_images[image_id]); 
     } 
   }
 
@@ -203,7 +190,7 @@ namespace dr
     unsigned max_threads = omp_get_max_threads();
     unsigned steps = (m_width * m_height + max_threads - 1)/max_threads;
     std::vector<double> loss_v(max_threads, 0.0f);
-    //#pragma omp parallel for
+    #pragma omp parallel for
     for (int thread_id = 0; thread_id < max_threads; thread_id++)
     {
       unsigned start = thread_id * steps;
@@ -368,7 +355,13 @@ namespace dr
             else
               dColor_dNorm = LiteMath::make_float3x3(float3(0,0,0), float3(0,0,0), float3(0,0,0));
           }
-          break;      
+          break; 
+          case DR_RENDER_MODE_MASK:
+            color = float4(1,1,1,1);
+
+            dColor_dDiffuse = LiteMath::make_float3x3(float3(0,0,0), float3(0,0,0), float3(0,0,0));
+            dColor_dNorm    = LiteMath::make_float3x3(float3(0,0,0), float3(0,0,0), float3(0,0,0));
+          break;     
           default:
           break;
         }
@@ -412,7 +405,7 @@ namespace dr
 
     if (m_preset_dr.dr_reconstruction_type == DR_RECONSTRUCTION_TYPE_GEOMETRY)
     {
-      unsigned max_border_spp = 1024;
+      unsigned max_border_spp = m_preset_dr.border_spp;
       unsigned border_spp = max_border_spp * LiteMath::clamp(length(color_min - color_max) - 0.05f, 0.0f, 1.0f);
       uint32_t spp_sqrt = uint32_t(sqrt(border_spp));
       float i_spp_sqrt = 1.0f/spp_sqrt;

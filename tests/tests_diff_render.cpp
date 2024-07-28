@@ -1403,6 +1403,75 @@ void diff_render_test_11_optimize_smallest_scene()
     printf("FAILED, psnr = %f\n", psnr);
 }
 
+void diff_render_test_12_optimize_sphere_mask()
+{
+  //create renderers for SDF scene and mesh scene
+  auto SBS_ref = circle_small_scene();
+
+  unsigned W = 256, H = 256;
+
+  MultiRenderPreset preset = getDefaultPreset();
+  preset.render_mode = MULTI_RENDER_MODE_MASK;
+  //preset.ray_gen_mode = RAY_GEN_MODE_RANDOM;
+  preset.spp = 64;
+
+  float4x4 base_proj = LiteMath::perspectiveMatrix(60, 1.0f, 0.01f, 100.0f);
+
+  std::vector<float4x4> view = get_cameras_uniform_sphere(8, float3(0, 0, 0), 3.0f);
+  std::vector<float4x4> proj(view.size(), base_proj);
+
+  std::vector<LiteImage::Image2D<float4>> images_ref(view.size(), LiteImage::Image2D<float4>(W, H));
+  LiteImage::Image2D<float4> image_res(W, H);
+  for (int i = 0; i < view.size(); i++)
+  {
+    auto pRender = CreateMultiRenderer("GPU");
+    pRender->SetPreset(preset);
+    pRender->SetViewport(0,0,W,H);
+
+    pRender->SetScene(SBS_ref);
+    pRender->RenderFloat(images_ref[i].data(), images_ref[i].width(), images_ref[i].height(), view[i], proj[i], preset);
+    LiteImage::SaveImage<float4>(("saves/test_dr_12_ref_"+std::to_string(i)+".bmp").c_str(), images_ref[i]); 
+  }
+
+  auto indexed_SBS = circle_small_scene();
+  // randomize_color(indexed_SBS);
+  randomize_distance(indexed_SBS, 0.1f);
+
+  dr::MultiRendererDRPreset dr_preset = dr::getDefaultPresetDR();
+
+  dr_preset.dr_diff_mode = dr::DR_DIFF_MODE_DEFAULT;
+  dr_preset.dr_render_mode = dr::DR_RENDER_MODE_MASK;
+  dr_preset.dr_reconstruction_type = dr::DR_RECONSTRUCTION_TYPE_GEOMETRY;
+  dr_preset.opt_iterations = 100;
+  dr_preset.opt_lr = 0.01f;
+  dr_preset.spp = 16;
+  dr_preset.border_spp = 256;
+  dr_preset.image_batch_size = 4;
+
+  unsigned param_count = indexed_SBS.values_f.size() - 3 * 8 * indexed_SBS.nodes.size();
+  unsigned param_offset = 0;
+
+  std::vector<float> grad_dr(param_count, 0);
+  std::vector<float> grad_ref(param_count, 0);
+
+  {
+    dr::MultiRendererDR dr_render;
+    dr_render.SetReference(images_ref, view, proj);
+    dr_render.OptimizeColor(dr_preset, indexed_SBS, true);
+    image_res = dr_render.getLastImage(0);
+    LiteImage::SaveImage<float4>("saves/test_dr_12_res.bmp", image_res);
+  }
+
+  printf("TEST 12. Differentiable render optimize smallest SDF scene\n");
+  
+  float psnr = image_metrics::PSNR(image_res, images_ref[0]);
+
+  printf("12.1. %-64s", "SDF is reconstructed");
+  if (psnr >= 30)
+    printf("passed    (%.2f)\n", psnr);
+  else
+    printf("FAILED, psnr = %f\n", psnr);
+}
 
 void perform_tests_diff_render(const std::vector<int> &test_ids)
 {
@@ -1412,7 +1481,7 @@ void perform_tests_diff_render(const std::vector<int> &test_ids)
       diff_render_test_1_enzyme_ad, diff_render_test_2_forward_pass, diff_render_test_3_optimize_color,
       diff_render_test_4_render_simple_scenes, diff_render_test_5_optimize_color_simpliest, diff_render_test_6_check_color_derivatives,
       diff_render_test_7_optimize_with_finite_diff, diff_render_test_8_optimize_with_lambert, diff_render_test_9_check_position_derivatives,
-      diff_render_test_10_optimize_sdf_finite_derivatives, diff_render_test_11_optimize_smallest_scene};
+      diff_render_test_10_optimize_sdf_finite_derivatives, diff_render_test_11_optimize_smallest_scene, diff_render_test_12_optimize_sphere_mask};
 
   if (tests.empty())
   {
