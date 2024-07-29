@@ -62,3 +62,5 @@ scenes/03_gs_scenes/lego.ply
 *ninja*
 build
 scenes/SDFs/*
+
+callgrind.out*

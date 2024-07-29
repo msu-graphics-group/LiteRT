@@ -7,6 +7,7 @@ extern std::string scenes_folder_path;
 void perform_tests_litert(const std::vector<int> &test_ids);
 void perform_tests_diff_render(const std::vector<int> &test_ids);
 void benchmark_framed_octree_intersection();
+void benchmark_iteration_time();
 
 enum BenchmarkFlags
 {
