@@ -63,6 +63,14 @@ namespace dr
   //enum DRReconstructionType
   static constexpr unsigned DR_RECONSTRUCTION_TYPE_COLOR    = 0;
   static constexpr unsigned DR_RECONSTRUCTION_TYPE_GEOMETRY = 1;
+
+  //enum DRRayFlags
+  static constexpr unsigned DR_RAY_FLAG_NO_DIFF         =      0;
+  static constexpr unsigned DR_RAY_FLAG_DDIFFUSE_DCOLOR = 1 << 0;
+  static constexpr unsigned DR_RAY_FLAG_DDIFFUSE_DPOS   = 1 << 1;
+  static constexpr unsigned DR_RAY_FLAG_DNORM_DPOS      = 1 << 2;
+  static constexpr unsigned DR_RAY_FLAG_BORDER          = 1 << 3;
+
   struct MultiRendererDRPreset
   {
     unsigned spp;

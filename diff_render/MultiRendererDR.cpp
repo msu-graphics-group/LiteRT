@@ -116,7 +116,6 @@ namespace dr
     m_Opt_tmp = std::vector<float>(2*params_count, 0);
 
     m_preset_dr = preset;
-    ((BVHDR*)m_pAccelStruct.get())->m_preset_dr = preset;
     m_preset.spp = preset.spp;
     m_preset.sdf_node_intersect = SDF_OCTREE_NODE_INTERSECT_NEWTON; //we need newton to minimize calculations for border integral
     m_preset.ray_gen_mode = RAY_GEN_MODE_RANDOM;
@@ -130,13 +129,6 @@ namespace dr
     float *params = ((BVHDR*)m_pAccelStruct.get())->m_SdfSBSDataF.data();
     unsigned images_count = m_imagesRef.size();
 
-    bool is_geometry = preset.dr_reconstruction_type == DR_RECONSTRUCTION_TYPE_GEOMETRY;
-    unsigned color_params = 3*8*sbs.nodes.size();
-    unsigned active_params_start = is_geometry ? 0 : params_count - color_params;
-    unsigned active_params_end   = is_geometry ? params_count - color_params : params_count;
-
-    //SetViewport(0,0, a_width, a_height);
-    //UpdateCamera(a_worldView, a_proj);
     for (int iter = 0; iter < preset.opt_iterations; iter++)
     {
       float loss_sum = 0;
@@ -154,10 +146,19 @@ namespace dr
 
         float loss = 1e6f;
         if (preset.dr_diff_mode == DR_DIFF_MODE_DEFAULT)
+        {
           loss = RenderDR(m_imagesRef[image_id].data(), m_images[image_id].data(), m_dLoss_dS_tmp.data(), params_count);
+        }
         else if (preset.dr_diff_mode == DR_DIFF_MODE_FINITE_DIFF)
+        {
+          bool is_geometry = preset.dr_reconstruction_type == DR_RECONSTRUCTION_TYPE_GEOMETRY;
+          unsigned color_params = 3*8*sbs.nodes.size();
+          unsigned active_params_start = is_geometry ? 0 : params_count - color_params;
+          unsigned active_params_end   = is_geometry ? params_count - color_params : params_count;
+
           loss = RenderDRFiniteDiff(m_imagesRef[image_id].data(), m_images[image_id].data(), m_dLoss_dS_tmp.data(), params_count,
                                     active_params_start, active_params_end, 0.001f);
+        }
 
         loss_sum += loss;
         loss_max = std::max(loss_max, loss);
@@ -292,6 +293,24 @@ namespace dr
     const float relax_eps = 1e-4f;
     const float3 background_color = float3(0.0f, 0.0f, 0.0f);
 
+    uint32_t ray_flags, border_ray_flags;
+
+    if (m_preset_dr.dr_reconstruction_type == DR_RECONSTRUCTION_TYPE_COLOR)
+    {
+      ray_flags = DR_RAY_FLAG_DDIFFUSE_DCOLOR;
+    }
+    else if (m_preset_dr.dr_reconstruction_type == DR_RECONSTRUCTION_TYPE_GEOMETRY)
+    {
+      if (m_preset_dr.dr_render_mode == DR_RENDER_MODE_MASK)
+        ray_flags = DR_RAY_FLAG_NO_DIFF;
+      else if (m_preset_dr.dr_render_mode == DR_RENDER_MODE_DIFFUSE)
+        ray_flags = DR_RAY_FLAG_DDIFFUSE_DPOS;
+      else if (m_preset_dr.dr_render_mode == DR_RENDER_MODE_LAMBERT)
+        ray_flags = DR_RAY_FLAG_DDIFFUSE_DPOS | DR_RAY_FLAG_DNORM_DPOS;
+    }
+
+    border_ray_flags = DR_RAY_FLAG_BORDER;
+
     for (uint32_t i = 0; i < m_preset.spp; i++)
     {
       float2 d = m_preset.ray_gen_mode == RAY_GEN_MODE_RANDOM ? rand2(x, y, i) : i_spp_sqrt*float2(i/spp_sqrt+0.5, i%spp_sqrt+0.5);
@@ -302,12 +321,13 @@ namespace dr
       LiteMath::float3x3 dColor_dDiffuse = LiteMath::make_float3x3(float3(1,0,0), float3(0,1,0), float3(0,0,1));
       LiteMath::float3x3 dColor_dNorm    = LiteMath::make_float3x3(float3(0,0,0), float3(0,0,0), float3(0,0,0));
       
-      CRT_HitDR hit = ((BVHDR*)m_pAccelStruct.get())->RayQuery_NearestHitWithGrad(rayPosAndNear, rayDirAndFar, nullptr);
+      CRT_HitDR hit = ((BVHDR*)m_pAccelStruct.get())->RayQuery_NearestHitWithGrad(ray_flags, rayPosAndNear, rayDirAndFar, nullptr);
       
       if (hit.primId == 0xFFFFFFFF) //no hit
       {
         color = to_float4(background_color, 1.0f);
         res_color += color / m_preset.spp;
+        //continue;
       }
       else
       {
@@ -365,6 +385,28 @@ namespace dr
           default:
           break;
         }
+
+        float3 dLoss_dColor = LossGrad(m_preset_dr.dr_loss_function, to_float3(color), to_float3(image_ref[y * m_width + x]));
+
+        if (m_preset_dr.dr_reconstruction_type == DR_RECONSTRUCTION_TYPE_COLOR)
+        {
+          for (PDColor &pd : hit.dDiffuse_dSc)
+          {
+            float3 diff = dLoss_dColor * (dColor_dDiffuse * float3(pd.value));
+            out_dLoss_dS[pd.index + 0] += diff.x / m_preset.spp;
+            out_dLoss_dS[pd.index + 1] += diff.y / m_preset.spp;
+            out_dLoss_dS[pd.index + 2] += diff.z / m_preset.spp;
+          }
+        }
+        else if (m_preset_dr.dr_reconstruction_type == DR_RECONSTRUCTION_TYPE_GEOMETRY &&
+                 ray_flags & (DR_RAY_FLAG_DDIFFUSE_DPOS | DR_RAY_FLAG_DNORM_DPOS))
+        {
+          for (PDDist &pd : hit.dDiffuseNormal_dSd)
+          {
+            float diff = dot(dLoss_dColor, dColor_dDiffuse * pd.dDiffuse + dColor_dNorm * pd.dNorm);
+            out_dLoss_dS[pd.index] += diff / m_preset.spp;
+          }
+        }
       }
 
       res_color += color / m_preset.spp;
@@ -373,33 +415,6 @@ namespace dr
 
       float loss          = Loss(m_preset_dr.dr_loss_function, to_float3(color), to_float3(image_ref[y * m_width + x]));
       res_loss += loss / m_preset.spp;
-
-      float3 dLoss_dColor = LossGrad(m_preset_dr.dr_loss_function, to_float3(color), to_float3(image_ref[y * m_width + x]));
-
-      if (m_preset_dr.dr_reconstruction_type == DR_RECONSTRUCTION_TYPE_COLOR)
-      {
-        for (PDColor &pd : hit.dDiffuse_dSc)
-        {
-          if (pd.index == INVALID_INDEX)
-            continue;
-          
-          float3 diff = dLoss_dColor * (dColor_dDiffuse * float3(pd.value));
-          out_dLoss_dS[pd.index + 0] += diff.x / m_preset.spp;
-          out_dLoss_dS[pd.index + 1] += diff.y / m_preset.spp;
-          out_dLoss_dS[pd.index + 2] += diff.z / m_preset.spp;
-        }
-      }
-      else if (m_preset_dr.dr_reconstruction_type == DR_RECONSTRUCTION_TYPE_GEOMETRY)
-      {
-        for (PDDist &pd : hit.dDiffuseNormal_dSd)
-        {
-          if (pd.index == INVALID_INDEX)
-            continue;
-          
-          float diff = dot(dLoss_dColor, dColor_dDiffuse * pd.dDiffuse + dColor_dNorm * pd.dNorm);
-          out_dLoss_dS[pd.index] += diff / m_preset.spp;
-        }
-      }
     }
     out_image[y * m_width + x] = res_color;
 
@@ -425,7 +440,7 @@ namespace dr
         float2 d = m_preset.ray_gen_mode == RAY_GEN_MODE_RANDOM ? rand2(x, y, sample_id) : i_spp_sqrt*float2(sample_id/spp_sqrt+0.5, sample_id%spp_sqrt+0.5);
         float4 rayPosAndNear, rayDirAndFar;
         kernel_InitEyeRay(tidX, d, &rayPosAndNear, &rayDirAndFar);        
-        CRT_HitDR hit = ((BVHDR*)m_pAccelStruct.get())->RayQuery_NearestHitWithGrad(rayPosAndNear, rayDirAndFar, &relax_pt);
+        CRT_HitDR hit = ((BVHDR*)m_pAccelStruct.get())->RayQuery_NearestHitWithGrad(border_ray_flags, rayPosAndNear, rayDirAndFar, &relax_pt);
         
         if (relax_pt.sdf < relax_eps)
         {

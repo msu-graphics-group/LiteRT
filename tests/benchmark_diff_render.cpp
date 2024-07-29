@@ -57,6 +57,7 @@ void benchmark_iteration_time()
   dr::MultiRendererDRPreset dr_preset = dr::getDefaultPresetDR();
 
   dr_preset.dr_diff_mode = dr::DR_DIFF_MODE_DEFAULT;
+  dr_preset.dr_render_mode = dr::DR_RENDER_MODE_MASK;
   dr_preset.dr_reconstruction_type = dr::DR_RECONSTRUCTION_TYPE_GEOMETRY;
   dr_preset.opt_iterations = 10;
   dr_preset.opt_lr = 0.0f;
