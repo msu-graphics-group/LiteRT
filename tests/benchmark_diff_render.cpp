@@ -21,7 +21,7 @@ SdfSBS circle_smallest_scene();
 std::vector<float4x4> get_cameras_uniform_sphere(int count, float3 center, float radius);
 void randomize_distance(SdfSBS &sbs, float delta);
 
-void benchmark_iteration_time()
+void benchmark_iteration_time(dr::MultiRendererDRPreset dr_preset)
 {
   // create renderers for SDF scene and mesh scene
   auto SBS_ref = circle_smallest_scene();
@@ -54,15 +54,6 @@ void benchmark_iteration_time()
   // randomize_color(indexed_SBS);
   randomize_distance(indexed_SBS, 0.25f);
 
-  dr::MultiRendererDRPreset dr_preset = dr::getDefaultPresetDR();
-
-  dr_preset.dr_diff_mode = dr::DR_DIFF_MODE_DEFAULT;
-  dr_preset.dr_render_mode = dr::DR_RENDER_MODE_MASK;
-  dr_preset.dr_reconstruction_type = dr::DR_RECONSTRUCTION_TYPE_GEOMETRY;
-  dr_preset.opt_iterations = 10;
-  dr_preset.opt_lr = 0.0f;
-  dr_preset.spp = 16;
-
   unsigned param_count = indexed_SBS.values_f.size() - 3 * 8 * indexed_SBS.nodes.size();
   unsigned param_offset = 0;
 
@@ -84,4 +75,34 @@ void benchmark_iteration_time()
     double rays = W*H*dr_preset.opt_iterations*dr_preset.spp;
     printf("benchmark_iteration_time: %.3f sec, %.3f MRays/sec\n", time, 1e-6*rays/time);
   }
+}
+
+void benchmark_iteration_time()
+{
+  dr::MultiRendererDRPreset dr_preset = dr::getDefaultPresetDR();
+
+  dr_preset.dr_diff_mode = dr::DR_DIFF_MODE_DEFAULT;
+  dr_preset.opt_iterations = 10;
+  dr_preset.opt_lr = 0.0f;
+  dr_preset.spp = 16;
+
+  printf("DR_RENDER_MODE_LAMBERT + DR_RECONSTRUCTION_TYPE_COLOR\n");
+  dr_preset.dr_render_mode = dr::DR_RENDER_MODE_LAMBERT;
+  dr_preset.dr_reconstruction_type = dr::DR_RECONSTRUCTION_TYPE_COLOR;
+  benchmark_iteration_time(dr_preset);
+
+  printf("DR_RENDER_MODE_MASK + DR_RECONSTRUCTION_TYPE_GEOMETRY\n");
+  dr_preset.dr_render_mode = dr::DR_RENDER_MODE_MASK;
+  dr_preset.dr_reconstruction_type = dr::DR_RECONSTRUCTION_TYPE_GEOMETRY;
+  benchmark_iteration_time(dr_preset);
+
+  printf("DR_RENDER_MODE_DIFFUSE + DR_RECONSTRUCTION_TYPE_GEOMETRY\n");
+  dr_preset.dr_render_mode = dr::DR_RENDER_MODE_DIFFUSE;
+  dr_preset.dr_reconstruction_type = dr::DR_RECONSTRUCTION_TYPE_GEOMETRY;
+  benchmark_iteration_time(dr_preset);
+
+  printf("DR_RENDER_MODE_LAMBERT + DR_RECONSTRUCTION_TYPE_GEOMETRY\n");
+  dr_preset.dr_render_mode = dr::DR_RENDER_MODE_LAMBERT;
+  dr_preset.dr_reconstruction_type = dr::DR_RECONSTRUCTION_TYPE_GEOMETRY;
+  benchmark_iteration_time(dr_preset);
 }
