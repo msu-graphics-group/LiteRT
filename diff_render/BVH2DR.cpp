@@ -1002,7 +1002,7 @@ namespace dr
           {
             // These two vectors should be stored in PDShape if next part is moved to a parent function
             float3 q_ast = start_q + tmp_relax_pt.t * ray_dir;
-            float3 y_ast = ray_pos + fNearFar.x + (2.0f *d*tmp_relax_pt.t) * ray_dir;
+            float3 y_ast = ray_pos + (fNearFar.x + (2.0f *d*tmp_relax_pt.t)) * ray_dir;
             float3 dp_ast = (y_ast - brick_min_pos) * (0.5f * sz);
             float3 dSDF_dy = eval_dist_trilinear_diff(values, q_ast); // grad
             //printf("dSDF_dy: %f %f %f\n", dSDF_dy.x, dSDF_dy.y, dSDF_dy.z);
