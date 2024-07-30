@@ -598,7 +598,7 @@ namespace dr
     unsigned iter = 0;
 
     float start_dist = eval_dist_trilinear(values, start_q + t * ray_dir);
-    if (m_preset.sdf_node_intersect == SDF_OCTREE_NODE_INTERSECT_BBOX)
+    if (start_dist <= EPS || m_preset.sdf_node_intersect == SDF_OCTREE_NODE_INTERSECT_BBOX)
     {
       hit = true;
     }
