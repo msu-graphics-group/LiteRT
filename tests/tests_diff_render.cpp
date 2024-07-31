@@ -309,7 +309,7 @@ void diff_render_test_2_forward_pass()
   auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "scenes/01_simple_scenes/data/bunny.vsgf").c_str());
   cmesh4::rescale_mesh(mesh, float3(-0.95, -0.95, -0.95), float3(0.95, 0.95, 0.95));
 
-  unsigned W = 1024, H = 1024;
+  unsigned W = 2048, H = 2048;
 
   MultiRenderPreset preset = getDefaultPreset();
   preset.render_mode = MULTI_RENDER_MODE_LAMBERT;
@@ -317,10 +317,10 @@ void diff_render_test_2_forward_pass()
   preset.sdf_node_intersect = SDF_OCTREE_NODE_INTERSECT_NEWTON;
   preset.spp = 16;
   
-  SparseOctreeSettings settings(SparseOctreeBuildType::MESH_TLO, 7);
+  SparseOctreeSettings settings(SparseOctreeBuildType::MESH_TLO, 5);
 
   SdfSBSHeader header;
-  header.brick_size = 2;
+  header.brick_size = 4;
   header.brick_pad = 0;
   header.bytes_per_value = 1;
   SdfSBS indexed_SBS;
@@ -330,8 +330,15 @@ void diff_render_test_2_forward_pass()
   float4x4 view, proj;
   LiteImage::Image2D<float4> image_mesh(W, H);
   LiteImage::Image2D<float4> image_SBS(W, H);
+  LiteImage::Image2D<float4> image_SBS_depth(W, H);
+  LiteImage::Image2D<float4> image_SBS_prim(W, H);
+
   LiteImage::Image2D<float4> image_SBS_dr(W, H);
   LiteImage::Image2D<float4> image_SBS_dr_2(W, H);
+  LiteImage::Image2D<float4> image_SBS_dr_depth(W, H);
+  LiteImage::Image2D<float4> image_SBS_dr_prim(W, H);
+
+  LiteImage::Image2D<float4> image_SBS_diff(W, H);
 
   {
     auto pRender = CreateMultiRenderer("GPU");
@@ -365,7 +372,15 @@ void diff_render_test_2_forward_pass()
 
     indexed_SBS = sdf_converter::create_sdf_SBS_indexed(settings, header, mesh, matId, pRender->getMaterials(), pRender->getTextures());
     pRender->SetScene(indexed_SBS);
+
+    preset.render_mode = MULTI_RENDER_MODE_LAMBERT;
     pRender->RenderFloat(image_SBS.data(), image_SBS.width(), image_SBS.height(), view, proj, preset);   
+
+    preset.render_mode = MULTI_RENDER_MODE_LINEAR_DEPTH;
+    pRender->RenderFloat(image_SBS_depth.data(), image_SBS.width(), image_SBS.height(), view, proj, preset);   
+
+    preset.render_mode = MULTI_RENDER_MODE_PRIMIVIVE;
+    pRender->RenderFloat(image_SBS_prim.data(), image_SBS.width(), image_SBS.height(), view, proj, preset);   
   }
 
   {
@@ -379,9 +394,18 @@ void diff_render_test_2_forward_pass()
     dr_preset.spp = 16;
 
     dr_render.SetReference({image_mesh}, {view}, {proj});
+
+    dr_preset.dr_render_mode = dr::DR_RENDER_MODE_LAMBERT;
     dr_render.OptimizeColor(dr_preset, indexed_SBS);
-    
     image_SBS_dr = dr_render.getLastImage(0);
+
+    dr_preset.dr_render_mode = dr::DR_DEBUG_RENDER_MODE_LINEAR_DEPTH;
+    dr_render.OptimizeColor(dr_preset, indexed_SBS);
+    image_SBS_dr_depth = dr_render.getLastImage(0);
+
+    dr_preset.dr_render_mode = dr::DR_DEBUG_RENDER_MODE_PRIMITIVE;
+    dr_render.OptimizeColor(dr_preset, indexed_SBS);
+    image_SBS_dr_prim = dr_render.getLastImage(0);
   }
 
   {
@@ -400,25 +424,51 @@ void diff_render_test_2_forward_pass()
     image_SBS_dr_2 = dr_render.getLastImage(0);
   }
 
+  for (int i = 0; i < W * H; i++)
+  {
+    float4 diff = image_SBS.data()[i] - image_SBS_dr.data()[i];
+    image_SBS_diff.data()[i] = float4(100*diff.x, 100*diff.y, 100*diff.z, 1.0f);
+  }
+
   LiteImage::SaveImage<float4>("saves/test_dr_2_mesh.bmp", image_mesh); 
+
   LiteImage::SaveImage<float4>("saves/test_dr_2_sbs.bmp", image_SBS);
+  LiteImage::SaveImage<float4>("saves/test_dr_2_sbs_depth.bmp", image_SBS_depth);
+  LiteImage::SaveImage<float4>("saves/test_dr_2_sbs_prim.bmp", image_SBS_prim);
+
   LiteImage::SaveImage<float4>("saves/test_dr_2_sbs_dr.bmp", image_SBS_dr);
+  LiteImage::SaveImage<float4>("saves/test_dr_2_sbs_dr_depth.bmp", image_SBS_dr_depth);
+  LiteImage::SaveImage<float4>("saves/test_dr_2_sbs_dr_prim.bmp", image_SBS_dr_prim);
   LiteImage::SaveImage<float4>("saves/test_dr_2_sbs_dr_2.bmp", image_SBS_dr_2);
 
-  //float psnr_1 = image_metrics::PSNR(image_mesh, image_SBS);
+  LiteImage::SaveImage<float4>("saves/test_dr_2_sbs_dr_diff.bmp", image_SBS_diff);
+
+  float psnr_0 = image_metrics::PSNR(image_SBS_depth, image_SBS_dr_depth);
+  float psnr_1 = image_metrics::PSNR(image_SBS_prim, image_SBS_dr_prim);
   float psnr_2 = image_metrics::PSNR(image_SBS, image_SBS_dr);
   float psnr_3 = image_metrics::PSNR(image_SBS, image_SBS_dr_2);
 
   printf("TEST 2. Differentiable render forward pass\n");
 
-  printf(" 2.1. %-64s", "Diff render (color mode) of SBS match regular render");
-  if (psnr_2 >= 40)
+  printf(" 2.1. %-64s", "Diff render (depth mode) of SBS match regular render");
+  if (psnr_0 >= 50)
+    printf("passed    (%.2f)\n", psnr_0);
+  else
+    printf("FAILED, psnr = %f\n", psnr_0);
+
+  printf(" 2.2. %-64s", "Diff render (primitive id mode) of SBS match regular render");
+  if (psnr_1 >= 35)
+    printf("passed    (%.2f)\n", psnr_1);
+  else
+    printf("FAILED, psnr = %f\n", psnr_1);
+  printf(" 2.3. %-64s", "Diff render (color mode) of SBS match regular render");
+  if (psnr_2 >= 50)
     printf("passed    (%.2f)\n", psnr_2);
   else
     printf("FAILED, psnr = %f\n", psnr_2);
 
-  printf(" 2.2. %-64s", "Diff render (geometry mode) of SBS match regular render");
-  if (psnr_3 >= 40)
+  printf(" 2.4. %-64s", "Diff render (geometry mode) of SBS match regular render");
+  if (psnr_3 >= 50)
     printf("passed    (%.2f)\n", psnr_3);
   else
     printf("FAILED, psnr = %f\n", psnr_3);
@@ -1126,7 +1176,7 @@ void diff_render_test_9_check_position_derivatives()
   MultiRenderPreset preset = getDefaultPreset();
   preset.render_mode = MULTI_RENDER_MODE_DIFFUSE;
   //preset.ray_gen_mode = RAY_GEN_MODE_RANDOM;
-  preset.spp = 16;
+  preset.spp = 256;
 
   float4x4 base_proj = LiteMath::perspectiveMatrix(60, 1.0f, 0.01f, 100.0f);
 
@@ -1154,11 +1204,13 @@ void diff_render_test_9_check_position_derivatives()
 
     dr::MultiRendererDRPreset dr_preset = dr::getDefaultPresetDR();
 
+    dr_preset.dr_render_mode = dr::DR_RENDER_MODE_DIFFUSE;
     dr_preset.dr_diff_mode = dr::DR_DIFF_MODE_DEFAULT;
     dr_preset.dr_reconstruction_type = dr::DR_RECONSTRUCTION_TYPE_GEOMETRY;
     dr_preset.opt_iterations = 1;
     dr_preset.opt_lr = 0.0f;
-    dr_preset.spp = 16;
+    dr_preset.spp = 64;
+    dr_preset.border_spp = 1024;
 
     unsigned param_count = indexed_SBS.values_f.size() - 3*8*indexed_SBS.nodes.size();
     unsigned param_offset = 0;
