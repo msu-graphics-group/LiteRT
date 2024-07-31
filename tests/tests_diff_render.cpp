@@ -700,7 +700,7 @@ void diff_render_test_5_optimize_color_simpliest()
   MultiRenderPreset preset = getDefaultPreset();
   preset.render_mode = MULTI_RENDER_MODE_DIFFUSE;
   //preset.ray_gen_mode = RAY_GEN_MODE_RANDOM;
-  preset.spp = 16;
+  preset.spp = 64;
 
   float4x4 base_proj = LiteMath::perspectiveMatrix(60, 1.0f, 0.01f, 100.0f);
 
@@ -734,7 +734,7 @@ void diff_render_test_5_optimize_color_simpliest()
 
     dr_preset.opt_iterations = 200;
     dr_preset.opt_lr = 0.1f;
-    dr_preset.spp = 4;
+    dr_preset.spp = 16;
 
     dr_render.SetReference({images_ref[0]}, {view[0]}, {proj[0]});
     dr_render.OptimizeColor(dr_preset, indexed_SBS, false);
@@ -753,7 +753,7 @@ void diff_render_test_5_optimize_color_simpliest()
 
     dr_preset.opt_iterations = 400;
     dr_preset.opt_lr = 0.1f;
-    dr_preset.spp = 4;
+    dr_preset.spp = 16;
 
     dr_render.SetReference(images_ref, view, proj);
     dr_render.OptimizeColor(dr_preset, indexed_SBS, false);
@@ -771,8 +771,8 @@ void diff_render_test_5_optimize_color_simpliest()
     dr::MultiRendererDRPreset dr_preset = dr::getDefaultPresetDR();
 
     dr_preset.opt_iterations = 400;
-    dr_preset.opt_lr = 0.1f;
-    dr_preset.spp = 4;
+    dr_preset.opt_lr = 0.01f;
+    dr_preset.spp = 16;
 
     dr_render.SetReference(images_ref, view, proj);
     dr_render.OptimizeColor(dr_preset, indexed_SBS, false);
@@ -791,7 +791,7 @@ void diff_render_test_5_optimize_color_simpliest()
 
     dr_preset.opt_iterations = 400;
     dr_preset.opt_lr = 0.01f;
-    dr_preset.spp = 4;
+    dr_preset.spp = 16;
     dr_preset.dr_loss_function = dr::DR_LOSS_FUNCTION_MAE;
 
     dr_render.SetReference(images_ref, view, proj);
@@ -1168,15 +1168,16 @@ void diff_render_test_8_optimize_with_lambert()
 
 void diff_render_test_9_check_position_derivatives()
 {
+  srand(time(nullptr));
   //create renderers for SDF scene and mesh scene
   auto SBS_ref = circle_smallest_scene();
 
-  unsigned W = 256, H = 256;
+  unsigned W = 128, H = 128;
 
   MultiRenderPreset preset = getDefaultPreset();
   preset.render_mode = MULTI_RENDER_MODE_DIFFUSE;
   //preset.ray_gen_mode = RAY_GEN_MODE_RANDOM;
-  preset.spp = 256;
+  preset.spp = 1024;
 
   float4x4 base_proj = LiteMath::perspectiveMatrix(60, 1.0f, 0.01f, 100.0f);
 
@@ -1200,7 +1201,7 @@ void diff_render_test_9_check_position_derivatives()
     //put random colors to SBS
     auto indexed_SBS = circle_smallest_scene();
     //randomize_color(indexed_SBS);
-    randomize_distance(indexed_SBS, 0.25f);
+    randomize_distance(indexed_SBS, 0.1f);
 
     dr::MultiRendererDRPreset dr_preset = dr::getDefaultPresetDR();
 
@@ -1209,7 +1210,7 @@ void diff_render_test_9_check_position_derivatives()
     dr_preset.dr_reconstruction_type = dr::DR_RECONSTRUCTION_TYPE_GEOMETRY;
     dr_preset.opt_iterations = 1;
     dr_preset.opt_lr = 0.0f;
-    dr_preset.spp = 64;
+    dr_preset.spp = 1024;
     dr_preset.border_spp = 1024;
 
     unsigned param_count = indexed_SBS.values_f.size() - 3*8*indexed_SBS.nodes.size();
