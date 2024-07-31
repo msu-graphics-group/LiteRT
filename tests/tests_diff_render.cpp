@@ -203,8 +203,8 @@ std::vector<float4x4> get_cameras_turntable(int count, float3 center, float radi
   {
     float phi = 2 * M_PI * urand();
 
-    float3 view_dir = -float3(sin(phi), height/radius, cos(phi));
-    float3 tangent = normalize(cross(view_dir, float3(0, 1, 0)));
+    float3 view_dir = float3(sin(phi), height/radius, cos(phi));
+    float3 tangent = normalize(cross(view_dir, -float3(0, 1, 0)));
     float3 new_up = normalize(cross(view_dir, tangent));
     cameras.push_back(LiteMath::lookAt(center - radius * view_dir, center, new_up));
   }
@@ -1172,12 +1172,12 @@ void diff_render_test_9_check_position_derivatives()
   //create renderers for SDF scene and mesh scene
   auto SBS_ref = circle_smallest_scene();
 
-  unsigned W = 128, H = 128;
+  unsigned W = 256, H = 256;
 
   MultiRenderPreset preset = getDefaultPreset();
   preset.render_mode = MULTI_RENDER_MODE_DIFFUSE;
   //preset.ray_gen_mode = RAY_GEN_MODE_RANDOM;
-  preset.spp = 1024;
+  preset.spp = 256;
 
   float4x4 base_proj = LiteMath::perspectiveMatrix(60, 1.0f, 0.01f, 100.0f);
 
@@ -1210,8 +1210,8 @@ void diff_render_test_9_check_position_derivatives()
     dr_preset.dr_reconstruction_type = dr::DR_RECONSTRUCTION_TYPE_GEOMETRY;
     dr_preset.opt_iterations = 1;
     dr_preset.opt_lr = 0.0f;
-    dr_preset.spp = 1024;
-    dr_preset.border_spp = 1024;
+    dr_preset.spp = 256;
+    dr_preset.border_spp = 256;
 
     unsigned param_count = indexed_SBS.values_f.size() - 3*8*indexed_SBS.nodes.size();
     unsigned param_offset = 0;
@@ -1642,6 +1642,142 @@ void diff_render_test_14_optimize_sphere_lambert()
     printf("FAILED, psnr = %f\n", psnr);
 }
 
+void diff_render_test_15_optimize_bunny_mask()
+{
+  //create renderers for SDF scene and mesh scene
+  auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "scenes/01_simple_scenes/data/bunny.vsgf").c_str());
+  cmesh4::rescale_mesh(mesh, float3(-0.95, -0.95, -0.95), float3(0.95, 0.95, 0.95));
+
+  unsigned W = 256, H = 256;
+
+  MultiRenderPreset preset = getDefaultPreset();
+  preset.render_mode = MULTI_RENDER_MODE_MASK;
+  //preset.ray_gen_mode = RAY_GEN_MODE_RANDOM;
+  preset.spp = 64;
+
+  float4x4 base_proj = LiteMath::perspectiveMatrix(60, 1.0f, 0.01f, 100.0f);
+
+  std::vector<float4x4> view = get_cameras_turntable(8, float3(0, 0, 0), 3.0f, 1.0f);
+  std::vector<float4x4> proj(view.size(), base_proj);
+
+  std::vector<LiteImage::Image2D<float4>> images_ref(view.size(), LiteImage::Image2D<float4>(W, H));
+  LiteImage::Image2D<float4> image_res(W, H);
+  for (int i = 0; i < view.size(); i++)
+  {
+    auto pRender = CreateMultiRenderer("GPU");
+    pRender->SetPreset(preset);
+    pRender->SetViewport(0,0,W,H);
+
+    pRender->SetScene(mesh);
+    pRender->RenderFloat(images_ref[i].data(), images_ref[i].width(), images_ref[i].height(), view[i], proj[i], preset);
+    LiteImage::SaveImage<float4>(("saves/test_dr_15_ref_"+std::to_string(i)+".bmp").c_str(), images_ref[i]); 
+  }
+
+  {
+    auto indexed_SBS =  create_grid_sbs(8, 4, 
+                                        [&](float3 p){return circle_sdf(float3(0,0,0), 0.7f, p);}, 
+                                        gradient_color);
+
+    dr::MultiRendererDRPreset dr_preset = dr::getDefaultPresetDR();
+
+    dr_preset.dr_diff_mode = dr::DR_DIFF_MODE_DEFAULT;
+    dr_preset.dr_render_mode = dr::DR_RENDER_MODE_MASK;
+    dr_preset.dr_reconstruction_type = dr::DR_RECONSTRUCTION_TYPE_GEOMETRY;
+    dr_preset.opt_iterations = 500;
+    dr_preset.opt_lr = 0.05f;
+    dr_preset.spp = 16;
+    dr_preset.border_spp = 512;
+    dr_preset.image_batch_size = 4;
+
+    dr::MultiRendererDR dr_render;
+    dr_render.SetReference(images_ref, view, proj);
+    dr_render.OptimizeColor(dr_preset, indexed_SBS, true);
+    image_res = dr_render.getLastImage(0);
+    LiteImage::SaveImage<float4>("saves/test_dr_15_res.bmp", image_res);
+  }
+
+  printf("TEST 15. Optimize bunny scene\n");
+  
+  float psnr = image_metrics::PSNR(image_res, images_ref[0]);
+
+  printf("15.1. %-64s", "SDF is reconstructed");
+  if (psnr >= 30)
+    printf("passed    (%.2f)\n", psnr);
+  else
+    printf("FAILED, psnr = %f\n", psnr);
+}
+
+void diff_render_test_16_borders_detection()
+{
+  srand(time(nullptr));
+  //create renderers for SDF scene and mesh scene
+  auto SBS_ref = circle_smallest_scene();
+
+  unsigned W = 128, H = 128;
+
+  MultiRenderPreset preset = getDefaultPreset();
+  preset.render_mode = MULTI_RENDER_MODE_DIFFUSE;
+  //preset.ray_gen_mode = RAY_GEN_MODE_RANDOM;
+  preset.spp = 256;
+
+  float4x4 base_proj = LiteMath::perspectiveMatrix(60, 1.0f, 0.01f, 100.0f);
+
+  std::vector<float4x4> view = get_cameras_uniform_sphere(1, float3(0, 0, 0), 3.0f);
+  std::vector<float4x4> proj(view.size(), base_proj);
+
+  std::vector<LiteImage::Image2D<float4>> images_ref(view.size(), LiteImage::Image2D<float4>(W, H));
+  LiteImage::Image2D<float4> image_res(W, H);
+  for (int i = 0; i < view.size(); i++)
+  {
+    auto pRender = CreateMultiRenderer("CPU");
+    pRender->SetPreset(preset);
+    pRender->SetViewport(0,0,W,H);
+
+    pRender->SetScene(SBS_ref);
+    pRender->RenderFloat(images_ref[i].data(), images_ref[i].width(), images_ref[i].height(), view[i], proj[i], preset);
+    LiteImage::SaveImage<float4>(("saves/test_dr_16_ref_"+std::to_string(i)+".bmp").c_str(), images_ref[i]); 
+  }
+
+  {
+    //put random colors to SBS
+    auto indexed_SBS = circle_smallest_scene();
+    //randomize_color(indexed_SBS);
+    randomize_distance(indexed_SBS, 0.2f);
+
+    dr::MultiRendererDRPreset dr_preset = dr::getDefaultPresetDR();
+    dr_preset.dr_diff_mode = dr::DR_DIFF_MODE_DEFAULT;
+    dr_preset.dr_reconstruction_type = dr::DR_RECONSTRUCTION_TYPE_GEOMETRY;
+    dr_preset.opt_iterations = 1;
+    dr_preset.opt_lr = 0.0f;
+    dr_preset.spp = 16;
+    dr_preset.border_spp = 256;
+    {
+    dr::MultiRendererDR dr_render;
+    dr_render.SetReference(images_ref, view, proj);
+    dr_preset.dr_render_mode = dr::DR_RENDER_MODE_DIFFUSE;
+    dr_render.OptimizeColor(dr_preset, indexed_SBS, false);
+    image_res = dr_render.getLastImage(0);
+    LiteImage::SaveImage<float4>("saves/test_dr_16_res.bmp", image_res); 
+    }
+    {
+    dr::MultiRendererDR dr_render;
+    dr_render.SetReference(images_ref, view, proj);
+    dr_preset.dr_render_mode = dr::DR_DEBUG_RENDER_MODE_BORDER_DETECTION;
+    dr_render.OptimizeColor(dr_preset, indexed_SBS, false);
+    image_res = dr_render.getLastImage(0);
+    LiteImage::SaveImage<float4>("saves/test_dr_16_bdet.bmp", image_res);
+    }
+    {
+    dr::MultiRendererDR dr_render;
+    dr_render.SetReference(images_ref, view, proj);
+    dr_preset.dr_render_mode = dr::DR_DEBUG_RENDER_MODE_BORDER_INTEGRAL;
+    dr_render.OptimizeColor(dr_preset, indexed_SBS, false);
+    image_res = dr_render.getLastImage(0);
+    LiteImage::SaveImage<float4>("saves/test_dr_16_bint.bmp", image_res);
+    }
+  }
+}
+
 void perform_tests_diff_render(const std::vector<int> &test_ids)
 {
   std::vector<int> tests = test_ids;
@@ -1651,7 +1787,8 @@ void perform_tests_diff_render(const std::vector<int> &test_ids)
       diff_render_test_4_render_simple_scenes, diff_render_test_5_optimize_color_simpliest, diff_render_test_6_check_color_derivatives,
       diff_render_test_7_optimize_with_finite_diff, diff_render_test_8_optimize_with_lambert, diff_render_test_9_check_position_derivatives,
       diff_render_test_10_optimize_sdf_finite_derivatives, diff_render_test_11_optimize_smallest_scene, diff_render_test_12_optimize_sphere_mask,
-      diff_render_test_13_optimize_sphere_diffuse, diff_render_test_14_optimize_sphere_lambert};
+      diff_render_test_13_optimize_sphere_diffuse, diff_render_test_14_optimize_sphere_lambert, diff_render_test_15_optimize_bunny_mask,
+      diff_render_test_16_borders_detection};
 
   if (tests.empty())
   {

@@ -46,8 +46,7 @@ namespace dr
                              unsigned start_index, unsigned end_index, float delta = 0.001f);
     void OptimizeStepAdam(unsigned iter, const float* dX, float *X, float *tmp, unsigned size, MultiRendererDRPreset preset);
     float CastRayWithGrad(uint32_t tidX, const float4 *image_ref, LiteMath::float4* out_image, float* out_dLoss_dS);
-    // float RenderDRShape(const float4 *image_ref, LiteMath::float4* out_image, float *out_dLoss_dS, unsigned params_count);
-    // float CastRayWithGradShape(uint32_t tidX, const float4 *image_ref, LiteMath::float4* out_image, float* out_dLoss_dS);
+    void CastBorderRay(uint32_t tidX, const float4 *image_ref, LiteMath::float4* out_image, float* out_dLoss_dS);
 
     std::vector<LiteImage::Image2D<float4>> m_imagesRef;
     std::vector<LiteImage::Image2D<float4>> m_images;
@@ -55,6 +54,7 @@ namespace dr
     std::vector<LiteMath::float4x4> m_projRef;
     std::vector<float> m_dLoss_dS_tmp;
     std::vector<float> m_Opt_tmp;
+    std::vector<uint32_t> m_borderPixels;
     MultiRendererDRPreset m_preset_dr;
 
     std::vector<LiteImage::Image2D<float4>> m_imagesDebug;

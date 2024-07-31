@@ -61,6 +61,8 @@ namespace dr
     switch (diff_render_mode)
     {
     case DR_RENDER_MODE_DIFFUSE:
+    case DR_DEBUG_RENDER_MODE_BORDER_DETECTION:
+    case DR_DEBUG_RENDER_MODE_BORDER_INTEGRAL:
       return MULTI_RENDER_MODE_DIFFUSE;
     case DR_RENDER_MODE_LAMBERT:
       return MULTI_RENDER_MODE_LAMBERT;    
@@ -211,6 +213,8 @@ namespace dr
     unsigned max_threads = omp_get_max_threads();
     unsigned steps = (m_width * m_height + max_threads - 1)/max_threads;
     std::vector<double> loss_v(max_threads, 0.0f);
+
+    //I - render image, calculate internal derivatives
     #pragma omp parallel for
     for (int thread_id = 0; thread_id < max_threads; thread_id++)
     {
@@ -219,6 +223,58 @@ namespace dr
       for (int i = start; i < end; i++)
         loss_v[thread_id] += CastRayWithGrad(i, image_ref, out_image, out_dLoss_dS + (params_count * thread_id));
     }
+
+    //II - find border pixels
+    m_borderPixels.resize(0);
+    const int search_radius = 1;
+    const float border_threshold = 1.0f; // ok for masks
+    for (int i = 0; i < m_width * m_height; i++)
+    {
+      if (i >= m_packedXY.size())
+        continue;
+
+      const uint XY = m_packedXY[i];
+      const uint x  = (XY & 0x0000FFFF);
+      const uint y  = (XY & 0xFFFF0000) >> 16;
+
+      if (x < search_radius || x >= m_width - search_radius || y <= search_radius || y >= m_height - search_radius)
+        continue;
+      
+      float min_depth = 1e10f;
+      float max_depth = -1e10f;
+
+      for (int dx = -search_radius; dx <= search_radius; dx++)
+      {
+        for (int dy = -search_radius; dy <= search_radius; dy++)
+        {
+          float d = out_image[(y + dy) * m_width + x + dx].w;
+          min_depth = std::min(min_depth, d);
+          max_depth = std::max(max_depth, d);
+        }
+      }
+
+      //printf("min_depth = %f, max_depth = %f\n", min_depth, max_depth);
+
+      if (max_depth - min_depth  > border_threshold)
+        m_borderPixels.push_back(i);
+    }
+
+    //III - calculate border intergral on border pixels
+    if (m_borderPixels.size() > 0 && m_preset_dr.dr_diff_mode == DR_DIFF_MODE_DEFAULT &&
+        m_preset_dr.dr_reconstruction_type == DR_RECONSTRUCTION_TYPE_GEOMETRY)
+    {
+      unsigned border_steps = (m_borderPixels.size() + max_threads - 1)/max_threads;
+      #pragma omp parallel for
+      for (int thread_id = 0; thread_id < max_threads; thread_id++)
+      {
+        unsigned start = thread_id * border_steps;
+        unsigned end = std::min((thread_id + 1) * border_steps, (unsigned)m_borderPixels.size());
+        for (int i = start; i < end; i++)
+          CastBorderRay(m_borderPixels[i], image_ref, out_image, out_dLoss_dS + (params_count * thread_id));
+      }
+    }
+
+    //IV - calculate loss
     double loss = 0.0f;
     for (auto &l : loss_v)
       loss += l;
@@ -336,11 +392,11 @@ namespace dr
     float4 res_color = float4(0,0,0,0);
     float4 color_min = float4(1e10f, 1e10f, 1e10f, 1e10f);
     float4 color_max = float4(-1e10f, -1e10f, -1e10f, -1e10f);
+    float tMin = 1e10f;
     float res_loss = 0.0f;
     uint32_t spp_sqrt = uint32_t(sqrt(m_preset.spp));
     float i_spp_sqrt = 1.0f/spp_sqrt;
 
-    const float relax_eps = 1e-4f;
     const float3 background_color = float3(0.0f, 0.0f, 0.0f);
 
     uint32_t ray_flags, border_ray_flags;
@@ -413,6 +469,8 @@ namespace dr
         switch (m_preset_dr.dr_render_mode)
         {
           case DR_RENDER_MODE_DIFFUSE:
+          case DR_DEBUG_RENDER_MODE_BORDER_INTEGRAL:
+          case DR_DEBUG_RENDER_MODE_BORDER_DETECTION:
             color = diffuse;
 
             dColor_dDiffuse = LiteMath::make_float3x3(float3(1,0,0), float3(0,1,0), float3(0,0,1));
@@ -496,52 +554,74 @@ namespace dr
       res_color += color / m_preset.spp;
       color_min = min(color_min, color);
       color_max = max(color_max, color);
+      tMin = min(tMin, hit.t);
 
       float loss          = Loss(m_preset_dr.dr_loss_function, to_float3(color), to_float3(image_ref[y * m_width + x]));
       res_loss += loss / m_preset.spp;
     }
     out_image[y * m_width + x] = res_color;
+    out_image[y * m_width + x].w = tMin;
 
-    if (border_ray_flags != DR_RAY_FLAG_NO_DIFF)
+    return res_loss;
+  }
+
+  void MultiRendererDR::CastBorderRay(uint32_t tidX, const float4 *image_ref, LiteMath::float4* out_image, float* out_dLoss_dS)
+  {
+    if (tidX >= m_packedXY.size())
+      return;
+
+    const uint XY = m_packedXY[tidX];
+    const uint x  = (XY & 0x0000FFFF);
+    const uint y  = (XY & 0xFFFF0000) >> 16;
+
+    const unsigned border_ray_flags = DR_RAY_FLAG_BORDER;
+    const float relax_eps = 2e-4f;
+    const float3 background_color = float3(0.0f, 0.0f, 0.0f);
+
+    const unsigned border_spp = m_preset_dr.border_spp;
+    const uint32_t spp_sqrt = uint32_t(sqrt(border_spp));
+    const float i_spp_sqrt = 1.0f / spp_sqrt;
+    const float3 dLoss_dColor = LossGrad(m_preset_dr.dr_loss_function, to_float3(out_image[y * m_width + x]), to_float3(image_ref[y * m_width + x]));
+    
+    float total_diff = 0.0f;
+
+    for (int sample_id = 0; sample_id < border_spp; sample_id++)
     {
-      unsigned max_border_spp = m_preset_dr.border_spp;
-      unsigned border_spp = max_border_spp * LiteMath::clamp(length(color_min - color_max) - 0.05f, 0.0f, 1.0f);
-      uint32_t spp_sqrt = uint32_t(sqrt(border_spp));
-      float i_spp_sqrt = 1.0f/spp_sqrt;
-      const float debias_mult = 1.0f;
+      PDShape relax_pt{
+          .f_in = background_color,
+          .t = 0.f,
+          .f_out = background_color,
+          .sdf = relax_eps, // only choose points with SDF() less than this, no need to pass relax_eps
+          .indices = {0, 0, 0, 0, 0, 0, 0, 0},
+          .dSDF_dtheta = {0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f}};
+      float2 d = m_preset.ray_gen_mode == RAY_GEN_MODE_RANDOM ? rand2(x, y, sample_id) : i_spp_sqrt * float2(sample_id / spp_sqrt + 0.5, sample_id % spp_sqrt + 0.5);
+      float4 rayPosAndNear, rayDirAndFar;
+      kernel_InitEyeRay(tidX, d, &rayPosAndNear, &rayDirAndFar);
+      CRT_HitDR hit = ((BVHDR *)m_pAccelStruct.get())->RayQuery_NearestHitWithGrad(border_ray_flags, rayPosAndNear, rayDirAndFar, &relax_pt);
 
-      for (int sample_id = 0; sample_id < border_spp; sample_id++)
+      if (relax_pt.sdf < relax_eps)
       {
-        float3 dLoss_dColor = LossGrad(m_preset_dr.dr_loss_function, to_float3(out_image[y * m_width + x]), to_float3(image_ref[y * m_width + x]));
-        PDShape relax_pt{
-                        .f_in  = background_color,
-                        .t = 0.f,
-                        .f_out = background_color,
-                        .sdf = relax_eps, // only choose points with SDF() less than this, no need to pass relax_eps
-                        .indices = { 0, 0, 0, 0, 0, 0, 0, 0 },
-                        .dSDF_dtheta = { 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f }
-                      };
-        float2 d = m_preset.ray_gen_mode == RAY_GEN_MODE_RANDOM ? rand2(x, y, sample_id) : i_spp_sqrt*float2(sample_id/spp_sqrt+0.5, sample_id%spp_sqrt+0.5);
-        float4 rayPosAndNear, rayDirAndFar;
-        kernel_InitEyeRay(tidX, d, &rayPosAndNear, &rayDirAndFar);        
-        CRT_HitDR hit = ((BVHDR*)m_pAccelStruct.get())->RayQuery_NearestHitWithGrad(border_ray_flags, rayPosAndNear, rayDirAndFar, &relax_pt);
-        
-        if (relax_pt.sdf < relax_eps)
+        float ad = length(relax_pt.f_in - relax_pt.f_out);
+        // printf("%u %u f_in %f %f %f f_out %f %f %f\n", x, y, relax_pt.f_in.x, relax_pt.f_in.y, relax_pt.f_in.z, relax_pt.f_out.x, relax_pt.f_out.y, relax_pt.f_out.z);
+        for (int j = 0; j < 8; j++)
         {
-          float ad = length(relax_pt.f_in - relax_pt.f_out);
-          //printf("%u %u f_in %f %f %f f_out %f %f %f\n", x, y, relax_pt.f_in.x, relax_pt.f_in.y, relax_pt.f_in.z, relax_pt.f_out.x, relax_pt.f_out.y, relax_pt.f_out.z);
-          for (int j = 0; j < 8; j++)
-          {
-            float diff = dot(dLoss_dColor, (1.0f/relax_eps)*relax_pt.dSDF_dtheta[j]*(relax_pt.f_in - relax_pt.f_out));
-            out_dLoss_dS[relax_pt.indices[j]] += debias_mult * diff / border_spp;
-            
-            if (debug_pd_images)
-              m_imagesDebug[relax_pt.indices[j]].data()[y * m_width + x] += (debias_mult * diff / border_spp) * float4(1,1,1,0);
-          }
+          float diff = dot(dLoss_dColor, (1.0f / relax_eps) * relax_pt.dSDF_dtheta[j] * (relax_pt.f_in - relax_pt.f_out));
+          out_dLoss_dS[relax_pt.indices[j]] += diff / border_spp;
+
+          total_diff += abs(diff) / border_spp;
+          if (debug_pd_images)
+            m_imagesDebug[relax_pt.indices[j]].data()[y * m_width + x] += (diff / border_spp) * float4(1, 1, 1, 0);
         }
       }
     }
 
-    return res_loss;
+    if (m_preset_dr.dr_render_mode == DR_DEBUG_RENDER_MODE_BORDER_DETECTION)
+    {
+      //printf("%u %u total_diff %f\n", x, y, total_diff);
+      out_image[y * m_width + x] = float4(1, 1, 1, 1);
+    }
+    else if (m_preset_dr.dr_render_mode == DR_DEBUG_RENDER_MODE_BORDER_INTEGRAL)
+      out_image[y * m_width + x] = float4(0.001f*total_diff, 0.01f*total_diff, 0.1f*total_diff, 1.0f);
+
   }
 }
