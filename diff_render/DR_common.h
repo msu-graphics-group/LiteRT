@@ -56,6 +56,9 @@ namespace dr
   static constexpr unsigned DR_RENDER_MODE_LAMBERT = 1;
   static constexpr unsigned DR_RENDER_MODE_MASK    = 2;
 
+  static constexpr unsigned DR_DEBUG_RENDER_MODE_PRIMITIVE = 100;
+  static constexpr unsigned DR_DEBUG_RENDER_MODE_LINEAR_DEPTH     = 101;
+
   //enum DRDiffMode
   static constexpr unsigned DR_DIFF_MODE_DEFAULT     = 0;
   static constexpr unsigned DR_DIFF_MODE_FINITE_DIFF = 1;

@@ -56,5 +56,8 @@ namespace dr
     std::vector<float> m_dLoss_dS_tmp;
     std::vector<float> m_Opt_tmp;
     MultiRendererDRPreset m_preset_dr;
+
+    std::vector<LiteImage::Image2D<float4>> m_imagesDebug;
+    bool debug_pd_images = false;
   };
 }

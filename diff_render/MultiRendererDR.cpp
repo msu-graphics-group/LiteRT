@@ -66,6 +66,10 @@ namespace dr
       return MULTI_RENDER_MODE_LAMBERT;    
     case DR_RENDER_MODE_MASK:
       return MULTI_RENDER_MODE_MASK;
+    case DR_DEBUG_RENDER_MODE_PRIMITIVE:
+      return MULTI_RENDER_MODE_PRIMIVIVE;
+    case DR_DEBUG_RENDER_MODE_LINEAR_DEPTH:
+      return MULTI_RENDER_MODE_LINEAR_DEPTH;
     default:
       printf("Unknown diff_render_mode: %u\n", diff_render_mode);
       return MULTI_RENDER_MODE_DIFFUSE;
@@ -129,6 +133,9 @@ namespace dr
     float *params = ((BVHDR*)m_pAccelStruct.get())->m_SdfSBSDataF.data();
     unsigned images_count = m_imagesRef.size();
 
+    if (debug_pd_images)
+      m_imagesDebug.resize(params_count, LiteImage::Image2D<float4>(m_width, m_height, float4(0, 0, 0, 1)));
+
     for (int iter = 0; iter < preset.opt_iterations; iter++)
     {
       float loss_sum = 0;
@@ -183,6 +190,19 @@ namespace dr
 
       OptimizeStepAdam(iter, m_dLoss_dS_tmp.data(), params, m_Opt_tmp.data(), params_count, preset);
     } 
+
+    if  (debug_pd_images && preset.dr_diff_mode == DR_DIFF_MODE_DEFAULT)
+    {
+      for (int i = 0; i < params_count; i++)
+      {
+        for (int j = 0; j < m_width * m_height; j++)
+        {
+          float l = m_imagesDebug[i].data()[j].x;
+          m_imagesDebug[i].data()[j] = float4(std::max(0.0f, l), std::max(0.0f, -l),0,1);
+        }
+        LiteImage::SaveImage<float4>(("saves/PD_"+std::to_string(i)+"a.bmp").c_str(), m_imagesDebug[i]);
+      }
+    }
   }
 
   float MultiRendererDR::RenderDR(const float4 *image_ref, LiteMath::float4 *out_image,
@@ -213,6 +233,10 @@ namespace dr
     assert(end_index <= params_count);
     float *params = ((BVHDR*)m_pAccelStruct.get())->m_SdfSBSDataF.data();
 
+    std::vector<float> m_dLoss_dS_tmp_2(m_dLoss_dS_tmp.size(), 0.0f);
+
+    LiteImage::Image2D<float4> image_1(m_width, m_height, float4(0,0,0,1)), image_2(m_width, m_height, float4(0,0,0,1));
+
     for (unsigned i = start_index; i < end_index; i++)
     {
       float p0 = params[i];
@@ -220,14 +244,24 @@ namespace dr
       double loss_minus = 0.0f;
 
       params[i] = p0 + delta;
-      RenderFloat(out_image, m_width, m_height, "color");
+      //RenderFloat(out_image, m_width, m_height, "color");
+      RenderDR(image_ref, out_image, m_dLoss_dS_tmp_2.data(), params_count);
       for (int j = 0; j < m_width * m_height; j++)
-        loss_plus += Loss(m_preset_dr.dr_loss_function, to_float3(out_image[j]), to_float3(image_ref[j]));
+      {
+        float l = Loss(m_preset_dr.dr_loss_function, to_float3(out_image[j]), to_float3(image_ref[j]));
+        image_1.data()[j] = out_image[j];//float4(l,l,0,1);
+        loss_plus += l;
+      }
     
       params[i] = p0 - delta;
-      RenderFloat(out_image, m_width, m_height, "color");
+      //RenderFloat(out_image, m_width, m_height, "color");
+      RenderDR(image_ref, out_image, m_dLoss_dS_tmp_2.data(), params_count);
       for (int j = 0; j < m_width * m_height; j++)
-        loss_minus += Loss(m_preset_dr.dr_loss_function, to_float3(out_image[j]), to_float3(image_ref[j]));
+      {
+        float l = Loss(m_preset_dr.dr_loss_function, to_float3(out_image[j]), to_float3(image_ref[j]));
+        image_2.data()[j] = out_image[j];//float4(l,l,0,1);
+        loss_minus += l;
+      }
       
       params[i] = p0;
 
@@ -235,6 +269,22 @@ namespace dr
       //loss_plus /= m_width * m_height;
       //loss_minus /= m_width * m_height;
       //printf("loss_plus = %f, loss_minus = %f\n", loss_plus, loss_minus);
+
+      if (debug_pd_images)
+      {
+        LiteImage::SaveImage<float4>(("saves/PD_"+std::to_string(i)+"_1.bmp").c_str(), image_1);
+        LiteImage::SaveImage<float4>(("saves/PD_"+std::to_string(i)+"_2.bmp").c_str(), image_2);
+
+        for (int j = 0; j < m_width * m_height; j++)
+        {
+          float l1 = Loss(m_preset_dr.dr_loss_function, to_float3(image_1.data()[j]), to_float3(image_ref[j]));
+          float l2 = Loss(m_preset_dr.dr_loss_function, to_float3(image_2.data()[j]), to_float3(image_ref[j]));
+          float l = (l1 - l2) / (2 * delta);
+          image_1.data()[j] = float4(std::max(0.0f, l), std::max(0.0f, -l),0,1);
+        }
+
+        LiteImage::SaveImage<float4>(("saves/PD_"+std::to_string(i)+"b.bmp").c_str(), image_1);
+      }
 
       out_dLoss_dS[i] = (loss_plus - loss_minus) / (2 * delta);
     }
@@ -295,6 +345,10 @@ namespace dr
 
     uint32_t ray_flags, border_ray_flags;
 
+    if (m_preset_dr.dr_diff_mode == DR_DIFF_MODE_FINITE_DIFF)
+    {
+      ray_flags = DR_RAY_FLAG_NO_DIFF;
+    }
     if (m_preset_dr.dr_reconstruction_type == DR_RECONSTRUCTION_TYPE_COLOR)
     {
       ray_flags = DR_RAY_FLAG_DDIFFUSE_DCOLOR;
@@ -309,7 +363,15 @@ namespace dr
         ray_flags = DR_RAY_FLAG_DDIFFUSE_DPOS | DR_RAY_FLAG_DNORM_DPOS;
     }
 
-    border_ray_flags = DR_RAY_FLAG_BORDER;
+    if (m_preset_dr.dr_diff_mode == DR_DIFF_MODE_FINITE_DIFF ||
+        m_preset_dr.dr_reconstruction_type == DR_RECONSTRUCTION_TYPE_COLOR)
+    {
+      border_ray_flags = DR_RAY_FLAG_NO_DIFF;
+    }
+    else
+    {
+      border_ray_flags = DR_RAY_FLAG_BORDER;
+    }
 
     for (uint32_t i = 0; i < m_preset.spp; i++)
     {
@@ -381,14 +443,26 @@ namespace dr
 
             dColor_dDiffuse = LiteMath::make_float3x3(float3(0,0,0), float3(0,0,0), float3(0,0,0));
             dColor_dNorm    = LiteMath::make_float3x3(float3(0,0,0), float3(0,0,0), float3(0,0,0));
-          break;     
+          break;   
+          case DR_DEBUG_RENDER_MODE_PRIMITIVE:
+            color = decode_RGBA8(m_palette[(hit.primId) % palette_size]);  
+          break;
+          case DR_DEBUG_RENDER_MODE_LINEAR_DEPTH:
+          {
+            float z = hit.t;
+            float z_near = 0.1;
+            float z_far = 10;
+            float d = ((z - z_near) / (z_far - z_near));
+            color = float4(d, d, d, 1);
+          }
+          break;
           default:
           break;
         }
 
         float3 dLoss_dColor = LossGrad(m_preset_dr.dr_loss_function, to_float3(color), to_float3(image_ref[y * m_width + x]));
 
-        if (m_preset_dr.dr_reconstruction_type == DR_RECONSTRUCTION_TYPE_COLOR)
+        if (ray_flags & DR_RAY_FLAG_DDIFFUSE_DCOLOR)
         {
           for (PDColor &pd : hit.dDiffuse_dSc)
           {
@@ -396,15 +470,25 @@ namespace dr
             out_dLoss_dS[pd.index + 0] += diff.x / m_preset.spp;
             out_dLoss_dS[pd.index + 1] += diff.y / m_preset.spp;
             out_dLoss_dS[pd.index + 2] += diff.z / m_preset.spp;
+
+            if (debug_pd_images)
+            {
+              m_imagesDebug[pd.index + 0].data()[y * m_width + x] += (diff.x / m_preset.spp) * float4(1,1,1,0);
+              m_imagesDebug[pd.index + 1].data()[y * m_width + x] += (diff.y / m_preset.spp) * float4(1,1,1,0);
+              m_imagesDebug[pd.index + 2].data()[y * m_width + x] += (diff.z / m_preset.spp) * float4(1,1,1,0);
+            }
           }
         }
-        else if (m_preset_dr.dr_reconstruction_type == DR_RECONSTRUCTION_TYPE_GEOMETRY &&
-                 ray_flags & (DR_RAY_FLAG_DDIFFUSE_DPOS | DR_RAY_FLAG_DNORM_DPOS))
+        
+        if (ray_flags & (DR_RAY_FLAG_DDIFFUSE_DPOS | DR_RAY_FLAG_DNORM_DPOS))
         {
           for (PDDist &pd : hit.dDiffuseNormal_dSd)
           {
             float diff = dot(dLoss_dColor, dColor_dDiffuse * pd.dDiffuse + dColor_dNorm * pd.dNorm);
             out_dLoss_dS[pd.index] += diff / m_preset.spp;
+
+            if (debug_pd_images)
+              m_imagesDebug[pd.index].data()[y * m_width + x] += (diff / m_preset.spp) * float4(1,1,1,0);
           }
         }
       }
@@ -418,7 +502,7 @@ namespace dr
     }
     out_image[y * m_width + x] = res_color;
 
-    if (m_preset_dr.dr_reconstruction_type == DR_RECONSTRUCTION_TYPE_GEOMETRY)
+    if (border_ray_flags != DR_RAY_FLAG_NO_DIFF)
     {
       unsigned max_border_spp = m_preset_dr.border_spp;
       unsigned border_spp = max_border_spp * LiteMath::clamp(length(color_min - color_max) - 0.05f, 0.0f, 1.0f);
@@ -445,10 +529,14 @@ namespace dr
         if (relax_pt.sdf < relax_eps)
         {
           float ad = length(relax_pt.f_in - relax_pt.f_out);
+          //printf("%u %u f_in %f %f %f f_out %f %f %f\n", x, y, relax_pt.f_in.x, relax_pt.f_in.y, relax_pt.f_in.z, relax_pt.f_out.x, relax_pt.f_out.y, relax_pt.f_out.z);
           for (int j = 0; j < 8; j++)
           {
             float diff = dot(dLoss_dColor, (1.0f/relax_eps)*relax_pt.dSDF_dtheta[j]*(relax_pt.f_in - relax_pt.f_out));
             out_dLoss_dS[relax_pt.indices[j]] += debias_mult * diff / border_spp;
+            
+            if (debug_pd_images)
+              m_imagesDebug[relax_pt.indices[j]].data()[y * m_width + x] += (debias_mult * diff / border_spp) * float4(1,1,1,0);
           }
         }
       }
