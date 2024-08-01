@@ -811,6 +811,7 @@ namespace dr
             float df = c1 + rtn*(2*c2 + rtn*3*c3);
             float dx = f/(df + sign(df)*1e-9f);
             rtn -= dx;
+            iter++;
           }
           t = rtn;
           hit = (t >= 0 && t <= qFar && std::abs(f) < EPS);
