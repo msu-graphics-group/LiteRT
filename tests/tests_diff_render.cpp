@@ -388,7 +388,7 @@ void diff_render_test_2_forward_pass()
     dr::MultiRendererDRPreset dr_preset = dr::getDefaultPresetDR();
 
     dr_preset.dr_render_mode = dr::DR_RENDER_MODE_LAMBERT;
-    dr_preset.dr_reconstruction_type = dr::DR_RECONSTRUCTION_TYPE_COLOR;
+    dr_preset.dr_reconstruction_flags = dr::DR_RECONSTRUCTION_FLAG_COLOR;
     dr_preset.opt_iterations = 1;
     dr_preset.opt_lr = 0;
     dr_preset.spp = 16;
@@ -413,7 +413,7 @@ void diff_render_test_2_forward_pass()
     dr::MultiRendererDRPreset dr_preset = dr::getDefaultPresetDR();
 
     dr_preset.dr_render_mode = dr::DR_RENDER_MODE_LAMBERT;
-    dr_preset.dr_reconstruction_type = dr::DR_RECONSTRUCTION_TYPE_GEOMETRY;
+    dr_preset.dr_reconstruction_flags = dr::DR_RECONSTRUCTION_FLAG_GEOMETRY;
     dr_preset.opt_iterations = 1;
     dr_preset.opt_lr = 0;
     dr_preset.spp = 16;
@@ -1207,7 +1207,7 @@ void diff_render_test_9_check_position_derivatives()
 
     dr_preset.dr_render_mode = dr::DR_RENDER_MODE_DIFFUSE;
     dr_preset.dr_diff_mode = dr::DR_DIFF_MODE_DEFAULT;
-    dr_preset.dr_reconstruction_type = dr::DR_RECONSTRUCTION_TYPE_GEOMETRY;
+    dr_preset.dr_reconstruction_flags = dr::DR_RECONSTRUCTION_FLAG_GEOMETRY;
     dr_preset.opt_iterations = 1;
     dr_preset.opt_lr = 0.0f;
     dr_preset.spp = 256;
@@ -1357,7 +1357,7 @@ void diff_render_test_10_optimize_sdf_finite_derivatives()
   dr::MultiRendererDRPreset dr_preset = dr::getDefaultPresetDR();
 
   dr_preset.dr_diff_mode = dr::DR_DIFF_MODE_FINITE_DIFF;
-  dr_preset.dr_reconstruction_type = dr::DR_RECONSTRUCTION_TYPE_GEOMETRY;
+  dr_preset.dr_reconstruction_flags = dr::DR_RECONSTRUCTION_FLAG_GEOMETRY;
   dr_preset.opt_iterations = 40;
   dr_preset.opt_lr = 0.02f;
   dr_preset.spp = 4;
@@ -1426,7 +1426,7 @@ void diff_render_test_11_optimize_smallest_scene()
     dr::MultiRendererDRPreset dr_preset = dr::getDefaultPresetDR();
 
     dr_preset.dr_diff_mode = dr::DR_DIFF_MODE_DEFAULT;
-    dr_preset.dr_reconstruction_type = dr::DR_RECONSTRUCTION_TYPE_GEOMETRY;
+    dr_preset.dr_reconstruction_flags = dr::DR_RECONSTRUCTION_FLAG_GEOMETRY;
     dr_preset.opt_iterations = 100;
     dr_preset.opt_lr = 0.01f;
     dr_preset.spp = 4;
@@ -1489,7 +1489,7 @@ void diff_render_test_12_optimize_sphere_mask()
 
     dr_preset.dr_diff_mode = dr::DR_DIFF_MODE_DEFAULT;
     dr_preset.dr_render_mode = dr::DR_RENDER_MODE_MASK;
-    dr_preset.dr_reconstruction_type = dr::DR_RECONSTRUCTION_TYPE_GEOMETRY;
+    dr_preset.dr_reconstruction_flags = dr::DR_RECONSTRUCTION_FLAG_GEOMETRY;
     dr_preset.opt_iterations = 500;
     dr_preset.opt_lr = 0.002f;
     dr_preset.spp = 16;
@@ -1553,7 +1553,7 @@ void diff_render_test_13_optimize_sphere_diffuse()
 
     dr_preset.dr_diff_mode = dr::DR_DIFF_MODE_DEFAULT;
     dr_preset.dr_render_mode = dr::DR_RENDER_MODE_DIFFUSE;
-    dr_preset.dr_reconstruction_type = dr::DR_RECONSTRUCTION_TYPE_GEOMETRY;
+    dr_preset.dr_reconstruction_flags = dr::DR_RECONSTRUCTION_FLAG_GEOMETRY;
     dr_preset.opt_iterations = 500;
     dr_preset.opt_lr = 0.002f;
     dr_preset.spp = 16;
@@ -1617,7 +1617,7 @@ void diff_render_test_14_optimize_sphere_lambert()
 
     dr_preset.dr_diff_mode = dr::DR_DIFF_MODE_DEFAULT;
     dr_preset.dr_render_mode = dr::DR_RENDER_MODE_LAMBERT;
-    dr_preset.dr_reconstruction_type = dr::DR_RECONSTRUCTION_TYPE_GEOMETRY;
+    dr_preset.dr_reconstruction_flags = dr::DR_RECONSTRUCTION_FLAG_GEOMETRY;
     dr_preset.opt_iterations = 500;
     dr_preset.opt_lr = 0.002f;
     dr_preset.spp = 16;
@@ -1682,7 +1682,7 @@ void diff_render_test_15_optimize_bunny_mask()
 
     dr_preset.dr_diff_mode = dr::DR_DIFF_MODE_DEFAULT;
     dr_preset.dr_render_mode = dr::DR_RENDER_MODE_MASK;
-    dr_preset.dr_reconstruction_type = dr::DR_RECONSTRUCTION_TYPE_GEOMETRY;
+    dr_preset.dr_reconstruction_flags = dr::DR_RECONSTRUCTION_FLAG_GEOMETRY;
     dr_preset.opt_iterations = 1000;
     dr_preset.opt_lr = 0.03f;
     dr_preset.spp = 4;
@@ -1746,7 +1746,7 @@ void diff_render_test_16_borders_detection()
 
     dr::MultiRendererDRPreset dr_preset = dr::getDefaultPresetDR();
     dr_preset.dr_diff_mode = dr::DR_DIFF_MODE_DEFAULT;
-    dr_preset.dr_reconstruction_type = dr::DR_RECONSTRUCTION_TYPE_GEOMETRY;
+    dr_preset.dr_reconstruction_flags = dr::DR_RECONSTRUCTION_FLAG_GEOMETRY;
     dr_preset.opt_iterations = 1;
     dr_preset.opt_lr = 0.0f;
     dr_preset.spp = 16;

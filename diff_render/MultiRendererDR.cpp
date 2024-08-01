@@ -160,7 +160,7 @@ namespace dr
         }
         else if (preset.dr_diff_mode == DR_DIFF_MODE_FINITE_DIFF)
         {
-          bool is_geometry = preset.dr_reconstruction_type == DR_RECONSTRUCTION_TYPE_GEOMETRY;
+          bool is_geometry = (preset.dr_reconstruction_flags & DR_RECONSTRUCTION_FLAG_GEOMETRY);
           unsigned color_params = 3*8*sbs.nodes.size();
           unsigned active_params_start = is_geometry ? 0 : params_count - color_params;
           unsigned active_params_end   = is_geometry ? params_count - color_params : params_count;
@@ -261,7 +261,7 @@ namespace dr
 
     //III - calculate border intergral on border pixels
     if (m_borderPixels.size() > 0 && m_preset_dr.dr_diff_mode == DR_DIFF_MODE_DEFAULT &&
-        m_preset_dr.dr_reconstruction_type == DR_RECONSTRUCTION_TYPE_GEOMETRY)
+        (m_preset_dr.dr_reconstruction_flags & DR_RECONSTRUCTION_FLAG_GEOMETRY))
     {
       unsigned border_steps = (m_borderPixels.size() + max_threads - 1)/max_threads;
       #pragma omp parallel for
@@ -399,34 +399,29 @@ namespace dr
 
     const float3 background_color = float3(0.0f, 0.0f, 0.0f);
 
-    uint32_t ray_flags, border_ray_flags;
+    uint32_t ray_flags;
 
     if (m_preset_dr.dr_diff_mode == DR_DIFF_MODE_FINITE_DIFF)
     {
       ray_flags = DR_RAY_FLAG_NO_DIFF;
     }
-    if (m_preset_dr.dr_reconstruction_type == DR_RECONSTRUCTION_TYPE_COLOR)
-    {
-      ray_flags = DR_RAY_FLAG_DDIFFUSE_DCOLOR;
-    }
-    else if (m_preset_dr.dr_reconstruction_type == DR_RECONSTRUCTION_TYPE_GEOMETRY)
-    {
-      if (m_preset_dr.dr_render_mode == DR_RENDER_MODE_MASK)
-        ray_flags = DR_RAY_FLAG_NO_DIFF;
-      else if (m_preset_dr.dr_render_mode == DR_RENDER_MODE_DIFFUSE)
-        ray_flags = DR_RAY_FLAG_DDIFFUSE_DPOS;
-      else if (m_preset_dr.dr_render_mode == DR_RENDER_MODE_LAMBERT)
-        ray_flags = DR_RAY_FLAG_DDIFFUSE_DPOS | DR_RAY_FLAG_DNORM_DPOS;
-    }
-
-    if (m_preset_dr.dr_diff_mode == DR_DIFF_MODE_FINITE_DIFF ||
-        m_preset_dr.dr_reconstruction_type == DR_RECONSTRUCTION_TYPE_COLOR)
-    {
-      border_ray_flags = DR_RAY_FLAG_NO_DIFF;
-    }
     else
     {
-      border_ray_flags = DR_RAY_FLAG_BORDER;
+      ray_flags = DR_RAY_FLAG_NO_DIFF;
+
+      if (m_preset_dr.dr_reconstruction_flags & DR_RECONSTRUCTION_FLAG_COLOR)
+      {
+        ray_flags |= DR_RAY_FLAG_DDIFFUSE_DCOLOR;
+      }
+      else if (m_preset_dr.dr_reconstruction_flags & DR_RECONSTRUCTION_FLAG_GEOMETRY)
+      {
+        if (m_preset_dr.dr_render_mode == DR_RENDER_MODE_MASK)
+          ray_flags |= DR_RAY_FLAG_NO_DIFF;
+        else if (m_preset_dr.dr_render_mode == DR_RENDER_MODE_DIFFUSE)
+          ray_flags |= DR_RAY_FLAG_DDIFFUSE_DPOS;
+        else if (m_preset_dr.dr_render_mode == DR_RENDER_MODE_LAMBERT)
+          ray_flags |= DR_RAY_FLAG_DDIFFUSE_DPOS | DR_RAY_FLAG_DNORM_DPOS;
+      }
     }
 
     for (uint32_t i = 0; i < m_preset.spp; i++)

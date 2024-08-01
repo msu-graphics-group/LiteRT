@@ -66,8 +66,8 @@ namespace dr
   static constexpr unsigned DR_DIFF_MODE_FINITE_DIFF = 1;
 
   //enum DRReconstructionType
-  static constexpr unsigned DR_RECONSTRUCTION_TYPE_COLOR    = 0;
-  static constexpr unsigned DR_RECONSTRUCTION_TYPE_GEOMETRY = 1;
+  static constexpr unsigned DR_RECONSTRUCTION_FLAG_COLOR    = 1 << 0;
+  static constexpr unsigned DR_RECONSTRUCTION_FLAG_GEOMETRY = 1 << 1;
 
   //enum DRRayFlags
   static constexpr unsigned DR_RAY_FLAG_NO_DIFF         =      0;
@@ -80,10 +80,10 @@ namespace dr
   {
     unsigned spp;
     unsigned border_spp;
-    unsigned dr_loss_function;       //enum DRLossFunction
-    unsigned dr_render_mode;         //enum DRRenderMode
-    unsigned dr_diff_mode;           //enum DRDiffMode
-    unsigned dr_reconstruction_type; //enum DRReconstructionType
+    unsigned dr_loss_function;        //enum DRLossFunction
+    unsigned dr_render_mode;          //enum DRRenderMode
+    unsigned dr_diff_mode;            //enum DRDiffMode
+    unsigned dr_reconstruction_flags; //enum DRReconstructionType
 
     //optimization parameters (Adam optimizer)
     float opt_lr;
