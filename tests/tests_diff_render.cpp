@@ -1683,10 +1683,10 @@ void diff_render_test_15_optimize_bunny_mask()
     dr_preset.dr_diff_mode = dr::DR_DIFF_MODE_DEFAULT;
     dr_preset.dr_render_mode = dr::DR_RENDER_MODE_MASK;
     dr_preset.dr_reconstruction_type = dr::DR_RECONSTRUCTION_TYPE_GEOMETRY;
-    dr_preset.opt_iterations = 500;
-    dr_preset.opt_lr = 0.05f;
-    dr_preset.spp = 16;
-    dr_preset.border_spp = 512;
+    dr_preset.opt_iterations = 1000;
+    dr_preset.opt_lr = 0.03f;
+    dr_preset.spp = 4;
+    dr_preset.border_spp = 256;
     dr_preset.image_batch_size = 4;
 
     dr::MultiRendererDR dr_render;
