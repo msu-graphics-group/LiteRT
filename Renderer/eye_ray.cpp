@@ -209,7 +209,7 @@ float4 MultiRenderer::kernel_RayTrace(uint32_t tidX, const float4* rayPosAndNear
   }
   break;
 
-  case MULTI_RENDER_MODE_PRIMIVIVE:
+  case MULTI_RENDER_MODE_PRIMITIVE:
   {
     res_color = decode_RGBA8(m_palette[(hit.primId) % palette_size]);
   }

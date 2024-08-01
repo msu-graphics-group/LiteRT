@@ -379,7 +379,7 @@ void diff_render_test_2_forward_pass()
     preset.render_mode = MULTI_RENDER_MODE_LINEAR_DEPTH;
     pRender->RenderFloat(image_SBS_depth.data(), image_SBS.width(), image_SBS.height(), view, proj, preset);   
 
-    preset.render_mode = MULTI_RENDER_MODE_PRIMIVIVE;
+    preset.render_mode = MULTI_RENDER_MODE_PRIMITIVE;
     pRender->RenderFloat(image_SBS_prim.data(), image_SBS.width(), image_SBS.height(), view, proj, preset);   
   }
 
