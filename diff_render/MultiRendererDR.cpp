@@ -10,6 +10,8 @@ using LiteMath::inverse4x4;
 using LiteMath::lookAt;
 using LiteMath::perspectiveMatrix;
 
+//extern float __delta;
+
 namespace dr
 {
   static float Loss(unsigned loss_function, float3 color, float3 ref_color)
@@ -166,7 +168,7 @@ namespace dr
           unsigned active_params_end   = is_geometry ? params_count - color_params : params_count;
 
           loss = RenderDRFiniteDiff(m_imagesRef[image_id].data(), m_images[image_id].data(), m_dLoss_dS_tmp.data(), params_count,
-                                    active_params_start, active_params_end, 0.001f);
+                                    active_params_start, active_params_end, 0.01f);
         }
 
         loss_sum += loss;

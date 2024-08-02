@@ -1166,6 +1166,8 @@ void diff_render_test_8_optimize_with_lambert()
     printf("FAILED, psnr = %f\n", psnr_2);
 }
 
+//float __delta = 0.001f;
+
 void diff_render_test_9_check_position_derivatives()
 {
   srand(time(nullptr));
@@ -1197,30 +1199,36 @@ void diff_render_test_9_check_position_derivatives()
     LiteImage::SaveImage<float4>(("saves/test_dr_9_ref_"+std::to_string(i)+".bmp").c_str(), images_ref[i]); 
   }
 
+  // put random colors to SBS
+  auto indexed_SBS = circle_smallest_scene();
+  //randomize_color(indexed_SBS);
+  randomize_distance(indexed_SBS, 0.1f);
+
+  dr::MultiRendererDRPreset dr_preset = dr::getDefaultPresetDR();
+
+  dr_preset.dr_render_mode = dr::DR_RENDER_MODE_DIFFUSE;
+  dr_preset.dr_diff_mode = dr::DR_DIFF_MODE_DEFAULT;
+  dr_preset.dr_reconstruction_flags = dr::DR_RECONSTRUCTION_FLAG_GEOMETRY;
+  dr_preset.opt_iterations = 1;
+  dr_preset.opt_lr = 0.0f;
+  dr_preset.spp = 64;
+  dr_preset.border_spp = 128*128;
+
+  unsigned param_count = indexed_SBS.values_f.size() - 3 * 8 * indexed_SBS.nodes.size();
+  unsigned param_offset = 0;
+
+  //std::vector<float> deltas = {0.04f, 0.02f, 0.01f, 0.005f, 0.0025f, 0.001f, 0.0005f, 0.00025f, 0.0001f};
+  //for (float delta : deltas)
   {
-    //put random colors to SBS
-    auto indexed_SBS = circle_smallest_scene();
-    //randomize_color(indexed_SBS);
-    randomize_distance(indexed_SBS, 0.1f);
-
-    dr::MultiRendererDRPreset dr_preset = dr::getDefaultPresetDR();
-
-    dr_preset.dr_render_mode = dr::DR_RENDER_MODE_DIFFUSE;
-    dr_preset.dr_diff_mode = dr::DR_DIFF_MODE_DEFAULT;
-    dr_preset.dr_reconstruction_flags = dr::DR_RECONSTRUCTION_FLAG_GEOMETRY;
-    dr_preset.opt_iterations = 1;
-    dr_preset.opt_lr = 0.0f;
-    dr_preset.spp = 256;
-    dr_preset.border_spp = 256;
-
-    unsigned param_count = indexed_SBS.values_f.size() - 3*8*indexed_SBS.nodes.size();
-    unsigned param_offset = 0;
+    //printf("delta = %f\n", delta);
+    //__delta = delta;
 
     std::vector<float> grad_dr(param_count, 0);
     std::vector<float> grad_ref(param_count, 0);
 
     {
     dr::MultiRendererDR dr_render;
+    dr_preset.dr_diff_mode = dr::DR_DIFF_MODE_DEFAULT;
     dr_render.SetReference(images_ref, view, proj);
     dr_render.OptimizeColor(dr_preset, indexed_SBS, false);
     grad_dr = std::vector<float>(dr_render.getLastdLoss_dS() + param_offset, 
