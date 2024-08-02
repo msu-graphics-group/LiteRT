@@ -16,6 +16,7 @@ namespace dr
     preset.dr_render_mode = DR_RENDER_MODE_DIFFUSE;
     preset.dr_diff_mode = DR_DIFF_MODE_DEFAULT;
     preset.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_COLOR;
+    preset.dr_input_type = DR_INPUT_TYPE_COLOR;
 
     preset.opt_lr = 0.01f;
     preset.opt_beta_1 = 0.9f;
@@ -48,6 +49,8 @@ namespace dr
     void OptimizeStepAdam(unsigned iter, const float* dX, float *X, float *tmp, unsigned size, MultiRendererDRPreset preset);
     float CastRayWithGrad(uint32_t tidX, const float4 *image_ref, LiteMath::float4* out_image, float* out_dLoss_dS);
     void CastBorderRay(uint32_t tidX, const float4 *image_ref, LiteMath::float4* out_image, float* out_dLoss_dS);
+    float3 CalculateColorWithGrad(const CRT_HitDR &hit, LiteMath::float3x3 &dColor_dDiffuse,
+                                  LiteMath::float3x3 &dColor_dNorm);
 
     std::vector<LiteImage::Image2D<float4>> m_imagesRef;
     std::vector<LiteImage::Image2D<float4>> m_images;

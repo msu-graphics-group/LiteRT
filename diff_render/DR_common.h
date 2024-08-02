@@ -17,7 +17,7 @@ namespace dr
     float3 dDiffuse;
     uint32_t index;
     float3 dNorm;
-    uint32_t _pad;
+    float dDist;
   };
 
   struct PDShape
@@ -52,22 +52,26 @@ namespace dr
   static constexpr unsigned DR_LOSS_FUNCTION_MAE =  1;
 
   //enum DRRenderMode
-  static constexpr unsigned DR_RENDER_MODE_DIFFUSE = 0;
-  static constexpr unsigned DR_RENDER_MODE_LAMBERT = 1;
-  static constexpr unsigned DR_RENDER_MODE_MASK    = 2;
+  static constexpr unsigned DR_RENDER_MODE_DIFFUSE          = 0;
+  static constexpr unsigned DR_RENDER_MODE_LAMBERT          = 1;
+  static constexpr unsigned DR_RENDER_MODE_MASK             = 2;
+  static constexpr unsigned DR_RENDER_MODE_LINEAR_DEPTH     = 3;
 
   static constexpr unsigned DR_DEBUG_RENDER_MODE_PRIMITIVE        = 100;
-  static constexpr unsigned DR_DEBUG_RENDER_MODE_LINEAR_DEPTH     = 101;
-  static constexpr unsigned DR_DEBUG_RENDER_MODE_BORDER_INTEGRAL  = 102;
-  static constexpr unsigned DR_DEBUG_RENDER_MODE_BORDER_DETECTION = 103;
+  static constexpr unsigned DR_DEBUG_RENDER_MODE_BORDER_INTEGRAL  = 101;
+  static constexpr unsigned DR_DEBUG_RENDER_MODE_BORDER_DETECTION = 102;
 
   //enum DRDiffMode
   static constexpr unsigned DR_DIFF_MODE_DEFAULT     = 0;
   static constexpr unsigned DR_DIFF_MODE_FINITE_DIFF = 1;
 
-  //enum DRReconstructionType
+  //enum DRReconstructionFlag
   static constexpr unsigned DR_RECONSTRUCTION_FLAG_COLOR    = 1 << 0;
   static constexpr unsigned DR_RECONSTRUCTION_FLAG_GEOMETRY = 1 << 1;
+
+  //enum DRInputType
+  static constexpr unsigned DR_INPUT_TYPE_COLOR        = 0;
+  static constexpr unsigned DR_INPUT_TYPE_LINEAR_DEPTH = 1;
 
   //enum DRRayFlags
   static constexpr unsigned DR_RAY_FLAG_NO_DIFF         =      0;
@@ -75,6 +79,7 @@ namespace dr
   static constexpr unsigned DR_RAY_FLAG_DDIFFUSE_DPOS   = 1 << 1;
   static constexpr unsigned DR_RAY_FLAG_DNORM_DPOS      = 1 << 2;
   static constexpr unsigned DR_RAY_FLAG_BORDER          = 1 << 3;
+  static constexpr unsigned DR_RAY_FLAG_DDIST_DPOS      = 1 << 4;
 
   struct MultiRendererDRPreset
   {
@@ -83,7 +88,8 @@ namespace dr
     unsigned dr_loss_function;        //enum DRLossFunction
     unsigned dr_render_mode;          //enum DRRenderMode
     unsigned dr_diff_mode;            //enum DRDiffMode
-    unsigned dr_reconstruction_flags; //enum DRReconstructionType
+    unsigned dr_reconstruction_flags; //enum DRReconstructionFlag
+    unsigned dr_input_type;           //enum DRInputType
 
     //optimization parameters (Adam optimizer)
     float opt_lr;

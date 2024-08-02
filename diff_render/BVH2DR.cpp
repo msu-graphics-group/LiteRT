@@ -1039,7 +1039,7 @@ namespace dr
 
           //calculate dt_dvalues
           float dt_dvalues[8];
-          if (ray_flags & (DR_RAY_FLAG_DDIFFUSE_DPOS | DR_RAY_FLAG_DNORM_DPOS))
+          if (ray_flags & (DR_RAY_FLAG_DDIFFUSE_DPOS | DR_RAY_FLAG_DNORM_DPOS | DR_RAY_FLAG_DDIST_DPOS))
           {
             dIntersect_dValues(ray_flags, ray_dir, values, d, 0.0f, qFar, start_q, dt_dvalues);
             
@@ -1050,6 +1050,7 @@ namespace dr
               uint32_t vId = vPos.x * v_size * v_size + vPos.y * v_size + vPos.z;
               //values[i] = m_SdfSBSDataF[m_SdfSBSData[v_off + vId]];
               pHit->dDiffuseNormal_dSd[i].index = m_SdfSBSData[v_off + vId];
+              pHit->dDiffuseNormal_dSd[i].dDist = 2.0f * d * dt_dvalues[i]; //d(tReal)/dS
             }
           }
 

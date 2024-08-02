@@ -14,6 +14,19 @@ using LiteMath::perspectiveMatrix;
 
 namespace dr
 {
+  static constexpr float z_near = 0.1;
+  static constexpr float z_far = 10;
+
+  static float linear_to_absolute_depth(float lz)
+  {
+    return lz * (z_far - z_near) + z_near;
+  }
+
+  static float absolute_to_linear_depth(float z)
+  {
+    return (z - z_near) / (z_far - z_near);
+  }
+
   static float Loss(unsigned loss_function, float3 color, float3 ref_color)
   {
     switch (loss_function)
@@ -72,7 +85,7 @@ namespace dr
       return MULTI_RENDER_MODE_MASK;
     case DR_DEBUG_RENDER_MODE_PRIMITIVE:
       return MULTI_RENDER_MODE_PRIMITIVE;
-    case DR_DEBUG_RENDER_MODE_LINEAR_DEPTH:
+    case DR_RENDER_MODE_LINEAR_DEPTH:
       return MULTI_RENDER_MODE_LINEAR_DEPTH;
     default:
       printf("Unknown diff_render_mode: %u\n", diff_render_mode);
@@ -115,6 +128,12 @@ namespace dr
     {
       assert(m_imagesRef[i].width() == m_imagesRef[0].width());
       assert(m_imagesRef[i].height() == m_imagesRef[0].height());
+    }
+
+    if (preset.dr_input_type == DR_INPUT_TYPE_LINEAR_DEPTH)
+    {
+      assert(preset.dr_render_mode == DR_RENDER_MODE_LINEAR_DEPTH);
+      assert((preset.dr_reconstruction_flags & DR_RECONSTRUCTION_FLAG_COLOR) == 0);
     }
 
     unsigned max_threads = omp_get_max_threads();
@@ -382,6 +401,64 @@ namespace dr
     }
   }
 
+  float3 MultiRendererDR::CalculateColorWithGrad(const CRT_HitDR &hit,
+                                                 LiteMath::float3x3 &dColor_dDiffuse,
+                                                 LiteMath::float3x3 &dColor_dNorm)
+  {
+    float3 color = float3(1, 0, 1);
+
+    switch (m_preset_dr.dr_render_mode)
+    {
+    case DR_RENDER_MODE_DIFFUSE:
+    case DR_DEBUG_RENDER_MODE_BORDER_INTEGRAL:
+    case DR_DEBUG_RENDER_MODE_BORDER_DETECTION:
+      color = hit.color;
+
+      dColor_dDiffuse = LiteMath::make_float3x3(float3(1, 0, 0), float3(0, 1, 0), float3(0, 0, 1));
+      dColor_dNorm = LiteMath::make_float3x3(float3(0, 0, 0), float3(0, 0, 0), float3(0, 0, 0));
+      break;
+    case DR_RENDER_MODE_LAMBERT:
+    {
+      float3 light_dir = normalize(float3(1, 1, 1));
+      float3 norm = hit.normal;
+      float q0 = dot(norm, light_dir); // = norm.x*light_dir.x + norm.y*light_dir.y + norm.z*light_dir.z
+      float q = max(0.1f, q0);
+      color = q * hit.color;
+
+      dColor_dDiffuse = LiteMath::make_float3x3(float3(q, 0, 0), float3(0, q, 0), float3(0, 0, q));
+      if (q0 > 0.1f)
+      {
+        float3 dq_dnorm = light_dir;
+        dColor_dNorm = LiteMath::make_float3x3(hit.color.x * light_dir,
+                                               hit.color.y * light_dir,
+                                               hit.color.z * light_dir);
+      }
+      else
+        dColor_dNorm = LiteMath::make_float3x3(float3(0, 0, 0), float3(0, 0, 0), float3(0, 0, 0));
+    }
+    break;
+    case DR_RENDER_MODE_MASK:
+      color = float3(1, 1, 1);
+
+      dColor_dDiffuse = LiteMath::make_float3x3(float3(0, 0, 0), float3(0, 0, 0), float3(0, 0, 0));
+      dColor_dNorm = LiteMath::make_float3x3(float3(0, 0, 0), float3(0, 0, 0), float3(0, 0, 0));
+      break;
+    case DR_DEBUG_RENDER_MODE_PRIMITIVE:
+      color = to_float3(decode_RGBA8(m_palette[(hit.primId) % palette_size]));
+      break;
+    case DR_RENDER_MODE_LINEAR_DEPTH:
+    {
+      float d = absolute_to_linear_depth(hit.t);
+      color = float3(d, d, d);
+    }
+    break;
+    default:
+      break;
+    }
+
+    return color;
+  }
+
   float MultiRendererDR::CastRayWithGrad(uint32_t tidX, const float4 *image_ref, LiteMath::float4 *out_image, float *out_dLoss_dS)
   {
     if (tidX >= m_packedXY.size())
@@ -391,9 +468,7 @@ namespace dr
     const uint x  = (XY & 0x0000FFFF);
     const uint y  = (XY & 0xFFFF0000) >> 16;
     
-    float4 res_color = float4(0,0,0,0);
-    float4 color_min = float4(1e10f, 1e10f, 1e10f, 1e10f);
-    float4 color_max = float4(-1e10f, -1e10f, -1e10f, -1e10f);
+    float3 res_color = float3(0,0,0);
     float tMin = 1e10f;
     float res_loss = 0.0f;
     uint32_t spp_sqrt = uint32_t(sqrt(m_preset.spp));
@@ -406,6 +481,10 @@ namespace dr
     if (m_preset_dr.dr_diff_mode == DR_DIFF_MODE_FINITE_DIFF)
     {
       ray_flags = DR_RAY_FLAG_NO_DIFF;
+    }
+    else if (m_preset_dr.dr_input_type == DR_INPUT_TYPE_LINEAR_DEPTH)
+    {
+      ray_flags = DR_RAY_FLAG_DDIST_DPOS;
     }
     else
     {
@@ -432,7 +511,8 @@ namespace dr
       float4 rayPosAndNear, rayDirAndFar;
       kernel_InitEyeRay(tidX, d, &rayPosAndNear, &rayDirAndFar);
       
-      float4 color = float4(0,0,0,1);
+      float3 color = float3(0,0,0);
+      float3 dLoss_dColor = float3(0,0,0);
       LiteMath::float3x3 dColor_dDiffuse = LiteMath::make_float3x3(float3(1,0,0), float3(0,1,0), float3(0,0,1));
       LiteMath::float3x3 dColor_dNorm    = LiteMath::make_float3x3(float3(0,0,0), float3(0,0,0), float3(0,0,0));
       
@@ -440,82 +520,13 @@ namespace dr
       
       if (hit.primId == 0xFFFFFFFF) //no hit
       {
-        color = to_float4(background_color, 1.0f);
+        color = background_color;
         res_color += color / m_preset.spp;
-        //continue;
       }
       else
       {
-        unsigned type = hit.geomId >> SH_TYPE;
-        unsigned geomId = hit.geomId & 0x0FFFFFFF;
-
-        float4 diffuse = float4(1,0,0,1);
-        if (type == TYPE_SDF_SBS_COL)
-        {
-          diffuse = float4(hit.color.x, hit.color.y, hit.color.z, 1.0f);
-        }
-
-        color = float4(1,0,1,1); //if pixel is purple at the end, then something gone wrong!
-
-
-        /*
-        color = color(pos, diffuse, norm)
-        dcolor/dS = dcolor/dpos * dpos/dS + dcolor/ddiffuse * ddiffuse/dS + dcolor/dnorm * dnorm/dS
-        dcolor/dpos == 0 for DIFFUSE and LAMBERT render modes
-        */
-        switch (m_preset_dr.dr_render_mode)
-        {
-          case DR_RENDER_MODE_DIFFUSE:
-          case DR_DEBUG_RENDER_MODE_BORDER_INTEGRAL:
-          case DR_DEBUG_RENDER_MODE_BORDER_DETECTION:
-            color = diffuse;
-
-            dColor_dDiffuse = LiteMath::make_float3x3(float3(1,0,0), float3(0,1,0), float3(0,0,1));
-            dColor_dNorm    = LiteMath::make_float3x3(float3(0,0,0), float3(0,0,0), float3(0,0,0));
-          break;
-          case DR_RENDER_MODE_LAMBERT:
-          {
-            float3 light_dir = normalize(float3(1, 1, 1));
-            float3 norm = hit.normal;
-            float q0 = dot(norm, light_dir); // = norm.x*light_dir.x + norm.y*light_dir.y + norm.z*light_dir.z
-            float q = max(0.1f, q0);
-            color = to_float4(q * to_float3(diffuse), 1);
-
-            dColor_dDiffuse = LiteMath::make_float3x3(float3(q,0,0), float3(0,q,0), float3(0,0,q));
-            if (q0 > 0.1f)
-            {
-              float3 dq_dnorm = light_dir;
-              dColor_dNorm = LiteMath::make_float3x3(diffuse.x*light_dir, 
-                                                    diffuse.y*light_dir, 
-                                                    diffuse.z*light_dir);
-            }
-            else
-              dColor_dNorm = LiteMath::make_float3x3(float3(0,0,0), float3(0,0,0), float3(0,0,0));
-          }
-          break; 
-          case DR_RENDER_MODE_MASK:
-            color = float4(1,1,1,1);
-
-            dColor_dDiffuse = LiteMath::make_float3x3(float3(0,0,0), float3(0,0,0), float3(0,0,0));
-            dColor_dNorm    = LiteMath::make_float3x3(float3(0,0,0), float3(0,0,0), float3(0,0,0));
-          break;   
-          case DR_DEBUG_RENDER_MODE_PRIMITIVE:
-            color = decode_RGBA8(m_palette[(hit.primId) % palette_size]);  
-          break;
-          case DR_DEBUG_RENDER_MODE_LINEAR_DEPTH:
-          {
-            float z = hit.t;
-            float z_near = 0.1;
-            float z_far = 10;
-            float d = ((z - z_near) / (z_far - z_near));
-            color = float4(d, d, d, 1);
-          }
-          break;
-          default:
-          break;
-        }
-
-        float3 dLoss_dColor = LossGrad(m_preset_dr.dr_loss_function, to_float3(color), to_float3(image_ref[y * m_width + x]));
+        color = CalculateColorWithGrad(hit, dColor_dDiffuse, dColor_dNorm);
+        dLoss_dColor = LossGrad(m_preset_dr.dr_loss_function, color, to_float3(image_ref[y * m_width + x]));
 
         if (ray_flags & DR_RAY_FLAG_DDIFFUSE_DCOLOR)
         {
@@ -546,18 +557,27 @@ namespace dr
               m_imagesDebug[pd.index].data()[y * m_width + x] += (diff / m_preset.spp) * float4(1,1,1,0);
           }
         }
+
+        if (ray_flags & DR_RAY_FLAG_DDIST_DPOS)
+        {
+          for (PDDist &pd : hit.dDiffuseNormal_dSd)
+          {
+            float diff = dot(dLoss_dColor, float3(pd.dDist)) / (z_far - z_near);
+            out_dLoss_dS[pd.index] += diff / m_preset.spp;
+            
+            if (debug_pd_images)
+              m_imagesDebug[pd.index].data()[y * m_width + x] += (diff / m_preset.spp) * float4(1,1,1,0);
+          }
+        }
       }
 
       res_color += color / m_preset.spp;
-      color_min = min(color_min, color);
-      color_max = max(color_max, color);
       tMin = min(tMin, hit.t);
 
-      float loss          = Loss(m_preset_dr.dr_loss_function, to_float3(color), to_float3(image_ref[y * m_width + x]));
+      float loss          = Loss(m_preset_dr.dr_loss_function, color, to_float3(image_ref[y * m_width + x]));
       res_loss += loss / m_preset.spp;
     }
-    out_image[y * m_width + x] = res_color;
-    out_image[y * m_width + x].w = tMin;
+    out_image[y * m_width + x] = float4(res_color.x, res_color.y, res_color.z, tMin);
 
     return res_loss;
   }
@@ -598,8 +618,18 @@ namespace dr
 
       if (relax_pt.sdf < relax_eps)
       {
-        float ad = length(relax_pt.f_in - relax_pt.f_out);
-        // printf("%u %u f_in %f %f %f f_out %f %f %f\n", x, y, relax_pt.f_in.x, relax_pt.f_in.y, relax_pt.f_in.z, relax_pt.f_out.x, relax_pt.f_out.y, relax_pt.f_out.z);
+        float3 color_delta = float3(0,0,0);
+        if (m_preset_dr.dr_input_type == DR_INPUT_TYPE_COLOR)
+        {
+          color_delta = relax_pt.f_in - relax_pt.f_out;
+        }
+        else if (m_preset_dr.dr_input_type == DR_INPUT_TYPE_LINEAR_DEPTH)
+        {
+          float l_in = linear_to_absolute_depth(relax_pt.t);
+          float l_out = linear_to_absolute_depth(hit.t);
+          color_delta = float3(l_in - l_out);
+        }
+
         for (int j = 0; j < 8; j++)
         {
           float diff = dot(dLoss_dColor, (1.0f / relax_eps) * relax_pt.dSDF_dtheta[j] * (relax_pt.f_in - relax_pt.f_out));
