@@ -168,7 +168,7 @@ namespace dr
           unsigned active_params_end   = is_geometry ? params_count - color_params : params_count;
 
           loss = RenderDRFiniteDiff(m_imagesRef[image_id].data(), m_images[image_id].data(), m_dLoss_dS_tmp.data(), params_count,
-                                    active_params_start, active_params_end, 0.01f);
+                                    active_params_start, active_params_end, 0.005f);
         }
 
         loss_sum += loss;
@@ -572,7 +572,7 @@ namespace dr
     const uint y  = (XY & 0xFFFF0000) >> 16;
 
     const unsigned border_ray_flags = DR_RAY_FLAG_BORDER;
-    const float relax_eps = 2e-4f;
+    const float relax_eps = 3e-4f;
     const float3 background_color = float3(0.0f, 0.0f, 0.0f);
 
     const unsigned border_spp = m_preset_dr.border_spp;

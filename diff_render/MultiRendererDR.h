@@ -39,6 +39,7 @@ namespace dr
 
     const LiteImage::Image2D<float4> &getLastImage(unsigned view_id) const { return m_images[view_id]; }
     const float *getLastdLoss_dS() const { return m_dLoss_dS_tmp.data(); }
+    void set_debug_mode(bool enable) { debug_pd_images = enable; }
 
   protected:
     float RenderDR(const float4 *image_ref, LiteMath::float4* out_image, float *out_dLoss_dS, unsigned params_count);

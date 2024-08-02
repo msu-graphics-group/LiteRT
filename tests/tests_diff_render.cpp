@@ -1212,7 +1212,7 @@ void diff_render_test_9_check_position_derivatives()
   dr_preset.opt_iterations = 1;
   dr_preset.opt_lr = 0.0f;
   dr_preset.spp = 64;
-  dr_preset.border_spp = 128*128;
+  dr_preset.border_spp = 64*64;
 
   unsigned param_count = indexed_SBS.values_f.size() - 3 * 8 * indexed_SBS.nodes.size();
   unsigned param_offset = 0;
