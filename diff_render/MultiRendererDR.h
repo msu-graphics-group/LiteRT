@@ -52,6 +52,9 @@ namespace dr
     float3 CalculateColorWithGrad(const CRT_HitDR &hit, LiteMath::float3x3 &dColor_dDiffuse,
                                   LiteMath::float3x3 &dColor_dNorm);
 
+    float SolveEikonal(float3 axes_mins, float grid_spacing);
+    void Redistance(float *dist_in, uint3 size_in, float grid_spacing, uint32_t num_iters);
+
     std::vector<LiteImage::Image2D<float4>> m_imagesRef;
     std::vector<LiteImage::Image2D<float4>> m_images;
     std::vector<LiteMath::float4x4> m_worldViewRef;

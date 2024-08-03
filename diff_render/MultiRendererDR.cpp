@@ -651,4 +651,250 @@ namespace dr
       out_image[y * m_width + x] = float4(0.001f*total_diff, 0.01f*total_diff, 0.1f*total_diff, 1.0f);
 
   }
+
+  
+  float MultiRendererDR::SolveEikonal(float3 axes_mins, float grid_spacing)
+  {
+    float3 m = axes_mins;
+    float  h = grid_spacing;
+
+    // Sort according to m
+    if (m[0] > m[1])
+      std::swap(m[0], m[1]);
+    if (m[0] > m[2])
+      std::swap(m[0], m[2]);
+    if (m[1] > m[2])
+      std::swap(m[1], m[2]);
+
+
+    // f == 1
+
+    float dist_new = m[0] + h;
+    if (dist_new > m[1])
+    {
+      float h_2 = h * h;
+      float m_sum = m[0] + m[1], c_2 = (m[0] - m[1]) * (m[0] - m[1]);
+
+      float x1 = (m_sum - std::sqrt(2 * h_2 - c_2)) * 0.5f,
+            x2 = (m_sum + std::sqrt(2 * h_2 - c_2)) * 0.5f;
+
+      bool x1_good = x1 > m[1];
+      bool x2_good = x2 > m[1];
+
+      if (x1_good == x2_good)
+      {
+        printf("Error: both roots are equally good/bad: %f < [%f, %f] <= %f\n", m[1], x1, x2, m[2]);
+        // throw "Error";
+      }
+      dist_new = x2_good ? x2 : x1;
+
+      if (dist_new > m[2])
+      {
+        const float one_third = 1.f / 3;
+        m_sum += m[2];
+        c_2 = 3.f * (m[0] * m[0] + m[1] * m[1] + m[2] * m[2] - h_2);
+
+        x1 = (m_sum - std::sqrt(m_sum * m_sum - c_2)) * one_third;
+        x2 = (m_sum + std::sqrt(m_sum * m_sum - c_2)) * one_third;
+        x1_good = x1 > m[2];
+        x2_good = x2 > m[2];
+
+
+        if (x1_good == x2_good)
+        {
+          printf("Error: both roots are equally good/bad: %f < [%f, %f]\n", m[2], x1, x2);
+          throw "Error";
+        }
+        dist_new = x2_good ? x2 : x1;
+      }
+    }
+    return dist_new;
+  }
+
+
+  void MultiRendererDR::Redistance(float *dist_in, uint3 size_in, float grid_spacing, uint32_t num_iters)
+  {
+    const uint32_t N_in = size_in.x * size_in.y * size_in.z;
+    const int3 axes_offsets{(int) (size_in.y * size_in.z), (int) size_in.z, 1};
+
+    float *dist_bord[2] = { new float[N_in], new float[N_in] };
+    bool *frozen = new bool[N_in];
+
+
+    // Init
+
+    const float big_active_const = 99999.f;
+    const float Infin = 1e38f;
+    for (int i = 0; i < size_in.x; ++i)
+      for (int j = 0; j < size_in.y; ++j)
+        for (int k = 0; k < size_in.z; ++k)
+        {
+          int3 ind_in = { i, j, k };
+          uint32_t ind_in_lin = ind_in.x * axes_offsets.x + ind_in.y * axes_offsets.y + ind_in.z;
+
+          frozen[ind_in_lin] = false;
+
+          // Initialize with a big value
+          dist_bord[0][ind_in_lin] = big_active_const;
+          dist_bord[1][ind_in_lin] = big_active_const;
+
+          float dist_val = dist_in[ind_in_lin];
+
+          // Surface itself is not moved
+          if (dist_val == 0.f)
+          {
+            frozen[ind_in_lin] = true;
+            dist_bord[0][ind_in_lin] = 0.f;
+            dist_bord[1][ind_in_lin] = 0.f;
+          }
+
+          // Also freeze if a surface is between this node and any of its neighbours
+          if (!frozen[ind_in_lin])
+          {
+            float3 ldistance{Infin,Infin,Infin};
+            bool near_surface = false;
+
+            for (int dim = 0; dim < 3; ++dim)
+            {
+              for (int offset_sign = -1; offset_sign < 2; offset_sign += 2)
+              {
+                int3 neighbour = ind_in;
+                neighbour[dim] += offset_sign;
+
+                if (neighbour.x >= 0 && neighbour.x < size_in.x &&
+                    neighbour.y >= 0 && neighbour.y < size_in.y &&
+                    neighbour.z >= 0 && neighbour.z < size_in.z)
+                {
+                  float n_val = dist_in[neighbour.x * axes_offsets.x +
+                                        neighbour.y * axes_offsets.y +
+                                        neighbour.z];
+                  if (n_val * dist_val < 0)
+                  {
+                    near_surface = true;
+
+                    float d = grid_spacing * dist_val / (dist_val - n_val);
+                    if (ldistance[dim] > d)
+                      ldistance[dim] = d;
+                  }
+                }
+              }
+            }
+
+            if (near_surface)
+            {
+              float dsum = 0.f;
+
+              for (int dim = 0; dim < 3; ++dim)
+                if (ldistance[dim] > 0.f && ldistance[dim] < Infin)
+                    dsum += 1.f / (ldistance[dim] * ldistance[dim]);
+
+                    dsum = std::sqrt(1.f / dsum);
+                    if (dist_val < 0.f)
+                      dsum *= -1.f;
+
+                    dist_bord[0][ind_in_lin] = dsum;
+                    dist_bord[1][ind_in_lin] = dsum;
+
+                    frozen[ind_in_lin] = true;
+            }
+          }
+        }
+
+    int curr_arr_ind = 0;
+    const int max_level = size_in.x + size_in.y + size_in.z - 3;
+
+    for (uint32_t iter = 0u; iter < num_iters; ++iter)
+    {
+      for (int ordering = 0; ordering < 8; ++ordering)
+      {
+        int start, end, step;
+        if (ordering == 1 || ordering == 4 || ordering == 6 || ordering == 7)
+        {
+          start = max_level;
+          end   = -1;
+          step  = -1;
+        }
+        else
+        {
+          start = 0;
+          end   = max_level + 1;
+          step  = 1;
+        }
+
+
+        for (int level = start; level != end; level += step)
+        {
+          int xs = std::max(0, level - int(size_in.y + size_in.z - 2));
+          int ys = std::max(0, level - int(size_in.x + size_in.z - 2));
+          int xe = std::min((int) size_in.x - 1, level);
+          int ye = std::min((int) size_in.y - 1, level);
+          int xr = xe - xs + 1;
+          int yr = ye - ys + 1;
+
+          // pragma parallel for
+          for (int i = xs; i < xs + xr; ++i)
+            for (int j = ys; j < ys + yr; ++j)
+            {
+              int k = level - i - j;
+              if (k < 0 || k >= size_in.z) continue; // only k check is needed
+
+              int3 ind_in{ i, j, k };
+              uint32_t ind_in_lin = ind_in.x * axes_offsets.x + ind_in.y * axes_offsets.y + ind_in.z;
+              if (frozen[ind_in_lin] || dist_bord[1 - curr_arr_ind][ind_in_lin] != big_active_const) continue;
+
+              float3 axes_mins{big_active_const, big_active_const, big_active_const};
+
+              for (int dim = 0; dim < 3; ++dim)
+              {
+                if (ind_in[dim] > 0 && ind_in[dim] < size_in[dim] - 1)
+                {
+                  axes_mins[dim] = dist_bord[1 - curr_arr_ind][ind_in_lin - axes_offsets[dim]];
+                  float dist_tmp = dist_bord[1 - curr_arr_ind][ind_in_lin + axes_offsets[dim]];
+                  if (std::abs(dist_tmp) < std::abs(axes_mins[dim]))
+                    axes_mins[dim] = dist_tmp;
+                }
+                else if (ind_in[dim] >  0 && ind_in[dim] == size_in[dim] - 1)
+                  axes_mins[dim] = dist_bord[1 - curr_arr_ind][ind_in_lin - axes_offsets[dim]];
+                else if (ind_in[dim] == 0 && ind_in[dim] <  size_in[dim] - 1)
+                  axes_mins[dim] = dist_bord[1 - curr_arr_ind][ind_in_lin + axes_offsets[dim]];
+              }
+
+              if (axes_mins.x < big_active_const || axes_mins.y < big_active_const || axes_mins.z < big_active_const)
+              {
+                bool pos_part = axes_mins.x >= 0.f && axes_mins.y >= 0.f && axes_mins.z >= 0.f;
+
+                if (pos_part)
+                {
+                  dist_bord[curr_arr_ind][ind_in_lin] = std::min( SolveEikonal(axes_mins, grid_spacing),
+                                                                  dist_bord[1 - curr_arr_ind][ind_in_lin]);
+                }
+                else
+                {
+                  if (axes_mins.x < 0.f) axes_mins.x = -axes_mins.x;
+                  if (axes_mins.y < 0.f) axes_mins.y = -axes_mins.y;
+                  if (axes_mins.z < 0.f) axes_mins.z = -axes_mins.z;
+                  dist_bord[curr_arr_ind][ind_in_lin] = std::max(-SolveEikonal(axes_mins, grid_spacing),
+                                                                 -dist_bord[1 - curr_arr_ind][ind_in_lin]);
+                }
+              }
+            }
+        }
+      }
+      curr_arr_ind = 1 - curr_arr_ind; // swap
+    }
+
+    // Copy from the result array (memcpy?)
+    // pragma parallel for
+    for (int i = 0; i < size_in.x; ++i)
+      for (int j = 0; j < size_in.y; ++j)
+        for (int k = 0; k < size_in.z; ++k)
+        {
+          uint32_t ind_in_lin = i * axes_offsets.x + j * axes_offsets.y + k;
+          dist_in[ind_in_lin] = dist_bord[1 - curr_arr_ind][ind_in_lin];
+        }
+
+    delete[] frozen;
+    delete[] dist_bord[1];
+    delete[] dist_bord[0];
+  }
 }
