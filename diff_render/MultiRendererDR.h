@@ -11,12 +11,17 @@ namespace dr
     MultiRendererDRPreset preset;
 
     preset.spp = 1;
-    preset.border_spp = 256;
+
     preset.dr_loss_function = DR_LOSS_FUNCTION_MSE;
     preset.dr_render_mode = DR_RENDER_MODE_DIFFUSE;
     preset.dr_diff_mode = DR_DIFF_MODE_DEFAULT;
     preset.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_COLOR;
     preset.dr_input_type = DR_INPUT_TYPE_COLOR;
+
+    preset.border_spp = 256;
+    preset.border_relax_eps = 3e-4f;
+    preset.border_depth_threshold = 1000.0f; //only external borders will pass
+    preset.border_color_threshold = 1e-6f;   //only borders with no color change are discarded
 
     preset.opt_lr = 0.01f;
     preset.opt_beta_1 = 0.9f;

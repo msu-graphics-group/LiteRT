@@ -1720,12 +1720,12 @@ void diff_render_test_16_borders_detection()
   //create renderers for SDF scene and mesh scene
   auto SBS_ref = circle_smallest_scene();
 
-  unsigned W = 128, H = 128;
+  unsigned W = 512, H = 512;
 
   MultiRenderPreset preset = getDefaultPreset();
   preset.render_mode = MULTI_RENDER_MODE_DIFFUSE;
   //preset.ray_gen_mode = RAY_GEN_MODE_RANDOM;
-  preset.spp = 256;
+  preset.spp = 64;
 
   float4x4 base_proj = LiteMath::perspectiveMatrix(60, 1.0f, 0.01f, 100.0f);
 
@@ -1734,6 +1734,8 @@ void diff_render_test_16_borders_detection()
 
   std::vector<LiteImage::Image2D<float4>> images_ref(view.size(), LiteImage::Image2D<float4>(W, H));
   LiteImage::Image2D<float4> image_res(W, H);
+  LiteImage::Image2D<float4> image_bdet(W, H);
+  LiteImage::Image2D<float4> image_bint(W, H);
   for (int i = 0; i < view.size(); i++)
   {
     auto pRender = CreateMultiRenderer("CPU");
@@ -1745,44 +1747,74 @@ void diff_render_test_16_borders_detection()
     LiteImage::SaveImage<float4>(("saves/test_dr_16_ref_"+std::to_string(i)+".bmp").c_str(), images_ref[i]); 
   }
 
-  {
-    //put random colors to SBS
-    auto indexed_SBS = circle_smallest_scene();
-    //randomize_color(indexed_SBS);
-    randomize_distance(indexed_SBS, 0.2f);
+  // put random colors to SBS
+  auto indexed_SBS = circle_smallest_scene();
+  // randomize_color(indexed_SBS);
+  randomize_distance(indexed_SBS, 0.2f);
 
-    dr::MultiRendererDRPreset dr_preset = dr::getDefaultPresetDR();
-    dr_preset.dr_diff_mode = dr::DR_DIFF_MODE_DEFAULT;
-    dr_preset.dr_reconstruction_flags = dr::DR_RECONSTRUCTION_FLAG_GEOMETRY;
-    dr_preset.opt_iterations = 1;
-    dr_preset.opt_lr = 0.0f;
-    dr_preset.spp = 16;
-    dr_preset.border_spp = 256;
-    {
+  dr::MultiRendererDRPreset dr_preset = dr::getDefaultPresetDR();
+  dr_preset.dr_diff_mode = dr::DR_DIFF_MODE_DEFAULT;
+  dr_preset.dr_reconstruction_flags = dr::DR_RECONSTRUCTION_FLAG_GEOMETRY;
+  dr_preset.opt_iterations = 1;
+  dr_preset.opt_lr = 0.0f;
+  dr_preset.spp = 16;
+  dr_preset.border_spp = 256;
+  {
     dr::MultiRendererDR dr_render;
     dr_render.SetReference(images_ref, view, proj);
     dr_preset.dr_render_mode = dr::DR_RENDER_MODE_DIFFUSE;
     dr_render.OptimizeColor(dr_preset, indexed_SBS, false);
     image_res = dr_render.getLastImage(0);
-    LiteImage::SaveImage<float4>("saves/test_dr_16_res.bmp", image_res); 
-    }
-    {
+    LiteImage::SaveImage<float4>("saves/test_dr_16_res.bmp", image_res);
+  }
+  {
     dr::MultiRendererDR dr_render;
     dr_render.SetReference(images_ref, view, proj);
     dr_preset.dr_render_mode = dr::DR_DEBUG_RENDER_MODE_BORDER_DETECTION;
     dr_render.OptimizeColor(dr_preset, indexed_SBS, false);
-    image_res = dr_render.getLastImage(0);
-    LiteImage::SaveImage<float4>("saves/test_dr_16_bdet.bmp", image_res);
-    }
-    {
+    image_bdet = dr_render.getLastImage(0);
+    LiteImage::SaveImage<float4>("saves/test_dr_16_bdet.bmp", image_bdet);
+  }
+  {
     dr::MultiRendererDR dr_render;
     dr_render.SetReference(images_ref, view, proj);
     dr_preset.dr_render_mode = dr::DR_DEBUG_RENDER_MODE_BORDER_INTEGRAL;
+    dr_preset.border_color_threshold = -1; // force to calculate border integral in every pixel
+    dr_preset.border_depth_threshold = -1;
     dr_render.OptimizeColor(dr_preset, indexed_SBS, false);
-    image_res = dr_render.getLastImage(0);
-    LiteImage::SaveImage<float4>("saves/test_dr_16_bint.bmp", image_res);
-    }
+    image_bint = dr_render.getLastImage(0);
+    LiteImage::SaveImage<float4>("saves/test_dr_16_bint.bmp", image_bint);
   }
+
+  int match = 0;
+  int miss = 0;
+  int over = 0;
+  for (int i = 0; i < W * H; i++)
+  {
+    bool border = length(image_bdet.data()[i]) > 0;
+    bool border_int = length(image_bint.data()[i]) > 0;
+
+    match += border && border_int;
+    miss += !border && border_int;
+    over += border && !border_int;
+  }
+
+  printf("TEST 16. Check border detection\n");
+  
+  float om = float(over)/float(match);
+  float miss_rate = float(miss)/float(match);
+
+  printf("16.1. %-64s", "detected border is small (over/match < 4)");
+  if (om < 4)
+    printf("passed    (%.2f)\n", om);
+  else
+    printf("FAILED, over/match = %f\n", om);
+  
+  printf("16.2. %-64s", "a few pixels are missed (miss/match < 0.01)");
+  if (miss_rate < 0.01)
+    printf("passed    (%.2f)\n", miss_rate);
+  else
+    printf("FAILED, miss/match = %f\n", miss_rate);
 }
 
 void diff_render_test_17_optimize_bunny()

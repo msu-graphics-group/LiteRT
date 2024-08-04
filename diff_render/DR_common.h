@@ -83,13 +83,21 @@ namespace dr
 
   struct MultiRendererDRPreset
   {
-    unsigned spp;
-    unsigned border_spp;
+    //main settings, altering the behavior of the renderer
     unsigned dr_loss_function;        //enum DRLossFunction
     unsigned dr_render_mode;          //enum DRRenderMode
     unsigned dr_diff_mode;            //enum DRDiffMode
     unsigned dr_reconstruction_flags; //enum DRReconstructionFlag
     unsigned dr_input_type;           //enum DRInputType
+
+    // interior integral estimator settings
+    unsigned spp;
+
+    // border integral estimator settings
+    unsigned border_spp;
+    float border_relax_eps;
+    float border_depth_threshold;
+    float border_color_threshold;
 
     //optimization parameters (Adam optimizer)
     float opt_lr;

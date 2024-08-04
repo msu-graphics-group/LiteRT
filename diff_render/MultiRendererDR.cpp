@@ -248,7 +248,7 @@ namespace dr
     //II - find border pixels
     m_borderPixels.resize(0);
     const int search_radius = 1;
-    const float border_threshold = 1.0f; // ok for masks
+    const float border_threshold = m_preset_dr.border_depth_threshold;
     for (int i = 0; i < m_width * m_height; i++)
     {
       if (i >= m_packedXY.size())
@@ -261,23 +261,32 @@ namespace dr
       if (x < search_radius || x >= m_width - search_radius || y <= search_radius || y >= m_height - search_radius)
         continue;
       
-      float min_depth = 1e10f;
-      float max_depth = -1e10f;
+      float d0 = out_image[y*m_width + x].w;
+      float max_diff = 0.0f;
+
+      float3 color0 = to_float3(out_image[y*m_width + x]);
+      float  max_color_diff = 0.0f;
 
       for (int dx = -search_radius; dx <= search_radius; dx++)
       {
         for (int dy = -search_radius; dy <= search_radius; dy++)
         {
           float d = out_image[(y + dy) * m_width + x + dx].w;
-          min_depth = std::min(min_depth, d);
-          max_depth = std::max(max_depth, d);
+          max_diff = std::max(max_diff, std::abs(d0 - d));
+
+          float3 color = to_float3(out_image[(y + dy) * m_width + x + dx]);
+          max_color_diff = std::max(max_color_diff, length(color0 - color));
         }
       }
 
-      //printf("min_depth = %f, max_depth = %f\n", min_depth, max_depth);
+      float ref_color_diff = length(to_float3(out_image[y*m_width + x]) - to_float3(image_ref[y*m_width + x]));
 
-      if (max_depth - min_depth  > border_threshold)
+      if (max_diff > border_threshold && 
+          ref_color_diff > m_preset_dr.border_color_threshold &&
+          max_color_diff > m_preset_dr.border_color_threshold)
+      {
         m_borderPixels.push_back(i);
+      }
     }
 
     //III - calculate border intergral on border pixels
@@ -293,6 +302,21 @@ namespace dr
         for (int i = start; i < end; i++)
           CastBorderRay(m_borderPixels[i], image_ref, out_image, out_dLoss_dS + (params_count * thread_id));
       }
+    }
+    if (m_preset_dr.dr_render_mode == DR_DEBUG_RENDER_MODE_BORDER_DETECTION ||
+        m_preset_dr.dr_render_mode == DR_DEBUG_RENDER_MODE_BORDER_INTEGRAL)
+    {
+      // make image with only border pixels
+      LiteImage::Image2D<float4> image_borders(m_width, m_height, float4(0, 0, 0, 1));
+      for (int i = 0; i < m_borderPixels.size(); i++)
+      {
+        const uint XY = m_packedXY[m_borderPixels[i]];
+        const uint x = (XY & 0x0000FFFF);
+        const uint y = (XY & 0xFFFF0000) >> 16;
+        image_borders.data()[y * m_width + x] = out_image[y * m_width + x];
+      }
+
+      memcpy(out_image, image_borders.data(), sizeof(float4) * m_width * m_height);
     }
 
     //IV - calculate loss
@@ -592,7 +616,7 @@ namespace dr
     const uint y  = (XY & 0xFFFF0000) >> 16;
 
     const unsigned border_ray_flags = DR_RAY_FLAG_BORDER;
-    const float relax_eps = 3e-4f;
+    const float relax_eps = m_preset_dr.border_relax_eps;
     const float3 background_color = float3(0.0f, 0.0f, 0.0f);
 
     const unsigned border_spp = m_preset_dr.border_spp;
