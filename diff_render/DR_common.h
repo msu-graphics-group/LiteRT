@@ -1,10 +1,26 @@
 #pragma once
 #include <vector>
+#include <functional>
+
 #include "LiteMath.h"
+
+struct SdfSBS;
 
 namespace dr
 {
+  using LiteMath::cross;
+  using LiteMath::dot;
+  using LiteMath::float2;
   using LiteMath::float3;
+  using LiteMath::float4;
+  using LiteMath::float4x4;
+  using LiteMath::int2;
+  using LiteMath::inverse4x4;
+  using LiteMath::normalize;
+  using LiteMath::sign;
+  using LiteMath::to_float3;
+  using LiteMath::uint2;
+  
   static constexpr uint32_t INVALID_INDEX = 0xFFFFFFFF;
   struct PDColor
   {
@@ -107,4 +123,19 @@ namespace dr
     unsigned opt_iterations;
     unsigned image_batch_size;
   };
+
+  void randomize_color(SdfSBS &sbs);
+  void randomize_distance(SdfSBS &sbs, float delta);
+  std::vector<float4x4> get_cameras_turntable(int count, float3 center, float radius, float height);
+  std::vector<float4x4> get_cameras_uniform_sphere(int count, float3 center, float radius);
+  SdfSBS circle_smallest_scene();
+  SdfSBS circle_medium_scene();
+  SdfSBS circle_small_scene();
+  SdfSBS circle_one_brick_scene();
+  float circle_sdf(float3 center, float radius, float3 p);
+  float3 gradient_color(float3 p);
+  float3 single_color(float3 p);
+  SdfSBS create_grid_sbs(unsigned brick_count, unsigned brick_size, 
+                         std::function<float(float3)>  sdf_func,
+                         std::function<float3(float3)> color_func);
 }

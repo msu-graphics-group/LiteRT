@@ -1,4 +1,4 @@
-#include "tests.h"
+#include "../tests/tests.h"
 #include "../IRenderer.h"
 #include "../Renderer/eye_ray.h"
 #include "../utils/mesh_bvh.h"
@@ -17,11 +17,9 @@
 #include <cassert>
 #include <chrono>
 
-SdfSBS circle_smallest_scene();
-std::vector<float4x4> get_cameras_uniform_sphere(int count, float3 center, float radius);
-void randomize_distance(SdfSBS &sbs, float delta);
+using namespace dr;
 
-void benchmark_iteration_time(dr::MultiRendererDRPreset dr_preset)
+void benchmark_iteration_time(MultiRendererDRPreset dr_preset)
 {
   // create renderers for SDF scene and mesh scene
   auto SBS_ref = circle_smallest_scene();
@@ -60,7 +58,7 @@ void benchmark_iteration_time(dr::MultiRendererDRPreset dr_preset)
   std::vector<float> grad_dr(param_count, 0);
   std::vector<float> grad_ref(param_count, 0);
 
-  dr::MultiRendererDR dr_render;
+  MultiRendererDR dr_render;
   dr_render.SetReference(images_ref, view, proj);
 
   //there can be some tricky stuff, like multithreading, GPU and so on, so we need wall time clock
@@ -79,30 +77,30 @@ void benchmark_iteration_time(dr::MultiRendererDRPreset dr_preset)
 
 void benchmark_iteration_time()
 {
-  dr::MultiRendererDRPreset dr_preset = dr::getDefaultPresetDR();
+  MultiRendererDRPreset dr_preset = getDefaultPresetDR();
 
-  dr_preset.dr_diff_mode = dr::DR_DIFF_MODE_DEFAULT;
+  dr_preset.dr_diff_mode = DR_DIFF_MODE_DEFAULT;
   dr_preset.opt_iterations = 10;
   dr_preset.opt_lr = 0.0f;
   dr_preset.spp = 16;
 
   printf("DR_RENDER_MODE_LAMBERT + DR_RECONSTRUCTION_FLAG_COLOR\n");
-  dr_preset.dr_render_mode = dr::DR_RENDER_MODE_LAMBERT;
-  dr_preset.dr_reconstruction_flags = dr::DR_RECONSTRUCTION_FLAG_COLOR;
+  dr_preset.dr_render_mode = DR_RENDER_MODE_LAMBERT;
+  dr_preset.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_COLOR;
   benchmark_iteration_time(dr_preset);
 
   printf("DR_RENDER_MODE_MASK + DR_RECONSTRUCTION_FLAG_GEOMETRY\n");
-  dr_preset.dr_render_mode = dr::DR_RENDER_MODE_MASK;
-  dr_preset.dr_reconstruction_flags = dr::DR_RECONSTRUCTION_FLAG_GEOMETRY;
+  dr_preset.dr_render_mode = DR_RENDER_MODE_MASK;
+  dr_preset.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_GEOMETRY;
   benchmark_iteration_time(dr_preset);
 
   printf("DR_RENDER_MODE_DIFFUSE + DR_RECONSTRUCTION_FLAG_GEOMETRY\n");
-  dr_preset.dr_render_mode = dr::DR_RENDER_MODE_DIFFUSE;
-  dr_preset.dr_reconstruction_flags = dr::DR_RECONSTRUCTION_FLAG_GEOMETRY;
+  dr_preset.dr_render_mode = DR_RENDER_MODE_DIFFUSE;
+  dr_preset.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_GEOMETRY;
   benchmark_iteration_time(dr_preset);
 
   printf("DR_RENDER_MODE_LAMBERT + DR_RECONSTRUCTION_FLAG_GEOMETRY\n");
-  dr_preset.dr_render_mode = dr::DR_RENDER_MODE_LAMBERT;
-  dr_preset.dr_reconstruction_flags = dr::DR_RECONSTRUCTION_FLAG_GEOMETRY;
+  dr_preset.dr_render_mode = DR_RENDER_MODE_LAMBERT;
+  dr_preset.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_GEOMETRY;
   benchmark_iteration_time(dr_preset);
 }
