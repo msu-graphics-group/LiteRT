@@ -95,7 +95,6 @@ namespace dr
 
   MultiRendererDR::MultiRendererDR()
   {
-    m_pAccelStruct = std::shared_ptr<ISceneObject>(new BVHDR());
     m_preset = getDefaultPreset();
     m_preset_dr = getDefaultPresetDR();
     m_mainLightDir = normalize3(float4(1, 0.5, 0.5, 1));
@@ -111,6 +110,52 @@ namespace dr
     m_worldViewRef = worldView;
     m_projRef = proj;
 
+  }
+
+  void MultiRendererDR::OptimizeGrid(MultiRendererDRPreset preset, bool verbose)
+  {
+    unsigned grid_size = 16;
+    unsigned grid_steps = 4;
+    unsigned brick_size = 1;
+
+    auto grid =  create_grid_sbs(grid_size, brick_size, 
+                                 [&](float3 p){return circle_sdf(float3(0,-0.15f,0), 0.7f, p);}, 
+                                 gradient_color);
+    
+    for (unsigned i = 0; i < grid_steps; i++)
+    {
+      OptimizeFixedStructure(preset, grid, verbose);
+
+      auto grid_sampler = [&](float3 p){
+        unsigned p_count = grid_size*brick_size + 1u;
+        float3 idx_f = clamp(0.5f*(p + 1.0f), 0.0f, 1.0f + 1e-6f) * grid_size*brick_size;
+        uint3 idx = uint3(idx_f + 1e-6f);
+        float3 dp = idx_f - float3(idx);
+        float dist = 1000;
+        if (idx.x < p_count-1 && idx.y < p_count-1 && idx.z < p_count-1)
+        {
+          dist = (1 - dp.x) * (1 - dp.y) * (1 - dp.z) * grid.values_f[idx.x * p_count*p_count + idx.y * p_count + idx.z] +
+                 (1 - dp.x) * (1 - dp.y) * dp.z * grid.values_f[idx.x * p_count*p_count + idx.y * p_count + idx.z+1] +
+                 (1 - dp.x) * dp.y * (1 - dp.z) * grid.values_f[idx.x * p_count*p_count + (idx.y+1) * p_count + idx.z] +
+                 (1 - dp.x) * dp.y * dp.z * grid.values_f[idx.x * p_count*p_count + (idx.y+1) * p_count + idx.z+1] +
+                 dp.x * (1 - dp.y) * (1 - dp.z) * grid.values_f[(idx.x+1) * p_count*p_count + idx.y * p_count + idx.z] +
+                 dp.x * (1 - dp.y) * dp.z * grid.values_f[(idx.x+1) * p_count*p_count + idx.y * p_count + idx.z+1] +
+                 dp.x * dp.y * (1 - dp.z) * grid.values_f[(idx.x+1) * p_count*p_count + (idx.y+1) * p_count + idx.z] +
+                 dp.x * dp.y * dp.z * grid.values_f[(idx.x+1) * p_count*p_count + (idx.y+1) * p_count + idx.z+1];
+        }
+        else 
+        {
+          dist = grid.values_f[idx.x*p_count*p_count + idx.y*p_count + idx.z];
+        }
+        return dist;
+
+      };
+
+      unsigned new_brick_size = 2*brick_size;
+      auto new_grid = create_grid_sbs(grid_size, new_brick_size, grid_sampler, gradient_color);
+      brick_size = new_brick_size;
+      grid = new_grid;
+    }
   }
 
   void MultiRendererDR::OptimizeFixedStructure(MultiRendererDRPreset preset, SdfSBS &sbs, bool verbose)
@@ -152,6 +197,7 @@ namespace dr
     m_height = m_imagesRef[0].height();
     m_images.resize(m_imagesRef.size(), LiteImage::Image2D<float4>(m_width, m_height, float4(0, 0, 0, 1)));
 
+    m_pAccelStruct = std::shared_ptr<ISceneObject>(new BVHDR());
     SetScene(sbs, true);
     float *params = ((BVHDR*)m_pAccelStruct.get())->m_SdfSBSDataF.data();
     unsigned images_count = m_imagesRef.size();
@@ -228,6 +274,8 @@ namespace dr
         LiteImage::SaveImage<float4>(("saves/PD_"+std::to_string(i)+"a.bmp").c_str(), m_imagesDebug[i]);
       }
     }
+
+    sbs.values_f = ((BVHDR*)m_pAccelStruct.get())->m_SdfSBSDataF;
   }
 
   float MultiRendererDR::RenderDR(const float4 *image_ref, LiteMath::float4 *out_image,

@@ -1734,6 +1734,75 @@ void diff_render_test_18_sphere_depth()
     printf("FAILED, psnr = %f\n", psnr);
 }
 
+void diff_render_test_19_expanding_grid()
+{
+  //create renderers for SDF scene and mesh scene
+  auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "scenes/01_simple_scenes/data/bunny.vsgf").c_str());
+  cmesh4::rescale_mesh(mesh, float3(-0.95, -0.95, -0.95), float3(0.95, 0.95, 0.95));
+
+  unsigned W = 256, H = 256;
+
+  MultiRenderPreset preset = getDefaultPreset();
+  preset.render_mode = MULTI_RENDER_MODE_MASK;
+  //preset.ray_gen_mode = RAY_GEN_MODE_RANDOM;
+  preset.spp = 64;
+
+  float4x4 base_proj = LiteMath::perspectiveMatrix(60, 1.0f, 0.01f, 100.0f);
+  LiteImage::Image2D<float4> texture = LiteImage::LoadImage<float4>("scenes/porcelain.png");
+
+  std::vector<float4x4> view = get_cameras_uniform_sphere(16, float3(0, 0, 0), 4.0f);
+  std::vector<float4x4> proj(view.size(), base_proj);
+
+  std::vector<LiteImage::Image2D<float4>> images_ref(view.size(), LiteImage::Image2D<float4>(W, H));
+  LiteImage::Image2D<float4> image_res(W, H);
+  for (int i = 0; i < view.size(); i++)
+  {
+    auto pRender = CreateMultiRenderer("GPU");
+    pRender->SetPreset(preset);
+    pRender->SetViewport(0,0,W,H);
+
+    uint32_t texId = pRender->AddTexture(texture);
+    MultiRendererMaterial mat;
+    mat.type = MULTI_RENDER_MATERIAL_TYPE_TEXTURED;
+    mat.texId = texId;
+    uint32_t matId = pRender->AddMaterial(mat);
+    pRender->SetMaterial(matId, 0);
+
+    pRender->SetScene(mesh);
+    pRender->RenderFloat(images_ref[i].data(), images_ref[i].width(), images_ref[i].height(), view[i], proj[i], preset);
+    LiteImage::SaveImage<float4>(("saves/test_dr_19_ref_"+std::to_string(i)+".bmp").c_str(), images_ref[i]); 
+  }
+
+  {
+    MultiRendererDRPreset dr_preset = getDefaultPresetDR();
+
+    dr_preset.dr_diff_mode = DR_DIFF_MODE_DEFAULT;
+    dr_preset.dr_render_mode = DR_RENDER_MODE_MASK;
+    dr_preset.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_GEOMETRY;
+    dr_preset.opt_iterations = 501;
+    dr_preset.opt_lr = 0.01f;
+    dr_preset.spp = 4;
+    dr_preset.border_spp = 256;
+    dr_preset.image_batch_size = 4;
+
+    MultiRendererDR dr_render;
+    dr_render.SetReference(images_ref, view, proj);
+    dr_render.OptimizeGrid(dr_preset, true);
+    image_res = dr_render.getLastImage(0);
+    LiteImage::SaveImage<float4>("saves/test_dr_19_res.bmp", image_res);
+  }
+
+  printf("TEST 19. Optimize bunny scene\n");
+  
+  float psnr = image_metrics::PSNR(image_res, images_ref[0]);
+
+  printf("19.1. %-64s", "SDF is reconstructed");
+  if (psnr >= 30)
+    printf("passed    (%.2f)\n", psnr);
+  else
+    printf("FAILED, psnr = %f\n", psnr);
+}
+
 void perform_tests_diff_render(const std::vector<int> &test_ids)
 {
   std::vector<int> tests = test_ids;
@@ -1744,7 +1813,8 @@ void perform_tests_diff_render(const std::vector<int> &test_ids)
       diff_render_test_7_optimize_with_finite_diff, diff_render_test_8_optimize_with_lambert, diff_render_test_9_check_position_derivatives,
       diff_render_test_10_optimize_sdf_finite_derivatives, diff_render_test_11_optimize_smallest_scene, diff_render_test_12_optimize_sphere_mask,
       diff_render_test_13_optimize_sphere_diffuse, diff_render_test_14_optimize_sphere_lambert, diff_render_test_15_combined_reconstruction,
-      diff_render_test_16_borders_detection, diff_render_test_17_optimize_bunny, diff_render_test_18_sphere_depth};
+      diff_render_test_16_borders_detection, diff_render_test_17_optimize_bunny, diff_render_test_18_sphere_depth,
+      diff_render_test_19_expanding_grid};
 
   if (tests.empty())
   {
