@@ -187,8 +187,8 @@ std::vector<float4x4> get_cameras_uniform_sphere(int count, float3 center, float
     if (urand() > 0.5)
       psi = -psi;
 
-    float3 view_dir = -float3(cos(psi) * sin(phi), sin(psi), cos(psi) * cos(phi));
-    float3 tangent = normalize(cross(view_dir, float3(0, 1, 0)));
+    float3 view_dir = float3(cos(psi) * sin(phi), sin(psi), cos(psi) * cos(phi));
+    float3 tangent = normalize(cross(view_dir, -float3(0, 1, 0)));
     float3 new_up = normalize(cross(view_dir, tangent));
     cameras.push_back(LiteMath::lookAt(center - radius * view_dir, center, new_up));
   }
@@ -1833,7 +1833,7 @@ void diff_render_test_17_optimize_bunny()
   float4x4 base_proj = LiteMath::perspectiveMatrix(60, 1.0f, 0.01f, 100.0f);
   LiteImage::Image2D<float4> texture = LiteImage::LoadImage<float4>("scenes/porcelain.png");
 
-  std::vector<float4x4> view = get_cameras_turntable(12, float3(0, 0, 0), 3.0f, 1.0f);
+  std::vector<float4x4> view = get_cameras_uniform_sphere(16, float3(0, 0, 0), 4.0f);
   std::vector<float4x4> proj(view.size(), base_proj);
 
   std::vector<LiteImage::Image2D<float4>> images_ref(view.size(), LiteImage::Image2D<float4>(W, H));
@@ -1857,7 +1857,7 @@ void diff_render_test_17_optimize_bunny()
   }
 
   {
-    auto indexed_SBS =  create_grid_sbs(8, 8, 
+    auto indexed_SBS =  create_grid_sbs(4, 8, 
                                         [&](float3 p){return circle_sdf(float3(0,-0.15f,0), 0.7f, p);}, 
                                         gradient_color);
 
@@ -1870,7 +1870,7 @@ void diff_render_test_17_optimize_bunny()
     dr_preset.opt_lr = 0.01f;
     dr_preset.spp = 4;
     dr_preset.border_spp = 1024;
-    dr_preset.image_batch_size = 8;
+    dr_preset.image_batch_size = 4;
 
     dr::MultiRendererDR dr_render;
     dr_render.SetReference(images_ref, view, proj);
