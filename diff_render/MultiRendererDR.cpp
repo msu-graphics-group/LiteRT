@@ -113,7 +113,7 @@ namespace dr
 
   }
 
-  void MultiRendererDR::OptimizeColor(MultiRendererDRPreset preset, SdfSBS &sbs, bool verbose)
+  void MultiRendererDR::OptimizeFixedStructure(MultiRendererDRPreset preset, SdfSBS &sbs, bool verbose)
   {
     assert(sbs.nodes.size() > 0);
     assert(sbs.values.size() > 0);
@@ -193,13 +193,15 @@ namespace dr
         loss_sum += loss;
         loss_max = std::max(loss_max, loss);
         loss_min = std::min(loss_min, loss);
+      }
 
-        //if (verbose && iter % 10 == 0)
-        //  printf("%f\n", loss);
-        if (verbose && image_id == 0)
+      if (verbose && iter % 10 == 0)
+      {
+        printf("Iter:%4d, loss: %f (%f-%f)\n", iter, loss_sum/preset.image_batch_size, loss_min, loss_max);
+        if (iter % 100 == 0)
         {
-          printf("Iter:%4d, loss: %f (%f-%f)\n", iter, loss_sum/preset.image_batch_size, loss_min, loss_max);
-          LiteImage::SaveImage<float4>(("saves/iter_"+std::to_string(iter)+"_"+std::to_string(image_id)+".bmp").c_str(), m_images[image_id]);
+          for (int image_id = 0; image_id < images_count; image_id++)
+            LiteImage::SaveImage<float4>(("saves/iter_"+std::to_string(iter)+"_"+std::to_string(image_id)+".bmp").c_str(), m_images[image_id]);
         }
       }
 

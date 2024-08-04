@@ -396,15 +396,15 @@ void diff_render_test_2_forward_pass()
     dr_render.SetReference({image_mesh}, {view}, {proj});
 
     dr_preset.dr_render_mode = dr::DR_RENDER_MODE_LAMBERT;
-    dr_render.OptimizeColor(dr_preset, indexed_SBS);
+    dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS);
     image_SBS_dr = dr_render.getLastImage(0);
 
     dr_preset.dr_render_mode = dr::DR_RENDER_MODE_LINEAR_DEPTH;
-    dr_render.OptimizeColor(dr_preset, indexed_SBS);
+    dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS);
     image_SBS_dr_depth = dr_render.getLastImage(0);
 
     dr_preset.dr_render_mode = dr::DR_DEBUG_RENDER_MODE_PRIMITIVE;
-    dr_render.OptimizeColor(dr_preset, indexed_SBS);
+    dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS);
     image_SBS_dr_prim = dr_render.getLastImage(0);
   }
 
@@ -419,7 +419,7 @@ void diff_render_test_2_forward_pass()
     dr_preset.spp = 16;
 
     dr_render.SetReference({image_mesh}, {view}, {proj});
-    dr_render.OptimizeColor(dr_preset, indexed_SBS);
+    dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS);
     
     image_SBS_dr_2 = dr_render.getLastImage(0);
   }
@@ -549,7 +549,7 @@ void diff_render_test_3_optimize_color()
     dr_preset.spp = 1;
 
     dr_render.SetReference({image_mesh}, {view}, {proj});
-    dr_render.OptimizeColor(dr_preset, indexed_SBS);
+    dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS);
     
     image_SBS_dr = dr_render.getLastImage(0);
   }
@@ -625,7 +625,7 @@ void diff_render_test_4_render_simple_scenes()
     dr_preset.spp = 1;
 
     dr_render.SetReference({image_med}, {view}, {proj});
-    dr_render.OptimizeColor(dr_preset, scene, false);
+    dr_render.OptimizeFixedStructure(dr_preset, scene, false);
     
     image_one_brick_dr = dr_render.getLastImage(0);
   }
@@ -640,7 +640,7 @@ void diff_render_test_4_render_simple_scenes()
     dr_preset.spp = 1;
 
     dr_render.SetReference({image_med}, {view}, {proj});
-    dr_render.OptimizeColor(dr_preset, scene, false);
+    dr_render.OptimizeFixedStructure(dr_preset, scene, false);
     
     image_small_dr = dr_render.getLastImage(0);
   }
@@ -737,7 +737,7 @@ void diff_render_test_5_optimize_color_simpliest()
     dr_preset.spp = 16;
 
     dr_render.SetReference({images_ref[0]}, {view[0]}, {proj[0]});
-    dr_render.OptimizeColor(dr_preset, indexed_SBS, false);
+    dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS, false);
     
     image_SBS_single = dr_render.getLastImage(0);
   }
@@ -756,7 +756,7 @@ void diff_render_test_5_optimize_color_simpliest()
     dr_preset.spp = 16;
 
     dr_render.SetReference(images_ref, view, proj);
-    dr_render.OptimizeColor(dr_preset, indexed_SBS, false);
+    dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS, false);
     
     image_SBS_multi = dr_render.getLastImage(0);
   }
@@ -775,7 +775,7 @@ void diff_render_test_5_optimize_color_simpliest()
     dr_preset.spp = 16;
 
     dr_render.SetReference(images_ref, view, proj);
-    dr_render.OptimizeColor(dr_preset, indexed_SBS, false);
+    dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS, false);
     
     image_SBS_multi_2 = dr_render.getLastImage(0);
   }
@@ -795,7 +795,7 @@ void diff_render_test_5_optimize_color_simpliest()
     dr_preset.dr_loss_function = dr::DR_LOSS_FUNCTION_MAE;
 
     dr_render.SetReference(images_ref, view, proj);
-    dr_render.OptimizeColor(dr_preset, indexed_SBS, false);
+    dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS, false);
     
     image_SBS_multi_mae = dr_render.getLastImage(0);
   }
@@ -883,7 +883,7 @@ void diff_render_test_6_check_color_derivatives()
     {
     dr::MultiRendererDR dr_render;
     dr_render.SetReference({images_ref[0]}, {view[0]}, {proj[0]});
-    dr_render.OptimizeColor(dr_preset, indexed_SBS, false);
+    dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS, false);
     grad_dr = std::vector<float>(dr_render.getLastdLoss_dS() + color_param_offset, 
                                  dr_render.getLastdLoss_dS() + color_param_offset + color_param_count);
     }
@@ -891,7 +891,7 @@ void diff_render_test_6_check_color_derivatives()
     dr::MultiRendererDR dr_render;
     dr_preset.dr_diff_mode = dr::DR_DIFF_MODE_FINITE_DIFF;
     dr_render.SetReference({images_ref[0]}, {view[0]}, {proj[0]});
-    dr_render.OptimizeColor(dr_preset, indexed_SBS, false);
+    dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS, false);
     grad_ref = std::vector<float>(dr_render.getLastdLoss_dS() + color_param_offset, 
                                   dr_render.getLastdLoss_dS() + color_param_offset + color_param_count);
     }
@@ -1027,7 +1027,7 @@ void diff_render_test_7_optimize_with_finite_diff()
     dr_preset.spp = 4;
 
     dr_render.SetReference(images_ref, view, proj);
-    dr_render.OptimizeColor(dr_preset, indexed_SBS, false);
+    dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS, false);
     
     image_SBS_def = dr_render.getLastImage(0);
   }
@@ -1047,7 +1047,7 @@ void diff_render_test_7_optimize_with_finite_diff()
     dr_preset.spp = 4;
 
     dr_render.SetReference(images_ref, view, proj);
-    dr_render.OptimizeColor(dr_preset, indexed_SBS, false);
+    dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS, false);
     
     image_SBS_finite_diff = dr_render.getLastImage(0);
   }
@@ -1145,7 +1145,7 @@ void diff_render_test_8_optimize_with_lambert()
     dr_preset.spp = 2;
 
     dr_render.SetReference(images_ref, view, proj);
-    dr_render.OptimizeColor(dr_preset, indexed_SBS);
+    dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS);
     
     image_SBS_dr = dr_render.getLastImage(0);
   }
@@ -1230,7 +1230,7 @@ void diff_render_test_9_check_position_derivatives()
     dr::MultiRendererDR dr_render;
     dr_preset.dr_diff_mode = dr::DR_DIFF_MODE_DEFAULT;
     dr_render.SetReference(images_ref, view, proj);
-    dr_render.OptimizeColor(dr_preset, indexed_SBS, false);
+    dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS, false);
     grad_dr = std::vector<float>(dr_render.getLastdLoss_dS() + param_offset, 
                                  dr_render.getLastdLoss_dS() + param_offset + param_count);
     image_res = dr_render.getLastImage(0);
@@ -1240,7 +1240,7 @@ void diff_render_test_9_check_position_derivatives()
     dr::MultiRendererDR dr_render;
     dr_preset.dr_diff_mode = dr::DR_DIFF_MODE_FINITE_DIFF;
     dr_render.SetReference(images_ref, view, proj);
-    dr_render.OptimizeColor(dr_preset, indexed_SBS, false);
+    dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS, false);
     grad_ref = std::vector<float>(dr_render.getLastdLoss_dS() + param_offset, 
                                   dr_render.getLastdLoss_dS() + param_offset + param_count);
     }
@@ -1380,7 +1380,7 @@ void diff_render_test_10_optimize_sdf_finite_derivatives()
   {
     dr::MultiRendererDR dr_render;
     dr_render.SetReference(images_ref, view, proj);
-    dr_render.OptimizeColor(dr_preset, indexed_SBS, false);
+    dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS, false);
     image_res = dr_render.getLastImage(0);
     LiteImage::SaveImage<float4>("saves/test_dr_10_res.bmp", image_res);
   }
@@ -1442,7 +1442,7 @@ void diff_render_test_11_optimize_smallest_scene()
 
     dr::MultiRendererDR dr_render;
     dr_render.SetReference(images_ref, view, proj);
-    dr_render.OptimizeColor(dr_preset, indexed_SBS, false);
+    dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS, false);
     image_res = dr_render.getLastImage(0);
     LiteImage::SaveImage<float4>("saves/test_dr_11_res.bmp", image_res);
   }
@@ -1506,7 +1506,7 @@ void diff_render_test_12_optimize_sphere_mask()
 
     dr::MultiRendererDR dr_render;
     dr_render.SetReference(images_ref, view, proj);
-    dr_render.OptimizeColor(dr_preset, indexed_SBS, false);
+    dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS, false);
     image_res = dr_render.getLastImage(0);
     LiteImage::SaveImage<float4>("saves/test_dr_12_res.bmp", image_res);
   }
@@ -1570,7 +1570,7 @@ void diff_render_test_13_optimize_sphere_diffuse()
 
     dr::MultiRendererDR dr_render;
     dr_render.SetReference(images_ref, view, proj);
-    dr_render.OptimizeColor(dr_preset, indexed_SBS, false);
+    dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS, false);
     image_res = dr_render.getLastImage(0);
     LiteImage::SaveImage<float4>("saves/test_dr_13_res.bmp", image_res);
   }
@@ -1634,7 +1634,7 @@ void diff_render_test_14_optimize_sphere_lambert()
 
     dr::MultiRendererDR dr_render;
     dr_render.SetReference(images_ref, view, proj);
-    dr_render.OptimizeColor(dr_preset, indexed_SBS, false);
+    dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS, false);
     image_res = dr_render.getLastImage(0);
     LiteImage::SaveImage<float4>("saves/test_dr_14_res.bmp", image_res);
   }
@@ -1698,7 +1698,7 @@ void diff_render_test_15_combined_reconstruction()
 
     dr::MultiRendererDR dr_render;
     dr_render.SetReference(images_ref, view, proj);
-    dr_render.OptimizeColor(dr_preset, indexed_SBS, false);
+    dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS, false);
     image_res = dr_render.getLastImage(0);
     LiteImage::SaveImage<float4>("saves/test_dr_15_res.bmp", image_res);
   }
@@ -1763,7 +1763,7 @@ void diff_render_test_16_borders_detection()
     dr::MultiRendererDR dr_render;
     dr_render.SetReference(images_ref, view, proj);
     dr_preset.dr_render_mode = dr::DR_RENDER_MODE_DIFFUSE;
-    dr_render.OptimizeColor(dr_preset, indexed_SBS, false);
+    dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS, false);
     image_res = dr_render.getLastImage(0);
     LiteImage::SaveImage<float4>("saves/test_dr_16_res.bmp", image_res);
   }
@@ -1771,7 +1771,7 @@ void diff_render_test_16_borders_detection()
     dr::MultiRendererDR dr_render;
     dr_render.SetReference(images_ref, view, proj);
     dr_preset.dr_render_mode = dr::DR_DEBUG_RENDER_MODE_BORDER_DETECTION;
-    dr_render.OptimizeColor(dr_preset, indexed_SBS, false);
+    dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS, false);
     image_bdet = dr_render.getLastImage(0);
     LiteImage::SaveImage<float4>("saves/test_dr_16_bdet.bmp", image_bdet);
   }
@@ -1781,7 +1781,7 @@ void diff_render_test_16_borders_detection()
     dr_preset.dr_render_mode = dr::DR_DEBUG_RENDER_MODE_BORDER_INTEGRAL;
     dr_preset.border_color_threshold = -1; // force to calculate border integral in every pixel
     dr_preset.border_depth_threshold = -1;
-    dr_render.OptimizeColor(dr_preset, indexed_SBS, false);
+    dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS, false);
     image_bint = dr_render.getLastImage(0);
     LiteImage::SaveImage<float4>("saves/test_dr_16_bint.bmp", image_bint);
   }
@@ -1874,7 +1874,7 @@ void diff_render_test_17_optimize_bunny()
 
     dr::MultiRendererDR dr_render;
     dr_render.SetReference(images_ref, view, proj);
-    dr_render.OptimizeColor(dr_preset, indexed_SBS, true);
+    dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS, true);
     image_res = dr_render.getLastImage(0);
     LiteImage::SaveImage<float4>("saves/test_dr_17_res.bmp", image_res);
   }
@@ -1939,7 +1939,7 @@ void diff_render_test_18_sphere_depth()
 
     dr::MultiRendererDR dr_render;
     dr_render.SetReference(images_ref, view, proj);
-    dr_render.OptimizeColor(dr_preset, indexed_SBS, true);
+    dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS, true);
     image_res = dr_render.getLastImage(0);
     LiteImage::SaveImage<float4>("saves/test_dr_18_res.bmp", image_res);
   }

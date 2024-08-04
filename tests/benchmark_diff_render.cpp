@@ -68,7 +68,7 @@ void benchmark_iteration_time(dr::MultiRendererDRPreset dr_preset)
   for (int i = 0; i < 3; i++)
   {
   auto t1 = std::chrono::system_clock::now();
-    dr_render.OptimizeColor(dr_preset, indexed_SBS, false);
+    dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS, false);
   auto t2 = std::chrono::system_clock::now();
 
     double time = 1e-9*std::chrono::duration_cast<std::chrono::nanoseconds>(t2 - t1).count();
