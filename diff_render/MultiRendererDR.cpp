@@ -114,7 +114,7 @@ namespace dr
 
   }
 
-  void MultiRendererDR::OptimizeGrid(MultiRendererDRPreset preset, bool verbose)
+  void MultiRendererDR::OptimizeGrid(MultiRendererDRPreset preset)
   {
     unsigned grid_size = 16;
     unsigned grid_steps = 4;
@@ -126,7 +126,7 @@ namespace dr
     
     for (unsigned i = 0; i < grid_steps; i++)
     {
-      OptimizeFixedStructure(preset, grid, verbose);
+      OptimizeFixedStructure(preset, grid);
 
       auto grid_sampler = [&](float3 p){
         unsigned p_count = grid_size*brick_size + 1u;
@@ -160,7 +160,7 @@ namespace dr
     }
   }
 
-  void MultiRendererDR::OptimizeFixedStructure(MultiRendererDRPreset preset, SdfSBS &sbs, bool verbose)
+  void MultiRendererDR::OptimizeFixedStructure(MultiRendererDRPreset preset, SdfSBS &sbs)
   {
     assert(sbs.nodes.size() > 0);
     assert(sbs.values.size() > 0);
@@ -270,15 +270,27 @@ namespace dr
       else
         timeAvg = 0.97f * timeAvg + 0.03f * (time_1 + time_2 + time_3);
 
-      if (verbose && iter % 10 == 0)
+      if (preset.debug_print && iter % preset.debug_print_interval == 0)
       {
         printf("Iter:%4d, loss: %f (%f-%f) ", iter, loss_sum/preset.image_batch_size, loss_min, loss_max);
         printf("%.1f ms/iter (%.1f + %.1f + %.1f) ", (time_1 + time_2 + time_3), time_1, time_2, time_3);
         printf("ETA %.1f s\n", (timeAvg * (preset.opt_iterations - iter - 1)) / 1000.0f);
-        if (iter % 100 == 0)
+      }
+      
+      if (preset.debug_print && 
+          preset.debug_progress_images != DEBUG_PROGRESS_NONE && 
+          iter % preset.debug_progress_interval == 0)
+      {
+        for (int image_id = 0; image_id < images_count; image_id++)
         {
-          for (int image_id = 0; image_id < images_count; image_id++)
-            LiteImage::SaveImage<float4>(("saves/iter_"+std::to_string(iter)+"_"+std::to_string(image_id)+".bmp").c_str(), m_images[image_id]);
+          if (preset.debug_progress_images != DEBUG_PROGRESS_RAW)
+          {
+            auto original_mode = m_preset.render_mode;
+            m_preset.render_mode = preset.debug_progress_images;
+            RenderFloat(m_images[image_id].data(), m_width, m_height, "color");
+            m_preset.render_mode = original_mode;
+          }
+          LiteImage::SaveImage<float4>(("saves/iter_"+std::to_string(iter)+"_"+std::to_string(image_id)+".bmp").c_str(), m_images[image_id]);
         }
       }
     } 

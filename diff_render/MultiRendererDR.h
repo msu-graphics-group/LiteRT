@@ -30,6 +30,11 @@ namespace dr
     preset.opt_iterations = 500;
     preset.image_batch_size = 1;
 
+    preset.debug_print = false;
+    preset.debug_print_interval = 10;
+    preset.debug_progress_images = DEBUG_PROGRESS_RAW;
+    preset.debug_progress_interval = 100;
+
     return preset;
   }
   
@@ -40,8 +45,8 @@ namespace dr
     void SetReference(const std::vector<LiteImage::Image2D<float4>>& images, 
                       const std::vector<LiteMath::float4x4>& worldView, 
                       const std::vector<LiteMath::float4x4>& proj);
-    void OptimizeFixedStructure(MultiRendererDRPreset preset, SdfSBS &sbs, bool verbose = false);
-    void OptimizeGrid(MultiRendererDRPreset preset, bool verbose = false);
+    void OptimizeFixedStructure(MultiRendererDRPreset preset, SdfSBS &sbs);
+    void OptimizeGrid(MultiRendererDRPreset preset);
 
     const LiteImage::Image2D<float4> &getLastImage(unsigned view_id) const { return m_images[view_id]; }
     const float *getLastdLoss_dS() const { return m_dLoss_dS_tmp.data(); }

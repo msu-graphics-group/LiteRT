@@ -97,6 +97,9 @@ namespace dr
   static constexpr unsigned DR_RAY_FLAG_BORDER          = 1 << 3;
   static constexpr unsigned DR_RAY_FLAG_DDIST_DPOS      = 1 << 4;
 
+  static constexpr unsigned DEBUG_PROGRESS_NONE = 1000; //do not save intermediate images with optimization progress
+  static constexpr unsigned DEBUG_PROGRESS_RAW  = 1001; //show intermediate images taken from diff render itself
+
   struct MultiRendererDRPreset
   {
     //main settings, altering the behavior of the renderer
@@ -122,6 +125,12 @@ namespace dr
     float opt_eps;
     unsigned opt_iterations;
     unsigned image_batch_size;
+
+    //debug settings
+    bool debug_print;                //wether to print loss and ETA during optimization or not
+    unsigned debug_print_interval;   //how often to print
+    unsigned debug_progress_images;  //render mode to progress images,either DEBUG_PROGRESS_NONE, DEBUG_PROGRESS_RAW or any MultiRenderMode
+    unsigned debug_progress_interval;//how often to save progress images
   };
 
   void randomize_color(SdfSBS &sbs);
