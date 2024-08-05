@@ -108,10 +108,53 @@ namespace dr
                                      const std::vector<LiteMath::float4x4> &worldView,
                                      const std::vector<LiteMath::float4x4> &proj)
   {
-    m_imagesRef = images;
+    m_imagesRefOriginal = images;
     m_worldViewRef = worldView;
     m_projRef = proj;
+  }
 
+  void MultiRendererDR::PreprocessRefImages(unsigned width, unsigned height, bool to_mask, float3 background_color)
+  {
+    //preprocess reference images (m_imagesRefOriginal) to m_imagesRef, that will be used for optimization
+    m_imagesRef.resize(m_imagesRefOriginal.size());
+    for (unsigned image_n = 0; image_n < m_imagesRefOriginal.size(); image_n++)
+    {
+      //create mask if needed
+      LiteImage::Image2D<float4> mask;
+      if (to_mask)
+      {
+        mask = m_imagesRefOriginal[image_n];
+        for (int i=0;i<m_imagesRefOriginal[image_n].width()*m_imagesRefOriginal[image_n].height();i++)
+        {
+          float3 color = to_float3(m_imagesRefOriginal[image_n].data()[i]);
+          mask.data()[i] = length(color - background_color) < 0.001f ? float4(0,0,0,1) : float4(1,1,1,1);
+        }
+      }
+
+      //get reference image by sampling original (or mask) with default bilinear sampler
+      LiteImage::Sampler sampler = LiteImage::Sampler();
+      sampler.filter = LiteImage::Sampler::Filter::LINEAR;
+      LiteImage::Image2D<float4> &original_image = to_mask ? mask : m_imagesRefOriginal[image_n];
+      unsigned spp_x = ceil(float(original_image.width()) / width);
+      unsigned spp_y = ceil(float(original_image.height()) / height);
+
+      m_imagesRef[image_n] = LiteImage::Image2D<float4>(width, height);
+      for (unsigned y = 0; y < height; y++)
+      {
+        for (unsigned x = 0; x < width; x++)
+        {
+          for (unsigned dx = 0; dx < spp_x; dx++)
+          {
+            for (unsigned dy = 0; dy < spp_y; dy++)
+            {
+              float2 uv = float2(float(spp_x*x + dx) / (spp_x*width), float(spp_y*y + dy) / (spp_y*height));
+              m_imagesRef[image_n].data()[y*width + x] += original_image.sample(sampler, uv) / (spp_x*spp_y);
+            }
+          }
+        }
+      }
+      LiteImage::SaveImage<float4>(("saves/ref_" + std::to_string(image_n) + ".png").c_str(), m_imagesRef[image_n]);
+    }
   }
 
   void MultiRendererDR::OptimizeGrid(MultiRendererDRPreset preset)
@@ -168,15 +211,9 @@ namespace dr
     assert(sbs.header.aux_data == SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F);
     assert(preset.opt_iterations > 0);
     assert(preset.spp > 0);
-    assert(m_imagesRef.size() > 0);
-    assert(m_worldViewRef.size() == m_imagesRef.size());
-    assert(m_projRef.size() == m_imagesRef.size());
-    for (int i = 1; i < m_imagesRef.size(); i++)
-    {
-      assert(m_imagesRef[i].width() == m_imagesRef[0].width());
-      assert(m_imagesRef[i].height() == m_imagesRef[0].height());
-    }
-
+    assert(m_imagesRefOriginal.size() > 0);
+    assert(m_worldViewRef.size() == m_imagesRefOriginal.size());
+    assert(m_projRef.size() == m_imagesRefOriginal.size());
     if (preset.dr_input_type == DR_INPUT_TYPE_LINEAR_DEPTH)
     {
       assert(preset.dr_render_mode == DR_RENDER_MODE_LINEAR_DEPTH);
@@ -196,12 +233,30 @@ namespace dr
     m_preset.render_mode = diff_render_mode_to_multi_render_mode(preset.dr_render_mode);
     m_pAccelStruct->SetPreset(m_preset);
 
-    m_width = m_imagesRef[0].width();
-    m_height = m_imagesRef[0].height();
-    m_images.resize(m_imagesRef.size(), LiteImage::Image2D<float4>(m_width, m_height, float4(0, 0, 0, 1)));
+    if (preset.render_width == 0 || preset.render_height == 0)
+    {
+      for (int i = 1; i < m_imagesRefOriginal.size(); i++)
+      {
+        assert(m_imagesRefOriginal[i].width() == m_imagesRefOriginal[0].width());
+        assert(m_imagesRefOriginal[i].height() == m_imagesRefOriginal[0].height());
+      }
 
+      m_width = m_imagesRefOriginal[0].width();
+      m_height = m_imagesRefOriginal[0].height();
+    }
+    else
+    {
+      m_width = preset.render_width;
+      m_height = preset.render_height;
+    }
+
+    PreprocessRefImages(m_width, m_height, preset.dr_render_mode == DR_RENDER_MODE_MASK);
+
+    m_images.resize(m_imagesRef.size(), LiteImage::Image2D<float4>(m_width, m_height, float4(0, 0, 0, 1)));
     m_pAccelStruct = std::shared_ptr<ISceneObject>(new BVHDR());
+
     SetScene(sbs, true);
+
     float *params = ((BVHDR*)m_pAccelStruct.get())->m_SdfSBSDataF.data();
     unsigned images_count = m_imagesRef.size();
 
@@ -292,7 +347,7 @@ namespace dr
 
             UpdateCamera(m_worldViewRef[image_id], m_projRef[image_id]);
             RenderFloat(m_images[image_id].data(), m_width, m_height, "color");
-            
+
             m_preset.render_mode = original_mode;
             m_pAccelStruct->SetPreset(m_preset);
           }

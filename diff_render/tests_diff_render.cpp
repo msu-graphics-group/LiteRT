@@ -1740,12 +1740,12 @@ void diff_render_test_19_expanding_grid()
   auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "scenes/01_simple_scenes/data/bunny.vsgf").c_str());
   cmesh4::rescale_mesh(mesh, float3(-0.95, -0.95, -0.95), float3(0.95, 0.95, 0.95));
 
-  unsigned W = 256, H = 256;
+  unsigned W = 1024, H = 1024;
 
   MultiRenderPreset preset = getDefaultPreset();
   preset.render_mode = MULTI_RENDER_MODE_MASK;
   //preset.ray_gen_mode = RAY_GEN_MODE_RANDOM;
-  preset.spp = 64;
+  preset.spp = 1;
 
   float4x4 base_proj = LiteMath::perspectiveMatrix(60, 1.0f, 0.01f, 100.0f);
   LiteImage::Image2D<float4> texture = LiteImage::LoadImage<float4>("scenes/porcelain.png");
@@ -1784,6 +1784,8 @@ void diff_render_test_19_expanding_grid()
     dr_preset.spp = 4;
     dr_preset.border_spp = 1024;
     dr_preset.image_batch_size = 4;
+    dr_preset.render_width = 256;
+    dr_preset.render_height = 256;
 
     dr_preset.debug_print = true;
     dr_preset.debug_print_interval = 10;

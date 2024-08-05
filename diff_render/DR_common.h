@@ -109,10 +109,12 @@ namespace dr
     unsigned dr_reconstruction_flags; //enum DRReconstructionFlag
     unsigned dr_input_type;           //enum DRInputType
 
-    // interior integral estimator settings
+    // main parameters
     unsigned spp;
+    unsigned render_width;   // if 0, reference image width is used
+    unsigned render_height;  // if 0, reference image width is used
 
-    // border integral estimator settings
+    // border integral estimator parameters
     unsigned border_spp;
     float border_relax_eps;
     float border_depth_threshold; //practically useless now

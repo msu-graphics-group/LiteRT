@@ -11,6 +11,8 @@ namespace dr
     MultiRendererDRPreset preset;
 
     preset.spp = 1;
+    preset.render_width = 0; //use sizes of reference images
+    preset.render_height = 0;
 
     preset.dr_loss_function = DR_LOSS_FUNCTION_MSE;
     preset.dr_render_mode = DR_RENDER_MODE_DIFFUSE;
@@ -61,7 +63,9 @@ namespace dr
     void CastBorderRay(uint32_t tidX, const float4 *image_ref, LiteMath::float4* out_image, float* out_dLoss_dS);
     float3 CalculateColorWithGrad(const CRT_HitDR &hit, LiteMath::float3x3 &dColor_dDiffuse,
                                   LiteMath::float3x3 &dColor_dNorm);
+    void PreprocessRefImages(unsigned width, unsigned height, bool to_mask, float3 background_color = float3(0,0,0));
 
+    std::vector<LiteImage::Image2D<float4>> m_imagesRefOriginal;
     std::vector<LiteImage::Image2D<float4>> m_imagesRef;
     std::vector<LiteImage::Image2D<float4>> m_images;
     std::vector<LiteMath::float4x4> m_worldViewRef;
