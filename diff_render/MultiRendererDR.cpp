@@ -194,6 +194,7 @@ namespace dr
     m_preset.sdf_node_intersect = SDF_OCTREE_NODE_INTERSECT_NEWTON; //we need newton to minimize calculations for border integral
     m_preset.ray_gen_mode = RAY_GEN_MODE_RANDOM;
     m_preset.render_mode = diff_render_mode_to_multi_render_mode(preset.dr_render_mode);
+    m_pAccelStruct->SetPreset(m_preset);
 
     m_width = m_imagesRef[0].width();
     m_height = m_imagesRef[0].height();
@@ -287,8 +288,13 @@ namespace dr
           {
             auto original_mode = m_preset.render_mode;
             m_preset.render_mode = preset.debug_progress_images;
+            m_pAccelStruct->SetPreset(m_preset);
+
+            UpdateCamera(m_worldViewRef[image_id], m_projRef[image_id]);
             RenderFloat(m_images[image_id].data(), m_width, m_height, "color");
+            
             m_preset.render_mode = original_mode;
+            m_pAccelStruct->SetPreset(m_preset);
           }
           LiteImage::SaveImage<float4>(("saves/iter_"+std::to_string(iter)+"_"+std::to_string(image_id)+".bmp").c_str(), m_images[image_id]);
         }

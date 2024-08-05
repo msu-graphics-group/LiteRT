@@ -1787,7 +1787,7 @@ void diff_render_test_19_expanding_grid()
 
     dr_preset.debug_print = true;
     dr_preset.debug_print_interval = 10;
-    dr_preset.debug_progress_images = MULTI_RENDER_MODE_LAMBERT;
+    dr_preset.debug_progress_images = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
     dr_preset.debug_progress_interval = 100;
 
     MultiRendererDR dr_render;
