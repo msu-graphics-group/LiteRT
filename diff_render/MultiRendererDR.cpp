@@ -1,6 +1,8 @@
 #include "MultiRendererDR.h"
 #include "BVH2DR.h"
+
 #include <omp.h>
+#include <chrono>
 
 using LiteMath::float2;
 using LiteMath::float3;
@@ -205,11 +207,15 @@ namespace dr
     if (debug_pd_images)
       m_imagesDebug.resize(params_count, LiteImage::Image2D<float4>(m_width, m_height, float4(0, 0, 0, 1)));
 
+    float timeAvg = 0.0f;
+
     for (int iter = 0; iter < preset.opt_iterations; iter++)
     {
       float loss_sum = 0;
       float loss_max = -1e6;
       float loss_min = 1e6;
+
+      auto t1 = std::chrono::high_resolution_clock::now();
 
       //render (with multithreading)
       for (int image_iter = 0; image_iter < preset.image_batch_size; image_iter++)
@@ -241,15 +247,7 @@ namespace dr
         loss_min = std::min(loss_min, loss);
       }
 
-      if (verbose && iter % 10 == 0)
-      {
-        printf("Iter:%4d, loss: %f (%f-%f)\n", iter, loss_sum/preset.image_batch_size, loss_min, loss_max);
-        if (iter % 100 == 0)
-        {
-          for (int image_id = 0; image_id < images_count; image_id++)
-            LiteImage::SaveImage<float4>(("saves/iter_"+std::to_string(iter)+"_"+std::to_string(image_id)+".bmp").c_str(), m_images[image_id]);
-        }
-      }
+      auto t2 = std::chrono::high_resolution_clock::now();
 
       //accumulate
       for (int i=1; i< max_threads; i++)
@@ -259,7 +257,30 @@ namespace dr
       for (int j = 0; j < params_count; j++)
         m_dLoss_dS_tmp[j] /= preset.image_batch_size;
 
+      auto t3 = std::chrono::high_resolution_clock::now();
+
       OptimizeStepAdam(iter, m_dLoss_dS_tmp.data(), params, m_Opt_tmp.data(), params_count, preset);
+
+      auto t4 = std::chrono::high_resolution_clock::now();
+      float time_1 = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+      float time_2 = std::chrono::duration_cast<std::chrono::milliseconds>(t3 - t2).count();
+      float time_3 = std::chrono::duration_cast<std::chrono::milliseconds>(t4 - t3).count();
+      if (iter == 0)
+        timeAvg = time_1 + time_2 + time_3;
+      else
+        timeAvg = 0.97f * timeAvg + 0.03f * (time_1 + time_2 + time_3);
+
+      if (verbose && iter % 10 == 0)
+      {
+        printf("Iter:%4d, loss: %f (%f-%f) ", iter, loss_sum/preset.image_batch_size, loss_min, loss_max);
+        printf("%.1f ms/iter (%.1f + %.1f + %.1f) ", (time_1 + time_2 + time_3), time_1, time_2, time_3);
+        printf("ETA %.1f s\n", (timeAvg * (preset.opt_iterations - iter - 1)) / 1000.0f);
+        if (iter % 100 == 0)
+        {
+          for (int image_id = 0; image_id < images_count; image_id++)
+            LiteImage::SaveImage<float4>(("saves/iter_"+std::to_string(iter)+"_"+std::to_string(image_id)+".bmp").c_str(), m_images[image_id]);
+        }
+      }
     } 
 
     if  (debug_pd_images && preset.dr_diff_mode == DR_DIFF_MODE_DEFAULT)
