@@ -1750,7 +1750,7 @@ void diff_render_test_19_expanding_grid()
   float4x4 base_proj = LiteMath::perspectiveMatrix(60, 1.0f, 0.01f, 100.0f);
   LiteImage::Image2D<float4> texture = LiteImage::LoadImage<float4>("scenes/porcelain.png");
 
-  std::vector<float4x4> view = get_cameras_uniform_sphere(16, float3(0, 0, 0), 4.0f);
+  std::vector<float4x4> view = get_cameras_uniform_sphere(32, float3(0, 0, 0), 4.0f);
   std::vector<float4x4> proj(view.size(), base_proj);
 
   std::vector<LiteImage::Image2D<float4>> images_ref(view.size(), LiteImage::Image2D<float4>(W, H));
@@ -1786,9 +1786,9 @@ void diff_render_test_19_expanding_grid()
     dr_preset.image_batch_size = 4;
 
     dr_preset.debug_print = true;
-    dr_preset.debug_print_interval = 5;
+    dr_preset.debug_print_interval = 10;
     dr_preset.debug_progress_images = MULTI_RENDER_MODE_LAMBERT;
-    dr_preset.debug_progress_interval = 50;
+    dr_preset.debug_progress_interval = 100;
 
     MultiRendererDR dr_render;
     dr_render.SetReference(images_ref, view, proj);

@@ -331,7 +331,6 @@ namespace dr
     //II - find border pixels
     m_borderPixels.resize(0);
     const int search_radius = 1;
-    const float border_threshold = m_preset_dr.border_depth_threshold;
     for (int i = 0; i < m_width * m_height; i++)
     {
       if (i >= m_packedXY.size())
@@ -344,6 +343,8 @@ namespace dr
       if (x < search_radius || x >= m_width - search_radius || y <= search_radius || y >= m_height - search_radius)
         continue;
       
+      //finding external borders nearby (borders with background)
+      //TODO: find internal borders
       float d0 = out_image[y*m_width + x].w;
       float max_diff = 0.0f;
 
@@ -364,9 +365,10 @@ namespace dr
 
       float ref_color_diff = length(to_float3(out_image[y*m_width + x]) - to_float3(image_ref[y*m_width + x]));
 
-      if (max_diff > border_threshold && 
-          ref_color_diff > m_preset_dr.border_color_threshold &&
-          max_color_diff > m_preset_dr.border_color_threshold)
+      if (max_diff > 0)// && 
+      // only outer borders, so no reason to check colors
+      //    ref_color_diff > m_preset_dr.border_color_threshold &&
+      //    max_color_diff > m_preset_dr.border_color_threshold)
       {
         m_borderPixels.push_back(i);
       }
@@ -576,15 +578,14 @@ namespace dr
     const uint y  = (XY & 0xFFFF0000) >> 16;
     
     float3 res_color = float3(0,0,0);
-    float tMin = 1e10f;
     float res_loss = 0.0f;
+    int hit_count = 0;
+
     uint32_t spp_sqrt = uint32_t(sqrt(m_preset.spp));
     float i_spp_sqrt = 1.0f/spp_sqrt;
-
     const float3 background_color = float3(0.0f, 0.0f, 0.0f);
 
     uint32_t ray_flags;
-
     if (m_preset_dr.dr_diff_mode == DR_DIFF_MODE_FINITE_DIFF)
     {
       ray_flags = DR_RAY_FLAG_NO_DIFF;
@@ -632,6 +633,7 @@ namespace dr
       }
       else
       {
+        hit_count++;
         color = CalculateColorWithGrad(hit, dColor_dDiffuse, dColor_dNorm);
         dLoss_dColor = LossGrad(m_preset_dr.dr_loss_function, color, to_float3(image_ref[y * m_width + x]));
 
@@ -679,12 +681,11 @@ namespace dr
       }
 
       res_color += color / m_preset.spp;
-      tMin = min(tMin, hit.t);
 
       float loss          = Loss(m_preset_dr.dr_loss_function, color, to_float3(image_ref[y * m_width + x]));
       res_loss += loss / m_preset.spp;
     }
-    out_image[y * m_width + x] = float4(res_color.x, res_color.y, res_color.z, tMin);
+    out_image[y * m_width + x] = float4(res_color.x, res_color.y, res_color.z, (float)hit_count/m_preset.spp);
 
     return res_loss;
   }
@@ -728,7 +729,10 @@ namespace dr
         float3 color_delta = float3(0,0,0);
         if (m_preset_dr.dr_input_type == DR_INPUT_TYPE_COLOR)
         {
-          color_delta = relax_pt.f_in - relax_pt.f_out;
+          if (relax_pt.t != 0 && hit.primId == 0xFFFFFFFF) //border with background
+            color_delta = float3(1,1,1);
+          else
+            color_delta = relax_pt.f_in - relax_pt.f_out;
         }
         else if (m_preset_dr.dr_input_type == DR_INPUT_TYPE_LINEAR_DEPTH)
         {

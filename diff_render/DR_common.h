@@ -115,7 +115,7 @@ namespace dr
     // border integral estimator settings
     unsigned border_spp;
     float border_relax_eps;
-    float border_depth_threshold;
+    float border_depth_threshold; //practically useless now
     float border_color_threshold;
 
     //optimization parameters (Adam optimizer)
