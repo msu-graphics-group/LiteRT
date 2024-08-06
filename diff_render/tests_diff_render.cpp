@@ -1801,9 +1801,10 @@ void diff_render_test_19_expanding_grid()
 
     MultiRendererDR dr_render;
     dr_render.SetReference(images_ref, view, proj);
-    dr_render.OptimizeGrid(32, true, {dr_preset, dr_preset_c});
-    dr_render.UpdateCamera(view[0], proj[0]);
+    dr_render.OptimizeGrid(32, true, {dr_preset});
     dr_render.SetViewport(0, 0, W, H);
+    dr_render.UpdateCamera(view[0], proj[0]);
+    dr_render.Clear(W, H, "color");
     dr_render.RenderFloat(image_res.data(), W, H, "color", 1);
     LiteImage::SaveImage<float4>("saves/test_dr_19_res.bmp", image_res);
   }
