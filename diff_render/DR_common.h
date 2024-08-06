@@ -133,6 +133,11 @@ namespace dr
     unsigned debug_print_interval;   //how often to print
     unsigned debug_progress_images;  //render mode to progress images,either DEBUG_PROGRESS_NONE, DEBUG_PROGRESS_RAW or any MultiRenderMode
     unsigned debug_progress_interval;//how often to save progress images
+    
+    //very heavy and specific debug modes. You probably shouldn't use them on a regular scene
+    bool debug_pd_images;
+    bool debug_border_samples;
+    bool debug_border_samples_mega_image;
   };
 
   void randomize_color(SdfSBS &sbs);

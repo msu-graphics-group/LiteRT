@@ -1,5 +1,6 @@
 #include "MultiRendererDR.h"
 #include "BVH2DR.h"
+#include "utils/points_visualizer.h"
 
 #include <omp.h>
 #include <chrono>
@@ -264,8 +265,11 @@ namespace dr
     float *params = ((BVHDR*)m_pAccelStruct.get())->m_SdfSBSDataF.data();
     unsigned images_count = m_imagesRef.size();
 
-    if (debug_pd_images)
+    if (preset.debug_pd_images)
       m_imagesDebug.resize(params_count, LiteImage::Image2D<float4>(m_width, m_height, float4(0, 0, 0, 1)));
+    
+    if (preset.debug_border_samples_mega_image)
+      samples_mega_image.resize(m_width*MEGA_PIXEL_SIZE, m_height*MEGA_PIXEL_SIZE);
 
     float timeAvg = 0.0f;
 
@@ -360,7 +364,7 @@ namespace dr
       }
     } 
 
-    if  (debug_pd_images && preset.dr_diff_mode == DR_DIFF_MODE_DEFAULT)
+    if  (preset.debug_pd_images && preset.dr_diff_mode == DR_DIFF_MODE_DEFAULT)
     {
       for (int i = 0; i < params_count; i++)
       {
@@ -379,9 +383,15 @@ namespace dr
   float MultiRendererDR::RenderDR(const float4 *image_ref, LiteMath::float4 *out_image,
                                   float *out_dLoss_dS, unsigned params_count)
   {
-    unsigned max_threads = omp_get_max_threads();
+    bool use_multithreading = !(m_preset_dr.debug_border_samples || 
+                                m_preset_dr.debug_pd_images ||
+                                m_preset_dr.debug_border_samples_mega_image);
+
+    unsigned max_threads = use_multithreading ? omp_get_max_threads() : 1;
     unsigned steps = (m_width * m_height + max_threads - 1)/max_threads;
     std::vector<double> loss_v(max_threads, 0.0f);
+
+    omp_set_num_threads(max_threads);
 
     //I - render image, calculate internal derivatives
     #pragma omp parallel for
@@ -439,6 +449,21 @@ namespace dr
       }
     }
 
+    if (m_preset_dr.debug_border_samples_mega_image)
+    {
+      unsigned sw = samples_mega_image.width(), sh = samples_mega_image.height();
+      unsigned wmult = sw/m_width, hmult = sh/m_height;
+      for (int h = 0; h < m_height; h++)
+      {
+        for (int w = 0; w < m_width; w++)
+        {
+          for (int y = 0; y < hmult; y++)
+            for (int x = 0; x < wmult; x++)
+              samples_mega_image.data()[(h*hmult + y)*sw + w*wmult + x] = out_image[h*m_width + w];
+        }
+      }
+    }
+
     //III - calculate border intergral on border pixels
     if (m_borderPixels.size() > 0 && m_preset_dr.dr_diff_mode == DR_DIFF_MODE_DEFAULT &&
         (m_preset_dr.dr_reconstruction_flags & DR_RECONSTRUCTION_FLAG_GEOMETRY))
@@ -474,6 +499,8 @@ namespace dr
     for (auto &l : loss_v)
       loss += l;
     
+    omp_set_num_threads(omp_get_max_threads());
+
     return loss/(m_width * m_height);
   }
 
@@ -521,7 +548,7 @@ namespace dr
       //loss_minus /= m_width * m_height;
       //printf("loss_plus = %f, loss_minus = %f\n", loss_plus, loss_minus);
 
-      if (debug_pd_images)
+      if (m_preset_dr.debug_pd_images)
       {
         LiteImage::SaveImage<float4>(("saves/PD_"+std::to_string(i)+"_1.bmp").c_str(), image_1);
         LiteImage::SaveImage<float4>(("saves/PD_"+std::to_string(i)+"_2.bmp").c_str(), image_2);
@@ -711,7 +738,7 @@ namespace dr
             out_dLoss_dS[pd.index + 1] += diff.y / m_preset.spp;
             out_dLoss_dS[pd.index + 2] += diff.z / m_preset.spp;
 
-            if (debug_pd_images)
+            if (m_preset_dr.debug_pd_images)
             {
               m_imagesDebug[pd.index + 0].data()[y * m_width + x] += (diff.x / m_preset.spp) * float4(1,1,1,0);
               m_imagesDebug[pd.index + 1].data()[y * m_width + x] += (diff.y / m_preset.spp) * float4(1,1,1,0);
@@ -727,7 +754,7 @@ namespace dr
             float diff = dot(dLoss_dColor, dColor_dDiffuse * pd.dDiffuse + dColor_dNorm * pd.dNorm);
             out_dLoss_dS[pd.index] += diff / m_preset.spp;
 
-            if (debug_pd_images)
+            if (m_preset_dr.debug_pd_images)
               m_imagesDebug[pd.index].data()[y * m_width + x] += (diff / m_preset.spp) * float4(1,1,1,0);
           }
         }
@@ -739,7 +766,7 @@ namespace dr
             float diff = dot(dLoss_dColor, float3(pd.dDist)) / (z_far - z_near);
             out_dLoss_dS[pd.index] += diff / m_preset.spp;
             
-            if (debug_pd_images)
+            if (m_preset_dr.debug_pd_images)
               m_imagesDebug[pd.index].data()[y * m_width + x] += (diff / m_preset.spp) * float4(1,1,1,0);
           }
         }
@@ -775,8 +802,15 @@ namespace dr
     
     float total_diff = 0.0f;
 
+    if (m_preset_dr.debug_border_samples || m_preset_dr.debug_border_samples_mega_image)
+    {
+      samples_debug_color.resize(border_spp, float4(0,0,0,0));
+      samples_debug_pos_size.resize(border_spp, float4(0,0,0,0));
+    }
+
     for (int sample_id = 0; sample_id < border_spp; sample_id++)
     {
+      float pixel_diff = 0.0f;
       PDShape relax_pt{
           .f_in = background_color,
           .t = 0.f,
@@ -812,9 +846,39 @@ namespace dr
           out_dLoss_dS[relax_pt.indices[j]] += diff / border_spp;
 
           total_diff += abs(diff) / border_spp;
-          if (debug_pd_images)
+          pixel_diff += length((1.0f / relax_eps) * relax_pt.dSDF_dtheta[j] * (relax_pt.f_in - relax_pt.f_out));
+          if (m_preset_dr.debug_pd_images)
             m_imagesDebug[relax_pt.indices[j]].data()[y * m_width + x] += (diff / border_spp) * float4(1, 1, 1, 0);
         }
+      }
+
+
+      if (m_preset_dr.debug_border_samples || m_preset_dr.debug_border_samples_mega_image)
+      {
+        samples_debug_pos_size[sample_id] = float4(d.x, d.y, 0, 2.0f/MEGA_PIXEL_SIZE);
+        if (relax_pt.sdf < relax_eps && abs(pixel_diff) > 0.01f) //border
+          samples_debug_color[sample_id] = float4(0, 0, 0.1*abs(pixel_diff), 1);
+        else if (hit.primId == 0xFFFFFFFF) //background
+          samples_debug_color[sample_id] = float4(0.05, 0.05, 0.05, 1);
+        else //hit
+          samples_debug_color[sample_id] = float4(1, 0, 0, 1);
+      }
+    }
+
+    if (m_preset_dr.debug_border_samples || m_preset_dr.debug_border_samples_mega_image)
+    {
+      unsigned sw = samples_mega_image.width(), sh = samples_mega_image.height();
+      unsigned wmult = sw/m_width, hmult = sh/m_height;
+      LiteImage::Image2D<float4> debug_image(wmult, hmult);
+      draw_points(samples_debug_pos_size, samples_debug_color, debug_image);
+      if (tidX % 10 == 0)
+        LiteImage::SaveImage(("saves/debug_border"+std::to_string(x)+"_"+std::to_string(y)+".png").c_str(), debug_image);
+      
+      if (m_preset_dr.debug_border_samples_mega_image)
+      {
+        for (int dy = 0; dy < hmult; dy++)
+          for (int dx = 0; dx < wmult; dx++)
+            samples_mega_image.data()[(y*hmult + dy) * sw + (x*wmult + dx)] = debug_image.data()[dy * wmult + dx];
       }
     }
 

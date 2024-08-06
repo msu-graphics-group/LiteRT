@@ -37,6 +37,10 @@ namespace dr
     preset.debug_progress_images = DEBUG_PROGRESS_RAW;
     preset.debug_progress_interval = 100;
 
+    preset.debug_pd_images = false;
+    preset.debug_border_samples = false;
+    preset.debug_border_samples_mega_image = false;
+
     return preset;
   }
   
@@ -52,7 +56,6 @@ namespace dr
 
     const LiteImage::Image2D<float4> &getLastImage(unsigned view_id) const { return m_images[view_id]; }
     const float *getLastdLoss_dS() const { return m_dLoss_dS_tmp.data(); }
-    void set_debug_mode(bool enable) { debug_pd_images = enable; }
 
   protected:
     float RenderDR(const float4 *image_ref, LiteMath::float4* out_image, float *out_dLoss_dS, unsigned params_count);
@@ -76,6 +79,10 @@ namespace dr
     MultiRendererDRPreset m_preset_dr;
 
     std::vector<LiteImage::Image2D<float4>> m_imagesDebug;
-    bool debug_pd_images = false;
+    std::vector<float4> samples_debug_color;
+    std::vector<float4> samples_debug_pos_size;
+  public:
+    static constexpr unsigned MEGA_PIXEL_SIZE = 128;
+    LiteImage::Image2D<float4> samples_mega_image;
   };
 }
