@@ -157,10 +157,10 @@ namespace dr
     }
   }
 
-  void MultiRendererDR::OptimizeGrid(MultiRendererDRPreset preset)
+  void MultiRendererDR::OptimizeGrid(unsigned start_grid_size, bool no_last_step_resize, std::vector<MultiRendererDRPreset> presets)
   {
-    unsigned grid_size = 16;
-    unsigned grid_steps = 4;
+    unsigned grid_size = start_grid_size;
+    unsigned grid_steps = presets.size();
     unsigned brick_size = 1;
 
     auto grid =  create_grid_sbs(grid_size, brick_size, 
@@ -169,7 +169,7 @@ namespace dr
     
     for (unsigned i = 0; i < grid_steps; i++)
     {
-      OptimizeFixedStructure(preset, grid);
+      OptimizeFixedStructure(presets[i], grid);
 
       auto grid_sampler = [&](float3 p){
         unsigned p_count = grid_size*brick_size + 1u;
@@ -196,7 +196,11 @@ namespace dr
 
       };
 
-      unsigned new_brick_size = 2*brick_size;
+      unsigned new_brick_size;
+      if (i == grid_steps-1 && no_last_step_resize) 
+        new_brick_size = brick_size; 
+      else 
+        new_brick_size = 2*brick_size;
       auto new_grid = create_grid_sbs(grid_size, new_brick_size, grid_sampler, gradient_color);
       brick_size = new_brick_size;
       grid = new_grid;

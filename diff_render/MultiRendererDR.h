@@ -48,7 +48,7 @@ namespace dr
                       const std::vector<LiteMath::float4x4>& worldView, 
                       const std::vector<LiteMath::float4x4>& proj);
     void OptimizeFixedStructure(MultiRendererDRPreset preset, SdfSBS &sbs);
-    void OptimizeGrid(MultiRendererDRPreset preset);
+    void OptimizeGrid(unsigned start_grid_size, bool no_last_step_resize, std::vector<MultiRendererDRPreset> presets);
 
     const LiteImage::Image2D<float4> &getLastImage(unsigned view_id) const { return m_images[view_id]; }
     const float *getLastdLoss_dS() const { return m_dLoss_dS_tmp.data(); }
