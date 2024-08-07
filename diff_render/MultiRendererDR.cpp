@@ -980,15 +980,14 @@ namespace dr
     const float3 background_color = float3(0.0f, 0.0f, 0.0f);
 
     const unsigned svm_spp = std::max(1u, (unsigned)(svm_samples_budget*m_preset_dr.border_spp));
-    const unsigned border_spp = std::max(1u, m_preset_dr.border_spp - svm_spp);
     const float3 dLoss_dColor = LossGrad(m_preset_dr.dr_loss_function, to_float3(out_image[y * m_width + x]), to_float3(image_ref[y * m_width + x]));
     
     float total_diff = 0.0f;
 
     if (m_preset_dr.debug_border_samples || m_preset_dr.debug_border_samples_mega_image)
     {
-      samples_debug_color.resize(svm_spp + border_spp, float4(0,0,0,0));
-      samples_debug_pos_size.resize(svm_spp + border_spp, float4(0,0,0,0));
+      samples_debug_color.resize(m_preset_dr.border_spp, float4(0,0,0,0));
+      samples_debug_pos_size.resize(m_preset_dr.border_spp, float4(0,0,0,0));
     }
 
     //step 1: cast some rays to provide data for SVM
@@ -1030,7 +1029,10 @@ namespace dr
     bool force_random_ray_cast = false;
     //if error rate is too high, force random ray cast
     if (error_rate > max_error_rate)
+    {
       force_random_ray_cast = true;
+      stripe_area = 1.0f;
+    }
     else
     {
       if (abs(W.y) > 1e-6f && abs(W.x) > 1e-6f)
@@ -1075,6 +1077,10 @@ namespace dr
       if (stripe_area < min_stripe_area)
         return;
     }
+    
+    //number of border samples is proportional to stripe area
+    float area_mult = std::min(1.0f, 0.05f + 2.0f*stripe_area);
+    const unsigned border_spp = std::max(1u, (unsigned)(area_mult*(m_preset_dr.border_spp - svm_spp)));
 
     //step 3: cast rays alongside border
     for (int sample_id = svm_spp; sample_id < svm_spp + border_spp; sample_id++)
