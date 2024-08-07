@@ -786,16 +786,16 @@ namespace dr
 
               for (int dim = 0; dim < 3; ++dim)
                 if (ldistance[dim] > 0.f && ldistance[dim] < Infin)
-                    dsum += 1.f / (ldistance[dim] * ldistance[dim]);
+                  dsum += 1.f / (ldistance[dim] * ldistance[dim]);
 
-                    dsum = std::sqrt(1.f / dsum);
-                    if (dist_val < 0.f)
-                      dsum *= -1.f;
+              dsum = std::sqrt(1.f / dsum);
+              if (dist_val < 0.f)
+                dsum *= -1.f;
 
-                    dist_bord[0][ind_in_lin] = dsum;
-                    dist_bord[1][ind_in_lin] = dsum;
+              dist_bord[0][ind_in_lin] = dsum;
+              dist_bord[1][ind_in_lin] = dsum;
 
-                    frozen[ind_in_lin] = true;
+              frozen[ind_in_lin] = true;
             }
           }
         }
@@ -840,7 +840,9 @@ namespace dr
 
               int3 ind_in{ i, j, k };
               uint32_t ind_in_lin = ind_in.x * axes_offsets.x + ind_in.y * axes_offsets.y + ind_in.z;
-              if (frozen[ind_in_lin] || dist_bord[1 - curr_arr_ind][ind_in_lin] != big_active_const) continue;
+
+              dist_bord[curr_arr_ind][ind_in_lin] = dist_bord[1 - curr_arr_ind][ind_in_lin];
+              if (frozen[ind_in_lin] || dist_bord[curr_arr_ind][ind_in_lin] != big_active_const) continue;
 
               float3 axes_mins{big_active_const, big_active_const, big_active_const};
 
