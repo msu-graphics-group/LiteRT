@@ -1002,18 +1002,31 @@ void diff_render_test_9_check_position_derivatives()
     //printf("delta = %f\n", delta);
     //__delta = delta;
 
-    std::vector<float> grad_dr(param_count, 0);
+    std::vector<float> grad_dr_1(param_count, 0);
+    std::vector<float> grad_dr_2(param_count, 0);
     std::vector<float> grad_ref(param_count, 0);
 
     {
     MultiRendererDR dr_render;
     dr_preset.dr_diff_mode = DR_DIFF_MODE_DEFAULT;
+    dr_preset.dr_border_sampling = DR_BORDER_SAMPLING_RANDOM;
     dr_render.SetReference(images_ref, view, proj);
     dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS);
-    grad_dr = std::vector<float>(dr_render.getLastdLoss_dS() + param_offset, 
-                                 dr_render.getLastdLoss_dS() + param_offset + param_count);
+    grad_dr_1 = std::vector<float>(dr_render.getLastdLoss_dS() + param_offset, 
+                                   dr_render.getLastdLoss_dS() + param_offset + param_count);
     image_res = dr_render.getLastImage(0);
     LiteImage::SaveImage<float4>("saves/test_dr_9_res.bmp", image_res); 
+    }
+    {
+    MultiRendererDR dr_render;
+    dr_preset.dr_diff_mode = DR_DIFF_MODE_DEFAULT;
+    dr_preset.dr_border_sampling = DR_BORDER_SAMPLING_SVM;
+    dr_render.SetReference(images_ref, view, proj);
+    dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS);
+    grad_dr_2 = std::vector<float>(dr_render.getLastdLoss_dS() + param_offset, 
+                                   dr_render.getLastdLoss_dS() + param_offset + param_count);
+    image_res = dr_render.getLastImage(0);
+    LiteImage::SaveImage<float4>("saves/test_dr_9_res_2.bmp", image_res); 
     }
     {
     MultiRendererDR dr_render;
@@ -1024,86 +1037,88 @@ void diff_render_test_9_check_position_derivatives()
                                   dr_render.getLastdLoss_dS() + param_offset + param_count);
     }
 
-    long double average_1 = 0;
-    long double abs_average_1 = 0;
-    long double average_2 = 0;
-    long double abs_average_2 = 0;
-    long double diff = 0;
-    long double abs_diff = 0;
-    for (int i = 0; i < param_count; i++)
-    {
-      average_1 += grad_ref[i];
-      abs_average_1 += abs(grad_ref[i]);
-      average_2 += grad_dr[i];
-      abs_average_2 += abs(grad_dr[i]);
-      diff += abs(grad_ref[i] - grad_dr[i]);
-      abs_diff += abs(grad_ref[i] - grad_dr[i]);
-    }
-    average_1 /= param_count;
-    abs_average_1 /= param_count;
-    average_2 /= param_count;
-    abs_average_2 /= param_count;
-    diff /= param_count;
-    abs_diff /= param_count;
-
-    printf("[");
-    for (int i = 0; i < param_count; i++)
-      printf("%8.3f ", grad_ref[i]);
-    printf("]\n");
-
-    printf("[");
-    for (int i = 0; i < param_count; i++)
-      printf("%8.3f ", grad_dr[i]);
-    printf("]\n");
-
-    //image_SBS_single = dr_render.getLastImage(0);
-    float average_error = abs(abs_average_2 - abs_average_1) / (abs_average_1 + abs_average_2);
-    float average_bias = abs(average_2 - average_1) / (abs_average_1 + abs_average_2);
-    float max_error = 0;
-    float average_error_2 = 0;
-    float average_bias_2 = 0;
-    for (int i = 0; i < param_count; i++)
-    {
-      float error = abs(grad_dr[i] - grad_ref[i]) / (abs_average_1 + abs_average_2);
-      float bias = (grad_dr[i] - grad_ref[i]) / (abs_average_1 + abs_average_2);
-      max_error = max(max_error, error);
-      average_error_2 += error;
-      average_bias_2 += bias;
-    }
-    average_error_2 /= param_count;
-    average_bias_2 /= param_count;
-
     printf("TEST 9. Check position derivatives\n");
-  
-    printf(" 9.1. %-64s", "Relative difference in average PD value");
-    if (average_error <= 0.1f)
-      printf("passed    (%f)\n", average_error);
-    else
-      printf("FAILED, average_error = %f\n", average_error);
+    for (auto &grad_dr : {grad_dr_1, grad_dr_2})
+    {
+      long double average_1 = 0;
+      long double abs_average_1 = 0;
+      long double average_2 = 0;
+      long double abs_average_2 = 0;
+      long double diff = 0;
+      long double abs_diff = 0;
+      for (int i = 0; i < param_count; i++)
+      {
+        average_1 += grad_ref[i];
+        abs_average_1 += abs(grad_ref[i]);
+        average_2 += grad_dr[i];
+        abs_average_2 += abs(grad_dr[i]);
+        diff += abs(grad_ref[i] - grad_dr[i]);
+        abs_diff += abs(grad_ref[i] - grad_dr[i]);
+      }
+      average_1 /= param_count;
+      abs_average_1 /= param_count;
+      average_2 /= param_count;
+      abs_average_2 /= param_count;
+      diff /= param_count;
+      abs_diff /= param_count;
+
+      printf("[");
+      for (int i = 0; i < param_count; i++)
+        printf("%8.3f ", grad_ref[i]);
+      printf("]\n");
+
+      printf("[");
+      for (int i = 0; i < param_count; i++)
+        printf("%8.3f ", grad_dr[i]);
+      printf("]\n");
+
+      //image_SBS_single = dr_render.getLastImage(0);
+      float average_error = abs(abs_average_2 - abs_average_1) / (abs_average_1 + abs_average_2);
+      float average_bias = abs(average_2 - average_1) / (abs_average_1 + abs_average_2);
+      float max_error = 0;
+      float average_error_2 = 0;
+      float average_bias_2 = 0;
+      for (int i = 0; i < param_count; i++)
+      {
+        float error = abs(grad_dr[i] - grad_ref[i]) / (abs_average_1 + abs_average_2);
+        float bias = (grad_dr[i] - grad_ref[i]) / (abs_average_1 + abs_average_2);
+        max_error = max(max_error, error);
+        average_error_2 += error;
+        average_bias_2 += bias;
+      }
+      average_error_2 /= param_count;
+      average_bias_2 /= param_count;
     
-    printf(" 9.2. %-64s", "Relative bias in average PD");
-    if (average_bias <= 0.1f)
-      printf("passed    (%f)\n", average_bias);
-    else
-      printf("FAILED, average_bias = %f\n", average_bias);
-    
-    printf(" 9.3. %-64s", "Max relative difference in PD value");
-    if (max_error <= 2)
-      printf("passed    (%f)\n", max_error);
-    else
-      printf("FAILED, max_error = %f\n", max_error);
-    
-    printf(" 9.4. %-64s", "Average relative difference in PD value");
-    if (average_error_2 <= 0.1f)
-      printf("passed    (%f)\n", average_error_2);
-    else
-      printf("FAILED, average_error = %f\n", average_error_2);
-    
-    printf(" 9.5. %-64s", "Average relative bias in PD");
-    if (abs(average_bias_2) <= 0.1f)
-      printf("passed    (%f)\n", average_bias_2);
-    else
-      printf("FAILED, average_bias = %f\n", average_bias_2);
+      printf(" 9.1. %-64s", "Relative difference in average PD value");
+      if (average_error <= 0.1f)
+        printf("passed    (%f)\n", average_error);
+      else
+        printf("FAILED, average_error = %f\n", average_error);
+      
+      printf(" 9.2. %-64s", "Relative bias in average PD");
+      if (average_bias <= 0.1f)
+        printf("passed    (%f)\n", average_bias);
+      else
+        printf("FAILED, average_bias = %f\n", average_bias);
+      
+      printf(" 9.3. %-64s", "Max relative difference in PD value");
+      if (max_error <= 2)
+        printf("passed    (%f)\n", max_error);
+      else
+        printf("FAILED, max_error = %f\n", max_error);
+      
+      printf(" 9.4. %-64s", "Average relative difference in PD value");
+      if (average_error_2 <= 0.1f)
+        printf("passed    (%f)\n", average_error_2);
+      else
+        printf("FAILED, average_error = %f\n", average_error_2);
+      
+      printf(" 9.5. %-64s", "Average relative bias in PD");
+      if (abs(average_bias_2) <= 0.1f)
+        printf("passed    (%f)\n", average_bias_2);
+      else
+        printf("FAILED, average_bias = %f\n", average_bias_2);
+    }
   }
 }
 

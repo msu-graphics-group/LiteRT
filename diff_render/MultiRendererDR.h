@@ -19,6 +19,7 @@ namespace dr
     preset.dr_diff_mode = DR_DIFF_MODE_DEFAULT;
     preset.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_COLOR;
     preset.dr_input_type = DR_INPUT_TYPE_COLOR;
+    preset.dr_border_sampling = DR_BORDER_SAMPLING_RANDOM;
 
     preset.border_spp = 256;
     preset.border_relax_eps = 3e-4f;
@@ -64,6 +65,7 @@ namespace dr
     void OptimizeStepAdam(unsigned iter, const float* dX, float *X, float *tmp, unsigned size, MultiRendererDRPreset preset);
     float CastRayWithGrad(uint32_t tidX, const float4 *image_ref, LiteMath::float4* out_image, float* out_dLoss_dS);
     void CastBorderRay(uint32_t tidX, const float4 *image_ref, LiteMath::float4* out_image, float* out_dLoss_dS);
+    void CastBorderRaySVM(uint32_t tidX, const float4 *image_ref, LiteMath::float4* out_image, float* out_dLoss_dS);
     float3 CalculateColorWithGrad(const CRT_HitDR &hit, LiteMath::float3x3 &dColor_dDiffuse,
                                   LiteMath::float3x3 &dColor_dNorm);
     void PreprocessRefImages(unsigned width, unsigned height, bool to_mask, float3 background_color = float3(0,0,0));
@@ -82,7 +84,7 @@ namespace dr
     std::vector<float4> samples_debug_color;
     std::vector<float4> samples_debug_pos_size;
   public:
-    static constexpr unsigned MEGA_PIXEL_SIZE = 128;
+    static constexpr unsigned MEGA_PIXEL_SIZE = 512;
     LiteImage::Image2D<float4> samples_mega_image;
   };
 }

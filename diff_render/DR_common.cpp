@@ -7,7 +7,7 @@
 
 namespace dr
 {
-  double urand(double from=0, double to=1)
+  static double urand(double from=0, double to=1)
   {
     return ((double)rand() / RAND_MAX) * (to - from) + from;
   }

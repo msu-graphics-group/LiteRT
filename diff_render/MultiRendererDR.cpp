@@ -20,6 +20,12 @@ namespace dr
   static constexpr float z_near = 0.1;
   static constexpr float z_far = 10;
 
+
+  static float urand(float from=0, float to=1)
+  {
+    return ((double)rand() / RAND_MAX) * (to - from) + from;
+  }
+
   static float linear_to_absolute_depth(float lz)
   {
     return lz * (z_far - z_near) + z_near;
@@ -451,8 +457,8 @@ namespace dr
 
     if (m_preset_dr.debug_border_samples_mega_image)
     {
-      unsigned sw = samples_mega_image.width(), sh = samples_mega_image.height();
-      unsigned wmult = sw/m_width, hmult = sh/m_height;
+      unsigned wmult = MEGA_PIXEL_SIZE, hmult = MEGA_PIXEL_SIZE;
+      unsigned sw = m_width * wmult, sh = m_height * hmult;
       for (int h = 0; h < m_height; h++)
       {
         for (int w = 0; w < m_width; w++)
@@ -469,13 +475,28 @@ namespace dr
         (m_preset_dr.dr_reconstruction_flags & DR_RECONSTRUCTION_FLAG_GEOMETRY))
     {
       unsigned border_steps = (m_borderPixels.size() + max_threads - 1)/max_threads;
-      #pragma omp parallel for
-      for (int thread_id = 0; thread_id < max_threads; thread_id++)
+
+      if (m_preset_dr.dr_border_sampling == DR_BORDER_SAMPLING_RANDOM)
       {
-        unsigned start = thread_id * border_steps;
-        unsigned end = std::min((thread_id + 1) * border_steps, (unsigned)m_borderPixels.size());
-        for (int i = start; i < end; i++)
-          CastBorderRay(m_borderPixels[i], image_ref, out_image, out_dLoss_dS + (params_count * thread_id));
+        #pragma omp parallel for
+        for (int thread_id = 0; thread_id < max_threads; thread_id++)
+        {
+          unsigned start = thread_id * border_steps;
+          unsigned end = std::min((thread_id + 1) * border_steps, (unsigned)m_borderPixels.size());
+          for (int i = start; i < end; i++)
+            CastBorderRay(m_borderPixels[i], image_ref, out_image, out_dLoss_dS + (params_count * thread_id));
+        }
+      }
+      else if (m_preset_dr.dr_border_sampling == DR_BORDER_SAMPLING_SVM)
+      {
+        #pragma omp parallel for
+        for (int thread_id = 0; thread_id < max_threads; thread_id++)
+        {
+          unsigned start = thread_id * border_steps;
+          unsigned end = std::min((thread_id + 1) * border_steps, (unsigned)m_borderPixels.size());
+          for (int i = start; i < end; i++)
+            CastBorderRaySVM(m_borderPixels[i], image_ref, out_image, out_dLoss_dS + (params_count * thread_id));
+        }        
       }
     }
     if (m_preset_dr.dr_render_mode == DR_DEBUG_RENDER_MODE_BORDER_DETECTION ||
@@ -855,7 +876,7 @@ namespace dr
 
       if (m_preset_dr.debug_border_samples || m_preset_dr.debug_border_samples_mega_image)
       {
-        samples_debug_pos_size[sample_id] = float4(d.x, d.y, 0, 2.0f/MEGA_PIXEL_SIZE);
+        samples_debug_pos_size[sample_id] = float4(d.x, d.y, 0, 1.0f/MEGA_PIXEL_SIZE);
         if (relax_pt.sdf < relax_eps && abs(pixel_diff) > 0.01f) //border
           samples_debug_color[sample_id] = float4(0, 0, 0.1*abs(pixel_diff), 1);
         else if (hit.primId == 0xFFFFFFFF) //background
@@ -867,8 +888,8 @@ namespace dr
 
     if (m_preset_dr.debug_border_samples || m_preset_dr.debug_border_samples_mega_image)
     {
-      unsigned sw = samples_mega_image.width(), sh = samples_mega_image.height();
-      unsigned wmult = sw/m_width, hmult = sh/m_height;
+      unsigned wmult = MEGA_PIXEL_SIZE, hmult = MEGA_PIXEL_SIZE;
+      unsigned sw = m_width * wmult, sh = m_height * hmult;
       LiteImage::Image2D<float4> debug_image(wmult, hmult);
       draw_points(samples_debug_pos_size, samples_debug_color, debug_image);
       if (tidX % 10 == 0)
@@ -890,5 +911,262 @@ namespace dr
     else if (m_preset_dr.dr_render_mode == DR_DEBUG_RENDER_MODE_BORDER_INTEGRAL)
       out_image[y * m_width + x] = float4(0.001f*total_diff, 0.01f*total_diff, 0.1f*total_diff, 1.0f);
 
+  }
+
+  // This is an implementation of the SVM classification algorithm
+  // Note that it works only for binary classification (-1, +1)
+
+  // ######################   PARAMETERS    ######################
+  // X_mod: vector<float3>, will be modified in this function
+  // training data in the form (x_1*y, x_2*y, y)
+
+  // etha: float(default - 0.01)
+  //     Learning rate, gradient step
+
+  // alpha: float, (default - 0.1)
+  //     Regularization parameter in 0.5*alpha*||w||^2
+
+  // epochs: int, (default - 200)
+  //     Number of epochs of training
+
+  //return W = (a, b, c, error_rate) division line ax + by + c = 0 and error rate
+  float4 SVM_fit(std::vector<float3>& X_mod, float etha = 0.01f, float alpha = 0.1f, int epochs = 200)
+  {
+    const unsigned N = X_mod.size();
+
+    //X_mod = X_mod * etha
+    for (int i = 0; i < N; i++)
+      X_mod[i] = X_mod[i] * etha;
+    
+    uint32_t errors = N;
+    float3 W = float3(-1,1,0); //y = x
+    const float weightMult = 1.0f - etha * alpha / epochs;
+    for (int i = 0; i < epochs && errors > 0; i++)
+    {
+      errors = 0;
+      for (int j = 0; j < N; j++)
+      {
+        float margin = dot(W, X_mod[j]);
+        W = W*weightMult;
+        if (margin < 0)
+        {
+          W = W + X_mod[j];
+          errors++;
+        }
+      }
+    }
+    //printf("errors %d, W= %f %f %f\n", errors, W.x, W.y, W.z);
+
+    return float4(W.x, W.y, W.z, float(errors) / float(N));
+  }
+
+  void MultiRendererDR::CastBorderRaySVM(uint32_t tidX, const float4 *image_ref, LiteMath::float4* out_image, float* out_dLoss_dS)
+  {
+    const float min_sample_radius = 0.05f;
+    const float sample_radius_mult = 2.0f;
+    const float max_error_rate = 0.1f;
+    const float min_stripe_area = 0.005f;
+    const float svm_samples_budget = 0.25f;
+
+    if (tidX >= m_packedXY.size())
+      return;
+
+    const uint XY = m_packedXY[tidX];
+    const uint x  = (XY & 0x0000FFFF);
+    const uint y  = (XY & 0xFFFF0000) >> 16;
+
+    const unsigned border_ray_flags = DR_RAY_FLAG_BORDER;
+    const float relax_eps = m_preset_dr.border_relax_eps;
+    const float3 background_color = float3(0.0f, 0.0f, 0.0f);
+
+    const unsigned svm_spp = std::max(1u, (unsigned)(svm_samples_budget*m_preset_dr.border_spp));
+    const unsigned border_spp = std::max(1u, m_preset_dr.border_spp - svm_spp);
+    const float3 dLoss_dColor = LossGrad(m_preset_dr.dr_loss_function, to_float3(out_image[y * m_width + x]), to_float3(image_ref[y * m_width + x]));
+    
+    float total_diff = 0.0f;
+
+    if (m_preset_dr.debug_border_samples || m_preset_dr.debug_border_samples_mega_image)
+    {
+      samples_debug_color.resize(svm_spp + border_spp, float4(0,0,0,0));
+      samples_debug_pos_size.resize(svm_spp + border_spp, float4(0,0,0,0));
+    }
+
+    //step 1: cast some rays to provide data for SVM
+
+    std::vector<float3> X_mod(svm_spp);
+    unsigned background_samples_count = 0;
+    for (int sample_id = 0; sample_id < svm_spp; sample_id++)
+    {
+      float2 d = rand2(x, y, sample_id);
+      float4 rayPosAndNear, rayDirAndFar;
+      kernel_InitEyeRay(tidX, d, &rayPosAndNear, &rayDirAndFar);
+      CRT_HitDR hit = ((BVHDR *)m_pAccelStruct.get())->RayQuery_NearestHitWithGrad(DR_RAY_FLAG_NO_DIFF, rayPosAndNear, rayDirAndFar, nullptr);
+
+      float y = hit.primId == 0xFFFFFFFF ? -1 : 1;
+      background_samples_count += (hit.primId == 0xFFFFFFFF ? 1 : 0);
+      X_mod[sample_id] = y*float3(d.x, d.y, 1);
+
+      if (m_preset_dr.debug_border_samples || m_preset_dr.debug_border_samples_mega_image)
+      {
+        samples_debug_pos_size[sample_id] = float4(d.x, d.y, 0, 1.0f/MEGA_PIXEL_SIZE);
+        if (hit.primId == 0xFFFFFFFF) //background
+          samples_debug_color[sample_id] = float4(0.05, 0.05, 0.05, 1);
+        else //hit
+          samples_debug_color[sample_id] = float4(1, 0, 0, 1);
+      }
+    }
+
+    //if all samples are of one type, return
+    if (background_samples_count == svm_spp || background_samples_count == 0)
+      return;
+
+    //step 2: train SVM
+    //printf("x, y = %u %u\n", x, y);
+    float4 W = SVM_fit(X_mod);
+    float error_rate = W.w;
+
+    float2 p0, p1, r, n;
+    float sample_radius, stripe_area;
+    bool force_random_ray_cast = false;
+    //if error rate is too high, force random ray cast
+    if (error_rate > max_error_rate)
+      force_random_ray_cast = true;
+    else
+    {
+      if (abs(W.y) > 1e-6f && abs(W.x) > 1e-6f)
+      {
+        p0 = float2(0, -W.z / W.y);
+        p1 = float2(1, (-W.z - W.x) / W.y);
+        float ry = p1.y - p0.y;
+        //printf("BEFORE p0 = %f %f, p1 = %f %f,r = %f %f, n = %f %f\n", p0.x, p0.y, p1.x, p1.y, r.x, r.y, n.x, n.y);
+
+        if (p0.y < -1e-6f || p0.y > 1+1e-6f)
+        {
+          float k1 = -p0.y/ry;
+          float k2 = (1-p0.y)/ry;
+          float k = (abs(k1) < abs(k2)) ? k1 : k2;
+          p0 = p0 + k*float2(1, ry);
+        }
+
+        if (p1.y < -1e-6f || p1.y > 1+1e-6f)
+        {
+          float k1 = -p1.y/ry;
+          float k2 = (1-p1.y)/ry;
+          float k = (abs(k1) < abs(k2)) ? k1 : k2;
+          p1 = p1 + k*float2(1, ry);
+        }
+      }
+      else if (abs(W.x) > 1e-6f)
+      {
+        p0 = float2(-W.z / W.x, 0);
+        p1 = float2(-W.z / W.x, 1);
+      }
+      else
+      {
+        force_random_ray_cast = true;
+      }
+      //printf("AFTER p0 = %f %f, p1 = %f %f,r = %f %f, n = %f %f\n\n", p0.x, p0.y, p1.x, p1.y, r.x, r.y, n.x, n.y);
+      r = p1 - p0;
+      n = float2(-r.y, r.x);
+      sample_radius = min_sample_radius + sample_radius_mult*error_rate;
+      stripe_area = std::min(1.0f, 2*sample_radius*length(r));
+
+      //if stripe area is too small, there is no actual border here
+      if (stripe_area < min_stripe_area)
+        return;
+    }
+
+    //step 3: cast rays alongside border
+    for (int sample_id = svm_spp; sample_id < svm_spp + border_spp; sample_id++)
+    {
+      float pixel_diff = 0.0f;
+      PDShape relax_pt{
+          .f_in = background_color,
+          .t = 0.f,
+          .f_out = background_color,
+          .sdf = relax_eps, // only choose points with SDF() less than this, no need to pass relax_eps
+          .indices = {0, 0, 0, 0, 0, 0, 0, 0},
+          .dSDF_dtheta = {0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f}};
+      float2 d = float2(1000,1000);
+      float sampling_pdf;
+      if (force_random_ray_cast)
+      {
+        d = rand2(x, y, sample_id);
+        sampling_pdf = 1.0f / border_spp;
+      }
+      else
+      {
+        while (d.x < 0 || d.x > 1 || d.y < 0 || d.y > 1)
+        {
+          d = p0 + urand(0, 1) * r + urand(-1, 1) * sample_radius * n;
+          //printf("p0 = %f %f, p1 = %f %f,r = %f %f, n = %f %f, d = %f %f\n", p0.x, p0.y, p1.x, p1.x, r.x, r.y, n.x, n.y, d.x, d.y);
+        }
+        sampling_pdf = stripe_area / border_spp;
+      }
+
+      float4 rayPosAndNear, rayDirAndFar;
+      kernel_InitEyeRay(tidX, d, &rayPosAndNear, &rayDirAndFar);
+      CRT_HitDR hit = ((BVHDR *)m_pAccelStruct.get())->RayQuery_NearestHitWithGrad(border_ray_flags, rayPosAndNear, rayDirAndFar, &relax_pt);
+
+      if (relax_pt.sdf < relax_eps)
+      {
+        float3 color_delta = float3(0, 0, 0);
+        if (m_preset_dr.dr_input_type == DR_INPUT_TYPE_COLOR)
+        {
+          if (relax_pt.t != 0 && hit.primId == 0xFFFFFFFF) // border with background
+            color_delta = float3(1, 1, 1);
+          else
+            color_delta = relax_pt.f_in - relax_pt.f_out;
+        }
+        else if (m_preset_dr.dr_input_type == DR_INPUT_TYPE_LINEAR_DEPTH)
+        {
+          float l_in = linear_to_absolute_depth(relax_pt.t);
+          float l_out = linear_to_absolute_depth(hit.t);
+          color_delta = float3(l_in - l_out);
+        }
+
+        for (int j = 0; j < 8; j++)
+        {
+          float diff = sampling_pdf * dot(dLoss_dColor, (1.0f / relax_eps) * relax_pt.dSDF_dtheta[j] * (relax_pt.f_in - relax_pt.f_out));
+          out_dLoss_dS[relax_pt.indices[j]] += diff;
+
+          total_diff += abs(diff);
+          pixel_diff += length((1.0f / relax_eps) * relax_pt.dSDF_dtheta[j] * (relax_pt.f_in - relax_pt.f_out));
+          if (m_preset_dr.debug_pd_images)
+            m_imagesDebug[relax_pt.indices[j]].data()[y * m_width + x] += diff * float4(1, 1, 1, 0);
+        }
+      }
+
+      if (m_preset_dr.debug_border_samples || m_preset_dr.debug_border_samples_mega_image)
+      {
+        samples_debug_pos_size[sample_id] = float4(d.x, d.y, 0, 1.0f / MEGA_PIXEL_SIZE);
+        if (relax_pt.sdf < relax_eps && abs(pixel_diff) > 0.01f) // border
+          samples_debug_color[sample_id] = float4(0, 0, 0.1 * abs(pixel_diff), 1);
+        else if (hit.primId == 0xFFFFFFFF) // background
+          samples_debug_color[sample_id] = float4(0.05, 0.05, 0.05, 1);
+        else // hit
+          samples_debug_color[sample_id] = float4(1, 0, 0, 1);
+      }
+    }
+
+    //debug stuff
+    if (m_preset_dr.debug_border_samples || m_preset_dr.debug_border_samples_mega_image)
+    {
+      unsigned wmult = MEGA_PIXEL_SIZE, hmult = MEGA_PIXEL_SIZE;
+      unsigned sw = m_width * wmult, sh = m_height * hmult;
+      LiteImage::Image2D<float4> debug_image(wmult, hmult, float4(0,0,0,1));
+      draw_points(samples_debug_pos_size, samples_debug_color, debug_image);
+
+      draw_line(p0, p1, 1.0f/MEGA_PIXEL_SIZE, float4(1,1,1,1), debug_image);
+      //if (tidX % 10 == 0)
+        LiteImage::SaveImage(("saves/debug_border"+std::to_string(x)+"_"+std::to_string(y)+".png").c_str(), debug_image);
+      
+      if (m_preset_dr.debug_border_samples_mega_image)
+      {
+        for (int dy = 0; dy < hmult; dy++)
+          for (int dx = 0; dx < wmult; dx++)
+            samples_mega_image.data()[(y*hmult + dy) * sw + (x*wmult + dx)] = debug_image.data()[dy * wmult + dx];
+      }
+    }
   }
 }

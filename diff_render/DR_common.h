@@ -97,6 +97,10 @@ namespace dr
   static constexpr unsigned DR_RAY_FLAG_BORDER          = 1 << 3;
   static constexpr unsigned DR_RAY_FLAG_DDIST_DPOS      = 1 << 4;
 
+  //enum DRBorderSampling
+  static constexpr unsigned DR_BORDER_SAMPLING_RANDOM = 0;
+  static constexpr unsigned DR_BORDER_SAMPLING_SVM    = 1;
+
   static constexpr unsigned DEBUG_PROGRESS_NONE = 1000; //do not save intermediate images with optimization progress
   static constexpr unsigned DEBUG_PROGRESS_RAW  = 1001; //show intermediate images taken from diff render itself
 
@@ -108,6 +112,7 @@ namespace dr
     unsigned dr_diff_mode;            //enum DRDiffMode
     unsigned dr_reconstruction_flags; //enum DRReconstructionFlag
     unsigned dr_input_type;           //enum DRInputType
+    unsigned dr_border_sampling;      //enum DRBorderSampling
 
     // main parameters
     unsigned spp;
