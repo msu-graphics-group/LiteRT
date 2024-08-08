@@ -319,6 +319,12 @@ namespace dr
 
       auto t2 = std::chrono::high_resolution_clock::now();
 
+      //regualization (if needed)
+      if (preset.reg_function != DR_REG_FUNCTION_NONE)
+        Regularization(m_dLoss_dS_tmp.data(), params_count);
+
+      auto t3 = std::chrono::high_resolution_clock::now();
+
       //accumulate
       for (int i=1; i< max_threads; i++)
         for (int j = 0; j < params_count; j++)
@@ -327,23 +333,25 @@ namespace dr
       for (int j = 0; j < params_count; j++)
         m_dLoss_dS_tmp[j] /= preset.image_batch_size;
 
-      auto t3 = std::chrono::high_resolution_clock::now();
+      auto t4 = std::chrono::high_resolution_clock::now();
 
       OptimizeStepAdam(iter, m_dLoss_dS_tmp.data(), params, m_Opt_tmp.data(), params_count, preset);
 
-      auto t4 = std::chrono::high_resolution_clock::now();
+      auto t5 = std::chrono::high_resolution_clock::now();
       float time_1 = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
       float time_2 = std::chrono::duration_cast<std::chrono::milliseconds>(t3 - t2).count();
       float time_3 = std::chrono::duration_cast<std::chrono::milliseconds>(t4 - t3).count();
+      float time_4 = std::chrono::duration_cast<std::chrono::milliseconds>(t5 - t4).count();
+      float time = time_1 + time_2 + time_3 + time_4;
       if (iter == 0)
-        timeAvg = time_1 + time_2 + time_3;
+        timeAvg = time;
       else
-        timeAvg = 0.97f * timeAvg + 0.03f * (time_1 + time_2 + time_3);
+        timeAvg = 0.97f * timeAvg + 0.03f * time;
 
       if (preset.debug_print && iter % preset.debug_print_interval == 0)
       {
         printf("Iter:%4d, loss: %f (%f-%f) ", iter, loss_sum/preset.image_batch_size, loss_min, loss_max);
-        printf("%.1f ms/iter (%.1f + %.1f + %.1f) ", (time_1 + time_2 + time_3), time_1, time_2, time_3);
+        printf("%.1f ms/iter (%.1f + %.1f + %.1f + %.1f) ", time, time_1, time_2, time_3, time_4);
         printf("ETA %.1f s\n", (timeAvg * (preset.opt_iterations - iter - 1)) / 1000.0f);
       }
       
@@ -1174,5 +1182,120 @@ namespace dr
             samples_mega_image.data()[(y*hmult + dy) * sw + (x*wmult + dx)] = debug_image.data()[dy * wmult + dx];
       }
     }
+  }
+
+  void MultiRendererDR::Regularization(float *out_dLoss_dS, unsigned params_count)
+  {
+    SdfSBSHeader header = ((BVHDR *)m_pAccelStruct.get())->m_SdfSBSHeaders[0];
+    unsigned node_count = ((BVHDR *)m_pAccelStruct.get())->m_SdfSBSNodes.size();
+    SdfSBSNode *  nodes = ((BVHDR *)m_pAccelStruct.get())->m_SdfSBSNodes.data();
+    uint32_t *     data = ((BVHDR *)m_pAccelStruct.get())->m_SdfSBSData.data();
+    float *      data_f = ((BVHDR *)m_pAccelStruct.get())->m_SdfSBSDataF.data();
+    unsigned v_size = header.brick_size + 1;
+    float power = m_preset_dr.reg_power;
+    float lambda = m_preset_dr.reg_lambda;
+
+    bool use_multithreading = !(m_preset_dr.debug_border_samples || 
+                                m_preset_dr.debug_pd_images ||
+                                m_preset_dr.debug_border_samples_mega_image);
+
+    unsigned max_threads = use_multithreading ? omp_get_max_threads() : 1;
+    unsigned steps = (node_count + max_threads - 1)/max_threads;
+    //std::vector<float> out_dLoss_dS(((BVHDR *)m_pAccelStruct.get())->m_SdfSBSDataF.size(), 0.0f);
+    double total_reg_loss = 0.0;
+
+    omp_set_num_threads(max_threads);
+
+    #pragma omp parallel for
+    for (int thread_id = 0; thread_id < max_threads; thread_id++)
+    {
+      unsigned start = thread_id * steps;
+      unsigned end = std::min((thread_id + 1) * steps, m_width * m_height);
+      for (int node_id = start; node_id < end; node_id++)
+      {
+        unsigned offset = nodes[node_id].data_offset;
+        for (int i0 = 0; i0 < v_size; i0++)
+        {
+          for (int j0 = 0; j0 < v_size; j0++)
+          {
+            for (int k0 = 0; k0 < v_size; k0++)
+            {
+              unsigned idx = offset + i0 * v_size * v_size + j0 * v_size + k0;              
+              if (i0 > 0)
+              {
+                float d = data_f[data[idx]] - data_f[data[idx - v_size * v_size]];
+                float sgn_d = d > 0.0f ? 1.0f : -1.0f;
+                d = std::abs(d);
+
+                float reg_loss = std::pow(d, power);
+                total_reg_loss += reg_loss;
+                out_dLoss_dS[thread_id*params_count + data[idx]] += lambda * power * sgn_d * std::pow(d, power - 1);
+              }
+
+              if (i0 < v_size - 1)
+              {
+                float d = data_f[data[idx]] - data_f[data[idx + v_size * v_size]];
+                float sgn_d = d > 0.0f ? 1.0f : -1.0f;
+                d = std::abs(d);
+
+                float reg_loss = std::pow(d, power);
+                total_reg_loss += reg_loss;
+                out_dLoss_dS[thread_id*params_count + data[idx]] += lambda * power * sgn_d * std::pow(d, power - 1);
+              }
+
+              if (j0 > 0)
+              {
+                float d = data_f[data[idx]] - data_f[data[idx - v_size]];
+                float sgn_d = d > 0.0f ? 1.0f : -1.0f;
+                d = std::abs(d);
+
+                float reg_loss = std::pow(d, power);
+                total_reg_loss += reg_loss;
+                out_dLoss_dS[thread_id*params_count + data[idx]] += lambda * power * sgn_d * std::pow(d, power - 1);
+              } 
+
+              if (j0 < v_size - 1)
+              {
+                float d = data_f[data[idx]] - data_f[data[idx + v_size]];
+                float sgn_d = d > 0.0f ? 1.0f : -1.0f;
+                d = std::abs(d);
+
+                float reg_loss = std::pow(d, power);
+                total_reg_loss += reg_loss;
+                out_dLoss_dS[thread_id*params_count + data[idx]] += lambda * power * sgn_d * std::pow(d, power - 1);
+              }
+
+              if (k0 > 0)
+              {
+                float d = data_f[data[idx]] - data_f[data[idx - 1]];
+                float sgn_d = d > 0.0f ? 1.0f : -1.0f;
+                d = std::abs(d);
+
+                float reg_loss = std::pow(d, power);
+                total_reg_loss += reg_loss;
+                out_dLoss_dS[thread_id*params_count + data[idx]] += lambda * power * sgn_d * std::pow(d, power - 1);
+              }
+
+              if (k0 < v_size - 1)
+              {
+                float d = data_f[data[idx]] - data_f[data[idx + 1]];
+                float sgn_d = d > 0.0f ? 1.0f : -1.0f;
+                d = std::abs(d);  
+
+                float reg_loss = std::pow(d, power);
+                total_reg_loss += reg_loss;
+                out_dLoss_dS[thread_id*params_count + data[idx]] += lambda * power * sgn_d * std::pow(d, power - 1);
+              }
+            }
+          }
+        }
+      }
+    }
+
+    //for (int i = 0; i < out_dLoss_dS.size(); i++)
+    //  printf("%f \n", out_dLoss_dS[i]);
+    //printf("\n total reg loss = %f\n", total_reg_loss);
+
+    omp_set_num_threads(omp_get_max_threads());
   }
 }

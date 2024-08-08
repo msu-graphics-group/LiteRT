@@ -101,6 +101,10 @@ namespace dr
   static constexpr unsigned DR_BORDER_SAMPLING_RANDOM = 0;
   static constexpr unsigned DR_BORDER_SAMPLING_SVM    = 1;
 
+  //enum DRRegFunction
+  static constexpr unsigned DR_REG_FUNCTION_NONE         = 0;
+  static constexpr unsigned DR_REG_FUNCTION_LK_DENOISING = 1;
+
   static constexpr unsigned DEBUG_PROGRESS_NONE = 1000; //do not save intermediate images with optimization progress
   static constexpr unsigned DEBUG_PROGRESS_RAW  = 1001; //show intermediate images taken from diff render itself
 
@@ -132,6 +136,11 @@ namespace dr
     float opt_eps;
     unsigned opt_iterations;
     unsigned image_batch_size;
+
+    //regualrization settings and parameters
+    unsigned reg_function; //enum DRRegFunction
+    float reg_lambda;
+    float reg_power;
 
     //debug settings
     bool debug_print;                //wether to print loss and ETA during optimization or not

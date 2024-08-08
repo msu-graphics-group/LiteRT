@@ -33,6 +33,10 @@ namespace dr
     preset.opt_iterations = 500;
     preset.image_batch_size = 1;
 
+    preset.reg_function = DR_REG_FUNCTION_NONE;
+    preset.reg_lambda = 0.25f;
+    preset.reg_power  = 2.0f;
+
     preset.debug_print = false;
     preset.debug_print_interval = 10;
     preset.debug_progress_images = DEBUG_PROGRESS_RAW;
@@ -69,6 +73,7 @@ namespace dr
     float3 CalculateColorWithGrad(const CRT_HitDR &hit, LiteMath::float3x3 &dColor_dDiffuse,
                                   LiteMath::float3x3 &dColor_dNorm);
     void PreprocessRefImages(unsigned width, unsigned height, bool to_mask, float3 background_color = float3(0,0,0));
+    void Regularization(float *out_dLoss_dS, unsigned params_count);
 
     std::vector<LiteImage::Image2D<float4>> m_imagesRefOriginal;
     std::vector<LiteImage::Image2D<float4>> m_imagesRef;
