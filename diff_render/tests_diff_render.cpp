@@ -1760,12 +1760,12 @@ void diff_render_test_19_expanding_grid()
   MultiRenderPreset preset = getDefaultPreset();
   preset.render_mode = MULTI_RENDER_MODE_DIFFUSE;
   //preset.ray_gen_mode = RAY_GEN_MODE_RANDOM;
-  preset.spp = 1;
+  preset.spp = 16;
 
   float4x4 base_proj = LiteMath::perspectiveMatrix(60, 1.0f, 0.01f, 100.0f);
   LiteImage::Image2D<float4> texture = LiteImage::LoadImage<float4>("scenes/porcelain.png");
 
-  std::vector<float4x4> view = get_cameras_uniform_sphere(32, float3(0, 0, 0), 4.0f);
+  std::vector<float4x4> view = get_cameras_turntable(32, float3(0, 0, 0), 4.0f, 1.0f);
   std::vector<float4x4> proj(view.size(), base_proj);
 
   std::vector<LiteImage::Image2D<float4>> images_ref(view.size(), LiteImage::Image2D<float4>(W, H));
@@ -1794,6 +1794,8 @@ void diff_render_test_19_expanding_grid()
     dr_preset.dr_diff_mode = DR_DIFF_MODE_DEFAULT;
     dr_preset.dr_render_mode = DR_RENDER_MODE_MASK;
     dr_preset.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_GEOMETRY;
+    dr_preset.dr_border_sampling = DR_BORDER_SAMPLING_SVM;
+    dr_preset.border_relax_eps = 1e-3f;
     dr_preset.opt_iterations = 1001;
     dr_preset.opt_lr = 0.01f;
     dr_preset.spp = 4;

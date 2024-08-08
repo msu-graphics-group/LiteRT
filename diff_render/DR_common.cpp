@@ -191,9 +191,9 @@ namespace dr
     std::vector<float4x4> cameras;
     for (int i = 0; i < count; i++)
     {
-      float phi = 2 * LiteMath::M_PI * urand();
+      float phi = (2.0f * LiteMath::M_PI * i) / count;
 
-      float3 view_dir = float3(sin(phi), height/radius, cos(phi));
+      float3 view_dir = float3(sin(phi), -height/radius, cos(phi));
       float3 tangent = normalize(cross(view_dir, -float3(0, 1, 0)));
       float3 new_up = normalize(cross(view_dir, tangent));
       cameras.push_back(LiteMath::lookAt(center - radius * view_dir, center, new_up));
