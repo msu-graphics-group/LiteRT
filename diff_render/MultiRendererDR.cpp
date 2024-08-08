@@ -201,6 +201,14 @@ namespace dr
           printf("Iter:%4d, loss: %f (%f-%f)\n", iter, loss_sum/preset.image_batch_size, loss_min, loss_max);
           LiteImage::SaveImage<float4>(("saves/iter_"+std::to_string(iter)+"_"+std::to_string(image_id)+".bmp").c_str(), m_images[image_id]);
         }
+
+
+        // Redistancing after each iteration
+
+        // dr::BVHDR* bvhdr_tree = dynamic_cast<dr::BVHDR*>(GetAccelStruct().get());
+        // uint32_t brick_count = std::cbrt(bvhdr_tree->m_SdfSBSNodes.size());
+        // uint32_t p_count = brick_count * bvhdr_tree->m_SdfSBSHeaders[0].brick_size + 1;
+        // Redistance(bvhdr_tree->m_SdfSBSDataF.data(), {p_count, p_count, p_count}, 2.f / p_count, p_count);
       }
 
       //accumulate
@@ -658,7 +666,7 @@ namespace dr
     float3 m = axes_mins;
     float  h = grid_spacing;
 
-    // Sort according to m
+    // Sort m in ascending order
     if (m[0] > m[1])
       std::swap(m[0], m[1]);
     if (m[0] > m[2])
@@ -666,8 +674,33 @@ namespace dr
     if (m[1] > m[2])
       std::swap(m[1], m[2]);
 
+    // From: https://github.com/scikit-fmm/scikit-fmm/blob/master/skfmm/distance_marcher.cpp
+    // Exact same results, but for different h's
+    // float3 h{grid_spacing};
+    // float m2_0     = m[0] * m[0];
+    // float m2_1     = m[1] * m[1];
+    // float m2_2     = m[2] * m[2];
+    // float d2_0     = h[0] * h[0];
+    // float d2_1     = h[1] * h[1];
+    // float d2_2     = h[2] * h[2];
+    // float dist_new = m[0] + h[0];
 
-    // f == 1
+    // if (dist_new > m[1]) {
+    //     float s = std::sqrt(-m2_0 + 2 * m[0] * m[1] - m2_1 + d2_0 + d2_1);
+    //     dist_new = (m[1] * d2_0 + m[0] * d2_1 + h[0] * h[1] * s) / (d2_0 + d2_1);
+
+    //     if (dist_new > m[2]) {
+    //         float a = std::sqrt(-m2_0 * d2_1 - m2_0 * d2_2 + 2 * m[0] * m[1] * d2_2 - m2_1 * d2_0 -
+    //                              m2_1 * d2_2 + 2 * m[0] * m[2] * d2_1 - m2_2 * d2_0 - m2_2 * d2_1 +
+    //                              2 * m[1] * m[2] * d2_0 + d2_0 * d2_1 + d2_0 * d2_2 + d2_1 * d2_2);
+    //         dist_new =
+    //             (m[2] * d2_0 * d2_1 + m[1] * d2_0 * d2_2 + m[0] * d2_1 * d2_2 + h[0] * h[1] * h[2] * a) /
+    //             (d2_0 * d2_1 + d2_0 * d2_2 + d2_1 * d2_2);
+    //     }
+    // }
+    // return dist_new;
+
+    // // f == 1
 
     float dist_new = m[0] + h;
     if (dist_new > m[1])
@@ -675,18 +708,8 @@ namespace dr
       float h_2 = h * h;
       float m_sum = m[0] + m[1], c_2 = (m[0] - m[1]) * (m[0] - m[1]);
 
-      float x1 = (m_sum - std::sqrt(2 * h_2 - c_2)) * 0.5f,
-            x2 = (m_sum + std::sqrt(2 * h_2 - c_2)) * 0.5f;
-
-      bool x1_good = x1 > m[1];
-      bool x2_good = x2 > m[1];
-
-      if (x1_good == x2_good)
-      {
-        printf("Error: both roots are equally good/bad: %f < [%f, %f] <= %f\n", m[1], x1, x2, m[2]);
-        // throw "Error";
-      }
-      dist_new = x2_good ? x2 : x1;
+      float x2 = (m_sum + std::sqrt(2 * h_2 - c_2)) * 0.5f;
+      dist_new = x2;
 
       if (dist_new > m[2])
       {
@@ -694,18 +717,8 @@ namespace dr
         m_sum += m[2];
         c_2 = 3.f * (m[0] * m[0] + m[1] * m[1] + m[2] * m[2] - h_2);
 
-        x1 = (m_sum - std::sqrt(m_sum * m_sum - c_2)) * one_third;
         x2 = (m_sum + std::sqrt(m_sum * m_sum - c_2)) * one_third;
-        x1_good = x1 > m[2];
-        x2_good = x2 > m[2];
-
-
-        if (x1_good == x2_good)
-        {
-          printf("Error: both roots are equally good/bad: %f < [%f, %f]\n", m[2], x1, x2);
-          throw "Error";
-        }
-        dist_new = x2_good ? x2 : x1;
+        dist_new = x2;
       }
     }
     return dist_new;
@@ -719,6 +732,48 @@ namespace dr
 
     float *dist_bord[2] = { new float[N_in], new float[N_in] };
     bool *frozen = new bool[N_in];
+
+
+    // Print input array's eikonal check values to a file
+
+    // FILE* FOUT = fopen("./saves/log.txt", "a+");
+    // fprintf(FOUT, "Array IN_CHECK:\n");
+    // double eikonal_mean = 0.f;
+
+    // for (int i = 0; i < size_in.x; ++i) {
+    //   for (int j = 0; j < size_in.y; ++j) {
+    //     for (int k = 0; k < size_in.z; ++k) {
+    //       int3 ind_in{ i, j, k };
+    //       uint32_t ind_in_lin = ind_in.x * axes_offsets.x + ind_in.y * axes_offsets.y + ind_in.z;
+
+    //       float3 axes_mins{99999, 99999, 99999};
+
+    //       for (int dim = 0; dim < 3; ++dim)
+    //       {
+    //         if (ind_in[dim] > 0 && ind_in[dim] < size_in[dim] - 1)
+    //         {
+    //           axes_mins[dim] = dist_in[ind_in_lin - axes_offsets[dim]];
+    //           float dist_tmp = dist_in[ind_in_lin + axes_offsets[dim]];
+    //           if (std::abs(dist_tmp) < std::abs(axes_mins[dim]))
+    //             axes_mins[dim] = dist_tmp;
+    //         }
+    //         else if (ind_in[dim] >  0 && ind_in[dim] == size_in[dim] - 1)
+    //           axes_mins[dim] = dist_in[ind_in_lin - axes_offsets[dim]];
+    //         else if (ind_in[dim] == 0 && ind_in[dim] <  size_in[dim] - 1)
+    //           axes_mins[dim] = dist_in[ind_in_lin + axes_offsets[dim]];
+    //       }
+
+    //       float eik_val = ((dist_in[ind_in_lin] - axes_mins.x) * (dist_in[ind_in_lin] - axes_mins.x) +
+    //                        (dist_in[ind_in_lin] - axes_mins.y) * (dist_in[ind_in_lin] - axes_mins.y) +
+    //                        (dist_in[ind_in_lin] - axes_mins.z) * (dist_in[ind_in_lin] - axes_mins.z)) / (grid_spacing * grid_spacing);
+    //       fprintf(FOUT, "%12.6f, ", eik_val);
+    //       eikonal_mean += eik_val;
+    //     }
+    //     fprintf(FOUT, "\n");
+    //   }
+    //   fprintf(FOUT, "\n");
+    // }
+    // printf("Input eikonal mean = %f\n", eikonal_mean / (size_in.x * size_in.y * size_in.z));
 
 
     // Init
@@ -751,11 +806,7 @@ namespace dr
           // Also freeze if a surface is between this node and any of its neighbours
           if (!frozen[ind_in_lin])
           {
-            float3 ldistance{Infin,Infin,Infin};
-            bool near_surface = false;
-
             for (int dim = 0; dim < 3; ++dim)
-            {
               for (int offset_sign = -1; offset_sign < 2; offset_sign += 2)
               {
                 int3 neighbour = ind_in;
@@ -770,35 +821,19 @@ namespace dr
                                         neighbour.z];
                   if (n_val * dist_val < 0)
                   {
-                    near_surface = true;
+                    // near surface SDF = 0 - initialize with the exact values
+                    dist_bord[0][ind_in_lin] = dist_val;
+                    dist_bord[1][ind_in_lin] = dist_val;
 
-                    float d = grid_spacing * dist_val / (dist_val - n_val);
-                    if (ldistance[dim] > d)
-                      ldistance[dim] = d;
+                    frozen[ind_in_lin] = true;
                   }
                 }
               }
-            }
-
-            if (near_surface)
-            {
-              float dsum = 0.f;
-
-              for (int dim = 0; dim < 3; ++dim)
-                if (ldistance[dim] > 0.f && ldistance[dim] < Infin)
-                  dsum += 1.f / (ldistance[dim] * ldistance[dim]);
-
-              dsum = std::sqrt(1.f / dsum);
-              if (dist_val < 0.f)
-                dsum *= -1.f;
-
-              dist_bord[0][ind_in_lin] = dsum;
-              dist_bord[1][ind_in_lin] = dsum;
-
-              frozen[ind_in_lin] = true;
-            }
           }
         }
+    
+
+    // Update loop
 
     int curr_arr_ind = 0;
     const int max_level = size_in.x + size_in.y + size_in.z - 3;
@@ -842,7 +877,7 @@ namespace dr
               uint32_t ind_in_lin = ind_in.x * axes_offsets.x + ind_in.y * axes_offsets.y + ind_in.z;
 
               dist_bord[curr_arr_ind][ind_in_lin] = dist_bord[1 - curr_arr_ind][ind_in_lin];
-              if (frozen[ind_in_lin] || dist_bord[curr_arr_ind][ind_in_lin] != big_active_const) continue;
+              if (frozen[ind_in_lin]) continue;
 
               float3 axes_mins{big_active_const, big_active_const, big_active_const};
 
@@ -876,7 +911,7 @@ namespace dr
                   if (axes_mins.y < 0.f) axes_mins.y = -axes_mins.y;
                   if (axes_mins.z < 0.f) axes_mins.z = -axes_mins.z;
                   dist_bord[curr_arr_ind][ind_in_lin] = std::max(-SolveEikonal(axes_mins, grid_spacing),
-                                                                 -dist_bord[1 - curr_arr_ind][ind_in_lin]);
+                                                                 -std::abs(dist_bord[1 - curr_arr_ind][ind_in_lin]));
                 }
               }
             }
@@ -885,7 +920,13 @@ namespace dr
       curr_arr_ind = 1 - curr_arr_ind; // swap
     }
 
-    // Copy from the result array (memcpy?)
+
+    // dist_bord[1 - curr_arr_ind] has the result
+    // copy dist_bord[1 - curr_arr_ind] to dist_in (input array)
+    // Save eikonal check values to the now unused dist_bord[curr_arr_ind]
+
+    // eikonal_mean = 0.;
+
     // pragma parallel for
     for (int i = 0; i < size_in.x; ++i)
       for (int j = 0; j < size_in.y; ++j)
@@ -893,10 +934,56 @@ namespace dr
         {
           uint32_t ind_in_lin = i * axes_offsets.x + j * axes_offsets.y + k;
           dist_in[ind_in_lin] = dist_bord[1 - curr_arr_ind][ind_in_lin];
+
+          int3 ind_in{i,j,k};
+          // float3 axes_mins{big_active_const, big_active_const, big_active_const};
+
+          // for (int dim = 0; dim < 3; ++dim)
+          // {
+          //   if (ind_in[dim] > 0 && ind_in[dim] < size_in[dim] - 1)
+          //   {
+          //     axes_mins[dim] = dist_bord[1 - curr_arr_ind][ind_in_lin - axes_offsets[dim]];
+          //     float dist_tmp = dist_bord[1 - curr_arr_ind][ind_in_lin + axes_offsets[dim]];
+          //     if (std::abs(dist_tmp) < std::abs(axes_mins[dim]))
+          //       axes_mins[dim] = dist_tmp;
+          //   }
+          //   else if (ind_in[dim] >  0 && ind_in[dim] == size_in[dim] - 1)
+          //     axes_mins[dim] = dist_bord[1 - curr_arr_ind][ind_in_lin - axes_offsets[dim]];
+          //   else if (ind_in[dim] == 0 && ind_in[dim] <  size_in[dim] - 1)
+          //     axes_mins[dim] = dist_bord[1 - curr_arr_ind][ind_in_lin + axes_offsets[dim]];
+          // }
+          // dist_bord[curr_arr_ind][ind_in_lin] = ((dist_in[ind_in_lin] - axes_mins.x) * (dist_in[ind_in_lin] - axes_mins.x) +
+          //                                        (dist_in[ind_in_lin] - axes_mins.y) * (dist_in[ind_in_lin] - axes_mins.y) +
+          //                                        (dist_in[ind_in_lin] - axes_mins.z) * (dist_in[ind_in_lin] - axes_mins.z)) / (grid_spacing * grid_spacing);
+          // eikonal_mean += dist_bord[curr_arr_ind][ind_in_lin];
         }
+    // printf("Output eikonal mean = %f\n", eikonal_mean / (size_in.x * size_in.y * size_in.z));
+
+    // fprintf(FOUT, "Array OUT_CHECK:\n");
+    // for (int i = 0; i < size_in.x; ++i) {
+    //   for (int j = 0; j < size_in.y; ++j) {
+    //     for (int k = 0; k < size_in.z; ++k) {
+    //       fprintf(FOUT, "%12.6f, ", dist_bord[curr_arr_ind][i * (size_in.z * size_in.y) + j * size_in.z + k]);
+    //     }
+    //     fprintf(FOUT, "\n");
+    //   }
+    //   fprintf(FOUT, "\n");
+    // }
+
+    // fprintf(FOUT, "Array OUT:\n");
+    // for (int i = 0; i < size_in.x; ++i) {
+    //   for (int j = 0; j < size_in.y; ++j) {
+    //     for (int k = 0; k < size_in.z; ++k) {
+    //       fprintf(FOUT, "%12.6f, ", dist_in[i * (size_in.z * size_in.y) + j * size_in.z + k]);
+    //     }
+    //     fprintf(FOUT, "\n");
+    //   }
+    //   fprintf(FOUT, "\n");
+    // }
 
     delete[] frozen;
     delete[] dist_bord[1];
     delete[] dist_bord[0];
+    // fclose(FOUT);
   }
 }
