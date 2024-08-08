@@ -37,6 +37,9 @@ namespace dr
     preset.reg_lambda = 0.25f;
     preset.reg_power  = 2.0f;
 
+    preset.redistancing_enable = false;
+    preset.redistancing_interval = 1;
+
     preset.debug_print = false;
     preset.debug_print_interval = 10;
     preset.debug_progress_images = DEBUG_PROGRESS_RAW;

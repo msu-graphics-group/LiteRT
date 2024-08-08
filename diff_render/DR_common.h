@@ -142,6 +142,10 @@ namespace dr
     float reg_lambda;
     float reg_power;
 
+    //redistancing settings and parameters
+    bool redistancing_enable;
+    unsigned redistancing_interval;
+
     //debug settings
     bool debug_print;                //wether to print loss and ETA during optimization or not
     unsigned debug_print_interval;   //how often to print

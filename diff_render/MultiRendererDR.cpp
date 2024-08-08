@@ -319,19 +319,22 @@ namespace dr
 
       auto t2 = std::chrono::high_resolution_clock::now();
 
-
-      // Redistancing after each iteration
-
-      // dr::BVHDR* bvhdr_tree = dynamic_cast<dr::BVHDR*>(GetAccelStruct().get());
-      // uint32_t brick_count = std::cbrt(bvhdr_tree->m_SdfSBSNodes.size());
-      // uint32_t p_count = brick_count * bvhdr_tree->m_SdfSBSHeaders[0].brick_size + 1;
-      // Redistance(bvhdr_tree->m_SdfSBSDataF.data(), {p_count, p_count, p_count}, 2.f / p_count, p_count);
-
       //regualization (if needed)
       if (preset.reg_function != DR_REG_FUNCTION_NONE)
         Regularization(m_dLoss_dS_tmp.data(), params_count);
 
       auto t3 = std::chrono::high_resolution_clock::now();
+
+      // Redistancing every N iterations
+      if (preset.redistancing_enable && iter % preset.redistancing_interval == 0)
+      {
+        dr::BVHDR* bvhdr_tree = dynamic_cast<dr::BVHDR*>(GetAccelStruct().get());
+        uint32_t brick_count = std::cbrt(bvhdr_tree->m_SdfSBSNodes.size());
+        uint32_t p_count = brick_count * bvhdr_tree->m_SdfSBSHeaders[0].brick_size + 1;
+        Redistance(bvhdr_tree->m_SdfSBSDataF.data(), {p_count, p_count, p_count}, 2.f / p_count, p_count);
+      }
+
+      auto t4 = std::chrono::high_resolution_clock::now();
 
       //accumulate
       for (int i=1; i< max_threads; i++)
@@ -341,16 +344,17 @@ namespace dr
       for (int j = 0; j < params_count; j++)
         m_dLoss_dS_tmp[j] /= preset.image_batch_size;
 
-      auto t4 = std::chrono::high_resolution_clock::now();
+      auto t5 = std::chrono::high_resolution_clock::now();
 
       OptimizeStepAdam(iter, m_dLoss_dS_tmp.data(), params, m_Opt_tmp.data(), params_count, preset);
 
-      auto t5 = std::chrono::high_resolution_clock::now();
+      auto t6 = std::chrono::high_resolution_clock::now();
       float time_1 = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
       float time_2 = std::chrono::duration_cast<std::chrono::milliseconds>(t3 - t2).count();
       float time_3 = std::chrono::duration_cast<std::chrono::milliseconds>(t4 - t3).count();
       float time_4 = std::chrono::duration_cast<std::chrono::milliseconds>(t5 - t4).count();
-      float time = time_1 + time_2 + time_3 + time_4;
+      float time_5 = std::chrono::duration_cast<std::chrono::milliseconds>(t6 - t5).count();
+      float time = time_1 + time_2 + time_3 + time_4 + time_5;
       if (iter == 0)
         timeAvg = time;
       else
@@ -359,7 +363,7 @@ namespace dr
       if (preset.debug_print && iter % preset.debug_print_interval == 0)
       {
         printf("Iter:%4d, loss: %f (%f-%f) ", iter, loss_sum/preset.image_batch_size, loss_min, loss_max);
-        printf("%.1f ms/iter (%.1f + %.1f + %.1f + %.1f) ", time, time_1, time_2, time_3, time_4);
+        printf("%.1f ms/iter (%.1f + %.1f + %.1f + %.1f + %.1f) ", time, time_1, time_2, time_3, time_4, time_5);
         printf("ETA %.1f s\n", (timeAvg * (preset.opt_iterations - iter - 1)) / 1000.0f);
       }
       

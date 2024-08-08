@@ -1846,6 +1846,78 @@ void diff_render_test_19_expanding_grid()
     printf("FAILED, psnr = %f\n", psnr);
 }
 
+void diff_render_test_20_sphere_depth_with_redist()
+{
+  //create renderers for SDF scene and mesh scene
+  auto SBS_ref = circle_small_scene();
+
+  unsigned W = 256, H = 256;
+
+  MultiRenderPreset preset = getDefaultPreset();
+  preset.render_mode = MULTI_RENDER_MODE_LINEAR_DEPTH;
+  //preset.ray_gen_mode = RAY_GEN_MODE_RANDOM;
+  preset.spp = 64;
+
+  float4x4 base_proj = LiteMath::perspectiveMatrix(60, 1.0f, 0.01f, 100.0f);
+
+  std::vector<float4x4> view = get_cameras_uniform_sphere(16, float3(0, 0, 0), 3.0f);
+  std::vector<float4x4> proj(view.size(), base_proj);
+
+  std::vector<LiteImage::Image2D<float4>> images_ref(view.size(), LiteImage::Image2D<float4>(W, H));
+  LiteImage::Image2D<float4> image_res(W, H);
+  for (int i = 0; i < view.size(); i++)
+  {
+    auto pRender = CreateMultiRenderer("GPU");
+    pRender->SetPreset(preset);
+    pRender->SetViewport(0,0,W,H);
+
+    pRender->SetScene(SBS_ref);
+    pRender->RenderFloat(images_ref[i].data(), images_ref[i].width(), images_ref[i].height(), view[i], proj[i], preset);
+    LiteImage::SaveImage<float4>(("saves/test_dr_20_ref_"+std::to_string(i)+".bmp").c_str(), images_ref[i]); 
+  }
+
+  {
+    auto indexed_SBS = circle_small_scene();
+    // randomize_color(indexed_SBS);
+    randomize_distance(indexed_SBS, 0.1f);
+
+    MultiRendererDRPreset dr_preset = getDefaultPresetDR();
+
+    dr_preset.dr_diff_mode = DR_DIFF_MODE_DEFAULT;
+    dr_preset.dr_render_mode = DR_RENDER_MODE_LINEAR_DEPTH;
+    dr_preset.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_GEOMETRY;
+    dr_preset.dr_input_type = DR_INPUT_TYPE_LINEAR_DEPTH;
+    dr_preset.opt_iterations = 500;
+    dr_preset.opt_lr = 0.002f;
+    dr_preset.spp = 16;
+    dr_preset.border_spp = 512;
+    dr_preset.image_batch_size = 4;
+
+    // new compared to Test 18
+    dr_preset.redistancing_enable = true;
+    dr_preset.redistancing_interval = 1;
+    // dr_preset.debug_print = true;
+    // dr_preset.debug_progress_images = DEBUG_PROGRESS_RAW;
+    // dr_preset.debug_progress_interval = 4;
+
+    MultiRendererDR dr_render;
+    dr_render.SetReference(images_ref, view, proj);
+    dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS);
+    image_res = dr_render.getLastImage(0);
+    LiteImage::SaveImage<float4>("saves/test_dr_20_res.bmp", image_res);
+  }
+
+  printf("TEST 20. Optimize smallest SDF scene with depth input, redistancing enabled\n");
+  
+  float psnr = image_metrics::PSNR(image_res, images_ref[0]);
+
+  printf("20.1. %-64s", "SDF is reconstructed");
+  if (psnr >= 40)
+    printf("passed    (%.2f)\n", psnr);
+  else
+    printf("FAILED, psnr = %f\n", psnr);
+}
+
 void perform_tests_diff_render(const std::vector<int> &test_ids)
 {
   std::vector<int> tests = test_ids;
@@ -1857,7 +1929,7 @@ void perform_tests_diff_render(const std::vector<int> &test_ids)
       diff_render_test_10_optimize_sdf_finite_derivatives, diff_render_test_11_optimize_smallest_scene, diff_render_test_12_optimize_sphere_mask,
       diff_render_test_13_optimize_sphere_diffuse, diff_render_test_14_optimize_sphere_lambert, diff_render_test_15_combined_reconstruction,
       diff_render_test_16_borders_detection, diff_render_test_17_optimize_bunny, diff_render_test_18_sphere_depth,
-      diff_render_test_19_expanding_grid};
+      diff_render_test_19_expanding_grid, diff_render_test_20_sphere_depth_with_redist };
 
   if (tests.empty())
   {
