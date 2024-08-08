@@ -1,10 +1,26 @@
 #pragma once
 #include <vector>
+#include <functional>
+
 #include "LiteMath.h"
+
+struct SdfSBS;
 
 namespace dr
 {
+  using LiteMath::cross;
+  using LiteMath::dot;
+  using LiteMath::float2;
   using LiteMath::float3;
+  using LiteMath::float4;
+  using LiteMath::float4x4;
+  using LiteMath::int2;
+  using LiteMath::inverse4x4;
+  using LiteMath::normalize;
+  using LiteMath::sign;
+  using LiteMath::to_float3;
+  using LiteMath::uint2;
+  
   static constexpr uint32_t INVALID_INDEX = 0xFFFFFFFF;
   struct PDColor
   {
@@ -81,15 +97,37 @@ namespace dr
   static constexpr unsigned DR_RAY_FLAG_BORDER          = 1 << 3;
   static constexpr unsigned DR_RAY_FLAG_DDIST_DPOS      = 1 << 4;
 
+  //enum DRBorderSampling
+  static constexpr unsigned DR_BORDER_SAMPLING_RANDOM = 0;
+  static constexpr unsigned DR_BORDER_SAMPLING_SVM    = 1;
+
+  //enum DRRegFunction
+  static constexpr unsigned DR_REG_FUNCTION_NONE         = 0;
+  static constexpr unsigned DR_REG_FUNCTION_LK_DENOISING = 1;
+
+  static constexpr unsigned DEBUG_PROGRESS_NONE = 1000; //do not save intermediate images with optimization progress
+  static constexpr unsigned DEBUG_PROGRESS_RAW  = 1001; //show intermediate images taken from diff render itself
+
   struct MultiRendererDRPreset
   {
-    unsigned spp;
-    unsigned border_spp;
+    //main settings, altering the behavior of the renderer
     unsigned dr_loss_function;        //enum DRLossFunction
     unsigned dr_render_mode;          //enum DRRenderMode
     unsigned dr_diff_mode;            //enum DRDiffMode
     unsigned dr_reconstruction_flags; //enum DRReconstructionFlag
     unsigned dr_input_type;           //enum DRInputType
+    unsigned dr_border_sampling;      //enum DRBorderSampling
+
+    // main parameters
+    unsigned spp;
+    unsigned render_width;   // if 0, reference image width is used
+    unsigned render_height;  // if 0, reference image width is used
+
+    // border integral estimator parameters
+    unsigned border_spp;
+    float border_relax_eps;
+    float border_depth_threshold; //practically useless now
+    float border_color_threshold;
 
     //optimization parameters (Adam optimizer)
     float opt_lr;
@@ -98,5 +136,36 @@ namespace dr
     float opt_eps;
     unsigned opt_iterations;
     unsigned image_batch_size;
+
+    //regualrization settings and parameters
+    unsigned reg_function; //enum DRRegFunction
+    float reg_lambda;
+    float reg_power;
+
+    //debug settings
+    bool debug_print;                //wether to print loss and ETA during optimization or not
+    unsigned debug_print_interval;   //how often to print
+    unsigned debug_progress_images;  //render mode to progress images,either DEBUG_PROGRESS_NONE, DEBUG_PROGRESS_RAW or any MultiRenderMode
+    unsigned debug_progress_interval;//how often to save progress images
+    
+    //very heavy and specific debug modes. You probably shouldn't use them on a regular scene
+    bool debug_pd_images;
+    bool debug_border_samples;
+    bool debug_border_samples_mega_image;
   };
+
+  void randomize_color(SdfSBS &sbs);
+  void randomize_distance(SdfSBS &sbs, float delta);
+  std::vector<float4x4> get_cameras_turntable(int count, float3 center, float radius, float height);
+  std::vector<float4x4> get_cameras_uniform_sphere(int count, float3 center, float radius);
+  SdfSBS circle_smallest_scene();
+  SdfSBS circle_medium_scene();
+  SdfSBS circle_small_scene();
+  SdfSBS circle_one_brick_scene();
+  float circle_sdf(float3 center, float radius, float3 p);
+  float3 gradient_color(float3 p);
+  float3 single_color(float3 p);
+  SdfSBS create_grid_sbs(unsigned brick_count, unsigned brick_size, 
+                         std::function<float(float3)>  sdf_func,
+                         std::function<float3(float3)> color_func);
 }

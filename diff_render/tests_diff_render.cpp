@@ -1,4 +1,4 @@
-#include "tests.h"
+#include "../tests/tests.h"
 #include "../IRenderer.h"
 #include "../Renderer/eye_ray.h"
 #include "../utils/mesh_bvh.h"
@@ -17,228 +17,7 @@
 #include <cassert>
 #include <chrono>
 
-static double urand(double from=0, double to=1)
-{
-  return ((double)rand() / RAND_MAX) * (to - from) + from;
-}
-
-float circle_sdf(float3 center, float radius, float3 p)
-{
-  return length(p - center) - radius;
-}
-float3 gradient_color(float3 p)
-{
-  return  (1-p.x)*(1-p.y)*(1-p.z)*float3(1,0,0) + 
-          (1-p.x)*(1-p.y)*(  p.z)*float3(1,0,0) + 
-          (1-p.x)*(  p.y)*(1-p.z)*float3(0,1,0) + 
-          (1-p.x)*(  p.y)*(  p.z)*float3(0,1,0) + 
-          (  p.x)*(1-p.y)*(1-p.z)*float3(1,0,0) + 
-          (  p.x)*(1-p.y)*(  p.z)*float3(1,0,0) + 
-          (  p.x)*(  p.y)*(1-p.z)*float3(0,1,0) + 
-          (  p.x)*(  p.y)*(  p.z)*float3(0,1,0);
-}
-
-float3 single_color(float3 p)
-{
-  return float3(1,0,0);
-}
-
-//creates SBS where all nodes are present, i.e.
-//it is really a regular grid, but with more indexes
-//distance and color fields must be given
-//it is for test purposes only
-//SBS is created in [-1,1]^3 cube, as usual
-SdfSBS create_grid_sbs(unsigned brick_count, unsigned brick_size, 
-                       std::function<float(float3)>  sdf_func,
-                       std::function<float3(float3)> color_func)
-{
-  unsigned v_size = brick_size+1;
-  unsigned dist_per_node = v_size*v_size*v_size;
-  unsigned colors_per_node = 8;
-  unsigned p_count = brick_count*brick_size + 1u;
-  unsigned c_count = brick_count + 1u;
-  unsigned c_offset = p_count*p_count*p_count;
-
-  SdfSBS scene;
-  scene.header.brick_size = brick_size;
-  scene.header.brick_pad  = 0;
-  scene.header.bytes_per_value = 4;
-  scene.header.aux_data = SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F;
-
-  scene.values_f.resize(p_count*p_count*p_count + 3*c_count*c_count*c_count);
-  scene.values.resize(brick_count*brick_count*brick_count*(dist_per_node+colors_per_node));
-  scene.nodes.resize(brick_count*brick_count*brick_count);
-
-  //fill the distances
-  for (unsigned x = 0; x < p_count; x++)
-  {
-    for (unsigned y = 0; y < p_count; y++)
-    {
-      for (unsigned z = 0; z < p_count; z++)
-      {
-        unsigned idx = x*p_count*p_count + y*p_count + z;
-        float3 p = 2.0f*(float3(x, y, z) / float3(brick_count*brick_size)) - 1.0f;
-        scene.values_f[idx] = sdf_func(p);
-      }
-    }
-  }
-
-  //fill the colors
-  for (unsigned x = 0; x < c_count; x++)
-  {
-    for (unsigned y = 0; y < c_count; y++)
-    {
-      for (unsigned z = 0; z < c_count; z++)
-      {
-        unsigned idx = x*c_count*c_count + y*c_count + z;
-        float3 dp = float3(x, y, z) / float3(brick_count);
-        float3 color = color_func(dp);
-        scene.values_f[c_offset + 3*idx + 0] = color.x;
-        scene.values_f[c_offset + 3*idx + 1] = color.y;
-        scene.values_f[c_offset + 3*idx + 2] = color.z;
-      }
-    }
-  }
-
-  //fill the nodes and indices
-  for (unsigned bx = 0; bx < brick_count; bx++)
-  {
-    for (unsigned by = 0; by < brick_count; by++)
-    {
-      for (unsigned bz = 0; bz < brick_count; bz++)
-      {
-
-        //nodes
-        unsigned n_idx = bx*brick_count*brick_count + by*brick_count + bz;
-        unsigned offset = n_idx*(dist_per_node+colors_per_node);
-        scene.nodes[n_idx].pos_xy = (bx << 16) | by;
-        scene.nodes[n_idx].pos_z_lod_size = (bz << 16) | brick_count;
-        scene.nodes[n_idx].data_offset = offset;
-
-        //indices for distances
-        for (unsigned x = 0; x < v_size; x++)
-        {
-          for (unsigned y = 0; y < v_size; y++)
-          {
-            for (unsigned z = 0; z < v_size; z++)
-            {
-              unsigned idx = x*v_size*v_size + y*v_size + z;
-              unsigned val_idx = (bx*brick_size + x)*p_count*p_count + (by*brick_size + y)*p_count + (bz*brick_size + z);
-              scene.values[offset + idx] = val_idx;
-            }
-          }
-        }
-
-        //indices for colors
-        for (unsigned x = 0; x < 2; x++)
-        {
-          for (unsigned y = 0; y < 2; y++)
-          {
-            for (unsigned z = 0; z < 2; z++)
-            {
-              unsigned idx = x*2*2 + y*2 + z;
-              unsigned val_idx = c_offset + 3*((bx + x)*c_count*c_count + (by + y)*c_count + (bz + z));
-              scene.values[offset + dist_per_node + idx] = val_idx;
-            }
-          }
-        }
-      }
-    }
-  }
-
-  return scene;  
-}
-
-SdfSBS circle_one_brick_scene()
-{
-  return create_grid_sbs(1, 8, 
-                         [&](float3 p){return circle_sdf(float3(0,0,0), 0.8f, p);}, 
-                         gradient_color);
-}
-
-SdfSBS circle_small_scene()
-{
-  return create_grid_sbs(2, 4, 
-                         [&](float3 p){return circle_sdf(float3(0,0,0), 0.8f, p);}, 
-                         gradient_color);
-}
-
-SdfSBS circle_medium_scene()
-{
-  return create_grid_sbs(16, 4, 
-                         [&](float3 p){return circle_sdf(float3(0,0,0), 0.8f, p);}, 
-                         gradient_color);
-}
-
-SdfSBS circle_smallest_scene()
-{
-  return create_grid_sbs(1, 2, 
-                         [&](float3 p){return circle_sdf(float3(0,0,0), 0.8f, p);}, 
-                         single_color);
-}
-
-std::vector<float4x4> get_cameras_uniform_sphere(int count, float3 center, float radius)
-{
-  std::vector<float4x4> cameras;
-  for (int i = 0; i < count; i++)
-  {
-    float phi = 2 * M_PI * urand();
-    float psi = (M_PI / 2) * (1 - sqrtf(urand()));
-    if (urand() > 0.5)
-      psi = -psi;
-
-    float3 view_dir = -float3(cos(psi) * sin(phi), sin(psi), cos(psi) * cos(phi));
-    float3 tangent = normalize(cross(view_dir, float3(0, 1, 0)));
-    float3 new_up = normalize(cross(view_dir, tangent));
-    cameras.push_back(LiteMath::lookAt(center - radius * view_dir, center, new_up));
-  }
-
-  return cameras;
-}
-
-std::vector<float4x4> get_cameras_turntable(int count, float3 center, float radius, float height)
-{
-  std::vector<float4x4> cameras;
-  for (int i = 0; i < count; i++)
-  {
-    float phi = 2 * M_PI * urand();
-
-    float3 view_dir = float3(sin(phi), height/radius, cos(phi));
-    float3 tangent = normalize(cross(view_dir, -float3(0, 1, 0)));
-    float3 new_up = normalize(cross(view_dir, tangent));
-    cameras.push_back(LiteMath::lookAt(center - radius * view_dir, center, new_up));
-  }
-
-  return cameras;
-}
-
-void randomize_color(SdfSBS &sbs)
-{
-  int v_size = sbs.header.brick_size + 2 * sbs.header.brick_pad + 1;
-  int dist_per_node = v_size * v_size * v_size;
-  for (auto &n : sbs.nodes)
-  {
-    for (int i = 0; i < 8; i++)
-    {
-      unsigned off = sbs.values[n.data_offset + dist_per_node + i];
-      for (int j = 0; j < 3; j++)
-        sbs.values_f[off + j] = urand();
-    }
-  }
-}
-
-void randomize_distance(SdfSBS &sbs, float delta)
-{
-  int v_size = sbs.header.brick_size + 2 * sbs.header.brick_pad + 1;
-  int dist_per_node = v_size * v_size * v_size;
-  for (auto &n : sbs.nodes)
-  {
-    for (int i = 0; i < dist_per_node; i++)
-    {
-      sbs.values_f[sbs.values[n.data_offset + i]] += delta*urand(-1,1);
-    }
-  }
-}
+using namespace dr;
 
 void render(LiteImage::Image2D<float4> &image, std::shared_ptr<MultiRenderer> pRender, 
             float3 pos, float3 target, float3 up, 
@@ -384,42 +163,42 @@ void diff_render_test_2_forward_pass()
   }
 
   {
-    dr::MultiRendererDR dr_render;
-    dr::MultiRendererDRPreset dr_preset = dr::getDefaultPresetDR();
+    MultiRendererDR dr_render;
+    MultiRendererDRPreset dr_preset = getDefaultPresetDR();
 
-    dr_preset.dr_render_mode = dr::DR_RENDER_MODE_LAMBERT;
-    dr_preset.dr_reconstruction_flags = dr::DR_RECONSTRUCTION_FLAG_COLOR;
+    dr_preset.dr_render_mode = DR_RENDER_MODE_LAMBERT;
+    dr_preset.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_COLOR;
     dr_preset.opt_iterations = 1;
     dr_preset.opt_lr = 0;
     dr_preset.spp = 16;
 
     dr_render.SetReference({image_mesh}, {view}, {proj});
 
-    dr_preset.dr_render_mode = dr::DR_RENDER_MODE_LAMBERT;
-    dr_render.OptimizeColor(dr_preset, indexed_SBS);
+    dr_preset.dr_render_mode = DR_RENDER_MODE_LAMBERT;
+    dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS);
     image_SBS_dr = dr_render.getLastImage(0);
 
-    dr_preset.dr_render_mode = dr::DR_RENDER_MODE_LINEAR_DEPTH;
-    dr_render.OptimizeColor(dr_preset, indexed_SBS);
+    dr_preset.dr_render_mode = DR_RENDER_MODE_LINEAR_DEPTH;
+    dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS);
     image_SBS_dr_depth = dr_render.getLastImage(0);
 
-    dr_preset.dr_render_mode = dr::DR_DEBUG_RENDER_MODE_PRIMITIVE;
-    dr_render.OptimizeColor(dr_preset, indexed_SBS);
+    dr_preset.dr_render_mode = DR_DEBUG_RENDER_MODE_PRIMITIVE;
+    dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS);
     image_SBS_dr_prim = dr_render.getLastImage(0);
   }
 
   {
-    dr::MultiRendererDR dr_render;
-    dr::MultiRendererDRPreset dr_preset = dr::getDefaultPresetDR();
+    MultiRendererDR dr_render;
+    MultiRendererDRPreset dr_preset = getDefaultPresetDR();
 
-    dr_preset.dr_render_mode = dr::DR_RENDER_MODE_LAMBERT;
-    dr_preset.dr_reconstruction_flags = dr::DR_RECONSTRUCTION_FLAG_GEOMETRY;
+    dr_preset.dr_render_mode = DR_RENDER_MODE_LAMBERT;
+    dr_preset.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_GEOMETRY;
     dr_preset.opt_iterations = 1;
     dr_preset.opt_lr = 0;
     dr_preset.spp = 16;
 
     dr_render.SetReference({image_mesh}, {view}, {proj});
-    dr_render.OptimizeColor(dr_preset, indexed_SBS);
+    dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS);
     
     image_SBS_dr_2 = dr_render.getLastImage(0);
   }
@@ -541,15 +320,15 @@ void diff_render_test_3_optimize_color()
     //put random colors to SBS
     randomize_color(indexed_SBS);
 
-    dr::MultiRendererDR dr_render;
-    dr::MultiRendererDRPreset dr_preset = dr::getDefaultPresetDR();
+    MultiRendererDR dr_render;
+    MultiRendererDRPreset dr_preset = getDefaultPresetDR();
 
     dr_preset.opt_iterations = 200;
     dr_preset.opt_lr = 0.25;
     dr_preset.spp = 1;
 
     dr_render.SetReference({image_mesh}, {view}, {proj});
-    dr_render.OptimizeColor(dr_preset, indexed_SBS);
+    dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS);
     
     image_SBS_dr = dr_render.getLastImage(0);
   }
@@ -617,30 +396,30 @@ void diff_render_test_4_render_simple_scenes()
 
   {
     auto scene = circle_one_brick_scene();
-    dr::MultiRendererDR dr_render;
-    dr::MultiRendererDRPreset dr_preset = dr::getDefaultPresetDR();
+    MultiRendererDR dr_render;
+    MultiRendererDRPreset dr_preset = getDefaultPresetDR();
 
     dr_preset.opt_iterations = 1;
     dr_preset.opt_lr = 0.0f;
     dr_preset.spp = 1;
 
     dr_render.SetReference({image_med}, {view}, {proj});
-    dr_render.OptimizeColor(dr_preset, scene, false);
+    dr_render.OptimizeFixedStructure(dr_preset, scene);
     
     image_one_brick_dr = dr_render.getLastImage(0);
   }
 
   {
     auto scene = circle_small_scene();
-    dr::MultiRendererDR dr_render;
-    dr::MultiRendererDRPreset dr_preset = dr::getDefaultPresetDR();
+    MultiRendererDR dr_render;
+    MultiRendererDRPreset dr_preset = getDefaultPresetDR();
 
     dr_preset.opt_iterations = 1;
     dr_preset.opt_lr = 0.0f;
     dr_preset.spp = 1;
 
     dr_render.SetReference({image_med}, {view}, {proj});
-    dr_render.OptimizeColor(dr_preset, scene, false);
+    dr_render.OptimizeFixedStructure(dr_preset, scene);
     
     image_small_dr = dr_render.getLastImage(0);
   }
@@ -729,15 +508,15 @@ void diff_render_test_5_optimize_color_simpliest()
     auto indexed_SBS = circle_one_brick_scene();
     randomize_color(indexed_SBS);
 
-    dr::MultiRendererDR dr_render;
-    dr::MultiRendererDRPreset dr_preset = dr::getDefaultPresetDR();
+    MultiRendererDR dr_render;
+    MultiRendererDRPreset dr_preset = getDefaultPresetDR();
 
     dr_preset.opt_iterations = 200;
     dr_preset.opt_lr = 0.1f;
     dr_preset.spp = 16;
 
     dr_render.SetReference({images_ref[0]}, {view[0]}, {proj[0]});
-    dr_render.OptimizeColor(dr_preset, indexed_SBS, false);
+    dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS);
     
     image_SBS_single = dr_render.getLastImage(0);
   }
@@ -748,15 +527,15 @@ void diff_render_test_5_optimize_color_simpliest()
     auto indexed_SBS = circle_one_brick_scene();
     randomize_color(indexed_SBS);
 
-    dr::MultiRendererDR dr_render;
-    dr::MultiRendererDRPreset dr_preset = dr::getDefaultPresetDR();
+    MultiRendererDR dr_render;
+    MultiRendererDRPreset dr_preset = getDefaultPresetDR();
 
     dr_preset.opt_iterations = 400;
     dr_preset.opt_lr = 0.1f;
     dr_preset.spp = 16;
 
     dr_render.SetReference(images_ref, view, proj);
-    dr_render.OptimizeColor(dr_preset, indexed_SBS, false);
+    dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS);
     
     image_SBS_multi = dr_render.getLastImage(0);
   }
@@ -767,15 +546,15 @@ void diff_render_test_5_optimize_color_simpliest()
     auto indexed_SBS = circle_small_scene();
     randomize_color(indexed_SBS);
 
-    dr::MultiRendererDR dr_render;
-    dr::MultiRendererDRPreset dr_preset = dr::getDefaultPresetDR();
+    MultiRendererDR dr_render;
+    MultiRendererDRPreset dr_preset = getDefaultPresetDR();
 
     dr_preset.opt_iterations = 400;
     dr_preset.opt_lr = 0.01f;
     dr_preset.spp = 16;
 
     dr_render.SetReference(images_ref, view, proj);
-    dr_render.OptimizeColor(dr_preset, indexed_SBS, false);
+    dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS);
     
     image_SBS_multi_2 = dr_render.getLastImage(0);
   }
@@ -786,16 +565,16 @@ void diff_render_test_5_optimize_color_simpliest()
     auto indexed_SBS = circle_one_brick_scene();
     randomize_color(indexed_SBS);
 
-    dr::MultiRendererDR dr_render;
-    dr::MultiRendererDRPreset dr_preset = dr::getDefaultPresetDR();
+    MultiRendererDR dr_render;
+    MultiRendererDRPreset dr_preset = getDefaultPresetDR();
 
     dr_preset.opt_iterations = 400;
     dr_preset.opt_lr = 0.01f;
     dr_preset.spp = 16;
-    dr_preset.dr_loss_function = dr::DR_LOSS_FUNCTION_MAE;
+    dr_preset.dr_loss_function = DR_LOSS_FUNCTION_MAE;
 
     dr_render.SetReference(images_ref, view, proj);
-    dr_render.OptimizeColor(dr_preset, indexed_SBS, false);
+    dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS);
     
     image_SBS_multi_mae = dr_render.getLastImage(0);
   }
@@ -867,9 +646,9 @@ void diff_render_test_6_check_color_derivatives()
     auto indexed_SBS = circle_one_brick_scene();
     randomize_color(indexed_SBS);
 
-    dr::MultiRendererDRPreset dr_preset = dr::getDefaultPresetDR();
+    MultiRendererDRPreset dr_preset = getDefaultPresetDR();
 
-    dr_preset.dr_diff_mode = dr::DR_DIFF_MODE_DEFAULT;
+    dr_preset.dr_diff_mode = DR_DIFF_MODE_DEFAULT;
     dr_preset.opt_iterations = 1;
     dr_preset.opt_lr = 0.0f;
     dr_preset.spp = 4;
@@ -881,17 +660,17 @@ void diff_render_test_6_check_color_derivatives()
     std::vector<float> grad_ref(color_param_count, 0);
 
     {
-    dr::MultiRendererDR dr_render;
+    MultiRendererDR dr_render;
     dr_render.SetReference({images_ref[0]}, {view[0]}, {proj[0]});
-    dr_render.OptimizeColor(dr_preset, indexed_SBS, false);
+    dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS);
     grad_dr = std::vector<float>(dr_render.getLastdLoss_dS() + color_param_offset, 
                                  dr_render.getLastdLoss_dS() + color_param_offset + color_param_count);
     }
     {
-    dr::MultiRendererDR dr_render;
-    dr_preset.dr_diff_mode = dr::DR_DIFF_MODE_FINITE_DIFF;
+    MultiRendererDR dr_render;
+    dr_preset.dr_diff_mode = DR_DIFF_MODE_FINITE_DIFF;
     dr_render.SetReference({images_ref[0]}, {view[0]}, {proj[0]});
-    dr_render.OptimizeColor(dr_preset, indexed_SBS, false);
+    dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS);
     grad_ref = std::vector<float>(dr_render.getLastdLoss_dS() + color_param_offset, 
                                   dr_render.getLastdLoss_dS() + color_param_offset + color_param_count);
     }
@@ -1018,16 +797,16 @@ void diff_render_test_7_optimize_with_finite_diff()
     auto indexed_SBS = circle_one_brick_scene();
     randomize_color(indexed_SBS);
 
-    dr::MultiRendererDR dr_render;
-    dr::MultiRendererDRPreset dr_preset = dr::getDefaultPresetDR();
+    MultiRendererDR dr_render;
+    MultiRendererDRPreset dr_preset = getDefaultPresetDR();
 
-    dr_preset.dr_diff_mode = dr::DR_DIFF_MODE_DEFAULT;
+    dr_preset.dr_diff_mode = DR_DIFF_MODE_DEFAULT;
     dr_preset.opt_iterations = 100;
     dr_preset.opt_lr = 0.1f;
     dr_preset.spp = 4;
 
     dr_render.SetReference(images_ref, view, proj);
-    dr_render.OptimizeColor(dr_preset, indexed_SBS, false);
+    dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS);
     
     image_SBS_def = dr_render.getLastImage(0);
   }
@@ -1038,16 +817,16 @@ void diff_render_test_7_optimize_with_finite_diff()
     auto indexed_SBS = circle_one_brick_scene();
     randomize_color(indexed_SBS);
 
-    dr::MultiRendererDR dr_render;
-    dr::MultiRendererDRPreset dr_preset = dr::getDefaultPresetDR();
+    MultiRendererDR dr_render;
+    MultiRendererDRPreset dr_preset = getDefaultPresetDR();
 
-    dr_preset.dr_diff_mode = dr::DR_DIFF_MODE_FINITE_DIFF;
+    dr_preset.dr_diff_mode = DR_DIFF_MODE_FINITE_DIFF;
     dr_preset.opt_iterations = 100;
     dr_preset.opt_lr = 0.1f;
     dr_preset.spp = 4;
 
     dr_render.SetReference(images_ref, view, proj);
-    dr_render.OptimizeColor(dr_preset, indexed_SBS, false);
+    dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS);
     
     image_SBS_finite_diff = dr_render.getLastImage(0);
   }
@@ -1135,17 +914,17 @@ void diff_render_test_8_optimize_with_lambert()
     //put random colors to SBS
     randomize_color(indexed_SBS);
 
-    dr::MultiRendererDR dr_render;
-    dr::MultiRendererDRPreset dr_preset = dr::getDefaultPresetDR();
+    MultiRendererDR dr_render;
+    MultiRendererDRPreset dr_preset = getDefaultPresetDR();
 
-    dr_preset.dr_render_mode = dr::DR_RENDER_MODE_LAMBERT;
+    dr_preset.dr_render_mode = DR_RENDER_MODE_LAMBERT;
     dr_preset.opt_iterations = 300;
     dr_preset.opt_lr = 0.1f;
     dr_preset.spp = 1;
     dr_preset.spp = 2;
 
     dr_render.SetReference(images_ref, view, proj);
-    dr_render.OptimizeColor(dr_preset, indexed_SBS);
+    dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS);
     
     image_SBS_dr = dr_render.getLastImage(0);
   }
@@ -1204,11 +983,11 @@ void diff_render_test_9_check_position_derivatives()
   //randomize_color(indexed_SBS);
   randomize_distance(indexed_SBS, 0.1f);
 
-  dr::MultiRendererDRPreset dr_preset = dr::getDefaultPresetDR();
+  MultiRendererDRPreset dr_preset = getDefaultPresetDR();
 
-  dr_preset.dr_render_mode = dr::DR_RENDER_MODE_DIFFUSE;
-  dr_preset.dr_diff_mode = dr::DR_DIFF_MODE_DEFAULT;
-  dr_preset.dr_reconstruction_flags = dr::DR_RECONSTRUCTION_FLAG_GEOMETRY;
+  dr_preset.dr_render_mode = DR_RENDER_MODE_DIFFUSE;
+  dr_preset.dr_diff_mode = DR_DIFF_MODE_DEFAULT;
+  dr_preset.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_GEOMETRY;
   dr_preset.opt_iterations = 1;
   dr_preset.opt_lr = 0.0f;
   dr_preset.spp = 64;
@@ -1223,108 +1002,123 @@ void diff_render_test_9_check_position_derivatives()
     //printf("delta = %f\n", delta);
     //__delta = delta;
 
-    std::vector<float> grad_dr(param_count, 0);
+    std::vector<float> grad_dr_1(param_count, 0);
+    std::vector<float> grad_dr_2(param_count, 0);
     std::vector<float> grad_ref(param_count, 0);
 
     {
-    dr::MultiRendererDR dr_render;
-    dr_preset.dr_diff_mode = dr::DR_DIFF_MODE_DEFAULT;
+    MultiRendererDR dr_render;
+    dr_preset.dr_diff_mode = DR_DIFF_MODE_DEFAULT;
+    dr_preset.dr_border_sampling = DR_BORDER_SAMPLING_RANDOM;
     dr_render.SetReference(images_ref, view, proj);
-    dr_render.OptimizeColor(dr_preset, indexed_SBS, false);
-    grad_dr = std::vector<float>(dr_render.getLastdLoss_dS() + param_offset, 
-                                 dr_render.getLastdLoss_dS() + param_offset + param_count);
+    dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS);
+    grad_dr_1 = std::vector<float>(dr_render.getLastdLoss_dS() + param_offset, 
+                                   dr_render.getLastdLoss_dS() + param_offset + param_count);
     image_res = dr_render.getLastImage(0);
     LiteImage::SaveImage<float4>("saves/test_dr_9_res.bmp", image_res); 
     }
     {
-    dr::MultiRendererDR dr_render;
-    dr_preset.dr_diff_mode = dr::DR_DIFF_MODE_FINITE_DIFF;
+    MultiRendererDR dr_render;
+    dr_preset.dr_diff_mode = DR_DIFF_MODE_DEFAULT;
+    dr_preset.dr_border_sampling = DR_BORDER_SAMPLING_SVM;
     dr_render.SetReference(images_ref, view, proj);
-    dr_render.OptimizeColor(dr_preset, indexed_SBS, false);
+    dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS);
+    grad_dr_2 = std::vector<float>(dr_render.getLastdLoss_dS() + param_offset, 
+                                   dr_render.getLastdLoss_dS() + param_offset + param_count);
+    image_res = dr_render.getLastImage(0);
+    LiteImage::SaveImage<float4>("saves/test_dr_9_res_2.bmp", image_res); 
+    }
+    {
+    MultiRendererDR dr_render;
+    dr_preset.dr_diff_mode = DR_DIFF_MODE_FINITE_DIFF;
+    dr_render.SetReference(images_ref, view, proj);
+    dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS);
     grad_ref = std::vector<float>(dr_render.getLastdLoss_dS() + param_offset, 
                                   dr_render.getLastdLoss_dS() + param_offset + param_count);
     }
 
-    long double average_1 = 0;
-    long double abs_average_1 = 0;
-    long double average_2 = 0;
-    long double abs_average_2 = 0;
-    long double diff = 0;
-    long double abs_diff = 0;
-    for (int i = 0; i < param_count; i++)
-    {
-      average_1 += grad_ref[i];
-      abs_average_1 += abs(grad_ref[i]);
-      average_2 += grad_dr[i];
-      abs_average_2 += abs(grad_dr[i]);
-      diff += abs(grad_ref[i] - grad_dr[i]);
-      abs_diff += abs(grad_ref[i] - grad_dr[i]);
-    }
-    average_1 /= param_count;
-    abs_average_1 /= param_count;
-    average_2 /= param_count;
-    abs_average_2 /= param_count;
-    diff /= param_count;
-    abs_diff /= param_count;
-
-    printf("[");
-    for (int i = 0; i < param_count; i++)
-      printf("%8.3f ", grad_ref[i]);
-    printf("]\n");
-
-    printf("[");
-    for (int i = 0; i < param_count; i++)
-      printf("%8.3f ", grad_dr[i]);
-    printf("]\n");
-
-    //image_SBS_single = dr_render.getLastImage(0);
-    float average_error = abs(abs_average_2 - abs_average_1) / (abs_average_1 + abs_average_2);
-    float average_bias = abs(average_2 - average_1) / (abs_average_1 + abs_average_2);
-    float max_error = 0;
-    float average_error_2 = 0;
-    float average_bias_2 = 0;
-    for (int i = 0; i < param_count; i++)
-    {
-      float error = abs(grad_dr[i] - grad_ref[i]) / (abs_average_1 + abs_average_2);
-      float bias = (grad_dr[i] - grad_ref[i]) / (abs_average_1 + abs_average_2);
-      max_error = max(max_error, error);
-      average_error_2 += error;
-      average_bias_2 += bias;
-    }
-    average_error_2 /= param_count;
-    average_bias_2 /= param_count;
-
     printf("TEST 9. Check position derivatives\n");
-  
-    printf(" 9.1. %-64s", "Relative difference in average PD value");
-    if (average_error <= 0.1f)
-      printf("passed    (%f)\n", average_error);
-    else
-      printf("FAILED, average_error = %f\n", average_error);
+    for (auto &grad_dr : {grad_dr_1, grad_dr_2})
+    {
+      long double average_1 = 0;
+      long double abs_average_1 = 0;
+      long double average_2 = 0;
+      long double abs_average_2 = 0;
+      long double diff = 0;
+      long double abs_diff = 0;
+      for (int i = 0; i < param_count; i++)
+      {
+        average_1 += grad_ref[i];
+        abs_average_1 += abs(grad_ref[i]);
+        average_2 += grad_dr[i];
+        abs_average_2 += abs(grad_dr[i]);
+        diff += abs(grad_ref[i] - grad_dr[i]);
+        abs_diff += abs(grad_ref[i] - grad_dr[i]);
+      }
+      average_1 /= param_count;
+      abs_average_1 /= param_count;
+      average_2 /= param_count;
+      abs_average_2 /= param_count;
+      diff /= param_count;
+      abs_diff /= param_count;
+
+      printf("[");
+      for (int i = 0; i < param_count; i++)
+        printf("%8.3f ", grad_ref[i]);
+      printf("]\n");
+
+      printf("[");
+      for (int i = 0; i < param_count; i++)
+        printf("%8.3f ", grad_dr[i]);
+      printf("]\n");
+
+      //image_SBS_single = dr_render.getLastImage(0);
+      float average_error = abs(abs_average_2 - abs_average_1) / (abs_average_1 + abs_average_2);
+      float average_bias = abs(average_2 - average_1) / (abs_average_1 + abs_average_2);
+      float max_error = 0;
+      float average_error_2 = 0;
+      float average_bias_2 = 0;
+      for (int i = 0; i < param_count; i++)
+      {
+        float error = abs(grad_dr[i] - grad_ref[i]) / (abs_average_1 + abs_average_2);
+        float bias = (grad_dr[i] - grad_ref[i]) / (abs_average_1 + abs_average_2);
+        max_error = max(max_error, error);
+        average_error_2 += error;
+        average_bias_2 += bias;
+      }
+      average_error_2 /= param_count;
+      average_bias_2 /= param_count;
     
-    printf(" 9.2. %-64s", "Relative bias in average PD");
-    if (average_bias <= 0.1f)
-      printf("passed    (%f)\n", average_bias);
-    else
-      printf("FAILED, average_bias = %f\n", average_bias);
-    
-    printf(" 9.3. %-64s", "Max relative difference in PD value");
-    if (max_error <= 2)
-      printf("passed    (%f)\n", max_error);
-    else
-      printf("FAILED, max_error = %f\n", max_error);
-    
-    printf(" 9.4. %-64s", "Average relative difference in PD value");
-    if (average_error_2 <= 0.1f)
-      printf("passed    (%f)\n", average_error_2);
-    else
-      printf("FAILED, average_error = %f\n", average_error_2);
-    
-    printf(" 9.5. %-64s", "Average relative bias in PD");
-    if (abs(average_bias_2) <= 0.1f)
-      printf("passed    (%f)\n", average_bias_2);
-    else
-      printf("FAILED, average_bias = %f\n", average_bias_2);
+      printf(" 9.1. %-64s", "Relative difference in average PD value");
+      if (average_error <= 0.1f)
+        printf("passed    (%f)\n", average_error);
+      else
+        printf("FAILED, average_error = %f\n", average_error);
+      
+      printf(" 9.2. %-64s", "Relative bias in average PD");
+      if (average_bias <= 0.1f)
+        printf("passed    (%f)\n", average_bias);
+      else
+        printf("FAILED, average_bias = %f\n", average_bias);
+      
+      printf(" 9.3. %-64s", "Max relative difference in PD value");
+      if (max_error <= 2)
+        printf("passed    (%f)\n", max_error);
+      else
+        printf("FAILED, max_error = %f\n", max_error);
+      
+      printf(" 9.4. %-64s", "Average relative difference in PD value");
+      if (average_error_2 <= 0.1f)
+        printf("passed    (%f)\n", average_error_2);
+      else
+        printf("FAILED, average_error = %f\n", average_error_2);
+      
+      printf(" 9.5. %-64s", "Average relative bias in PD");
+      if (abs(average_bias_2) <= 0.1f)
+        printf("passed    (%f)\n", average_bias_2);
+      else
+        printf("FAILED, average_bias = %f\n", average_bias_2);
+    }
   }
 }
 
@@ -1362,10 +1156,10 @@ void diff_render_test_10_optimize_sdf_finite_derivatives()
   // randomize_color(indexed_SBS);
   randomize_distance(indexed_SBS, 0.25f);
 
-  dr::MultiRendererDRPreset dr_preset = dr::getDefaultPresetDR();
+  MultiRendererDRPreset dr_preset = getDefaultPresetDR();
 
-  dr_preset.dr_diff_mode = dr::DR_DIFF_MODE_FINITE_DIFF;
-  dr_preset.dr_reconstruction_flags = dr::DR_RECONSTRUCTION_FLAG_GEOMETRY;
+  dr_preset.dr_diff_mode = DR_DIFF_MODE_FINITE_DIFF;
+  dr_preset.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_GEOMETRY;
   dr_preset.opt_iterations = 40;
   dr_preset.opt_lr = 0.02f;
   dr_preset.spp = 4;
@@ -1378,9 +1172,9 @@ void diff_render_test_10_optimize_sdf_finite_derivatives()
   std::vector<float> grad_ref(param_count, 0);
 
   {
-    dr::MultiRendererDR dr_render;
+    MultiRendererDR dr_render;
     dr_render.SetReference(images_ref, view, proj);
-    dr_render.OptimizeColor(dr_preset, indexed_SBS, false);
+    dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS);
     image_res = dr_render.getLastImage(0);
     LiteImage::SaveImage<float4>("saves/test_dr_10_res.bmp", image_res);
   }
@@ -1431,18 +1225,18 @@ void diff_render_test_11_optimize_smallest_scene()
     // randomize_color(indexed_SBS);
     randomize_distance(indexed_SBS, 0.25f);
 
-    dr::MultiRendererDRPreset dr_preset = dr::getDefaultPresetDR();
+    MultiRendererDRPreset dr_preset = getDefaultPresetDR();
 
-    dr_preset.dr_diff_mode = dr::DR_DIFF_MODE_DEFAULT;
-    dr_preset.dr_reconstruction_flags = dr::DR_RECONSTRUCTION_FLAG_GEOMETRY;
+    dr_preset.dr_diff_mode = DR_DIFF_MODE_DEFAULT;
+    dr_preset.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_GEOMETRY;
     dr_preset.opt_iterations = 100;
     dr_preset.opt_lr = 0.01f;
     dr_preset.spp = 4;
     dr_preset.image_batch_size = 1;
 
-    dr::MultiRendererDR dr_render;
+    MultiRendererDR dr_render;
     dr_render.SetReference(images_ref, view, proj);
-    dr_render.OptimizeColor(dr_preset, indexed_SBS, false);
+    dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS);
     image_res = dr_render.getLastImage(0);
     LiteImage::SaveImage<float4>("saves/test_dr_11_res.bmp", image_res);
   }
@@ -1493,20 +1287,20 @@ void diff_render_test_12_optimize_sphere_mask()
     // randomize_color(indexed_SBS);
     randomize_distance(indexed_SBS, 0.1f);
 
-    dr::MultiRendererDRPreset dr_preset = dr::getDefaultPresetDR();
+    MultiRendererDRPreset dr_preset = getDefaultPresetDR();
 
-    dr_preset.dr_diff_mode = dr::DR_DIFF_MODE_DEFAULT;
-    dr_preset.dr_render_mode = dr::DR_RENDER_MODE_MASK;
-    dr_preset.dr_reconstruction_flags = dr::DR_RECONSTRUCTION_FLAG_GEOMETRY;
+    dr_preset.dr_diff_mode = DR_DIFF_MODE_DEFAULT;
+    dr_preset.dr_render_mode = DR_RENDER_MODE_MASK;
+    dr_preset.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_GEOMETRY;
     dr_preset.opt_iterations = 500;
     dr_preset.opt_lr = 0.002f;
     dr_preset.spp = 16;
     dr_preset.border_spp = 512;
     dr_preset.image_batch_size = 4;
 
-    dr::MultiRendererDR dr_render;
+    MultiRendererDR dr_render;
     dr_render.SetReference(images_ref, view, proj);
-    dr_render.OptimizeColor(dr_preset, indexed_SBS, false);
+    dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS);
     image_res = dr_render.getLastImage(0);
     LiteImage::SaveImage<float4>("saves/test_dr_12_res.bmp", image_res);
   }
@@ -1557,20 +1351,20 @@ void diff_render_test_13_optimize_sphere_diffuse()
     // randomize_color(indexed_SBS);
     randomize_distance(indexed_SBS, 0.1f);
 
-    dr::MultiRendererDRPreset dr_preset = dr::getDefaultPresetDR();
+    MultiRendererDRPreset dr_preset = getDefaultPresetDR();
 
-    dr_preset.dr_diff_mode = dr::DR_DIFF_MODE_DEFAULT;
-    dr_preset.dr_render_mode = dr::DR_RENDER_MODE_DIFFUSE;
-    dr_preset.dr_reconstruction_flags = dr::DR_RECONSTRUCTION_FLAG_GEOMETRY;
+    dr_preset.dr_diff_mode = DR_DIFF_MODE_DEFAULT;
+    dr_preset.dr_render_mode = DR_RENDER_MODE_DIFFUSE;
+    dr_preset.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_GEOMETRY;
     dr_preset.opt_iterations = 500;
     dr_preset.opt_lr = 0.002f;
     dr_preset.spp = 16;
     dr_preset.border_spp = 512;
     dr_preset.image_batch_size = 4;
 
-    dr::MultiRendererDR dr_render;
+    MultiRendererDR dr_render;
     dr_render.SetReference(images_ref, view, proj);
-    dr_render.OptimizeColor(dr_preset, indexed_SBS, false);
+    dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS);
     image_res = dr_render.getLastImage(0);
     LiteImage::SaveImage<float4>("saves/test_dr_13_res.bmp", image_res);
   }
@@ -1621,20 +1415,20 @@ void diff_render_test_14_optimize_sphere_lambert()
     // randomize_color(indexed_SBS);
     randomize_distance(indexed_SBS, 0.1f);
 
-    dr::MultiRendererDRPreset dr_preset = dr::getDefaultPresetDR();
+    MultiRendererDRPreset dr_preset = getDefaultPresetDR();
 
-    dr_preset.dr_diff_mode = dr::DR_DIFF_MODE_DEFAULT;
-    dr_preset.dr_render_mode = dr::DR_RENDER_MODE_LAMBERT;
-    dr_preset.dr_reconstruction_flags = dr::DR_RECONSTRUCTION_FLAG_GEOMETRY;
+    dr_preset.dr_diff_mode = DR_DIFF_MODE_DEFAULT;
+    dr_preset.dr_render_mode = DR_RENDER_MODE_LAMBERT;
+    dr_preset.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_GEOMETRY;
     dr_preset.opt_iterations = 500;
     dr_preset.opt_lr = 0.002f;
     dr_preset.spp = 16;
     dr_preset.border_spp = 512;
     dr_preset.image_batch_size = 4;
 
-    dr::MultiRendererDR dr_render;
+    MultiRendererDR dr_render;
     dr_render.SetReference(images_ref, view, proj);
-    dr_render.OptimizeColor(dr_preset, indexed_SBS, false);
+    dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS);
     image_res = dr_render.getLastImage(0);
     LiteImage::SaveImage<float4>("saves/test_dr_14_res.bmp", image_res);
   }
@@ -1685,20 +1479,20 @@ void diff_render_test_15_combined_reconstruction()
     randomize_color(indexed_SBS);
     randomize_distance(indexed_SBS, 0.15f);
 
-    dr::MultiRendererDRPreset dr_preset = dr::getDefaultPresetDR();
+    MultiRendererDRPreset dr_preset = getDefaultPresetDR();
 
-    dr_preset.dr_diff_mode = dr::DR_DIFF_MODE_DEFAULT;
-    dr_preset.dr_render_mode = dr::DR_RENDER_MODE_DIFFUSE;
-    dr_preset.dr_reconstruction_flags = dr::DR_RECONSTRUCTION_FLAG_GEOMETRY | dr::DR_RECONSTRUCTION_FLAG_COLOR;
+    dr_preset.dr_diff_mode = DR_DIFF_MODE_DEFAULT;
+    dr_preset.dr_render_mode = DR_RENDER_MODE_DIFFUSE;
+    dr_preset.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_GEOMETRY | DR_RECONSTRUCTION_FLAG_COLOR;
     dr_preset.opt_iterations = 500;
     dr_preset.opt_lr = 0.01f;
     dr_preset.spp = 16;
     dr_preset.border_spp = 512;
     dr_preset.image_batch_size = 2;
 
-    dr::MultiRendererDR dr_render;
+    MultiRendererDR dr_render;
     dr_render.SetReference(images_ref, view, proj);
-    dr_render.OptimizeColor(dr_preset, indexed_SBS, false);
+    dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS);
     image_res = dr_render.getLastImage(0);
     LiteImage::SaveImage<float4>("saves/test_dr_15_res.bmp", image_res);
   }
@@ -1720,12 +1514,12 @@ void diff_render_test_16_borders_detection()
   //create renderers for SDF scene and mesh scene
   auto SBS_ref = circle_smallest_scene();
 
-  unsigned W = 128, H = 128;
+  unsigned W = 512, H = 512;
 
   MultiRenderPreset preset = getDefaultPreset();
   preset.render_mode = MULTI_RENDER_MODE_DIFFUSE;
   //preset.ray_gen_mode = RAY_GEN_MODE_RANDOM;
-  preset.spp = 256;
+  preset.spp = 64;
 
   float4x4 base_proj = LiteMath::perspectiveMatrix(60, 1.0f, 0.01f, 100.0f);
 
@@ -1734,6 +1528,8 @@ void diff_render_test_16_borders_detection()
 
   std::vector<LiteImage::Image2D<float4>> images_ref(view.size(), LiteImage::Image2D<float4>(W, H));
   LiteImage::Image2D<float4> image_res(W, H);
+  LiteImage::Image2D<float4> image_bdet(W, H);
+  LiteImage::Image2D<float4> image_bint(W, H);
   for (int i = 0; i < view.size(); i++)
   {
     auto pRender = CreateMultiRenderer("CPU");
@@ -1745,44 +1541,74 @@ void diff_render_test_16_borders_detection()
     LiteImage::SaveImage<float4>(("saves/test_dr_16_ref_"+std::to_string(i)+".bmp").c_str(), images_ref[i]); 
   }
 
-  {
-    //put random colors to SBS
-    auto indexed_SBS = circle_smallest_scene();
-    //randomize_color(indexed_SBS);
-    randomize_distance(indexed_SBS, 0.2f);
+  // put random colors to SBS
+  auto indexed_SBS = circle_smallest_scene();
+  // randomize_color(indexed_SBS);
+  randomize_distance(indexed_SBS, 0.2f);
 
-    dr::MultiRendererDRPreset dr_preset = dr::getDefaultPresetDR();
-    dr_preset.dr_diff_mode = dr::DR_DIFF_MODE_DEFAULT;
-    dr_preset.dr_reconstruction_flags = dr::DR_RECONSTRUCTION_FLAG_GEOMETRY;
-    dr_preset.opt_iterations = 1;
-    dr_preset.opt_lr = 0.0f;
-    dr_preset.spp = 16;
-    dr_preset.border_spp = 256;
-    {
-    dr::MultiRendererDR dr_render;
+  MultiRendererDRPreset dr_preset = getDefaultPresetDR();
+  dr_preset.dr_diff_mode = DR_DIFF_MODE_DEFAULT;
+  dr_preset.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_GEOMETRY;
+  dr_preset.opt_iterations = 1;
+  dr_preset.opt_lr = 0.0f;
+  dr_preset.spp = 16;
+  dr_preset.border_spp = 256;
+  {
+    MultiRendererDR dr_render;
     dr_render.SetReference(images_ref, view, proj);
-    dr_preset.dr_render_mode = dr::DR_RENDER_MODE_DIFFUSE;
-    dr_render.OptimizeColor(dr_preset, indexed_SBS, false);
+    dr_preset.dr_render_mode = DR_RENDER_MODE_DIFFUSE;
+    dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS);
     image_res = dr_render.getLastImage(0);
-    LiteImage::SaveImage<float4>("saves/test_dr_16_res.bmp", image_res); 
-    }
-    {
-    dr::MultiRendererDR dr_render;
-    dr_render.SetReference(images_ref, view, proj);
-    dr_preset.dr_render_mode = dr::DR_DEBUG_RENDER_MODE_BORDER_DETECTION;
-    dr_render.OptimizeColor(dr_preset, indexed_SBS, false);
-    image_res = dr_render.getLastImage(0);
-    LiteImage::SaveImage<float4>("saves/test_dr_16_bdet.bmp", image_res);
-    }
-    {
-    dr::MultiRendererDR dr_render;
-    dr_render.SetReference(images_ref, view, proj);
-    dr_preset.dr_render_mode = dr::DR_DEBUG_RENDER_MODE_BORDER_INTEGRAL;
-    dr_render.OptimizeColor(dr_preset, indexed_SBS, false);
-    image_res = dr_render.getLastImage(0);
-    LiteImage::SaveImage<float4>("saves/test_dr_16_bint.bmp", image_res);
-    }
+    LiteImage::SaveImage<float4>("saves/test_dr_16_res.bmp", image_res);
   }
+  {
+    MultiRendererDR dr_render;
+    dr_render.SetReference(images_ref, view, proj);
+    dr_preset.dr_render_mode = DR_DEBUG_RENDER_MODE_BORDER_DETECTION;
+    dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS);
+    image_bdet = dr_render.getLastImage(0);
+    LiteImage::SaveImage<float4>("saves/test_dr_16_bdet.bmp", image_bdet);
+  }
+  {
+    MultiRendererDR dr_render;
+    dr_render.SetReference(images_ref, view, proj);
+    dr_preset.dr_render_mode = DR_DEBUG_RENDER_MODE_BORDER_INTEGRAL;
+    dr_preset.border_color_threshold = -1; // force to calculate border integral in every pixel
+    dr_preset.border_depth_threshold = -1;
+    dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS);
+    image_bint = dr_render.getLastImage(0);
+    LiteImage::SaveImage<float4>("saves/test_dr_16_bint.bmp", image_bint);
+  }
+
+  int match = 0;
+  int miss = 0;
+  int over = 0;
+  for (int i = 0; i < W * H; i++)
+  {
+    bool border = length(image_bdet.data()[i]) > 0;
+    bool border_int = length(image_bint.data()[i]) > 0;
+
+    match += border && border_int;
+    miss += !border && border_int;
+    over += border && !border_int;
+  }
+
+  printf("TEST 16. Check border detection\n");
+  
+  float om = float(over)/float(match);
+  float miss_rate = float(miss)/float(match);
+
+  printf("16.1. %-64s", "detected border is small (over/match < 4)");
+  if (om < 4)
+    printf("passed    (%.2f)\n", om);
+  else
+    printf("FAILED, over/match = %f\n", om);
+  
+  printf("16.2. %-64s", "a few pixels are missed (miss/match < 0.01)");
+  if (miss_rate < 0.01)
+    printf("passed    (%.2f)\n", miss_rate);
+  else
+    printf("FAILED, miss/match = %f\n", miss_rate);
 }
 
 void diff_render_test_17_optimize_bunny()
@@ -1801,7 +1627,7 @@ void diff_render_test_17_optimize_bunny()
   float4x4 base_proj = LiteMath::perspectiveMatrix(60, 1.0f, 0.01f, 100.0f);
   LiteImage::Image2D<float4> texture = LiteImage::LoadImage<float4>("scenes/porcelain.png");
 
-  std::vector<float4x4> view = get_cameras_turntable(12, float3(0, 0, 0), 3.0f, 1.0f);
+  std::vector<float4x4> view = get_cameras_uniform_sphere(16, float3(0, 0, 0), 4.0f);
   std::vector<float4x4> proj(view.size(), base_proj);
 
   std::vector<LiteImage::Image2D<float4>> images_ref(view.size(), LiteImage::Image2D<float4>(W, H));
@@ -1825,24 +1651,24 @@ void diff_render_test_17_optimize_bunny()
   }
 
   {
-    auto indexed_SBS =  create_grid_sbs(8, 8, 
+    auto indexed_SBS =  create_grid_sbs(4, 8, 
                                         [&](float3 p){return circle_sdf(float3(0,-0.15f,0), 0.7f, p);}, 
                                         gradient_color);
 
-    dr::MultiRendererDRPreset dr_preset = dr::getDefaultPresetDR();
+    MultiRendererDRPreset dr_preset = getDefaultPresetDR();
 
-    dr_preset.dr_diff_mode = dr::DR_DIFF_MODE_DEFAULT;
-    dr_preset.dr_render_mode = dr::DR_RENDER_MODE_MASK;
-    dr_preset.dr_reconstruction_flags = dr::DR_RECONSTRUCTION_FLAG_GEOMETRY;
+    dr_preset.dr_diff_mode = DR_DIFF_MODE_DEFAULT;
+    dr_preset.dr_render_mode = DR_RENDER_MODE_MASK;
+    dr_preset.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_GEOMETRY;
     dr_preset.opt_iterations = 2500;
     dr_preset.opt_lr = 0.01f;
     dr_preset.spp = 4;
     dr_preset.border_spp = 1024;
-    dr_preset.image_batch_size = 8;
+    dr_preset.image_batch_size = 4;
 
-    dr::MultiRendererDR dr_render;
+    MultiRendererDR dr_render;
     dr_render.SetReference(images_ref, view, proj);
-    dr_render.OptimizeColor(dr_preset, indexed_SBS, true);
+    dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS);
     image_res = dr_render.getLastImage(0);
     LiteImage::SaveImage<float4>("saves/test_dr_17_res.bmp", image_res);
   }
@@ -1893,21 +1719,21 @@ void diff_render_test_18_sphere_depth()
     // randomize_color(indexed_SBS);
     randomize_distance(indexed_SBS, 0.1f);
 
-    dr::MultiRendererDRPreset dr_preset = dr::getDefaultPresetDR();
+    MultiRendererDRPreset dr_preset = getDefaultPresetDR();
 
-    dr_preset.dr_diff_mode = dr::DR_DIFF_MODE_DEFAULT;
-    dr_preset.dr_render_mode = dr::DR_RENDER_MODE_LINEAR_DEPTH;
-    dr_preset.dr_reconstruction_flags = dr::DR_RECONSTRUCTION_FLAG_GEOMETRY;
-    dr_preset.dr_input_type = dr::DR_INPUT_TYPE_LINEAR_DEPTH;
+    dr_preset.dr_diff_mode = DR_DIFF_MODE_DEFAULT;
+    dr_preset.dr_render_mode = DR_RENDER_MODE_LINEAR_DEPTH;
+    dr_preset.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_GEOMETRY;
+    dr_preset.dr_input_type = DR_INPUT_TYPE_LINEAR_DEPTH;
     dr_preset.opt_iterations = 500;
     dr_preset.opt_lr = 0.002f;
     dr_preset.spp = 16;
     dr_preset.border_spp = 512;
     dr_preset.image_batch_size = 4;
 
-    dr::MultiRendererDR dr_render;
+    MultiRendererDR dr_render;
     dr_render.SetReference(images_ref, view, proj);
-    dr_render.OptimizeColor(dr_preset, indexed_SBS, true);
+    dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS);
     image_res = dr_render.getLastImage(0);
     LiteImage::SaveImage<float4>("saves/test_dr_18_res.bmp", image_res);
   }
@@ -1923,6 +1749,103 @@ void diff_render_test_18_sphere_depth()
     printf("FAILED, psnr = %f\n", psnr);
 }
 
+void diff_render_test_19_expanding_grid()
+{
+  //create renderers for SDF scene and mesh scene
+  auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "scenes/01_simple_scenes/data/bunny.vsgf").c_str());
+  cmesh4::rescale_mesh(mesh, float3(-0.95, -0.95, -0.95), float3(0.95, 0.95, 0.95));
+
+  unsigned W = 1024, H = 1024;
+
+  MultiRenderPreset preset = getDefaultPreset();
+  preset.render_mode = MULTI_RENDER_MODE_LAMBERT;
+  //preset.ray_gen_mode = RAY_GEN_MODE_RANDOM;
+  preset.spp = 16;
+
+  float4x4 base_proj = LiteMath::perspectiveMatrix(60, 1.0f, 0.01f, 100.0f);
+  LiteImage::Image2D<float4> texture = LiteImage::LoadImage<float4>("scenes/porcelain.png");
+
+  std::vector<float4x4> view = get_cameras_turntable(32, float3(0, 0, 0), 4.0f, 1.0f);
+  std::vector<float4x4> proj(view.size(), base_proj);
+
+  std::vector<LiteImage::Image2D<float4>> images_ref(view.size(), LiteImage::Image2D<float4>(W, H));
+  LiteImage::Image2D<float4> image_res(W, H);
+  for (int i = 0; i < view.size(); i++)
+  {
+    auto pRender = CreateMultiRenderer("GPU");
+    pRender->SetPreset(preset);
+    pRender->SetViewport(0,0,W,H);
+
+    uint32_t texId = pRender->AddTexture(texture);
+    MultiRendererMaterial mat;
+    mat.type = MULTI_RENDER_MATERIAL_TYPE_TEXTURED;
+    mat.texId = texId;
+    uint32_t matId = pRender->AddMaterial(mat);
+    pRender->SetMaterial(matId, 0);
+
+    pRender->SetScene(mesh);
+    pRender->RenderFloat(images_ref[i].data(), images_ref[i].width(), images_ref[i].height(), view[i], proj[i], preset);
+    LiteImage::SaveImage<float4>(("saves/test_dr_19_ref_"+std::to_string(i)+".bmp").c_str(), images_ref[i]); 
+  }
+
+  {
+    MultiRendererDRPreset dr_preset = getDefaultPresetDR();
+
+    dr_preset.dr_diff_mode = DR_DIFF_MODE_DEFAULT;
+    dr_preset.dr_render_mode = DR_RENDER_MODE_MASK;
+    dr_preset.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_GEOMETRY;
+    dr_preset.dr_border_sampling = DR_BORDER_SAMPLING_SVM;
+    dr_preset.reg_function = DR_REG_FUNCTION_LK_DENOISING;
+    dr_preset.reg_lambda = 1.0f;
+    dr_preset.border_relax_eps = 1e-3f;
+    dr_preset.opt_iterations = 301;
+    dr_preset.opt_lr = 0.01f;
+    dr_preset.spp = 4;
+    dr_preset.border_spp = 1024;
+    dr_preset.image_batch_size = 4;
+    dr_preset.render_width = 256;
+    dr_preset.render_height = 256;
+
+    dr_preset.debug_print = true;
+    dr_preset.debug_print_interval = 10;
+    dr_preset.debug_progress_images = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
+    dr_preset.debug_progress_interval = 100;
+
+    MultiRendererDRPreset dr_preset_2 = dr_preset;
+    dr_preset_2.render_width = 512;
+    dr_preset_2.render_height = 512;
+    dr_preset_2.opt_lr = 0.005f;
+    dr_preset_2.dr_render_mode = DR_RENDER_MODE_LAMBERT;
+    dr_preset_2.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_GEOMETRY | DR_RECONSTRUCTION_FLAG_COLOR;
+
+    MultiRendererDRPreset dr_preset_c = dr_preset;
+    dr_preset_c.dr_render_mode = DR_RENDER_MODE_DIFFUSE;
+    dr_preset_c.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_COLOR;
+    dr_preset_c.opt_iterations = 501;
+    dr_preset_c.spp = 16;
+    dr_preset_c.debug_progress_images = MULTI_RENDER_MODE_LAMBERT;
+
+    MultiRendererDR dr_render;
+    dr_render.SetReference(images_ref, view, proj);
+    dr_render.OptimizeGrid(32, true, {dr_preset, dr_preset_2});
+    dr_render.SetViewport(0, 0, W, H);
+    dr_render.UpdateCamera(view[0], proj[0]);
+    dr_render.Clear(W, H, "color");
+    dr_render.RenderFloat(image_res.data(), W, H, "color", 1);
+    LiteImage::SaveImage<float4>("saves/test_dr_19_res.bmp", image_res);
+  }
+
+  printf("TEST 19. Optimize bunny scene\n");
+  
+  float psnr = image_metrics::PSNR(image_res, images_ref[0]);
+
+  printf("19.1. %-64s", "SDF is reconstructed");
+  if (psnr >= 30)
+    printf("passed    (%.2f)\n", psnr);
+  else
+    printf("FAILED, psnr = %f\n", psnr);
+}
+
 void perform_tests_diff_render(const std::vector<int> &test_ids)
 {
   std::vector<int> tests = test_ids;
@@ -1933,7 +1856,8 @@ void perform_tests_diff_render(const std::vector<int> &test_ids)
       diff_render_test_7_optimize_with_finite_diff, diff_render_test_8_optimize_with_lambert, diff_render_test_9_check_position_derivatives,
       diff_render_test_10_optimize_sdf_finite_derivatives, diff_render_test_11_optimize_smallest_scene, diff_render_test_12_optimize_sphere_mask,
       diff_render_test_13_optimize_sphere_diffuse, diff_render_test_14_optimize_sphere_lambert, diff_render_test_15_combined_reconstruction,
-      diff_render_test_16_borders_detection, diff_render_test_17_optimize_bunny, diff_render_test_18_sphere_depth};
+      diff_render_test_16_borders_detection, diff_render_test_17_optimize_bunny, diff_render_test_18_sphere_depth,
+      diff_render_test_19_expanding_grid};
 
   if (tests.empty())
   {
