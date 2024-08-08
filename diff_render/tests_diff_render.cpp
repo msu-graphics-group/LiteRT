@@ -1758,7 +1758,7 @@ void diff_render_test_19_expanding_grid()
   unsigned W = 1024, H = 1024;
 
   MultiRenderPreset preset = getDefaultPreset();
-  preset.render_mode = MULTI_RENDER_MODE_DIFFUSE;
+  preset.render_mode = MULTI_RENDER_MODE_LAMBERT;
   //preset.ray_gen_mode = RAY_GEN_MODE_RANDOM;
   preset.spp = 16;
 
@@ -1795,8 +1795,10 @@ void diff_render_test_19_expanding_grid()
     dr_preset.dr_render_mode = DR_RENDER_MODE_MASK;
     dr_preset.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_GEOMETRY;
     dr_preset.dr_border_sampling = DR_BORDER_SAMPLING_SVM;
+    dr_preset.reg_function = DR_REG_FUNCTION_LK_DENOISING;
+    dr_preset.reg_lambda = 1.0f;
     dr_preset.border_relax_eps = 1e-3f;
-    dr_preset.opt_iterations = 1001;
+    dr_preset.opt_iterations = 301;
     dr_preset.opt_lr = 0.01f;
     dr_preset.spp = 4;
     dr_preset.border_spp = 1024;
@@ -1809,6 +1811,13 @@ void diff_render_test_19_expanding_grid()
     dr_preset.debug_progress_images = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
     dr_preset.debug_progress_interval = 100;
 
+    MultiRendererDRPreset dr_preset_2 = dr_preset;
+    dr_preset_2.render_width = 512;
+    dr_preset_2.render_height = 512;
+    dr_preset_2.opt_lr = 0.005f;
+    dr_preset_2.dr_render_mode = DR_RENDER_MODE_LAMBERT;
+    dr_preset_2.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_GEOMETRY | DR_RECONSTRUCTION_FLAG_COLOR;
+
     MultiRendererDRPreset dr_preset_c = dr_preset;
     dr_preset_c.dr_render_mode = DR_RENDER_MODE_DIFFUSE;
     dr_preset_c.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_COLOR;
@@ -1818,7 +1827,7 @@ void diff_render_test_19_expanding_grid()
 
     MultiRendererDR dr_render;
     dr_render.SetReference(images_ref, view, proj);
-    dr_render.OptimizeGrid(32, true, {dr_preset});
+    dr_render.OptimizeGrid(32, true, {dr_preset, dr_preset_2});
     dr_render.SetViewport(0, 0, W, H);
     dr_render.UpdateCamera(view[0], proj[0]);
     dr_render.Clear(W, H, "color");
