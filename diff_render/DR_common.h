@@ -36,31 +36,26 @@ namespace dr
     float dDist;
   };
 
-  struct PDShape
-  {
-    float3  f_in; // at y*
-    float      t; // t = tReal
-    float3 f_out; // at intersection/bg
-    float    sdf; // sdf(pos + t * dir)
-    uint32_t  indices[8];
-    float dSDF_dtheta[8]; // separated, because the array can be passed to a derivative function
-  };
-
-  struct CRT_HitDR 
+  struct CRT_HitDR
   {
     float    t;         ///< intersection distance from ray origin to object
     uint32_t primId; 
     uint32_t instId;
     uint32_t geomId;    ///< use 4 most significant bits for geometry type; thay are zero for triangles 
     float3   color;
-    uint32_t _pad0;
+    float    sdf;       //used only for missed_hit in RayDiffPayload, but we need padding here anyway
     float3   normal;
     uint32_t _pad1;
+  };
 
+  struct RayDiffPayload
+  {
+    CRT_HitDR missed_hit;
+    uint32_t  missed_indices[8];
+    float     missed_dSDF_dtheta[8];
+    
     PDColor dDiffuse_dSc[8]; //8 color points, PDs for diffuse (PDs for R,G,B are the same)
     PDDist  dDiffuseNormal_dSd[8]; //8 distance points, PDs for diffuse and normal
-    //    dNorm_dSc[8]; is zero, normal vector does not depend on color
-
   };
 
   //enum DRLossFunction

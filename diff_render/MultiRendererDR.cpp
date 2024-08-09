@@ -642,6 +642,45 @@ namespace dr
     }
   }
 
+  float3 MultiRendererDR::CalculateColor(const CRT_HitDR &hit)
+  {
+    float3 color = float3(1, 0, 1);
+
+    switch (m_preset_dr.dr_render_mode)
+    {
+    case DR_RENDER_MODE_DIFFUSE:
+    case DR_DEBUG_RENDER_MODE_BORDER_INTEGRAL:
+    case DR_DEBUG_RENDER_MODE_BORDER_DETECTION:
+      color = hit.color;
+      break;
+    case DR_RENDER_MODE_LAMBERT:
+    {
+      float3 light_dir = normalize(float3(1, 1, 1));
+      float3 norm = hit.normal;
+      float q0 = dot(norm, light_dir); // = norm.x*light_dir.x + norm.y*light_dir.y + norm.z*light_dir.z
+      float q = max(0.1f, q0);
+      color = q * hit.color;
+    }
+    break;
+    case DR_RENDER_MODE_MASK:
+      color = float3(1, 1, 1);
+      break;
+    case DR_DEBUG_RENDER_MODE_PRIMITIVE:
+      color = to_float3(decode_RGBA8(m_palette[(hit.primId) % palette_size]));
+      break;
+    case DR_RENDER_MODE_LINEAR_DEPTH:
+    {
+      float d = absolute_to_linear_depth(hit.t);
+      color = float3(d, d, d);
+    }
+    break;
+    default:
+      break;
+    }
+
+    return color;
+  }
+
   float3 MultiRendererDR::CalculateColorWithGrad(const CRT_HitDR &hit,
                                                  LiteMath::float3x3 &dColor_dDiffuse,
                                                  LiteMath::float3x3 &dColor_dNorm)
@@ -716,6 +755,7 @@ namespace dr
     uint32_t spp_sqrt = uint32_t(sqrt(m_preset.spp));
     float i_spp_sqrt = 1.0f/spp_sqrt;
     const float3 background_color = float3(0.0f, 0.0f, 0.0f);
+    const float  background_depth = 0.0f;
 
     uint32_t ray_flags;
     if (m_preset_dr.dr_diff_mode == DR_DIFF_MODE_FINITE_DIFF)
@@ -756,7 +796,8 @@ namespace dr
       LiteMath::float3x3 dColor_dDiffuse = LiteMath::make_float3x3(float3(1,0,0), float3(0,1,0), float3(0,0,1));
       LiteMath::float3x3 dColor_dNorm    = LiteMath::make_float3x3(float3(0,0,0), float3(0,0,0), float3(0,0,0));
       
-      CRT_HitDR hit = ((BVHDR*)m_pAccelStruct.get())->RayQuery_NearestHitWithGrad(ray_flags, rayPosAndNear, rayDirAndFar, nullptr);
+      RayDiffPayload payload;
+      CRT_HitDR hit = ((BVHDR*)m_pAccelStruct.get())->RayQuery_NearestHitWithGrad(ray_flags, rayPosAndNear, rayDirAndFar, &payload);
       
       if (hit.primId == 0xFFFFFFFF) //no hit
       {
@@ -771,7 +812,7 @@ namespace dr
 
         if (ray_flags & DR_RAY_FLAG_DDIFFUSE_DCOLOR)
         {
-          for (PDColor &pd : hit.dDiffuse_dSc)
+          for (PDColor &pd : payload.dDiffuse_dSc)
           {
             float3 diff = dLoss_dColor * (dColor_dDiffuse * float3(pd.value));
             out_dLoss_dS[pd.index + 0] += diff.x / m_preset.spp;
@@ -789,7 +830,7 @@ namespace dr
         
         if (ray_flags & (DR_RAY_FLAG_DDIFFUSE_DPOS | DR_RAY_FLAG_DNORM_DPOS))
         {
-          for (PDDist &pd : hit.dDiffuseNormal_dSd)
+          for (PDDist &pd : payload.dDiffuseNormal_dSd)
           {
             float diff = dot(dLoss_dColor, dColor_dDiffuse * pd.dDiffuse + dColor_dNorm * pd.dNorm);
             out_dLoss_dS[pd.index] += diff / m_preset.spp;
@@ -801,7 +842,7 @@ namespace dr
 
         if (ray_flags & DR_RAY_FLAG_DDIST_DPOS)
         {
-          for (PDDist &pd : hit.dDiffuseNormal_dSd)
+          for (PDDist &pd : payload.dDiffuseNormal_dSd)
           {
             float diff = dot(dLoss_dColor, float3(pd.dDist)) / (z_far - z_near);
             out_dLoss_dS[pd.index] += diff / m_preset.spp;
@@ -834,6 +875,7 @@ namespace dr
     const unsigned border_ray_flags = DR_RAY_FLAG_BORDER;
     const float relax_eps = m_preset_dr.border_relax_eps;
     const float3 background_color = float3(0.0f, 0.0f, 0.0f);
+    const float  background_depth = 0.0f;
 
     const unsigned border_spp = m_preset_dr.border_spp;
     const uint32_t spp_sqrt = uint32_t(sqrt(border_spp));
@@ -851,44 +893,38 @@ namespace dr
     for (int sample_id = 0; sample_id < border_spp; sample_id++)
     {
       float pixel_diff = 0.0f;
-      PDShape relax_pt{
-          .f_in = background_color,
-          .t = 0.f,
-          .f_out = background_color,
-          .sdf = relax_eps, // only choose points with SDF() less than this, no need to pass relax_eps
-          .indices = {0, 0, 0, 0, 0, 0, 0, 0},
-          .dSDF_dtheta = {0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f}};
       float2 d = m_preset.ray_gen_mode == RAY_GEN_MODE_RANDOM ? rand2(x, y, sample_id) : i_spp_sqrt * float2(sample_id / spp_sqrt + 0.5, sample_id % spp_sqrt + 0.5);
       float4 rayPosAndNear, rayDirAndFar;
       kernel_InitEyeRay(tidX, d, &rayPosAndNear, &rayDirAndFar);
-      CRT_HitDR hit = ((BVHDR *)m_pAccelStruct.get())->RayQuery_NearestHitWithGrad(border_ray_flags, rayPosAndNear, rayDirAndFar, &relax_pt);
 
-      if (relax_pt.sdf < relax_eps)
+      RayDiffPayload payload;
+      CRT_HitDR hit = ((BVHDR *)m_pAccelStruct.get())->RayQuery_NearestHitWithGrad(border_ray_flags, rayPosAndNear, rayDirAndFar, &payload);
+
+      if (payload.missed_hit.sdf < relax_eps)
       {
         float3 color_delta = float3(0,0,0);
         if (m_preset_dr.dr_input_type == DR_INPUT_TYPE_COLOR)
         {
-          if (relax_pt.t != 0 && hit.primId == 0xFFFFFFFF) //border with background
-            color_delta = float3(1,1,1);
-          else
-            color_delta = relax_pt.f_in - relax_pt.f_out;
+          float3 f_in = CalculateColor(payload.missed_hit);
+          float3 f_out = hit.primId == 0xFFFFFFFF ? background_color : CalculateColor(hit);
+          color_delta = f_in - f_out;
         }
         else if (m_preset_dr.dr_input_type == DR_INPUT_TYPE_LINEAR_DEPTH)
         {
-          float l_in = linear_to_absolute_depth(relax_pt.t);
-          float l_out = linear_to_absolute_depth(hit.t);
-          color_delta = float3(l_in - l_out);
+          float d_in = payload.missed_hit.t;
+          float d_out = hit.primId == 0xFFFFFFFF ? background_depth : hit.t;
+          color_delta = float3(d_in - d_out);
         }
 
         for (int j = 0; j < 8; j++)
         {
-          float diff = dot(dLoss_dColor, (1.0f / relax_eps) * relax_pt.dSDF_dtheta[j] * (relax_pt.f_in - relax_pt.f_out));
-          out_dLoss_dS[relax_pt.indices[j]] += diff / border_spp;
+          float diff = dot(dLoss_dColor, (1.0f / relax_eps) * payload.missed_dSDF_dtheta[j] * color_delta);
+          out_dLoss_dS[payload.missed_indices[j]] += diff / border_spp;
 
           total_diff += abs(diff) / border_spp;
-          pixel_diff += length((1.0f / relax_eps) * relax_pt.dSDF_dtheta[j] * (relax_pt.f_in - relax_pt.f_out));
+          pixel_diff += length((1.0f / relax_eps) * payload.missed_dSDF_dtheta[j] * color_delta);
           if (m_preset_dr.debug_pd_images)
-            m_imagesDebug[relax_pt.indices[j]].data()[y * m_width + x] += (diff / border_spp) * float4(1, 1, 1, 0);
+            m_imagesDebug[payload.missed_indices[j]].data()[y * m_width + x] += (diff / border_spp) * float4(1, 1, 1, 0);
         }
       }
 
@@ -896,7 +932,7 @@ namespace dr
       if (m_preset_dr.debug_border_samples || m_preset_dr.debug_border_samples_mega_image)
       {
         samples_debug_pos_size[sample_id] = float4(d.x, d.y, 0, 1.0f/MEGA_PIXEL_SIZE);
-        if (relax_pt.sdf < relax_eps && abs(pixel_diff) > 0.01f) //border
+        if (payload.missed_hit.sdf < relax_eps && abs(pixel_diff) > 0.01f) //border
           samples_debug_color[sample_id] = float4(0, 0, 0.1*abs(pixel_diff), 1);
         else if (hit.primId == 0xFFFFFFFF) //background
           samples_debug_color[sample_id] = float4(0.05, 0.05, 0.05, 1);
@@ -997,6 +1033,7 @@ namespace dr
     const unsigned border_ray_flags = DR_RAY_FLAG_BORDER;
     const float relax_eps = m_preset_dr.border_relax_eps;
     const float3 background_color = float3(0.0f, 0.0f, 0.0f);
+    const float  background_depth = 0.0f;
 
     const unsigned svm_spp = std::max(1u, (unsigned)(svm_samples_budget*m_preset_dr.border_spp));
     const float3 dLoss_dColor = LossGrad(m_preset_dr.dr_loss_function, to_float3(out_image[y * m_width + x]), to_float3(image_ref[y * m_width + x]));
@@ -1018,7 +1055,9 @@ namespace dr
       float2 d = rand2(x, y, sample_id);
       float4 rayPosAndNear, rayDirAndFar;
       kernel_InitEyeRay(tidX, d, &rayPosAndNear, &rayDirAndFar);
-      CRT_HitDR hit = ((BVHDR *)m_pAccelStruct.get())->RayQuery_NearestHitWithGrad(DR_RAY_FLAG_NO_DIFF, rayPosAndNear, rayDirAndFar, nullptr);
+
+      RayDiffPayload payload; //TODO remove it, as we dont want calculate any differences here
+      CRT_HitDR hit = ((BVHDR *)m_pAccelStruct.get())->RayQuery_NearestHitWithGrad(DR_RAY_FLAG_NO_DIFF, rayPosAndNear, rayDirAndFar, &payload);
 
       float y = hit.primId == 0xFFFFFFFF ? -1 : 1;
       background_samples_count += (hit.primId == 0xFFFFFFFF ? 1 : 0);
@@ -1105,13 +1144,6 @@ namespace dr
     for (int sample_id = svm_spp; sample_id < svm_spp + border_spp; sample_id++)
     {
       float pixel_diff = 0.0f;
-      PDShape relax_pt{
-          .f_in = background_color,
-          .t = 0.f,
-          .f_out = background_color,
-          .sdf = relax_eps, // only choose points with SDF() less than this, no need to pass relax_eps
-          .indices = {0, 0, 0, 0, 0, 0, 0, 0},
-          .dSDF_dtheta = {0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f}};
       float2 d = float2(1000,1000);
       float sampling_pdf;
       if (force_random_ray_cast)
@@ -1131,41 +1163,42 @@ namespace dr
 
       float4 rayPosAndNear, rayDirAndFar;
       kernel_InitEyeRay(tidX, d, &rayPosAndNear, &rayDirAndFar);
-      CRT_HitDR hit = ((BVHDR *)m_pAccelStruct.get())->RayQuery_NearestHitWithGrad(border_ray_flags, rayPosAndNear, rayDirAndFar, &relax_pt);
 
-      if (relax_pt.sdf < relax_eps)
+      RayDiffPayload payload;
+      CRT_HitDR hit = ((BVHDR *)m_pAccelStruct.get())->RayQuery_NearestHitWithGrad(border_ray_flags, rayPosAndNear, rayDirAndFar, &payload);
+
+      if (payload.missed_hit.sdf < relax_eps)
       {
-        float3 color_delta = float3(0, 0, 0);
+        float3 color_delta = float3(0,0,0);
         if (m_preset_dr.dr_input_type == DR_INPUT_TYPE_COLOR)
         {
-          if (relax_pt.t != 0 && hit.primId == 0xFFFFFFFF) // border with background
-            color_delta = float3(1, 1, 1);
-          else
-            color_delta = relax_pt.f_in - relax_pt.f_out;
+          float3 f_in = CalculateColor(payload.missed_hit);
+          float3 f_out = hit.primId == 0xFFFFFFFF ? background_color : CalculateColor(hit);
+          color_delta = f_in - f_out;
         }
         else if (m_preset_dr.dr_input_type == DR_INPUT_TYPE_LINEAR_DEPTH)
         {
-          float l_in = linear_to_absolute_depth(relax_pt.t);
-          float l_out = linear_to_absolute_depth(hit.t);
-          color_delta = float3(l_in - l_out);
+          float d_in = payload.missed_hit.t;
+          float d_out = hit.primId == 0xFFFFFFFF ? background_depth : hit.t;
+          color_delta = float3(d_in - d_out);
         }
 
         for (int j = 0; j < 8; j++)
         {
-          float diff = sampling_pdf * dot(dLoss_dColor, (1.0f / relax_eps) * relax_pt.dSDF_dtheta[j] * (relax_pt.f_in - relax_pt.f_out));
-          out_dLoss_dS[relax_pt.indices[j]] += diff;
+          float diff = sampling_pdf * dot(dLoss_dColor, (1.0f / relax_eps) * payload.missed_dSDF_dtheta[j] * color_delta);
+          out_dLoss_dS[payload.missed_indices[j]] += diff;
 
           total_diff += abs(diff);
-          pixel_diff += length((1.0f / relax_eps) * relax_pt.dSDF_dtheta[j] * (relax_pt.f_in - relax_pt.f_out));
+          pixel_diff += length((1.0f / relax_eps) * payload.missed_dSDF_dtheta[j] * color_delta);
           if (m_preset_dr.debug_pd_images)
-            m_imagesDebug[relax_pt.indices[j]].data()[y * m_width + x] += diff * float4(1, 1, 1, 0);
+            m_imagesDebug[payload.missed_indices[j]].data()[y * m_width + x] += diff * float4(1, 1, 1, 0);
         }
       }
 
       if (m_preset_dr.debug_border_samples || m_preset_dr.debug_border_samples_mega_image)
       {
         samples_debug_pos_size[sample_id] = float4(d.x, d.y, 0, 1.0f / MEGA_PIXEL_SIZE);
-        if (relax_pt.sdf < relax_eps && abs(pixel_diff) > 0.01f) // border
+        if (payload.missed_hit.sdf < relax_eps && abs(pixel_diff) > 0.01f) // border
           samples_debug_color[sample_id] = float4(0, 0, 0.1 * abs(pixel_diff), 1);
         else if (hit.primId == 0xFFFFFFFF) // background
           samples_debug_color[sample_id] = float4(0.05, 0.05, 0.05, 1);

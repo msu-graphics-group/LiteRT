@@ -9,7 +9,7 @@ namespace dr
 {
   //it is an EXACT COPY of BVHRT::RayQuery_NearestHit, just using CRT_HitDR instead of CRT_Hit
   //but no change it TLAS traversal is needed
-  CRT_HitDR BVHDR::RayQuery_NearestHitWithGrad(uint32_t ray_flags, float4 posAndNear, float4 dirAndFar, PDShape *relax_pt)
+  CRT_HitDR BVHDR::RayQuery_NearestHitWithGrad(uint32_t ray_flags, float4 posAndNear, float4 dirAndFar, RayDiffPayload *relax_pt)
   {
     bool stopOnFirstHit = (dirAndFar.w <= 0.0f);
     if(stopOnFirstHit)
@@ -22,16 +22,28 @@ namespace dr
     hit.instId = uint32_t(-1);
     hit.geomId = uint32_t(-1);
     hit.color  = float3(0.0f, 0.0, 0.0f);
+    hit.sdf    = 1000.0f;
     hit.normal = float3(1.0f, 0.0f, 0.0f);
+
+    relax_pt->missed_hit.t      = dirAndFar.w;
+    relax_pt->missed_hit.primId = uint32_t(-1);
+    relax_pt->missed_hit.instId = uint32_t(-1);
+    relax_pt->missed_hit.geomId = uint32_t(-1);
+    relax_pt->missed_hit.color  = float3(0.0f, 0.0, 0.0f);
+    relax_pt->missed_hit.sdf    = 1000.0f;
+    relax_pt->missed_hit.normal = float3(1.0f, 0.0f, 0.0f);
 
     for (int i=0;i<8;i++)
     {
-      hit.dDiffuse_dSc[i].index = INVALID_INDEX;
-      hit.dDiffuse_dSc[i].value = 0.0f;
+      relax_pt->missed_indices[i] = INVALID_INDEX;
+      relax_pt->missed_dSDF_dtheta[i] = 0.0f;
 
-      hit.dDiffuseNormal_dSd[i].index = INVALID_INDEX;
-      hit.dDiffuseNormal_dSd[i].dDiffuse = float3(0.0f, 0.0f, 0.0f);
-      hit.dDiffuseNormal_dSd[i].dNorm    = float3(0.0f, 0.0f, 0.0f);
+      relax_pt->dDiffuse_dSc[i].index = INVALID_INDEX;
+      relax_pt->dDiffuse_dSc[i].value = 0.0f;
+
+      relax_pt->dDiffuseNormal_dSd[i].index = INVALID_INDEX;
+      relax_pt->dDiffuseNormal_dSd[i].dDiffuse = float3(0.0f, 0.0f, 0.0f);
+      relax_pt->dDiffuseNormal_dSd[i].dNorm    = float3(0.0f, 0.0f, 0.0f);
     }
 
     {
@@ -80,7 +92,7 @@ namespace dr
   //but no change it BLAS traversal is needed
   void BVHDR::BVH2TraverseF32WithGrad(uint32_t ray_flags, const float3 ray_pos, const float3 ray_dir, float tNear,
                                       uint32_t instId, uint32_t geomId, bool stopOnFirstHit,
-                                      PDShape *relax_pt,
+                                      RayDiffPayload *relax_pt,
                                       CRT_HitDR *pHit)
   {
     const uint32_t bvhOffset = m_geomData[geomId].bvhOffset;
@@ -146,7 +158,7 @@ namespace dr
   void BVHDR::IntersectAllPrimitivesInLeafWithGrad(uint32_t ray_flags, const float3 ray_pos, const float3 ray_dir,
                                                    float tNear, uint32_t instId, uint32_t geomId,
                                                    uint32_t a_start, uint32_t a_count,
-                                                   PDShape *relax_pt, CRT_HitDR *pHit)
+                                                   RayDiffPayload *relax_pt, CRT_HitDR *pHit)
   {
     uint32_t type = m_geomData[geomId].type;
     const float SDF_BIAS = 0.1f;
@@ -589,7 +601,7 @@ namespace dr
   //because differential rendering of SDF requires collection additional data during intersection search
 
   float BVHDR::Intersect(uint32_t ray_flags, const float3 ray_dir, float values[8], float d, 
-                         float qNear, float qFar, float3 start_q, PDShape *relax_pt)
+                         float qNear, float qFar, float3 start_q, RayDiffPayload *relax_pt)
   {
     const float EPS = 1e-6f;
     float d_inv = 1.0f / d;
@@ -822,7 +834,7 @@ namespace dr
           hit = false;
         }
 
-        if (ray_flags & DR_RAY_FLAG_BORDER)
+        if (relax_pt && ray_flags & DR_RAY_FLAG_BORDER)
         {
           // Looking for SDF min - first or second root of (3*c3)*t^2 + (2*c2)*t + c1 = 0 (if x1 != x2)
           float t_min = t0;
@@ -858,11 +870,11 @@ namespace dr
           //if (!hit)
           //  printf("t_min = %f in (%f, %f)\n", t_min, qNear, qFar);
 
-          if (sdf_min < 0.f && sdf_min >= -relax_pt->sdf) // Found relaxation point
+          if (sdf_min < 0.f && sdf_min >= -relax_pt->missed_hit.sdf) // Found relaxation point
           {
             //printf("t_min = %f in (%f, %f)\n", t_min, qNear, qFar);
-            relax_pt->t = t_min;
-            relax_pt->sdf = -sdf_min;
+            relax_pt->missed_hit.t = t_min;
+            relax_pt->missed_hit.sdf = -sdf_min;
           }
         }
 
@@ -926,7 +938,7 @@ namespace dr
   void BVHDR::OctreeBrickIntersectWithGrad(uint32_t type, uint32_t ray_flags, const float3 ray_pos, const float3 ray_dir,
                                            float tNear, uint32_t instId, uint32_t geomId,
                                            uint32_t bvhNodeId, uint32_t a_count,
-                                           PDShape *relax_pt, CRT_HitDR *pHit)
+                                           RayDiffPayload *relax_pt, CRT_HitDR *pHit)
   {
     float values[8];
     uint32_t nodeId, primId;
@@ -966,9 +978,7 @@ namespace dr
       float3 max_pos = min_pos + d * float3(1, 1, 1);
       float3 size = max_pos - min_pos;
       
-      PDShape tmp_relax_pt;
-      if (relax_pt != nullptr)
-        tmp_relax_pt = *relax_pt;
+      uint32_t  missed_indices_tmp[8];
 
       float vmin = 1.0f;
 
@@ -979,7 +989,7 @@ namespace dr
         {
           uint3 vPos = uint3(voxelPos) + uint3((i & 4) >> 2, (i & 2) >> 1, i & 1);
           uint32_t vId = vPos.x * v_size * v_size + vPos.y * v_size + vPos.z;
-          tmp_relax_pt.indices[i] = m_SdfSBSData[v_off + vId];
+          missed_indices_tmp[i] = m_SdfSBSData[v_off + vId];
           values[i] = m_SdfSBSDataF[m_SdfSBSData[v_off + vId]];
           // printf("%f\n", values[i]);
           vmin = std::min(vmin, values[i]);
@@ -994,25 +1004,29 @@ namespace dr
         start_q = (start_pos - min_pos) * (0.5f * sz * header.brick_size);
         qFar = (fNearFar.y - fNearFar.x) * (0.5f * sz * header.brick_size);
 
-        float t = Intersect(ray_flags, ray_dir, values, d, 0.0f, qFar, start_q, &tmp_relax_pt);
+        float prev_missed_hit_sdf = relax_pt->missed_hit.sdf;
+        float t = Intersect(ray_flags, ray_dir, values, d, 0.0f, qFar, start_q, relax_pt);
         float tReal = fNearFar.x + 2.0f * d * t;
         
         if (ray_flags & DR_RAY_FLAG_BORDER)
         {
-          if (tmp_relax_pt.sdf < relax_pt->sdf && tmp_relax_pt.t < t)
+          //we found better candidate for a closest missed hit along the ray
+          //we need to recalculate color, normal and derivatives in a new point
+          if (relax_pt->missed_hit.sdf < prev_missed_hit_sdf && relax_pt->missed_hit.t < t)
           {
-            // These two vectors should be stored in PDShape if next part is moved to a parent function
-            float3 q_ast = start_q + tmp_relax_pt.t * ray_dir;
-            float3 y_ast = ray_pos + (fNearFar.x + (2.0f *d*tmp_relax_pt.t)) * ray_dir;
+            float missed_t = relax_pt->missed_hit.t;
+            float3 q_ast = start_q + missed_t * ray_dir;
+            float3 y_ast = ray_pos + (fNearFar.x + (2.0f *d*missed_t)) * ray_dir;
             float3 dp_ast = (y_ast - brick_min_pos) * (0.5f * sz);
             float3 dSDF_dy = eval_dist_trilinear_diff(values, q_ast); // grad
             //printf("dSDF_dy: %f %f %f\n", dSDF_dy.x, dSDF_dy.y, dSDF_dy.z);
 
             float dSDF_dy_norm = length(dSDF_dy);
-            if (dSDF_dy_norm > 1e-9f) { // else: result is 0, ignore
-              eval_dist_trilinear_d_dtheta(tmp_relax_pt.dSDF_dtheta, q_ast); // dSDF/dTheta
+            if (dSDF_dy_norm > 1e-9f) 
+            { 
+              eval_dist_trilinear_d_dtheta(relax_pt->missed_dSDF_dtheta, q_ast); // dSDF/dTheta
               for (int i=0; i<8; ++i)
-                tmp_relax_pt.dSDF_dtheta[i] /= -1.0f*dSDF_dy_norm;
+                relax_pt->missed_dSDF_dtheta[i] /= -1.0f*dSDF_dy_norm;
 
               uint32_t t_off = m_SdfSBSNodes[nodeId].data_offset + v_size * v_size * v_size;
               float3 colors[8];
@@ -1020,10 +1034,14 @@ namespace dr
                 colors[i] = float3(m_SdfSBSDataF[m_SdfSBSData[t_off + i] + 0],
                                    m_SdfSBSDataF[m_SdfSBSData[t_off + i] + 1],
                                    m_SdfSBSDataF[m_SdfSBSData[t_off + i] + 2]);
-              tmp_relax_pt.f_in = eval_color_trilinear(colors, dp_ast);
+              
+              relax_pt->missed_hit.color = eval_color_trilinear(colors, dp_ast);
+              relax_pt->missed_hit.normal = dSDF_dy / dSDF_dy_norm;
 
-              *relax_pt = tmp_relax_pt;
+              for (int i = 0; i < 8; i++)
+                relax_pt->missed_indices[i] = missed_indices_tmp[i];
             }
+            // else: result is 0, ignore
           }
         }
 
@@ -1049,8 +1067,8 @@ namespace dr
               uint3 vPos = uint3(voxelPos) + uint3((i & 4) >> 2, (i & 2) >> 1, i & 1);
               uint32_t vId = vPos.x * v_size * v_size + vPos.y * v_size + vPos.z;
               //values[i] = m_SdfSBSDataF[m_SdfSBSData[v_off + vId]];
-              pHit->dDiffuseNormal_dSd[i].index = m_SdfSBSData[v_off + vId];
-              pHit->dDiffuseNormal_dSd[i].dDist = 2.0f * d * dt_dvalues[i]; //d(tReal)/dS
+              relax_pt->dDiffuseNormal_dSd[i].index = m_SdfSBSData[v_off + vId];
+              relax_pt->dDiffuseNormal_dSd[i].dDist = 2.0f * d * dt_dvalues[i]; //d(tReal)/dS
             }
           }
 
@@ -1082,7 +1100,7 @@ namespace dr
               }
 
               for (int i = 0; i < 8; i++)
-                pHit->dDiffuseNormal_dSd[i].dNorm = dNormalize_dD * float3(dD_d1[8*0 + i], dD_d1[8*1 + i], dD_d1[8*2 + i]);
+                relax_pt->dDiffuseNormal_dSd[i].dNorm = dNormalize_dD * float3(dD_d1[8*0 + i], dD_d1[8*1 + i], dD_d1[8*2 + i]);
             }
           }
 
@@ -1098,12 +1116,6 @@ namespace dr
               colors[i] = float3(m_SdfSBSDataF[m_SdfSBSData[t_off + i] + 0], m_SdfSBSDataF[m_SdfSBSData[t_off + i] + 1], m_SdfSBSDataF[m_SdfSBSData[t_off + i] + 2]);
             pHit->color = eval_color_trilinear(colors, dp);
 
-            // Only when successfully intersected, move to a parent function or just use pHit->color if it takes BG color somewhere
-            if (ray_flags & DR_RAY_FLAG_BORDER)
-            {
-              relax_pt->f_out = pHit->color;
-            }
-
             //dDiffuse_dSc
             if (ray_flags & DR_RAY_FLAG_DDIFFUSE_DCOLOR)
             {
@@ -1111,8 +1123,8 @@ namespace dr
               {
                 float3 q = float3((i & 4) >> 2, (i & 2) >> 1, i & 1);
                 float3 lq = q*dp + (1-q)*(1-dp); //linear interpolation quotients, as above
-                pHit->dDiffuse_dSc[i].index = m_SdfSBSData[t_off + i];
-                pHit->dDiffuse_dSc[i].value = lq.x*lq.y*lq.z;
+                relax_pt->dDiffuse_dSc[i].index = m_SdfSBSData[t_off + i];
+                relax_pt->dDiffuse_dSc[i].value = lq.x*lq.y*lq.z;
               }
             }
 
@@ -1124,7 +1136,7 @@ namespace dr
               float3x3 dLerp_d1 = eval_color_trilinear_diff(colors, dp);
               for (int i = 0; i < 8; i++)
               {
-                pHit->dDiffuseNormal_dSd[i].dDiffuse = dLerp_d1 * float3(0.5f*sz*ray_dir.x*dt_dvalues[i], 0.5f*sz*ray_dir.y*dt_dvalues[i], 0.5f*sz*ray_dir.z*dt_dvalues[i]);
+                relax_pt->dDiffuseNormal_dSd[i].dDiffuse = dLerp_d1 * float3(0.5f*sz*ray_dir.x*dt_dvalues[i], 0.5f*sz*ray_dir.y*dt_dvalues[i], 0.5f*sz*ray_dir.z*dt_dvalues[i]);
               }
             }
           }
