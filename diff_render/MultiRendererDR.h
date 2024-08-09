@@ -37,6 +37,9 @@ namespace dr
     preset.reg_lambda = 0.25f;
     preset.reg_power  = 2.0f;
 
+    preset.redistancing_enable = false;
+    preset.redistancing_interval = 1;
+
     preset.debug_print = false;
     preset.debug_print_interval = 10;
     preset.debug_progress_images = DEBUG_PROGRESS_RAW;
@@ -74,6 +77,9 @@ namespace dr
                                   LiteMath::float3x3 &dColor_dNorm);
     void PreprocessRefImages(unsigned width, unsigned height, bool to_mask, float3 background_color = float3(0,0,0));
     void Regularization(float *out_dLoss_dS, unsigned params_count);
+
+    float SolveEikonal(float3 axes_mins, float grid_spacing);
+    void Redistance(float *dist_in, uint3 size_in, float grid_spacing, uint32_t num_iters);
 
     std::vector<LiteImage::Image2D<float4>> m_imagesRefOriginal;
     std::vector<LiteImage::Image2D<float4>> m_imagesRef;
