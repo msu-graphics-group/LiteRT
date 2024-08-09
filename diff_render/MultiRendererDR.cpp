@@ -123,7 +123,7 @@ namespace dr
   void MultiRendererDR::PreprocessRefImages(unsigned width, unsigned height, bool to_mask, float3 background_color)
   {
     //preprocess reference images (m_imagesRefOriginal) to m_imagesRef, that will be used for optimization
-    m_imagesRef.resize(m_imagesRefOriginal.size());
+    m_imagesRef = std::vector<LiteImage::Image2D<float4>>(m_imagesRefOriginal.size());
     for (unsigned image_n = 0; image_n < m_imagesRefOriginal.size(); image_n++)
     {
       //create mask if needed
@@ -242,7 +242,6 @@ namespace dr
     m_preset.sdf_node_intersect = SDF_OCTREE_NODE_INTERSECT_NEWTON; //we need newton to minimize calculations for border integral
     m_preset.ray_gen_mode = RAY_GEN_MODE_RANDOM;
     m_preset.render_mode = diff_render_mode_to_multi_render_mode(preset.dr_render_mode);
-    m_pAccelStruct->SetPreset(m_preset);
 
     if (preset.render_width == 0 || preset.render_height == 0)
     {
@@ -263,19 +262,19 @@ namespace dr
 
     PreprocessRefImages(m_width, m_height, preset.dr_render_mode == DR_RENDER_MODE_MASK);
 
-    m_images.resize(m_imagesRef.size(), LiteImage::Image2D<float4>(m_width, m_height, float4(0, 0, 0, 1)));
+    m_images = std::vector<LiteImage::Image2D<float4>>(m_imagesRef.size(), LiteImage::Image2D<float4>(m_width, m_height, float4(0, 0, 0, 1)));
     m_pAccelStruct = std::shared_ptr<ISceneObject>(new BVHDR());
-
+    m_pAccelStruct->SetPreset(m_preset);
     SetScene(sbs, true);
 
     float *params = ((BVHDR*)m_pAccelStruct.get())->m_SdfSBSDataF.data();
     unsigned images_count = m_imagesRef.size();
 
     if (preset.debug_pd_images)
-      m_imagesDebug.resize(params_count, LiteImage::Image2D<float4>(m_width, m_height, float4(0, 0, 0, 1)));
+      m_imagesDebug = std::vector<LiteImage::Image2D<float4>>(params_count, LiteImage::Image2D<float4>(m_width, m_height, float4(0, 0, 0, 1)));
     
     if (preset.debug_border_samples_mega_image)
-      samples_mega_image.resize(m_width*MEGA_PIXEL_SIZE, m_height*MEGA_PIXEL_SIZE);
+      samples_mega_image = LiteImage::Image2D<float4>(m_width*MEGA_PIXEL_SIZE, m_height*MEGA_PIXEL_SIZE);
 
     float timeAvg = 0.0f;
 
@@ -373,7 +372,7 @@ namespace dr
             m_preset.render_mode = original_mode;
             m_pAccelStruct->SetPreset(m_preset);
           }
-          LiteImage::SaveImage<float4>(("saves/iter_"+std::to_string(iter)+"_"+std::to_string(image_id)+".bmp").c_str(), m_images[image_id]);
+          LiteImage::SaveImage<float4>(("saves/iter_"+std::to_string(iter)+"_"+std::to_string(image_id)+".png").c_str(), m_images[image_id]);
         }
       }
     } 
@@ -387,7 +386,7 @@ namespace dr
           float l = m_imagesDebug[i].data()[j].x;
           m_imagesDebug[i].data()[j] = float4(std::max(0.0f, l), std::max(0.0f, -l),0,1);
         }
-        LiteImage::SaveImage<float4>(("saves/PD_"+std::to_string(i)+"a.bmp").c_str(), m_imagesDebug[i]);
+        LiteImage::SaveImage<float4>(("saves/PD_"+std::to_string(i)+"a.png").c_str(), m_imagesDebug[i]);
       }
     }
 
@@ -579,8 +578,8 @@ namespace dr
 
       if (m_preset_dr.debug_pd_images)
       {
-        LiteImage::SaveImage<float4>(("saves/PD_"+std::to_string(i)+"_1.bmp").c_str(), image_1);
-        LiteImage::SaveImage<float4>(("saves/PD_"+std::to_string(i)+"_2.bmp").c_str(), image_2);
+        LiteImage::SaveImage<float4>(("saves/PD_"+std::to_string(i)+"_1.png").c_str(), image_1);
+        LiteImage::SaveImage<float4>(("saves/PD_"+std::to_string(i)+"_2.png").c_str(), image_2);
 
         for (int j = 0; j < m_width * m_height; j++)
         {
@@ -590,7 +589,7 @@ namespace dr
           image_1.data()[j] = float4(std::max(0.0f, l), std::max(0.0f, -l),0,1);
         }
 
-        LiteImage::SaveImage<float4>(("saves/PD_"+std::to_string(i)+"b.bmp").c_str(), image_1);
+        LiteImage::SaveImage<float4>(("saves/PD_"+std::to_string(i)+"b.png").c_str(), image_1);
       }
 
       out_dLoss_dS[i] = (loss_plus - loss_minus) / (2 * delta);

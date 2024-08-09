@@ -1758,14 +1758,14 @@ void diff_render_test_19_expanding_grid()
   unsigned W = 1024, H = 1024;
 
   MultiRenderPreset preset = getDefaultPreset();
-  preset.render_mode = MULTI_RENDER_MODE_LAMBERT;
+  preset.render_mode = MULTI_RENDER_MODE_MASK;
   //preset.ray_gen_mode = RAY_GEN_MODE_RANDOM;
   preset.spp = 16;
 
   float4x4 base_proj = LiteMath::perspectiveMatrix(60, 1.0f, 0.01f, 100.0f);
   LiteImage::Image2D<float4> texture = LiteImage::LoadImage<float4>("scenes/porcelain.png");
 
-  std::vector<float4x4> view = get_cameras_turntable(32, float3(0, 0, 0), 4.0f, 1.0f);
+  std::vector<float4x4> view = get_cameras_turntable(16, float3(0, 0, 0), 4.0f, 1.0f);
   std::vector<float4x4> proj(view.size(), base_proj);
 
   std::vector<LiteImage::Image2D<float4>> images_ref(view.size(), LiteImage::Image2D<float4>(W, H));
@@ -1795,16 +1795,16 @@ void diff_render_test_19_expanding_grid()
     dr_preset.dr_render_mode = DR_RENDER_MODE_MASK;
     dr_preset.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_GEOMETRY;
     dr_preset.dr_border_sampling = DR_BORDER_SAMPLING_SVM;
-    dr_preset.reg_function = DR_REG_FUNCTION_LK_DENOISING;
-    dr_preset.reg_lambda = 1.0f;
+    dr_preset.reg_function = DR_REG_FUNCTION_NONE;
+    dr_preset.reg_lambda = 2.0f;
     dr_preset.border_relax_eps = 1e-3f;
-    dr_preset.opt_iterations = 301;
+    dr_preset.opt_iterations = 201;
     dr_preset.opt_lr = 0.01f;
     dr_preset.spp = 4;
-    dr_preset.border_spp = 1024;
+    dr_preset.border_spp = 3000;
     dr_preset.image_batch_size = 4;
-    dr_preset.render_width = 256;
-    dr_preset.render_height = 256;
+    dr_preset.render_width = 300;
+    dr_preset.render_height = 300;
 
     dr_preset.debug_print = true;
     dr_preset.debug_print_interval = 10;
@@ -1812,11 +1812,20 @@ void diff_render_test_19_expanding_grid()
     dr_preset.debug_progress_interval = 100;
 
     MultiRendererDRPreset dr_preset_2 = dr_preset;
-    dr_preset_2.render_width = 512;
-    dr_preset_2.render_height = 512;
+    dr_preset_2.render_width = 400;
+    dr_preset_2.render_height = 400;
     dr_preset_2.opt_lr = 0.005f;
-    dr_preset_2.dr_render_mode = DR_RENDER_MODE_LAMBERT;
-    dr_preset_2.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_GEOMETRY | DR_RECONSTRUCTION_FLAG_COLOR;
+    dr_preset_2.reg_lambda = 20.0f;
+    dr_preset_2.opt_iterations = 101;
+
+    MultiRendererDRPreset dr_preset_3 = dr_preset;
+    dr_preset_3.render_width = 600;
+    dr_preset_3.render_height = 600;
+    dr_preset_3.opt_lr = 0.005f;
+    dr_preset_3.reg_lambda = 100.0f;
+    dr_preset_3.opt_iterations = 101;
+    //dr_preset_2.dr_render_mode = DR_RENDER_MODE_LAMBERT;
+    //dr_preset_2.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_GEOMETRY | DR_RECONSTRUCTION_FLAG_COLOR;
 
     MultiRendererDRPreset dr_preset_c = dr_preset;
     dr_preset_c.dr_render_mode = DR_RENDER_MODE_DIFFUSE;
@@ -1827,7 +1836,7 @@ void diff_render_test_19_expanding_grid()
 
     MultiRendererDR dr_render;
     dr_render.SetReference(images_ref, view, proj);
-    dr_render.OptimizeGrid(32, true, {dr_preset, dr_preset_2});
+    dr_render.OptimizeGrid(16, false, {dr_preset, dr_preset_2, dr_preset_3});
     dr_render.SetViewport(0, 0, W, H);
     dr_render.UpdateCamera(view[0], proj[0]);
     dr_render.Clear(W, H, "color");
