@@ -85,15 +85,11 @@ namespace dr
     switch (diff_render_mode)
     {
     case DR_RENDER_MODE_DIFFUSE:
-    case DR_DEBUG_RENDER_MODE_BORDER_DETECTION:
-    case DR_DEBUG_RENDER_MODE_BORDER_INTEGRAL:
       return MULTI_RENDER_MODE_DIFFUSE;
     case DR_RENDER_MODE_LAMBERT:
       return MULTI_RENDER_MODE_LAMBERT;    
     case DR_RENDER_MODE_MASK:
       return MULTI_RENDER_MODE_MASK;
-    case DR_DEBUG_RENDER_MODE_PRIMITIVE:
-      return MULTI_RENDER_MODE_PRIMITIVE;
     case DR_RENDER_MODE_LINEAR_DEPTH:
       return MULTI_RENDER_MODE_LINEAR_DEPTH;
     default:
@@ -241,7 +237,10 @@ namespace dr
     m_preset.spp = preset.spp;
     m_preset.sdf_node_intersect = SDF_OCTREE_NODE_INTERSECT_NEWTON; //we need newton to minimize calculations for border integral
     m_preset.ray_gen_mode = RAY_GEN_MODE_RANDOM;
-    m_preset.render_mode = diff_render_mode_to_multi_render_mode(preset.dr_render_mode);
+    if (preset.debug_render_mode == DR_DEBUG_RENDER_MODE_PRIMITIVE)
+      m_preset.render_mode = MULTI_RENDER_MODE_PRIMITIVE;
+    else
+      m_preset.render_mode = diff_render_mode_to_multi_render_mode(preset.dr_render_mode);
 
     if (preset.render_width == 0 || preset.render_height == 0)
     {
@@ -465,13 +464,26 @@ namespace dr
 
       float ref_color_diff = length(to_float3(out_image[y*m_width + x]) - to_float3(image_ref[y*m_width + x]));
 
-      if (max_diff > 0)// && 
-      // only outer borders, so no reason to check colors
-      //    ref_color_diff > m_preset_dr.border_color_threshold &&
-      //    max_color_diff > m_preset_dr.border_color_threshold)
+      bool is_border = false;
+      switch (m_preset_dr.dr_render_mode)
       {
-        m_borderPixels.push_back(i);
+        case DR_RENDER_MODE_MASK:
+          is_border = max_diff > 0;
+        break;
+        case DR_RENDER_MODE_LINEAR_DEPTH:
+          //TODO
+        break;
+        case DR_RENDER_MODE_DIFFUSE:
+        case DR_RENDER_MODE_LAMBERT:
+          is_border = max_diff > 0 || max_color_diff > m_preset_dr.border_color_threshold;
+        break;
+        default:
+          is_border = false;
+        break;
       }
+
+      if (is_border)
+        m_borderPixels.push_back(i);
     }
 
     if (m_preset_dr.debug_border_samples_mega_image)
@@ -518,8 +530,8 @@ namespace dr
         }        
       }
     }
-    if (m_preset_dr.dr_render_mode == DR_DEBUG_RENDER_MODE_BORDER_DETECTION ||
-        m_preset_dr.dr_render_mode == DR_DEBUG_RENDER_MODE_BORDER_INTEGRAL)
+    if (m_preset_dr.debug_render_mode == DR_DEBUG_RENDER_MODE_BORDER_DETECTION ||
+        m_preset_dr.debug_render_mode == DR_DEBUG_RENDER_MODE_BORDER_INTEGRAL)
     {
       // make image with only border pixels
       LiteImage::Image2D<float4> image_borders(m_width, m_height, float4(0, 0, 0, 1));
@@ -649,8 +661,6 @@ namespace dr
     switch (m_preset_dr.dr_render_mode)
     {
     case DR_RENDER_MODE_DIFFUSE:
-    case DR_DEBUG_RENDER_MODE_BORDER_INTEGRAL:
-    case DR_DEBUG_RENDER_MODE_BORDER_DETECTION:
       color = hit.color;
       break;
     case DR_RENDER_MODE_LAMBERT:
@@ -664,9 +674,6 @@ namespace dr
     break;
     case DR_RENDER_MODE_MASK:
       color = float3(1, 1, 1);
-      break;
-    case DR_DEBUG_RENDER_MODE_PRIMITIVE:
-      color = to_float3(decode_RGBA8(m_palette[(hit.primId) % palette_size]));
       break;
     case DR_RENDER_MODE_LINEAR_DEPTH:
     {
@@ -690,8 +697,6 @@ namespace dr
     switch (m_preset_dr.dr_render_mode)
     {
     case DR_RENDER_MODE_DIFFUSE:
-    case DR_DEBUG_RENDER_MODE_BORDER_INTEGRAL:
-    case DR_DEBUG_RENDER_MODE_BORDER_DETECTION:
       color = hit.color;
 
       dColor_dDiffuse = LiteMath::make_float3x3(float3(1, 0, 0), float3(0, 1, 0), float3(0, 0, 1));
@@ -706,15 +711,15 @@ namespace dr
       color = q * hit.color;
 
       dColor_dDiffuse = LiteMath::make_float3x3(float3(q, 0, 0), float3(0, q, 0), float3(0, 0, q));
-      if (q0 > 0.1f)
+      //if (q0 > 0.1f)
       {
         float3 dq_dnorm = light_dir;
         dColor_dNorm = LiteMath::make_float3x3(hit.color.x * light_dir,
                                                hit.color.y * light_dir,
                                                hit.color.z * light_dir);
       }
-      else
-        dColor_dNorm = LiteMath::make_float3x3(float3(0, 0, 0), float3(0, 0, 0), float3(0, 0, 0));
+      //else
+      //  dColor_dNorm = LiteMath::make_float3x3(float3(0, 0, 0), float3(0, 0, 0), float3(0, 0, 0));
     }
     break;
     case DR_RENDER_MODE_MASK:
@@ -723,9 +728,6 @@ namespace dr
       dColor_dDiffuse = LiteMath::make_float3x3(float3(0, 0, 0), float3(0, 0, 0), float3(0, 0, 0));
       dColor_dNorm = LiteMath::make_float3x3(float3(0, 0, 0), float3(0, 0, 0), float3(0, 0, 0));
       break;
-    case DR_DEBUG_RENDER_MODE_PRIMITIVE:
-      color = to_float3(decode_RGBA8(m_palette[(hit.primId) % palette_size]));
-      break;
     case DR_RENDER_MODE_LINEAR_DEPTH:
     {
       float d = absolute_to_linear_depth(hit.t);
@@ -733,6 +735,21 @@ namespace dr
     }
     break;
     default:
+      break;
+    }
+
+    return color;
+  }
+
+  float3 MultiRendererDR::ApplyDebugColor(float3 original_color, const CRT_HitDR &hit)
+  {
+    float3 color = original_color;
+    switch (m_preset_dr.debug_render_mode)
+    {
+      case DR_DEBUG_RENDER_MODE_PRIMITIVE:
+        color = to_float3(decode_RGBA8(m_palette[(hit.primId) % palette_size]));
+      break;
+      default:
       break;
     }
 
@@ -802,7 +819,6 @@ namespace dr
       if (hit.primId == 0xFFFFFFFF) //no hit
       {
         color = background_color;
-        res_color += color / m_preset.spp;
       }
       else
       {
@@ -852,6 +868,9 @@ namespace dr
           }
         }
       }
+
+      if (m_preset_dr.debug_render_mode != DR_DEBUG_RENDER_MODE_NONE)
+        color = ApplyDebugColor(color, hit);
 
       res_color += color / m_preset.spp;
 
@@ -958,12 +977,12 @@ namespace dr
       }
     }
 
-    if (m_preset_dr.dr_render_mode == DR_DEBUG_RENDER_MODE_BORDER_DETECTION)
+    if (m_preset_dr.debug_render_mode == DR_DEBUG_RENDER_MODE_BORDER_DETECTION)
     {
       //printf("%u %u total_diff %f\n", x, y, total_diff);
       out_image[y * m_width + x] = float4(1, 1, 1, 1);
     }
-    else if (m_preset_dr.dr_render_mode == DR_DEBUG_RENDER_MODE_BORDER_INTEGRAL)
+    else if (m_preset_dr.debug_render_mode == DR_DEBUG_RENDER_MODE_BORDER_INTEGRAL)
       out_image[y * m_width + x] = float4(0.001f*total_diff, 0.01f*total_diff, 0.1f*total_diff, 1.0f);
 
   }
@@ -1226,6 +1245,14 @@ namespace dr
             samples_mega_image.data()[(y*hmult + dy) * sw + (x*wmult + dx)] = debug_image.data()[dy * wmult + dx];
       }
     }
+
+    if (m_preset_dr.debug_render_mode == DR_DEBUG_RENDER_MODE_BORDER_DETECTION)
+    {
+      //printf("%u %u total_diff %f\n", x, y, total_diff);
+      out_image[y * m_width + x] = float4(1, 1, 1, 1);
+    }
+    else if (m_preset_dr.debug_render_mode == DR_DEBUG_RENDER_MODE_BORDER_INTEGRAL)
+      out_image[y * m_width + x] = float4(0.001f*total_diff, 0.01f*total_diff, 0.1f*total_diff, 1.0f);
   }
 
   void MultiRendererDR::Regularization(float *out_dLoss_dS, unsigned params_count)

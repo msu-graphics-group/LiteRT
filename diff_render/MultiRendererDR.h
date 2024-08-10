@@ -41,6 +41,7 @@ namespace dr
     preset.redistancing_interval = 1;
 
     preset.debug_print = false;
+    preset.debug_render_mode = DR_DEBUG_RENDER_MODE_NONE;
     preset.debug_print_interval = 10;
     preset.debug_progress_images = DEBUG_PROGRESS_RAW;
     preset.debug_progress_interval = 100;
@@ -76,6 +77,7 @@ namespace dr
     float3 CalculateColor(const CRT_HitDR &hit);
     float3 CalculateColorWithGrad(const CRT_HitDR &hit, LiteMath::float3x3 &dColor_dDiffuse,
                                   LiteMath::float3x3 &dColor_dNorm);
+    float3 ApplyDebugColor(float3 original_color, const CRT_HitDR &hit);
     void PreprocessRefImages(unsigned width, unsigned height, bool to_mask, float3 background_color = float3(0,0,0));
     void Regularization(float *out_dLoss_dS, unsigned params_count);
 

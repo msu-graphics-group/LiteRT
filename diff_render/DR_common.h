@@ -68,9 +68,11 @@ namespace dr
   static constexpr unsigned DR_RENDER_MODE_MASK             = 2;
   static constexpr unsigned DR_RENDER_MODE_LINEAR_DEPTH     = 3;
 
-  static constexpr unsigned DR_DEBUG_RENDER_MODE_PRIMITIVE        = 100;
-  static constexpr unsigned DR_DEBUG_RENDER_MODE_BORDER_INTEGRAL  = 101;
-  static constexpr unsigned DR_DEBUG_RENDER_MODE_BORDER_DETECTION = 102;
+  //enum DRDebugRenderMode
+  static constexpr unsigned DR_DEBUG_RENDER_MODE_NONE             = 0;
+  static constexpr unsigned DR_DEBUG_RENDER_MODE_PRIMITIVE        = 1;
+  static constexpr unsigned DR_DEBUG_RENDER_MODE_BORDER_INTEGRAL  = 2;
+  static constexpr unsigned DR_DEBUG_RENDER_MODE_BORDER_DETECTION = 3;
 
   //enum DRDiffMode
   static constexpr unsigned DR_DIFF_MODE_DEFAULT     = 0;
@@ -143,6 +145,7 @@ namespace dr
 
     //debug settings
     bool debug_print;                //wether to print loss and ETA during optimization or not
+    unsigned debug_render_mode;      //enum DRDebugRenderMode
     unsigned debug_print_interval;   //how often to print
     unsigned debug_progress_images;  //render mode to progress images,either DEBUG_PROGRESS_NONE, DEBUG_PROGRESS_RAW or any MultiRenderMode
     unsigned debug_progress_interval;//how often to save progress images

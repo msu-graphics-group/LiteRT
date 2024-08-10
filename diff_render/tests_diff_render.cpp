@@ -182,7 +182,7 @@ void diff_render_test_2_forward_pass()
     dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS);
     image_SBS_dr_depth = dr_render.getLastImage(0);
 
-    dr_preset.dr_render_mode = DR_DEBUG_RENDER_MODE_PRIMITIVE;
+    dr_preset.debug_render_mode = DR_DEBUG_RENDER_MODE_PRIMITIVE;
     dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS);
     image_SBS_dr_prim = dr_render.getLastImage(0);
   }
@@ -1010,6 +1010,7 @@ void diff_render_test_9_check_position_derivatives()
     MultiRendererDR dr_render;
     dr_preset.dr_diff_mode = DR_DIFF_MODE_DEFAULT;
     dr_preset.dr_border_sampling = DR_BORDER_SAMPLING_RANDOM;
+    dr_preset.debug_render_mode =  DR_DEBUG_RENDER_MODE_BORDER_DETECTION;
     dr_render.SetReference(images_ref, view, proj);
     dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS);
     grad_dr_1 = std::vector<float>(dr_render.getLastdLoss_dS() + param_offset, 
@@ -1021,6 +1022,7 @@ void diff_render_test_9_check_position_derivatives()
     MultiRendererDR dr_render;
     dr_preset.dr_diff_mode = DR_DIFF_MODE_DEFAULT;
     dr_preset.dr_border_sampling = DR_BORDER_SAMPLING_SVM;
+    dr_preset.debug_render_mode = DR_DEBUG_RENDER_MODE_NONE;
     dr_render.SetReference(images_ref, view, proj);
     dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS);
     grad_dr_2 = std::vector<float>(dr_render.getLastdLoss_dS() + param_offset, 
@@ -1031,6 +1033,7 @@ void diff_render_test_9_check_position_derivatives()
     {
     MultiRendererDR dr_render;
     dr_preset.dr_diff_mode = DR_DIFF_MODE_FINITE_DIFF;
+    dr_preset.debug_render_mode =  DR_DEBUG_RENDER_MODE_NONE;
     dr_render.SetReference(images_ref, view, proj);
     dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS);
     grad_ref = std::vector<float>(dr_render.getLastdLoss_dS() + param_offset, 
