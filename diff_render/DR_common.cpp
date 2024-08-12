@@ -167,6 +167,13 @@ namespace dr
                           single_color);
   }
 
+  SdfSBS circle_smallest_scene_colored()
+  {
+    return create_grid_sbs(1, 2, 
+                          [&](float3 p){return circle_sdf(float3(0,0,0), 0.8f, p);}, 
+                          gradient_color);    
+  }
+
   std::vector<float4x4> get_cameras_uniform_sphere(int count, float3 center, float radius)
   {
     std::vector<float4x4> cameras;

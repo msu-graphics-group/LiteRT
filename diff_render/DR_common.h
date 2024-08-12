@@ -161,6 +161,7 @@ namespace dr
   std::vector<float4x4> get_cameras_turntable(int count, float3 center, float radius, float height);
   std::vector<float4x4> get_cameras_uniform_sphere(int count, float3 center, float radius);
   SdfSBS circle_smallest_scene();
+  SdfSBS circle_smallest_scene_colored();
   SdfSBS circle_medium_scene();
   SdfSBS circle_small_scene();
   SdfSBS circle_one_brick_scene();
