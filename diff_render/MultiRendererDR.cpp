@@ -36,20 +36,22 @@ namespace dr
     return (z - z_near) / (z_far - z_near);
   }
 
-  static float Loss(unsigned loss_function, float3 color, float3 ref_color)
+  static float Loss(unsigned loss_function, float4 color, float4 ref_color)
   {
+    float4 mult = float4(1,1,1,1);
     switch (loss_function)
     {
     case DR_LOSS_FUNCTION_MSE:
     {
-      float3 diff = color - ref_color;
+      float4 diff = mult*(color - ref_color);
+      //printf("color ref_color, diff = (%f %f %f %f) (%f %f %f %f)\n", color.x, color.y, color.z, color.w, ref_color.x, ref_color.y, ref_color.z, ref_color.w);
       return dot(diff, diff);
     }
     break;
     case DR_LOSS_FUNCTION_MAE:
     {
-      float3 diff = abs(color - ref_color);
-      return diff.x + diff.y + diff.z;
+      float4 diff = mult*abs(color - ref_color);
+      return diff.x + diff.y + diff.z + diff.w;
     }
     break;    
     default:
@@ -58,26 +60,27 @@ namespace dr
     return 0;
   }
 
-  static float3 LossGrad(unsigned loss_function, float3 color, float3 ref_color)
+  static float4 LossGrad(unsigned loss_function, float4 color, float4 ref_color)
   {
+    float4 mult = float4(1,1,1,1);
     switch (loss_function)
     {
     case DR_LOSS_FUNCTION_MSE:
     {
-      float3 diff = color - ref_color;
-      return 2.0f * diff;
+      float4 diff = (color - ref_color);
+      return 2.0f * mult * diff;
     }
     break;
     case DR_LOSS_FUNCTION_MAE:
     {
-      float3 diff = color - ref_color;
-      return sign(diff);
+      float4 diff = (color - ref_color);
+      return mult*sign(diff);
     }
     break;
     default:
       break;
     }
-    return float3(0,0,0);
+    return float4(0,0,0,0);
   }
 
   static uint32_t diff_render_mode_to_multi_render_mode(uint32_t diff_render_mode)
@@ -114,6 +117,37 @@ namespace dr
     m_imagesRefOriginal = images;
     m_worldViewRef = worldView;
     m_projRef = proj;
+
+    CreateRefImageMasks();
+  }
+
+  void MultiRendererDR::SetReference(const std::vector<LiteImage::Image2D<float4>>& images, 
+                                     const std::vector<LiteImage::Image2D<float4>>& masks, 
+                                     const std::vector<LiteMath::float4x4>& worldView, 
+                                     const std::vector<LiteMath::float4x4>& proj)
+  {
+    m_imagesRefOriginal = images;
+    m_imagesRefMask = masks;
+    m_worldViewRef = worldView;
+    m_projRef = proj;
+  }
+
+  void MultiRendererDR::CreateRefImageMasks()
+  {
+    assert(m_imagesRefOriginal.size() > 0);
+    
+    const float3 background_color = float3(0.0f, 0.0f, 0.0f);
+
+    m_imagesRefMask = std::vector<LiteImage::Image2D<float4>>(m_imagesRefOriginal.size());
+    for (unsigned image_n = 0; image_n < m_imagesRefOriginal.size(); image_n++)
+    {
+      m_imagesRefMask[image_n] = LiteImage::Image2D<float4>(m_imagesRefOriginal[image_n].width(), m_imagesRefOriginal[image_n].height());
+      for (int i=0;i<m_imagesRefOriginal[image_n].width()*m_imagesRefOriginal[image_n].height();i++)
+      {
+        float3 color = to_float3(m_imagesRefOriginal[image_n].data()[i]);
+        m_imagesRefMask[image_n].data()[i] = length(color - background_color) < 0.001f ? float4(0,0,0,0) : float4(1,1,1,1);
+      }
+    }
   }
 
   void MultiRendererDR::PreprocessRefImages(unsigned width, unsigned height, bool to_mask, float3 background_color)
@@ -122,24 +156,11 @@ namespace dr
     m_imagesRef = std::vector<LiteImage::Image2D<float4>>(m_imagesRefOriginal.size());
     for (unsigned image_n = 0; image_n < m_imagesRefOriginal.size(); image_n++)
     {
-      //create mask if needed
-      LiteImage::Image2D<float4> mask;
-      if (to_mask)
-      {
-        mask = m_imagesRefOriginal[image_n];
-        for (int i=0;i<m_imagesRefOriginal[image_n].width()*m_imagesRefOriginal[image_n].height();i++)
-        {
-          float3 color = to_float3(m_imagesRefOriginal[image_n].data()[i]);
-          mask.data()[i] = length(color - background_color) < 0.001f ? float4(0,0,0,1) : float4(1,1,1,1);
-        }
-      }
-
       //get reference image by sampling original (or mask) with default bilinear sampler
       LiteImage::Sampler sampler = LiteImage::Sampler();
       sampler.filter = LiteImage::Sampler::Filter::LINEAR;
-      LiteImage::Image2D<float4> &original_image = to_mask ? mask : m_imagesRefOriginal[image_n];
-      unsigned spp_x = ceil(float(original_image.width()) / width);
-      unsigned spp_y = ceil(float(original_image.height()) / height);
+      unsigned spp_x = ceil(float(m_imagesRefOriginal[image_n].width()) / width);
+      unsigned spp_y = ceil(float(m_imagesRefOriginal[image_n].height()) / height);
 
       m_imagesRef[image_n] = LiteImage::Image2D<float4>(width, height);
       for (unsigned y = 0; y < height; y++)
@@ -151,7 +172,16 @@ namespace dr
             for (unsigned dy = 0; dy < spp_y; dy++)
             {
               float2 uv = float2(float(spp_x*x + dx) / (spp_x*width), float(spp_y*y + dy) / (spp_y*height));
-              m_imagesRef[image_n].data()[y*width + x] += original_image.sample(sampler, uv) / (spp_x*spp_y);
+              float4 color(0,0,0,0);
+              if (to_mask)
+                color = m_imagesRefMask[image_n].sample(sampler, uv);
+              else
+              {
+                color   = m_imagesRefOriginal[image_n].sample(sampler, uv);
+                color.w = m_imagesRefMask[image_n].sample(sampler, uv).w;
+                //printf("color = %f %f %f %f\n", color.x, color.y, color.z, color.w);
+              }
+              m_imagesRef[image_n].data()[y*width + x] += color / (spp_x*spp_y);
             }
           }
         }
@@ -414,6 +444,8 @@ namespace dr
     unsigned max_threads = use_multithreading ? omp_get_max_threads() : 1;
     unsigned steps = (m_width * m_height + max_threads - 1)/max_threads;
     std::vector<double> loss_v(max_threads, 0.0f);
+    //std::vector<float> dloss_1(params_count, 0.0f);
+    //std::vector<float> dloss_2(params_count, 0.0f);
 
     omp_set_num_threads(max_threads);
 
@@ -426,6 +458,12 @@ namespace dr
       for (int i = start; i < end; i++)
         loss_v[thread_id] += CastRayWithGrad(i, image_ref, out_image, out_dLoss_dS + (params_count * thread_id));
     }
+
+    //for (int j = 0; j < max_threads; j++)
+    //{
+    //  for (int i = 0; i < params_count; i++)
+    //    dloss_1[i] += out_dLoss_dS[(params_count * j) + i];
+    //}
 
     //II - find border pixels
     m_borderPixels.resize(0);
@@ -551,6 +589,23 @@ namespace dr
     for (auto &l : loss_v)
       loss += l;
     
+    /*
+    for (int j = 0; j < max_threads; j++)
+    {
+      for (int i = 0; i < params_count; i++)
+        dloss_2[i] += out_dLoss_dS[(params_count * j) + i];
+    }
+
+    printf("[");
+    for (int i = 0; i < params_count; i++)
+      printf("%7.2f, ", dloss_1[i]);
+    printf("]\n");
+    printf("[");
+    for (int i = 0; i < params_count; i++)
+      printf("%7.2f, ", dloss_2[i] - dloss_1[i]);
+    printf("]\n\n");
+    */
+
     omp_set_num_threads(omp_get_max_threads());
 
     return loss/(m_width * m_height);
@@ -578,7 +633,7 @@ namespace dr
       RenderDR(image_ref, out_image, m_dLoss_dS_tmp_2.data(), params_count);
       for (int j = 0; j < m_width * m_height; j++)
       {
-        float l = Loss(m_preset_dr.dr_loss_function, to_float3(out_image[j]), to_float3(image_ref[j]));
+        float l = Loss(m_preset_dr.dr_loss_function, out_image[j], image_ref[j]);
         image_1.data()[j] = out_image[j];//float4(l,l,0,1);
         loss_plus += l;
       }
@@ -588,7 +643,7 @@ namespace dr
       RenderDR(image_ref, out_image, m_dLoss_dS_tmp_2.data(), params_count);
       for (int j = 0; j < m_width * m_height; j++)
       {
-        float l = Loss(m_preset_dr.dr_loss_function, to_float3(out_image[j]), to_float3(image_ref[j]));
+        float l = Loss(m_preset_dr.dr_loss_function, out_image[j], image_ref[j]);
         image_2.data()[j] = out_image[j];//float4(l,l,0,1);
         loss_minus += l;
       }
@@ -607,8 +662,8 @@ namespace dr
 
         for (int j = 0; j < m_width * m_height; j++)
         {
-          float l1 = Loss(m_preset_dr.dr_loss_function, to_float3(image_1.data()[j]), to_float3(image_ref[j]));
-          float l2 = Loss(m_preset_dr.dr_loss_function, to_float3(image_2.data()[j]), to_float3(image_ref[j]));
+          float l1 = Loss(m_preset_dr.dr_loss_function, image_1.data()[j], image_ref[j]);
+          float l2 = Loss(m_preset_dr.dr_loss_function, image_2.data()[j], image_ref[j]);
           float l = (l1 - l2) / (2 * delta);
           image_1.data()[j] = float4(std::max(0.0f, l), std::max(0.0f, -l),0,1);
         }
@@ -622,7 +677,7 @@ namespace dr
     double loss = 0.0f;
     //RenderFloat(out_image, m_width, m_height, "color");
     for (int j = 0; j < m_width * m_height; j++)
-      loss += Loss(m_preset_dr.dr_loss_function, to_float3(out_image[j]), to_float3(image_ref[j]));
+      loss += Loss(m_preset_dr.dr_loss_function, out_image[j], image_ref[j]);
     
     return loss / (m_width * m_height);
   }
@@ -711,15 +766,15 @@ namespace dr
       color = q * hit.color;
 
       dColor_dDiffuse = LiteMath::make_float3x3(float3(q, 0, 0), float3(0, q, 0), float3(0, 0, q));
-      //if (q0 > 0.1f)
+      if (q0 > 0.1f)
       {
         float3 dq_dnorm = light_dir;
         dColor_dNorm = LiteMath::make_float3x3(hit.color.x * light_dir,
                                                hit.color.y * light_dir,
                                                hit.color.z * light_dir);
       }
-      //else
-      //  dColor_dNorm = LiteMath::make_float3x3(float3(0, 0, 0), float3(0, 0, 0), float3(0, 0, 0));
+      else
+        dColor_dNorm = LiteMath::make_float3x3(float3(0, 0, 0), float3(0, 0, 0), float3(0, 0, 0));
     }
     break;
     case DR_RENDER_MODE_MASK:
@@ -824,7 +879,7 @@ namespace dr
       {
         hit_count++;
         color = CalculateColorWithGrad(hit, dColor_dDiffuse, dColor_dNorm);
-        dLoss_dColor = LossGrad(m_preset_dr.dr_loss_function, color, to_float3(image_ref[y * m_width + x]));
+        dLoss_dColor = to_float3(LossGrad(m_preset_dr.dr_loss_function, float4(color.x, color.y, color.z, 1), image_ref[y * m_width + x]));
 
         if (ray_flags & DR_RAY_FLAG_DDIFFUSE_DCOLOR)
         {
@@ -874,7 +929,9 @@ namespace dr
 
       res_color += color / m_preset.spp;
 
-      float loss          = Loss(m_preset_dr.dr_loss_function, color, to_float3(image_ref[y * m_width + x]));
+      float loss          = Loss(m_preset_dr.dr_loss_function, 
+                                 float4(color.x, color.y, color.z, hit.primId == 0xFFFFFFFF ? 0.0f : 1.0f), 
+                                 image_ref[y * m_width + x]);
       res_loss += loss / m_preset.spp;
     }
     out_image[y * m_width + x] = float4(res_color.x, res_color.y, res_color.z, (float)hit_count/m_preset.spp);
@@ -899,7 +956,7 @@ namespace dr
     const unsigned border_spp = m_preset_dr.border_spp;
     const uint32_t spp_sqrt = uint32_t(sqrt(border_spp));
     const float i_spp_sqrt = 1.0f / spp_sqrt;
-    const float3 dLoss_dColor = LossGrad(m_preset_dr.dr_loss_function, to_float3(out_image[y * m_width + x]), to_float3(image_ref[y * m_width + x]));
+    const float4 dLoss_dColor = LossGrad(m_preset_dr.dr_loss_function, out_image[y * m_width + x], image_ref[y * m_width + x]);
     
     float total_diff = 0.0f;
 
@@ -921,18 +978,18 @@ namespace dr
 
       if (payload.missed_hit.sdf < relax_eps)
       {
-        float3 color_delta = float3(0,0,0);
+        float4 color_delta = float4(0,0,0,0);
         if (m_preset_dr.dr_input_type == DR_INPUT_TYPE_COLOR)
         {
           float3 f_in = CalculateColor(payload.missed_hit);
           float3 f_out = hit.primId == 0xFFFFFFFF ? background_color : CalculateColor(hit);
-          color_delta = f_in - f_out;
+          color_delta = to_float4(f_in - f_out, hit.primId == 0xFFFFFFFF ? 1.0f : 0.0f);
         }
         else if (m_preset_dr.dr_input_type == DR_INPUT_TYPE_LINEAR_DEPTH)
         {
           float d_in = payload.missed_hit.t;
           float d_out = hit.primId == 0xFFFFFFFF ? background_depth : hit.t;
-          color_delta = float3(d_in - d_out);
+          color_delta = float4(d_in - d_out, d_in - d_out, d_in - d_out, hit.primId == 0xFFFFFFFF ? 1.0f : 0.0f);
         }
 
         for (int j = 0; j < 8; j++)
@@ -1055,7 +1112,7 @@ namespace dr
     const float  background_depth = 0.0f;
 
     const unsigned svm_spp = std::max(1u, (unsigned)(svm_samples_budget*m_preset_dr.border_spp));
-    const float3 dLoss_dColor = LossGrad(m_preset_dr.dr_loss_function, to_float3(out_image[y * m_width + x]), to_float3(image_ref[y * m_width + x]));
+    const float4 dLoss_dColor = LossGrad(m_preset_dr.dr_loss_function, out_image[y * m_width + x], image_ref[y * m_width + x]);
     
     float total_diff = 0.0f;
 
@@ -1188,18 +1245,18 @@ namespace dr
 
       if (payload.missed_hit.sdf < relax_eps)
       {
-        float3 color_delta = float3(0,0,0);
+        float4 color_delta = float4(0,0,0,0);
         if (m_preset_dr.dr_input_type == DR_INPUT_TYPE_COLOR)
         {
           float3 f_in = CalculateColor(payload.missed_hit);
           float3 f_out = hit.primId == 0xFFFFFFFF ? background_color : CalculateColor(hit);
-          color_delta = f_in - f_out;
+          color_delta = to_float4(f_in - f_out, hit.primId == 0xFFFFFFFF ? 1.0f : 0.0f);
         }
         else if (m_preset_dr.dr_input_type == DR_INPUT_TYPE_LINEAR_DEPTH)
         {
           float d_in = payload.missed_hit.t;
           float d_out = hit.primId == 0xFFFFFFFF ? background_depth : hit.t;
-          color_delta = float3(d_in - d_out);
+          color_delta = float4(d_in - d_out, d_in - d_out, d_in - d_out, hit.primId == 0xFFFFFFFF ? 1.0f : 0.0f);
         }
 
         for (int j = 0; j < 8; j++)

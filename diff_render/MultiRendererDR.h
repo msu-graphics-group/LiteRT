@@ -60,6 +60,10 @@ namespace dr
     void SetReference(const std::vector<LiteImage::Image2D<float4>>& images, 
                       const std::vector<LiteMath::float4x4>& worldView, 
                       const std::vector<LiteMath::float4x4>& proj);
+    void SetReference(const std::vector<LiteImage::Image2D<float4>>& images, 
+                      const std::vector<LiteImage::Image2D<float4>>& masks, 
+                      const std::vector<LiteMath::float4x4>& worldView, 
+                      const std::vector<LiteMath::float4x4>& proj);
     void OptimizeFixedStructure(MultiRendererDRPreset preset, SdfSBS &sbs);
     void OptimizeGrid(unsigned start_grid_size, bool no_last_step_resize, std::vector<MultiRendererDRPreset> presets);
 
@@ -79,12 +83,14 @@ namespace dr
                                   LiteMath::float3x3 &dColor_dNorm);
     float3 ApplyDebugColor(float3 original_color, const CRT_HitDR &hit);
     void PreprocessRefImages(unsigned width, unsigned height, bool to_mask, float3 background_color = float3(0,0,0));
+    void CreateRefImageMasks();
     void Regularization(float *out_dLoss_dS, unsigned params_count);
 
     float SolveEikonal(float3 axes_mins, float grid_spacing);
     void Redistance(float *dist_in, uint3 size_in, float grid_spacing, uint32_t num_iters);
 
     std::vector<LiteImage::Image2D<float4>> m_imagesRefOriginal;
+    std::vector<LiteImage::Image2D<float4>> m_imagesRefMask;
     std::vector<LiteImage::Image2D<float4>> m_imagesRef;
     std::vector<LiteImage::Image2D<float4>> m_images;
     std::vector<LiteMath::float4x4> m_worldViewRef;
