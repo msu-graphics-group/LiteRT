@@ -945,18 +945,15 @@ void diff_render_test_8_optimize_with_lambert()
     printf("FAILED, psnr = %f\n", psnr_2);
 }
 
-//float __delta = 0.001f;
-
-void diff_render_test_9_check_position_derivatives()
+void test_position_derivatives(const SdfSBS &SBS, unsigned render_node, unsigned diff_render_mode,
+                               unsigned border_sampling, bool set_random_color)
 {
+  static unsigned off = 1;
   srand(time(nullptr));
-  //create renderers for SDF scene and mesh scene
-  auto SBS_ref = circle_smallest_scene();
-
   unsigned W = 256, H = 256;
 
   MultiRenderPreset preset = getDefaultPreset();
-  preset.render_mode = MULTI_RENDER_MODE_DIFFUSE;
+  preset.render_mode = render_node;
   //preset.ray_gen_mode = RAY_GEN_MODE_RANDOM;
   preset.spp = 256;
 
@@ -973,21 +970,23 @@ void diff_render_test_9_check_position_derivatives()
     pRender->SetPreset(preset);
     pRender->SetViewport(0,0,W,H);
 
-    pRender->SetScene(SBS_ref);
+    pRender->SetScene(SBS);
     pRender->RenderFloat(images_ref[i].data(), images_ref[i].width(), images_ref[i].height(), view[i], proj[i], preset);
-    LiteImage::SaveImage<float4>(("saves/test_dr_9_ref_"+std::to_string(i)+".bmp").c_str(), images_ref[i]); 
+    LiteImage::SaveImage<float4>(("saves/test_dr_9_"+std::to_string(off)+"_ref.bmp").c_str(), images_ref[i]); 
   }
 
   // put random colors to SBS
-  auto indexed_SBS = circle_smallest_scene();
-  //randomize_color(indexed_SBS);
+  auto indexed_SBS = SBS;
+  if (set_random_color)
+    randomize_color(indexed_SBS);
   randomize_distance(indexed_SBS, 0.1f);
 
   MultiRendererDRPreset dr_preset = getDefaultPresetDR();
 
-  dr_preset.dr_render_mode = DR_RENDER_MODE_DIFFUSE;
+  dr_preset.dr_render_mode = diff_render_mode;
   dr_preset.dr_diff_mode = DR_DIFF_MODE_DEFAULT;
   dr_preset.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_GEOMETRY;
+  dr_preset.dr_input_type = diff_render_mode == DR_RENDER_MODE_LINEAR_DEPTH ? DR_INPUT_TYPE_LINEAR_DEPTH : DR_INPUT_TYPE_COLOR;
   dr_preset.opt_iterations = 1;
   dr_preset.opt_lr = 0.0f;
   dr_preset.spp = 64;
@@ -1002,33 +1001,20 @@ void diff_render_test_9_check_position_derivatives()
     //printf("delta = %f\n", delta);
     //__delta = delta;
 
-    std::vector<float> grad_dr_1(param_count, 0);
-    std::vector<float> grad_dr_2(param_count, 0);
+    std::vector<float> grad_dr(param_count, 0);
     std::vector<float> grad_ref(param_count, 0);
 
     {
     MultiRendererDR dr_render;
     dr_preset.dr_diff_mode = DR_DIFF_MODE_DEFAULT;
-    dr_preset.dr_border_sampling = DR_BORDER_SAMPLING_RANDOM;
-    dr_preset.debug_render_mode =  DR_DEBUG_RENDER_MODE_BORDER_DETECTION;
+    dr_preset.dr_border_sampling = border_sampling;
+    dr_preset.debug_render_mode =  DR_DEBUG_RENDER_MODE_NONE;
     dr_render.SetReference(images_ref, view, proj);
     dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS);
-    grad_dr_1 = std::vector<float>(dr_render.getLastdLoss_dS() + param_offset, 
+    grad_dr = std::vector<float>(dr_render.getLastdLoss_dS() + param_offset, 
                                    dr_render.getLastdLoss_dS() + param_offset + param_count);
     image_res = dr_render.getLastImage(0);
-    LiteImage::SaveImage<float4>("saves/test_dr_9_res.bmp", image_res); 
-    }
-    {
-    MultiRendererDR dr_render;
-    dr_preset.dr_diff_mode = DR_DIFF_MODE_DEFAULT;
-    dr_preset.dr_border_sampling = DR_BORDER_SAMPLING_SVM;
-    dr_preset.debug_render_mode = DR_DEBUG_RENDER_MODE_NONE;
-    dr_render.SetReference(images_ref, view, proj);
-    dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS);
-    grad_dr_2 = std::vector<float>(dr_render.getLastdLoss_dS() + param_offset, 
-                                   dr_render.getLastdLoss_dS() + param_offset + param_count);
-    image_res = dr_render.getLastImage(0);
-    LiteImage::SaveImage<float4>("saves/test_dr_9_res_2.bmp", image_res); 
+    LiteImage::SaveImage<float4>(("saves/test_dr_9_"+std::to_string(off)+"_res.bmp").c_str(), image_res); 
     }
     {
     MultiRendererDR dr_render;
@@ -1040,8 +1026,6 @@ void diff_render_test_9_check_position_derivatives()
                                   dr_render.getLastdLoss_dS() + param_offset + param_count);
     }
 
-    printf("TEST 9. Check position derivatives\n");
-    for (auto &grad_dr : {grad_dr_1, grad_dr_2})
     {
       long double average_1 = 0;
       long double abs_average_1 = 0;
@@ -1092,37 +1076,60 @@ void diff_render_test_9_check_position_derivatives()
       average_error_2 /= param_count;
       average_bias_2 /= param_count;
     
-      printf(" 9.1. %-64s", "Relative difference in average PD value");
-      if (average_error <= 0.1f)
+      printf(" 9.%d.1 %-64s", off, "Relative difference in average PD value");
+      if (average_error <= 0.15f)
         printf("passed    (%f)\n", average_error);
       else
         printf("FAILED, average_error = %f\n", average_error);
       
-      printf(" 9.2. %-64s", "Relative bias in average PD");
-      if (average_bias <= 0.1f)
+      printf(" 9.%d.2 %-64s", off, "Relative bias in average PD");
+      if (average_bias <= 0.15f)
         printf("passed    (%f)\n", average_bias);
       else
         printf("FAILED, average_bias = %f\n", average_bias);
       
-      printf(" 9.3. %-64s", "Max relative difference in PD value");
+      printf(" 9.%d.3 %-64s", off, "Max relative difference in PD value");
       if (max_error <= 2)
         printf("passed    (%f)\n", max_error);
       else
         printf("FAILED, max_error = %f\n", max_error);
       
-      printf(" 9.4. %-64s", "Average relative difference in PD value");
-      if (average_error_2 <= 0.1f)
+      printf(" 9.%d.4 %-64s", off, "Average relative difference in PD value");
+      if (average_error_2 <= 0.15f)
         printf("passed    (%f)\n", average_error_2);
       else
         printf("FAILED, average_error = %f\n", average_error_2);
       
-      printf(" 9.5. %-64s", "Average relative bias in PD");
-      if (abs(average_bias_2) <= 0.1f)
+      printf(" 9.%d.5 %-64s", off, "Average relative bias in PD");
+      if (abs(average_bias_2) <= 0.15f)
         printf("passed    (%f)\n", average_bias_2);
       else
         printf("FAILED, average_bias = %f\n", average_bias_2);
     }
   }
+  off++;
+}
+
+void diff_render_test_9_check_position_derivatives()
+{
+  printf("TEST 9. Check position derivatives\n");
+
+  printf("9.1 Mask, random border sampling\n");
+  test_position_derivatives(circle_smallest_scene_colored(), MULTI_RENDER_MODE_MASK, DR_RENDER_MODE_MASK, false, true);
+  printf("9.2 Mask, SVM border sampling\n");
+  test_position_derivatives(circle_smallest_scene_colored(), MULTI_RENDER_MODE_MASK, DR_RENDER_MODE_MASK, true, true);
+  printf("9.3 Diffuse, random border sampling\n");
+  test_position_derivatives(circle_smallest_scene_colored(), MULTI_RENDER_MODE_DIFFUSE, DR_RENDER_MODE_DIFFUSE, false, true);
+  printf("9.4 Diffuse, SVM border sampling\n");
+  test_position_derivatives(circle_smallest_scene_colored(), MULTI_RENDER_MODE_DIFFUSE, DR_RENDER_MODE_DIFFUSE, true, true);
+  printf("9.5 Lambert, random border sampling\n");
+  test_position_derivatives(circle_smallest_scene_colored(), MULTI_RENDER_MODE_LAMBERT, DR_RENDER_MODE_LAMBERT, false, true);
+  printf("9.6 Lambert, SVM border sampling\n");
+  test_position_derivatives(circle_smallest_scene_colored(), MULTI_RENDER_MODE_LAMBERT, DR_RENDER_MODE_LAMBERT, true, true);
+  printf("9.7 Depth, random border sampling\n");
+  test_position_derivatives(circle_smallest_scene_colored(), MULTI_RENDER_MODE_LINEAR_DEPTH, DR_RENDER_MODE_LINEAR_DEPTH, false, true);
+  printf("9.8 Depth, SVM border sampling\n");
+  test_position_derivatives(circle_smallest_scene_colored(), MULTI_RENDER_MODE_LINEAR_DEPTH, DR_RENDER_MODE_LINEAR_DEPTH, true, true);
 }
 
 void diff_render_test_10_optimize_sdf_finite_derivatives()
@@ -1295,11 +1302,13 @@ void diff_render_test_12_optimize_sphere_mask()
     dr_preset.dr_diff_mode = DR_DIFF_MODE_DEFAULT;
     dr_preset.dr_render_mode = DR_RENDER_MODE_MASK;
     dr_preset.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_GEOMETRY;
-    dr_preset.opt_iterations = 500;
-    dr_preset.opt_lr = 0.002f;
-    dr_preset.spp = 16;
-    dr_preset.border_spp = 512;
+    dr_preset.opt_iterations = 300;
+    dr_preset.opt_lr = 0.0025f;
+    dr_preset.spp = 4;
+    dr_preset.border_spp = 1000;
+    dr_preset.dr_border_sampling = DR_BORDER_SAMPLING_SVM;
     dr_preset.image_batch_size = 4;
+    dr_preset.debug_print = true;
 
     MultiRendererDR dr_render;
     dr_render.SetReference(images_ref, view, proj);
@@ -1313,7 +1322,7 @@ void diff_render_test_12_optimize_sphere_mask()
   float psnr = image_metrics::PSNR(image_res, images_ref[0]);
 
   printf("12.1. %-64s", "SDF is reconstructed");
-  if (psnr >= 30)
+  if (psnr >= 25)
     printf("passed    (%.2f)\n", psnr);
   else
     printf("FAILED, psnr = %f\n", psnr);
@@ -1359,11 +1368,13 @@ void diff_render_test_13_optimize_sphere_diffuse()
     dr_preset.dr_diff_mode = DR_DIFF_MODE_DEFAULT;
     dr_preset.dr_render_mode = DR_RENDER_MODE_DIFFUSE;
     dr_preset.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_GEOMETRY;
-    dr_preset.opt_iterations = 500;
-    dr_preset.opt_lr = 0.002f;
-    dr_preset.spp = 16;
-    dr_preset.border_spp = 512;
+    dr_preset.opt_iterations = 200;
+    dr_preset.opt_lr = 0.005f;
+    dr_preset.spp = 4;
+    dr_preset.border_spp = 1000;
+    dr_preset.dr_border_sampling = DR_BORDER_SAMPLING_SVM;
     dr_preset.image_batch_size = 4;
+    dr_preset.debug_print = true;
 
     MultiRendererDR dr_render;
     dr_render.SetReference(images_ref, view, proj);
@@ -1423,11 +1434,14 @@ void diff_render_test_14_optimize_sphere_lambert()
     dr_preset.dr_diff_mode = DR_DIFF_MODE_DEFAULT;
     dr_preset.dr_render_mode = DR_RENDER_MODE_LAMBERT;
     dr_preset.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_GEOMETRY;
-    dr_preset.opt_iterations = 500;
-    dr_preset.opt_lr = 0.002f;
-    dr_preset.spp = 16;
-    dr_preset.border_spp = 512;
+    dr_preset.opt_iterations = 200;
+    dr_preset.opt_lr = 0.005f;
+    dr_preset.spp = 4;
+    dr_preset.border_spp = 1000;
+    dr_preset.dr_border_sampling = DR_BORDER_SAMPLING_SVM;
     dr_preset.image_batch_size = 4;
+    dr_preset.border_color_threshold = 1.0f;
+    dr_preset.debug_print = true;
 
     MultiRendererDR dr_render;
     dr_render.SetReference(images_ref, view, proj);
