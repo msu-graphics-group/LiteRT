@@ -20,6 +20,16 @@ namespace dr
   static constexpr float z_near = 0.1;
   static constexpr float z_far = 10;
 
+  static float3 visualize_value_debug(float val)
+  {
+    float diff_log = log10(abs(val) + 1.0f);
+    float q_red = std::max(0.0f, 1 - abs(diff_log - 3.0f));
+    float q_green = std::max(0.0f, 1 - abs(diff_log - 2.0f));
+    float q_blue = std::max(0.0f, 1 - abs(diff_log - 1.0f));
+
+    return float3(q_red, q_green, q_blue);
+  }
+
 
   static float urand(float from=0, float to=1)
   {
@@ -299,7 +309,7 @@ namespace dr
     float *params = ((BVHDR*)m_pAccelStruct.get())->m_SdfSBSDataF.data();
     unsigned images_count = m_imagesRef.size();
 
-    if (preset.debug_pd_images)
+    if (m_preset_dr.debug_pd_images)
       m_imagesDebug = std::vector<LiteImage::Image2D<float4>>(params_count, LiteImage::Image2D<float4>(m_width, m_height, float4(0, 0, 0, 1)));
     
     if (preset.debug_border_samples_mega_image)
@@ -318,7 +328,10 @@ namespace dr
       //render (with multithreading)
       for (int image_iter = 0; image_iter < preset.image_batch_size; image_iter++)
       {
-        unsigned image_id = rand() % images_count;
+        bool base_debug_pd_images = m_preset_dr.debug_pd_images;
+        m_preset_dr.debug_pd_images = base_debug_pd_images && (image_iter == 0);
+
+        unsigned image_id = preset.image_batch_size == images_count ? image_iter : rand() % images_count;
         SetViewport(0,0, m_width, m_height);
         UpdateCamera(m_worldViewRef[image_id], m_projRef[image_id]);
         Clear(m_width, m_height, "color");
@@ -343,6 +356,8 @@ namespace dr
         loss_sum += loss;
         loss_max = std::max(loss_max, loss);
         loss_min = std::min(loss_min, loss);
+
+        m_preset_dr.debug_pd_images = base_debug_pd_images;
       }
 
       auto t2 = std::chrono::high_resolution_clock::now();
@@ -391,7 +406,7 @@ namespace dr
       if (preset.debug_print && iter % preset.debug_print_interval == 0)
       {
         printf("Iter:%4d, loss: %f (%f-%f) ", iter, loss_sum/preset.image_batch_size, loss_min, loss_max);
-        printf("%.1f ms/iter (%.1f + %.1f + %.1f + %.1f + %.1f) ", time, time_1, time_2, time_3, time_4, time_5);
+        printf("%7.1f ms/iter (%7.1f + %.1f + %.1f + %.1f + %.1f) ", time, time_1, time_2, time_3, time_4, time_5);
         printf("ETA %.1f s\n", (timeAvg * (preset.opt_iterations - iter - 1)) / 1000.0f);
       }
       
@@ -416,18 +431,18 @@ namespace dr
           LiteImage::SaveImage<float4>(("saves/iter_"+std::to_string(iter)+"_"+std::to_string(image_id)+".png").c_str(), m_images[image_id]);
         }
       }
-    } 
 
-    if  (preset.debug_pd_images && preset.dr_diff_mode == DR_DIFF_MODE_DEFAULT)
-    {
-      for (int i = 0; i < params_count; i++)
+      if  (m_preset_dr.debug_pd_images && preset.dr_diff_mode == DR_DIFF_MODE_DEFAULT)
       {
-        for (int j = 0; j < m_width * m_height; j++)
+        for (int i = 0; i < params_count; i++)
         {
-          float l = m_imagesDebug[i].data()[j].x;
-          m_imagesDebug[i].data()[j] = float4(std::max(0.0f, l), std::max(0.0f, -l),0,1);
+          for (int j = 0; j < m_width * m_height; j++)
+          {
+            float l = m_imagesDebug[i].data()[j].x;
+            m_imagesDebug[i].data()[j] = float4(std::max(0.0f, l/20), std::max(0.0f, -l/20),0,1);
+          }
+          LiteImage::SaveImage<float4>(("saves/PD_"+std::to_string(i)+"a.png").c_str(), m_imagesDebug[i]);
         }
-        LiteImage::SaveImage<float4>(("saves/PD_"+std::to_string(i)+"a.png").c_str(), m_imagesDebug[i]);
       }
     }
 
@@ -665,7 +680,7 @@ namespace dr
           float l1 = Loss(m_preset_dr.dr_loss_function, image_1.data()[j], image_ref[j]);
           float l2 = Loss(m_preset_dr.dr_loss_function, image_2.data()[j], image_ref[j]);
           float l = (l1 - l2) / (2 * delta);
-          image_1.data()[j] = float4(std::max(0.0f, l), std::max(0.0f, -l),0,1);
+          image_1.data()[j] = float4(std::max(0.0f, l/20), std::max(0.0f, -l/20),0,1);
         }
 
         LiteImage::SaveImage<float4>(("saves/PD_"+std::to_string(i)+"b.png").c_str(), image_1);
@@ -857,6 +872,7 @@ namespace dr
       }
     }
 
+    float total_diff = 0;
     for (uint32_t i = 0; i < m_preset.spp; i++)
     {
       float2 d = m_preset.ray_gen_mode == RAY_GEN_MODE_RANDOM ? rand2(x, y, i) : i_spp_sqrt*float2(i/spp_sqrt+0.5, i%spp_sqrt+0.5);
@@ -880,6 +896,7 @@ namespace dr
         hit_count++;
         color = CalculateColorWithGrad(hit, dColor_dDiffuse, dColor_dNorm);
         dLoss_dColor = to_float3(LossGrad(m_preset_dr.dr_loss_function, float4(color.x, color.y, color.z, 1), image_ref[y * m_width + x]));
+        float ref_mask = image_ref[y * m_width + x].w;
 
         if (ray_flags & DR_RAY_FLAG_DDIFFUSE_DCOLOR)
         {
@@ -903,8 +920,9 @@ namespace dr
         {
           for (PDDist &pd : payload.dDiffuseNormal_dSd)
           {
-            float diff = dot(dLoss_dColor, dColor_dDiffuse * pd.dDiffuse + dColor_dNorm * pd.dNorm);
+            float diff = ref_mask*dot(dLoss_dColor, dColor_dDiffuse * pd.dDiffuse + dColor_dNorm * pd.dNorm);
             out_dLoss_dS[pd.index] += diff / m_preset.spp;
+            total_diff += diff / m_preset.spp;
 
             if (m_preset_dr.debug_pd_images)
               m_imagesDebug[pd.index].data()[y * m_width + x] += (diff / m_preset.spp) * float4(1,1,1,0);
@@ -935,6 +953,9 @@ namespace dr
       res_loss += loss / m_preset.spp;
     }
     out_image[y * m_width + x] = float4(res_color.x, res_color.y, res_color.z, (float)hit_count/m_preset.spp);
+
+    if (m_preset_dr.debug_render_mode == DR_DEBUG_RENDER_MODE_AREA_INTEGRAL)
+      out_image[y * m_width + x] = to_float4(visualize_value_debug(total_diff), 1.0f);
 
     return res_loss;
   }
@@ -1040,7 +1061,7 @@ namespace dr
       out_image[y * m_width + x] = float4(1, 1, 1, 1);
     }
     else if (m_preset_dr.debug_render_mode == DR_DEBUG_RENDER_MODE_BORDER_INTEGRAL)
-      out_image[y * m_width + x] = float4(0.001f*total_diff, 0.01f*total_diff, 0.1f*total_diff, 1.0f);
+      out_image[y * m_width + x] = to_float4(visualize_value_debug(total_diff), 1.0f);
 
   }
 
@@ -1309,7 +1330,7 @@ namespace dr
       out_image[y * m_width + x] = float4(1, 1, 1, 1);
     }
     else if (m_preset_dr.debug_render_mode == DR_DEBUG_RENDER_MODE_BORDER_INTEGRAL)
-      out_image[y * m_width + x] = float4(0.001f*total_diff, 0.01f*total_diff, 0.1f*total_diff, 1.0f);
+      out_image[y * m_width + x] = to_float4(visualize_value_debug(total_diff), 1.0f);
   }
 
   void MultiRendererDR::Regularization(float *out_dLoss_dS, unsigned params_count)
