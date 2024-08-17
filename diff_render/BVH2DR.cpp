@@ -870,11 +870,11 @@ namespace dr
           //if (!hit)
           //  printf("t_min = %f in (%f, %f)\n", t_min, qNear, qFar);
 
-          if (sdf_min < 0.f && sdf_min >= -relax_pt->missed_hit.sdf) // Found relaxation point
+          if (sdf_min < 0.f && sdf_min*d >= -relax_pt->missed_hit.sdf) // Found relaxation point
           {
             //printf("t_min = %f in (%f, %f)\n", t_min, qNear, qFar);
             relax_pt->missed_hit.t = t_min;
-            relax_pt->missed_hit.sdf = -sdf_min;
+            relax_pt->missed_hit.sdf = -sdf_min*d;
           }
         }
 
@@ -1005,7 +1005,7 @@ namespace dr
         qFar = (fNearFar.y - fNearFar.x) * (0.5f * sz * header.brick_size);
 
         float prev_missed_hit_sdf = relax_pt->missed_hit.sdf;
-        float t = Intersect(ray_flags, ray_dir, values, d, 0.0f, qFar, start_q, relax_pt);
+        float t = Intersect(ray_flags, ray_dir, values, d, 0.0f, qFar, start_q, relax_pt); //relax_pt->missed_hit.t is relative here
         float tReal = fNearFar.x + 2.0f * d * t;
         
         if (ray_flags & DR_RAY_FLAG_BORDER)
@@ -1015,6 +1015,7 @@ namespace dr
           if (relax_pt->missed_hit.sdf < prev_missed_hit_sdf && relax_pt->missed_hit.t < t)
           {
             float missed_t = relax_pt->missed_hit.t;
+            relax_pt->missed_hit.t = fNearFar.x + 2.0f * d * relax_pt->missed_hit.t; //MultiRendrer expectes t as an absolute distance
             float3 q_ast = start_q + missed_t * ray_dir;
             float3 y_ast = ray_pos + (fNearFar.x + (2.0f *d*missed_t)) * ray_dir;
             float3 dp_ast = (y_ast - brick_min_pos) * (0.5f * sz);
