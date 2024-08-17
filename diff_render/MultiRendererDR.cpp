@@ -409,7 +409,7 @@ namespace dr
   float MultiRendererDR::RenderDR(const float4 *image_ref, LiteMath::float4 *out_image,
                                   float *out_dLoss_dS, unsigned params_count)
   {
-    bool use_multithreading = !(m_preset_dr.debug_border_samples || 
+    bool use_multithreading = false && !(m_preset_dr.debug_border_samples || 
                                 m_preset_dr.debug_pd_images ||
                                 m_preset_dr.debug_border_samples_mega_image);
 

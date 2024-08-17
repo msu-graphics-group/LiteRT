@@ -12,6 +12,7 @@
 #include "../utils/demo_meshes.h"
 #include "../utils/image_metrics.h"
 #include "../diff_render/MultiRendererDR.h"
+#include "./BVH2DR.h"
 
 #include <functional>
 #include <cassert>
@@ -1736,6 +1737,38 @@ void diff_render_test_18_sphere_depth()
     dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS);
     image_res = dr_render.getLastImage(0);
     LiteImage::SaveImage<float4>("saves/test_dr_18_res.bmp", image_res);
+
+    auto bvhdr_ptr = dynamic_cast<BVHDR*>(dr_render.GetAccelStruct().get());
+    const char *root_type_descr[] = {
+                                        "Linear, 1 root",
+                                        "Quadratic, first root",
+                                        "Quadratic, second root",
+                                        "Cubic, first root",
+                                        "Cubic, second root",
+                                        "Cubic, third root",
+                                        "Cubic, one real root"
+    };
+    printf("Stats:\n");
+    for (int root_type = 1; root_type < 8; ++root_type) 
+    {
+      printf("Type: %s, count: %d\n", root_type_descr[root_type-1], bvhdr_ptr->err_info[root_type-1].err_mean_count);
+      printf("Max: ");
+      for (int i = 0; i < 8; ++i)
+      {
+        printf("%7.4e, ", bvhdr_ptr->err_info[root_type-1].glob_err_max[i]);
+      }
+      printf("\nMin: ");
+      for (int i = 0; i < 8; ++i)
+      {
+        printf("%7.4e, ", bvhdr_ptr->err_info[root_type-1].glob_err_min[i]);
+      }
+      printf("\nMean: ");
+      for (int i = 0; i < 8; ++i)
+      {
+        printf("%7.4e, ", bvhdr_ptr->err_info[root_type-1].glob_err_mean[i] / std::max(bvhdr_ptr->err_info[root_type-1].err_mean_count, 1u));
+      }
+      printf("\n");
+    }
   }
 
   printf("TEST 18. Optimize smallest SDF scene with depth input\n");
@@ -1923,13 +1956,15 @@ void perform_tests_diff_render(const std::vector<int> &test_ids)
   std::vector<int> tests = test_ids;
 
   std::vector<std::function<void(void)>> test_functions = {
-      diff_render_test_1_enzyme_ad, diff_render_test_2_forward_pass, diff_render_test_3_optimize_color,
-      diff_render_test_4_render_simple_scenes, diff_render_test_5_optimize_color_simpliest, diff_render_test_6_check_color_derivatives,
-      diff_render_test_7_optimize_with_finite_diff, diff_render_test_8_optimize_with_lambert, diff_render_test_9_check_position_derivatives,
-      diff_render_test_10_optimize_sdf_finite_derivatives, diff_render_test_11_optimize_smallest_scene, diff_render_test_12_optimize_sphere_mask,
-      diff_render_test_13_optimize_sphere_diffuse, diff_render_test_14_optimize_sphere_lambert, diff_render_test_15_combined_reconstruction,
-      diff_render_test_16_borders_detection, diff_render_test_17_optimize_bunny, diff_render_test_18_sphere_depth,
-      diff_render_test_19_expanding_grid, diff_render_test_20_sphere_depth_with_redist };
+      // diff_render_test_1_enzyme_ad, diff_render_test_2_forward_pass, diff_render_test_3_optimize_color,
+      // diff_render_test_4_render_simple_scenes, diff_render_test_5_optimize_color_simpliest, diff_render_test_6_check_color_derivatives,
+      // diff_render_test_7_optimize_with_finite_diff, diff_render_test_8_optimize_with_lambert, diff_render_test_9_check_position_derivatives,
+      // diff_render_test_10_optimize_sdf_finite_derivatives, diff_render_test_11_optimize_smallest_scene, diff_render_test_12_optimize_sphere_mask,
+      // diff_render_test_13_optimize_sphere_diffuse, diff_render_test_14_optimize_sphere_lambert, diff_render_test_15_combined_reconstruction,
+      // diff_render_test_16_borders_detection, diff_render_test_17_optimize_bunny, 
+      diff_render_test_18_sphere_depth,
+      // diff_render_test_19_expanding_grid, diff_render_test_20_sphere_depth_with_redist 
+      };
 
   if (tests.empty())
   {

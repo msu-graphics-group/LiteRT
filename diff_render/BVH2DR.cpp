@@ -904,6 +904,449 @@ namespace dr
     return hit ? t : qFar + EPS;
   }
 
+  void BVHDR::IntersectDiff(uint32_t ray_flags, const float3 ray_dir, float values[8], float *dt_dval, int &root_type, float d, 
+                             float qNear, float qFar, float3 start_q, PDShape *relax_pt)
+  {
+    const float EPS = 1e-6f;
+    float d_inv = 1.0f / d;
+    float t = qNear;
+    bool hit = false;
+
+    float start_dist = eval_dist_trilinear(values, start_q + qNear * ray_dir);
+    if (start_dist <= EPS || m_preset.sdf_node_intersect == SDF_OCTREE_NODE_INTERSECT_BBOX)
+    {
+      hit = true;
+    }
+    else
+    {
+      // 1
+
+      float s000 = values[0]*d_inv;
+      float s001 = values[1]*d_inv;
+      float s010 = values[2]*d_inv;
+      float s011 = values[3]*d_inv;
+      float s100 = values[4]*d_inv;
+      float s101 = values[5]*d_inv;
+      float s110 = values[6]*d_inv;
+      float s111 = values[7]*d_inv;
+
+      // 1 - diff
+
+      float deriv[8] { d_inv, d_inv, d_inv, d_inv, d_inv, d_inv, d_inv, d_inv };
+
+
+      // 2
+
+      float a1 = s101-s001;
+
+      float k0 = s000;
+      float k1 = s100-s000;
+      float k2 = s010-s000;
+      float k3 = s110-s010-k1; // s000 - s010 - s100 + s110
+      float k4 = k0-s001;
+      float k5 = k1-a1;
+      float k6 = k2-(s011-s001);
+      float k7 = k3-(s111-s011-a1); // a1 + k3 + s011 - s111
+
+      const float3 o = start_q;
+      const float3 d3 = ray_dir;
+
+      // 2 - diff
+
+      // float              da1_ds1 = -1.f,                                                 da1_ds5 =  1.f;
+      float dk0_ds0 =  1.f;
+      float dk1_ds0 = -1.f,                                                 dk1_ds4 =  1.f;
+      float dk2_ds0 = -1.f,                 dk2_ds2 =  1.f;
+      float dk3_ds0 =  1.f,                 dk3_ds2 = -1.f,                 dk3_ds4 = -1.f,                 dk3_ds6 =  1.f;
+      float dk4_ds0 =  1.f, dk4_ds1 = -1.f;
+      float dk5_ds0 = -1.f, dk5_ds1 =  1.f,                                 dk5_ds4 =  1.f, dk5_ds5 = -1.f;
+      float dk6_ds0 = -1.f, dk6_ds1 =  1.f, dk6_ds2 =  1.f, dk6_ds3 = -1.f;
+      float dk7_ds0 =  1.f, dk7_ds1 = -1.f, dk7_ds2 = -1.f, dk7_ds3 =  1.f, dk7_ds4 = -1.f, dk7_ds5 =  1.f, dk7_ds6 =  1.f, dk7_ds7 = -1.f;
+
+      //res
+      // float dk_ds0[8] = { 1,-1,-1, 1, 1,-1,-1, 1 };
+      // float dk_ds1[8] = { 0, 0, 0, 0,-1, 1, 1,-1 };
+      // float dk_ds2[8] = { 0, 0, 1,-1, 0, 0, 1,-1 };
+      // float dk_ds3[8] = { 0, 0, 0, 0, 0, 0,-1, 1 };
+      // float dk_ds4[8] = { 0, 1, 0,-1, 0, 1, 0,-1 };
+      // float dk_ds5[8] = { 0, 0, 0, 0, 0,-1, 0, 1 };
+      // float dk_ds6[8] = { 0, 0, 0, 1, 0, 0, 0, 1 };
+      // float dk_ds7[8] = { 0, 0, 0, 0, 0, 0, 0,-1 };
+
+      float dk_ds_transposed[8][8] = { { 1,-1,-1, 1, 1,-1,-1, 1 },
+                                       { 0, 0, 0, 0,-1, 1, 1,-1 },
+                                       { 0, 0, 1,-1, 0, 0, 1,-1 },
+                                       { 0, 0, 0, 0, 0, 0,-1, 1 },
+                                       { 0, 1, 0,-1, 0, 1, 0,-1 },
+                                       { 0, 0, 0, 0, 0,-1, 0, 1 },
+                                       { 0, 0, 0, 1, 0, 0, 0, 1 },
+                                       { 0, 0, 0, 0, 0, 0, 0,-1 } };
+
+
+      // 3
+
+      const float m0 = o.x*o.y;
+      const float m1 = d3.x*d3.y;
+      const float m2 = o.x*d3.y + o.y*d3.x;
+      float m3 = k5*o.z - k1;
+      float m4 = k6*o.z - k2;
+      float m5 = k7*o.z - k3;
+
+      float c0 = (k4*o.z - k0) + o.x*m3 + o.y*m4 + m0*m5;
+      float c1 = d3.x*m3 + d3.y*m4 + m2*m5 + d3.z*(k4 + k5*o.x + k6*o.y + k7*m0);
+      float c2 = m1*m5 + d3.z*(k5*d3.x + k6*d3.y + k7*m2);
+      float c3 = k7*m1*d3.z;
+
+      dt_dval[ 8] = c0;
+      dt_dval[ 9] = c1;
+      dt_dval[10] = c2;
+      dt_dval[11] = c3;
+
+      // 3 - diff
+
+      // float dm3_dk1 = -1.f, dm3_dk5 = o.z;
+      // float dm4_dk2 = -1.f, dm3_dk6 = o.z;
+      // float dm5_dk3 = -1.f, dm3_dk7 = o.z;
+
+      // float dc0_dk0 = -1.f, dc0_dk1 =     -o.x, dc0_dk2 =     -o.y, dc0_dk3 =     -m0,
+      //       dc0_dk4 =  o.z, dc0_dk5 =  o.z*o.x, dc0_dk6 =  o.z*o.y, dc0_dk7 =  o.z*m0;
+
+      // float dc1_dk1 = -d3.x,
+      //       dc1_dk2 = -d3.y,
+      //       dc1_dk3 = -m2,
+      //       dc1_dk4 =  d3.z,
+      //       dc1_dk5 =  d3.x*o.z + d3.z*o.x,
+      //       dc1_dk6 =  d3.y*o.z + d3.z*o.y,
+      //       dc1_dk7 =  m2  *o.z + d3.z* m0;
+
+      // float dc2_dk3 = -m1, dc2_dk5 = d3.z*d3.x, dc2_dk6 = d3.z*d3.y, dc2_dk7 = o.z*m1 + d3.z*m2;
+
+      // float dc3_dk7 = m1*d3.z;
+
+      //res
+      float dc0_dk[8] = { -1.f,  -o.x,  -o.y, -m0,  o.z,  o.z* o.x,  o.z* o.y, o.z*m0 };
+      float dc1_dk[8] = {  0.f, -d3.x, -d3.y, -m2, d3.z, d3.x*o.z + d3.z*o.x, d3.y*o.z + d3.z*o.y, m2  *o.z + d3.z* m0 };
+      float dc2_dk[8] = {  0.f,   0.f,   0.f, -m1,  0.f, d3.z*d3.x, d3.z*d3.y, o.z*m1 + d3.z*m2 };
+      float dc3_dk7 = m1*d3.z;
+
+      float dc0_ds[8] = { 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f };
+      for (int s_i = 0; s_i < 8; ++s_i)
+        for (int k_i = 0; k_i < 8; ++k_i)
+          dc0_ds[s_i] += dc0_dk[k_i] * dk_ds_transposed[s_i][k_i];
+
+      float dc1_ds[8] = { 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f };
+      for (int s_i = 0; s_i < 8; ++s_i)
+        for (int k_i = 0; k_i < 8; ++k_i)
+          dc1_ds[s_i] += dc1_dk[k_i] * dk_ds_transposed[s_i][k_i];
+
+      float dc2_ds[8] = { 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f };
+      for (int s_i = 0; s_i < 8; ++s_i)
+        for (int k_i = 0; k_i < 8; ++k_i)
+          dc2_ds[s_i] += dc2_dk[k_i] * dk_ds_transposed[s_i][k_i];
+
+      float dc3_ds[8] = { 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f };
+      for (int s_i = 0; s_i < 8; ++s_i)
+      {
+        // TODO: might add dc0_dval[s_i] etc. here - just dc0_ds[s_i]*d_inv
+        dc2_ds[s_i] = dc3_dk7 * dk_ds_transposed[s_i][7];
+      }
+
+
+
+      // 5 (x3)
+
+      // if (m_preset.sdf_node_intersect == SDF_OCTREE_NODE_INTERSECT_ANALYTIC)
+      {
+        float x1 = 1000;
+        float x2 = 1000;
+        float x3 = 1000;
+        unsigned type = 0;
+        if (std::abs(c3) > 1e-2)
+        {
+          // 5-1
+
+          type = 3;
+          float a = c2/c3;
+          float b = c1/c3;
+          float c = c0/c3;
+
+          float Q = (a*a - 3*b)/9;
+          float R = (2*a*a - 9*a*b + 27*c)/54;
+          float Q3 = Q*Q*Q;
+
+          // 5-1 - diff
+
+          float da_dc2 = 1.f/c3, da_dc3 = -c2/(c3*c3);
+          float db_dc1 = 1.f/c3, db_dc3 = -c1/(c3*c3);
+          float dc_dc0 = 1.f/c3, dc_dc3 = -c0/(c3*c3);
+
+          float dQ_da = 2.f/9 * a, dQ_db = -1.f/3;
+          float dR_da = (4*a - 9*b)/54, dR_db = -a/6, dR_dc = 0.5f;
+
+          //res
+          // float dQ_dc1 = -1.f/(3*c3),
+          //       dQ_dc2 =  2.f/(9*c3)*a,
+          //       dQ_dc3 =   c1/(3*c3*c3) - 2.f/9 * a * c2/(c3*c3);
+          float dQ_dc1 = dQ_db * db_dc1,
+                dQ_dc2 = dQ_da * da_dc2,
+                dQ_dc3 = dQ_da * da_dc3 + dQ_db * db_dc3;
+
+          float dR_dc0 =  dR_dc * dc_dc0,
+                dR_dc1 =  dR_db * db_dc1,
+                dR_dc2 =  dR_da * da_dc2,
+                dR_dc3 = (dR_da * da_dc3) + (dR_db * db_dc3) + (dR_dc * dc_dc3); 
+
+
+          // 6 (x2)
+
+          if (R*R < Q3) //equation has three real roots
+          {
+            // 6-1
+
+            float theta = std::acos(R/sqrt(Q3));
+            x1 = -2*sqrt(Q)*std::cos( theta        /3) - a/3;
+            x2 = -2*sqrt(Q)*std::cos((theta+2*M_PI)/3) - a/3;
+            x3 = -2*sqrt(Q)*std::cos((theta-2*M_PI)/3) - a/3;
+
+            // 6-1 - diff
+
+            // float Func = R/sqrt(Q3);
+            // float theta = std::acos(Func);
+
+            float dFunc_dR = 1.f/sqrt(Q3), dFunc_dQ = -1.5f * R / sqrt(Q3*Q*Q);
+            float dtheta_dFunc = -1.f / sqrt(1.f - R*R/Q3);
+
+            if (x1 <= x2 && x1 <= x3)
+            {
+              root_type = 4;
+              float dx1_dtheta = 2.f/3*sqrt(Q)*std::sin(theta/3);
+
+              // (a,Q,R)-layer
+              float dx1_dQ = -std::cos(theta/3) / sqrt(Q) + dx1_dtheta * dtheta_dFunc * dFunc_dQ;
+              float dx1_dR = dx1_dtheta * dtheta_dFunc * dFunc_dR;
+              float dx1_da = -1.f/3;
+
+              // (c0-c3)-layer
+              float dx1_dc0 = dx1_dR * dR_dc0,
+                    dx1_dc1 = dx1_dR * dR_dc1 + dx1_dQ * dQ_dc1,
+                    dx1_dc2 = dx1_dR * dR_dc2 + dx1_dQ * dQ_dc2 + dx1_da * da_dc2,
+                    dx1_dc3 = dx1_dR * dR_dc3 + dx1_dQ * dQ_dc3 + dx1_da * da_dc3;
+
+              // CALCULATE HERE
+              for (int s_i = 0; s_i < 8; ++s_i)
+                deriv[s_i] *= dx1_dc0 * dc0_ds[s_i] +
+                              dx1_dc1 * dc1_ds[s_i] +
+                              dx1_dc2 * dc2_ds[s_i] +
+                              dx1_dc3 * dc3_ds[s_i];
+            }
+            else if (x2 <= x1 && x2 <= x3)
+            {
+              root_type = 5;
+              float dx2_dtheta = 2.f/3*sqrt(Q)*std::sin((theta+2*M_PI)/3);
+
+              // (a,Q,R)-layer
+              float dx2_dQ = -std::cos((theta+2*M_PI)/3) / sqrt(Q) + dx2_dtheta * dtheta_dFunc * dFunc_dQ;
+              float dx2_dR = dx2_dtheta * dtheta_dFunc * dFunc_dR;
+              float dx2_da = -1.f/3;
+
+              // (c0-c3)-layer
+              float dx2_dc0 = dx2_dR * dR_dc0,
+                    dx2_dc1 = dx2_dR * dR_dc1 + dx2_dQ * dQ_dc1,
+                    dx2_dc2 = dx2_dR * dR_dc2 + dx2_dQ * dQ_dc2 + dx2_da * da_dc2,
+                    dx2_dc3 = dx2_dR * dR_dc3 + dx2_dQ * dQ_dc3 + dx2_da * da_dc3;
+
+              // CALCULATE HERE
+              for (int s_i = 0; s_i < 8; ++s_i)
+                deriv[s_i] *= dx2_dc0 * dc0_ds[s_i] +
+                              dx2_dc1 * dc1_ds[s_i] +
+                              dx2_dc2 * dc2_ds[s_i] +
+                              dx2_dc3 * dc3_ds[s_i];
+            }
+            else if (x3 <= x1 && x3 <= x2)
+            {
+              root_type = 6;
+              float dx3_dtheta = 2.f/3*sqrt(Q)*std::sin((theta-2*M_PI)/3);
+
+              // (a,Q,R)-layer
+              float dx3_dQ = -std::cos((theta-2*M_PI)/3) / sqrt(Q) + dx3_dtheta * dtheta_dFunc * dFunc_dQ;
+              float dx3_dR = dx3_dtheta * dtheta_dFunc * dFunc_dR;
+              float dx3_da = -1.f/3;
+
+              // (c0-c3)-layer
+              float dx3_dc0 = dx3_dR * dR_dc0,
+                    dx3_dc1 = dx3_dR * dR_dc1 + dx3_dQ * dQ_dc1,
+                    dx3_dc2 = dx3_dR * dR_dc2 + dx3_dQ * dQ_dc2 + dx3_da * da_dc2,
+                    dx3_dc3 = dx3_dR * dR_dc3 + dx3_dQ * dQ_dc3 + dx3_da * da_dc3;
+
+              // CALCULATE HERE
+              for (int s_i = 0; s_i < 8; ++s_i)
+                deriv[s_i] *= dx3_dc0 * dc0_ds[s_i] +
+                              dx3_dc1 * dc1_ds[s_i] +
+                              dx3_dc2 * dc2_ds[s_i] +
+                              dx3_dc3 * dc3_ds[s_i];
+            }
+            else root_type = 10;
+          }
+          else //equation has only one real roots
+          {
+            root_type = 7;
+            float Func = std::abs(R) + sqrt(R*R - Q3);
+            float A = -sign(R)*std::cbrt(Func); // -sign(R) * (|R| + sqrt(R^2 - Q^3))^(1/3)
+            float B = std::abs(A) > EPS ? Q/A : 0;
+            x1 = A+B - a/3;
+
+            // 6-2 - diff
+
+            float dFunc_dQ = -1.5f*Q*Q / sqrt(R*R - Q3);
+            float dFunc_dR = sign(R) + R / sqrt(R*R - Q3);
+
+            float dA_dFunc = 1.f/(3*std::cbrt(Func)*std::cbrt(Func)); // dA/dR = 0 for R != 0 and something chthonic and frightening in 0.
+            float dB_dQ = 0.f, dB_dA = 0.f;
+            if (std::abs(A) > EPS)
+            {
+              dB_dQ = 1.f / A;
+              dB_dA = -Q / (A*A);
+            }
+
+            float dx1_dB = 1.f;
+            float dx1_dA =  1.f + dx1_dB * dB_dA;
+
+            // (a,Q,R)-layer
+            float dx1_dQ = dx1_dA * dA_dFunc * dFunc_dQ  +  dx1_dB * dB_dQ;
+            float dx1_dR = dx1_dA * dA_dFunc * dFunc_dR;
+            float dx1_da = -1.f/3;
+
+            // (c0-c3)-layer
+            float dx1_dc0 = dx1_dR * dR_dc0,
+                  dx1_dc1 = dx1_dR * dR_dc1 + dx1_dQ * dQ_dc1,
+                  dx1_dc2 = dx1_dR * dR_dc2 + dx1_dQ * dQ_dc2 + dx1_da * da_dc2,
+                  dx1_dc3 = dx1_dR * dR_dc3 + dx1_dQ * dQ_dc3 + dx1_da * da_dc3;
+
+            // CALCULATE HERE
+            
+            printf("%f, %f, %f, %f\ndc0: ", dx1_dc0, dx1_dc1, dx1_dc2, dx1_dc3);
+            for (int i = 0; i < 8; ++i)
+            {
+              printf("%7.4e, ", dc0_ds[i]);
+            }
+            printf("\ndc1: ");
+            for (int i = 0; i < 8; ++i)
+            {
+              printf("%7.4e, ", dc1_ds[i]);
+            }
+            printf("\ndc2: ");
+            for (int i = 0; i < 8; ++i)
+            {
+              printf("%7.4e, ", dc2_ds[i]);
+            }
+            printf("\ndc3: ");
+            for (int i = 0; i < 8; ++i)
+            {
+              printf("%7.4e, ", dc3_ds[i]);
+            }
+            printf("\n");
+            for (int s_i = 0; s_i < 8; ++s_i)
+              deriv[s_i] *= dx1_dc0 * dc0_ds[s_i] +
+                            dx1_dc1 * dc1_ds[s_i] +
+                            dx1_dc2 * dc2_ds[s_i] +
+                            dx1_dc3 * dc3_ds[s_i];
+          }
+        }
+        else if (std::abs(c2) > 1e-4)
+        {
+          // 5-2
+
+          type = 2;
+          float a = c2;
+          float b = c1;
+          float c = c0;
+
+          float D = b*b - 4*a*c;
+          if (D > 0)
+          {
+            float q = -0.5f*(b + sign(b)*std::sqrt(D));
+            x1 = q/a;
+            bool has_x2 = std::abs(q) > EPS;
+            if (has_x2)
+              x2 = c/q;
+
+            // 5-2 - diff
+
+            float dD_dc0 = -4*a, dD_dc1 = 2*b, dD_dc2 = -4*c;
+            float dq_dD = 0.5f*sign(b)/std::sqrt(D);
+
+            float dq_dc0 =         dq_dD * dD_dc0;
+            float dq_dc1 = -0.5f + dq_dD * dD_dc1;
+            float dq_dc2 =         dq_dD * dD_dc2;
+
+            if (x1 < x2)
+            {
+              root_type = 2;
+              float dx1_dq = 1.f/a;
+
+              // (c0-c2)-layer, c3 == 0
+              float dx1_dc0 = dx1_dq * dq_dc0,
+                    dx1_dc1 = dx1_dq * dq_dc1,
+                    dx1_dc2 = dx1_dq * dq_dc2 - q/(a*a);
+
+              // CALCULATE HERE
+              for (int s_i = 0; s_i < 8; ++s_i)
+                deriv[s_i] *= dx1_dc0 * dc0_ds[s_i] +
+                              dx1_dc1 * dc1_ds[s_i] +
+                              dx1_dc2 * dc2_ds[s_i];
+            }
+            else if (has_x2 && x2 < x1)
+            {
+              root_type = 3;
+              float dx2_dq = -c/(q*q);
+
+              // (c0-c2)-layer, c3 == 0
+              float dx2_dc0 = dx2_dq * dq_dc0 + 1.f/q,
+                    dx2_dc1 = dx2_dq * dq_dc1,
+                    dx2_dc2 = dx2_dq * dq_dc2;
+
+              // CALCULATE HERE
+              for (int s_i = 0; s_i < 8; ++s_i)
+                deriv[s_i] *= dx2_dc0 * dc0_ds[s_i] +
+                              dx2_dc1 * dc1_ds[s_i] +
+                              dx2_dc2 * dc2_ds[s_i];
+            }
+          }
+        }
+        else if (std::abs(c1) > EPS)
+        {
+          // 5-3
+          root_type = 1;
+          type = 1;
+          x1 = -c0/c1;
+
+          // 5-3 - diff
+
+          float dx1_dc0 = -1.f/c1, dx1_dc1 = c0/(c1*c1);
+
+          // CALCULATE HERE
+          for (int s_i = 0; s_i < 8; ++s_i)
+            deriv[s_i] *= dx1_dc0 * dc0_ds[s_i] +
+                          dx1_dc1 * dc1_ds[s_i];
+        }
+        //else
+        //no roots or inf roots, something's fucked up so just drop it
+
+        x1 = x1 < 0 ? 1000 : x1;
+        x2 = x2 < 0 ? 1000 : x2;
+        x3 = x3 < 0 ? 1000 : x3;
+
+        if (dt_dval != nullptr)
+          for (int s_i = 0; s_i < 8; ++s_i)
+            dt_dval[s_i] = deriv[s_i];
+
+        t = std::min(x1, std::min(x2,x3));
+        hit = (t >= 0 && t <= qFar);
+      }
+    }
+  }
+
+
   void BVHDR::dIntersect_dValues(uint32_t ray_flags, const float3 ray_dir, float values[8], float d,
                                  float qNear, float qFar, float3 start_q, float out_dValues[8])
   {
@@ -918,6 +1361,46 @@ namespace dr
       float d2 = Intersect(ray_flags, ray_dir, values, d, qNear, qFar, start_q, nullptr);
       values[i] += delta;
       out_dValues[i] = (d1 - d2) / (2 * delta);
+    }
+
+    float dt_dval[12] = { 0,0,0,0,0,0,0,0,0,0,0,0 };
+    int root_type = -1;
+    IntersectDiff(ray_flags, ray_dir, values, dt_dval, root_type, d, qNear, qFar, start_q, nullptr);
+    float derivative_error[8] = { std::abs(out_dValues[0] - dt_dval[0]), 
+                                  std::abs(out_dValues[1] - dt_dval[1]),
+                                  std::abs(out_dValues[2] - dt_dval[2]),
+                                  std::abs(out_dValues[3] - dt_dval[3]),
+                                  std::abs(out_dValues[4] - dt_dval[4]),
+                                  std::abs(out_dValues[5] - dt_dval[5]),
+                                  std::abs(out_dValues[6] - dt_dval[6]),
+                                  std::abs(out_dValues[7] - dt_dval[7]) };
+    if (root_type > 0 && root_type < 8)
+    {
+      err_info[root_type-1].err_mean_count += 1u;
+
+      if (root_type == 7) {
+        printf("Equation: %f*x^3 + %f*x^2 + %f*x + %f\nFD:  ", dt_dval[8], dt_dval[9], dt_dval[10], dt_dval[11]);
+        for (int i = 0; i < 8; ++i)
+        {
+          printf("%7.4e, ", out_dValues[i]);
+        }
+        printf("\nDer: ");
+        for (int i = 0; i < 8; ++i)
+        {
+          printf("%7.4e, ", derivative_error[i]);
+        }
+        printf("\n\n");
+      }
+
+      // printf("type: %d - ", root_type);
+      for (int i = 0; i < 8; ++i)
+      {
+        err_info[root_type-1].glob_err_max[i] = std::max(err_info[root_type-1].glob_err_max[i], derivative_error[i]);
+        err_info[root_type-1].glob_err_min[i] = std::min(err_info[root_type-1].glob_err_min[i], derivative_error[i]);
+        err_info[root_type-1].glob_err_mean[i] += derivative_error[i];
+        // printf("%7.4e, ", derivative_error[i]);
+      }
+      // printf("\n");
     }
   }
 

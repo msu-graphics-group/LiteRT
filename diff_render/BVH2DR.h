@@ -21,6 +21,16 @@ namespace dr
     float Intersect(uint32_t ray_flags, const float3 ray_dir, float values[8], float d, 
                     float qNear, float qFar, float3 start_q,
                     PDShape *relax_pt);
+    void IntersectDiff(uint32_t ray_flags, const float3 ray_dir, float values[8], float *dt_dval, int &root_type, float d, 
+                       float qNear, float qFar, float3 start_q,
+                       PDShape *relax_pt);
+    
+    struct IntersectDiffInfo {
+      uint32_t err_mean_count = 0u;
+      float glob_err_max [8] = { 0,0,0,0,0,0,0,0 };
+      float glob_err_mean[8] = { 0,0,0,0,0,0,0,0 };
+      float glob_err_min [8] = { 10,10,10,10,10,10,10,10 };
+    } err_info[7];
 
     void dIntersect_dValues(uint32_t ray_flags, const float3 ray_dir, float values[8], float d,
                             float qNear, float qFar, float3 start_q, float out_dValues[8]);
