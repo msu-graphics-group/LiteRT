@@ -71,13 +71,17 @@ namespace dr
     const float *getLastdLoss_dS() const { return m_dLoss_dS_tmp.data(); }
 
   protected:
-    float RenderDR(const float4 *image_ref, LiteMath::float4* out_image, float *out_dLoss_dS, unsigned params_count);
+    float RenderDR(const float4 *image_ref, LiteMath::float4* out_image, float *out_dLoss_dS, unsigned params_count,
+                   LiteMath::float4* out_image_debug);
     float RenderDRFiniteDiff(const float4 *image_ref, LiteMath::float4* out_image, float *out_dLoss_dS, unsigned params_count,
                              unsigned start_index, unsigned end_index, float delta = 0.001f);
     void OptimizeStepAdam(unsigned iter, const float* dX, float *X, float *tmp, unsigned size, MultiRendererDRPreset preset);
-    float CastRayWithGrad(uint32_t tidX, const float4 *image_ref, LiteMath::float4* out_image, float* out_dLoss_dS);
-    void CastBorderRay(uint32_t tidX, const float4 *image_ref, LiteMath::float4* out_image, float* out_dLoss_dS);
-    void CastBorderRaySVM(uint32_t tidX, const float4 *image_ref, LiteMath::float4* out_image, float* out_dLoss_dS);
+    float CastRayWithGrad(uint32_t tidX, const float4 *image_ref, LiteMath::float4* out_image, float* out_dLoss_dS,
+                          LiteMath::float4* out_image_debug);
+    void CastBorderRay(uint32_t tidX, const float4 *image_ref, LiteMath::float4* out_image, float* out_dLoss_dS,
+                       LiteMath::float4* out_image_debug);
+    void CastBorderRaySVM(uint32_t tidX, const float4 *image_ref, LiteMath::float4* out_image, float* out_dLoss_dS,
+                          LiteMath::float4* out_image_debug);
     float3 CalculateColor(const CRT_HitDR &hit);
     float3 CalculateColorWithGrad(const CRT_HitDR &hit, LiteMath::float3x3 &dColor_dDiffuse,
                                   LiteMath::float3x3 &dColor_dNorm);
@@ -100,11 +104,12 @@ namespace dr
     std::vector<uint32_t> m_borderPixels;
     MultiRendererDRPreset m_preset_dr;
 
+    std::vector<LiteImage::Image2D<float4>> m_imagesDebugPD;
     std::vector<LiteImage::Image2D<float4>> m_imagesDebug;
     std::vector<float4> samples_debug_color;
     std::vector<float4> samples_debug_pos_size;
   public:
-    static constexpr unsigned MEGA_PIXEL_SIZE = 512;
+    static constexpr unsigned MEGA_PIXEL_SIZE = 64;
     LiteImage::Image2D<float4> samples_mega_image;
   };
 }

@@ -73,7 +73,8 @@ namespace dr
   static constexpr unsigned DR_DEBUG_RENDER_MODE_PRIMITIVE        = 1;
   static constexpr unsigned DR_DEBUG_RENDER_MODE_BORDER_INTEGRAL  = 2;
   static constexpr unsigned DR_DEBUG_RENDER_MODE_BORDER_DETECTION = 3;
-  static constexpr unsigned DR_DEBUG_RENDER_MODE_AREA_INTEGRAL    = 4;
+  static constexpr unsigned DR_DEBUG_RENDER_MODE_BORDER_FOUND     = 4;
+  static constexpr unsigned DR_DEBUG_RENDER_MODE_AREA_INTEGRAL    = 5;
 
   //enum DRDiffMode
   static constexpr unsigned DR_DIFF_MODE_DEFAULT     = 0;

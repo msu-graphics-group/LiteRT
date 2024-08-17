@@ -1963,7 +1963,7 @@ void optimization_stand_common(const SdfSBS &SBS_ref, const SdfSBS &SBS_initial,
 
   float4x4 base_proj = LiteMath::perspectiveMatrix(60, 1.0f, 0.01f, 100.0f);
 
-  std::vector<float4x4> view = get_cameras_uniform_sphere(16, float3(0, 0, 0), 4.0f);
+  std::vector<float4x4> view = get_cameras_uniform_sphere(1, float3(0, 0, 0), 4.0f);
   std::vector<float4x4> proj(view.size(), base_proj);
 
   std::vector<LiteImage::Image2D<float4>> images_ref(view.size(), LiteImage::Image2D<float4>(W, H));
@@ -2009,9 +2009,9 @@ void diff_render_test_21_optimization_stand()
   dr_preset.debug_print = true;
   dr_preset.debug_print_interval = 1;
   dr_preset.debug_progress_interval = 10;
-  dr_preset.debug_progress_images = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
-  dr_preset.render_height = 256;
-  dr_preset.render_width = 256;
+  //dr_preset.debug_progress_images = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
+  dr_preset.render_height = 128;
+  dr_preset.render_width = 128;
   dr_preset.reg_function = DR_REG_FUNCTION_LK_DENOISING;
   dr_preset.reg_lambda = 1.0f;
 
@@ -2022,10 +2022,10 @@ void diff_render_test_21_optimization_stand()
                           [&](float3 p){return circle_sdf(float3(-0.2,0.15,-0.1), 0.6f, p);}, 
                           gradient_color);  
   
-  SdfSBS small_scene = create_grid_sbs(8, 1, 
+  SdfSBS small_scene = create_grid_sbs(1, 4, 
                        [&](float3 p){return circle_sdf(float3(0,0.2,0.2), 0.6f, p);}, 
                        gradient_color); 
-  SdfSBS small_initial = create_grid_sbs(8, 1, 
+  SdfSBS small_initial = create_grid_sbs(1, 4, 
                          [&](float3 p){return circle_sdf(float3(-0.2,0,-0.2), 0.6f, p);}, 
                          gradient_color);
 
@@ -2043,10 +2043,18 @@ void diff_render_test_21_optimization_stand()
                          [&](float3 p){return circle_sdf(float3(-0.2,0,-0.2), 0.6f, p);}, 
                          gradient_color);
 
-  /*
-  dr_preset.dr_render_mode = DR_RENDER_MODE_MASK;
-  dr_preset.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_GEOMETRY;
+  dr_preset.dr_border_sampling = DR_BORDER_SAMPLING_RANDOM;
+  dr_preset.dr_render_mode = DR_RENDER_MODE_LAMBERT;
+  dr_preset.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_GEOMETRY | DR_RECONSTRUCTION_FLAG_COLOR;
+  dr_preset.border_spp = 1000;
+  dr_preset.debug_render_mode = DR_DEBUG_RENDER_MODE_BORDER_FOUND;
+  dr_preset.opt_iterations = 1;
+  dr_preset.opt_lr = 0;
+  dr_preset.image_batch_size = 1;
+  dr_preset.debug_border_samples_mega_image = true;
+  dr_preset.border_relax_eps = 0.01f;
   optimization_stand_common(small_scene, small_initial, dr_preset, "SmallMask");
+  return;
 
   dr_preset.dr_render_mode = DR_RENDER_MODE_DIFFUSE;
   dr_preset.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_GEOMETRY | DR_RECONSTRUCTION_FLAG_COLOR;
@@ -2054,7 +2062,7 @@ void diff_render_test_21_optimization_stand()
 
   dr_preset.dr_render_mode = DR_RENDER_MODE_LAMBERT;
   dr_preset.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_GEOMETRY | DR_RECONSTRUCTION_FLAG_COLOR;
-  optimization_stand_common(small_scene, small_initial, dr_preset, "SmallLambert");*/
+  optimization_stand_common(small_scene, small_initial, dr_preset, "SmallLambert");
 
   dr_preset.dr_render_mode = DR_RENDER_MODE_MASK;
   dr_preset.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_GEOMETRY;
@@ -2065,19 +2073,20 @@ void diff_render_test_21_optimization_stand()
   //optimization_stand_common(medium_scene, medium_initial, dr_preset, "MediumDiffuse");
 
   dr_preset.dr_render_mode = DR_RENDER_MODE_LAMBERT;
+  dr_preset.debug_render_mode = DR_DEBUG_RENDER_MODE_BORDER_FOUND;
   dr_preset.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_GEOMETRY | DR_RECONSTRUCTION_FLAG_COLOR;
-  //optimization_stand_common(medium_scene, medium_initial, dr_preset, "MediumLambert");
+  optimization_stand_common(medium_scene, medium_initial, dr_preset, "MediumLambert");
 
 
   dr_preset.dr_render_mode = DR_RENDER_MODE_MASK;
   dr_preset.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_GEOMETRY;
   dr_preset.opt_lr = 0.05f;
-  optimization_stand_common(ds_scene, ds_initial, dr_preset, "DSMask");
+  //optimization_stand_common(ds_scene, ds_initial, dr_preset, "DSMask");
 
   dr_preset.dr_render_mode = DR_RENDER_MODE_LAMBERT;
   dr_preset.opt_lr = 0.02f;
   dr_preset.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_GEOMETRY | DR_RECONSTRUCTION_FLAG_COLOR;
-  optimization_stand_common(ds_scene, ds_initial, dr_preset, "DSLambert");
+  //optimization_stand_common(ds_scene, ds_initial, dr_preset, "DSLambert");
 }
 
 void perform_tests_diff_render(const std::vector<int> &test_ids)
