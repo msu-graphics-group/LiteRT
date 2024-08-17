@@ -1026,7 +1026,7 @@ namespace dr
       RayDiffPayload payload;
       CRT_HitDR hit = ((BVHDR *)m_pAccelStruct.get())->RayQuery_NearestHitWithGrad(border_ray_flags, rayPosAndNear, rayDirAndFar, &payload);
 
-      if (payload.missed_hit.sdf < relax_eps)
+      if (payload.missed_hit.sdf < relax_eps && (hit.t - payload.missed_hit.t > 0.01f || hit.primId == 0xFFFFFFFF ))
       {
         border_points++;
 
