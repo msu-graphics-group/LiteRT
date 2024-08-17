@@ -846,7 +846,7 @@ namespace dr
       {
         ray_flags |= DR_RAY_FLAG_DDIFFUSE_DCOLOR;
       }
-      else if (m_preset_dr.dr_reconstruction_flags & DR_RECONSTRUCTION_FLAG_GEOMETRY)
+      if (m_preset_dr.dr_reconstruction_flags & DR_RECONSTRUCTION_FLAG_GEOMETRY)
       {
         if (m_preset_dr.dr_render_mode == DR_RENDER_MODE_MASK)
           ray_flags |= DR_RAY_FLAG_NO_DIFF;
