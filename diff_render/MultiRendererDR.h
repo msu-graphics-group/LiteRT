@@ -22,7 +22,7 @@ namespace dr
     preset.dr_border_sampling = DR_BORDER_SAMPLING_RANDOM;
 
     preset.border_spp = 256;
-    preset.border_relax_eps = 3e-4f;
+    preset.border_relax_eps = 1e-3f;
     preset.border_depth_threshold = 1000.0f; //only external borders will pass
     preset.border_color_threshold = 1e-6f;   //only borders with no color change are discarded
 
