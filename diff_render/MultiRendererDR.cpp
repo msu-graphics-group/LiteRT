@@ -302,6 +302,7 @@ namespace dr
     PreprocessRefImages(m_width, m_height, preset.dr_render_mode == DR_RENDER_MODE_MASK);
 
     m_images = std::vector<LiteImage::Image2D<float4>>(m_imagesRef.size(), LiteImage::Image2D<float4>(m_width, m_height, float4(0, 0, 0, 1)));
+    m_imagesDepth = std::vector<LiteImage::Image2D<float4>>(m_imagesRef.size(), LiteImage::Image2D<float4>(m_width, m_height, float4(0, 0, 0, 1)));
     m_pAccelStruct = std::shared_ptr<ISceneObject>(new BVHDR());
     m_pAccelStruct->SetPreset(m_preset);
     SetScene(sbs, true);
@@ -346,7 +347,8 @@ namespace dr
         float loss = 1e6f;
         if (preset.dr_diff_mode == DR_DIFF_MODE_DEFAULT)
         {
-          loss = RenderDR(m_imagesRef[image_id].data(), m_images[image_id].data(), m_dLoss_dS_tmp.data(), params_count,
+          loss = RenderDR(m_imagesRef[image_id].data(), m_images[image_id].data(), 
+                          m_dLoss_dS_tmp.data(), params_count, m_imagesDepth[image_id].data(),
                           m_preset_dr.debug_render_mode == DR_DEBUG_RENDER_MODE_NONE ? nullptr : m_imagesDebug[image_id].data());
         }
         else if (preset.dr_diff_mode == DR_DIFF_MODE_FINITE_DIFF)
@@ -462,7 +464,8 @@ namespace dr
   }
 
   float MultiRendererDR::RenderDR(const float4 *image_ref, LiteMath::float4 *out_image,
-                                  float *out_dLoss_dS, unsigned params_count, LiteMath::float4* out_image_debug)
+                                  float *out_dLoss_dS, unsigned params_count, 
+                                  LiteMath::float4* out_image_depth, LiteMath::float4* out_image_debug)
   {
     bool use_multithreading = !(m_preset_dr.debug_border_samples || 
                                 m_preset_dr.debug_pd_images ||
@@ -483,14 +486,9 @@ namespace dr
       unsigned start = thread_id * steps;
       unsigned end = std::min((thread_id + 1) * steps, m_width * m_height);
       for (int i = start; i < end; i++)
-        loss_v[thread_id] += CastRayWithGrad(i, image_ref, out_image, out_dLoss_dS + (params_count * thread_id), out_image_debug);
+        loss_v[thread_id] += CastRayWithGrad(i, image_ref, out_image, out_dLoss_dS + (params_count * thread_id), 
+                                             out_image_depth, out_image_debug);
     }
-
-    //for (int j = 0; j < max_threads; j++)
-    //{
-    //  for (int i = 0; i < params_count; i++)
-    //    dloss_1[i] += out_dLoss_dS[(params_count * j) + i];
-    //}
 
     //II - find border pixels
     m_borderPixels.resize(0);
@@ -515,6 +513,9 @@ namespace dr
       float3 color0 = to_float3(out_image[y*m_width + x]);
       float  max_color_diff = 0.0f;
 
+      float max_window_depth = out_image_depth[y*m_width + x].z; //.z is max, .y is min
+      float min_window_depth = out_image_depth[y*m_width + x].y;
+
       for (int dx = -search_radius; dx <= search_radius; dx++)
       {
         for (int dy = -search_radius; dy <= search_radius; dy++)
@@ -524,10 +525,15 @@ namespace dr
 
           float3 color = to_float3(out_image[(y + dy) * m_width + x + dx]);
           max_color_diff = std::max(max_color_diff, length(color0 - color));
+
+          //max_window_depth = std::max(max_window_depth, out_image_depth[(y + dy) * m_width + x + dx].z);
+          //min_window_depth = std::min(min_window_depth, out_image_depth[(y + dy) * m_width + x + dx].y);
         }
       }
 
       float ref_color_diff = length(to_float3(out_image[y*m_width + x]) - to_float3(image_ref[y*m_width + x]));
+      float depth_diff = max_window_depth - min_window_depth;
+      //printf("depth diff: %f\n", depth_diff);
 
       bool is_border = false;
       switch (m_preset_dr.dr_render_mode)
@@ -536,11 +542,11 @@ namespace dr
           is_border = max_diff > 0;
         break;
         case DR_RENDER_MODE_LINEAR_DEPTH:
-          //TODO
+          is_border = max_diff > 0 || depth_diff > m_preset_dr.border_depth_threshold;
         break;
         case DR_RENDER_MODE_DIFFUSE:
         case DR_RENDER_MODE_LAMBERT:
-          is_border = max_diff > 0 || max_color_diff > m_preset_dr.border_color_threshold;
+          is_border = max_diff > 0 || max_color_diff > m_preset_dr.border_color_threshold || depth_diff > m_preset_dr.border_depth_threshold;
         break;
         default:
           is_border = false;
@@ -601,45 +607,11 @@ namespace dr
         samples_mega_image.data()[h].w = 1;
       LiteImage::SaveImage<float4>("saves/debug_mega_image.png", samples_mega_image);
     }
-    /*
-    if (m_preset_dr.debug_render_mode == DR_DEBUG_RENDER_MODE_BORDER_DETECTION ||
-        m_preset_dr.debug_render_mode == DR_DEBUG_RENDER_MODE_BORDER_INTEGRAL)
-    {
-      // make image with only border pixels
-      LiteImage::Image2D<float4> image_borders(m_width, m_height, float4(0, 0, 0, 1));
-      for (int i = 0; i < m_borderPixels.size(); i++)
-      {
-        const uint XY = m_packedXY[m_borderPixels[i]];
-        const uint x = (XY & 0x0000FFFF);
-        const uint y = (XY & 0xFFFF0000) >> 16;
-        image_borders.data()[y * m_width + x] = out_image[y * m_width + x];
-      }
-
-      memcpy(out_image, image_borders.data(), sizeof(float4) * m_width * m_height);
-    }
-    */
 
     //IV - calculate loss
     double loss = 0.0f;
     for (auto &l : loss_v)
       loss += l;
-    
-    /*
-    for (int j = 0; j < max_threads; j++)
-    {
-      for (int i = 0; i < params_count; i++)
-        dloss_2[i] += out_dLoss_dS[(params_count * j) + i];
-    }
-
-    printf("[");
-    for (int i = 0; i < params_count; i++)
-      printf("%7.2f, ", dloss_1[i]);
-    printf("]\n");
-    printf("[");
-    for (int i = 0; i < params_count; i++)
-      printf("%7.2f, ", dloss_2[i] - dloss_1[i]);
-    printf("]\n\n");
-    */
 
     omp_set_num_threads(omp_get_max_threads());
 
@@ -665,7 +637,7 @@ namespace dr
 
       params[i] = p0 + delta;
       //RenderFloat(out_image, m_width, m_height, "color");
-      RenderDR(image_ref, out_image, m_dLoss_dS_tmp_2.data(), params_count, nullptr);
+      RenderDR(image_ref, out_image, m_dLoss_dS_tmp_2.data(), params_count, nullptr, nullptr);
       for (int j = 0; j < m_width * m_height; j++)
       {
         float l = Loss(m_preset_dr.dr_loss_function, out_image[j], image_ref[j]);
@@ -675,7 +647,7 @@ namespace dr
     
       params[i] = p0 - delta;
       //RenderFloat(out_image, m_width, m_height, "color");
-      RenderDR(image_ref, out_image, m_dLoss_dS_tmp_2.data(), params_count, nullptr);
+      RenderDR(image_ref, out_image, m_dLoss_dS_tmp_2.data(), params_count, nullptr, nullptr);
       for (int j = 0; j < m_width * m_height; j++)
       {
         float l = Loss(m_preset_dr.dr_loss_function, out_image[j], image_ref[j]);
@@ -847,7 +819,7 @@ namespace dr
   }
 
   float MultiRendererDR::CastRayWithGrad(uint32_t tidX, const float4 *image_ref, LiteMath::float4 *out_image, float *out_dLoss_dS,
-                                         LiteMath::float4* out_image_debug)
+                                         LiteMath::float4* out_image_depth, LiteMath::float4* out_image_debug)
   {
     if (tidX >= m_packedXY.size())
       return 0.0;
@@ -858,6 +830,9 @@ namespace dr
     
     float3 res_color = float3(0,0,0);
     float3 debug_color = float3(0,0,0);
+    float depth_min = 1e6f;
+    float depth_max = 0;
+    float depth_sum = 0;
     float res_loss = 0.0f;
     int hit_count = 0;
 
@@ -912,6 +887,8 @@ namespace dr
       if (hit.primId == 0xFFFFFFFF) //no hit
       {
         color = background_color;
+        depth_min = min(depth_min, background_depth);
+        depth_max = max(depth_max, background_depth);
       }
       else
       {
@@ -919,6 +896,10 @@ namespace dr
         color = CalculateColorWithGrad(hit, dColor_dDiffuse, dColor_dNorm);
         dLoss_dColor = to_float3(LossGrad(m_preset_dr.dr_loss_function, float4(color.x, color.y, color.z, 1), image_ref[y * m_width + x]));
         float ref_mask = image_ref[y * m_width + x].w;
+
+        depth_sum += hit.t;
+        depth_min = min(depth_min, hit.t);
+        depth_max = max(depth_max, hit.t);
 
         if (ray_flags & DR_RAY_FLAG_DDIFFUSE_DCOLOR)
         {
@@ -976,12 +957,37 @@ namespace dr
     }
     out_image[y * m_width + x] = float4(res_color.x, res_color.y, res_color.z, (float)hit_count/m_preset.spp);
 
+    if (out_image_depth)
+    {
+      if (hit_count == 0)
+      {
+        depth_sum = background_depth;
+        depth_min = background_depth;
+        depth_max = background_depth;
+      }
+      else
+      {
+        depth_sum /= hit_count;
+      }
+
+      float depth_diff = depth_max - depth_min;
+     // printf("depth = %f %f %f %f\n", depth_sum, depth_min, depth_max, depth_diff);
+      out_image_depth[y * m_width + x] = float4(depth_sum, depth_min, depth_max, 1.0f);
+    }
+
     if (out_image_debug)
     {
       if (m_preset_dr.debug_render_mode == DR_DEBUG_RENDER_MODE_AREA_INTEGRAL)
         out_image_debug[y * m_width + x] = to_float4(visualize_value_debug(total_diff), 1.0f);
       else if (m_preset_dr.debug_render_mode == DR_DEBUG_RENDER_MODE_PRIMITIVE)
         out_image_debug[y * m_width + x] = to_float4(debug_color, 1.0f);
+      else if (m_preset_dr.debug_render_mode == DR_DEBUG_RENDER_MODE_DEPTH_STAT && out_image_depth)
+      {
+        out_image_debug[y * m_width + x] = float4(absolute_to_linear_depth(out_image_depth[y * m_width + x].x), 
+                                                  absolute_to_linear_depth(out_image_depth[y * m_width + x].y), 
+                                                  absolute_to_linear_depth(out_image_depth[y * m_width + x].z), 
+                                                  1.0f);
+      }
     }
 
     return res_loss;
@@ -1026,7 +1032,10 @@ namespace dr
       RayDiffPayload payload;
       CRT_HitDR hit = ((BVHDR *)m_pAccelStruct.get())->RayQuery_NearestHitWithGrad(border_ray_flags, rayPosAndNear, rayDirAndFar, &payload);
 
-      if (payload.missed_hit.sdf < relax_eps && (hit.t - payload.missed_hit.t > 0.01f || hit.primId == 0xFFFFFFFF ))
+      bool is_border_ray = payload.missed_hit.sdf < relax_eps && 
+                          (hit.t - payload.missed_hit.t > m_preset_dr.border_depth_threshold || hit.primId == 0xFFFFFFFF);
+
+      if (is_border_ray)
       {
         border_points++;
 
@@ -1062,7 +1071,7 @@ namespace dr
       if (m_preset_dr.debug_border_samples || m_preset_dr.debug_border_samples_mega_image)
       {
         samples_debug_pos_size[sample_id] = float4(d.x, d.y, 0, 1.0f/MEGA_PIXEL_SIZE);
-        if (payload.missed_hit.sdf < relax_eps && abs(pixel_diff) > 0.01f) //border
+        if (is_border_ray) //border
           samples_debug_color[sample_id] = float4(0, 0, 0.1*abs(pixel_diff), 1);
         else if (hit.primId == 0xFFFFFFFF) //background
           samples_debug_color[sample_id] = float4(0.05, 0.05, 0.05, 1);
@@ -1300,7 +1309,10 @@ namespace dr
       RayDiffPayload payload;
       CRT_HitDR hit = ((BVHDR *)m_pAccelStruct.get())->RayQuery_NearestHitWithGrad(border_ray_flags, rayPosAndNear, rayDirAndFar, &payload);
 
-      if (payload.missed_hit.sdf < relax_eps)
+      bool is_border_ray = payload.missed_hit.sdf < relax_eps && 
+                          (hit.t - payload.missed_hit.t > m_preset_dr.border_depth_threshold || hit.primId == 0xFFFFFFFF);
+
+      if (is_border_ray)
       {
         border_points++;
 
@@ -1333,7 +1345,7 @@ namespace dr
       if (m_preset_dr.debug_border_samples || m_preset_dr.debug_border_samples_mega_image)
       {
         samples_debug_pos_size[sample_id] = float4(d.x, d.y, 0, 1.0f / MEGA_PIXEL_SIZE);
-        if (payload.missed_hit.sdf < relax_eps && abs(pixel_diff) > 0.01f) // border
+        if (is_border_ray) //border
           samples_debug_color[sample_id] = float4(0, 0, 0.1 * abs(pixel_diff), 1);
         else if (hit.primId == 0xFFFFFFFF) // background
           samples_debug_color[sample_id] = float4(0.05, 0.05, 0.05, 1);

@@ -75,6 +75,7 @@ namespace dr
   static constexpr unsigned DR_DEBUG_RENDER_MODE_BORDER_DETECTION = 3;
   static constexpr unsigned DR_DEBUG_RENDER_MODE_BORDER_FOUND     = 4;
   static constexpr unsigned DR_DEBUG_RENDER_MODE_AREA_INTEGRAL    = 5;
+  static constexpr unsigned DR_DEBUG_RENDER_MODE_DEPTH_STAT       = 6;
 
   //enum DRDiffMode
   static constexpr unsigned DR_DIFF_MODE_DEFAULT     = 0;
@@ -125,7 +126,7 @@ namespace dr
     // border integral estimator parameters
     unsigned border_spp;
     float border_relax_eps;
-    float border_depth_threshold; //practically useless now
+    float border_depth_threshold;
     float border_color_threshold;
 
     //optimization parameters (Adam optimizer)

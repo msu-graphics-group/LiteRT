@@ -23,7 +23,7 @@ namespace dr
 
     preset.border_spp = 256;
     preset.border_relax_eps = 1e-3f;
-    preset.border_depth_threshold = 1000.0f; //only external borders will pass
+    preset.border_depth_threshold = 1e-3f;   //minimal difference between missed_hit and hit depth for border
     preset.border_color_threshold = 1e-6f;   //only borders with no color change are discarded
 
     preset.opt_lr = 0.01f;
@@ -72,12 +72,12 @@ namespace dr
 
   protected:
     float RenderDR(const float4 *image_ref, LiteMath::float4* out_image, float *out_dLoss_dS, unsigned params_count,
-                   LiteMath::float4* out_image_debug);
+                   LiteMath::float4* out_image_depth, LiteMath::float4* out_image_debug);
     float RenderDRFiniteDiff(const float4 *image_ref, LiteMath::float4* out_image, float *out_dLoss_dS, unsigned params_count,
                              unsigned start_index, unsigned end_index, float delta = 0.001f);
     void OptimizeStepAdam(unsigned iter, const float* dX, float *X, float *tmp, unsigned size, MultiRendererDRPreset preset);
     float CastRayWithGrad(uint32_t tidX, const float4 *image_ref, LiteMath::float4* out_image, float* out_dLoss_dS,
-                          LiteMath::float4* out_image_debug);
+                          LiteMath::float4* out_image_depth, LiteMath::float4* out_image_debug);
     void CastBorderRay(uint32_t tidX, const float4 *image_ref, LiteMath::float4* out_image, float* out_dLoss_dS,
                        LiteMath::float4* out_image_debug);
     void CastBorderRaySVM(uint32_t tidX, const float4 *image_ref, LiteMath::float4* out_image, float* out_dLoss_dS,
@@ -96,7 +96,10 @@ namespace dr
     std::vector<LiteImage::Image2D<float4>> m_imagesRefOriginal;
     std::vector<LiteImage::Image2D<float4>> m_imagesRefMask;
     std::vector<LiteImage::Image2D<float4>> m_imagesRef;
+
     std::vector<LiteImage::Image2D<float4>> m_images;
+    std::vector<LiteImage::Image2D<float4>> m_imagesDepth;
+
     std::vector<LiteMath::float4x4> m_worldViewRef;
     std::vector<LiteMath::float4x4> m_projRef;
     std::vector<float> m_dLoss_dS_tmp;
