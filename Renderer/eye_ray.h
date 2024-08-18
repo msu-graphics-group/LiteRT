@@ -138,6 +138,7 @@ protected:
 
   uint32_t encode_RGBA8(LiteMath::float4 c);
   LiteMath::float4 decode_RGBA8(uint32_t c);
+  LiteMath::float3 decode_normal(float2 v);
   float3 rand3(uint32_t x, uint32_t y, uint32_t iter);
   float2 rand2(uint32_t x, uint32_t y, uint32_t iter);
 

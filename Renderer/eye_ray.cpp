@@ -18,6 +18,19 @@ float4 MultiRenderer::decode_RGBA8(uint32_t c)
   return float4(col.x * (1.0f/255.0f), col.y * (1.0f/255.0f), col.z * (1.0f/255.0f), col.w * (1.0f/255.0f));
 }
 
+//Octahedral Normal Vectors (ONV) decoding https://jcgt.org/published/0003/02/01/
+float3 MultiRenderer::decode_normal(float2 e)
+{
+  float3 v = float3(e.x, e.y, 1.0f - std::abs(e.x) - std::abs(e.y));
+  if (v.z < 0) 
+  {
+    float vx = v.x;
+    v.x = (1.0f - std::abs(v.y)) * ((v.x >= 0.0) ? +1.0f : -1.0f);
+    v.y = (1.0f - std::abs( vx)) * ((v.y >= 0.0) ? +1.0f : -1.0f);
+  }
+  return normalize(v);
+}
+
 uint3 pcg3d(uint3 v) 
 {
     v = v * 1664525u + 1013904223u;
@@ -182,7 +195,7 @@ float4 MultiRenderer::kernel_RayTrace(uint32_t tidX, const float4* rayPosAndNear
 
   case MULTI_RENDER_MODE_LAMBERT_NO_TEX:
   {
-    float3 norm(hit.coords[2], hit.coords[3], sqrt(max(0.0f, 1 - hit.coords[2] * hit.coords[2] - hit.coords[3] * hit.coords[3])));
+    float3 norm = decode_normal(float2(hit.coords[2], hit.coords[3]));
     float q = max(0.1f, dot(norm, normalize(float3(1, 1, 1))));
     res_color = float4(q, q, q, 1);
   }
@@ -229,8 +242,11 @@ float4 MultiRenderer::kernel_RayTrace(uint32_t tidX, const float4* rayPosAndNear
 
   case MULTI_RENDER_MODE_NORMAL:
   {
-    float3 norm(hit.coords[2], hit.coords[3], sqrt(max(0.0f, 1 - hit.coords[2] * hit.coords[2] - hit.coords[3] * hit.coords[3])));
-    res_color = to_float4(abs(norm), 1);
+    float3 norm = decode_normal(float2(hit.coords[2], hit.coords[3]));
+    float3 surf_pos = normalize(to_float3(rayPos) + (hit.t) * to_float3(rayDir));
+    //if (surf_pos.z < 0.01f)
+    //  printf("surf_pos = %f %f %f norm = %f %f %f\n", surf_pos.x, surf_pos.y, surf_pos.z, norm.x, norm.y, norm.z);
+    res_color = to_float4(0.5f*(norm + 1.0f), 1);
   }
   break;
 
@@ -275,7 +291,7 @@ float4 MultiRenderer::kernel_RayTrace(uint32_t tidX, const float4* rayPosAndNear
     const float BIAS = 1e-6f;
 
     float3 diffuse = float3(1, 1, 1);
-    float3 norm(hit.coords[2], hit.coords[3], sqrt(max(0.0f, 1 - hit.coords[2] * hit.coords[2] - hit.coords[3] * hit.coords[3])));
+    float3 norm = decode_normal(float2(hit.coords[2], hit.coords[3]));
     float3 light_dir = -1.0f * to_float3(m_mainLightDir);
     float3 light_color = to_float3(m_mainLightColor);
 
@@ -343,7 +359,7 @@ float4 MultiRenderer::kernel_RayTrace(uint32_t tidX, const float4* rayPosAndNear
       color = m_materials[matId].type == MULTI_RENDER_MATERIAL_TYPE_COLORED ? m_materials[matId].base_color : m_textures[m_materials[matId].texId]->sample(tc);
     }
 
-    float3 norm(hit.coords[2], hit.coords[3], sqrt(max(0.0f, 1 - hit.coords[2] * hit.coords[2] - hit.coords[3] * hit.coords[3])));
+    float3 norm = decode_normal(float2(hit.coords[2], hit.coords[3]));
     float q = max(0.1f, dot(norm, normalize(float3(1, 1, 1))));
     res_color = to_float4(q * to_float3(color), 1);
   }
@@ -372,7 +388,7 @@ float4 MultiRenderer::kernel_RayTrace(uint32_t tidX, const float4* rayPosAndNear
     }
 
     float3 diffuse = to_float3(color);
-    float3 norm(hit.coords[2], hit.coords[3], sqrt(max(0.0f, 1 - hit.coords[2] * hit.coords[2] - hit.coords[3] * hit.coords[3])));
+    float3 norm = decode_normal(float2(hit.coords[2], hit.coords[3]));
     float3 light_dir = -1.0f * to_float3(m_mainLightDir);
     float3 light_color = to_float3(m_mainLightColor);
 
