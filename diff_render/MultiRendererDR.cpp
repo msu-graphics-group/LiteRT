@@ -1158,7 +1158,7 @@ namespace dr
   void MultiRendererDR::CastBorderRaySVM(uint32_t tidX, const float4 *image_ref, LiteMath::float4* out_image, float* out_dLoss_dS,
                                          LiteMath::float4* out_image_debug)
   {
-    const float min_sample_radius = 0.05f;
+    const float min_sample_radius = 0.1f;
     const float sample_radius_mult = 2.0f;
     const float max_error_rate = 0.1f;
     const float min_stripe_area = 0.005f;
@@ -1357,6 +1357,11 @@ namespace dr
     //debug stuff
     if (m_preset_dr.debug_border_samples || m_preset_dr.debug_border_samples_mega_image)
     {
+      for (int sample_id = svm_spp + border_spp; sample_id < samples_debug_pos_size.size(); sample_id++)
+      {
+        samples_debug_pos_size[sample_id] = float4(0, 0, 0, 0);
+        samples_debug_color[sample_id] = float4(0, 0, 0, 0);
+      }
       unsigned wmult = MEGA_PIXEL_SIZE, hmult = MEGA_PIXEL_SIZE;
       unsigned sw = m_width * wmult, sh = m_height * hmult;
       LiteImage::Image2D<float4> debug_image(wmult, hmult, float4(0,0,0,1));
