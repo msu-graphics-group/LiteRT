@@ -2105,6 +2105,144 @@ void diff_render_test_21_optimization_stand()
   optimization_stand_common(ds_scene, ds_initial, dr_preset, "DSLambert");
 }
 
+void diff_render_test_22_border_sampling_accuracy_mask()
+{
+  srand(0);
+  unsigned W = 512, H = 512;
+
+  LiteImage::Image2D<float4> texture = LiteImage::LoadImage<float4>("scenes/porcelain.png");
+  auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "scenes/01_simple_scenes/data/bunny.vsgf").c_str());
+  cmesh4::rescale_mesh(mesh, float3(-0.95, -0.95, -0.95), float3(0.95, 0.95, 0.95));
+
+  MultiRenderPreset preset = getDefaultPreset();
+  preset.render_mode = MULTI_RENDER_MODE_MASK;
+  preset.spp = 4;
+
+  float4x4 base_proj = LiteMath::perspectiveMatrix(60, 1.0f, 0.01f, 100.0f);
+
+  std::vector<float4x4> view = get_cameras_uniform_sphere(1, float3(0, 0, 0), 3.0f);
+  std::vector<float4x4> proj(view.size(), base_proj);
+
+  LiteImage::Image2D<float4> image_ref(W, H);
+  LiteImage::Image2D<float4> image_res(W, H);
+  SdfSBS indexed_SBS;
+
+  {
+    auto pRender = CreateMultiRenderer("CPU");
+    pRender->SetPreset(preset);
+    pRender->SetViewport(0,0,W,H);
+
+    uint32_t texId = pRender->AddTexture(texture);
+    MultiRendererMaterial mat;
+    mat.type = MULTI_RENDER_MATERIAL_TYPE_TEXTURED;
+    mat.texId = texId;
+    uint32_t matId = pRender->AddMaterial(mat);
+    pRender->SetMaterial(matId, 0);  
+
+    pRender->SetScene(mesh);
+    pRender->RenderFloat(image_ref.data(), image_ref.width(), image_ref.height(), view[0], proj[0], preset);
+    LiteImage::SaveImage<float4>("saves/test_dr_22_ref.bmp", image_ref); 
+
+    SparseOctreeSettings settings(SparseOctreeBuildType::MESH_TLO, 2);
+
+    SdfSBSHeader header;
+    header.brick_size = 16;
+    header.brick_pad = 0;
+    header.bytes_per_value = 4;
+    
+    MeshBVH mesh_bvh;
+    mesh_bvh.init(mesh);
+
+    indexed_SBS = create_grid_sbs(1, 16, [&](float3 p) -> float { return mesh_bvh.get_signed_distance(p);},
+                                  single_color);
+    //randomize_distance(indexed_SBS, 0.03);
+  }
+
+  MultiRendererDRPreset dr_preset = getDefaultPresetDR();
+
+  dr_preset.dr_render_mode = DR_RENDER_MODE_MASK;
+  dr_preset.dr_diff_mode = DR_DIFF_MODE_DEFAULT;
+  dr_preset.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_GEOMETRY;
+  dr_preset.dr_input_type = DR_INPUT_TYPE_COLOR;
+  dr_preset.opt_iterations = 1;
+  dr_preset.opt_lr = 0.0f;
+  dr_preset.spp = 64;
+  dr_preset.debug_render_mode =  DR_DEBUG_RENDER_MODE_BORDER_INTEGRAL;
+  dr_preset.debug_print = true;
+  dr_preset.debug_progress_interval = 1;
+  dr_preset.render_height = 128;
+  dr_preset.render_width  = 128;
+
+  unsigned param_count = indexed_SBS.values_f.size() - 3 * 8 * indexed_SBS.nodes.size();
+  unsigned param_offset = 0;
+
+  std::vector<float> grad_ref(param_count, 0);
+  std::vector<float> grad_rnd(param_count, 0);
+  std::vector<float> grad_svm(param_count, 0);
+
+  {
+    MultiRendererDR dr_render;
+    dr_preset.dr_border_sampling = DR_BORDER_SAMPLING_RANDOM;
+    dr_preset.border_spp = 40000;
+    dr_render.SetReference({image_ref}, view, proj);
+    dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS);
+    grad_ref = std::vector<float>(dr_render.getLastdLoss_dS() + param_offset, 
+                                  dr_render.getLastdLoss_dS() + param_offset + param_count);
+  }
+
+  unsigned samples = 1000;
+  {
+    MultiRendererDR dr_render;
+    dr_preset.dr_border_sampling = DR_BORDER_SAMPLING_RANDOM;
+    dr_preset.border_spp = samples;
+    //dr_preset.debug_border_samples_mega_image = true;
+    dr_render.SetReference({image_ref}, view, proj);
+    dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS);
+    grad_rnd = std::vector<float>(dr_render.getLastdLoss_dS() + param_offset, 
+                                  dr_render.getLastdLoss_dS() + param_offset + param_count);
+  }
+  {
+    MultiRendererDR dr_render;
+    dr_preset.dr_border_sampling = DR_BORDER_SAMPLING_SVM;
+    dr_preset.border_spp = samples;
+    //dr_preset.debug_border_samples_mega_image = true;
+    dr_render.SetReference({image_ref}, view, proj);
+    dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS);
+    grad_svm = std::vector<float>(dr_render.getLastdLoss_dS() + param_offset, 
+                                  dr_render.getLastdLoss_dS() + param_offset + param_count);
+  }
+
+  long double l1 = 0, l2 = 0, l3 = 0;
+  long double d1 = 0, d2 = 0, d3 = 0;
+  long double loss_1 = 0, loss_2 = 0, loss_3 = 0;
+  for (unsigned i = 0; i < param_count; i++)
+  {
+    l1 += grad_ref[i] * grad_ref[i];
+    l2 += grad_rnd[i] * grad_rnd[i];
+    l3 += grad_svm[i] * grad_svm[i];
+
+    d1 += grad_ref[i] * grad_rnd[i];
+    d2 += grad_ref[i] * grad_svm[i];
+    d3 += grad_rnd[i] * grad_svm[i];
+
+    loss_1 += abs(grad_ref[i] - grad_rnd[i]);
+    loss_2 += abs(grad_ref[i] - grad_svm[i]);
+    loss_3 += abs(grad_rnd[i] - grad_svm[i]);
+  }
+
+  float cosine_1 = d1 / (sqrt(l1) * sqrt(l2));
+  float cosine_2 = d2 / (sqrt(l1) * sqrt(l3));
+  float cosine_3 = d3 / (sqrt(l2) * sqrt(l3));
+
+  printf("Reference - Random cosine similarity: %f\n", cosine_1);
+  printf("Reference - SVM    cosine similarity: %f\n", cosine_2);
+  printf("   Random - SVM    cosine similarity: %f\n", cosine_3);
+
+  printf("Reference - Random loss: %Lf\n", loss_1/param_count);
+  printf("Reference - SVM    loss: %Lf\n", loss_2/param_count);
+  printf("   Random - SVM    loss: %Lf\n", loss_3/param_count);
+}
+
 void perform_tests_diff_render(const std::vector<int> &test_ids)
 {
   std::vector<int> tests = test_ids;
@@ -2116,7 +2254,8 @@ void perform_tests_diff_render(const std::vector<int> &test_ids)
       diff_render_test_10_optimize_sdf_finite_derivatives, diff_render_test_11_optimize_smallest_scene, diff_render_test_12_optimize_sphere_mask,
       diff_render_test_13_optimize_sphere_diffuse, diff_render_test_14_optimize_sphere_lambert, diff_render_test_15_combined_reconstruction,
       diff_render_test_16_borders_detection, diff_render_test_17_optimize_bunny, diff_render_test_18_sphere_depth,
-      diff_render_test_19_expanding_grid, diff_render_test_20_sphere_depth_with_redist, diff_render_test_21_optimization_stand};
+      diff_render_test_19_expanding_grid, diff_render_test_20_sphere_depth_with_redist, diff_render_test_21_optimization_stand,
+      diff_render_test_22_border_sampling_accuracy_mask};
 
   if (tests.empty())
   {
