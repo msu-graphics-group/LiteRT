@@ -856,6 +856,14 @@ namespace dr
             sdf_min = sdf3;
           }
 
+#ifdef DEBUG_PAYLOAD_STORE_SDF
+          for (int t_i = 0; t_i <= 10; ++t_i)
+          {
+            float t_br = float(t_i) / 10.f * qFar;
+            relax_pt->sdf_i.push_back(-d*(c0 + t_br*(c1 + t_br*(c2 + t_br*c3))));
+          }
+#endif
+
           if (false)
           {
           printf("dinv = %f\n", d_inv);
