@@ -34,11 +34,14 @@ namespace cmesh4
     std::vector<std::vector<float3>> vertices(max_threads);
     std::vector<std::vector<float3>> normals(max_threads);
 
-    omp_set_num_threads(max_threads);
-    #pragma omp parallel for
-    for (int xi = 0; xi < settings.size.x; xi++)
+    #pragma omp parallel for num_threads(max_threads) 
+    for (int thread_id = 0; thread_id < max_threads; thread_id++)
     {
-      unsigned thread_id = omp_get_thread_num();
+    unsigned steps = (settings.size.x + max_threads - 1) / max_threads;
+    unsigned start = thread_id * steps;
+    unsigned end = std::min((thread_id + 1) * steps, settings.size.x);
+    for (int xi = start; xi < end; xi++)
+    {
       float cubeValues[8];
       float3 cubePositions[8];
       float3 vertlist[12];
@@ -108,7 +111,7 @@ namespace cmesh4
         }
       }
     }
-    omp_set_num_threads(omp_get_max_threads());
+    }
 
     cmesh4::SimpleMesh mesh;
     unsigned mesh_size = 0;
