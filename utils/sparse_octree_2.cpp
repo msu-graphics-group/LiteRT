@@ -1287,7 +1287,7 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
       for (unsigned i = 0; i < v_size*v_size*v_size; i++)
       {
         uint32_t v_off = n.data_offset;
-        float d_max = 2*1.41421356f/sz;
+        float d_max = 2*1.73205081f/sz;
         float mult = 2*d_max/max_val;
         float val = -d_max + mult*((sbs.values[n.data_offset + i/vals_per_int] >> (bits*(i%vals_per_int))) & max_val);
 

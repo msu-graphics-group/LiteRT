@@ -390,7 +390,7 @@ uint32_t BVHRT::AddGeom_SdfSVS(SdfSVSView octree, BuildOptions a_qualityLevel)
   for (int i=0;i<octree.size;i++)
   {
     float sz = octree.nodes[i].pos_z_lod_size & 0x0000FFFF;
-    float d_max = 2*1.41421356f/sz;
+    float d_max = 2*1.73205081f/sz;
 
     bool less = false;
     bool more = false;
@@ -548,7 +548,7 @@ uint32_t BVHRT::AddGeom_SdfSBS(SdfSBSView octree, bool single_bvh_node, BuildOpt
             uint32_t vals_per_int = 4/octree.header.bytes_per_value; 
             uint32_t bits = 8*octree.header.bytes_per_value;
             uint32_t max_val = octree.header.bytes_per_value == 4 ? 0xFFFFFFFF : ((1 << bits) - 1);
-            float d_max = 2*1.41421356f/sz;
+            float d_max = 2*1.73205081f/sz;
             float mult = 2*d_max/max_val;
 
             float low = 1000;

@@ -170,7 +170,7 @@ void BVHRT::RayNodeIntersection(uint32_t type, const float3 ray_pos, const float
     float py = m_SdfSVSNodes[nodeId].pos_xy & 0x0000FFFF;
     float pz = m_SdfSVSNodes[nodeId].pos_z_lod_size >> 16;
     float sz = m_SdfSVSNodes[nodeId].pos_z_lod_size & 0x0000FFFF;
-    float d_max = 2*1.41421356f/sz;
+    float d_max = 2*1.73205081f/sz;
 
     min_pos = float3(-1,-1,-1) + 2.0f*float3(px,py,pz)/sz;
     max_pos = min_pos + 2.0f*float3(1,1,1)/sz;
@@ -212,7 +212,7 @@ void BVHRT::RayNodeIntersection(uint32_t type, const float3 ray_pos, const float
     uint32_t vals_per_int = 4/header.bytes_per_value; 
     uint32_t bits = 8*header.bytes_per_value;
     uint32_t max_val = header.bytes_per_value == 4 ? 0xFFFFFFFF : ((1 << bits) - 1);
-    float d_max = 2*1.41421356f/sz;
+    float d_max = 2*1.73205081f/sz;
     float mult = 2*d_max/max_val;
     for (int i=0;i<8;i++)
     {
@@ -663,7 +663,7 @@ void BVHRT::OctreeBrickIntersect(uint32_t type, const float3 ray_pos, const floa
       uint32_t vals_per_int = 4/header.bytes_per_value; 
       uint32_t bits = 8*header.bytes_per_value;
       uint32_t max_val = header.bytes_per_value == 4 ? 0xFFFFFFFF : ((1 << bits) - 1);
-      float d_max = 1.41421356f*sz_inv;
+      float d_max = 1.73205081f*sz_inv;
       float mult = 2*d_max/max_val;
       for (int i=0;i<8;i++)
       {

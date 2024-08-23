@@ -980,7 +980,7 @@ float SparseOctreeBuilder::check_quality(std::function<float(const float3 &)> f,
     float py = nodes[i].pos_xy & 0x0000FFFF;
     float pz = nodes[i].pos_z_lod_size >> 16;
     float sz = nodes[i].pos_z_lod_size & 0x0000FFFF;
-    float d_max = 2*1.41421356f/sz;
+    float d_max = 2*1.73205081f/sz;
 
     float3 boxMin = float3(-1,-1,-1) + 2.0f*float3(px,py,pz)/sz;
     float3 boxMax = boxMin + 2.0f*float3(1,1,1)/sz;
