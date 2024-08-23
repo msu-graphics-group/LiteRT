@@ -478,7 +478,7 @@ void litert_test_8_SDF_grid()
   LiteImage::SaveImage<uint32_t>("saves/test_8_ref.bmp", ref_image);
 
   float psnr = image_metrics::PSNR(ref_image, image);
-  printf("TEST 8. Rendering Hydra scene\n");
+  printf("TEST 8. Rendering SDF grid\n");
   printf("  8.1. %-64s", "mesh and SDF grid image_metrics::PSNR > 30 ");
   if (psnr >= 30)
     printf("passed    (%.2f)\n", psnr);
@@ -1029,7 +1029,8 @@ void litert_test_18_mesh_normalization()
 {
   //create renderers for SDF scene and mesh scene
   cmesh4::SimpleMesh mesh, mesh_filled, mesh_compressed, mesh_n_fixed, mesh_normalized;
-  mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "saves/dragon/mesh.vsgf").c_str());
+  //mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "saves/dragon/mesh.vsgf").c_str());
+  mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "scenes/01_simple_scenes/data/teapot.vsgf").c_str());
   cmesh4::rescale_mesh(mesh, 0.999f*float3(-1, -1, -1), 0.999f*float3(1, 1, 1));
 
   printf("mesh size = %d\n", (int)mesh.TrianglesNum());
