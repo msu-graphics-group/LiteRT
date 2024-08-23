@@ -1026,7 +1026,7 @@ namespace dr
 
         float prev_missed_hit_sdf = relax_pt->missed_hit.sdf;
         float t = Intersect(ray_flags, ray_dir, values, d, 0.0f, qFar, start_q, relax_pt); //relax_pt->missed_hit.t is relative here
-        float tReal = fNearFar.x + 2.0f * d * t;
+        float tReal = fNearFar.x + d * t;
         
         if (ray_flags & DR_RAY_FLAG_BORDER)
         {
@@ -1035,9 +1035,9 @@ namespace dr
           if (relax_pt->missed_hit.sdf < prev_missed_hit_sdf && relax_pt->missed_hit.t < t)
           {
             float missed_t = relax_pt->missed_hit.t;
-            relax_pt->missed_hit.t = fNearFar.x + 2.0f * d * relax_pt->missed_hit.t; //MultiRendrer expectes t as an absolute distance
+            relax_pt->missed_hit.t = fNearFar.x + d * relax_pt->missed_hit.t; //MultiRendrer expectes t as an absolute distance
             float3 q_ast = start_q + missed_t * ray_dir;
-            float3 y_ast = ray_pos + (fNearFar.x + (2.0f *d*missed_t)) * ray_dir;
+            float3 y_ast = ray_pos + (fNearFar.x + (d * missed_t)) * ray_dir;
             float3 dp_ast = (y_ast - brick_min_pos) * (0.5f * sz);
             float3 dSDF_dy = eval_dist_trilinear_diff(values, q_ast); // grad
             //printf("dSDF_dy: %f %f %f\n", dSDF_dy.x, dSDF_dy.y, dSDF_dy.z);

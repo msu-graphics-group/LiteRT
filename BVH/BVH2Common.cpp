@@ -497,7 +497,7 @@ void BVHRT::LocalSurfaceIntersection(uint32_t type, const float3 ray_dir, uint32
     }
   }
 
-  float tReal = fNearFar.x + 2.0f * d * t;
+  float tReal = fNearFar.x + d * t;
 
 
 #if ON_CPU==1
