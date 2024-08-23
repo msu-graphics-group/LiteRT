@@ -36,6 +36,12 @@ namespace dr
     float dDist;
   };
 
+  struct PDFinalColor
+  {
+    float3 dFinalColor;
+    uint32_t index;
+  };
+
   struct CRT_HitDR
   {
     float    t;         ///< intersection distance from ray origin to object

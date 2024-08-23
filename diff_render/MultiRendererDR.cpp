@@ -272,6 +272,7 @@ namespace dr
 
     m_dLoss_dS_tmp = std::vector<float>(params_count*max_threads, 0);
     m_Opt_tmp = std::vector<float>(2*params_count, 0);
+    m_PD_tmp = std::vector<PDFinalColor>(2*8*preset.spp*max_threads);
 
     m_preset_dr = preset;
     m_preset.spp = preset.spp;
@@ -487,7 +488,7 @@ namespace dr
       unsigned end = std::min((thread_id + 1) * steps, m_width * m_height);
       for (int i = start; i < end; i++)
         loss_v[thread_id] += CastRayWithGrad(i, image_ref, out_image, out_dLoss_dS + (params_count * thread_id), 
-                                             out_image_depth, out_image_debug);
+                                             out_image_depth, out_image_debug, m_PD_tmp.data() + 2*8*m_preset_dr.spp * thread_id);
     }
 
     //II - find border pixels
@@ -819,7 +820,7 @@ namespace dr
   }
 
   float MultiRendererDR::CastRayWithGrad(uint32_t tidX, const float4 *image_ref, LiteMath::float4 *out_image, float *out_dLoss_dS,
-                                         LiteMath::float4* out_image_depth, LiteMath::float4* out_image_debug)
+                                         LiteMath::float4* out_image_depth, LiteMath::float4* out_image_debug, PDFinalColor *out_pd_tmp)
   {
     if (tidX >= m_packedXY.size())
       return 0.0;
@@ -838,6 +839,7 @@ namespace dr
 
     uint32_t spp_sqrt = uint32_t(sqrt(m_preset.spp));
     float i_spp_sqrt = 1.0f/spp_sqrt;
+    uint32_t color_pd_offset = 8*m_preset.spp;
     const float3 background_color = float3(0.0f, 0.0f, 0.0f);
     const float  background_depth = 0.0f;
 
@@ -892,69 +894,55 @@ namespace dr
       }
       else
       {
-        hit_count++;
         color = CalculateColorWithGrad(hit, dColor_dDiffuse, dColor_dNorm);
-        dLoss_dColor = to_float3(LossGrad(m_preset_dr.dr_loss_function, float4(color.x, color.y, color.z, 1), image_ref[y * m_width + x]));
-        float ref_mask = image_ref[y * m_width + x].w;
 
         depth_sum += hit.t;
         depth_min = min(depth_min, hit.t);
         depth_max = max(depth_max, hit.t);
 
-        if (ray_flags & DR_RAY_FLAG_DDIFFUSE_DCOLOR)
-        {
-          for (PDColor &pd : payload.dDiffuse_dSc)
-          {
-            float3 diff = dLoss_dColor * (dColor_dDiffuse * float3(pd.value));
-            out_dLoss_dS[pd.index + 0] += diff.x / m_preset.spp;
-            out_dLoss_dS[pd.index + 1] += diff.y / m_preset.spp;
-            out_dLoss_dS[pd.index + 2] += diff.z / m_preset.spp;
-
-            if (m_preset_dr.debug_pd_images)
-            {
-              m_imagesDebugPD[pd.index + 0].data()[y * m_width + x] += (diff.x / m_preset.spp) * float4(1,1,1,0);
-              m_imagesDebugPD[pd.index + 1].data()[y * m_width + x] += (diff.y / m_preset.spp) * float4(1,1,1,0);
-              m_imagesDebugPD[pd.index + 2].data()[y * m_width + x] += (diff.z / m_preset.spp) * float4(1,1,1,0);
-            }
-          }
-        }
-        
-        if (ray_flags & (DR_RAY_FLAG_DDIFFUSE_DPOS | DR_RAY_FLAG_DNORM_DPOS))
-        {
-          for (PDDist &pd : payload.dDiffuseNormal_dSd)
-          {
-            float diff = ref_mask*dot(dLoss_dColor, dColor_dDiffuse * pd.dDiffuse + dColor_dNorm * pd.dNorm);
-            out_dLoss_dS[pd.index] += diff / m_preset.spp;
-            total_diff += diff / m_preset.spp;
-
-            if (m_preset_dr.debug_pd_images)
-              m_imagesDebugPD[pd.index].data()[y * m_width + x] += (diff / m_preset.spp) * float4(1,1,1,0);
-          }
-        }
-
-        if (ray_flags & DR_RAY_FLAG_DDIST_DPOS)
-        {
-          for (PDDist &pd : payload.dDiffuseNormal_dSd)
-          {
-            float diff = dot(dLoss_dColor, float3(pd.dDist)) / (z_far - z_near);
-            out_dLoss_dS[pd.index] += diff / m_preset.spp;
-            
-            if (m_preset_dr.debug_pd_images)
-              m_imagesDebugPD[pd.index].data()[y * m_width + x] += (diff / m_preset.spp) * float4(1,1,1,0);
-          }
-        }
-      }
-
-      if (m_preset_dr.debug_render_mode != DR_DEBUG_RENDER_MODE_NONE)
+        if (m_preset_dr.debug_render_mode != DR_DEBUG_RENDER_MODE_NONE)
         debug_color += ApplyDebugColor(color, hit) / m_preset.spp;
 
-      res_color += color / m_preset.spp;
+        res_color += color / m_preset.spp;
 
-      float loss          = Loss(m_preset_dr.dr_loss_function, 
-                                 float4(color.x, color.y, color.z, hit.primId == 0xFFFFFFFF ? 0.0f : 1.0f), 
-                                 image_ref[y * m_width + x]);
-      res_loss += loss / m_preset.spp;
+        //fill buffer with final color partial derivatives w.r.t. voxel color
+        if (ray_flags & DR_RAY_FLAG_DDIFFUSE_DCOLOR)
+        {
+          for (int i = 0; i < 8; i++)
+          {
+            float dDiffuse_dSc = payload.dDiffuse_dSc[i].value;
+            out_pd_tmp[color_pd_offset + 8*hit_count + i].index = payload.dDiffuse_dSc[i].index;
+            out_pd_tmp[color_pd_offset + 8*hit_count + i].dFinalColor = dColor_dDiffuse * float3(dDiffuse_dSc);
+          }
+        }
+
+        //fill buffer with final color partial derivatives w.r.t. voxel distances
+        //in default mode it is done via dDiffuse and dNorm partial derivatives
+        //when input data is depth it is done via dDist partial derivative
+        if (ray_flags & (DR_RAY_FLAG_DDIFFUSE_DPOS | DR_RAY_FLAG_DNORM_DPOS))
+        {
+          for (int i = 0; i < 8; i++)
+          {
+            PDDist &pd = payload.dDiffuseNormal_dSd[i];
+            out_pd_tmp[8*hit_count + i].index = pd.index;
+            out_pd_tmp[8*hit_count + i].dFinalColor = dColor_dDiffuse*pd.dDiffuse + dColor_dNorm*pd.dNorm;
+          }
+        }
+        else if (ray_flags & DR_RAY_FLAG_DDIST_DPOS)
+        {
+          for (int i = 0; i < 8; i++)
+          {
+            PDDist &pd = payload.dDiffuseNormal_dSd[i];
+            out_pd_tmp[8*hit_count + i].index = pd.index;
+            out_pd_tmp[8*hit_count + i].dFinalColor = float3(pd.dDist) / (z_far - z_near);
+          }
+        }
+
+        hit_count++;
+      }
     }
+
+    float4 color_mask = float4(res_color.x, res_color.y, res_color.z, (float)hit_count/m_preset.spp);
     out_image[y * m_width + x] = float4(res_color.x, res_color.y, res_color.z, (float)hit_count/m_preset.spp);
 
     if (out_image_depth)
@@ -973,6 +961,43 @@ namespace dr
       float depth_diff = depth_max - depth_min;
      // printf("depth = %f %f %f %f\n", depth_sum, depth_min, depth_max, depth_diff);
       out_image_depth[y * m_width + x] = float4(depth_sum, depth_min, depth_max, 1.0f);
+    }
+
+    res_loss = Loss(m_preset_dr.dr_loss_function, color_mask, image_ref[y * m_width + x]);
+    float3 dLoss_dColor = to_float3(LossGrad(m_preset_dr.dr_loss_function, color_mask, image_ref[y * m_width + x]));
+    float ref_mask = image_ref[y * m_width + x].w;
+    
+    dLoss_dColor = dLoss_dColor * ref_mask / m_preset.spp;
+
+    if (ray_flags & DR_RAY_FLAG_DDIFFUSE_DCOLOR)
+    {
+      for (int i = color_pd_offset; i < color_pd_offset + 8 * hit_count; i++)
+      {
+        float3 diff = dLoss_dColor * out_pd_tmp[i].dFinalColor;
+        out_dLoss_dS[out_pd_tmp[i].index + 0] += diff.x;
+        out_dLoss_dS[out_pd_tmp[i].index + 1] += diff.y;
+        out_dLoss_dS[out_pd_tmp[i].index + 2] += diff.z;
+
+        if (m_preset_dr.debug_pd_images)
+        {
+          m_imagesDebugPD[out_pd_tmp[i].index + 0].data()[y * m_width + x] += diff.x * float4(1, 1, 1, 0);
+          m_imagesDebugPD[out_pd_tmp[i].index + 1].data()[y * m_width + x] += diff.y * float4(1, 1, 1, 0);
+          m_imagesDebugPD[out_pd_tmp[i].index + 2].data()[y * m_width + x] += diff.z * float4(1, 1, 1, 0);
+        }
+      }
+    }
+
+    if (ray_flags & (DR_RAY_FLAG_DDIFFUSE_DPOS | DR_RAY_FLAG_DNORM_DPOS | DR_RAY_FLAG_DDIST_DPOS))
+    {
+      for (int i = 0; i < 8 * hit_count; i++)
+      {
+        float diff = dot(dLoss_dColor, out_pd_tmp[i].dFinalColor);
+        out_dLoss_dS[out_pd_tmp[i].index] += diff;
+        total_diff += diff;
+
+        if (m_preset_dr.debug_pd_images)
+          m_imagesDebugPD[out_pd_tmp[i].index].data()[y * m_width + x] += diff * float4(1, 1, 1, 0);
+      }
     }
 
     if (out_image_debug)
