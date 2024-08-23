@@ -184,7 +184,7 @@ void diff_render_test_2_forward_pass()
 
     dr_preset.debug_render_mode = DR_DEBUG_RENDER_MODE_PRIMITIVE;
     dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS);
-    image_SBS_dr_prim = dr_render.getLastImage(0);
+    image_SBS_dr_prim = dr_render.getLastDebugImage(0);
   }
 
   {

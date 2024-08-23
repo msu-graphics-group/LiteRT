@@ -68,6 +68,7 @@ namespace dr
     void OptimizeGrid(unsigned start_grid_size, bool no_last_step_resize, std::vector<MultiRendererDRPreset> presets);
 
     const LiteImage::Image2D<float4> &getLastImage(unsigned view_id) const { return m_images[view_id]; }
+    const LiteImage::Image2D<float4> &getLastDebugImage(unsigned view_id) const { return m_imagesDebug[view_id]; }
     const float *getLastdLoss_dS() const { return m_dLoss_dS_tmp.data(); }
 
   protected:
