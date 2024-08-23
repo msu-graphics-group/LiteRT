@@ -2007,22 +2007,23 @@ void diff_render_test_21_optimization_stand()
   MultiRendererDRPreset dr_preset = getDefaultPresetDR();
 
   dr_preset.dr_diff_mode = DR_DIFF_MODE_DEFAULT;
-  dr_preset.opt_iterations = 501;
+  dr_preset.opt_iterations = 1000;
   dr_preset.opt_lr = 0.01f;
-  dr_preset.spp = 4;
+  dr_preset.spp = 8;
   dr_preset.border_spp = 512;
-  dr_preset.dr_border_sampling = DR_BORDER_SAMPLING_SVM;
-  dr_preset.image_batch_size = 4;
-  dr_preset.border_color_threshold = 1000.0f;
+  dr_preset.dr_border_sampling = DR_BORDER_SAMPLING_RANDOM;
+  dr_preset.image_batch_size = 7;
   dr_preset.debug_print = true;
   dr_preset.debug_print_interval = 1;
   dr_preset.debug_progress_interval = 1;
   dr_preset.debug_render_mode = DR_DEBUG_RENDER_MODE_BORDER_INTEGRAL;
-  dr_preset.debug_progress_images = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
-  dr_preset.render_height = 512;
-  dr_preset.render_width = 512;
-  dr_preset.reg_function = DR_REG_FUNCTION_LK_DENOISING;
+  dr_preset.debug_progress_images = MULTI_RENDER_MODE_LAMBERT;
+  dr_preset.render_height = 256;
+  dr_preset.render_width = 256;
+  //dr_preset.reg_function = DR_REG_FUNCTION_LK_DENOISING;
+  //dr_preset.reg_lambda = 3.0f;
   dr_preset.border_depth_threshold = 1000.0f;
+  dr_preset.border_color_threshold = 1000.0f;
   //dr_preset.redistancing_enable = true;
   //dr_preset.redistancing_interval = 1;
   //dr_preset.reg_power = 1.1f;
@@ -2049,12 +2050,16 @@ void diff_render_test_21_optimization_stand()
                          [&](float3 p){return circle_sdf(float3(-0.2,0,-0.2), 0.6f, p);}, 
                          single_color);
 
-  SdfSBS ds_scene = create_grid_sbs(8, 4, 
+  SdfSBS ds_scene = create_grid_sbs(1, 16, 
                        [&](float3 p){return std::max(circle_sdf(float3(0,0,0), 0.8f, p), -circle_sdf(float3(0.6,0,0), 0.4f, p));}, 
                        single_color); 
-  SdfSBS ds_initial = create_grid_sbs(8, 4, 
-                         [&](float3 p){return circle_sdf(float3(-0.2,0,-0.2), 0.6f, p);}, 
-                         single_color);
+  SdfSBS ds_initial = create_grid_sbs(1, 16, 
+                         [&](float3 p){return circle_sdf(float3(0,0,0), 0.8f, p);}, 
+                         [&](float3 p){ return float3(0,0.7,0); });
+
+  SdfSBS circle_scene = create_grid_sbs(4, 4, 
+                                        [&](float3 p){return circle_sdf(float3(0,0,0), 0.75f, p);}, 
+                                        single_color); 
 
   SdfSBS ts_scene = two_circles_scene();
 /*
@@ -2100,8 +2105,8 @@ void diff_render_test_21_optimization_stand()
   //optimization_stand_common(ds_scene, ds_initial, dr_preset, "DSMask");
 
   dr_preset.dr_render_mode = DR_RENDER_MODE_LAMBERT;
-  dr_preset.opt_lr = 0.01f;
-  dr_preset.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_GEOMETRY;
+  dr_preset.opt_lr = 0.03f;
+  dr_preset.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_GEOMETRY | DR_RECONSTRUCTION_FLAG_COLOR;
   optimization_stand_common(ds_scene, ds_initial, dr_preset, "DSLambert");
 }
 
