@@ -115,6 +115,11 @@ if(USE_ENZYME)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fplugin=${ENZYME_LIB_PATH}")
 endif()
 
+option(DEBUG_PAYLOAD_STORE_SDF "Sdd a vector to store sdrf values along the ray to Payload struct" OFF)
+if(DEBUG_PAYLOAD_STORE_SDF)
+  add_definitions(-DDEBUG_PAYLOAD_STORE_SDF)
+endif()
+
 set(MODULES_SRC "")
 set(MODULES_INCLUDE_DIRS "modules")
 set(MODULES_LIBRARIES "")

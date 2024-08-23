@@ -23,9 +23,9 @@ namespace dr
   static float3 visualize_value_debug(float val)
   {
     float diff_log = log10(abs(val) + 1.0f);
-    float q_red = std::max(0.0f, 1 - abs(diff_log - 3.0f));
-    float q_green = std::max(0.0f, 1 - abs(diff_log - 2.0f));
-    float q_blue = std::max(0.0f, 1 - abs(diff_log - 1.0f));
+    float q_red = std::max(0.0f, 1.f - abs(diff_log - 3.0f));
+    float q_green = std::max(0.0f, 1.f - abs(diff_log - 2.0f));
+    float q_blue = std::max(0.0f, 1.f - abs(diff_log - 1.0f));
 
     return float3(q_red, q_green, q_blue);
   }
@@ -1099,7 +1099,29 @@ namespace dr
         if (is_border_ray) //border
           samples_debug_color[sample_id] = float4(0, 0, 0.1*abs(pixel_diff), 1);
         else if (hit.primId == 0xFFFFFFFF) //background
+        {
+#ifdef DEBUG_PAYLOAD_STORE_SDF
+          bool neg_flag = false;
+          for (auto sdf : payload.sdf_i)
+          {
+            if (sdf < 0) // or any other condition
+            {
+              neg_flag = true;
+              break;
+            }
+          }
+          if (true)
+          {
+            printf("Pts %ld:\n", payload.sdf_i.size());
+            for (int i = 0; i < payload.sdf_i.size(); ++i) {
+              printf("%f, ", payload.sdf_i[i]);
+              if ((i % 11) == 10)
+                printf("\n");
+            }
+          }
+#endif
           samples_debug_color[sample_id] = float4(0.05, 0.05, 0.05, 1);
+        }
         else //hit
           samples_debug_color[sample_id] = float4(1, 0, 0, 1);
       }

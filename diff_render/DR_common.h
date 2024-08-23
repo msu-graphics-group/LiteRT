@@ -59,7 +59,11 @@ namespace dr
     CRT_HitDR missed_hit;
     uint32_t  missed_indices[8];
     float     missed_dSDF_dtheta[8];
-    
+
+#ifdef DEBUG_PAYLOAD_STORE_SDF
+    std::vector<float> sdf_i;
+#endif
+
     PDColor dDiffuse_dSc[8]; //8 color points, PDs for diffuse (PDs for R,G,B are the same)
     PDDist  dDiffuseNormal_dSd[8]; //8 distance points, PDs for diffuse and normal
   };

@@ -836,25 +836,45 @@ namespace dr
 
         if (relax_pt && ray_flags & DR_RAY_FLAG_BORDER)
         {
-          // Looking for SDF min - first or second root of (3*c3)*t^2 + (2*c2)*t + c1 = 0 (if x1 != x2)
-          float t_min = t0;
-          float sdf_min = sdf0;
+          // Looking for SDF min
+          float t_min = qFar + EPS;
+          if (std::abs(a) > EPS)
+          {
+            // first or second root of (3*c3)*t^2 + (2*c2)*t + c1 = 0  (if x1 != x2)
+            t_min = -0.5f*(b + sign(a)*std::sqrt(D)) / a;
+          }
+          else if (b > EPS)
+          {
+            // root of b*x + c = 0
+            t_min = c / b;
+          }
 
-          if (sdf1 > sdf_min)
+          float sdf_min = (c0 + t_min*(c1 + t_min*(c2 + t_min*c3)));;
+          float sdf_far = sdf3;
+
+          if (relax_pt->missed_hit._pad1 == 1)
           {
-            t_min = t1;
-            sdf_min = sdf1;
+            float sdf_diff_near = c1 + 1e-8f * c2;
+            if (sdf_diff_near <= 0)
+            {
+              if (sdf0 < 0.f && -sdf0*d < relax_pt->missed_hit.sdf) // Found relaxation point
+              {
+                relax_pt->missed_hit.t = t0;
+                relax_pt->missed_hit.sdf = -sdf0*d;
+              }
+            }
+            relax_pt->missed_hit._pad1 = 0;
           }
-          if (sdf2 > sdf_min)
+          if (sdf_far < 0.f && (c1 + qFar*(2*c2 + qFar*3*c3)) >= 0.f)
+            relax_pt->missed_hit._pad1 = 1;
+
+#ifdef DEBUG_PAYLOAD_STORE_SDF
+          for (int t_i = 0; t_i <= 10; ++t_i)
           {
-            t_min = t2;
-            sdf_min = sdf2;
+            float t_br = float(t_i) / 10.f * qFar;
+            relax_pt->sdf_i.push_back(-d*(c0 + t_br*(c1 + t_br*(c2 + t_br*c3))));
           }
-          if (sdf3 > sdf_min)
-          {
-            t_min = t3;
-            sdf_min = sdf3;
-          }
+#endif
 
           if (false)
           {
@@ -870,7 +890,7 @@ namespace dr
           //if (!hit)
           //  printf("t_min = %f in (%f, %f)\n", t_min, qNear, qFar);
 
-          if (sdf_min < 0.f && sdf_min*d >= -relax_pt->missed_hit.sdf) // Found relaxation point
+          if (t_min >= 0 && t_min <= qFar && sdf_min < 0.f && -sdf_min*d < relax_pt->missed_hit.sdf) // Found relaxation point
           {
             //printf("t_min = %f in (%f, %f)\n", t_min, qNear, qFar);
             relax_pt->missed_hit.t = t_min;
@@ -998,7 +1018,7 @@ namespace dr
       //else - error
 
       fNearFar = RayBoxIntersection2(ray_pos, SafeInverse(ray_dir), min_pos, max_pos);
-      if (tNear < fNearFar.x && vmin <= 0.0f)
+      if (tNear < fNearFar.x)
       {
         float3 start_pos = ray_pos + fNearFar.x * ray_dir;
         start_q = (start_pos - min_pos) * (0.5f * sz * header.brick_size);
