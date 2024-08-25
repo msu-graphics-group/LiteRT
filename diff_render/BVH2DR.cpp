@@ -841,21 +841,23 @@ namespace dr
           if (std::abs(a) > EPS)
           {
             // first or second root of (3*c3)*t^2 + (2*c2)*t + c1 = 0  (if x1 != x2)
-            t_min = -0.5f*(b + sign(a)*std::sqrt(D)) / a;
+            float root1 = -0.5f*(b + std::sqrt(D)) / a,
+                  root2 = -0.5f*(b - std::sqrt(D)) / a;
+
+            // t_min = sign(a) > 0 ? std::min(root1, root2) : std::max(root1, root2);
+            t_min = (sign(a) > 0) == (root1 < root2) ? root1 : root2;
           }
-          else if (b > EPS)
+          else if (b < -EPS)
           {
             // root of b*x + c = 0
-            t_min = c / b;
+            t_min = -c / b;
           }
 
-          float sdf_min = (c0 + t_min*(c1 + t_min*(c2 + t_min*c3)));;
-          float sdf_far = sdf3;
+          float sdf_min = (c0 + t_min*(c1 + t_min*(c2 + t_min*c3)));
 
           if (relax_pt->missed_hit._pad1 == 1)
           {
-            float sdf_diff_near = c1 + 1e-8f * c2;
-            if (sdf_diff_near <= 0)
+            if (c1 <= 0) // c1 == SDF'(0)
             {
               if (sdf0 < 0.f && -sdf0*d < relax_pt->missed_hit.sdf) // Found relaxation point
               {
@@ -865,7 +867,7 @@ namespace dr
             }
             relax_pt->missed_hit._pad1 = 0;
           }
-          if (sdf_far < 0.f && (c1 + qFar*(2*c2 + qFar*3*c3)) >= 0.f)
+          if (sdf3 < 0.f && (c1 + qFar*(2*c2 + qFar*3*c3)) >= 0.f) // sdf3 is SDF(qFar)
             relax_pt->missed_hit._pad1 = 1;
 
 #ifdef DEBUG_PAYLOAD_STORE_SDF
