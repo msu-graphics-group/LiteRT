@@ -140,6 +140,16 @@ void BVHRT::UpdateGeom_Triangles3f(uint32_t a_geomId, const float *a_vpos3f, siz
   std::cout << "[BVHRT::UpdateGeom_Triangles3f]: " << "not implemeted!" << std::endl; // not planned for this implementation (possible in general)
 }
 
+uint32_t BVHRT::AddGeom_AABB(uint32_t a_typeId, const CRT_AABB* boxMinMaxF8, size_t a_boxNumber)
+{
+  return 0;
+}
+
+void BVHRT::UpdateGeom_AABB(uint32_t a_geomId, uint32_t a_typeId, const CRT_AABB* boxMinMaxF8, size_t a_boxNumber)
+{
+  std::cout << "[BVHRT::UpdateGeom_AABB]: " << "not implemeted!" << std::endl; // not planned for this implementation (possible in general)
+}
+
 uint32_t BVHRT::AddGeom_RFScene(RFScene grid, BuildOptions a_qualityLevel)
 {
   //RF grid is always a unit cube
