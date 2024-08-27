@@ -86,9 +86,9 @@ void BVHRT::AppendTreeData(const std::vector<BVHNodePair>& a_nodes, const std::v
   }
 }
 
-uint32_t BVHRT::AddGeom_Triangles3f(const float *a_vpos3f, size_t a_vertNumber, const uint32_t *a_triIndices, size_t a_indNumber, BuildOptions a_qualityLevel, size_t vByteStride)
+uint32_t BVHRT::AddGeom_Triangles3f(const float *a_vpos3f, size_t a_vertNumber, const uint32_t *a_triIndices, size_t a_indNumber, uint32_t a_qualityLevel, size_t vByteStride)
 {
-  return AddGeom_Triangles3f(a_vpos3f, nullptr, a_vertNumber, a_triIndices, a_indNumber, a_qualityLevel, vByteStride);
+  return AddGeom_Triangles3f(a_vpos3f, nullptr, a_vertNumber, a_triIndices, a_indNumber, BuildOptions(a_qualityLevel), vByteStride);
 }
 uint32_t BVHRT::AddGeom_Triangles3f(const float* a_vpos3f, const float* a_vnorm3f, size_t a_vertNumber, const uint32_t* a_triIndices, 
                                     size_t a_indNumber, BuildOptions a_qualityLevel, size_t vByteStride)
@@ -135,7 +135,7 @@ uint32_t BVHRT::AddGeom_Triangles3f(const float* a_vpos3f, const float* a_vnorm3
   return currGeomId;
 }
 
-void BVHRT::UpdateGeom_Triangles3f(uint32_t a_geomId, const float *a_vpos3f, size_t a_vertNumber, const uint32_t *a_triIndices, size_t a_indNumber, BuildOptions a_qualityLevel, size_t vByteStride)
+void BVHRT::UpdateGeom_Triangles3f(uint32_t a_geomId, const float *a_vpos3f, size_t a_vertNumber, const uint32_t *a_triIndices, size_t a_indNumber, uint32_t a_qualityLevel, size_t vByteStride)
 {
   std::cout << "[BVHRT::UpdateGeom_Triangles3f]: " << "not implemeted!" << std::endl; // not planned for this implementation (possible in general)
 }
