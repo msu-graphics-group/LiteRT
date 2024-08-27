@@ -76,7 +76,9 @@ struct InstanceData
   float4 boxMin;
   float4 boxMax;
   uint32_t geomId;
-  uint32_t _pad[7];
+  uint32_t instStart;
+  uint32_t instEnd;
+  uint32_t _pad[5];
   float4x4 transform;
   float4x4 transformInv;
   float4x4 transformInvTransposed; //for normals
@@ -327,6 +329,7 @@ struct BVHRT : public ISceneObject2
 
   //geometric data
   std::vector<GeomData> m_geomData;
+  std::vector<uint2>    startEnd;
 
   //instance data
   std::vector<InstanceData> m_instanceData;

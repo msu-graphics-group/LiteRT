@@ -54,6 +54,8 @@ void BVHRT::ClearGeom()
 {
   m_geomData.reserve(std::max<std::size_t>(reserveSize, m_geomData.capacity()));
   m_geomData.resize(0);
+  startEnd.reserve(m_geomData.capacity());
+  startEnd.resize(0);
 
   m_indices.reserve(std::max<std::size_t>(100000 * 3, m_indices.capacity()));
   m_indices.resize(0);
@@ -142,7 +144,17 @@ void BVHRT::UpdateGeom_Triangles3f(uint32_t a_geomId, const float *a_vpos3f, siz
 
 uint32_t BVHRT::AddGeom_AABB(uint32_t a_typeId, const CRT_AABB* boxMinMaxF8, size_t a_boxNumber)
 {
-  return 0;
+  // append data to global arrays and fix offsets
+  auto presets = BuilderPresetsFromString(m_buildName.c_str());
+  auto layout  = LayoutPresetsFromString(m_layoutName.c_str());
+  auto bvhData = BuildBVHFatCustom((const BVHNode*)boxMinMaxF8, a_boxNumber, presets, layout);
+  
+  const size_t oldSize = m_allNodePairs.size();
+  m_allNodePairs.insert(m_allNodePairs.end(), bvhData.nodes.begin(), bvhData.nodes.end());
+  
+  startEnd.push_back(uint2(uint32_t(oldSize), uint32_t(m_allNodePairs.size())));
+
+  return uint32_t(startEnd.size() - 1);
 }
 
 void BVHRT::UpdateGeom_AABB(uint32_t a_geomId, uint32_t a_typeId, const CRT_AABB* boxMinMaxF8, size_t a_boxNumber)
@@ -185,19 +197,8 @@ uint32_t BVHRT::AddGeom_RFScene(RFScene grid, BuildOptions a_qualityLevel)
   std::cout << "Using "
       << (m_RFGridData.size() * sizeof(float) / 1024 / 1024 + m_RFGridPtrs.size() * sizeof(uint4) / 1024 / 1024) 
       << " MB for model" << std::endl;
-
-  // Build BVH for each geom and append it to big buffer;
-  // append data to global arrays and fix offsets
-  auto presets = BuilderPresetsFromString(m_buildName.c_str());
-  auto layout  = LayoutPresetsFromString(m_layoutName.c_str());
-  auto bvhData = BuildBVHFatCustom(m_origNodes.data(), m_origNodes.size(), presets, layout);
-
-  /* for (auto &i : bvhData.indices) */
-  /*   printf("grid ind %d\n",(int)i); */
-
-  m_allNodePairs.insert(m_allNodePairs.end(), bvhData.nodes.begin(), bvhData.nodes.end());
-
-  return m_geomData.size()-1;
+  
+  return AddGeom_AABB(GeomData::TAG_RF, (const CRT_AABB*)m_origNodes.data(), m_origNodes.size());
 }
 
 float4x4 Transpose(float4x4& a) {
@@ -282,31 +283,23 @@ std::vector<float4x4> InvertMatrices(std::vector<float4x4>&& matrices) {
     return inverted_matrices;
 }
 
-uint32_t BVHRT::AddGeom_GSScene(GSScene grid, BuildOptions a_qualityLevel) {
+uint32_t BVHRT::AddGeom_GSScene(GSScene grid, BuildOptions a_qualityLevel) 
+{
+  m_geomData.resize(m_geomData.size() + 1); 
+  new (m_geomData.data() + m_geomData.size() - 1) GeomDataGS();
     
+  m_geomData.back().boxMin = float4(-1.0f, -1.0f, -1.0f, 1.0f);
+  m_geomData.back().boxMax = float4(1.0f, 1.0f, 1.0f, 1.0f);
+  m_geomData.back().offset = uint2(grid.data_0.size(), 0);
+  m_geomData.back().bvhOffset = m_allNodePairs.size();
+  m_geomData.back().type = TYPE_GS_PRIMITIVE;
+  m_geomData.back().m_tag = type_to_tag(m_geomData.back().type);
 
-    m_geomData.resize(m_geomData.size() + 1); 
-    new (m_geomData.data() + m_geomData.size() - 1) GeomDataGS();
+  m_gs_data_0 = grid.data_0;
+  m_gs_conic = InvertMatrices(ComputeCovarianceMatrices(m_gs_data_0));
+  m_origNodes = GetBoxes_GSGrid(grid);
     
-    m_geomData.back().boxMin = float4(-1.0f, -1.0f, -1.0f, 1.0f);
-    m_geomData.back().boxMax = float4(1.0f, 1.0f, 1.0f, 1.0f);
-    m_geomData.back().offset = uint2(grid.data_0.size(), 0);
-    m_geomData.back().bvhOffset = m_allNodePairs.size();
-    m_geomData.back().type = TYPE_GS_PRIMITIVE;
-    m_geomData.back().m_tag = type_to_tag(m_geomData.back().type);
-
-    m_gs_data_0 = grid.data_0;
-    m_gs_conic = InvertMatrices(ComputeCovarianceMatrices(m_gs_data_0));
-
-    m_origNodes = GetBoxes_GSGrid(grid);
-
-    auto presets = BuilderPresetsFromString(m_buildName.c_str());
-    auto layout = LayoutPresetsFromString(m_layoutName.c_str());
-    auto bvhData = BuildBVHFatCustom(m_origNodes.data(), m_origNodes.size(), presets, layout);
-
-    m_allNodePairs.insert(m_allNodePairs.end(), bvhData.nodes.begin(), bvhData.nodes.end());
-
-    return m_geomData.size() - 1;
+  return AddGeom_AABB(GeomData::TAG_GS, (const CRT_AABB*)m_origNodes.data(), m_origNodes.size());
 }
 
 uint32_t BVHRT::AddGeom_SdfGrid(SdfGridView grid, BuildOptions a_qualityLevel)
@@ -334,19 +327,8 @@ uint32_t BVHRT::AddGeom_SdfGrid(SdfGridView grid, BuildOptions a_qualityLevel)
 
   //create list of bboxes for BLAS
   std::vector<BVHNode> orig_nodes = GetBoxes_SdfGrid(grid);
-
-  // Build BVH for each geom and append it to big buffer;
-  // append data to global arrays and fix offsets
-  auto presets = BuilderPresetsFromString(m_buildName.c_str());
-  auto layout  = LayoutPresetsFromString(m_layoutName.c_str());
-  auto bvhData = BuildBVHFatCustom(orig_nodes.data(), orig_nodes.size(), presets, layout);
-
-  /* for (auto &i : bvhData.indices) */
-  /*   printf("grid ind %d\n",(int)i); */
-
-  m_allNodePairs.insert(m_allNodePairs.end(), bvhData.nodes.begin(), bvhData.nodes.end());
-
-  return m_geomData.size()-1;
+  
+  return AddGeom_AABB(GeomData::TAG_SDF_GRID, (const CRT_AABB*)orig_nodes.data(), orig_nodes.size());
 }
 
 uint32_t BVHRT::AddGeom_SdfOctree(SdfOctreeView octree, BuildOptions a_qualityLevel)
@@ -375,16 +357,8 @@ uint32_t BVHRT::AddGeom_SdfOctree(SdfOctreeView octree, BuildOptions a_qualityLe
 
   //create list of bboxes for BLAS
   std::vector<BVHNode> orig_nodes = GetBoxes_SdfOctree(octree);
-
-  // Build BVH for each geom and append it to big buffer;
-  // append data to global arrays and fix offsets
-  auto presets = BuilderPresetsFromString(m_buildName.c_str());
-  auto layout  = LayoutPresetsFromString(m_layoutName.c_str());
-  auto bvhData = BuildBVHFatCustom(orig_nodes.data(), orig_nodes.size(), presets, layout);
-
-  m_allNodePairs.insert(m_allNodePairs.end(), bvhData.nodes.begin(), bvhData.nodes.end());
-
-  return m_geomData.size()-1;
+  
+  return AddGeom_AABB(GeomData::TAG_SDF_GRID, (const CRT_AABB*)orig_nodes.data(), orig_nodes.size());
 }
 
 uint32_t BVHRT::AddGeom_SdfFrameOctree(SdfFrameOctreeView octree, BuildOptions a_qualityLevel)
@@ -415,16 +389,8 @@ uint32_t BVHRT::AddGeom_SdfFrameOctree(SdfFrameOctreeView octree, BuildOptions a
   //create list of bboxes for BLAS
   std::vector<BVHNode> orig_nodes = GetBoxes_SdfFrameOctree(octree);
   m_origNodes = orig_nodes;
-
-  // Build BVH for each geom and append it to big buffer;
-  // append data to global arrays and fix offsets
-  auto presets = BuilderPresetsFromString(m_buildName.c_str());
-  auto layout  = LayoutPresetsFromString(m_layoutName.c_str());
-  auto bvhData = BuildBVHFatCustom(orig_nodes.data(), orig_nodes.size(), presets, layout);
-
-  m_allNodePairs.insert(m_allNodePairs.end(), bvhData.nodes.begin(), bvhData.nodes.end());
-
-  return m_geomData.size()-1;
+  
+  return AddGeom_AABB(GeomData::TAG_SDF_NODE, (const CRT_AABB*)orig_nodes.data(), orig_nodes.size());
 }
 
 uint32_t BVHRT::AddGeom_SdfSVS(SdfSVSView octree, BuildOptions a_qualityLevel)
@@ -486,15 +452,7 @@ uint32_t BVHRT::AddGeom_SdfSVS(SdfSVSView octree, BuildOptions a_qualityLevel)
     orig_nodes[i].boxMax = orig_nodes[i].boxMin + 2.0f*float3(1,1,1)/sz;
   }
 
-  // Build BVH for each geom and append it to big buffer;
-  // append data to global arrays and fix offsets
-  auto presets = BuilderPresetsFromString(m_buildName.c_str());
-  auto layout  = LayoutPresetsFromString(m_layoutName.c_str());
-  auto bvhData = BuildBVHFatCustom(orig_nodes.data(), orig_nodes.size(), presets, layout);
-
-  m_allNodePairs.insert(m_allNodePairs.end(), bvhData.nodes.begin(), bvhData.nodes.end());
-
-  return m_geomData.size()-1;
+  return AddGeom_AABB(GeomData::TAG_SDF_NODE, (const CRT_AABB*)orig_nodes.data(), orig_nodes.size());
 }
 
 uint32_t BVHRT::AddGeom_SdfSBS(SdfSBSView octree, bool single_bvh_node, BuildOptions a_qualityLevel)
@@ -529,10 +487,17 @@ uint32_t BVHRT::AddGeom_SdfSBS(SdfSBSView octree, bool single_bvh_node, BuildOpt
 
   //fill geom data array
   m_geomData.resize(m_geomData.size() + 1); 
-  if (is_single_node)
+  uint32_t typeTag = 0;
+  if (is_single_node) 
+  {
+    typeTag = GeomData::TAG_SDF_NODE;
     new (m_geomData.data() + m_geomData.size() - 1) GeomDataSdfNode();
+  }
   else
+  {
+    typeTag = GeomData::TAG_SDF_BRICK;
     new (m_geomData.data() + m_geomData.size() - 1) GeomDataSdfBrick();
+  }
   m_geomData.back().boxMin = mn;
   m_geomData.back().boxMax = mx;
   m_geomData.back().offset = uint2(m_SdfSBSRoots.size(), m_SdfSBSRemap.size());
@@ -634,15 +599,7 @@ uint32_t BVHRT::AddGeom_SdfSBS(SdfSBSView octree, bool single_bvh_node, BuildOpt
     }
   }
 
-  // Build BVH for each geom and append it to big buffer;
-  // append data to global arrays and fix offsets
-  auto presets = BuilderPresetsFromString(m_buildName.c_str());
-  auto layout  = LayoutPresetsFromString(m_layoutName.c_str());
-  auto bvhData = BuildBVHFatCustom(orig_nodes.data(), orig_nodes.size(), presets, layout);
-
-  m_allNodePairs.insert(m_allNodePairs.end(), bvhData.nodes.begin(), bvhData.nodes.end());
-
-  return m_geomData.size()-1;
+  return AddGeom_AABB(typeTag, (const CRT_AABB*)orig_nodes.data(), orig_nodes.size());
 }
 
 uint32_t BVHRT::AddGeom_SdfFrameOctreeTex(SdfFrameOctreeTexView octree, BuildOptions a_qualityLevel)
@@ -673,16 +630,8 @@ uint32_t BVHRT::AddGeom_SdfFrameOctreeTex(SdfFrameOctreeTexView octree, BuildOpt
   //create list of bboxes for BLAS
   std::vector<BVHNode> orig_nodes = GetBoxes_SdfFrameOctreeTex(octree);
   m_origNodes = orig_nodes;
-
-  // Build BVH for each geom and append it to big buffer;
-  // append data to global arrays and fix offsets
-  auto presets = BuilderPresetsFromString(m_buildName.c_str());
-  auto layout  = LayoutPresetsFromString(m_layoutName.c_str());
-  auto bvhData = BuildBVHFatCustom(orig_nodes.data(), orig_nodes.size(), presets, layout);
-
-  m_allNodePairs.insert(m_allNodePairs.end(), bvhData.nodes.begin(), bvhData.nodes.end());
-
-  return m_geomData.size()-1;
+  
+  return AddGeom_AABB(GeomData::TAG_SDF_NODE, (const CRT_AABB*)m_origNodes.data(), m_origNodes.size());
 }
 
 void BVHRT::set_debug_mode(bool enable)

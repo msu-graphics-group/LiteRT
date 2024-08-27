@@ -111,7 +111,7 @@ void litert_test_2_SVS()
       preset.render_mode = MULTI_RENDER_MODE_PHONG_NO_TEX;
       preset.sdf_node_intersect = presets_oi[i];
 
-      auto pRender = CreateMultiRenderer("GPU");
+      auto pRender = CreateMultiRenderer("CPU");
       pRender->SetPreset(preset);
       pRender->SetScene(frame_nodes);
 
@@ -1478,44 +1478,54 @@ void litert_test_23_textured_sdf()
   LiteImage::Image2D<uint32_t> image_tex(W, H);
   LiteImage::Image2D<uint32_t> ref_image_tex(W, H);
 
+  #ifndef USE_GPU
+  std::string implName = "GPU";
+  #else
+  std::string implName = "CPU";
+  #endif
+
+  std::cout << "litert_test_23_textured_sdf: (0)" << std::endl;
   {
-    auto pRender = CreateMultiRenderer("GPU");
+    auto pRender = CreateMultiRenderer(implName.c_str());
     pRender->SetPreset(preset);
     pRender->SetViewport(0,0,W,H);
     pRender->SetScene(mesh);
     render(ref_image, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
   }
-
+  
+  std::cout << "litert_test_23_textured_sdf: (1)" << std::endl;
   {
-    auto pRender = CreateMultiRenderer("GPU");
+    auto pRender = CreateMultiRenderer(implName.c_str());
     pRender->SetPreset(preset);
     pRender->SetViewport(0,0,W,H);
     pRender->SetScene(textured_octree);
     render(image, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
   }
-
+  
+  std::cout << "litert_test_23_textured_sdf: (2)" << std::endl;
   preset.render_mode = MULTI_RENDER_MODE_TEX_COORDS;
   {
-    auto pRender = CreateMultiRenderer("GPU");
+    auto pRender = CreateMultiRenderer(implName.c_str());
     pRender->SetPreset(preset);
     pRender->SetViewport(0,0,W,H);
     pRender->SetScene(mesh);
     render(ref_image_tc, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
   }
-
+  
+  std::cout << "litert_test_23_textured_sdf: (3)" << std::endl;
   {
-    auto pRender = CreateMultiRenderer("GPU");
+    auto pRender = CreateMultiRenderer(implName.c_str());
     pRender->SetPreset(preset);
     pRender->SetViewport(0,0,W,H);
     pRender->SetScene(textured_octree);
     render(image_tc, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
   }
-
+  
+  std::cout << "litert_test_23_textured_sdf: (4)" << std::endl;
   LiteImage::Image2D<float4> texture = LiteImage::LoadImage<float4>("scenes/porcelain.png");
-
   preset.render_mode = MULTI_RENDER_MODE_LAMBERT;
   {
-    auto pRender = CreateMultiRenderer("GPU");
+    auto pRender = CreateMultiRenderer(implName.c_str());
     pRender->SetPreset(preset);
     pRender->SetViewport(0,0,W,H);
 
@@ -1529,9 +1539,10 @@ void litert_test_23_textured_sdf()
     pRender->SetScene(mesh);
     render(ref_image_tex, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
   }
-
+  
+  std::cout << "litert_test_23_textured_sdf: (5)" << std::endl;
   {
-    auto pRender = CreateMultiRenderer("GPU");
+    auto pRender = CreateMultiRenderer(implName.c_str());
     pRender->SetPreset(preset);
     pRender->SetViewport(0,0,W,H);
 
@@ -1545,6 +1556,8 @@ void litert_test_23_textured_sdf()
     pRender->SetScene(textured_octree);
     render(image_tex, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
   }
+
+  std::cout << "litert_test_23_textured_sdf: finished" << std::endl;
 
   LiteImage::SaveImage<uint32_t>("saves/test_23_mesh.bmp", image); 
   LiteImage::SaveImage<uint32_t>("saves/test_23_textured_sdf.bmp", ref_image);
@@ -1824,8 +1837,15 @@ void litert_test_27_textured_colored_SBS()
   LiteImage::Image2D<uint32_t> image_SBS_col(W, H);
   LiteImage::Image2D<uint32_t> image_SBS_ind(W, H);
 
+  #ifndef USE_GPU
+  std::string implName = "GPU";
+  #else
+  std::string implName = "CPU";
+  #endif
+  
+  std::cout << "litert_test_27_textured_colored_SBS: (0)" << std::endl;
   {
-    auto pRender = CreateMultiRenderer("GPU");
+    auto pRender = CreateMultiRenderer(implName.c_str());
     pRender->SetPreset(preset);
     pRender->SetViewport(0,0,W,H);
 
@@ -1839,9 +1859,10 @@ void litert_test_27_textured_colored_SBS()
     pRender->SetScene(mesh);
     render(image_mesh, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
   }
-
+  
+  std::cout << "litert_test_27_textured_colored_SBS: (1)" << std::endl;
   {
-    auto pRender = CreateMultiRenderer("GPU");
+    auto pRender = CreateMultiRenderer(implName.c_str());
     pRender->SetPreset(preset);
     pRender->SetViewport(0,0,W,H);
 
@@ -1856,9 +1877,10 @@ void litert_test_27_textured_colored_SBS()
     pRender->SetScene(textured_octree);
     render(image_SVS, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
   }
-
+  
+  std::cout << "litert_test_27_textured_colored_SBS: (2)" << std::endl;
   {
-    auto pRender = CreateMultiRenderer("GPU");
+    auto pRender = CreateMultiRenderer(implName.c_str());
     pRender->SetPreset(preset);
     pRender->SetViewport(0,0,W,H);
 
@@ -1873,9 +1895,10 @@ void litert_test_27_textured_colored_SBS()
     pRender->SetScene(textured_SBS);
     render(image_SBS_tex, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
   }
-
+  
+  std::cout << "litert_test_27_textured_colored_SBS: (3)" << std::endl;
   {
-    auto pRender = CreateMultiRenderer("GPU");
+    auto pRender = CreateMultiRenderer(implName.c_str());
     pRender->SetPreset(preset);
     pRender->SetViewport(0,0,W,H);
 
@@ -1890,9 +1913,10 @@ void litert_test_27_textured_colored_SBS()
     pRender->SetScene(colored_SBS);
     render(image_SBS_col, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
   }
-
+  
+  std::cout << "litert_test_27_textured_colored_SBS: (4)" << std::endl;
   {
-    auto pRender = CreateMultiRenderer("GPU");
+    auto pRender = CreateMultiRenderer(implName.c_str());
     pRender->SetPreset(preset);
     pRender->SetViewport(0,0,W,H);
 
@@ -1907,6 +1931,8 @@ void litert_test_27_textured_colored_SBS()
     pRender->SetScene(indexed_SBS);
     render(image_SBS_ind, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);    
   }
+
+  std::cout << "litert_test_27_textured_colored_SBS: finished" << std::endl;
 
   LiteImage::SaveImage<uint32_t>("saves/test_27_mesh.bmp", image_mesh); 
   LiteImage::SaveImage<uint32_t>("saves/test_27_svs.bmp", image_SVS);
@@ -1949,7 +1975,11 @@ void litert_test_27_textured_colored_SBS()
 
 void perform_tests_litert(const std::vector<int> &test_ids)
 {
+  litert_test_2_SVS();
   litert_test_3_SBS_verify();
+  //litert_test_20_radiance_fields();
+  litert_test_23_textured_sdf();
+  //litert_test_27_textured_colored_SBS();
   return;
 
   std::vector<int> tests = test_ids;
