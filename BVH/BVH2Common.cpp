@@ -13,14 +13,6 @@ using uvec3 = uint3;
 using LiteMath::M_PI;
 using LiteMath::clamp;
 
-ISceneObject* CreateSceneRT(const char* a_impleName)
-{
-  return new BVHRT();
-}
-void DeleteSceneRT(ISceneObject* a_pScene)
-{
-  delete a_pScene;
-}
 
 bool BVHRT::need_normal()
 {

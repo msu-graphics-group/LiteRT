@@ -5,43 +5,21 @@
 #include <unordered_set>
 
 #include "LiteMath.h"
+#include "CrossRT.h"
 #include "sdfScene/sdf_scene.h"
 #include "utils/radiance_field.h"
 #include "utils/gaussian_field.h"
 #include "render_settings.h"
-
-enum BuildOptions 
-{
-  NONE                   = 0x00000000, 
-  BUILD_LOW              = 0x00000001,
-  BUILD_MEDIUM           = 0x00000002,
-  BUILD_HIGH             = 0x00000004,
-  BUILD_REFIT            = 0x00000008,  
-  MOTION_BLUR            = 0x00000010,
-  BUILD_OPTIONS_MAX_ENUM = 0x7FFFFFFF
-};
-/**
-\brief API to ray-scene intersection on CPU
-*/
-struct CRT_Hit 
-{
-  float    t;         ///< intersection distance from ray origin to object
-  uint32_t primId; 
-  uint32_t instId;
-  uint32_t geomId;    ///< use 4 most significant bits for geometry type; thay are zero for triangles 
-  float    coords[4]; ///< custom intersection data; for triangles coords[0] and coords[1] stores baricentric coords (u,v)
-                      // coords[2] and coords[3] stores normal.xy
-};
 
 static constexpr unsigned SH_TYPE = 28; //4 bits for type
 
 /**
 \brief API to ray-scene intersection on CPU
 */
-struct ISceneObject
+struct ISceneObject2 // : public ISceneObject
 {
-  ISceneObject(){}
-  virtual ~ISceneObject(){} 
+  ISceneObject2(){}
+  virtual ~ISceneObject2(){} 
  
   /**
   \brief get implementation name  
@@ -178,5 +156,5 @@ struct ISceneObject
 
   MultiRenderPreset m_preset;
 };
-ISceneObject* CreateSceneRT(const char* a_impleName);
-void DeleteSceneRT(ISceneObject* a_pScene);
+
+std::shared_ptr<ISceneObject2> CreateSceneRT(const char* a_implName, const char* a_buildName, const char* a_layoutName);

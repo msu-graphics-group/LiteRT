@@ -84,13 +84,13 @@ struct InstanceData
 
 // main class
 //
-struct BVHRT : public ISceneObject
+struct BVHRT : public ISceneObject2
 #ifndef KERNEL_SLICER  
 , public ISdfOctreeFunction
 , public ISdfGridFunction
 #endif
 {
-  //overiding ISceneObject interface
+  //overiding ISceneObject2 interface
   BVHRT(const char* a_buildName = nullptr, const char* a_layoutName = nullptr) : 
     m_buildName(a_buildName != nullptr ? a_buildName : ""), 
     m_layoutName(a_layoutName != nullptr ? a_layoutName : "") 

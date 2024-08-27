@@ -1123,11 +1123,12 @@ std::shared_ptr<ISdfGridFunction> get_SdfGridFunction(SdfGridView scene)
   return rt;    
 }
 
-ISceneObject* MakeBVH2CommonRT(const char* a_implName, const char* a_buildName, const char* a_layoutName) 
+ISceneObject2* MakeBVH2CommonRT(const char* a_implName, const char* a_buildName, const char* a_layoutName) 
 {
   return new BVHRT(a_buildName, a_layoutName); 
 }
-std::shared_ptr<ISceneObject> CreateSceneRT(const char* a_implName, const char* a_buildName, const char* a_layoutName)
+
+std::shared_ptr<ISceneObject2> CreateSceneRT(const char* a_implName, const char* a_buildName, const char* a_layoutName)
 {
-  return std::shared_ptr<ISceneObject>(MakeBVH2CommonRT(a_implName, a_buildName, a_layoutName));
+  return std::shared_ptr<ISceneObject2>(MakeBVH2CommonRT(a_implName, a_buildName, a_layoutName));
 }

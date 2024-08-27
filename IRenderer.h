@@ -16,8 +16,8 @@ struct IRenderer
   virtual void Render(uint32_t* imageData, uint32_t a_width, uint32_t a_height, const char* a_what, int a_passNum = 1) = 0;
 
   virtual void SetViewport(int a_xStart, int a_yStart, int a_width, int a_height){}
-  virtual void SetAccelStruct(std::shared_ptr<ISceneObject> a_customAccelStruct) {}
-  virtual std::shared_ptr<ISceneObject> GetAccelStruct() { return nullptr; }
+  virtual void SetAccelStruct(std::shared_ptr<ISceneObject2> a_customAccelStruct) {}
+  virtual std::shared_ptr<ISceneObject2> GetAccelStruct() { return nullptr; }
   
   virtual void GetExecutionTime(const char* a_funcName, float a_out[4]){}; // will be overriden in generated class
 
@@ -43,4 +43,3 @@ protected:
   virtual const LiteMath::float4* GetGeomBoxes() const { return nullptr; };
 };
 
-std::shared_ptr<ISceneObject> CreateSceneRT(const char* a_implName, const char* a_buildName, const char* a_layoutName);

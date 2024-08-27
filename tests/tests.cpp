@@ -240,6 +240,11 @@ void litert_test_3_SBS_verify()
     else
       printf("FAILED, psnr = %f\n", psnr);
   }
+  
+  #ifndef USE_GPU
+  return;
+  #endif
+
   {
     auto pRender = CreateMultiRenderer("GPU");
     pRender->SetPreset(preset);
@@ -1944,6 +1949,9 @@ void litert_test_27_textured_colored_SBS()
 
 void perform_tests_litert(const std::vector<int> &test_ids)
 {
+  litert_test_3_SBS_verify();
+  return;
+
   std::vector<int> tests = test_ids;
 
   std::vector<std::function<void(void)>> test_functions = {

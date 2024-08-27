@@ -6,11 +6,11 @@
     "configurations": [
     
         {
-            "name": "Launch LiteRT",
+            "name": "Launch",
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/render_app",
-            "args": [],
+            "args": ["-tests_litert", "aaa", "bbb"],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [],
