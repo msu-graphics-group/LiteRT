@@ -18,7 +18,7 @@ add_library(
     external/imgui/backends/imgui_impl_sdl2.cpp
 )
 target_link_libraries(ImGui glfw SDL2main SDL2)
-target_include_directories(ImGui PUBLIC external/imgui external/imgui/backends)
+target_include_directories(ImGui PUBLIC external/imgui external/imgui/backends /usr/include/SDL2)
 
 add_executable(
   ${PROJECT_NAME} 
