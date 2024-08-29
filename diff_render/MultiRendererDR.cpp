@@ -181,7 +181,7 @@ namespace dr
           {
             for (unsigned dy = 0; dy < spp_y; dy++)
             {
-              float2 uv = float2(float(spp_x*x + dx) / (spp_x*width), float(spp_y*y + dy) / (spp_y*height));
+              float2 uv = float2((spp_x*x + dx + 0.5f) / (spp_x*width), (spp_y*y + dy + 0.5f) / (spp_y*height));
               float4 color(0,0,0,0);
               if (to_mask)
                 color = m_imagesRefMask[image_n].sample(sampler, uv);
