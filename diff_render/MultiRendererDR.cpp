@@ -516,9 +516,7 @@ namespace dr
 
         float3 color0 = to_float3(out_image[y*m_width + x]);
         float  max_color_diff = 0.0f;
-
-        float max_window_depth = out_image_depth[y*m_width + x].z; //.z is max, .y is min
-        float min_window_depth = out_image_depth[y*m_width + x].y;
+        float max_depth_diff = 0.0f;
 
         for (int dx = -search_radius; dx <= search_radius; dx++)
         {
@@ -529,15 +527,12 @@ namespace dr
 
             float3 color = to_float3(out_image[(y + dy) * m_width + x + dx]);
             max_color_diff = std::max(max_color_diff, length(color0 - color));
+            max_depth_diff = std::max(max_depth_diff, out_image_depth[(y + dy) * m_width + x + dx].w);
 
             //max_window_depth = std::max(max_window_depth, out_image_depth[(y + dy) * m_width + x + dx].z);
             //min_window_depth = std::min(min_window_depth, out_image_depth[(y + dy) * m_width + x + dx].y);
           }
         }
-
-        float ref_color_diff = length(to_float3(out_image[y*m_width + x]) - to_float3(image_ref[y*m_width + x]));
-        float depth_diff = max_window_depth - min_window_depth;
-        //printf("depth diff: %f\n", depth_diff);
 
         bool is_border = false;
         switch (m_preset_dr.dr_render_mode)
@@ -546,11 +541,11 @@ namespace dr
             is_border = max_diff > 0;
           break;
           case DR_RENDER_MODE_LINEAR_DEPTH:
-            is_border = max_diff > 0 || depth_diff > m_preset_dr.border_depth_threshold;
+            is_border = max_diff > 0 || max_depth_diff > m_preset_dr.border_depth_threshold;
           break;
           case DR_RENDER_MODE_DIFFUSE:
           case DR_RENDER_MODE_LAMBERT:
-            is_border = max_diff > 0 || max_color_diff > m_preset_dr.border_color_threshold || depth_diff > m_preset_dr.border_depth_threshold;
+            is_border = max_diff > 0 || max_color_diff > m_preset_dr.border_color_threshold || max_depth_diff > m_preset_dr.border_depth_threshold;
           break;
           default:
             is_border = false;
@@ -835,11 +830,14 @@ namespace dr
     
     float3 res_color = float3(0,0,0);
     float3 debug_color = float3(0,0,0);
+    float res_loss = 0.0f;
+    int hit_count = 0;
+
     float depth_min = 1e6f;
     float depth_max = 0;
     float depth_sum = 0;
-    float res_loss = 0.0f;
-    int hit_count = 0;
+    float depth_tg  = 0;
+    std::vector<float4> samples(m_preset.spp, float4(0, 0, 0, 0));
 
     uint32_t spp_sqrt = uint32_t(sqrt(m_preset.spp));
     float i_spp_sqrt = 1.0f/spp_sqrt;
@@ -903,6 +901,8 @@ namespace dr
         depth_sum += hit.t;
         depth_min = min(depth_min, hit.t);
         depth_max = max(depth_max, hit.t);
+        samples[hit_count] = to_float4(to_float3(rayPosAndNear) + hit.t * to_float3(rayDirAndFar), hit.t);
+        hit_count++;
 
         if (m_preset_dr.debug_render_mode != DR_DEBUG_RENDER_MODE_NONE)
         debug_color += ApplyDebugColor(color, hit) / m_preset.spp;
@@ -956,6 +956,7 @@ namespace dr
         depth_sum = background_depth;
         depth_min = background_depth;
         depth_max = background_depth;
+        depth_tg  = 0.0f;
       }
       else
       {
@@ -963,8 +964,29 @@ namespace dr
       }
 
       float depth_diff = depth_max - depth_min;
+      //printf("lol\n");
+      for (int i = 0; i < hit_count; i++)
+      {
+        for (int j = 0; j < hit_count; j++)
+        {
+          float3 p1 = normalize(to_float3(samples[i]));
+          float  d1 = samples[i].w;
+          float3 p2 = normalize(to_float3(samples[j]));
+          float  d2 = samples[j].w;
+          float3 p3_raw = p2 - p1;
+          float l = length(p3_raw);
+
+          if (l > 1e-6f)
+          {
+            float3 p3 = p3_raw / l;
+            depth_tg = std::max(depth_tg, std::max(dot(p1,p3), dot(p2,p3)));
+            //printf("depth_tg = %f d = (%f %f), p1 = (%f %f %f), p2 = (%f %f %f) len = %f %f\n", depth_tg,
+            //       d1, d2, p1.x, p1.y, p1.z, p2.x, p2.y, p2.z, length(p1), length(p2));
+          }
+        }
+      }
      // printf("depth = %f %f %f %f\n", depth_sum, depth_min, depth_max, depth_diff);
-      out_image_depth[y * m_width + x] = float4(depth_sum, depth_min, depth_max, 1.0f);
+      out_image_depth[y * m_width + x] = float4(depth_sum, depth_min, depth_max, depth_tg);
     }
 
     res_loss = Loss(m_preset_dr.dr_loss_function, color_mask, image_ref[y * m_width + x]);
@@ -1017,6 +1039,11 @@ namespace dr
                                                   absolute_to_linear_depth(out_image_depth[y * m_width + x].z), 
                                                   1.0f);
       }
+      else if (m_preset_dr.debug_render_mode == DR_DEBUG_RENDER_MODE_DEPTH_DIFF && out_image_depth)
+      {
+        float diff = out_image_depth[y * m_width + x].z - out_image_depth[y * m_width + x].y;
+        out_image_debug[y * m_width + x] = float4(out_image_depth[y * m_width + x].w, 0, 0, 1.0f);
+      }
     }
 
     return res_loss;
@@ -1061,8 +1088,7 @@ namespace dr
       RayDiffPayload payload;
       CRT_HitDR hit = ((BVHDR *)m_pAccelStruct.get())->RayQuery_NearestHitWithGrad(border_ray_flags, rayPosAndNear, rayDirAndFar, &payload);
 
-      bool is_border_ray = payload.missed_hit.sdf < relax_eps && 
-                          (hit.t - payload.missed_hit.t > m_preset_dr.border_depth_threshold || hit.primId == 0xFFFFFFFF);
+      bool is_border_ray = payload.missed_hit.sdf < relax_eps;
 
       if (is_border_ray)
       {
@@ -1360,8 +1386,7 @@ namespace dr
       RayDiffPayload payload;
       CRT_HitDR hit = ((BVHDR *)m_pAccelStruct.get())->RayQuery_NearestHitWithGrad(border_ray_flags, rayPosAndNear, rayDirAndFar, &payload);
 
-      bool is_border_ray = payload.missed_hit.sdf < relax_eps && 
-                          (hit.t - payload.missed_hit.t > m_preset_dr.border_depth_threshold || hit.primId == 0xFFFFFFFF);
+      bool is_border_ray = payload.missed_hit.sdf < relax_eps;
 
       if (is_border_ray)
       {
