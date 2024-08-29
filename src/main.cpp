@@ -25,7 +25,7 @@ void copy_image_to_texture(
 // Main code
 int main(int, char** argv)
 {
-  std::filesystem::path exec_path = argv[0];
+  std::filesystem::path exec_path = std::filesystem::canonical(argv[0]);
   std::filesystem::current_path(exec_path.parent_path().parent_path());
 
   SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_GAMECONTROLLER) ;
