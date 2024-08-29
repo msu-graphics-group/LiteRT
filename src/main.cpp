@@ -59,7 +59,9 @@ int main(int, char** argv)
   ImGui_ImplSDLRenderer2_Init(renderer);
 
   bool to_load_surface = false;
-  std::string path_to_surf = std::filesystem::current_path().append("resources").append("vase.nurbss");
+  std::string default_path_to_surf = std::filesystem::current_path().append("resources").append("vase.nurbss");
+  char path_to_surf[10000] = {};
+  std::copy(default_path_to_surf.begin(), default_path_to_surf.end(), path_to_surf);
 
   Surface surf;
   float surf_color[4] = { 1.0f, 1.0f, 0.0f, 1.0f };
@@ -146,7 +148,7 @@ int main(int, char** argv)
 
     if (to_load_surface) {
       ImGui::Begin("Loading Surface", nullptr, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoCollapse);
-      ImGui::InputText("Path to surface", path_to_surf.data(), path_to_surf.size());
+      ImGui::InputText("Path to surface", path_to_surf, sizeof(path_to_surf)-1);
       if (ImGui::Button("OK")) {
         to_load_surface = false;
         surf = load_surface(path_to_surf);
@@ -155,6 +157,7 @@ int main(int, char** argv)
         float distance = radius / std::sin(M_PI/8);
         camera = Camera(aspect, fov, { target.x, target.y, target.z+distance }, target);
       }
+      ImGui::End();
     }
     ImGui::PopFont();
 
