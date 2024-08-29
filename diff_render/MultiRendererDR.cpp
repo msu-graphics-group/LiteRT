@@ -494,68 +494,72 @@ namespace dr
     //II - find border pixels
     m_borderPixels.resize(0);
     const int search_radius = 1;
-    for (int i = 0; i < m_width * m_height; i++)
+
+    if (m_preset_dr.dr_diff_mode == DR_DIFF_MODE_DEFAULT)
     {
-      if (i >= m_packedXY.size())
-        continue;
-
-      const uint XY = m_packedXY[i];
-      const uint x  = (XY & 0x0000FFFF);
-      const uint y  = (XY & 0xFFFF0000) >> 16;
-
-      if (x < search_radius || x >= m_width - search_radius || y <= search_radius || y >= m_height - search_radius)
-        continue;
-      
-      //finding external borders nearby (borders with background)
-      //TODO: find internal borders
-      float d0 = out_image[y*m_width + x].w;
-      float max_diff = 0.0f;
-
-      float3 color0 = to_float3(out_image[y*m_width + x]);
-      float  max_color_diff = 0.0f;
-
-      float max_window_depth = out_image_depth[y*m_width + x].z; //.z is max, .y is min
-      float min_window_depth = out_image_depth[y*m_width + x].y;
-
-      for (int dx = -search_radius; dx <= search_radius; dx++)
+      for (int i = 0; i < m_width * m_height; i++)
       {
-        for (int dy = -search_radius; dy <= search_radius; dy++)
+        if (i >= m_packedXY.size())
+          continue;
+
+        const uint XY = m_packedXY[i];
+        const uint x  = (XY & 0x0000FFFF);
+        const uint y  = (XY & 0xFFFF0000) >> 16;
+
+        if (x < search_radius || x >= m_width - search_radius || y <= search_radius || y >= m_height - search_radius)
+          continue;
+        
+        //finding external borders nearby (borders with background)
+        //TODO: find internal borders
+        float d0 = out_image[y*m_width + x].w;
+        float max_diff = 0.0f;
+
+        float3 color0 = to_float3(out_image[y*m_width + x]);
+        float  max_color_diff = 0.0f;
+
+        float max_window_depth = out_image_depth[y*m_width + x].z; //.z is max, .y is min
+        float min_window_depth = out_image_depth[y*m_width + x].y;
+
+        for (int dx = -search_radius; dx <= search_radius; dx++)
         {
-          float d = out_image[(y + dy) * m_width + x + dx].w;
-          max_diff = std::max(max_diff, std::abs(d0 - d));
+          for (int dy = -search_radius; dy <= search_radius; dy++)
+          {
+            float d = out_image[(y + dy) * m_width + x + dx].w;
+            max_diff = std::max(max_diff, std::abs(d0 - d));
 
-          float3 color = to_float3(out_image[(y + dy) * m_width + x + dx]);
-          max_color_diff = std::max(max_color_diff, length(color0 - color));
+            float3 color = to_float3(out_image[(y + dy) * m_width + x + dx]);
+            max_color_diff = std::max(max_color_diff, length(color0 - color));
 
-          //max_window_depth = std::max(max_window_depth, out_image_depth[(y + dy) * m_width + x + dx].z);
-          //min_window_depth = std::min(min_window_depth, out_image_depth[(y + dy) * m_width + x + dx].y);
+            //max_window_depth = std::max(max_window_depth, out_image_depth[(y + dy) * m_width + x + dx].z);
+            //min_window_depth = std::min(min_window_depth, out_image_depth[(y + dy) * m_width + x + dx].y);
+          }
         }
+
+        float ref_color_diff = length(to_float3(out_image[y*m_width + x]) - to_float3(image_ref[y*m_width + x]));
+        float depth_diff = max_window_depth - min_window_depth;
+        //printf("depth diff: %f\n", depth_diff);
+
+        bool is_border = false;
+        switch (m_preset_dr.dr_render_mode)
+        {
+          case DR_RENDER_MODE_MASK:
+            is_border = max_diff > 0;
+          break;
+          case DR_RENDER_MODE_LINEAR_DEPTH:
+            is_border = max_diff > 0 || depth_diff > m_preset_dr.border_depth_threshold;
+          break;
+          case DR_RENDER_MODE_DIFFUSE:
+          case DR_RENDER_MODE_LAMBERT:
+            is_border = max_diff > 0 || max_color_diff > m_preset_dr.border_color_threshold || depth_diff > m_preset_dr.border_depth_threshold;
+          break;
+          default:
+            is_border = false;
+          break;
+        }
+
+        if (is_border)
+          m_borderPixels.push_back(i);
       }
-
-      float ref_color_diff = length(to_float3(out_image[y*m_width + x]) - to_float3(image_ref[y*m_width + x]));
-      float depth_diff = max_window_depth - min_window_depth;
-      //printf("depth diff: %f\n", depth_diff);
-
-      bool is_border = false;
-      switch (m_preset_dr.dr_render_mode)
-      {
-        case DR_RENDER_MODE_MASK:
-          is_border = max_diff > 0;
-        break;
-        case DR_RENDER_MODE_LINEAR_DEPTH:
-          is_border = max_diff > 0 || depth_diff > m_preset_dr.border_depth_threshold;
-        break;
-        case DR_RENDER_MODE_DIFFUSE:
-        case DR_RENDER_MODE_LAMBERT:
-          is_border = max_diff > 0 || max_color_diff > m_preset_dr.border_color_threshold || depth_diff > m_preset_dr.border_depth_threshold;
-        break;
-        default:
-          is_border = false;
-        break;
-      }
-
-      if (is_border)
-        m_borderPixels.push_back(i);
     }
 
     if (m_preset_dr.debug_border_samples_mega_image)
