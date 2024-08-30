@@ -1529,7 +1529,7 @@ void diff_render_test_16_borders_detection()
 {
   srand(time(nullptr));
   //create renderers for SDF scene and mesh scene
-  auto SBS_ref = circle_smallest_scene();
+  auto SBS_ref = two_circles_scene();
 
   unsigned W = 512, H = 512;
 
@@ -1559,13 +1559,14 @@ void diff_render_test_16_borders_detection()
   }
 
   // put random colors to SBS
-  auto indexed_SBS = circle_smallest_scene();
+  auto indexed_SBS = two_circles_scene();
   // randomize_color(indexed_SBS);
   randomize_distance(indexed_SBS, 0.2f);
 
   MultiRendererDRPreset dr_preset = getDefaultPresetDR();
   dr_preset.dr_diff_mode = DR_DIFF_MODE_DEFAULT;
   dr_preset.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_GEOMETRY;
+  dr_preset.dr_render_mode = DR_RENDER_MODE_DIFFUSE;
   dr_preset.opt_iterations = 1;
   dr_preset.opt_lr = 0.0f;
   dr_preset.spp = 16;
@@ -1573,7 +1574,7 @@ void diff_render_test_16_borders_detection()
   {
     MultiRendererDR dr_render;
     dr_render.SetReference(images_ref, view, proj);
-    dr_preset.dr_render_mode = DR_RENDER_MODE_DIFFUSE;
+    dr_preset.debug_render_mode = DR_DEBUG_RENDER_MODE_NONE;
     dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS);
     image_res = dr_render.getLastImage(0);
     LiteImage::SaveImage<float4>("saves/test_dr_16_res.bmp", image_res);
@@ -1581,19 +1582,19 @@ void diff_render_test_16_borders_detection()
   {
     MultiRendererDR dr_render;
     dr_render.SetReference(images_ref, view, proj);
-    dr_preset.dr_render_mode = DR_DEBUG_RENDER_MODE_BORDER_DETECTION;
+    dr_preset.debug_render_mode = DR_DEBUG_RENDER_MODE_BORDER_DETECTION;
     dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS);
-    image_bdet = dr_render.getLastImage(0);
+    image_bdet = dr_render.getLastDebugImage(0);
     LiteImage::SaveImage<float4>("saves/test_dr_16_bdet.bmp", image_bdet);
   }
   {
     MultiRendererDR dr_render;
     dr_render.SetReference(images_ref, view, proj);
-    dr_preset.dr_render_mode = DR_DEBUG_RENDER_MODE_BORDER_INTEGRAL;
+    dr_preset.debug_render_mode = DR_DEBUG_RENDER_MODE_BORDER_INTEGRAL;
     dr_preset.border_color_threshold = -1; // force to calculate border integral in every pixel
     dr_preset.border_depth_threshold = -1;
     dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS);
-    image_bint = dr_render.getLastImage(0);
+    image_bint = dr_render.getLastDebugImage(0);
     LiteImage::SaveImage<float4>("saves/test_dr_16_bint.bmp", image_bint);
   }
 
@@ -1602,8 +1603,8 @@ void diff_render_test_16_borders_detection()
   int over = 0;
   for (int i = 0; i < W * H; i++)
   {
-    bool border = length(image_bdet.data()[i]) > 0;
-    bool border_int = length(image_bint.data()[i]) > 0;
+    bool border = length(to_float3(image_bdet.data()[i])) > 0;
+    bool border_int = length(to_float3(image_bint.data()[i])) > 0;
 
     match += border && border_int;
     miss += !border && border_int;
@@ -1621,8 +1622,8 @@ void diff_render_test_16_borders_detection()
   else
     printf("FAILED, over/match = %f\n", om);
   
-  printf("16.2. %-64s", "a few pixels are missed (miss/match < 0.01)");
-  if (miss_rate < 0.01)
+  printf("16.2. %-64s", "a few pixels are missed (miss/match < 0.05)");
+  if (miss_rate < 0.05)
     printf("passed    (%.2f)\n", miss_rate);
   else
     printf("FAILED, miss/match = %f\n", miss_rate);

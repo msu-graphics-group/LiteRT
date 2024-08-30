@@ -177,9 +177,9 @@ namespace dr
    SdfSBS two_circles_scene()
   {
     return create_grid_sbs(1, 32, 
-                           [&](float3 p){return std::min(circle_sdf(float3(0,0.5,0.5), 0.5f, p),
-                                                         circle_sdf(float3(0,-0.5,-0.5), 0.5f, p));}, 
-                           single_color);
+                           [&](float3 p){return std::min(circle_sdf(float3(0,0.3,0.5), 0.5f, p),
+                                                         circle_sdf(float3(0,-0.3,-0.5), 0.5f, p));}, 
+                           [](float3 p){return p.z > 0 ? float3(1,0,0) : float3(0,0,1);});
   }
 
   std::vector<float4x4> get_cameras_uniform_sphere(int count, float3 center, float radius)
