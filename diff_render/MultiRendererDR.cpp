@@ -902,7 +902,6 @@ namespace dr
         depth_min = min(depth_min, hit.t);
         depth_max = max(depth_max, hit.t);
         samples[hit_count] = to_float4(to_float3(rayPosAndNear) + hit.t * to_float3(rayDirAndFar), hit.t);
-        hit_count++;
 
         if (m_preset_dr.debug_render_mode != DR_DEBUG_RENDER_MODE_NONE)
         debug_color += ApplyDebugColor(color, hit) / m_preset.spp;
