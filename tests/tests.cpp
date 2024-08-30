@@ -1404,7 +1404,7 @@ void litert_test_22_sdf_grid_smoothing()
   unsigned W = 2048, H = 2048;
   MultiRenderPreset preset = getDefaultPreset();
 
-    unsigned grid_size = 100;
+    unsigned grid_size = 9;
     unsigned max_threads = 15;
     float noise = 0.03f;
 
@@ -1412,12 +1412,12 @@ void litert_test_22_sdf_grid_smoothing()
     for (unsigned i = 0; i < max_threads; i++)
       bvh[i].init(mesh);
     auto real_sdf = [&](const float3 &p, unsigned idx) -> float 
-    {
+    /*{
       return sdMengerSponge(1.5f*float3((p.x+p.z)/sqrt(2), p.y, (p.x-p.z)/sqrt(2)))/1.5f;
-    };
-    //{ return bvh[idx].get_signed_distance(p); };
+    };*/
+    { return bvh[idx].get_signed_distance(p); };
     
-    auto noisy_sdf = [&](const float3 &p, unsigned idx) -> float { return real_sdf(p, idx) + urand(-1 - 2.0f/grid_size, 1 - 2.0f/grid_size)*noise; };
+    auto noisy_sdf = [&](const float3 &p, unsigned idx) -> float { return real_sdf(p, idx)/* + (fmod(p.x * 153 + p.y * 427 + p.z * 311, 2.0) - 1) * 0.03f*//*+ urand(-1 - 2.0f/grid_size, 1 - 2.0f/grid_size)*noise*/; };
 
 
   LiteImage::Image2D<uint32_t> image_1(W, H);
@@ -1963,6 +1963,80 @@ void litert_test_27_textured_colored_SBS()
     printf("FAILED, psnr = %f\n", psnr_4);
 }
 
+void litert_test_28_sbs_reg()
+{
+  
+  auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "scenes/01_simple_scenes/data/bunny.vsgf").c_str());
+  cmesh4::rescale_mesh(mesh, float3(-0.95, -0.95, -0.95), float3(0.95, 0.95, 0.95));
+
+  unsigned W = 2048, H = 2048;
+
+  MultiRenderPreset preset = getDefaultPreset();
+  preset.render_mode = MULTI_RENDER_MODE_LAMBERT;
+  SparseOctreeSettings settings(SparseOctreeBuildType::MESH_TLO, 3);
+
+  SdfSBSHeader header;
+  header.brick_size = 1;
+  header.brick_pad = 0;
+  header.bytes_per_value = 1;
+
+  LiteImage::Image2D<float4> texture = LiteImage::LoadImage<float4>("scenes/Solid_white.png");
+
+  LiteImage::Image2D<uint32_t> image_mesh(W, H);
+  LiteImage::Image2D<uint32_t> image_SBS_ind(W, H);
+  LiteImage::Image2D<uint32_t> image_orig_SBS_ind(W, H);
+  
+  {
+    auto pRender = CreateMultiRenderer("GPU");
+    pRender->SetPreset(preset);
+    pRender->SetViewport(0,0,W,H);
+
+    uint32_t texId = pRender->AddTexture(texture);
+    MultiRendererMaterial mat;
+    mat.type = MULTI_RENDER_MATERIAL_TYPE_TEXTURED;
+    mat.texId = texId;
+    uint32_t matId = pRender->AddMaterial(mat);
+    pRender->SetMaterial(matId, 0);
+
+    pRender->SetScene(mesh);
+    render(image_mesh, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+  }
+
+  printf("TEST 28. SBS regularization\n");
+  
+  {
+    
+    auto pRender = CreateMultiRenderer("GPU");
+    pRender->SetPreset(preset);
+    pRender->SetViewport(0,0,W,H);
+    
+    uint32_t texId = pRender->AddTexture(texture);
+    MultiRendererMaterial mat;
+    mat.type = MULTI_RENDER_MATERIAL_TYPE_TEXTURED;
+    mat.texId = texId;
+    uint32_t matId = pRender->AddMaterial(mat);
+    pRender->SetMaterial(matId, 0);  
+    
+    auto indexed_SBS = sdf_converter::create_sdf_SBS_indexed(settings, header, mesh, matId, pRender->getMaterials(), pRender->getTextures(), true);
+    
+    
+    auto sbs = sdf_converter::sdf_SBS_smoother(indexed_SBS, 1, 0.001, 0.3f, 100);
+    
+    pRender->SetScene(sbs);
+    render(image_SBS_ind, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);    
+    pRender->SetScene(indexed_SBS);
+    render(image_orig_SBS_ind, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+  }
+  
+  LiteImage::SaveImage<uint32_t>("saves/test_28_mesh.bmp", image_mesh);
+  LiteImage::SaveImage<uint32_t>("saves/test_28_sbs_ind.bmp", image_SBS_ind);
+  LiteImage::SaveImage<uint32_t>("saves/test_28_orig_sbs_ind.bmp", image_orig_SBS_ind);
+
+  
+
+  
+}
+
 void perform_tests_litert(const std::vector<int> &test_ids)
 {
   std::vector<int> tests = test_ids;
@@ -1976,7 +2050,8 @@ void perform_tests_litert(const std::vector<int> &test_ids)
       litert_test_16_SVS_nodes_removal, litert_test_17_all_types_sanity_check, litert_test_18_mesh_normalization,
       litert_test_19_marching_cubes, litert_test_20_radiance_fields, litert_test_21_rf_to_mesh,
       litert_test_22_sdf_grid_smoothing, litert_test_23_textured_sdf, litert_test_24_demo_meshes,
-      litert_test_25_float_images, litert_test_26_sbs_shallow_bvh, litert_test_27_textured_colored_SBS};
+      litert_test_25_float_images, litert_test_26_sbs_shallow_bvh, litert_test_27_textured_colored_SBS,
+      litert_test_28_sbs_reg};
 
   if (tests.empty())
   {

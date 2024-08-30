@@ -1189,7 +1189,7 @@ std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
           }
 
           //add node only if there is really a border
-          if (is_border_node(min_val, max_val, 1/d))
+          if (is_border_node(min_val, max_val, 1/d) /*true*/)
           {
             unsigned off=0, n_off=0;
             unsigned lod_size = 1.0f/d;
