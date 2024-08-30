@@ -33,7 +33,7 @@ namespace sdf_converter
     for (int i = 0; i < sz; i++)
       for (int j = 0; j < sz; j++)
         for (int k = 0; k < sz; k++)
-          grid.data[i*sz*sz + j*sz + k] = sdf(2.0f*(float3(k+0.5, j+0.5, i+0.5)/float(sz)) - 1.0f, omp_get_thread_num());
+          grid.data[i*sz*sz + j*sz + k] = sdf(2.0f*(float3(k + 0.5, j + 0.5, i + 0.5)/float(sz)) - 1.0f, omp_get_thread_num());
     omp_set_num_threads(omp_get_max_threads());
 
     return grid;
@@ -217,7 +217,7 @@ namespace sdf_converter
     }
   }
 
-  SdfSBS create_sdf_SBS_tex(SparseOctreeSettings settings, SdfSBSHeader header, const cmesh4::SimpleMesh &mesh)
+  SdfSBS create_sdf_SBS_tex(SparseOctreeSettings settings, SdfSBSHeader header, const cmesh4::SimpleMesh &mesh, bool noisy)
   {
     unsigned max_threads = omp_get_max_threads();
 
@@ -225,8 +225,8 @@ namespace sdf_converter
     for (unsigned i = 0; i < max_threads; i++)
       bvh[i].init(mesh);
     
-    MultithreadedDistanceFunction mt_sdf = [&](const float3 &p, unsigned idx) -> float 
-                                           { return bvh[idx].get_signed_distance(p); };
+    MultithreadedDistanceFunction mt_sdf = [&, noisy](const float3 &p, unsigned idx) -> float 
+                                           { if (noisy) return bvh[idx].get_signed_distance(p)/* + (fmod(p.x * 153 + p.y * 427 + p.z * 311, 2.0) - 1) * 0.03*/; return bvh[idx].get_signed_distance(p); };
   
     std::vector<SdfFrameOctreeTexNode> frame = create_sdf_frame_octree_tex(settings, mesh);
     return frame_octree_to_SBS_tex(mt_sdf, max_threads, frame, header);
@@ -234,9 +234,9 @@ namespace sdf_converter
 
   SdfSBS create_sdf_SBS_col(SparseOctreeSettings settings, SdfSBSHeader header, const cmesh4::SimpleMesh &mesh, unsigned mat_id,
                             const std::vector<MultiRendererMaterial> &materials_lib, 
-                            const std::vector<std::shared_ptr<ICombinedImageSampler>> &textures_lib)
+                            const std::vector<std::shared_ptr<ICombinedImageSampler>> &textures_lib, bool noisy)
   {
-    SdfSBS sbs = create_sdf_SBS_tex(settings, header, mesh);
+    SdfSBS sbs = create_sdf_SBS_tex(settings, header, mesh, noisy);
 
     //same header, except for layout
     //same nodes and offsets (UV and RGB occupy the same space)
@@ -269,9 +269,9 @@ namespace sdf_converter
 
   SdfSBS create_sdf_SBS_indexed(SparseOctreeSettings settings, SdfSBSHeader header, const cmesh4::SimpleMesh &mesh, unsigned mat_id,
                                 const std::vector<MultiRendererMaterial> &materials_lib, 
-                                const std::vector<std::shared_ptr<ICombinedImageSampler>> &textures_lib)
+                                const std::vector<std::shared_ptr<ICombinedImageSampler>> &textures_lib, bool noisy)
   {
-    SdfSBS sbs = create_sdf_SBS_col(settings, header, mesh, mat_id, materials_lib, textures_lib);
+    SdfSBS sbs = create_sdf_SBS_col(settings, header, mesh, mat_id, materials_lib, textures_lib, noisy);
     return SBS_col_to_SBS_ind(sbs);
   }
 }

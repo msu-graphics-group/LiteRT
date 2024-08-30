@@ -72,13 +72,13 @@ namespace sdf_converter
 
   std::vector<SdfFrameOctreeTexNode> create_sdf_frame_octree_tex(SparseOctreeSettings settings, const cmesh4::SimpleMesh &mesh);
   
-  SdfSBS create_sdf_SBS_tex(SparseOctreeSettings settings, SdfSBSHeader header, const cmesh4::SimpleMesh &mesh);
+  SdfSBS create_sdf_SBS_tex(SparseOctreeSettings settings, SdfSBSHeader header, const cmesh4::SimpleMesh &mesh, bool noisy = false);
 
   SdfSBS create_sdf_SBS_col(SparseOctreeSettings settings, SdfSBSHeader header, const cmesh4::SimpleMesh &mesh, unsigned mat_id,
                             const std::vector<MultiRendererMaterial> &materials_lib, 
-                            const std::vector<std::shared_ptr<ICombinedImageSampler>> &textures_lib);
+                            const std::vector<std::shared_ptr<ICombinedImageSampler>> &textures_lib, bool noisy = false);
 
   SdfSBS create_sdf_SBS_indexed(SparseOctreeSettings settings, SdfSBSHeader header, const cmesh4::SimpleMesh &mesh, unsigned mat_id,
                                 const std::vector<MultiRendererMaterial> &materials_lib, 
-                                const std::vector<std::shared_ptr<ICombinedImageSampler>> &textures_lib);
+                                const std::vector<std::shared_ptr<ICombinedImageSampler>> &textures_lib, bool noisy = false);
 }
