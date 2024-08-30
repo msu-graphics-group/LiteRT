@@ -513,24 +513,16 @@ namespace dr
         //TODO: find internal borders
         float d0 = out_image[y*m_width + x].w;
         float max_diff = 0.0f;
-
-        float3 color0 = to_float3(out_image[y*m_width + x]);
-        float  max_color_diff = 0.0f;
-        float max_depth_diff = 0.0f;
+        float  max_depth_thr = 0.0f;
 
         for (int dx = -search_radius; dx <= search_radius; dx++)
         {
           for (int dy = -search_radius; dy <= search_radius; dy++)
           {
             float d = out_image[(y + dy) * m_width + x + dx].w;
-            max_diff = std::max(max_diff, std::abs(d0 - d));
 
-            float3 color = to_float3(out_image[(y + dy) * m_width + x + dx]);
-            max_color_diff = std::max(max_color_diff, length(color0 - color));
-            max_depth_diff = std::max(max_depth_diff, out_image_depth[(y + dy) * m_width + x + dx].w);
-
-            //max_window_depth = std::max(max_window_depth, out_image_depth[(y + dy) * m_width + x + dx].z);
-            //min_window_depth = std::min(min_window_depth, out_image_depth[(y + dy) * m_width + x + dx].y);
+            max_diff      = std::max(max_diff,      std::abs(d0 - out_image[(y + dy) * m_width + x + dx].w));
+            max_depth_thr = std::max(max_depth_thr, out_image_depth[(y + dy) * m_width + x + dx].w);
           }
         }
 
@@ -541,11 +533,9 @@ namespace dr
             is_border = max_diff > 0;
           break;
           case DR_RENDER_MODE_LINEAR_DEPTH:
-            is_border = max_diff > 0 || max_depth_diff > m_preset_dr.border_depth_threshold;
-          break;
           case DR_RENDER_MODE_DIFFUSE:
           case DR_RENDER_MODE_LAMBERT:
-            is_border = max_diff > 0 || max_color_diff > m_preset_dr.border_color_threshold || max_depth_diff > m_preset_dr.border_depth_threshold;
+            is_border = max_diff > 0 || max_depth_thr > 0;
           break;
           default:
             is_border = false;
@@ -818,6 +808,75 @@ namespace dr
     return color;
   }
 
+  // if returned threshold <= 0, it indicates smooth surface without depth discontinuity
+  float t_samples_to_threshold(const float *samples, unsigned count, float default_value, unsigned default_count)
+  {
+    constexpr int GISTO_SIZE = 10;
+    constexpr int GISTO_DISC_GAP = 4;
+
+    float depth_min = samples[0];
+    float depth_max = samples[0];
+    for (unsigned i = 1; i < count; i++)
+    {
+      depth_min = std::min(depth_min, samples[i]);
+      depth_max = std::max(depth_max, samples[i]);
+    }
+
+    if (default_count > 0)
+    {
+      depth_min = std::min(depth_min, default_value);
+      depth_max = std::max(depth_max, default_value);
+    }
+  
+    float depth_diff = std::max(1e-9f, depth_max - depth_min);
+
+    unsigned gisto[GISTO_SIZE] = {0};
+    for (int i = 0; i < count; i++)
+    {
+      float d = (samples[i] - depth_min) / depth_diff;
+      gisto[std::clamp(int(d * GISTO_SIZE), 0, GISTO_SIZE - 1)]++;
+    }
+
+    // add default values to the histogram
+    {
+      float default_d = (default_value - depth_min) / depth_diff;
+      gisto[std::clamp(int(default_d * GISTO_SIZE), 0, GISTO_SIZE - 1)] += default_count;
+    }
+
+    // find the longest gap in the histogram (gisto[0] and gisto[GISTO_SIZE-1] are always >0)
+    // if it long enough, we assume that there is depth discontinuity in this pixel
+    // we save assumed discontinuity threshold and gap length
+    int max_gap_length = 0;
+    int max_gap_start = -1;
+    int gap_start = -1;
+    for (int i = 1; i < GISTO_SIZE; i++)
+    {
+      if (gap_start != -1)
+      {
+        if (gisto[i] != 0) // gap end
+        {
+          int gap_length = i - gap_start;
+          if (gap_length > max_gap_length)
+          {
+            max_gap_length = gap_length;
+            max_gap_start = gap_start;
+          }
+          gap_start = -1;
+        }
+      }
+      else
+      {
+        if (gisto[i] == 0) // gap start
+          gap_start = i;
+      }
+    }
+
+    if (max_gap_length > GISTO_DISC_GAP)
+      return depth_min + depth_diff * (max_gap_start + 0.5f * max_gap_length) / GISTO_SIZE;
+    else
+      return 0.0f;
+  }
+
   float MultiRendererDR::CastRayWithGrad(uint32_t tidX, const float4 *image_ref, LiteMath::float4 *out_image, float *out_dLoss_dS,
                                          LiteMath::float4* out_image_depth, LiteMath::float4* out_image_debug, PDFinalColor *out_pd_tmp)
   {
@@ -832,18 +891,12 @@ namespace dr
     float3 debug_color = float3(0,0,0);
     float res_loss = 0.0f;
     int hit_count = 0;
-
-    float depth_min = 1e6f;
-    float depth_max = 0;
-    float depth_sum = 0;
-    float depth_tg  = 0;
-    std::vector<float4> samples(m_preset.spp, float4(0, 0, 0, 0));
+    std::vector<float> samples(m_preset.spp, 0.0f);
 
     uint32_t spp_sqrt = uint32_t(sqrt(m_preset.spp));
     float i_spp_sqrt = 1.0f/spp_sqrt;
     uint32_t color_pd_offset = 8*m_preset.spp;
     const float3 background_color = float3(0.0f, 0.0f, 0.0f);
-    const float  background_depth = 0.0f;
 
     uint32_t ray_flags;
     if (m_preset_dr.dr_diff_mode == DR_DIFF_MODE_FINITE_DIFF)
@@ -891,20 +944,13 @@ namespace dr
       if (hit.primId == 0xFFFFFFFF) //no hit
       {
         color = background_color;
-        depth_min = min(depth_min, background_depth);
-        depth_max = max(depth_max, background_depth);
       }
       else
       {
         color = CalculateColorWithGrad(hit, dColor_dDiffuse, dColor_dNorm);
 
-        depth_sum += hit.t;
-        depth_min = min(depth_min, hit.t);
-        depth_max = max(depth_max, hit.t);
-        samples[hit_count] = to_float4(to_float3(rayPosAndNear) + hit.t * to_float3(rayDirAndFar), hit.t);
-
         if (m_preset_dr.debug_render_mode != DR_DEBUG_RENDER_MODE_NONE)
-        debug_color += ApplyDebugColor(color, hit) / m_preset.spp;
+          debug_color += ApplyDebugColor(color, hit) / m_preset.spp;
 
         res_color += color / m_preset.spp;
 
@@ -941,6 +987,7 @@ namespace dr
           }
         }
 
+        samples[hit_count] = hit.t;
         hit_count++;
       }
     }
@@ -952,40 +999,13 @@ namespace dr
     {
       if (hit_count == 0)
       {
-        depth_sum = background_depth;
-        depth_min = background_depth;
-        depth_max = background_depth;
-        depth_tg  = 0.0f;
+        out_image_depth[y * m_width + x] = float4(0, 0, 0, 0);
       }
       else
       {
-        depth_sum /= hit_count;
+        float depth_thr = t_samples_to_threshold(samples.data(), hit_count, 1e9f, m_preset.spp - hit_count);
+        out_image_depth[y * m_width + x] = float4(0, 0, 0, depth_thr);
       }
-
-      float depth_diff = depth_max - depth_min;
-      //printf("lol\n");
-      for (int i = 0; i < hit_count; i++)
-      {
-        for (int j = 0; j < hit_count; j++)
-        {
-          float3 p1 = normalize(to_float3(samples[i]));
-          float  d1 = samples[i].w;
-          float3 p2 = normalize(to_float3(samples[j]));
-          float  d2 = samples[j].w;
-          float3 p3_raw = p2 - p1;
-          float l = length(p3_raw);
-
-          if (l > 1e-6f)
-          {
-            float3 p3 = p3_raw / l;
-            depth_tg = std::max(depth_tg, std::max(dot(p1,p3), dot(p2,p3)));
-            //printf("depth_tg = %f d = (%f %f), p1 = (%f %f %f), p2 = (%f %f %f) len = %f %f\n", depth_tg,
-            //       d1, d2, p1.x, p1.y, p1.z, p2.x, p2.y, p2.z, length(p1), length(p2));
-          }
-        }
-      }
-     // printf("depth = %f %f %f %f\n", depth_sum, depth_min, depth_max, depth_diff);
-      out_image_depth[y * m_width + x] = float4(depth_sum, depth_min, depth_max, depth_tg);
     }
 
     res_loss = Loss(m_preset_dr.dr_loss_function, color_mask, image_ref[y * m_width + x]);
@@ -1267,7 +1287,7 @@ namespace dr
     //step 1: cast some rays to provide data for SVM
 
     std::vector<float3> X_mod(svm_spp);
-    unsigned background_samples_count = 0;
+    std::vector<float> t_samples(svm_spp);
     for (int sample_id = 0; sample_id < svm_spp; sample_id++)
     {
       float2 d = rand2(x, y, sample_id);
@@ -1277,22 +1297,31 @@ namespace dr
       RayDiffPayload payload; //TODO remove it, as we dont want calculate any differences here
       CRT_HitDR hit = ((BVHDR *)m_pAccelStruct.get())->RayQuery_NearestHitWithGrad(DR_RAY_FLAG_NO_DIFF, rayPosAndNear, rayDirAndFar, &payload);
 
-      float y = hit.primId == 0xFFFFFFFF ? -1 : 1;
-      background_samples_count += (hit.primId == 0xFFFFFFFF ? 1 : 0);
-      X_mod[sample_id] = y*float3(d.x, d.y, 1);
+      X_mod[sample_id] = float3(d.x, d.y, 1);
+      t_samples[sample_id] = hit.t;
+    }
+
+    const float t_threshold = t_samples_to_threshold(t_samples.data(), svm_spp, 0, 0);
+    unsigned type_0_samples_count = 0;
+    for (int sample_id = 0; sample_id < svm_spp; sample_id++)
+    {
+      float t = t_samples[sample_id];
+      float y = t <= t_threshold ? -1 : 1;
+      type_0_samples_count += (t <= t_threshold ? 1 : 0);
+      X_mod[sample_id] *= y;
 
       if (m_preset_dr.debug_border_samples || m_preset_dr.debug_border_samples_mega_image)
       {
-        samples_debug_pos_size[sample_id] = float4(d.x, d.y, 0, 1.0f/MEGA_PIXEL_SIZE);
-        if (hit.primId == 0xFFFFFFFF) //background
+        samples_debug_pos_size[sample_id] = float4(std::abs(X_mod[sample_id].x), std::abs(X_mod[sample_id].y), 0, 1.0f/MEGA_PIXEL_SIZE);
+        if (t_samples[sample_id] >= 1e6f) //background
           samples_debug_color[sample_id] = float4(0.05, 0.05, 0.05, 1);
         else //hit
-          samples_debug_color[sample_id] = float4(1, 0, 0, 1);
+          samples_debug_color[sample_id] = float4(t_samples[sample_id] <= t_threshold ? 0 : 1, t_samples[sample_id] <= t_threshold ? 1 : 0, 0, 1);
       }
     }
 
     //if all samples are of one type, return
-    if (background_samples_count == svm_spp || background_samples_count == 0)
+    if (type_0_samples_count == svm_spp || type_0_samples_count == 0)
       return;
 
     //step 2: train SVM
@@ -1425,7 +1454,7 @@ namespace dr
         else if (hit.primId == 0xFFFFFFFF) // background
           samples_debug_color[sample_id] = float4(0.05, 0.05, 0.05, 1);
         else // hit
-          samples_debug_color[sample_id] = float4(1, 0, 0, 1);
+          samples_debug_color[sample_id] = float4(hit.t <= t_threshold ? 0 : 1, hit.t <= t_threshold ? 1 : 0, 0, 1);
       }
     }
 
