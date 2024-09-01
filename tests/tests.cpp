@@ -138,10 +138,10 @@ void litert_test_3_SBS_verify()
   cmesh4::rescale_mesh(mesh, float3(-0.9, -0.9, -0.9), float3(0.9, 0.9, 0.9));
 
   SparseOctreeSettings settings(SparseOctreeBuildType::DEFAULT, 8);
-  SdfSBSHeader header_1_1{1,0,1,2};
-  SdfSBSHeader header_1_2{1,0,2,2};
-  SdfSBSHeader header_2_1{2,0,1,3};
-  SdfSBSHeader header_2_2{2,0,2,3};
+  SdfSBSHeader header_1_1{1,0,1,SDF_SBS_NODE_LAYOUT_DX};
+  SdfSBSHeader header_1_2{1,0,2,SDF_SBS_NODE_LAYOUT_DX};
+  SdfSBSHeader header_2_1{2,0,1,SDF_SBS_NODE_LAYOUT_DX};
+  SdfSBSHeader header_2_2{2,0,2,SDF_SBS_NODE_LAYOUT_DX};
 
   SdfSBS sbs_1_1 = sdf_converter::create_sdf_SBS(settings, header_1_1, mesh);
   SdfSBS sbs_1_2 = sdf_converter::create_sdf_SBS(settings, header_1_2, mesh);
@@ -537,7 +537,7 @@ void litert_test_10_save_load()
     std::vector<SdfOctreeNode> octree_nodes = sdf_converter::create_sdf_octree(settings, mesh);
     std::vector<SdfFrameOctreeNode> frame_nodes = sdf_converter::create_sdf_frame_octree(settings, mesh);
     std::vector<SdfSVSNode> svs_nodes = sdf_converter::create_sdf_SVS(settings, mesh);
-    SdfSBS sbs = sdf_converter::create_sdf_SBS(settings, SdfSBSHeader{1, 0, 1, 2}, mesh);
+    SdfSBS sbs = sdf_converter::create_sdf_SBS(settings, SdfSBSHeader{1, 0, 1, SDF_SBS_NODE_LAYOUT_DX}, mesh);
 
     save_sdf_octree(octree_nodes, "saves/test_10_octree.bin");
     save_sdf_frame_octree(frame_nodes, "saves/test_10_frame_octree.bin");
@@ -962,6 +962,7 @@ void litert_test_17_all_types_sanity_check()
     header.brick_size = 2;
     header.brick_pad = 0;
     header.bytes_per_value = 1;
+    header.aux_data = SDF_SBS_NODE_LAYOUT_DX;
 
     auto sbs = sdf_converter::create_sdf_SBS(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 8, 64*64*64), header, mesh);
     auto pRender = CreateMultiRenderer("GPU");
@@ -1776,6 +1777,7 @@ void litert_test_26_sbs_shallow_bvh()
     header.brick_size = brick_size;
     header.brick_pad = 0;
     header.bytes_per_value = 2;
+    header.aux_data = SDF_SBS_NODE_LAYOUT_DX;
 
     auto sbs = sdf_converter::create_sdf_SBS(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 5), header, mesh);
 
@@ -1975,7 +1977,7 @@ void litert_test_27_textured_colored_SBS()
 
 void perform_tests_litert(const std::vector<int> &test_ids)
 {
-  litert_test_9_mesh();
+  //litert_test_9_mesh();
   //litert_test_2_SVS();
   litert_test_3_SBS_verify();
   //litert_test_20_radiance_fields();
