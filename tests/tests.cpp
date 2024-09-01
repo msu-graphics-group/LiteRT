@@ -1975,10 +1975,11 @@ void litert_test_27_textured_colored_SBS()
 
 void perform_tests_litert(const std::vector<int> &test_ids)
 {
-  litert_test_2_SVS();
+  litert_test_9_mesh();
+  //litert_test_2_SVS();
   litert_test_3_SBS_verify();
   //litert_test_20_radiance_fields();
-  litert_test_23_textured_sdf();
+  //litert_test_23_textured_sdf();
   //litert_test_27_textured_colored_SBS();
   return;
 

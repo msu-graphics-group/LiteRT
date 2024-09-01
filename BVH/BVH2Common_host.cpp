@@ -142,7 +142,7 @@ void BVHRT::UpdateGeom_Triangles3f(uint32_t a_geomId, const float *a_vpos3f, siz
   std::cout << "[BVHRT::UpdateGeom_Triangles3f]: " << "not implemeted!" << std::endl; // not planned for this implementation (possible in general)
 }
 
-uint32_t BVHRT::AddGeom_AABB(uint32_t a_typeId, const CRT_AABB* boxMinMaxF8, size_t a_boxNumber)
+uint32_t BVHRT::AddGeom_AABB(uint32_t a_typeId, const CRT_AABB* boxMinMaxF8, size_t a_boxNumber, void** a_customPrimPtrs, size_t a_customPrimCount)
 {
   // append data to global arrays and fix offsets
   auto presets = BuilderPresetsFromString(m_buildName.c_str());
@@ -157,9 +157,14 @@ uint32_t BVHRT::AddGeom_AABB(uint32_t a_typeId, const CRT_AABB* boxMinMaxF8, siz
   return uint32_t(startEnd.size() - 1);
 }
 
-void BVHRT::UpdateGeom_AABB(uint32_t a_geomId, uint32_t a_typeId, const CRT_AABB* boxMinMaxF8, size_t a_boxNumber)
+void BVHRT::UpdateGeom_AABB(uint32_t a_geomId, uint32_t a_typeId, const CRT_AABB* boxMinMaxF8, size_t a_boxNumber, void** a_customPrimPtrs, size_t a_customPrimCount)
 {
   std::cout << "[BVHRT::UpdateGeom_AABB]: " << "not implemeted!" << std::endl; // not planned for this implementation (possible in general)
+}
+
+uint32_t BVHRT::AddGeom_AABB(uint32_t a_typeId, const CRT_AABB* boxMinMaxF8, size_t a_boxNumber)
+{
+  return AddGeom_AABB(a_typeId, boxMinMaxF8, a_boxNumber, nullptr, 0);
 }
 
 uint32_t BVHRT::AddGeom_RFScene(RFScene grid, BuildOptions a_qualityLevel)

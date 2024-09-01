@@ -19,7 +19,12 @@ FetchContent_Declare(
   URL      https://github.com/msu-graphics-group/LiteScene/archive/refs/heads/main.zip
   SOURCE_DIR dependencies/LiteScene
 )
-FetchContent_MakeAvailable(LiteMath LiteScene)
+FetchContent_Declare(
+  CrossRT
+  URL      https://github.com/msu-graphics-group/CrossRT/archive/refs/heads/main.zip
+  SOURCE_DIR dependencies/CrossRT
+)
+FetchContent_MakeAvailable(LiteMath LiteScene CrossRT)
 
 include_directories(${CMAKE_SOURCE_DIR})
 include_directories(${CMAKE_SOURCE_DIR}/dependencies)

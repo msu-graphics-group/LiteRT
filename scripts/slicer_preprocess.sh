@@ -5,7 +5,7 @@ cd $1
 
 $2 $start_dir/Renderer/eye_ray.cpp $start_dir/BVH/BVH2Common.cpp \
 -mainClass MultiRenderer \
--composInterface ISceneObject \
+-composInterface ISceneObject2 \
 -composImplementation BVHRT \
 -stdlibfolder $PWD/TINYSTL \
 -pattern rtv \
