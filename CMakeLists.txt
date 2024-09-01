@@ -123,11 +123,13 @@ if (MODULE_VULKAN)
     volk
     URL      https://github.com/zeux/volk/archive/refs/heads/master.zip
     SOURCE_DIR dependencies/volk
+    DOWNLOAD_DIR dependencies
   )
   FetchContent_Declare(
     vkutils
     URL      https://github.com/msu-graphics-group/vk-utils/archive/refs/heads/master.zip
     SOURCE_DIR dependencies/vkutils
+    DOWNLOAD_DIR dependencies
   )
   FetchContent_MakeAvailable(volk vkutils)
 
@@ -152,7 +154,8 @@ if (MODULE_VULKAN)
                      ${CMAKE_SOURCE_DIR}/dependencies/vkutils/vk_context.cpp
                      ${CMAKE_SOURCE_DIR}/dependencies/vkutils/vk_alloc_simple.cpp
                      ${CMAKE_SOURCE_DIR}/dependencies/vkutils/vk_pipeline.cpp
-                     ${CMAKE_SOURCE_DIR}/dependencies/vkutils/vk_descriptor_sets.cpp)   
+                     ${CMAKE_SOURCE_DIR}/dependencies/vkutils/vk_descriptor_sets.cpp
+                     ${CMAKE_SOURCE_DIR}/dependencies/vkutils/ray_tracing/vk_rt_utils.cpp)    
 
   set(MODULES_SRC ${MODULES_SRC} ${VKGEN_SOURCE} ${VKUTILS_SOURCE})
 
