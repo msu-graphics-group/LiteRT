@@ -22,31 +22,31 @@ uint32_t type_to_tag(uint32_t type)
   switch (type)
   {
   case TYPE_MESH_TRIANGLE:
-    return GeomData::TAG_TRIANGLE;
+    return AbstractObject::TAG_TRIANGLE;
 
   case TYPE_SDF_GRID:
   case TYPE_SDF_OCTREE:
-    return GeomData::TAG_SDF_GRID;
+    return AbstractObject::TAG_SDF_GRID;
   
   case TYPE_RF_GRID:
-    return GeomData::TAG_RF;
+    return AbstractObject::TAG_RF;
   
   case TYPE_GS_PRIMITIVE:
-    return GeomData::TAG_GS;
+    return AbstractObject::TAG_GS;
   
   case TYPE_SDF_SVS:
   case TYPE_SDF_SBS:
   case TYPE_SDF_FRAME_OCTREE:
   case TYPE_SDF_FRAME_OCTREE_TEX:
-    return GeomData::TAG_SDF_NODE;
+    return AbstractObject::TAG_SDF_NODE;
   
   case TYPE_SDF_SBS_SINGLE_NODE:
   case TYPE_SDF_SBS_TEX:
   case TYPE_SDF_SBS_COL:
-    return GeomData::TAG_SDF_BRICK;
+    return AbstractObject::TAG_SDF_BRICK;
   
   default:
-    return GeomData::TAG_UNKNOWN;
+    return AbstractObject::TAG_UNKNOWN;
   }
 }
 
@@ -119,14 +119,17 @@ uint32_t BVHRT::AddGeom_Triangles3f(const float* a_vpos3f, const float* a_vnorm3
   //
   const size_t oldBvhSize = m_allNodePairs.size();
 
-  m_geomData.resize(m_geomData.size() + 1); 
-  new (m_geomData.data() + m_geomData.size() - 1) GeomDataTriangle();
+  m_abstractObjects.resize(m_abstractObjects.size() + 1); 
+  new (m_abstractObjects.data() + m_abstractObjects.size() - 1) GeomDataTriangle();
+  m_abstractObjects.back().type = TYPE_MESH_TRIANGLE;
+  m_abstractObjects.back().m_tag = type_to_tag(m_abstractObjects.back().type);
+
+  m_geomData.emplace_back();
   m_geomData.back().boxMin = bbox.boxMin;
   m_geomData.back().boxMax = bbox.boxMax;
   m_geomData.back().offset = uint2(oldSizeInd, oldSizeVert);
   m_geomData.back().bvhOffset = oldBvhSize;
   m_geomData.back().type = TYPE_MESH_TRIANGLE;
-  m_geomData.back().m_tag = type_to_tag(m_geomData.back().type);
   
   auto presets = BuilderPresetsFromString(m_buildName.c_str());
   auto layout  = LayoutPresetsFromString(m_layoutName.c_str());
@@ -174,14 +177,17 @@ uint32_t BVHRT::AddGeom_RFScene(RFScene grid, BuildOptions a_qualityLevel)
   float4 mx = float4( 1, 1, 1,1);
 
   //fill geom data array
-  m_geomData.resize(m_geomData.size() + 1); 
-  new (m_geomData.data() + m_geomData.size() - 1) GeomDataRF();
+  m_abstractObjects.resize(m_abstractObjects.size() + 1); 
+  new (m_abstractObjects.data() + m_abstractObjects.size() - 1) GeomDataRF();
+  m_abstractObjects.back().type = TYPE_RF_GRID;
+  m_abstractObjects.back().m_tag = type_to_tag(m_abstractObjects.back().type);
+
+  m_geomData.emplace_back();
   m_geomData.back().boxMin = mn;
   m_geomData.back().boxMax = mx;
   m_geomData.back().offset = uint2(m_RFGridOffsets.size(), 0);
   m_geomData.back().bvhOffset = m_allNodePairs.size();
   m_geomData.back().type = TYPE_RF_GRID;
-  m_geomData.back().m_tag = type_to_tag(m_geomData.back().type);
 
   //fill grid-specific data arrays
   m_RFGridOffsets.push_back(m_RFGridData.size());
@@ -203,7 +209,7 @@ uint32_t BVHRT::AddGeom_RFScene(RFScene grid, BuildOptions a_qualityLevel)
       << (m_RFGridData.size() * sizeof(float) / 1024 / 1024 + m_RFGridPtrs.size() * sizeof(uint4) / 1024 / 1024) 
       << " MB for model" << std::endl;
   
-  return AddGeom_AABB(GeomData::TAG_RF, (const CRT_AABB*)m_origNodes.data(), m_origNodes.size());
+  return AddGeom_AABB(AbstractObject::TAG_RF, (const CRT_AABB*)m_origNodes.data(), m_origNodes.size());
 }
 
 float4x4 Transpose(float4x4& a) {
@@ -290,21 +296,23 @@ std::vector<float4x4> InvertMatrices(std::vector<float4x4>&& matrices) {
 
 uint32_t BVHRT::AddGeom_GSScene(GSScene grid, BuildOptions a_qualityLevel) 
 {
-  m_geomData.resize(m_geomData.size() + 1); 
-  new (m_geomData.data() + m_geomData.size() - 1) GeomDataGS();
-    
+  m_abstractObjects.resize(m_abstractObjects.size() + 1); 
+  new (m_abstractObjects.data() + m_abstractObjects.size() - 1) GeomDataGS();
+  m_abstractObjects.back().type = TYPE_GS_PRIMITIVE;
+  m_abstractObjects.back().m_tag = type_to_tag(m_abstractObjects.back().type);
+
+  m_geomData.emplace_back();
   m_geomData.back().boxMin = float4(-1.0f, -1.0f, -1.0f, 1.0f);
   m_geomData.back().boxMax = float4(1.0f, 1.0f, 1.0f, 1.0f);
   m_geomData.back().offset = uint2(grid.data_0.size(), 0);
   m_geomData.back().bvhOffset = m_allNodePairs.size();
   m_geomData.back().type = TYPE_GS_PRIMITIVE;
-  m_geomData.back().m_tag = type_to_tag(m_geomData.back().type);
 
   m_gs_data_0 = grid.data_0;
   m_gs_conic = InvertMatrices(ComputeCovarianceMatrices(m_gs_data_0));
   m_origNodes = GetBoxes_GSGrid(grid);
     
-  return AddGeom_AABB(GeomData::TAG_GS, (const CRT_AABB*)m_origNodes.data(), m_origNodes.size());
+  return AddGeom_AABB(AbstractObject::TAG_GS, (const CRT_AABB*)m_origNodes.data(), m_origNodes.size());
 }
 
 uint32_t BVHRT::AddGeom_SdfGrid(SdfGridView grid, BuildOptions a_qualityLevel)
@@ -316,14 +324,17 @@ uint32_t BVHRT::AddGeom_SdfGrid(SdfGridView grid, BuildOptions a_qualityLevel)
   float4 mx = float4( 1, 1, 1,1);
 
   //fill geom data array
-  m_geomData.resize(m_geomData.size() + 1); 
-  new (m_geomData.data() + m_geomData.size() - 1) GeomDataSdfGrid();
+  m_abstractObjects.resize(m_abstractObjects.size() + 1); 
+  new (m_abstractObjects.data() + m_abstractObjects.size() - 1) GeomDataSdfGrid();
+  m_abstractObjects.back().type = TYPE_SDF_GRID;
+  m_abstractObjects.back().m_tag = type_to_tag(m_abstractObjects.back().type);
+
+  m_geomData.emplace_back();
   m_geomData.back().boxMin = mn;
   m_geomData.back().boxMax = mx;
   m_geomData.back().offset = uint2(m_SdfGridOffsets.size(), 0);
   m_geomData.back().bvhOffset = m_allNodePairs.size();
   m_geomData.back().type = TYPE_SDF_GRID;
-  m_geomData.back().m_tag = type_to_tag(m_geomData.back().type);
 
   //fill grid-specific data arrays
   m_SdfGridOffsets.push_back(m_SdfGridData.size());
@@ -333,7 +344,7 @@ uint32_t BVHRT::AddGeom_SdfGrid(SdfGridView grid, BuildOptions a_qualityLevel)
   //create list of bboxes for BLAS
   std::vector<BVHNode> orig_nodes = GetBoxes_SdfGrid(grid);
   
-  return AddGeom_AABB(GeomData::TAG_SDF_GRID, (const CRT_AABB*)orig_nodes.data(), orig_nodes.size());
+  return AddGeom_AABB(AbstractObject::TAG_SDF_GRID, (const CRT_AABB*)orig_nodes.data(), orig_nodes.size());
 }
 
 uint32_t BVHRT::AddGeom_SdfOctree(SdfOctreeView octree, BuildOptions a_qualityLevel)
@@ -345,14 +356,17 @@ uint32_t BVHRT::AddGeom_SdfOctree(SdfOctreeView octree, BuildOptions a_qualityLe
   float4 mx = float4( 1, 1, 1,1);
 
   //fill geom data array
-  m_geomData.resize(m_geomData.size() + 1); 
-  new (m_geomData.data() + m_geomData.size() - 1) GeomDataSdfGrid();
+  m_abstractObjects.resize(m_abstractObjects.size() + 1); 
+  new (m_abstractObjects.data() + m_abstractObjects.size() - 1) GeomDataSdfGrid();
+  m_abstractObjects.back().type = TYPE_SDF_OCTREE;
+  m_abstractObjects.back().m_tag = type_to_tag(m_abstractObjects.back().type);
+
+  m_geomData.emplace_back();
   m_geomData.back().boxMin = mn;
   m_geomData.back().boxMax = mx;
   m_geomData.back().offset = uint2(m_SdfOctreeRoots.size(), 0);
   m_geomData.back().bvhOffset = m_allNodePairs.size();
   m_geomData.back().type = TYPE_SDF_OCTREE;
-  m_geomData.back().m_tag = type_to_tag(m_geomData.back().type);
 
   //fill octree-specific data arrays
   m_SdfOctreeRoots.push_back(m_SdfOctreeNodes.size());
@@ -363,7 +377,7 @@ uint32_t BVHRT::AddGeom_SdfOctree(SdfOctreeView octree, BuildOptions a_qualityLe
   //create list of bboxes for BLAS
   std::vector<BVHNode> orig_nodes = GetBoxes_SdfOctree(octree);
   
-  return AddGeom_AABB(GeomData::TAG_SDF_GRID, (const CRT_AABB*)orig_nodes.data(), orig_nodes.size());
+  return AddGeom_AABB(AbstractObject::TAG_SDF_GRID, (const CRT_AABB*)orig_nodes.data(), orig_nodes.size());
 }
 
 uint32_t BVHRT::AddGeom_SdfFrameOctree(SdfFrameOctreeView octree, BuildOptions a_qualityLevel)
@@ -375,14 +389,17 @@ uint32_t BVHRT::AddGeom_SdfFrameOctree(SdfFrameOctreeView octree, BuildOptions a
   float4 mx = float4( 1, 1, 1,1);
 
   //fill geom data array
-  m_geomData.resize(m_geomData.size() + 1); 
-  new (m_geomData.data() + m_geomData.size() - 1) GeomDataSdfNode();
+  m_abstractObjects.resize(m_abstractObjects.size() + 1); 
+  new (m_abstractObjects.data() + m_abstractObjects.size() - 1) GeomDataSdfGrid();
+  m_abstractObjects.back().type = TYPE_SDF_FRAME_OCTREE;
+  m_abstractObjects.back().m_tag = type_to_tag(m_abstractObjects.back().type);
+
+  m_geomData.emplace_back();
   m_geomData.back().boxMin = mn;
   m_geomData.back().boxMax = mx;
   m_geomData.back().offset = uint2(m_SdfFrameOctreeRoots.size(), 0);
   m_geomData.back().bvhOffset = m_allNodePairs.size();
   m_geomData.back().type = TYPE_SDF_FRAME_OCTREE;
-  m_geomData.back().m_tag = type_to_tag(m_geomData.back().type);
 
   //fill octree-specific data arrays
   unsigned n_offset = m_SdfFrameOctreeNodes.size();
@@ -395,7 +412,7 @@ uint32_t BVHRT::AddGeom_SdfFrameOctree(SdfFrameOctreeView octree, BuildOptions a
   std::vector<BVHNode> orig_nodes = GetBoxes_SdfFrameOctree(octree);
   m_origNodes = orig_nodes;
   
-  return AddGeom_AABB(GeomData::TAG_SDF_NODE, (const CRT_AABB*)orig_nodes.data(), orig_nodes.size());
+  return AddGeom_AABB(AbstractObject::TAG_SDF_NODE, (const CRT_AABB*)orig_nodes.data(), orig_nodes.size());
 }
 
 uint32_t BVHRT::AddGeom_SdfSVS(SdfSVSView octree, BuildOptions a_qualityLevel)
@@ -431,14 +448,17 @@ uint32_t BVHRT::AddGeom_SdfSVS(SdfSVSView octree, BuildOptions a_qualityLevel)
   }*/ 
 
   //fill geom data array
-  m_geomData.resize(m_geomData.size() + 1); 
-  new (m_geomData.data() + m_geomData.size() - 1) GeomDataSdfNode();
+  m_abstractObjects.resize(m_abstractObjects.size() + 1); 
+  new (m_abstractObjects.data() + m_abstractObjects.size() - 1) GeomDataSdfNode();
+  m_abstractObjects.back().type = TYPE_SDF_SVS;
+  m_abstractObjects.back().m_tag = type_to_tag(m_abstractObjects.back().type);
+
+  m_geomData.emplace_back();
   m_geomData.back().boxMin = mn;
   m_geomData.back().boxMax = mx;
   m_geomData.back().offset = uint2(m_SdfSVSRoots.size(), 0);
   m_geomData.back().bvhOffset = m_allNodePairs.size();
   m_geomData.back().type = TYPE_SDF_SVS;
-  m_geomData.back().m_tag = type_to_tag(m_geomData.back().type);
 
   //fill octree-specific data arrays
   unsigned n_offset = m_SdfSVSNodes.size();
@@ -457,7 +477,7 @@ uint32_t BVHRT::AddGeom_SdfSVS(SdfSVSView octree, BuildOptions a_qualityLevel)
     orig_nodes[i].boxMax = orig_nodes[i].boxMin + 2.0f*float3(1,1,1)/sz;
   }
 
-  return AddGeom_AABB(GeomData::TAG_SDF_NODE, (const CRT_AABB*)orig_nodes.data(), orig_nodes.size());
+  return AddGeom_AABB(AbstractObject::TAG_SDF_NODE, (const CRT_AABB*)orig_nodes.data(), orig_nodes.size());
 }
 
 uint32_t BVHRT::AddGeom_SdfSBS(SdfSBSView octree, bool single_bvh_node, BuildOptions a_qualityLevel)
@@ -491,24 +511,23 @@ uint32_t BVHRT::AddGeom_SdfSBS(SdfSBSView octree, bool single_bvh_node, BuildOpt
   float4 mx = float4( 1, 1, 1,1);
 
   //fill geom data array
-  m_geomData.resize(m_geomData.size() + 1); 
-  uint32_t typeTag = 0;
+  m_abstractObjects.resize(m_abstractObjects.size() + 1); 
+  uint32_t typeTag = type_to_tag(type);
   if (is_single_node) 
-  {
-    typeTag = GeomData::TAG_SDF_NODE;
-    new (m_geomData.data() + m_geomData.size() - 1) GeomDataSdfNode();
-  }
+    new (m_abstractObjects.data() + m_abstractObjects.size() - 1) GeomDataSdfBrick();
   else
-  {
-    typeTag = GeomData::TAG_SDF_BRICK;
-    new (m_geomData.data() + m_geomData.size() - 1) GeomDataSdfBrick();
-  }
+    new (m_abstractObjects.data() + m_abstractObjects.size() - 1) GeomDataSdfNode();
+
+  m_abstractObjects.back().type = type;
+  m_abstractObjects.back().m_tag = typeTag;
+
+
+  m_geomData.emplace_back();
   m_geomData.back().boxMin = mn;
   m_geomData.back().boxMax = mx;
   m_geomData.back().offset = uint2(m_SdfSBSRoots.size(), m_SdfSBSRemap.size());
   m_geomData.back().bvhOffset = m_allNodePairs.size();
   m_geomData.back().type = type;
-  m_geomData.back().m_tag = type_to_tag(m_geomData.back().type);
 
   //fill octree-specific data arrays
   unsigned n_offset = m_SdfSBSNodes.size();
@@ -616,14 +635,17 @@ uint32_t BVHRT::AddGeom_SdfFrameOctreeTex(SdfFrameOctreeTexView octree, BuildOpt
   float4 mx = float4( 1, 1, 1,1);
 
   //fill geom data array
-  m_geomData.resize(m_geomData.size() + 1); 
-  new (m_geomData.data() + m_geomData.size() - 1) GeomDataSdfNode();
+  m_abstractObjects.resize(m_abstractObjects.size() + 1); 
+  new (m_abstractObjects.data() + m_abstractObjects.size() - 1) GeomDataSdfNode();
+  m_abstractObjects.back().type = TYPE_SDF_FRAME_OCTREE_TEX;
+  m_abstractObjects.back().m_tag = type_to_tag(m_abstractObjects.back().type);
+
+  m_geomData.emplace_back();
   m_geomData.back().boxMin = mn;
   m_geomData.back().boxMax = mx;
   m_geomData.back().offset = uint2(m_SdfFrameOctreeTexRoots.size(), 0);
   m_geomData.back().bvhOffset = m_allNodePairs.size();
   m_geomData.back().type = TYPE_SDF_FRAME_OCTREE_TEX;
-  m_geomData.back().m_tag = type_to_tag(m_geomData.back().type);
 
   //fill octree-specific data arrays
   unsigned n_offset = m_SdfFrameOctreeTexNodes.size();
@@ -636,7 +658,7 @@ uint32_t BVHRT::AddGeom_SdfFrameOctreeTex(SdfFrameOctreeTexView octree, BuildOpt
   std::vector<BVHNode> orig_nodes = GetBoxes_SdfFrameOctreeTex(octree);
   m_origNodes = orig_nodes;
   
-  return AddGeom_AABB(GeomData::TAG_SDF_NODE, (const CRT_AABB*)m_origNodes.data(), m_origNodes.size());
+  return AddGeom_AABB(AbstractObject::TAG_SDF_NODE, (const CRT_AABB*)m_origNodes.data(), m_origNodes.size());
 }
 
 void BVHRT::set_debug_mode(bool enable)
@@ -702,6 +724,14 @@ void BVHRT::CommitScene(uint32_t a_qualityLevel)
   }
 
   m_firstSceneCommit = false;
+
+  //Create a vector of pointers from geom data
+  //It is required to use virtual functions on GPU
+  //And call different intersection shaders for each type
+
+  m_abstractObjectPtrs.resize(m_abstractObjects.size());
+  for (size_t i = 0; i < m_abstractObjects.size(); i++)
+    m_abstractObjectPtrs[i] = m_abstractObjects.data() + i;
 }
 
 uint32_t BVHRT::AddInstance(uint32_t a_geomId, const float4x4 &a_matrix)

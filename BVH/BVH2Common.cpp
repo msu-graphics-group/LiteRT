@@ -45,43 +45,7 @@ void BVHRT::IntersectAllPrimitivesInLeaf(const float3 ray_pos, const float3 ray_
   const float SDF_BIAS = 0.1f;
   const float tNearSdf = std::max(tNear, SDF_BIAS);
   
-  (m_geomData.data() + geomId)->Intersect(type, ray_pos, ray_dir, tNearSdf, instId, geomId, a_start, a_count, pHit, this);
-
-/*
-  switch (type)
-  {
-  case TYPE_MESH_TRIANGLE:
-    IntersectAllTrianglesInLeaf(ray_pos, ray_dir, tNear, instId, geomId, a_start, a_count, pHit);
-    break;
-  case TYPE_SDF_GRID:
-  case TYPE_SDF_OCTREE:
-    IntersectAllSdfsInLeaf(ray_pos, ray_dir, tNearSdf, instId, geomId, a_start, a_count, pHit);
-    break;
-#ifndef DISABLE_RF_GRID
-  case TYPE_RF_GRID:
-    IntersectRFInLeaf(ray_pos, ray_dir, tNear, instId, geomId, a_start, a_count, pHit);
-    break;
-#endif
-#ifndef DISABLE_GS_PRIMITIVE
-  case TYPE_GS_PRIMITIVE:
-    IntersectGSInLeaf(ray_pos, ray_dir, tNear, instId, geomId, a_start, a_count, pHit);
-    break;
-#endif
-  case TYPE_SDF_SVS:
-  case TYPE_SDF_SBS:
-  case TYPE_SDF_FRAME_OCTREE:
-  case TYPE_SDF_FRAME_OCTREE_TEX:
-    OctreeNodeIntersect(type, ray_pos, ray_dir, tNearSdf, instId, geomId, a_start, a_count, pHit);
-    break;
-  case TYPE_SDF_SBS_SINGLE_NODE:
-  case TYPE_SDF_SBS_TEX:
-  case TYPE_SDF_SBS_COL:
-    OctreeBrickIntersect(type, ray_pos, ray_dir, tNearSdf, instId, geomId, a_start, a_count, pHit);
-    break;
-  default:
-    break;
-  }
-*/
+  m_abstractObjectPtrs[geomId]->Intersect(type, ray_pos, ray_dir, tNearSdf, instId, geomId, a_start, a_count, pHit, this);
 }
 
 float BVHRT::eval_dist_trilinear(const float values[8], float3 dp)

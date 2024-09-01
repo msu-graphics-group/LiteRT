@@ -43,6 +43,16 @@ static MultiRenderPreset getDefaultPreset()
 struct BVHRT;
 struct GeomData
 {
+  float4 boxMin;
+  float4 boxMax;
+
+  uint32_t bvhOffset;
+  uint32_t type; // enum GeomType
+  uint2 offset;
+};
+
+struct AbstractObject
+{
   static constexpr uint32_t TAG_UNKNOWN    = 0;    // !!! #REQUIRED by kernel slicer: Empty/Default impl must have zero both m_tag and offset
   static constexpr uint32_t TAG_TRIANGLE   = 1; 
   static constexpr uint32_t TAG_SDF_GRID   = 2; 
@@ -51,23 +61,15 @@ struct GeomData
   static constexpr uint32_t TAG_RF         = 5;
   static constexpr uint32_t TAG_GS         = 6;
 
-  GeomData(){}  // Dispatching on GPU hierarchy must not have destructors, especially virtual   
+  AbstractObject(){}  // Dispatching on GPU hierarchy must not have destructors, especially virtual   
   virtual uint32_t GetTag()   const  { return TAG_UNKNOWN; }; // !!! #REQUIRED by kernel slicer
   virtual uint32_t Intersect(uint32_t type, const float3 ray_pos, const float3 ray_dir,
                              float tNear, uint32_t instId, uint32_t geomId,
                              uint32_t a_start, uint32_t a_count,
                              CRT_Hit *pHit, BVHRT *bvhrt)   const  { return 0; }; // !!! #REQUIRED by kernel slicer
   //uint64_t vtable is here!
-  uint2 offset;
-
-  float4 boxMin;
-  float4 boxMax;
-
-  uint32_t bvhOffset;
-  uint32_t type; // enum GeomType
-
   uint32_t m_tag;// !!! #REQUIRED by kernel slicer with this specific name!
-  uint32_t _pad1;
+  uint32_t type;
 };
 
 // common data for arch instance on scene
@@ -332,6 +334,8 @@ struct BVHRT : public ISceneObject2
 
   //geometric data
   std::vector<GeomData> m_geomData;
+  std::vector<AbstractObject>   m_abstractObjects;
+  std::vector<AbstractObject *> m_abstractObjectPtrs;
   std::vector<uint2>    startEnd;
 
   //instance data
@@ -361,7 +365,7 @@ static bool need_normal(MultiRenderPreset preset)
          preset.render_mode == MULTI_RENDER_MODE_PHONG;
 }
 
-struct EmptyGeomData : public GeomData
+struct EmptyGeomData : public AbstractObject
 {
   EmptyGeomData() {m_tag = GetTag();} 
 
@@ -375,7 +379,7 @@ struct EmptyGeomData : public GeomData
   }
 };
 
-struct GeomDataTriangle : public GeomData
+struct GeomDataTriangle : public AbstractObject
 {
   GeomDataTriangle() {m_tag = GetTag();} 
 
@@ -391,7 +395,7 @@ struct GeomDataTriangle : public GeomData
   }  
 };
 
-struct GeomDataSdfGrid : public GeomData
+struct GeomDataSdfGrid : public AbstractObject
 {
   GeomDataSdfGrid() {m_tag = GetTag();} 
 
@@ -406,7 +410,7 @@ struct GeomDataSdfGrid : public GeomData
   }
 };
 
-struct GeomDataSdfNode : public GeomData
+struct GeomDataSdfNode : public AbstractObject
 {
   GeomDataSdfNode() {m_tag = GetTag();} 
 
@@ -421,7 +425,7 @@ struct GeomDataSdfNode : public GeomData
   }
 };
 
-struct GeomDataSdfBrick : public GeomData
+struct GeomDataSdfBrick : public AbstractObject
 {
   GeomDataSdfBrick() {m_tag = GetTag();} 
 
@@ -436,7 +440,7 @@ struct GeomDataSdfBrick : public GeomData
   }
 };
 
-struct GeomDataRF : public GeomData
+struct GeomDataRF : public AbstractObject
 {
   GeomDataRF() {m_tag = GetTag();} 
 
@@ -453,7 +457,7 @@ struct GeomDataRF : public GeomData
   }
 };
 
-struct GeomDataGS : public GeomData
+struct GeomDataGS : public AbstractObject
 {
   GeomDataGS() {m_tag = GetTag();} 
 
