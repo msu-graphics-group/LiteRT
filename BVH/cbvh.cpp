@@ -429,7 +429,8 @@ void BVHTree::Print(std::ostream& out)
 }
 
 BVHTreeCommon BuildBVH(const float *a_vpos3f, size_t a_vertNum, size_t a_vByteStride,
-                                     const uint32_t *a_indices, size_t a_indexNum, BuilderPresets a_presets)
+                       const uint32_t *a_indices, size_t a_indexNum, std::vector<uint32_t> &startCount,
+                       BuilderPresets a_presets)
 {
   const float4 *inVertices = (const float4 *)a_vpos3f;
   std::vector<float4> vertDataTemp;
@@ -492,10 +493,15 @@ BVHTreeCommon BuildBVH(const float *a_vpos3f, size_t a_vertNum, size_t a_vByteSt
   else 
     bvhData = BuildBVHEmbree(inVertices, a_vertNum, a_indices, a_indexNum, presets1);
 
+  unsigned leafId = 0;
   for (size_t i = 0; i < bvhData.nodes.size(); i++)
   {
     if (int(bvhData.nodes[i].leftOffset) < 0)
-      bvhData.nodes[i].leftOffset = PackOffsetAndSize(bvhData.intervals[i].start, bvhData.intervals[i].count);
+    {
+      bvhData.nodes[i].leftOffset = PackOffsetAndSize(leafId, 1);
+      startCount.push_back(PackOffsetAndSize(bvhData.intervals[i].start, bvhData.intervals[i].count));
+      leafId++;
+    }
   }
 
   if (a_presets.format == BVH4_LEFT_OFFSET) //

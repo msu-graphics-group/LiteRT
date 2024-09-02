@@ -45,7 +45,7 @@ void BVHRT::IntersectAllPrimitivesInLeaf(const float3 ray_pos, const float3 ray_
   const float SDF_BIAS = 0.1f;
   const float tNearSdf = std::max(tNear, SDF_BIAS);
   
-  m_abstractObjectPtrs[geomId]->Intersect(type, ray_pos, ray_dir, tNearSdf, instId, geomId, a_start, a_count, pHit, this);
+  //m_abstractObjectPtrs[geomId]->Intersect(type, ray_pos, ray_dir, tNearSdf, instId, geomId, a_start, a_count, pHit, this);
 }
 
 float BVHRT::eval_dist_trilinear(const float values[8], float3 dp)
@@ -1553,9 +1553,14 @@ void BVHRT::BVH2TraverseF32(const float3 ray_pos, const float3 ray_dir, float tN
     //
     if (top >= 0 && leftNodeOffset != 0xFFFFFFFF)
     {
-      const uint32_t start = EXTRACT_START(leftNodeOffset);
-      const uint32_t count = EXTRACT_COUNT(leftNodeOffset);
-      IntersectAllPrimitivesInLeaf(ray_pos, ray_dir, tNear, instId, geomId, start, count, pHit);
+      CRT_LeafInfo leafInfo;
+      leafInfo.aabbId = EXTRACT_START(leftNodeOffset);
+      leafInfo.instId = instId;
+
+      const float SDF_BIAS = 0.1f;
+      const float tNearSdf = std::max(tNear, SDF_BIAS);
+  
+      m_abstractObjectPtrs[geomId]->Intersect( to_float4(ray_pos, tNearSdf), to_float4(ray_dir, 1e9f), leafInfo, pHit, this);
     }
 
     // continue BVH traversal

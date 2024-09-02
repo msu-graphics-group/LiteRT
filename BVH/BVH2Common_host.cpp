@@ -46,7 +46,7 @@ uint32_t type_to_tag(uint32_t type)
     return AbstractObject::TAG_SDF_BRICK;
   
   default:
-    return AbstractObject::TAG_UNKNOWN;
+    return AbstractObject::TAG_NONE;
   }
 }
 
@@ -121,8 +121,8 @@ uint32_t BVHRT::AddGeom_Triangles3f(const float* a_vpos3f, const float* a_vnorm3
 
   m_abstractObjects.resize(m_abstractObjects.size() + 1); 
   new (m_abstractObjects.data() + m_abstractObjects.size() - 1) GeomDataTriangle();
-  m_abstractObjects.back().type = TYPE_MESH_TRIANGLE;
-  m_abstractObjects.back().m_tag = type_to_tag(m_abstractObjects.back().type);
+  m_abstractObjects.back().geomId = m_abstractObjects.size() - 1;
+  m_abstractObjects.back().m_tag = type_to_tag(TYPE_MESH_TRIANGLE);
 
   m_geomData.emplace_back();
   m_geomData.back().boxMin = bbox.boxMin;
@@ -130,14 +130,20 @@ uint32_t BVHRT::AddGeom_Triangles3f(const float* a_vpos3f, const float* a_vnorm3
   m_geomData.back().offset = uint2(oldSizeInd, oldSizeVert);
   m_geomData.back().bvhOffset = oldBvhSize;
   m_geomData.back().type = TYPE_MESH_TRIANGLE;
+
+  std::vector<unsigned> startCount;
   
   auto presets = BuilderPresetsFromString(m_buildName.c_str());
   auto layout  = LayoutPresetsFromString(m_layoutName.c_str());
-  auto bvhData = BuildBVHFat((const float*)(m_vertPos.data() + oldSizeVert), a_vertNumber, 16, a_triIndices, a_indNumber, presets, layout);
+  auto bvhData = BuildBVHFat((const float*)(m_vertPos.data() + oldSizeVert), a_vertNumber, 16, a_triIndices, a_indNumber, startCount, presets, layout);
 
   AppendTreeData(bvhData.nodes, bvhData.indices, a_triIndices, a_indNumber);
 
-  return currGeomId;
+  const size_t oldSize = m_primIdCount.size();
+  m_primIdCount.insert(m_primIdCount.begin(), startCount.begin(), startCount.end());
+  startEnd.push_back(uint2(uint32_t(oldSize), uint32_t(m_primIdCount.size())));
+
+  return uint32_t(startEnd.size() - 1);
 }
 
 void BVHRT::UpdateGeom_Triangles3f(uint32_t a_geomId, const float *a_vpos3f, size_t a_vertNumber, const uint32_t *a_triIndices, size_t a_indNumber, uint32_t a_qualityLevel, size_t vByteStride)
@@ -152,10 +158,13 @@ uint32_t BVHRT::AddGeom_AABB(uint32_t a_typeId, const CRT_AABB* boxMinMaxF8, siz
   auto layout  = LayoutPresetsFromString(m_layoutName.c_str());
   auto bvhData = BuildBVHFatCustom((const BVHNode*)boxMinMaxF8, a_boxNumber, presets, layout);
   
-  const size_t oldSize = m_allNodePairs.size();
   m_allNodePairs.insert(m_allNodePairs.end(), bvhData.nodes.begin(), bvhData.nodes.end());
-  
-  startEnd.push_back(uint2(uint32_t(oldSize), uint32_t(m_allNodePairs.size())));
+
+  const size_t oldSize = m_primIdCount.size();
+  m_primIdCount.resize(oldSize + a_boxNumber);
+  for (int i=0; i<a_boxNumber; i++)
+    m_primIdCount[oldSize+i] = i;
+  startEnd.push_back(uint2(uint32_t(oldSize), uint32_t(m_primIdCount.size())));
 
   return uint32_t(startEnd.size() - 1);
 }
@@ -179,8 +188,8 @@ uint32_t BVHRT::AddGeom_RFScene(RFScene grid, BuildOptions a_qualityLevel)
   //fill geom data array
   m_abstractObjects.resize(m_abstractObjects.size() + 1); 
   new (m_abstractObjects.data() + m_abstractObjects.size() - 1) GeomDataRF();
-  m_abstractObjects.back().type = TYPE_RF_GRID;
-  m_abstractObjects.back().m_tag = type_to_tag(m_abstractObjects.back().type);
+  m_abstractObjects.back().geomId = m_abstractObjects.size() - 1;
+  m_abstractObjects.back().m_tag = type_to_tag(TYPE_RF_GRID);
 
   m_geomData.emplace_back();
   m_geomData.back().boxMin = mn;
@@ -298,8 +307,8 @@ uint32_t BVHRT::AddGeom_GSScene(GSScene grid, BuildOptions a_qualityLevel)
 {
   m_abstractObjects.resize(m_abstractObjects.size() + 1); 
   new (m_abstractObjects.data() + m_abstractObjects.size() - 1) GeomDataGS();
-  m_abstractObjects.back().type = TYPE_GS_PRIMITIVE;
-  m_abstractObjects.back().m_tag = type_to_tag(m_abstractObjects.back().type);
+  m_abstractObjects.back().geomId = m_abstractObjects.size() - 1;
+  m_abstractObjects.back().m_tag = type_to_tag(TYPE_GS_PRIMITIVE);
 
   m_geomData.emplace_back();
   m_geomData.back().boxMin = float4(-1.0f, -1.0f, -1.0f, 1.0f);
@@ -326,8 +335,8 @@ uint32_t BVHRT::AddGeom_SdfGrid(SdfGridView grid, BuildOptions a_qualityLevel)
   //fill geom data array
   m_abstractObjects.resize(m_abstractObjects.size() + 1); 
   new (m_abstractObjects.data() + m_abstractObjects.size() - 1) GeomDataSdfGrid();
-  m_abstractObjects.back().type = TYPE_SDF_GRID;
-  m_abstractObjects.back().m_tag = type_to_tag(m_abstractObjects.back().type);
+  m_abstractObjects.back().geomId = m_abstractObjects.size() - 1;
+  m_abstractObjects.back().m_tag = type_to_tag(TYPE_SDF_GRID);
 
   m_geomData.emplace_back();
   m_geomData.back().boxMin = mn;
@@ -358,8 +367,8 @@ uint32_t BVHRT::AddGeom_SdfOctree(SdfOctreeView octree, BuildOptions a_qualityLe
   //fill geom data array
   m_abstractObjects.resize(m_abstractObjects.size() + 1); 
   new (m_abstractObjects.data() + m_abstractObjects.size() - 1) GeomDataSdfGrid();
-  m_abstractObjects.back().type = TYPE_SDF_OCTREE;
-  m_abstractObjects.back().m_tag = type_to_tag(m_abstractObjects.back().type);
+  m_abstractObjects.back().geomId = m_abstractObjects.size() - 1;
+  m_abstractObjects.back().m_tag = type_to_tag(TYPE_SDF_OCTREE);
 
   m_geomData.emplace_back();
   m_geomData.back().boxMin = mn;
@@ -391,8 +400,8 @@ uint32_t BVHRT::AddGeom_SdfFrameOctree(SdfFrameOctreeView octree, BuildOptions a
   //fill geom data array
   m_abstractObjects.resize(m_abstractObjects.size() + 1); 
   new (m_abstractObjects.data() + m_abstractObjects.size() - 1) GeomDataSdfGrid();
-  m_abstractObjects.back().type = TYPE_SDF_FRAME_OCTREE;
-  m_abstractObjects.back().m_tag = type_to_tag(m_abstractObjects.back().type);
+  m_abstractObjects.back().geomId = m_abstractObjects.size() - 1;
+  m_abstractObjects.back().m_tag = type_to_tag(TYPE_SDF_FRAME_OCTREE);
 
   m_geomData.emplace_back();
   m_geomData.back().boxMin = mn;
@@ -450,8 +459,8 @@ uint32_t BVHRT::AddGeom_SdfSVS(SdfSVSView octree, BuildOptions a_qualityLevel)
   //fill geom data array
   m_abstractObjects.resize(m_abstractObjects.size() + 1); 
   new (m_abstractObjects.data() + m_abstractObjects.size() - 1) GeomDataSdfNode();
-  m_abstractObjects.back().type = TYPE_SDF_SVS;
-  m_abstractObjects.back().m_tag = type_to_tag(m_abstractObjects.back().type);
+  m_abstractObjects.back().geomId = m_abstractObjects.size() - 1;
+  m_abstractObjects.back().m_tag = type_to_tag(TYPE_SDF_SVS);
 
   m_geomData.emplace_back();
   m_geomData.back().boxMin = mn;
@@ -518,7 +527,7 @@ uint32_t BVHRT::AddGeom_SdfSBS(SdfSBSView octree, bool single_bvh_node, BuildOpt
   else
     new (m_abstractObjects.data() + m_abstractObjects.size() - 1) GeomDataSdfNode();
 
-  m_abstractObjects.back().type = type;
+  m_abstractObjects.back().geomId = m_abstractObjects.size() - 1;
   m_abstractObjects.back().m_tag = typeTag;
 
 
@@ -637,8 +646,8 @@ uint32_t BVHRT::AddGeom_SdfFrameOctreeTex(SdfFrameOctreeTexView octree, BuildOpt
   //fill geom data array
   m_abstractObjects.resize(m_abstractObjects.size() + 1); 
   new (m_abstractObjects.data() + m_abstractObjects.size() - 1) GeomDataSdfNode();
-  m_abstractObjects.back().type = TYPE_SDF_FRAME_OCTREE_TEX;
-  m_abstractObjects.back().m_tag = type_to_tag(m_abstractObjects.back().type);
+  m_abstractObjects.back().geomId = m_abstractObjects.size() - 1;
+  m_abstractObjects.back().m_tag = type_to_tag(TYPE_SDF_FRAME_OCTREE_TEX);
 
   m_geomData.emplace_back();
   m_geomData.back().boxMin = mn;
