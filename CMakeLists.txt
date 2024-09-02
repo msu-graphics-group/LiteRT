@@ -155,7 +155,14 @@ if (MODULE_VULKAN)
                      ${CMAKE_SOURCE_DIR}/dependencies/vkutils/vk_alloc_simple.cpp
                      ${CMAKE_SOURCE_DIR}/dependencies/vkutils/vk_pipeline.cpp
                      ${CMAKE_SOURCE_DIR}/dependencies/vkutils/vk_descriptor_sets.cpp
-                     ${CMAKE_SOURCE_DIR}/dependencies/vkutils/ray_tracing/vk_rt_utils.cpp)    
+                     ${CMAKE_SOURCE_DIR}/dependencies/vkutils/ray_tracing/vk_rt_utils.cpp
+                     
+                     ${CMAKE_SOURCE_DIR}/dependencies/CrossRT/EmbreeRT.cpp
+                     ${CMAKE_SOURCE_DIR}/dependencies/CrossRT/VulkanRTX.cpp
+                     ${CMAKE_SOURCE_DIR}/dependencies/LiteScene/scene_mgr.cpp         
+                     ${CMAKE_SOURCE_DIR}/dependencies/vkutils/geom/cmesh.cpp
+                     ${CMAKE_SOURCE_DIR}/dependencies/vkutils/geom/vk_mesh.cpp
+                     )    
 
   set(MODULES_SRC ${MODULES_SRC} ${VKGEN_SOURCE} ${VKUTILS_SOURCE})
 
