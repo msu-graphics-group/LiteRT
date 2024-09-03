@@ -4,6 +4,15 @@
     "version": "2.0.0",
     "tasks": [
         {
+            "label": "Build Shaders / Renderer",
+            "type": "shell",
+            "command": "cd Renderer/shaders_gpu && bash build.sh",
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+        {
             "label": "BuildRelease",
             "type": "shell",
             "command": "cd cmake-build-release && make -j 8",
@@ -13,15 +22,6 @@
             "label": "BuildDebug",
             "type": "shell",
             "command": "make -j 4",
-            "group": "build",
-            "problemMatcher": [
-                "$gcc"
-            ]
-        },
-        {
-            "label": "Build Shaders / Renderer",
-            "type": "shell",
-            "command": "cd Renderer/shaders_gpu && bash build.sh",
             "group": "build",
             "problemMatcher": [
                 "$gcc"

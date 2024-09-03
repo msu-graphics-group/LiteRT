@@ -16,7 +16,7 @@ static constexpr unsigned SH_TYPE = 28; //4 bits for type
 /**
 \brief API to ray-scene intersection on CPU
 */
-struct ISceneObject2
+struct ISceneObject2 : public ISceneObject
 {
   ISceneObject2(){}
   virtual ~ISceneObject2(){} 
@@ -25,126 +25,6 @@ struct ISceneObject2
   \brief get the format name the tree build from
   */
   virtual const char* BuildName() const { return NULL; };
-  virtual const char*   Name() const { return ""; }
-  virtual ISceneObject2* UnderlyingImpl(uint32_t a_implId) { return this; }
-
-  /**
-  \brief clear everything 
-  */
-  virtual void ClearGeom() = 0; 
-
-  /**
-  \brief Add geometry of type 'Triangles' to 'internal geometry library' of scene object and return geometry id
-  \param a_vpos3f       - input vertex data;
-  \param a_vertNumber   - vertices number. The total size of 'a_vpos4f' array is assumed to be qual to 4*a_vertNumber
-  \param a_triIndices   - triangle indices (standart index buffer)
-  \param a_indNumber    - number of indices, shiuld be equal to 3*triaglesNum in your mesh
-  \param a_qualityLevel - bvh build quality level (low -- fast build, high -- fast traversal) 
-  \param vByteStride    - byte offset from each vertex to the next one; if 0 or sizeof(float)*3 then data is tiny packed
-  \return id of added geometry
-  */
-  virtual uint32_t AddGeom_Triangles3f(const float* a_vpos3f, size_t a_vertNumber, const uint32_t* a_triIndices, size_t a_indNumber,
-                                       uint32_t a_flags = BUILD_HIGH, size_t vByteStride = sizeof(float)*3) = 0;
-  
-  /**
-  \brief Update geometry for triangle mesh to 'internal geometry library' of scene object and return geometry id
-  \param a_geomId - geometry id that should be updated. Please refer to 'AddGeom_Triangles4f' for other parameters
-  
-  Updates geometry. Please note that you can't: 
-   * change geometry type with this fuction (from 'Triangles' to 'Spheres' for examples). 
-   * increase geometry size (no 'a_vertNumber', neither 'a_indNumber') with this fuction (but it is allowed to make it smaller than original geometry size which was set by 'AddGeom_Triangles3f')
-     So if you added 'Triangles' and got geom_id == 3, than you will have triangle mesh on geom_id == 3 forever and with the size you have set by 'AddGeom_Triangles3f'.
-  */
-  virtual void UpdateGeom_Triangles3f(uint32_t a_geomId, const float* a_vpos3f, size_t a_vertNumber, const uint32_t* a_triIndices, size_t a_indNumber,
-                                      uint32_t a_flags = BUILD_HIGH, size_t vByteStride = sizeof(float)*3) = 0;
-  
-  /**
-  \brief Add geometry of type 'AxisAlignedBoundingBox' with some custom geometry tag/type (a_typeId), return geometry id
-  \param a_typeId          - internal geometry typeId (called 'tag' sometimes)
-  \param boxMinMaxF8       - bounding box array
-  \param a_boxNumber       - bounding box count (array size); if a_customPrimCount is not 0, a_boxNumber must be a multiple of a_customPrimCount
-  \param a_customPrimPtrs  - array of pointers of type, corresponding to a_typeId.
-  \param a_customPrimCount - size of array pointer. It is allowd to represent each primitive with several AABB on input. For example, if we want 4 boxes per primitive, for a_customPrimCount equals to 10, a_boxNumber must be 40 
-  \return id of added geometry
-  */
-  virtual uint32_t AddGeom_AABB(uint32_t a_typeId, const CRT_AABB* boxMinMaxF8, size_t a_boxNumber, void** a_customPrimPtrs = nullptr, size_t a_customPrimCount = 0) { return 0; }
-  
-  virtual void     UpdateGeom_AABB(uint32_t a_geomId, uint32_t a_typeId, const CRT_AABB* boxMinMaxF8, size_t a_boxNumber, void** a_customPrimPtrs = nullptr, size_t a_customPrimCount = 0) {}
-
-  /**
-  \brief Clear all instances, but don't touch geometry
-  */
-  virtual void ClearScene() = 0; ///< 
-
-  /**
-  \brief Finish instancing and build top level acceleration structure
-  */
-  virtual void CommitScene(uint32_t options = BUILD_HIGH) = 0; ///< 
-  
-  /**
-  \brief Add instance to scene
-  \param a_geomId     - input id of geometry that is supposed to be instanced
-  \param a_matrix     - float4x4 matrix, default layout is column-major
-
-  */
-  virtual uint32_t AddInstance(uint32_t a_geomId, const LiteMath::float4x4& a_matrix) = 0;
-
-
-/**
-  \brief Add moving instance to scene
-  \param a_geomId       - input id of geometry that is supposed to be instanced
-  \param a_matrices     - array of float4x4 matrices, default layout is column-major
-  \param a_matrixNumber - size of matrices array
-
-  */
-  virtual uint32_t AddInstanceMotion(uint32_t a_geomId, const LiteMath::float4x4* a_matrices, uint32_t a_matrixNumber) = 0; 
-  
-  /**
-  \brief Add instance to scene
-  \param a_instanceId
-  \param a_matrix - float4x4 matrix, the layout is column-major
-  */
-  virtual void     UpdateInstance(uint32_t a_instanceId, const LiteMath::float4x4& a_matrix) = 0; 
- 
-  /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  
-  /**
-  \brief Find nearest intersection of ray segment (Near,Far) and scene geometry
-  \param posAndNear   - ray origin (x,y,z) and t_near (w)
-  \param dirAndFar    - ray direction (x,y,z) and t_far (w)
-  \return             - closest hit surface info
-  */
-  virtual CRT_Hit RayQuery_NearestHit(LiteMath::float4 posAndNear, LiteMath::float4 dirAndFar) = 0;
-
-
-  /**
-  \brief Find nearest intersection of ray segment (Near,Far) and scene geometry
-  \param posAndNear   - ray origin (x,y,z) and t_near (w)
-  \param dirAndFar    - ray direction (x,y,z) and t_far (w)
-  \param time         - time in [0, 1] interval between first and last timesteps
-  \return             - closest hit surface info
-  */
-  virtual CRT_Hit RayQuery_NearestHitMotion(LiteMath::float4 posAndNear, LiteMath::float4 dirAndFar, float time) = 0;
-
-  /**
-  \brief Find any hit for ray segment (Near,Far). If none is found return false, else return true;
-  \param posAndNear   - ray origin (x,y,z) and t_near (w)
-  \param dirAndFar    - ray direction (x,y,z) and t_far (w)
-  \return             - true if a hit is found, false otherwaise
-  */
-  virtual bool    RayQuery_AnyHit(LiteMath::float4 posAndNear, LiteMath::float4 dirAndFar) = 0;
-
-  /**
-  \brief Find any hit for ray segment (Near,Far). If none is found return false, else return true;
-  \param posAndNear   - ray origin (x,y,z) and t_near (w)
-  \param dirAndFar    - ray direction (x,y,z) and t_far (w)
-  \param time         - time in [0, 1] interval between first and last timesteps
-  \return             - true if a hit is found, false otherwaise
-  */
-  virtual bool    RayQuery_AnyHitMotion(LiteMath::float4 posAndNear, LiteMath::float4 dirAndFar, float time = 0.0f) = 0;
 
 #ifndef KERNEL_SLICER 
   virtual uint32_t AddGeom_Triangles3f(const float* a_vpos3f, const float* a_vnorm3f, size_t a_vertNumber, const uint32_t* a_triIndices, size_t a_indNumber, BuildOptions a_qualityLevel = BUILD_HIGH, size_t vByteStride = sizeof(float)*3) = 0;
@@ -166,7 +46,6 @@ struct ISceneObject2
 
   void SetPreset(const MultiRenderPreset& a_preset){ m_preset = a_preset; }
   MultiRenderPreset GetPreset() const { return m_preset; }
-
   MultiRenderPreset m_preset;
 };
 
