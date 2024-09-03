@@ -507,8 +507,11 @@ void litert_test_9_mesh()
 
   auto m1 = pRender->getWorldView();
   auto m2 = pRender->getProj();
-
+  
+  std::cout << "rendering on GPU ... " << std::endl;
   pRender->Render(image.data(), image.width(), image.height(), m1, m2, preset);
+
+  std::cout << "rendering on CPU ... " << std::endl;
   pRenderRef->Render(ref_image.data(), ref_image.width(), ref_image.height(), m1, m2, preset);
 
   LiteImage::SaveImage<uint32_t>("saves/test_9_res.bmp", image); 

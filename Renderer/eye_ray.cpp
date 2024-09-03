@@ -116,7 +116,21 @@ float4 MultiRenderer::kernel_RayTrace(uint32_t tidX, const float4* rayPosAndNear
 
   case MULTI_RENDER_MODE_LAMBERT_NO_TEX:
   {
-    float3 norm(hit.coords[2], hit.coords[3], sqrt(max(0.0f, 1 - hit.coords[2] * hit.coords[2] - hit.coords[3] * hit.coords[3])));
+    const uint2 a_geomOffsets = m_geomOffsets[geomId];
+
+    const uint32_t A   = m_indices[a_geomOffsets.x + hit.primId * 3 + 0];
+    const uint32_t B   = m_indices[a_geomOffsets.x + hit.primId * 3 + 1];
+    const uint32_t C   = m_indices[a_geomOffsets.x + hit.primId * 3 + 2];
+
+    const float4 normA = m_normals[a_geomOffsets.y + A];
+    const float4 normB = m_normals[a_geomOffsets.y + B];
+    const float4 normC = m_normals[a_geomOffsets.y + C];
+    
+    const float2 uv    = float2(hit.coords[0], hit.coords[1]);
+    const float4 norm4 = (1.0f - uv.x - uv.y)*normA + uv.y*normB + uv.x*normC;
+    const float3 norm  = to_float3(norm4);
+ 
+    //float3 norm(hit.coords[2], hit.coords[3], sqrt(max(0.0f, 1 - hit.coords[2] * hit.coords[2] - hit.coords[3] * hit.coords[3])));
     float q = max(0.1f, dot(norm, normalize(float3(1, 1, 1))));
     res_color = float4(q, q, q, 1);
   }

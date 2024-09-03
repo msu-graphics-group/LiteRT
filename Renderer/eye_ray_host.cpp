@@ -102,7 +102,9 @@ bool MultiRenderer::LoadSceneHydra(const std::string& a_path, unsigned type, Spa
       {
       case TYPE_MESH_TRIANGLE:
       {
-        unsigned geomId = m_pAccelStruct2->AddGeom_Triangles3f((const float *)currMesh.vPos4f.data(), (const float*)currMesh.vNorm4f.data(), currMesh.vPos4f.size(),
+        //unsigned geomId = m_pAccelStruct2->AddGeom_Triangles3f((const float *)currMesh.vPos4f.data(), (const float*)currMesh.vNorm4f.data(), currMesh.vPos4f.size(),
+        //                                                      currMesh.indices.data(), currMesh.indices.size(), BUILD_HIGH, sizeof(float) * 4);
+        unsigned geomId = m_pAccelStruct->AddGeom_Triangles3f((const float *)currMesh.vPos4f.data(), currMesh.vPos4f.size(),
                                                               currMesh.indices.data(), currMesh.indices.size(), BUILD_HIGH, sizeof(float) * 4);
         add_mesh_internal(currMesh, geomId);
       }
