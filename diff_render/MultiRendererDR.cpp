@@ -415,9 +415,12 @@ namespace dr
 
       if (preset.debug_print && iter % preset.debug_print_interval == 0)
       {
+        printf("\r");
         printf("Iter:%4d, loss: %f (%f-%f) ", iter, loss_sum/preset.image_batch_size, loss_min, loss_max);
         printf("%7.1f ms/iter (%7.1f + %.1f + %.1f + %.1f + %.1f) ", time, time_1, time_2, time_3, time_4, time_5);
-        printf("ETA %.1f s\n", (timeAvg * (preset.opt_iterations - iter - 1)) / 1000.0f);
+        printf("ETA %.1f s", (timeAvg * (preset.opt_iterations - iter - 1)) / 1000.0f);
+        printf("                  ");
+        fflush(stdout);
       }
       
       if (preset.debug_print && 
@@ -461,6 +464,8 @@ namespace dr
       }
     }
 
+    if (preset.debug_print)
+      printf("\n");
     sbs.values_f = ((BVHDR*)m_pAccelStruct.get())->m_SdfSBSDataF;
   }
 
