@@ -5,7 +5,8 @@ cd $1
 
 $2 $start_dir/Renderer/eye_ray.cpp $start_dir/BVH/BVH2Common.cpp \
 -mainClass MultiRenderer \
--composInterface ISceneObject2 \
+-options $start_dir/options.json \
+-composInterface ISceneObject \
 -composImplementation BVHRT \
 -intersectionShader AbstractObject::Intersect \
 -enable_ray_tracing_pipeline 1 \
