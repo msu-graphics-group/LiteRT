@@ -286,10 +286,11 @@ void MultiRenderer::SetScene(const cmesh4::SimpleMesh &scene)
 
 void MultiRenderer::SetScene(SdfGridView scene)
 {
+  m_pAccelStruct2->SetProxy(m_pAccelStruct);
   m_pAccelStruct->ClearGeom();
-  m_pAccelStruct2->AddGeom_SdfGrid(scene);
+  auto geomId = m_pAccelStruct2->AddGeom_SdfGrid(scene);
   m_pAccelStruct->ClearScene();
-  m_pAccelStruct->AddInstance(0, LiteMath::float4x4());
+  m_pAccelStruct->AddInstance(geomId, LiteMath::float4x4());
   m_pAccelStruct->CommitScene();
 }
 

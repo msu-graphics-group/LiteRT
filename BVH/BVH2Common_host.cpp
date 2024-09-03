@@ -353,7 +353,8 @@ uint32_t BVHRT::AddGeom_SdfGrid(SdfGridView grid, BuildOptions a_qualityLevel)
   //create list of bboxes for BLAS
   std::vector<BVHNode> orig_nodes = GetBoxes_SdfGrid(grid);
   
-  return AddGeom_AABB(AbstractObject::TAG_SDF_GRID, (const CRT_AABB*)orig_nodes.data(), orig_nodes.size());
+  auto pImpl = (m_proxyAS == nullptr) ? this : m_proxyAS.get();
+  return pImpl->AddGeom_AABB(AbstractObject::TAG_SDF_GRID, (const CRT_AABB*)orig_nodes.data(), orig_nodes.size());
 }
 
 uint32_t BVHRT::AddGeom_SdfOctree(SdfOctreeView octree, BuildOptions a_qualityLevel)
@@ -745,6 +746,9 @@ void BVHRT::CommitScene(uint32_t a_qualityLevel)
 
 uint32_t BVHRT::AddInstance(uint32_t a_geomId, const float4x4 &a_matrix)
 {
+  if(a_geomId & CRT_GEOM_MASK_AABB_BIT) // TEMP SOLUTION !!!
+    a_geomId = (a_geomId & 0x7fffffff); // TEMP SOLUTION !!!
+
   const auto &boxMin = m_geomData[a_geomId].boxMin;
   const auto &boxMax = m_geomData[a_geomId].boxMax;
 

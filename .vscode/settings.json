@@ -85,7 +85,10 @@
         "complex": "cpp",
         "list": "cpp",
         "__node_handle": "cpp",
-        "__threading_support": "cpp"
+        "__threading_support": "cpp",
+        "ranges": "cpp",
+        "__functional_base": "cpp",
+        "span": "cpp"
     },
     "C_Cpp.default.compilerPath": "/usr/bin/g++-11"
 }
