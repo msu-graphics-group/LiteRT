@@ -1256,6 +1256,109 @@ namespace dr
     return float4(W.x, W.y, W.z, float(errors) / float(N));
   }
 
+  // Cohen–Sutherland algorithm for fast line clipping
+  // https://en.wikipedia.org/wiki/Cohen%E2%80%93Sutherland_algorithm
+  // clipping plane is [0,0] - [1,1]
+  uint32_t ComputeOutCode(float x, float y)
+  {
+    constexpr uint32_t INSIDE = 0b0000;
+    constexpr uint32_t LEFT   = 0b0001;
+    constexpr uint32_t RIGHT  = 0b0010;
+    constexpr uint32_t BOTTOM = 0b0100;
+    constexpr uint32_t TOP    = 0b1000;
+    constexpr uint32_t xmin   = 0;
+    constexpr uint32_t xmax   = 1;
+    constexpr uint32_t ymin   = 0;
+    constexpr uint32_t ymax   = 1;
+
+    uint32_t code = INSIDE;  // initialised as being inside of clip window
+
+    if (x < xmin)           // to the left of clip window
+      code |= LEFT;
+    else if (x > xmax)      // to the right of clip window
+      code |= RIGHT;
+    if (y < ymin)           // below the clip window
+      code |= BOTTOM;
+    else if (y > ymax)      // above the clip window
+      code |= TOP;
+
+    return code;
+  }
+
+  // Cohen–Sutherland clipping algorithm clips a line from
+  // P0 = (x0, y0) to P1 = (x1, y1) against a rectangle with 
+  // diagonal from (xmin, ymin) to (xmax, ymax).
+  bool CohenSutherlandLineClip(float& x0, float& y0, float& x1, float& y1)
+  {
+    constexpr uint32_t INSIDE = 0b0000;
+    constexpr uint32_t LEFT   = 0b0001;
+    constexpr uint32_t RIGHT  = 0b0010;
+    constexpr uint32_t BOTTOM = 0b0100;
+    constexpr uint32_t TOP    = 0b1000;
+    constexpr uint32_t xmin   = 0;
+    constexpr uint32_t xmax   = 1;
+    constexpr uint32_t ymin   = 0;
+    constexpr uint32_t ymax   = 1;
+
+    // compute outcodes for P0, P1, and whatever point lies outside the clip rectangle
+    uint32_t outcode0 = ComputeOutCode(x0, y0);
+    uint32_t outcode1 = ComputeOutCode(x1, y1);
+    bool accept = false;
+
+    while (true) {
+      if (!(outcode0 | outcode1)) {
+        // bitwise OR is 0: both points inside window; trivially accept and exit loop
+        accept = true;
+        break;
+      } else if (outcode0 & outcode1) {
+        // bitwise AND is not 0: both points share an outside zone (LEFT, RIGHT, TOP,
+        // or BOTTOM), so both must be outside window; exit loop (accept is false)
+        break;
+      } else {
+        // failed both tests, so calculate the line segment to clip
+        // from an outside point to an intersection with clip edge
+        float x=-1, y=-1;
+
+        // At least one endpoint is outside the clip rectangle; pick it.
+        uint32_t outcodeOut = outcode1 > outcode0 ? outcode1 : outcode0;
+
+        // Now find the intersection point;
+        // use formulas:
+        //   slope = (y1 - y0) / (x1 - x0)
+        //   x = x0 + (1 / slope) * (ym - y0), where ym is ymin or ymax
+        //   y = y0 + slope * (xm - x0), where xm is xmin or xmax
+        // No need to worry about divide-by-zero because, in each case, the
+        // outcode bit being tested guarantees the denominator is non-zero
+        if (outcodeOut & TOP) {           // point is above the clip window
+          x = x0 + (x1 - x0) * (ymax - y0) / (y1 - y0);
+          y = ymax;
+        } else if (outcodeOut & BOTTOM) { // point is below the clip window
+          x = x0 + (x1 - x0) * (ymin - y0) / (y1 - y0);
+          y = ymin;
+        } else if (outcodeOut & RIGHT) {  // point is to the right of clip window
+          y = y0 + (y1 - y0) * (xmax - x0) / (x1 - x0);
+          x = xmax;
+        } else if (outcodeOut & LEFT) {   // point is to the left of clip window
+          y = y0 + (y1 - y0) * (xmin - x0) / (x1 - x0);
+          x = xmin;
+        }
+
+        // Now we move outside point to intersection point to clip
+        // and get ready for next pass.
+        if (outcodeOut == outcode0) {
+          x0 = x;
+          y0 = y;
+          outcode0 = ComputeOutCode(x0, y0);
+        } else {
+          x1 = x;
+          y1 = y;
+          outcode1 = ComputeOutCode(x1, y1);
+        }
+      }
+    }
+    return accept;
+  }
+
   void MultiRendererDR::CastBorderRaySVM(uint32_t tidX, const float4 *image_ref, LiteMath::float4* out_image, float* out_dLoss_dS,
                                          LiteMath::float4* out_image_debug)
   {
@@ -1377,14 +1480,22 @@ namespace dr
       {
         force_random_ray_cast = true;
       }
-      //printf("AFTER p0 = %f %f, p1 = %f %f,r = %f %f, n = %f %f\n\n", p0.x, p0.y, p1.x, p1.y, r.x, r.y, n.x, n.y);
+
+      //force_random_ray_cast = true;
+          
+      bool line_clipped = CohenSutherlandLineClip(p0.x, p0.y, p1.x, p1.y);
+
+      //line is ouside the pixel border
+      if (!line_clipped)
+        return;
+
       r = p1 - p0;
       n = float2(-r.y, r.x);
       sample_radius = min_sample_radius + sample_radius_mult*error_rate;
       stripe_area = std::min(1.0f, 2*sample_radius*length(r));
 
       //if stripe area is too small, there is no actual border here
-      if (stripe_area < min_stripe_area)
+      if (!force_random_ray_cast && stripe_area < min_stripe_area)
         return;
     }
     
