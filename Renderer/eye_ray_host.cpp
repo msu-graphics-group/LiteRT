@@ -274,22 +274,23 @@ void MultiRenderer::GetExecutionTime(const char* a_funcName, float a_out[4])
 
 void MultiRenderer::SetScene(const cmesh4::SimpleMesh &scene)
 {
-  GetAccelStruct()->ClearGeom();
-  unsigned geomId =  GetAccelStruct()->AddGeom_Triangles3f((const float*)scene.vPos4f.data(), (const float*)scene.vNorm4f.data(), scene.vPos4f.size(),
-                                                           scene.indices.data(), scene.indices.size(), BUILD_HIGH, sizeof(float)*4);
+  m_pAccelStruct->ClearGeom();
+  //unsigned geomId =  GetAccelStruct()->AddGeom_Triangles3f((const float*)scene.vPos4f.data(), (const float*)scene.vNorm4f.data(), scene.vPos4f.size(),
+  //                                                         scene.indices.data(), scene.indices.size(), BUILD_HIGH, sizeof(float)*4);
+  unsigned geomId = m_pAccelStruct->AddGeom_Triangles3f((const float*)scene.vPos4f.data(), scene.vPos4f.size(), scene.indices.data(), scene.indices.size(), BUILD_HIGH, sizeof(float)*4);                                                          
   add_mesh_internal(scene, geomId);
-  GetAccelStruct()->ClearScene();
-  GetAccelStruct()->AddInstance(0, LiteMath::float4x4());
-  GetAccelStruct()->CommitScene();
+  m_pAccelStruct->ClearScene();
+  m_pAccelStruct->AddInstance(0, LiteMath::float4x4());
+  m_pAccelStruct->CommitScene();
 }
 
 void MultiRenderer::SetScene(SdfGridView scene)
 {
-  GetAccelStruct()->ClearGeom();
-  GetAccelStruct()->AddGeom_SdfGrid(scene);
-  GetAccelStruct()->ClearScene();
-  GetAccelStruct()->AddInstance(0, LiteMath::float4x4());
-  GetAccelStruct()->CommitScene();
+  m_pAccelStruct->ClearGeom();
+  m_pAccelStruct2->AddGeom_SdfGrid(scene);
+  m_pAccelStruct->ClearScene();
+  m_pAccelStruct->AddInstance(0, LiteMath::float4x4());
+  m_pAccelStruct->CommitScene();
 }
 
 void MultiRenderer::SetScene(SdfOctreeView scene)
