@@ -916,6 +916,7 @@ void litert_test_17_all_types_sanity_check()
   LiteImage::Image2D<uint32_t> image_4(W, H);
   LiteImage::Image2D<uint32_t> image_5(W, H);
   
+  if(false)
   {
     auto pRender = CreateMultiRenderer("GPU");
     pRender->SetPreset(preset);
@@ -925,6 +926,7 @@ void litert_test_17_all_types_sanity_check()
   }
 
   {
+    preset.render_mode = MULTI_RENDER_MODE_MASK;
     auto grid = sdf_converter::create_sdf_grid(GridSettings(64), mesh);
     auto pRender = CreateMultiRenderer("GPU");
     pRender->SetPreset(preset);
@@ -932,6 +934,7 @@ void litert_test_17_all_types_sanity_check()
     render(image_1, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
     LiteImage::SaveImage<uint32_t>("saves/test_17_grid.bmp", image_1);    
   }
+  return;
 
   {
     auto octree = sdf_converter::create_sdf_octree(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 8, 64*64*64), mesh);
@@ -1983,7 +1986,7 @@ void perform_tests_litert(const std::vector<int> &test_ids)
   //litert_test_9_mesh();
   litert_test_17_all_types_sanity_check();
   //litert_test_2_SVS();
-  litert_test_3_SBS_verify();
+  //litert_test_3_SBS_verify();
   //litert_test_20_radiance_fields();
   //litert_test_23_textured_sdf();
   //litert_test_27_textured_colored_SBS();

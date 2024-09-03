@@ -15,13 +15,13 @@
         {
             "label": "BuildRelease",
             "type": "shell",
-            "command": "cd cmake-build-release && make -j 8",
+            "command": "make -j 8",
             "group": "build"
         },
         {
             "label": "BuildDebug",
             "type": "shell",
-            "command": "make -j 4",
+            "command": "make -j 8",
             "group": "build",
             "problemMatcher": [
                 "$gcc"
