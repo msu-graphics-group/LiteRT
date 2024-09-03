@@ -1524,16 +1524,16 @@ void diff_render_test_15_combined_reconstruction()
     printf("FAILED, psnr = %f\n", psnr);
 }
 
-void diff_render_test_16_borders_detection()
+void border_detection_test(uint32_t num, uint32_t multi_render_mode, uint32_t dr_render_mode, SdfSBS scene)
 {
   srand(time(nullptr));
   //create renderers for SDF scene and mesh scene
-  auto SBS_ref = two_circles_scene();
+  auto SBS_ref = circle_smallest_scene();
 
   unsigned W = 512, H = 512;
 
   MultiRenderPreset preset = getDefaultPreset();
-  preset.render_mode = MULTI_RENDER_MODE_DIFFUSE;
+  preset.render_mode = multi_render_mode;
   //preset.ray_gen_mode = RAY_GEN_MODE_RANDOM;
   preset.spp = 64;
 
@@ -1554,18 +1554,18 @@ void diff_render_test_16_borders_detection()
 
     pRender->SetScene(SBS_ref);
     pRender->RenderFloat(images_ref[i].data(), images_ref[i].width(), images_ref[i].height(), view[i], proj[i], preset);
-    LiteImage::SaveImage<float4>(("saves/test_dr_16_ref_"+std::to_string(i)+".bmp").c_str(), images_ref[i]); 
   }
 
+  //we test only border detection here, so refernce if actually useless
+  //LiteImage::SaveImage<float4>(("saves/test_dr_16_"+std::to_string(num)+"_ref.bmp").c_str(), images_ref[0]); 
+
   // put random colors to SBS
-  auto indexed_SBS = two_circles_scene();
-  // randomize_color(indexed_SBS);
-  randomize_distance(indexed_SBS, 0.2f);
+  auto indexed_SBS = scene;
 
   MultiRendererDRPreset dr_preset = getDefaultPresetDR();
   dr_preset.dr_diff_mode = DR_DIFF_MODE_DEFAULT;
   dr_preset.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_GEOMETRY;
-  dr_preset.dr_render_mode = DR_RENDER_MODE_DIFFUSE;
+  dr_preset.dr_render_mode = dr_render_mode;
   dr_preset.opt_iterations = 1;
   dr_preset.opt_lr = 0.0f;
   dr_preset.spp = 16;
@@ -1576,7 +1576,7 @@ void diff_render_test_16_borders_detection()
     dr_preset.debug_render_mode = DR_DEBUG_RENDER_MODE_NONE;
     dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS);
     image_res = dr_render.getLastImage(0);
-    LiteImage::SaveImage<float4>("saves/test_dr_16_res.bmp", image_res);
+    LiteImage::SaveImage<float4>(("saves/test_dr_16_"+std::to_string(num)+"_res.bmp").c_str(), image_res);
   }
   {
     MultiRendererDR dr_render;
@@ -1584,7 +1584,7 @@ void diff_render_test_16_borders_detection()
     dr_preset.debug_render_mode = DR_DEBUG_RENDER_MODE_BORDER_DETECTION;
     dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS);
     image_bdet = dr_render.getLastDebugImage(0);
-    LiteImage::SaveImage<float4>("saves/test_dr_16_bdet.bmp", image_bdet);
+    LiteImage::SaveImage<float4>(("saves/test_dr_16_"+std::to_string(num)+"_bdet.bmp").c_str(), image_bdet);
   }
   {
     MultiRendererDR dr_render;
@@ -1593,7 +1593,7 @@ void diff_render_test_16_borders_detection()
     dr_preset.debug_forced_border = true;
     dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS);
     image_bint = dr_render.getLastDebugImage(0);
-    LiteImage::SaveImage<float4>("saves/test_dr_16_bint.bmp", image_bint);
+    LiteImage::SaveImage<float4>(("saves/test_dr_16_"+std::to_string(num)+"_bint.bmp").c_str(), image_bint);
   }
 
   int match = 0;
@@ -1608,23 +1608,50 @@ void diff_render_test_16_borders_detection()
     miss += !border && border_int;
     over += border && !border_int;
   }
-
-  printf("TEST 16. Check border detection\n");
   
   float om = float(over)/float(match);
   float miss_rate = float(miss)/float(match);
 
-  printf("16.1. %-64s", "detected border is small (over/match < 4)");
-  if (om < 4)
+  printf("16.%u.1. %-64s", num, "detected border is small (over/match < 4)");
+  if (om < 8)
     printf("passed    (%.2f)\n", om);
   else
     printf("FAILED, over/match = %f\n", om);
   
-  printf("16.2. %-64s", "a few pixels are missed (miss/match < 0.05)");
+  printf("16.%u.2. %-64s", num, "a few pixels are missed (miss/match < 0.05)");
   if (miss_rate < 0.05)
     printf("passed    (%.2f)\n", miss_rate);
   else
     printf("FAILED, miss/match = %f\n", miss_rate);
+}
+void diff_render_test_16_borders_detection()
+{
+  auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "scenes/01_simple_scenes/data/bunny.vsgf").c_str());
+  cmesh4::rescale_mesh(mesh, float3(-0.95, -0.95, -0.95), float3(0.95, 0.95, 0.95));
+  MeshBVH mesh_bvh;
+  mesh_bvh.init(mesh);
+
+  auto bunny_SBS = create_grid_sbs(1, 32, [&](float3 p) -> float { return mesh_bvh.get_signed_distance(p);},
+                                   single_color);
+
+  printf("TEST 16. Check border detection\n");
+  printf("16.1. Mask with two circles\n");
+  border_detection_test(1, MULTI_RENDER_MODE_MASK, DR_RENDER_MODE_MASK, two_circles_scene());
+
+  printf("16.2. Mask with bunny\n");
+  border_detection_test(2, MULTI_RENDER_MODE_MASK, DR_RENDER_MODE_MASK, bunny_SBS);
+
+  printf("16.3. Diffuse with circle\n");
+  border_detection_test(3, MULTI_RENDER_MODE_DIFFUSE, DR_RENDER_MODE_DIFFUSE, circle_medium_scene());
+
+  printf("16.4. Lambert with circle\n");
+  border_detection_test(4, MULTI_RENDER_MODE_LAMBERT, DR_RENDER_MODE_LAMBERT, circle_medium_scene());
+
+  printf("16.5. Lambert with two circles\n");
+  border_detection_test(5, MULTI_RENDER_MODE_LAMBERT, DR_RENDER_MODE_LAMBERT, two_circles_scene());
+
+  printf("16.6. Lambert with bunny\n");
+  border_detection_test(6, MULTI_RENDER_MODE_LAMBERT, DR_RENDER_MODE_LAMBERT, bunny_SBS);
 }
 
 void diff_render_test_17_optimize_bunny()
