@@ -88,8 +88,12 @@ public:
   void RenderFloat(LiteMath::float4* imageData, uint32_t a_width, uint32_t a_height, const char* a_what, int a_passNum = 1);
   void SetViewport(int a_xStart, int a_yStart, int a_width, int a_height) override;
 
-  void SetAccelStruct(std::shared_ptr<ISceneObject2> a_customAccelStruct) override { m_pAccelStruct = a_customAccelStruct;}
-  std::shared_ptr<ISceneObject2> GetAccelStruct() override { return m_pAccelStruct; }
+  void SetAccelStruct(std::shared_ptr<ISceneObject2> a_customAccelStruct) override 
+  { 
+    m_pAccelStruct2 = a_customAccelStruct;
+    m_pAccelStruct  = a_customAccelStruct;
+  }
+  std::shared_ptr<ISceneObject2> GetAccelStruct() override { return m_pAccelStruct2; }
 
   void GetExecutionTime(const char* a_funcName, float a_out[4]) override;
 
@@ -145,8 +149,9 @@ protected:
   LiteMath::float4x4 m_projInv;
   LiteMath::float4x4 m_worldViewInv;
 
-  std::shared_ptr<ISceneObject2> m_pAccelStruct;
-  std::vector<uint32_t>         m_packedXY;
+  std::shared_ptr<ISceneObject>  m_pAccelStruct;
+  std::shared_ptr<ISceneObject2> m_pAccelStruct2;
+  std::vector<uint32_t>          m_packedXY;
 
   float4 m_mainLightDir; //direction to main light, normalized
   float4 m_mainLightColor; //color of main light, also intensity
@@ -183,9 +188,9 @@ protected:
   uint64_t m_totalTris         = 0;
   uint64_t m_totalTrisVisiable = 0;
 
-  uint32_t GetGeomNum() const override { return m_pAccelStruct->GetGeomNum(); };
-  uint32_t GetInstNum() const override { return m_pAccelStruct->GetInstNum(); };
-  const LiteMath::float4* GetGeomBoxes() const  override { return m_pAccelStruct->GetGeomBoxes(); };
+  uint32_t GetGeomNum() const override { return m_pAccelStruct2->GetGeomNum(); };
+  uint32_t GetInstNum() const override { return m_pAccelStruct2->GetInstNum(); };
+  const LiteMath::float4* GetGeomBoxes() const  override { return m_pAccelStruct2->GetGeomBoxes(); };
 };
 
 std::shared_ptr<MultiRenderer> CreateMultiRenderer(const char* a_name);

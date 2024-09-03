@@ -21,7 +21,8 @@ using LiteMath::inverse4x4;
 
 MultiRenderer::MultiRenderer() 
 { 
-  m_pAccelStruct = CreateSceneRT("BVH2Common", "cbvh_embree2", "SuperTreeletAlignedMerged4"); //default
+  m_pAccelStruct2 = CreateSceneRT("BVH2Common", "cbvh_embree2", "SuperTreeletAlignedMerged4"); //default
+  m_pAccelStruct  = m_pAccelStruct2;
   m_preset = getDefaultPreset();
   m_mainLightDir = normalize3(float4(1,0.5,0.5,1));
   m_mainLightColor = 1.0f*normalize3(float4(1,1,0.98,1));
@@ -101,7 +102,7 @@ bool MultiRenderer::LoadSceneHydra(const std::string& a_path, unsigned type, Spa
       {
       case TYPE_MESH_TRIANGLE:
       {
-        unsigned geomId = m_pAccelStruct->AddGeom_Triangles3f((const float *)currMesh.vPos4f.data(), (const float*)currMesh.vNorm4f.data(), currMesh.vPos4f.size(),
+        unsigned geomId = m_pAccelStruct2->AddGeom_Triangles3f((const float *)currMesh.vPos4f.data(), (const float*)currMesh.vNorm4f.data(), currMesh.vPos4f.size(),
                                                               currMesh.indices.data(), currMesh.indices.size(), BUILD_HIGH, sizeof(float) * 4);
         add_mesh_internal(currMesh, geomId);
       }
@@ -109,7 +110,7 @@ bool MultiRenderer::LoadSceneHydra(const std::string& a_path, unsigned type, Spa
       case TYPE_SDF_SVS:
       {
         std::vector<SdfSVSNode> svs_nodes = sdf_converter::create_sdf_SVS(so_settings, currMesh);
-        m_pAccelStruct->AddGeom_SdfSVS(svs_nodes);
+        m_pAccelStruct2->AddGeom_SdfSVS(svs_nodes);
       }
       break;
       case TYPE_SDF_GRID:
@@ -130,7 +131,7 @@ bool MultiRenderer::LoadSceneHydra(const std::string& a_path, unsigned type, Spa
           }
         }
 
-        m_pAccelStruct->AddGeom_SdfGrid(SdfGridView(uint3(sz, sz, sz), data));
+        m_pAccelStruct2->AddGeom_SdfGrid(SdfGridView(uint3(sz, sz, sz), data));
       }
       break;
       default:
@@ -147,35 +148,35 @@ bool MultiRenderer::LoadSceneHydra(const std::string& a_path, unsigned type, Spa
       std::cout << "[LoadScene]: sdf grid = " << dir.c_str() << std::endl;
       SdfGrid scene;
       load_sdf_grid(scene, dir);
-      m_pAccelStruct->AddGeom_SdfGrid(scene);
+      m_pAccelStruct2->AddGeom_SdfGrid(scene);
     }
     else if (name == "sdf_octree")
     {
       std::cout << "[LoadScene]: sdf octree = " << dir.c_str() << std::endl;
       std::vector<SdfOctreeNode> scene;
       load_sdf_octree(scene, dir);
-      m_pAccelStruct->AddGeom_SdfOctree(scene);
+      m_pAccelStruct2->AddGeom_SdfOctree(scene);
     }
     else if (name == "sdf_frame_octree")
     {
       std::cout << "[LoadScene]: sdf frame octree = " << dir.c_str() << std::endl;
       std::vector<SdfFrameOctreeNode> scene;
       load_sdf_frame_octree(scene, dir);
-      m_pAccelStruct->AddGeom_SdfFrameOctree(scene);
+      m_pAccelStruct2->AddGeom_SdfFrameOctree(scene);
     }
     else if (name == "sdf_svs")
     {
       std::cout << "[LoadScene]: sdf svs = " << dir.c_str() << std::endl;
       std::vector<SdfSVSNode> scene;
       load_sdf_SVS(scene, dir);
-      m_pAccelStruct->AddGeom_SdfSVS(scene);
+      m_pAccelStruct2->AddGeom_SdfSVS(scene);
     }
     else if (name == "sdf_sbs")
     {
       std::cout << "[LoadScene]: sdf sbs = " << dir.c_str() << std::endl;
       SdfSBS scene;
       load_sdf_SBS(scene, dir);
-      m_pAccelStruct->AddGeom_SdfSBS(scene);
+      m_pAccelStruct2->AddGeom_SdfSBS(scene);
     }
     else if (name == "sdf_hp")
     {
@@ -190,14 +191,14 @@ bool MultiRenderer::LoadSceneHydra(const std::string& a_path, unsigned type, Spa
       std::cout << "[LoadScene]: radiance fields = " << dir.c_str() << std::endl;
       RFScene scene;
       load_rf_scene(scene, dir);
-      m_pAccelStruct->AddGeom_RFScene(scene);
+      m_pAccelStruct2->AddGeom_RFScene(scene);
     }
     else if (name == "gs")
     {
       std::cout << "[LoadScene]: gaussian splatting = " << dir.c_str() << std::endl;
       GSScene scene;
       load_gs_scene(scene, dir);
-      m_pAccelStruct->AddGeom_GSScene(scene);
+      m_pAccelStruct2->AddGeom_GSScene(scene);
     }
     else
     {
@@ -344,8 +345,8 @@ void MultiRenderer::SetPreset(const MultiRenderPreset& a_preset)
 {
   m_preset = a_preset;
 
-  if (m_pAccelStruct)
-    m_pAccelStruct->SetPreset(a_preset);
+  if (m_pAccelStruct2)
+    m_pAccelStruct2->SetPreset(a_preset);
 }
 
 void MultiRenderer::Render(uint32_t* imageData, uint32_t a_width, uint32_t a_height, 
