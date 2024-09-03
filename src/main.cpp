@@ -74,7 +74,6 @@ int main(int, char** argv)
 
   // Main loop
   bool done = false;
-  auto b = std::chrono::high_resolution_clock::now();
 
   bool camera_move = false;
   int prev_x = 0, prev_y = 0;
@@ -105,7 +104,7 @@ int main(int, char** argv)
         float distance = length(camera.position-camera.target);
         float3 new_pos  = camera.position 
                         + camera.up * dy * ImGui::GetIO().DeltaTime  * 5
-                        + camera.right * dx * ImGui::GetIO().DeltaTime * 5;
+                        - camera.right * dx * ImGui::GetIO().DeltaTime * 5;
         camera.position = camera.target + normalize(new_pos-camera.target)*distance;
         camera = Camera(camera.aspect, camera.fov, camera.position, camera.target);
       }
@@ -118,9 +117,6 @@ int main(int, char** argv)
       SDL_Delay(10);
       continue;
     }
-
-    auto e = std::chrono::high_resolution_clock::now();
-    float seconds = std::chrono::duration_cast<std::chrono::milliseconds>(e-b).count()/1000.0f;
 
     // Start the Dear ImGui frame
     ImGui_ImplSDLRenderer2_NewFrame();
