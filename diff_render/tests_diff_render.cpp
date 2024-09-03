@@ -1440,7 +1440,6 @@ void diff_render_test_14_optimize_sphere_lambert()
     dr_preset.border_spp = 1000;
     dr_preset.dr_border_sampling = DR_BORDER_SAMPLING_SVM;
     dr_preset.image_batch_size = 4;
-    dr_preset.border_color_threshold = 1.0f;
     dr_preset.debug_print = true;
 
     MultiRendererDR dr_render;
@@ -1591,8 +1590,7 @@ void diff_render_test_16_borders_detection()
     MultiRendererDR dr_render;
     dr_render.SetReference(images_ref, view, proj);
     dr_preset.debug_render_mode = DR_DEBUG_RENDER_MODE_BORDER_INTEGRAL;
-    dr_preset.border_color_threshold = -1; // force to calculate border integral in every pixel
-    dr_preset.border_depth_threshold = -1;
+    dr_preset.debug_forced_border = true;
     dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS);
     image_bint = dr_render.getLastDebugImage(0);
     LiteImage::SaveImage<float4>("saves/test_dr_16_bint.bmp", image_bint);
@@ -1684,8 +1682,6 @@ void diff_render_test_17_optimize_bunny()
     dr_preset.border_spp = 1024;
     dr_preset.image_batch_size = 4;
     dr_preset.dr_border_sampling = DR_BORDER_SAMPLING_SVM;
-    dr_preset.border_color_threshold = 1000.0f;
-    dr_preset.border_depth_threshold = 1000.0f;
     dr_preset.debug_print = true;
     dr_preset.debug_print_interval = 1;
     dr_preset.debug_progress_interval = 100;
@@ -2023,8 +2019,6 @@ void diff_render_test_21_optimization_stand()
   dr_preset.render_width = 256;
   //dr_preset.reg_function = DR_REG_FUNCTION_LK_DENOISING;
   //dr_preset.reg_lambda = 3.0f;
-  dr_preset.border_depth_threshold = 1000.0f;
-  dr_preset.border_color_threshold = 1000.0f;
   //dr_preset.redistancing_enable = true;
   //dr_preset.redistancing_interval = 1;
   //dr_preset.reg_power = 1.1f;

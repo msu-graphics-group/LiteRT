@@ -137,8 +137,6 @@ namespace dr
     // border integral estimator parameters
     unsigned border_spp;
     float border_relax_eps;
-    float border_depth_threshold;
-    float border_color_threshold;
 
     //optimization parameters (Adam optimizer)
     float opt_lr;
@@ -163,6 +161,7 @@ namespace dr
     unsigned debug_print_interval;   //how often to print
     unsigned debug_progress_images;  //render mode to progress images,either DEBUG_PROGRESS_NONE, DEBUG_PROGRESS_RAW or any MultiRenderMode
     unsigned debug_progress_interval;//how often to save progress images
+    bool     debug_forced_border;    //disable border detection, force border integral estimation in every pixel
     
     //very heavy and specific debug modes. You probably shouldn't use them on a regular scene
     bool debug_pd_images;

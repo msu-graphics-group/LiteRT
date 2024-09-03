@@ -542,7 +542,7 @@ namespace dr
           break;
         }
 
-        if (is_border)
+        if (is_border || m_preset_dr.debug_forced_border)
           m_borderPixels.push_back(i);
       }
     }

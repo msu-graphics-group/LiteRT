@@ -23,8 +23,6 @@ namespace dr
 
     preset.border_spp = 256;
     preset.border_relax_eps = 1e-3f;
-    preset.border_depth_threshold = 1e-3f;   //minimal difference between missed_hit and hit depth for border
-    preset.border_color_threshold = 1e-6f;   //only borders with no color change are discarded
 
     preset.opt_lr = 0.01f;
     preset.opt_beta_1 = 0.9f;
@@ -45,6 +43,7 @@ namespace dr
     preset.debug_print_interval = 10;
     preset.debug_progress_images = DEBUG_PROGRESS_RAW;
     preset.debug_progress_interval = 100;
+    preset.debug_forced_border = false;
 
     preset.debug_pd_images = false;
     preset.debug_border_samples = false;
