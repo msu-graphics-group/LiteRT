@@ -53,9 +53,10 @@ namespace sdf_converter
     {
       double total_loss = 0.0;
       double total_reg_loss = 0.0;
+
       std::fill(diff.begin(), diff.end(), 0.0f);
       
-      #pragma omp parallel for
+      //#pragma omp parallel for
       for (int i0 = 0; i0 < grid.size.x; i0++)
       {
         for (int j0 = 0; j0 < grid.size.y; j0++)
@@ -66,6 +67,8 @@ namespace sdf_converter
             float loss = (grid.data[idx] - original_grid.data[idx]) * (grid.data[idx] - original_grid.data[idx]);
             total_loss += loss;
             diff[idx] = 2.0f * (grid.data[idx] - original_grid.data[idx]);
+
+            //if (step == 0) fprintf(file_x, "%d -- %d %d %d %d - %f\n", step, i0, j0, k0, grid.size.x - 1, grid.data[idx]);
             
             if (i0 > 0)
             {
@@ -145,6 +148,8 @@ namespace sdf_converter
       //  grid.data[i] -= lr * diff[i];
       //}
     }
+
+    //fclose(file_x);
 
     return grid;
   }
@@ -665,10 +670,12 @@ namespace sdf_converter
     if (border_vals.find(key) != border_vals.end())
     {
       border_vals[key].idxs.insert(sbs.values[node.data_offset + idx]);
-      printf("%u, %u, %u, %u - AAA\n", key.first.first, key.first.second, key.second, sbs.values[node.data_offset + idx]);
+      //if (sbs.values[node.data_offset + idx] == 0) printf("%d %d %d\n", key.first.first, key.first.second, key.second);
+      //printf("%u, %u, %u, %u - AAA\n", key.first.first, key.first.second, key.second, sbs.values[node.data_offset + idx]);
     }
     else
     {
+      //if (sbs.values[node.data_offset + idx] == 0) printf("%d %d %d\n", key.first.first, key.first.second, key.second);
       is_new = true;
       border_vals[key] = {};
       border_vals[key].idxs.clear();
@@ -692,6 +699,8 @@ namespace sdf_converter
       border_vals[key].X_plus.val_c2 = border_vals[key].X_plus.val;
       border_vals[key].X_plus.val_c12 = border_vals[key].X_plus.val;
       border_vals[key].X_plus.is_filled = true;
+
+      //if (sbs.values[node.data_offset + idx] == 0) printf("x+ %d\n", sbs.values[node.data_offset + idx + val_size * val_size]);
     }
     if (x_off != 0 && !border_vals[key].X_minus.is_filled)
     {
@@ -703,6 +712,8 @@ namespace sdf_converter
       border_vals[key].X_minus.val_c2 = border_vals[key].X_minus.val;
       border_vals[key].X_minus.val_c12 = border_vals[key].X_minus.val;
       border_vals[key].X_minus.is_filled = true;
+
+      //if (sbs.values[node.data_offset + idx] == 0) printf("x- %d\n", sbs.values[node.data_offset + idx - val_size * val_size]);
     }
 
     if (y_off != 0 && !border_vals[key].Y_minus.is_filled) 
@@ -715,6 +726,8 @@ namespace sdf_converter
       border_vals[key].Y_minus.val_c2 = border_vals[key].Y_minus.val;
       border_vals[key].Y_minus.val_c12 = border_vals[key].Y_minus.val;
       border_vals[key].Y_minus.is_filled = true;
+
+      //if (sbs.values[node.data_offset + idx] == 0) printf("y- %d\n", sbs.values[node.data_offset + idx - val_size]);
     }
     
     if (y_off != val_size - 1 && !border_vals[key].Y_plus.is_filled) 
@@ -727,6 +740,8 @@ namespace sdf_converter
       border_vals[key].Y_plus.val_c2 = border_vals[key].Y_plus.val;
       border_vals[key].Y_plus.val_c12 = border_vals[key].Y_plus.val;
       border_vals[key].Y_plus.is_filled = true;
+
+      //if (sbs.values[node.data_offset + idx] == 0) printf("y+ %d\n", sbs.values[node.data_offset + idx + val_size]);
     }
 
     if (z_off != 0 && !border_vals[key].Z_minus.is_filled) 
@@ -739,6 +754,8 @@ namespace sdf_converter
       border_vals[key].Z_minus.val_c2 = border_vals[key].Z_minus.val;
       border_vals[key].Z_minus.val_c12 = border_vals[key].Z_minus.val;
       border_vals[key].Z_minus.is_filled = true;
+
+      //if (sbs.values[node.data_offset + idx] == 0) printf("z- %d\n", sbs.values[node.data_offset + idx - 1]);
     }
     
     if (z_off != val_size - 1 && !border_vals[key].Z_plus.is_filled) 
@@ -751,6 +768,8 @@ namespace sdf_converter
       border_vals[key].Z_plus.val_c2 = border_vals[key].Z_plus.val;
       border_vals[key].Z_plus.val_c12 = border_vals[key].Z_plus.val;
       border_vals[key].Z_plus.is_filled = true;
+
+      //if (sbs.values[node.data_offset + idx] == 0) printf("z+ %d\n", sbs.values[node.data_offset + idx + 1]);
     }
 
     //go on the X plate and delete all filled X elems and elems between our YZ's
@@ -759,15 +778,15 @@ namespace sdf_converter
       std::pair<coord, uint32_t> key_plate;
       if (plate == X)
       {
-        key_plate = {X, x_pos};
+        key_plate = {X, x_pos + (size / sbs.header.brick_size) * x_off};
       }
       else if (plate == Y)
       {
-        key_plate = {Y, y_pos};
+        key_plate = {Y, y_pos + (size / sbs.header.brick_size) * y_off};
       }
       else
       {
-        key_plate = {Z, z_pos};
+        key_plate = {Z, z_pos + (size / sbs.header.brick_size) * z_off};
       }
       if (not_full_data.find(key_plate) != not_full_data.end())
       {
@@ -776,7 +795,7 @@ namespace sdf_converter
           auto p = not_full_data[key_plate][i];
           if (plate == X)
           {
-            if (border_vals[{{x_pos, p.first}, p.second}].X_minus.is_filled && border_vals[{{x_pos, p.first}, p.second}].X_plus.is_filled)
+            if (border_vals[{{x_pos + (size / sbs.header.brick_size) * x_off, p.first}, p.second}].X_minus.is_filled && border_vals[{{x_pos + (size / sbs.header.brick_size) * x_off, p.first}, p.second}].X_plus.is_filled)
             {
               not_full_data[key_plate].erase(not_full_data[key_plate].begin() + i);
               continue;
@@ -784,29 +803,31 @@ namespace sdf_converter
             if (p.first >= y_pos + (size / sbs.header.brick_size) * c1 && p.first <= y_pos + (size / sbs.header.brick_size) * (c1 + 1) && 
                 p.second >= z_pos + (size / sbs.header.brick_size) * c2 && p.second <= z_pos + (size / sbs.header.brick_size) * (c2 + 1))
             {
-              if (x_off == 0 && !border_vals[{{x_pos, p.first}, p.second}].X_plus.is_filled)
+              if (x_off == 0 && !border_vals[{{x_pos + (size / sbs.header.brick_size) * x_off, p.first}, p.second}].X_plus.is_filled)
               {
-                border_vals[{{x_pos, p.first}, p.second}].X_plus.is_filled = true;
-                border_vals[{{x_pos, p.first}, p.second}].X_plus.coef_1 = (y_pos + (size / sbs.header.brick_size) * (c1 + 1) - p.first) / (size / sbs.header.brick_size);
-                border_vals[{{x_pos, p.first}, p.second}].X_plus.coef_2 = (z_pos + (size / sbs.header.brick_size) * (c2 + 1) - p.second) / (size / sbs.header.brick_size);
-                border_vals[{{x_pos, p.first}, p.second}].X_plus.distance = mult;
-                border_vals[{{x_pos, p.first}, p.second}].X_plus.val = sbs.values[node.data_offset + idx + val_size * val_size];
-                border_vals[{{x_pos, p.first}, p.second}].X_plus.val_c1 = sbs.values[node.data_offset + idx + val_size * val_size + val_size];
-                border_vals[{{x_pos, p.first}, p.second}].X_plus.val_c2 = sbs.values[node.data_offset + idx + val_size * val_size + 1];
-                border_vals[{{x_pos, p.first}, p.second}].X_plus.val_c12 = sbs.values[node.data_offset + idx + val_size * val_size + val_size + 1];
+                //if (*border_vals[{{x_pos + (size / sbs.header.brick_size) * x_off, p.first}, p.second}].idxs.begin() == 0) printf("new x+ %d\n", sbs.values[node.data_offset + idx + val_size * val_size]);
+                border_vals[{{x_pos + (size / sbs.header.brick_size) * x_off, p.first}, p.second}].X_plus.is_filled = true;
+                border_vals[{{x_pos + (size / sbs.header.brick_size) * x_off, p.first}, p.second}].X_plus.coef_1 = (y_pos + (size / sbs.header.brick_size) * (c1 + 1) - p.first) / (size / sbs.header.brick_size);
+                border_vals[{{x_pos + (size / sbs.header.brick_size) * x_off, p.first}, p.second}].X_plus.coef_2 = (z_pos + (size / sbs.header.brick_size) * (c2 + 1) - p.second) / (size / sbs.header.brick_size);
+                border_vals[{{x_pos + (size / sbs.header.brick_size) * x_off, p.first}, p.second}].X_plus.distance = mult;
+                border_vals[{{x_pos + (size / sbs.header.brick_size) * x_off, p.first}, p.second}].X_plus.val = sbs.values[node.data_offset + idx + val_size * val_size];
+                border_vals[{{x_pos + (size / sbs.header.brick_size) * x_off, p.first}, p.second}].X_plus.val_c1 = sbs.values[node.data_offset + idx + val_size * val_size + val_size];
+                border_vals[{{x_pos + (size / sbs.header.brick_size) * x_off, p.first}, p.second}].X_plus.val_c2 = sbs.values[node.data_offset + idx + val_size * val_size + 1];
+                border_vals[{{x_pos + (size / sbs.header.brick_size) * x_off, p.first}, p.second}].X_plus.val_c12 = sbs.values[node.data_offset + idx + val_size * val_size + val_size + 1];
 
                 not_full_data[key_plate].erase(not_full_data[key_plate].begin() + i);
               }
-              else if (x_off == val_size - 1 && !border_vals[{{x_pos, p.first}, p.second}].X_minus.is_filled)
+              else if (x_off == val_size - 1 && !border_vals[{{x_pos + (size / sbs.header.brick_size) * x_off, p.first}, p.second}].X_minus.is_filled)
               {
-                border_vals[{{x_pos, p.first}, p.second}].X_minus.is_filled = true;
-                border_vals[{{x_pos, p.first}, p.second}].X_minus.coef_1 = (y_pos + (size / sbs.header.brick_size) * (c1 + 1) - p.first) / (size / sbs.header.brick_size);
-                border_vals[{{x_pos, p.first}, p.second}].X_minus.coef_2 = (z_pos + (size / sbs.header.brick_size) * (c2 + 1) - p.second) / (size / sbs.header.brick_size);
-                border_vals[{{x_pos, p.first}, p.second}].X_minus.distance = mult;
-                border_vals[{{x_pos, p.first}, p.second}].X_minus.val = sbs.values[node.data_offset + idx - val_size * val_size];
-                border_vals[{{x_pos, p.first}, p.second}].X_minus.val_c1 = sbs.values[node.data_offset + idx - val_size * val_size + val_size];
-                border_vals[{{x_pos, p.first}, p.second}].X_minus.val_c2 = sbs.values[node.data_offset + idx - val_size * val_size + 1];
-                border_vals[{{x_pos, p.first}, p.second}].X_minus.val_c12 = sbs.values[node.data_offset + idx - val_size * val_size + val_size + 1];
+                //if (*border_vals[{{x_pos + (size / sbs.header.brick_size) * x_off, p.first}, p.second}].idxs.begin() == 0) printf("new x- %d %d %d %d %d %d\n", sbs.values[node.data_offset + idx - val_size * val_size], x_pos + (size / sbs.header.brick_size) * x_off, p.first, p.second, idx, x_off);
+                border_vals[{{x_pos + (size / sbs.header.brick_size) * x_off, p.first}, p.second}].X_minus.is_filled = true;
+                border_vals[{{x_pos + (size / sbs.header.brick_size) * x_off, p.first}, p.second}].X_minus.coef_1 = (y_pos + (size / sbs.header.brick_size) * (c1 + 1) - p.first) / (size / sbs.header.brick_size);
+                border_vals[{{x_pos + (size / sbs.header.brick_size) * x_off, p.first}, p.second}].X_minus.coef_2 = (z_pos + (size / sbs.header.brick_size) * (c2 + 1) - p.second) / (size / sbs.header.brick_size);
+                border_vals[{{x_pos + (size / sbs.header.brick_size) * x_off, p.first}, p.second}].X_minus.distance = mult;
+                border_vals[{{x_pos + (size / sbs.header.brick_size) * x_off, p.first}, p.second}].X_minus.val = sbs.values[node.data_offset + idx - val_size * val_size];
+                border_vals[{{x_pos + (size / sbs.header.brick_size) * x_off, p.first}, p.second}].X_minus.val_c1 = sbs.values[node.data_offset + idx - val_size * val_size + val_size];
+                border_vals[{{x_pos + (size / sbs.header.brick_size) * x_off, p.first}, p.second}].X_minus.val_c2 = sbs.values[node.data_offset + idx - val_size * val_size + 1];
+                border_vals[{{x_pos + (size / sbs.header.brick_size) * x_off, p.first}, p.second}].X_minus.val_c12 = sbs.values[node.data_offset + idx - val_size * val_size + val_size + 1];
 
                 not_full_data[key_plate].erase(not_full_data[key_plate].begin() + i);
               }
@@ -822,7 +843,7 @@ namespace sdf_converter
           }
           else if (plate == Y)/////////////////////////////////////////////////////////////////////////////////////////////
           {
-            if (border_vals[{{p.first, y_pos}, p.second}].Y_minus.is_filled && border_vals[{{p.first, y_pos}, p.second}].Y_plus.is_filled)
+            if (border_vals[{{p.first, y_pos + (size / sbs.header.brick_size) * y_off}, p.second}].Y_minus.is_filled && border_vals[{{p.first, y_pos + (size / sbs.header.brick_size) * y_off}, p.second}].Y_plus.is_filled)
             {
               not_full_data[key_plate].erase(not_full_data[key_plate].begin() + i);
               continue;
@@ -830,29 +851,31 @@ namespace sdf_converter
             if (p.first >= x_pos + (size / sbs.header.brick_size) * c1 && p.first <= x_pos + (size / sbs.header.brick_size) * (c1 + 1) && 
                 p.second >= z_pos + (size / sbs.header.brick_size) * c2 && p.second <= z_pos + (size / sbs.header.brick_size) * (c2 + 1))
             {
-              if (y_off == 0 && !border_vals[{{p.first, y_pos}, p.second}].Y_plus.is_filled)
+              if (y_off == 0 && !border_vals[{{p.first, y_pos + (size / sbs.header.brick_size) * y_off}, p.second}].Y_plus.is_filled)
               {
-                border_vals[{{p.first, y_pos}, p.second}].Y_plus.is_filled = true;
-                border_vals[{{p.first, y_pos}, p.second}].Y_plus.coef_1 = (x_pos + (size / sbs.header.brick_size) * (c1 + 1) - p.first) / (size / sbs.header.brick_size);
-                border_vals[{{p.first, y_pos}, p.second}].Y_plus.coef_2 = (z_pos + (size / sbs.header.brick_size) * (c2 + 1) - p.second) / (size / sbs.header.brick_size);
-                border_vals[{{p.first, y_pos}, p.second}].Y_plus.distance = mult;
-                border_vals[{{p.first, y_pos}, p.second}].Y_plus.val = sbs.values[node.data_offset + idx + val_size];
-                border_vals[{{p.first, y_pos}, p.second}].Y_plus.val_c1 = sbs.values[node.data_offset + idx + val_size + val_size * val_size];
-                border_vals[{{p.first, y_pos}, p.second}].Y_plus.val_c2 = sbs.values[node.data_offset + idx + val_size + 1];
-                border_vals[{{p.first, y_pos}, p.second}].Y_plus.val_c12 = sbs.values[node.data_offset + idx + val_size + val_size * val_size + 1];
+                //if (*border_vals[{{p.first, y_pos + (size / sbs.header.brick_size) * y_off}, p.second}].idxs.begin() == 0) printf("new y+ %d %d %d %d\n", sbs.values[node.data_offset + idx + val_size]);
+                border_vals[{{p.first, y_pos + (size / sbs.header.brick_size) * y_off}, p.second}].Y_plus.is_filled = true;
+                border_vals[{{p.first, y_pos + (size / sbs.header.brick_size) * y_off}, p.second}].Y_plus.coef_1 = (x_pos + (size / sbs.header.brick_size) * (c1 + 1) - p.first) / (size / sbs.header.brick_size);
+                border_vals[{{p.first, y_pos + (size / sbs.header.brick_size) * y_off}, p.second}].Y_plus.coef_2 = (z_pos + (size / sbs.header.brick_size) * (c2 + 1) - p.second) / (size / sbs.header.brick_size);
+                border_vals[{{p.first, y_pos + (size / sbs.header.brick_size) * y_off}, p.second}].Y_plus.distance = mult;
+                border_vals[{{p.first, y_pos + (size / sbs.header.brick_size) * y_off}, p.second}].Y_plus.val = sbs.values[node.data_offset + idx + val_size];
+                border_vals[{{p.first, y_pos + (size / sbs.header.brick_size) * y_off}, p.second}].Y_plus.val_c1 = sbs.values[node.data_offset + idx + val_size + val_size * val_size];
+                border_vals[{{p.first, y_pos + (size / sbs.header.brick_size) * y_off}, p.second}].Y_plus.val_c2 = sbs.values[node.data_offset + idx + val_size + 1];
+                border_vals[{{p.first, y_pos + (size / sbs.header.brick_size) * y_off}, p.second}].Y_plus.val_c12 = sbs.values[node.data_offset + idx + val_size + val_size * val_size + 1];
 
                 not_full_data[key_plate].erase(not_full_data[key_plate].begin() + i);
               }
-              else if (y_off == val_size - 1 && !border_vals[{{p.first, y_pos}, p.second}].Y_minus.is_filled)
+              else if (y_off == val_size - 1 && !border_vals[{{p.first, y_pos + (size / sbs.header.brick_size) * y_off}, p.second}].Y_minus.is_filled)
               {
-                border_vals[{{p.first, y_pos}, p.second}].Y_minus.is_filled = true;
-                border_vals[{{p.first, y_pos}, p.second}].Y_minus.coef_1 = (x_pos + (size / sbs.header.brick_size) * (c1 + 1) - p.first) / (size / sbs.header.brick_size);
-                border_vals[{{p.first, y_pos}, p.second}].Y_minus.coef_2 = (z_pos + (size / sbs.header.brick_size) * (c2 + 1) - p.second) / (size / sbs.header.brick_size);
-                border_vals[{{p.first, y_pos}, p.second}].Y_minus.distance = mult;
-                border_vals[{{p.first, y_pos}, p.second}].Y_minus.val = sbs.values[node.data_offset + idx - val_size];
-                border_vals[{{p.first, y_pos}, p.second}].Y_minus.val_c1 = sbs.values[node.data_offset + idx - val_size + val_size * val_size];
-                border_vals[{{p.first, y_pos}, p.second}].Y_minus.val_c2 = sbs.values[node.data_offset + idx - val_size + 1];
-                border_vals[{{p.first, y_pos}, p.second}].Y_minus.val_c12 = sbs.values[node.data_offset + idx - val_size + val_size * val_size + 1];
+                //if (*border_vals[{{p.first, y_pos + (size / sbs.header.brick_size) * y_off}, p.second}].idxs.begin() == 0) printf("new y- %d %d %d %d %d\n", sbs.values[node.data_offset + idx - val_size], p.first, y_pos + (size / sbs.header.brick_size) * y_off, p.second, idx);
+                border_vals[{{p.first, y_pos + (size / sbs.header.brick_size) * y_off}, p.second}].Y_minus.is_filled = true;
+                border_vals[{{p.first, y_pos + (size / sbs.header.brick_size) * y_off}, p.second}].Y_minus.coef_1 = (x_pos + (size / sbs.header.brick_size) * (c1 + 1) - p.first) / (size / sbs.header.brick_size);
+                border_vals[{{p.first, y_pos + (size / sbs.header.brick_size) * y_off}, p.second}].Y_minus.coef_2 = (z_pos + (size / sbs.header.brick_size) * (c2 + 1) - p.second) / (size / sbs.header.brick_size);
+                border_vals[{{p.first, y_pos + (size / sbs.header.brick_size) * y_off}, p.second}].Y_minus.distance = mult;
+                border_vals[{{p.first, y_pos + (size / sbs.header.brick_size) * y_off}, p.second}].Y_minus.val = sbs.values[node.data_offset + idx - val_size];
+                border_vals[{{p.first, y_pos + (size / sbs.header.brick_size) * y_off}, p.second}].Y_minus.val_c1 = sbs.values[node.data_offset + idx - val_size + val_size * val_size];
+                border_vals[{{p.first, y_pos + (size / sbs.header.brick_size) * y_off}, p.second}].Y_minus.val_c2 = sbs.values[node.data_offset + idx - val_size + 1];
+                border_vals[{{p.first, y_pos + (size / sbs.header.brick_size) * y_off}, p.second}].Y_minus.val_c12 = sbs.values[node.data_offset + idx - val_size + val_size * val_size + 1];
 
                 not_full_data[key_plate].erase(not_full_data[key_plate].begin() + i);
               }
@@ -868,7 +891,7 @@ namespace sdf_converter
           }
           else/////////////////////////////////////////////////////////////////////////////////////////////////////////////
           {
-            if (border_vals[{{p.first, p.second}, z_pos}].Z_minus.is_filled && border_vals[{{p.first, p.second}, z_pos}].Z_plus.is_filled)
+            if (border_vals[{{p.first, p.second}, z_pos + (size / sbs.header.brick_size) * z_off}].Z_minus.is_filled && border_vals[{{p.first, p.second}, z_pos + (size / sbs.header.brick_size) * z_off}].Z_plus.is_filled)
             {
               not_full_data[key_plate].erase(not_full_data[key_plate].begin() + i);
               continue;
@@ -876,29 +899,31 @@ namespace sdf_converter
             if (p.first >= x_pos + (size / sbs.header.brick_size) * c1 && p.first <= x_pos + (size / sbs.header.brick_size) * (c1 + 1) && 
                 p.second >= y_pos + (size / sbs.header.brick_size) * c2 && p.second <= y_pos + (size / sbs.header.brick_size) * (c2 + 1))
             {
-              if (z_off == 0 && !border_vals[{{p.first, p.second}, z_pos}].Z_plus.is_filled)
+              if (z_off == 0 && !border_vals[{{p.first, p.second}, z_pos + (size / sbs.header.brick_size) * z_off}].Z_plus.is_filled)
               {
-                border_vals[{{p.first, p.second}, z_pos}].Z_plus.is_filled = true;
-                border_vals[{{p.first, p.second}, z_pos}].Z_plus.coef_1 = (x_pos + (size / sbs.header.brick_size) * (c1 + 1) - p.first) / (size / sbs.header.brick_size);
-                border_vals[{{p.first, p.second}, z_pos}].Z_plus.coef_2 = (y_pos + (size / sbs.header.brick_size) * (c2 + 1) - p.second) / (size / sbs.header.brick_size);
-                border_vals[{{p.first, p.second}, z_pos}].Z_plus.distance = mult;
-                border_vals[{{p.first, p.second}, z_pos}].Z_plus.val = sbs.values[node.data_offset + idx + 1];
-                border_vals[{{p.first, p.second}, z_pos}].Z_plus.val_c1 = sbs.values[node.data_offset + idx + 1 + val_size * val_size];
-                border_vals[{{p.first, p.second}, z_pos}].Z_plus.val_c2 = sbs.values[node.data_offset + idx + 1 + val_size];
-                border_vals[{{p.first, p.second}, z_pos}].Z_plus.val_c12 = sbs.values[node.data_offset + idx + 1 + val_size * val_size + val_size];
+                //if (*border_vals[{{p.first, p.second}, z_pos + (size / sbs.header.brick_size) * z_off}].idxs.begin() == 0) printf("new z+ %d\n", sbs.values[node.data_offset + idx + 1]);
+                border_vals[{{p.first, p.second}, z_pos + (size / sbs.header.brick_size) * z_off}].Z_plus.is_filled = true;
+                border_vals[{{p.first, p.second}, z_pos + (size / sbs.header.brick_size) * z_off}].Z_plus.coef_1 = (x_pos + (size / sbs.header.brick_size) * (c1 + 1) - p.first) / (size / sbs.header.brick_size);
+                border_vals[{{p.first, p.second}, z_pos + (size / sbs.header.brick_size) * z_off}].Z_plus.coef_2 = (y_pos + (size / sbs.header.brick_size) * (c2 + 1) - p.second) / (size / sbs.header.brick_size);
+                border_vals[{{p.first, p.second}, z_pos + (size / sbs.header.brick_size) * z_off}].Z_plus.distance = mult;
+                border_vals[{{p.first, p.second}, z_pos + (size / sbs.header.brick_size) * z_off}].Z_plus.val = sbs.values[node.data_offset + idx + 1];
+                border_vals[{{p.first, p.second}, z_pos + (size / sbs.header.brick_size) * z_off}].Z_plus.val_c1 = sbs.values[node.data_offset + idx + 1 + val_size * val_size];
+                border_vals[{{p.first, p.second}, z_pos + (size / sbs.header.brick_size) * z_off}].Z_plus.val_c2 = sbs.values[node.data_offset + idx + 1 + val_size];
+                border_vals[{{p.first, p.second}, z_pos + (size / sbs.header.brick_size) * z_off}].Z_plus.val_c12 = sbs.values[node.data_offset + idx + 1 + val_size * val_size + val_size];
 
                 not_full_data[key_plate].erase(not_full_data[key_plate].begin() + i);
               }
-              else if (z_off == val_size - 1 && !border_vals[{{p.first, p.second}, z_pos}].Z_minus.is_filled)
+              else if (z_off == val_size - 1 && !border_vals[{{p.first, p.second}, z_pos + (size / sbs.header.brick_size) * z_off}].Z_minus.is_filled)
               {
-                border_vals[{{p.first, p.second}, z_pos}].Z_minus.is_filled = true;
-                border_vals[{{p.first, p.second}, z_pos}].Z_minus.coef_1 = (x_pos + (size / sbs.header.brick_size) * (c1 + 1) - p.first) / (size / sbs.header.brick_size);
-                border_vals[{{p.first, p.second}, z_pos}].Z_minus.coef_2 = (y_pos + (size / sbs.header.brick_size) * (c2 + 1) - p.second) / (size / sbs.header.brick_size);
-                border_vals[{{p.first, p.second}, z_pos}].Z_minus.distance = mult;
-                border_vals[{{p.first, p.second}, z_pos}].Z_minus.val = sbs.values[node.data_offset + idx - 1];
-                border_vals[{{p.first, p.second}, z_pos}].Z_minus.val_c1 = sbs.values[node.data_offset + idx - 1 + val_size * val_size];
-                border_vals[{{p.first, p.second}, z_pos}].Z_minus.val_c2 = sbs.values[node.data_offset + idx - 1 + val_size];
-                border_vals[{{p.first, p.second}, z_pos}].Z_minus.val_c12 = sbs.values[node.data_offset + idx - 1 + val_size * val_size + val_size];
+                //if (*border_vals[{{p.first, p.second}, z_pos + (size / sbs.header.brick_size) * z_off}].idxs.begin() == 0) printf("new z- %d %d %d %d %d\n", sbs.values[node.data_offset + idx - 1], p.first, p.second, z_pos + (size / sbs.header.brick_size) * z_off, idx);
+                border_vals[{{p.first, p.second}, z_pos + (size / sbs.header.brick_size) * z_off}].Z_minus.is_filled = true;
+                border_vals[{{p.first, p.second}, z_pos + (size / sbs.header.brick_size) * z_off}].Z_minus.coef_1 = (x_pos + (size / sbs.header.brick_size) * (c1 + 1) - p.first) / (size / sbs.header.brick_size);
+                border_vals[{{p.first, p.second}, z_pos + (size / sbs.header.brick_size) * z_off}].Z_minus.coef_2 = (y_pos + (size / sbs.header.brick_size) * (c2 + 1) - p.second) / (size / sbs.header.brick_size);
+                border_vals[{{p.first, p.second}, z_pos + (size / sbs.header.brick_size) * z_off}].Z_minus.distance = mult;
+                border_vals[{{p.first, p.second}, z_pos + (size / sbs.header.brick_size) * z_off}].Z_minus.val = sbs.values[node.data_offset + idx - 1];
+                border_vals[{{p.first, p.second}, z_pos + (size / sbs.header.brick_size) * z_off}].Z_minus.val_c1 = sbs.values[node.data_offset + idx - 1 + val_size * val_size];
+                border_vals[{{p.first, p.second}, z_pos + (size / sbs.header.brick_size) * z_off}].Z_minus.val_c2 = sbs.values[node.data_offset + idx - 1 + val_size];
+                border_vals[{{p.first, p.second}, z_pos + (size / sbs.header.brick_size) * z_off}].Z_minus.val_c12 = sbs.values[node.data_offset + idx - 1 + val_size * val_size + val_size];
 
                 not_full_data[key_plate].erase(not_full_data[key_plate].begin() + i);
               }
@@ -959,6 +984,8 @@ namespace sdf_converter
     sbs.values = original_sbs.values;
     sbs.values_f = original_sbs.values_f;
 
+    //printf("AAA %d\n", sbs.header.bytes_per_value);
+
     if (original_sbs.header.aux_data & SDF_SBS_NODE_LAYOUT_MASK != SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F)
     {
       return sbs;
@@ -980,6 +1007,7 @@ namespace sdf_converter
     {
 
       uint32_t size = sbs.header.brick_size * (UINT16_MAX + 1) / (node.pos_z_lod_size & 0x0000FFFF);
+      //printf("%d\n", node.pos_z_lod_size & 0x0000FFFF);
       float mult = (sbs.nodes[0].pos_z_lod_size & 0x0000FFFF) / (node.pos_z_lod_size & 0x0000FFFF);
 
       uint32_t x_pos = size * (node.pos_xy >> 16);
@@ -1050,6 +1078,10 @@ namespace sdf_converter
         //uint32_t y_pos = size * (node.pos_xy & 0x0000FFFF);
         //uint32_t z_pos = size * (node.pos_z_lod_size >> 16);
 
+        //if (step == 0) printf("%d %d %d %d - %f\n", (node.pos_xy >> 16), (node.pos_xy & 0x0000FFFF), (node.pos_z_lod_size >> 16), (node.pos_z_lod_size & 0x0000FFFF), sbs.values_f[sbs.values[node.data_offset]]);
+
+        //if (step == 1) std::fill(diff.begin(), diff.end(), 0.0f);
+
         //#pragma omp parallel for
         for (uint32_t i = 1; i < val_size - 1; ++i)//IGNORING BRICK_PAD
         {
@@ -1064,9 +1096,10 @@ namespace sdf_converter
               total_loss += loss;
               diff[sbs.values[node.data_offset + idx]] += 2.0f * (sbs.values_f[sbs.values[node.data_offset + idx]] - original_sbs.values_f[original_sbs.values[node.data_offset + idx]]);
 
+              //if (step == 0) printf("%d %d %d %d - %f\n", (node.pos_xy >> 16) + i, (node.pos_xy & 0x0000FFFF) + j, (node.pos_z_lod_size >> 16) + k, (node.pos_z_lod_size & 0x0000FFFF), sbs.values_f[sbs.values[node.data_offset + idx]]);
+
               //x- side of voxel/////////////////////////////////////////////////////////////////////////////////////////
 
-              
               {
                 float d = (sbs.values_f[sbs.values[node.data_offset + idx]] - sbs.values_f[sbs.values[node.data_offset + idx - val_size * val_size]]) / mult;
                 float sgn_d = d > 0.0f ? 1.0f : -1.0f;
@@ -1145,15 +1178,21 @@ namespace sdf_converter
           }
         }
       }
+
+      //if (step == 1) std::fill(diff.begin(), diff.end(), 0.0f);
+      //std::fill(diff.begin(), diff.end(), 0.0f);
+
       for (auto point : border_vals)
       {
         int cnt = 0;
         for (auto val_idx : point.second.idxs)
         {
-          if (cnt++ != 0)
+
+          /*if (cnt++ > 0)
           {
-            printf("XX\n\n\n\n");
-          }
+            printf("AAA\n");
+          }*/
+
           float loss =  (sbs.values_f[val_idx] - original_sbs.values_f[val_idx]) * 
                             (sbs.values_f[val_idx] - original_sbs.values_f[val_idx]);
           total_loss += loss;
@@ -1163,6 +1202,7 @@ namespace sdf_converter
 
               
           {
+
             auto point_neigh = point.second.X_minus;
             if (point_neigh.is_filled)
             {
@@ -1184,6 +1224,7 @@ namespace sdf_converter
 
           
           {
+
             auto point_neigh = point.second.X_plus;
             if (point_neigh.is_filled)
             {
@@ -1205,6 +1246,7 @@ namespace sdf_converter
 
           
           {
+
             auto point_neigh = point.second.Y_minus;
             if (point_neigh.is_filled)
             {
@@ -1226,6 +1268,7 @@ namespace sdf_converter
 
           
           {
+
             auto point_neigh = point.second.Y_plus;
             if (point_neigh.is_filled)
             {
@@ -1247,6 +1290,7 @@ namespace sdf_converter
 
           
           {
+
             auto point_neigh = point.second.Z_minus;
             if (point_neigh.is_filled)
             {
@@ -1268,6 +1312,7 @@ namespace sdf_converter
 
           
           {
+
             auto point_neigh = point.second.Z_plus;
             if (point_neigh.is_filled)
             {
@@ -1291,13 +1336,14 @@ namespace sdf_converter
       optimizer.step(sbs.values_f.data(), diff.data(), step);
 
       printf("step = %d, loss = %f(%f + %f*%f)\n", step, total_loss + lambda*total_reg_loss, total_loss, lambda, total_reg_loss);
-      printf("nodes: %d\n", sbs.nodes.size());
+      //printf("nodes: %d\n", sbs.nodes.size());
       //for (int i = 0; i < grid.data.size(); i++)
       //{
       //  grid.data[i] -= lr * diff[i];
       //}
 
     }
+    //fclose(file_x);
     border_vals.clear();
 
     return sbs;

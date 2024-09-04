@@ -33,7 +33,7 @@ namespace sdf_converter
     for (int i = 0; i < sz; i++)
       for (int j = 0; j < sz; j++)
         for (int k = 0; k < sz; k++)
-          grid.data[i*sz*sz + j*sz + k] = sdf(2.0f*(float3(k + 0.5, j + 0.5, i + 0.5)/float(sz)) - 1.0f, omp_get_thread_num());
+          grid.data[i*sz*sz + j*sz + k] = sdf(2.0f*(float3(k + 0.5, j + 0.5, i + 0.5)/float(sz/* - 1*/)) - 1.0f, omp_get_thread_num());
     omp_set_num_threads(omp_get_max_threads());
 
     return grid;
@@ -217,6 +217,23 @@ namespace sdf_converter
     }
   }
 
+  std::vector<SdfFrameOctreeTexNode> conv_octree_2_tex(const std::vector<SdfFrameOctreeNode> &frame)
+  {
+    std::vector<SdfFrameOctreeTexNode> ans(frame.size());
+    for (int i = 0; i < frame.size(); ++i)
+    {
+      ans[i].offset = frame[i].offset;
+      for (int j = 0; j < 8; ++j)
+      {
+        ans[i].values[j] = frame[i].values[j];
+        ans[i].tex_coords[j * 2] = 0;
+        ans[i].tex_coords[j * 2 + 1] = 0;
+      }
+      ans[i].material_id = 0;
+    }
+    return ans;
+  }
+
   SdfSBS create_sdf_SBS_tex(SparseOctreeSettings settings, SdfSBSHeader header, const cmesh4::SimpleMesh &mesh, bool noisy)
   {
     unsigned max_threads = omp_get_max_threads();
@@ -224,12 +241,23 @@ namespace sdf_converter
     std::vector<MeshBVH> bvh(max_threads);
     for (unsigned i = 0; i < max_threads; i++)
       bvh[i].init(mesh);
+
+    //FILE *f = fopen("./hello_2.txt", "w");
     
     MultithreadedDistanceFunction mt_sdf = [&, noisy](const float3 &p, unsigned idx) -> float 
-                                           { if (noisy) return bvh[idx].get_signed_distance(p)/* + (fmod(p.x * 153 + p.y * 427 + p.z * 311, 2.0) - 1) * 0.03*/; return bvh[idx].get_signed_distance(p); };
+                                           { 
+                                            if (noisy) 
+                                            {
+                                              auto x = (fmod(p.x * 153 + p.y * 427 + p.z * 311, 2.0) - 1) * 0.003;
+                                              //fprintf (f, "%f %f %f, %f - %f\n", p.x, p.y, p.z, bvh[idx].get_signed_distance(p), x);
+                                              return bvh[idx].get_signed_distance(p)/*sqrt(p.x * p.x + p.y * p.y + p.z * p.z) - 0.3*/ + x; 
+                                            }
+                                              return bvh[idx].get_signed_distance(p)/*sqrt(p.x * p.x + p.y * p.y + p.z * p.z) - 0.3*/; };
   
-    std::vector<SdfFrameOctreeTexNode> frame = create_sdf_frame_octree_tex(settings, mesh);
-    return frame_octree_to_SBS_tex(mt_sdf, max_threads, frame, header);
+    std::vector<SdfFrameOctreeTexNode> frame = /*create_sdf_frame_octree_tex(settings, mesh);*/conv_octree_2_tex(create_sdf_frame_octree(settings, mt_sdf, max_threads));
+    auto a = frame_octree_to_SBS_tex(mt_sdf, max_threads, frame, header);
+    //fclose(f);
+    return a;
   }
 
   SdfSBS create_sdf_SBS_col(SparseOctreeSettings settings, SdfSBSHeader header, const cmesh4::SimpleMesh &mesh, unsigned mat_id,
