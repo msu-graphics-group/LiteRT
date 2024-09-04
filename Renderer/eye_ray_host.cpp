@@ -286,7 +286,8 @@ void MultiRenderer::SetScene(const cmesh4::SimpleMesh &scene)
 
 void MultiRenderer::SetScene(SdfGridView scene)
 {
-  m_pAccelStruct2->SetProxy(m_pAccelStruct);
+  if(m_pAccelStruct != m_pAccelStruct2)
+    m_pAccelStruct2->SetProxy(m_pAccelStruct);
   m_pAccelStruct->ClearGeom();
   auto geomId = m_pAccelStruct2->AddGeom_SdfGrid(scene);
   m_pAccelStruct->ClearScene();
@@ -316,22 +317,26 @@ void MultiRenderer::SetScene(SdfFrameOctreeView scene)
 void MultiRenderer::SetScene(SdfSVSView scene)
 {
   SetPreset(m_preset);
-  GetAccelStruct()->ClearGeom();
-  GetAccelStruct()->AddGeom_SdfSVS(scene);
-  GetAccelStruct()->ClearScene();
-  GetAccelStruct()->AddInstance(0, LiteMath::float4x4());
-  GetAccelStruct()->CommitScene();
+  if(m_pAccelStruct != m_pAccelStruct2)
+    m_pAccelStruct2->SetProxy(m_pAccelStruct);
+  m_pAccelStruct->ClearGeom();
+  auto geomId = m_pAccelStruct2->AddGeom_SdfSVS(scene);
+  m_pAccelStruct->ClearScene();
+  m_pAccelStruct->AddInstance(geomId, LiteMath::float4x4());
+  m_pAccelStruct->CommitScene();
 }
 
 
 void MultiRenderer::SetScene(SdfSBSView scene, bool single_bvh_node)
 {
   SetPreset(m_preset);
-  GetAccelStruct()->ClearGeom();
-  GetAccelStruct()->AddGeom_SdfSBS(scene, single_bvh_node);
-  GetAccelStruct()->ClearScene();
-  GetAccelStruct()->AddInstance(0, LiteMath::float4x4());
-  GetAccelStruct()->CommitScene();
+  if(m_pAccelStruct != m_pAccelStruct2)
+    m_pAccelStruct2->SetProxy(m_pAccelStruct);
+  m_pAccelStruct->ClearGeom();
+  auto geomId = m_pAccelStruct2->AddGeom_SdfSBS(scene, single_bvh_node);
+  m_pAccelStruct->ClearScene();
+  m_pAccelStruct->AddInstance(geomId, LiteMath::float4x4());
+  m_pAccelStruct->CommitScene();
 }
 
 void MultiRenderer::SetScene(SdfFrameOctreeTexView scene)

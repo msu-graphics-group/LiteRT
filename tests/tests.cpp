@@ -907,7 +907,7 @@ void litert_test_17_all_types_sanity_check()
 
   unsigned W = 512, H = 512;
   MultiRenderPreset preset = getDefaultPreset();
-  preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
+  preset.render_mode = MULTI_RENDER_MODE_MASK;
 
   LiteImage::Image2D<uint32_t> image_ref(W, H);
   LiteImage::Image2D<uint32_t> image_1(W, H);
@@ -916,7 +916,7 @@ void litert_test_17_all_types_sanity_check()
   LiteImage::Image2D<uint32_t> image_4(W, H);
   LiteImage::Image2D<uint32_t> image_5(W, H);
   
-  if(false)
+  //if(false)
   {
     auto pRender = CreateMultiRenderer("GPU");
     pRender->SetPreset(preset);
@@ -925,8 +925,8 @@ void litert_test_17_all_types_sanity_check()
     LiteImage::SaveImage<uint32_t>("saves/test_17_ref.bmp", image_ref);
   }
 
+  if(false)
   {
-    preset.render_mode = MULTI_RENDER_MODE_MASK;
     auto grid = sdf_converter::create_sdf_grid(GridSettings(64), mesh);
     auto pRender = CreateMultiRenderer("GPU");
     pRender->SetPreset(preset);
@@ -934,8 +934,8 @@ void litert_test_17_all_types_sanity_check()
     render(image_1, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
     LiteImage::SaveImage<uint32_t>("saves/test_17_grid.bmp", image_1);    
   }
-  return;
-
+   
+  if(false)
   {
     auto octree = sdf_converter::create_sdf_octree(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 8, 64*64*64), mesh);
     auto pRender = CreateMultiRenderer("GPU");
@@ -945,6 +945,7 @@ void litert_test_17_all_types_sanity_check()
     LiteImage::SaveImage<uint32_t>("saves/test_17_octree.bmp", image_2);
   }
 
+  if(false)
   {
     auto octree = sdf_converter::create_sdf_frame_octree(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 8, 64*64*64), mesh);
     auto pRender = CreateMultiRenderer("GPU");
