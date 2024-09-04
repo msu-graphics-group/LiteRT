@@ -2067,6 +2067,9 @@ void diff_render_test_21_optimization_stand()
   SdfSBS medium_scene = create_grid_sbs(4, 4, 
                        [&](float3 p){return circle_sdf(float3(0,0.2,0.2), 0.6f, p);}, 
                        single_color); 
+  SdfSBS medium_scene_colored = create_grid_sbs(4, 4, 
+                       [&](float3 p){return circle_sdf(float3(0,0.2,0.2), 0.6f, p);}, 
+                       gradient_color); 
   SdfSBS medium_initial = create_grid_sbs(4, 4, 
                          [&](float3 p){return circle_sdf(float3(-0.2,0,-0.2), 0.6f, p);}, 
                          single_color);
@@ -2088,25 +2091,63 @@ void diff_render_test_21_optimization_stand()
   dr_preset.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_GEOMETRY;
   dr_preset.dr_border_sampling = DR_BORDER_SAMPLING_RANDOM;
   dr_preset.opt_lr = 0.03f;
-  optimization_stand_common(1, smallest_scene, smallest_initial, dr_preset, "Smallest scene. Mask. Random Sampling.");
+  //optimization_stand_common(1, smallest_scene, smallest_initial, dr_preset, "Smallest scene. Mask. Random Sampling.");
 
   dr_preset.dr_render_mode = DR_RENDER_MODE_MASK;
   dr_preset.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_GEOMETRY;
   dr_preset.dr_border_sampling = DR_BORDER_SAMPLING_SVM;
   dr_preset.opt_lr = 0.03f;
-  optimization_stand_common(2, smallest_scene, smallest_initial, dr_preset, "Smallest scene. Mask. SVM Sampling.");
+  //optimization_stand_common(2, smallest_scene, smallest_initial, dr_preset, "Smallest scene. Mask. SVM Sampling.");
 
   dr_preset.dr_render_mode = DR_RENDER_MODE_MASK;
   dr_preset.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_GEOMETRY;
   dr_preset.dr_border_sampling = DR_BORDER_SAMPLING_SVM;
   dr_preset.opt_lr = 0.03f;
-  optimization_stand_common(3, medium_scene, medium_initial, dr_preset, "Sphere. Mask.");
+  //optimization_stand_common(3, medium_scene, medium_initial, dr_preset, "Sphere. Mask.");
 
   dr_preset.dr_render_mode = DR_RENDER_MODE_MASK;
   dr_preset.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_GEOMETRY;
   dr_preset.dr_border_sampling = DR_BORDER_SAMPLING_SVM;
   dr_preset.opt_lr = 0.03f;
-  optimization_stand_common(4, ts_scene, medium_initial, dr_preset, "Two spheres. Mask.");
+  //optimization_stand_common(4, ts_scene, medium_initial, dr_preset, "Two spheres. Mask.");
+
+  dr_preset.dr_render_mode = DR_RENDER_MODE_DIFFUSE;
+  dr_preset.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_GEOMETRY | DR_RECONSTRUCTION_FLAG_COLOR;
+  dr_preset.dr_border_sampling = DR_BORDER_SAMPLING_SVM;
+  dr_preset.opt_lr = 0.03f;
+  //optimization_stand_common(5, medium_scene_colored, medium_initial, dr_preset, "Sphere. Diffuse. Monochrome.");
+
+  dr_preset.dr_render_mode = DR_RENDER_MODE_DIFFUSE;
+  dr_preset.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_GEOMETRY | DR_RECONSTRUCTION_FLAG_COLOR;
+  dr_preset.dr_border_sampling = DR_BORDER_SAMPLING_SVM;
+  dr_preset.opt_lr = 0.03f;
+  //optimization_stand_common(6, ts_scene, medium_initial, dr_preset, "Two spheres. Diffuse. Colored.");
+
+  dr_preset.dr_render_mode = DR_RENDER_MODE_LAMBERT;
+  dr_preset.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_GEOMETRY | DR_RECONSTRUCTION_FLAG_COLOR;
+  dr_preset.dr_border_sampling = DR_BORDER_SAMPLING_SVM;
+  dr_preset.opt_lr = 0.05f;
+  dr_preset.opt_iterations = 500;
+  dr_preset.border_spp = 1024;
+  //optimization_stand_common(7, medium_scene_colored, medium_initial, dr_preset, "Sphere. Lambert. Monochrome.");
+
+  dr_preset.dr_render_mode = DR_RENDER_MODE_LAMBERT;
+  dr_preset.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_GEOMETRY | DR_RECONSTRUCTION_FLAG_COLOR;
+  dr_preset.dr_border_sampling = DR_BORDER_SAMPLING_RANDOM;
+  dr_preset.opt_lr = 0.025f;
+  dr_preset.opt_iterations = 500;
+  dr_preset.border_spp = 1024;
+  dr_preset.debug_render_mode = DR_DEBUG_RENDER_MODE_BORDER_INTEGRAL;
+  dr_preset.border_relax_eps = 0.0001f;
+  optimization_stand_common(8, ts_scene, medium_initial, dr_preset, "Two spheres. Lambert. Colored.");
+
+  dr_preset.dr_render_mode = DR_RENDER_MODE_LAMBERT;
+  dr_preset.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_GEOMETRY | DR_RECONSTRUCTION_FLAG_COLOR;
+  dr_preset.dr_border_sampling = DR_BORDER_SAMPLING_SVM;
+  dr_preset.opt_lr = 0.05f;
+  dr_preset.opt_iterations = 500;
+  dr_preset.border_spp = 1024;
+  //optimization_stand_common(9, ds_scene, medium_initial, dr_preset, "Death Star. Lambert. Colored.");
 }
 
 void diff_render_test_22_border_sampling_accuracy_mask()
