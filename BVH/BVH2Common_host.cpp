@@ -54,6 +54,9 @@ void BVHRT::ClearGeom()
 {
   m_geomData.reserve(std::max<std::size_t>(reserveSize, m_geomData.capacity()));
   m_geomData.resize(0);
+  m_abstractObjectPtrs.reserve(m_geomData.capacity());
+  m_abstractObjectPtrs.resize(0);
+
   startEnd.reserve(m_geomData.capacity());
   startEnd.resize(0);
 
@@ -345,6 +348,9 @@ uint32_t BVHRT::AddGeom_SdfGrid(SdfGridView grid, BuildOptions a_qualityLevel)
   m_geomData.back().bvhOffset = m_allNodePairs.size();
   m_geomData.back().type = TYPE_SDF_GRID;
 
+  //m_abstractObjectPtrs.push_back(m_abstractObjects.data() + m_abstractObjects.size() - 1); // WARNING! THSI ASSUME WE DON't realloc m_abstractObjects array!!! 
+  //void* pPointer = m_abstractObjectPtrs.back();
+
   //fill grid-specific data arrays
   m_SdfGridOffsets.push_back(m_SdfGridData.size());
   m_SdfGridSizes.push_back(grid.size);
@@ -354,7 +360,7 @@ uint32_t BVHRT::AddGeom_SdfGrid(SdfGridView grid, BuildOptions a_qualityLevel)
   std::vector<BVHNode> orig_nodes = GetBoxes_SdfGrid(grid);
   
   auto pImpl = (m_proxyAS == nullptr) ? this : m_proxyAS.get();
-  return pImpl->AddGeom_AABB(AbstractObject::TAG_SDF_GRID, (const CRT_AABB*)orig_nodes.data(), orig_nodes.size());
+  return pImpl->AddGeom_AABB(AbstractObject::TAG_SDF_GRID, (const CRT_AABB*)orig_nodes.data(), orig_nodes.size()); // &pPointer, 1);
 }
 
 uint32_t BVHRT::AddGeom_SdfOctree(SdfOctreeView octree, BuildOptions a_qualityLevel)
