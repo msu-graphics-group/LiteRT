@@ -90,10 +90,9 @@ float4 MultiRenderer::kernel_RayTrace(uint32_t tidX, const float4* rayPosAndNear
   unsigned type = hit.geomId >> SH_TYPE;
   unsigned geomId = hit.geomId & 0x0FFFFFFF;
   float2 tc = float2(0, 0);
+  float3 norm = float3(1,0,0);
 
-  if (type == TYPE_SDF_FRAME_OCTREE_TEX || type == TYPE_SDF_SBS_TEX)
-    tc = float2(hit.coords[0], hit.coords[1]);
-  else if (type == TYPE_MESH_TRIANGLE)
+  if (type == TYPE_MESH_TRIANGLE)
   {
     const uint2 a_geomOffsets = m_geomOffsets[geomId];
     const uint32_t A = m_indices[a_geomOffsets.x + hit.primId * 3 + 0];
@@ -104,8 +103,20 @@ float4 MultiRenderer::kernel_RayTrace(uint32_t tidX, const float4* rayPosAndNear
     const float2 B_tc = float2(m_vertices[a_geomOffsets.y + B].w, m_normals[a_geomOffsets.y + B].w);
     const float2 C_tc = float2(m_vertices[a_geomOffsets.y + C].w, m_normals[a_geomOffsets.y + C].w);
 
+    const float4 normA = m_normals[a_geomOffsets.y + A];
+    const float4 normB = m_normals[a_geomOffsets.y + B];
+    const float4 normC = m_normals[a_geomOffsets.y + C];
+    const float2 uv    = float2(hit.coords[0], hit.coords[1]);
+    const float4 norm4 = (1.0f - uv.x - uv.y)*normA + uv.y*normB + uv.x*normC;
+
     tc = (1.0f - hit.coords[0] - hit.coords[1]) * A_tc + hit.coords[1] * B_tc + hit.coords[0] * C_tc;
+    norm = to_float3(norm4);
     // const uint2 a_geomOffsets = m_pAccelStruct-> m_geomData[geomId].offset;
+  }
+  else
+  {
+    tc = float2(hit.coords[0], hit.coords[1]);
+    norm = float3(hit.coords[2], hit.coords[3], sqrt(max(0.0f, 1 - hit.coords[2] * hit.coords[2] - hit.coords[3] * hit.coords[3])));
   }
 
   switch (m_preset.render_mode)
@@ -116,21 +127,6 @@ float4 MultiRenderer::kernel_RayTrace(uint32_t tidX, const float4* rayPosAndNear
 
   case MULTI_RENDER_MODE_LAMBERT_NO_TEX:
   {
-    const uint2 a_geomOffsets = m_geomOffsets[geomId];
-
-    const uint32_t A   = m_indices[a_geomOffsets.x + hit.primId * 3 + 0];
-    const uint32_t B   = m_indices[a_geomOffsets.x + hit.primId * 3 + 1];
-    const uint32_t C   = m_indices[a_geomOffsets.x + hit.primId * 3 + 2];
-
-    const float4 normA = m_normals[a_geomOffsets.y + A];
-    const float4 normB = m_normals[a_geomOffsets.y + B];
-    const float4 normC = m_normals[a_geomOffsets.y + C];
-    
-    const float2 uv    = float2(hit.coords[0], hit.coords[1]);
-    const float4 norm4 = (1.0f - uv.x - uv.y)*normA + uv.y*normB + uv.x*normC;
-    const float3 norm  = to_float3(norm4);
- 
-    //float3 norm(hit.coords[2], hit.coords[3], sqrt(max(0.0f, 1 - hit.coords[2] * hit.coords[2] - hit.coords[3] * hit.coords[3])));
     float q = max(0.1f, dot(norm, normalize(float3(1, 1, 1))));
     res_color = float4(q, q, q, 1);
   }
@@ -177,7 +173,6 @@ float4 MultiRenderer::kernel_RayTrace(uint32_t tidX, const float4* rayPosAndNear
 
   case MULTI_RENDER_MODE_NORMAL:
   {
-    float3 norm(hit.coords[2], hit.coords[3], sqrt(max(0.0f, 1 - hit.coords[2] * hit.coords[2] - hit.coords[3] * hit.coords[3])));
     res_color = to_float4(abs(norm), 1);
   }
   break;
@@ -223,7 +218,6 @@ float4 MultiRenderer::kernel_RayTrace(uint32_t tidX, const float4* rayPosAndNear
     const float BIAS = 1e-6f;
 
     float3 diffuse = float3(1, 1, 1);
-    float3 norm(hit.coords[2], hit.coords[3], sqrt(max(0.0f, 1 - hit.coords[2] * hit.coords[2] - hit.coords[3] * hit.coords[3])));
     float3 light_dir = -1.0f * to_float3(m_mainLightDir);
     float3 light_color = to_float3(m_mainLightColor);
 
@@ -269,9 +263,8 @@ float4 MultiRenderer::kernel_RayTrace(uint32_t tidX, const float4* rayPosAndNear
     }
     else
     {
-      //unsigned matId = m_matIdbyPrimId[m_matIdOffsets[geomId].x + hit.primId % m_matIdOffsets[geomId].y];
-      //color = m_materials[matId].type == MULTI_RENDER_MATERIAL_TYPE_COLORED ? m_materials[matId].base_color : m_textures[m_materials[matId].texId]->sample(tc);
-      color = float4(1,0,1,0);
+      unsigned matId = m_matIdbyPrimId[m_matIdOffsets[geomId].x + hit.primId % m_matIdOffsets[geomId].y];
+      color = m_materials[matId].type == MULTI_RENDER_MATERIAL_TYPE_COLORED ? m_materials[matId].base_color : m_textures[m_materials[matId].texId]->sample(tc);
     }
     res_color = to_float4(to_float3(color), 1);
   }
@@ -288,12 +281,11 @@ float4 MultiRenderer::kernel_RayTrace(uint32_t tidX, const float4* rayPosAndNear
     }
     else
     {
-      //unsigned matId = m_matIdbyPrimId[m_matIdOffsets[geomId].x + hit.primId % m_matIdOffsets[geomId].y];
-      //color = m_materials[matId].type == MULTI_RENDER_MATERIAL_TYPE_COLORED ? m_materials[matId].base_color : m_textures[m_materials[matId].texId]->sample(tc);
-      color = float4(1,0,1,0);
+      unsigned matId = m_matIdbyPrimId[m_matIdOffsets[geomId].x + hit.primId % m_matIdOffsets[geomId].y];
+      color = m_materials[matId].type == MULTI_RENDER_MATERIAL_TYPE_COLORED ? m_materials[matId].base_color : m_textures[m_materials[matId].texId]->sample(tc);
+      //color = float4(1,0,1,0);
     }
 
-    float3 norm(hit.coords[2], hit.coords[3], sqrt(max(0.0f, 1 - hit.coords[2] * hit.coords[2] - hit.coords[3] * hit.coords[3])));
     float q = max(0.1f, dot(norm, normalize(float3(1, 1, 1))));
     res_color = to_float4(q * to_float3(color), 1);
   }
@@ -317,13 +309,12 @@ float4 MultiRenderer::kernel_RayTrace(uint32_t tidX, const float4* rayPosAndNear
     }
     else
     {
-      //unsigned matId = m_matIdbyPrimId[m_matIdOffsets[geomId].x + hit.primId % m_matIdOffsets[geomId].y];
-      //color = m_materials[matId].type == MULTI_RENDER_MATERIAL_TYPE_COLORED ? m_materials[matId].base_color : m_textures[m_materials[matId].texId]->sample(tc);
-      color = float4(1,0,1,0);
+      unsigned matId = m_matIdbyPrimId[m_matIdOffsets[geomId].x + hit.primId % m_matIdOffsets[geomId].y];
+      color = m_materials[matId].type == MULTI_RENDER_MATERIAL_TYPE_COLORED ? m_materials[matId].base_color : m_textures[m_materials[matId].texId]->sample(tc);
+      //color = float4(1,0,1,0);
     }
 
     float3 diffuse = to_float3(color);
-    float3 norm(hit.coords[2], hit.coords[3], sqrt(max(0.0f, 1 - hit.coords[2] * hit.coords[2] - hit.coords[3] * hit.coords[3])));
     float3 light_dir = -1.0f * to_float3(m_mainLightDir);
     float3 light_color = to_float3(m_mainLightColor);
 
