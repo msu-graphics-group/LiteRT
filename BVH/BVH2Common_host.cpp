@@ -360,7 +360,7 @@ uint32_t BVHRT::AddGeom_SdfGrid(SdfGridView grid, BuildOptions a_qualityLevel)
   std::vector<BVHNode> orig_nodes = GetBoxes_SdfGrid(grid);
   
   auto pImpl = (m_proxyAS == nullptr) ? this : m_proxyAS.get();
-  return pImpl->AddGeom_AABB(AbstractObject::TAG_SDF_GRID, (const CRT_AABB*)orig_nodes.data(), orig_nodes.size()); // &pPointer, 1);
+  return pImpl->AddGeom_AABB(AbstractObject::TAG_SDF_GRID, (const CRT_AABB*)orig_nodes.data(), orig_nodes.size(), nullptr, 1); // &pPointer, 1);
 }
 
 uint32_t BVHRT::AddGeom_SdfOctree(SdfOctreeView octree, BuildOptions a_qualityLevel)
