@@ -406,7 +406,7 @@ uint32_t BVHRT::AddGeom_SdfFrameOctree(SdfFrameOctreeView octree, BuildOptions a
 
   //fill geom data array
   m_abstractObjects.resize(m_abstractObjects.size() + 1); 
-  new (m_abstractObjects.data() + m_abstractObjects.size() - 1) GeomDataSdfGrid();
+  new (m_abstractObjects.data() + m_abstractObjects.size() - 1) GeomDataSdfNode();
   m_abstractObjects.back().geomId = m_abstractObjects.size() - 1;
   m_abstractObjects.back().m_tag = type_to_tag(TYPE_SDF_FRAME_OCTREE);
 
@@ -428,7 +428,7 @@ uint32_t BVHRT::AddGeom_SdfFrameOctree(SdfFrameOctreeView octree, BuildOptions a
   std::vector<BVHNode> orig_nodes = GetBoxes_SdfFrameOctree(octree);
   m_origNodes = orig_nodes;
   
-  return AddGeom_AABB(AbstractObject::TAG_SDF_NODE, (const CRT_AABB*)orig_nodes.data(), orig_nodes.size());
+  return AddGeom_AABB(AbstractObject::TAG_SDF_NODE, (const CRT_AABB*)orig_nodes.data(), orig_nodes.size(), nullptr, 1);
 }
 
 uint32_t BVHRT::AddGeom_SdfSVS(SdfSVSView octree, BuildOptions a_qualityLevel)
