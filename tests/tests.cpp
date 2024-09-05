@@ -933,7 +933,6 @@ void litert_test_17_all_types_sanity_check()
     LiteImage::SaveImage<uint32_t>("saves/test_17_grid.bmp", image_1);    
   }
   
-  if (false)
   {
     auto octree = sdf_converter::create_sdf_octree(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 8, 64*64*64), mesh);
     auto pRender = CreateMultiRenderer("GPU");
@@ -943,7 +942,6 @@ void litert_test_17_all_types_sanity_check()
     LiteImage::SaveImage<uint32_t>("saves/test_17_octree.bmp", image_2);
   }
 
-  if (false)
   {
     auto octree = sdf_converter::create_sdf_frame_octree(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 8, 64*64*64), mesh);
     auto pRender = CreateMultiRenderer("GPU");
