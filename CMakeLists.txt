@@ -97,7 +97,8 @@ endif()
 
 add_compile_definitions(ON_CPU=1)
 
-option(MODULE_VULKAN "include GPU support for neural networks" ON)
+option(USE_VULKAN "include GPU support" ON)
+option(USE_RTX    "include RTX support" OFF)
 
 option(USE_STB_IMAGE "Enable STB image " ON)
 if(USE_STB_IMAGE)
@@ -114,7 +115,7 @@ set(OpenMP_CXX_FLAGS "-fopenmp=libomp")
 set(OpenMP_CXX_LIB_NAMES "libomp")
 set(OpenMP_libomp_LIBRARY ${OpenMP_CXX_LIB_NAMES})
 
-if (MODULE_VULKAN)
+if (USE_VULKAN)
   list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}")
   set(SLICER_DIR "/home/sammael/kernel_slicer" CACHE STRING "Custom diff render location")
   
@@ -164,7 +165,16 @@ if (MODULE_VULKAN)
                      ${CMAKE_SOURCE_DIR}/dependencies/vkutils/geom/vk_mesh.cpp
                      )    
 
-  set(MODULES_SRC ${MODULES_SRC} ${VKGEN_SOURCE} ${VKUTILS_SOURCE})
+  set(VKGEN_SOURCE_RTX "")
+  if (USE_RTX)
+    add_compile_definitions(USE_RTX)
+    set(VKGEN_SOURCE_RTX
+        ${CMAKE_SOURCE_DIR}/Renderer/eye_ray_rtx.cpp 
+        ${CMAKE_SOURCE_DIR}/Renderer/eye_ray_rtx_ds.cpp 
+        ${CMAKE_SOURCE_DIR}/Renderer/eye_ray_rtx_init.cpp)
+  endif()
+
+  set(MODULES_SRC ${MODULES_SRC} ${VKGEN_SOURCE} ${VKUTILS_SOURCE} ${VKGEN_SOURCE_RTX})
 
   set(MODULES_LIBRARIES ${MODULES_LIBRARIES} ${Vulkan_LIBRARY} OpenMP::OpenMP_CXX volk dl)
 endif()

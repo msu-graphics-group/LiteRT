@@ -55,6 +55,9 @@ Renderer/**/*temp*
 Renderer/**/*gpu*
 Renderer/**/*.comp
 Renderer/shaders_gpu/build.sh
+Renderer/**/*rtx*
+Renderer/**/*.glsl
+Renderer/shaders_rtx/build.sh
 .cache
 .DS_Store
 scenes/03_gs_scenes/nerf_synthetic
