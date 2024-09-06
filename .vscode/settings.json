@@ -88,7 +88,8 @@
         "__threading_support": "cpp",
         "ranges": "cpp",
         "__functional_base": "cpp",
-        "span": "cpp"
+        "span": "cpp",
+        "format": "cpp"
     },
     "C_Cpp.default.compilerPath": "/usr/bin/g++-11"
 }

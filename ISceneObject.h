@@ -26,7 +26,7 @@ struct ISceneObject2 : public ISceneObject
   */
   virtual const char* BuildName() const { return NULL; }
 
-  virtual void SetProxy(std::shared_ptr<ISceneObject> a_proxyImpl) { m_proxyAS = a_proxyImpl; }
+  virtual void SetProxy(std::weak_ptr<ISceneObject> a_proxyImpl) { m_proxyAS = a_proxyImpl; }
 
 #ifndef KERNEL_SLICER 
   virtual uint32_t AddGeom_Triangles3f(const float* a_vpos3f, const float* a_vnorm3f, size_t a_vertNumber, const uint32_t* a_triIndices, size_t a_indNumber, BuildOptions a_qualityLevel = BUILD_HIGH, size_t vByteStride = sizeof(float)*3) = 0;
@@ -50,7 +50,7 @@ struct ISceneObject2 : public ISceneObject
   MultiRenderPreset GetPreset() const { return m_preset; }
   MultiRenderPreset m_preset;
 
-  std::shared_ptr<ISceneObject> m_proxyAS;
+  std::weak_ptr<ISceneObject> m_proxyAS;
 };
 
 std::shared_ptr<ISceneObject2> CreateSceneRT(const char* a_implName, const char* a_buildName, const char* a_layoutName);

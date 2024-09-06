@@ -359,7 +359,8 @@ uint32_t BVHRT::AddGeom_SdfGrid(SdfGridView grid, BuildOptions a_qualityLevel)
   //create list of bboxes for BLAS
   std::vector<BVHNode> orig_nodes = GetBoxes_SdfGrid(grid);
   
-  auto pImpl = (m_proxyAS == nullptr) ? this : m_proxyAS.get();
+  auto pProxy = m_proxyAS.lock();
+  auto pImpl  = (pProxy == nullptr) ? this : pProxy.get();
   return pImpl->AddGeom_AABB(AbstractObject::TAG_SDF_GRID, (const CRT_AABB*)orig_nodes.data(), orig_nodes.size(), nullptr, 1); // &pPointer, 1);
 }
 
@@ -393,7 +394,8 @@ uint32_t BVHRT::AddGeom_SdfOctree(SdfOctreeView octree, BuildOptions a_qualityLe
   //create list of bboxes for BLAS
   std::vector<BVHNode> orig_nodes = GetBoxes_SdfOctree(octree);
   
-  auto pImpl = (m_proxyAS == nullptr) ? this : m_proxyAS.get();
+  auto pProxy = m_proxyAS.lock();
+  auto pImpl  = (pProxy == nullptr) ? this : pProxy.get();
   return pImpl->AddGeom_AABB(AbstractObject::TAG_SDF_GRID, (const CRT_AABB*)orig_nodes.data(), orig_nodes.size(), nullptr, 1);
 }
 
@@ -428,8 +430,9 @@ uint32_t BVHRT::AddGeom_SdfFrameOctree(SdfFrameOctreeView octree, BuildOptions a
   //create list of bboxes for BLAS
   std::vector<BVHNode> orig_nodes = GetBoxes_SdfFrameOctree(octree);
   m_origNodes = orig_nodes;
-
-  auto pImpl = (m_proxyAS == nullptr) ? this : m_proxyAS.get();
+  
+  auto pProxy = m_proxyAS.lock();
+  auto pImpl  = (pProxy == nullptr) ? this : pProxy.get();
   return pImpl->AddGeom_AABB(AbstractObject::TAG_SDF_NODE, (const CRT_AABB*)orig_nodes.data(), orig_nodes.size(), nullptr, 1);
 }
 
@@ -495,7 +498,8 @@ uint32_t BVHRT::AddGeom_SdfSVS(SdfSVSView octree, BuildOptions a_qualityLevel)
     orig_nodes[i].boxMax = orig_nodes[i].boxMin + 2.0f*float3(1,1,1)/sz;
   }
   
-  auto pImpl = (m_proxyAS == nullptr) ? this : m_proxyAS.get();
+  auto pProxy = m_proxyAS.lock();
+  auto pImpl  = (pProxy == nullptr) ? this : pProxy.get();
   return pImpl->AddGeom_AABB(AbstractObject::TAG_SDF_NODE, (const CRT_AABB*)orig_nodes.data(), orig_nodes.size(), nullptr, 1);
 }
 
@@ -642,7 +646,8 @@ uint32_t BVHRT::AddGeom_SdfSBS(SdfSBSView octree, bool single_bvh_node, BuildOpt
     }
   }
   
-  auto pImpl = (m_proxyAS == nullptr) ? this : m_proxyAS.get();
+  auto pProxy = m_proxyAS.lock();
+  auto pImpl  = (pProxy == nullptr) ? this : pProxy.get();
   return pImpl->AddGeom_AABB(typeTag, (const CRT_AABB*)orig_nodes.data(), orig_nodes.size(), nullptr, 1);
 }
 
