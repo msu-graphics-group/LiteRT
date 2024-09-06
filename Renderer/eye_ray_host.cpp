@@ -478,7 +478,7 @@ void MultiRenderer::SetMaterial(uint32_t matId, uint32_t geomId)
     std::shared_ptr<MultiRenderer> CreateMultiRenderer(const char* a_name) 
     {
       static vk_utils::VulkanContext context;
-      if (std::string(a_name) == "RTX")
+      if (std::string(a_name) == "RTX" || std::string(a_name) == "GPU")
       {
         if(context.instance == VK_NULL_HANDLE)
         {

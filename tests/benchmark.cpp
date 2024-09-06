@@ -650,3 +650,15 @@ void SBS_benchmark(const std::string &path, const std::string &mesh_name, unsign
                  std::vector<std::string>{"bvh_analytic"},
                  25, 10);
 }
+
+void rtx_benchmark(const std::string &path, const std::string &mesh_name, unsigned flags, const std::string &supported_type)
+{
+  std::vector<std::string> types = {"mesh", "mesh_lod", "sdf_grid", "sdf_octree", "sdf_frame_octree", "sdf_SVS", "sdf_SBS-2-1", "sdf_SBS-2-2"};
+  if (supported_type != "")
+    types = {supported_type};
+
+  main_benchmark(path, mesh_name, flags, "image", 
+  types,
+  std::vector<std::string>{"4Mb", "16Mb", "64Mb"},
+  std::vector<std::string>{"bvh_newton"}, 100, 1);
+}
