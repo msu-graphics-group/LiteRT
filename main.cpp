@@ -51,6 +51,20 @@ int main(int argc, const char** argv)
       SBS_benchmark("saves/"+mesh_name, mesh_name, flags);
       return 0;
     }
+    else if (std::string(argv[1]) == "-rtx_benchmark" && argc > 2)
+    {
+      std::string mesh_name = argv[2];
+      std::string supported_type = argc == 3  ? "" : argv[3];
+      unsigned flags = BENCHMARK_FLAG_RENDER_RT;
+      if (supported_type == "build")
+      {
+        flags = BENCHMARK_FLAG_BUILD;
+        supported_type = "";
+      }
+      rtx_benchmark("saves/"+mesh_name, mesh_name, flags, supported_type);
+
+      return 0;
+    }
   }
   //auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path+"scenes/01_simple_scenes/data/teapot.vsgf").c_str());
   //cmesh4::create_triangle_list_grid(mesh, LiteMath::uint3(32,32,32));
