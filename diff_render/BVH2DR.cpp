@@ -603,7 +603,7 @@ namespace dr
   float BVHDR::Intersect(uint32_t ray_flags, const float3 ray_dir, float values[8], float d, 
                          float qNear, float qFar, float3 start_q, RayDiffPayload *relax_pt)
   {
-    const float EPS = 1e-6f;
+    const float EPS = 5e-5f;
     float d_inv = 1.0f / d;
     float t = qNear;
     bool hit = false;
@@ -620,14 +620,118 @@ namespace dr
       float dist = start_dist;
       float3 pp0 = start_q + t * ray_dir;
 
+      // Borders for bisection and SDF min point
+      float2 t_dsdf_l { (qFar + 2), 0.f },
+             t_dsdf_r { (qFar + 1), 0.f },
+             t_sdf_res{ (qFar + 1), relax_pt->missed_hit.sdf };
+
+      // SDF values in t0, tFar
+      const float t0 = 0.f;
+      float2 sdf_dsdf_near{ eval_dist_trilinear(values, start_q + t0 * ray_dir),
+                            dot(ray_dir, eval_dist_trilinear_diff(values, start_q + t0 * ray_dir)) };
+      float2 sdf_dsdf_far{ eval_dist_trilinear(values, start_q + qFar * ray_dir),
+                            dot(ray_dir, eval_dist_trilinear_diff(values, start_q + qFar * ray_dir)) };
+
+      // Checking if nearest ray point in voxel has (SDF' <= 0), set left border if true
+      if (sdf_dsdf_near.y <= 0.f)
+        t_dsdf_l = { 0.f, sdf_dsdf_near.y };
+
       while (t < qFar && dist > EPS && iter < ST_max_iters)
       {
         t += dist * d_inv;
         dist = eval_dist_trilinear(values, start_q + t * ray_dir);
         float3 pp = start_q + t * ray_dir;
         iter++;
+
+#ifdef DEBUG_PAYLOAD_STORE_SDF
+          // Write minimal SDF value along the ray (found by ST)
+
+          // if (relax_pt->sdf_i.empty())
+          //   relax_pt->sdf_i.push_back(dist);
+          // relax_pt->sdf_i[0] = std::min(relax_pt->sdf_i[0], dist);
+#endif
+
+        if (relax_pt && ray_flags & DR_RAY_FLAG_BORDER)
+        {
+          // Looking for SDF min
+
+          float2 t_dsdf_curr{ t, dot(ray_dir, eval_dist_trilinear_diff(values, start_q + t * ray_dir)) };
+
+          if (t_dsdf_curr.y <= 0.f)
+          {
+            t_dsdf_l = t_dsdf_curr;
+
+            // If this is the last ST iteration for the voxel, current point has (SDF' <= 0)
+            // and furthest ray point in voxel has (SDF' > 0), set ("current" var, and then) right border
+            if ((t >= qFar || dist <= EPS || iter >= ST_max_iters) && sdf_dsdf_far.y > 0.f)
+              t_dsdf_curr = { qFar, sdf_dsdf_far.y };
+          }
+          if (t_dsdf_curr.y > 0.f)
+          {
+            t_dsdf_r = t_dsdf_curr;
+
+            if (t_dsdf_l.x < t_dsdf_r.x)
+            {
+              // Got both borders, start bisection
+              const int bisec_num_iters = 12;
+              for (int i = 0; i < bisec_num_iters; ++i)
+              {
+                t_dsdf_curr.x = (t_dsdf_l.x + t_dsdf_r.x) / 2;
+                t_dsdf_curr.y = dot(ray_dir, eval_dist_trilinear_diff(values, start_q + t_dsdf_curr.x * ray_dir));
+                if (t_dsdf_curr.y <= 0.f)
+                  t_dsdf_l = t_dsdf_curr;
+                else
+                  t_dsdf_r = t_dsdf_curr;
+              }
+              // Update resulting point if new sdf is lesser
+              float2 t_sdf_curr;
+              t_sdf_curr.x = std::abs(t_dsdf_l.y) < std::abs(t_dsdf_r.y) ? t_dsdf_l.x : t_dsdf_r.x;
+              t_sdf_curr.y = eval_dist_trilinear(values, start_q + t_sdf_curr.x * ray_dir);
+
+              if (t_sdf_curr.x >= 0.f && t_sdf_curr.x <= qFar && t_sdf_curr.y > 0.f && t_sdf_curr.y < t_sdf_res.y)
+              {
+                t_sdf_res = t_sdf_curr;
+              }
+              // Bisection END, we're in (SDF' > 0) part, clear borders
+              t_dsdf_l = { (qFar + 2) * d_inv, 0.f };
+              t_dsdf_r = { (qFar + 1) * d_inv, 0.f };
+            }
+          }
+        }
       }
       hit = (dist <= EPS);
+
+      if (relax_pt && ray_flags & DR_RAY_FLAG_BORDER)
+      {
+        if (relax_pt->missed_hit._pad1 == 1)
+        {
+          if (sdf_dsdf_near.y >= 0)
+          {
+            if (sdf_dsdf_near.x > t0 && sdf_dsdf_near.x < relax_pt->missed_hit.sdf) // Found better relaxation point
+            {
+              relax_pt->missed_hit.t = t0;
+              relax_pt->missed_hit.sdf = sdf_dsdf_near.x;
+            }
+          }
+          relax_pt->missed_hit._pad1 = 0;
+        }
+        if (sdf_dsdf_far.x > 0.f && sdf_dsdf_far.y <= 0.f)
+          relax_pt->missed_hit._pad1 = 1;
+
+#ifdef DEBUG_PAYLOAD_STORE_SDF
+        for (int t_i = 0; t_i <= 10; ++t_i)
+        {
+          float t_br = float(t_i) / 10.f * qFar;
+          relax_pt->sdf_i.push_back(eval_dist_trilinear(values, start_q + t_br * ray_dir));
+        }
+#endif
+
+        if (t_sdf_res.x >= t0 && t_sdf_res.x <= qFar && t_sdf_res.y > 0.f && t_sdf_res.y < relax_pt->missed_hit.sdf) // Found relaxation point
+        {
+          relax_pt->missed_hit.t = t_sdf_res.x;
+          relax_pt->missed_hit.sdf = t_sdf_res.y;
+        }
+      }
     }
     else //if (m_preset.sdf_node_intersect == SDF_OCTREE_NODE_INTERSECT_ANALYTIC ||
         //    m_preset.sdf_node_intersect == SDF_OCTREE_NODE_INTERSECT_NEWTON ||
