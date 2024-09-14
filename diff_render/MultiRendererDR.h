@@ -97,6 +97,13 @@ namespace dr
     std::vector<LiteImage::Image2D<float4>> m_imagesRefMask;
     std::vector<LiteImage::Image2D<float4>> m_imagesRef;
 
+    //  It is needed to cast rays in image part where is object and not in empty space, 
+    //  but now it may be complicated to use it in that way
+    std::vector<std::pair<int, int>> ray_bounds;
+    //  So, let's determine object frame size and then extend it on N pixels on every side
+    std::pair<uint32_t, uint32_t> bounds[2];
+    uint32_t extend_pixels_num;
+
     std::vector<LiteImage::Image2D<float4>> m_images;
     std::vector<LiteImage::Image2D<float4>> m_imagesDepth;
 

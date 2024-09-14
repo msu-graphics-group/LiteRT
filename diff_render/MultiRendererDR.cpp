@@ -118,6 +118,12 @@ namespace dr
     m_mainLightDir = normalize3(float4(1, 0.5, 0.5, 1));
     m_mainLightColor = 1.0f * normalize3(float4(1, 1, 0.98, 1));
     m_seed = rand();
+
+    bounds[0] = {0, m_width};
+    bounds[1] = {0, m_height};
+
+    //  extend object frame on 5 pixels to cast rays right in object and not in empty space 
+    extend_pixels_num = 5;
   }
 
   void MultiRendererDR::SetReference(const std::vector<LiteImage::Image2D<float4>> &images,
