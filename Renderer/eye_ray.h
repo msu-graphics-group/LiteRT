@@ -11,7 +11,6 @@
 #include "LiteMath.h"
 #include "../ISceneObject.h"
 #include "../IRenderer.h"
-#include "../BVH/BVH2Common.h"
 #include "LiteScene/cmesh4.h"
 #include "Image2d.h"
 

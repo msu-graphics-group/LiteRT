@@ -64,3 +64,16 @@ struct MultiRenderPreset
   unsigned ray_gen_mode;       //enum RayGenMode
   unsigned spp;                //samples per pixel
 };
+
+static MultiRenderPreset getDefaultPreset()
+{
+  MultiRenderPreset p;
+  p.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
+  p.sdf_octree_sampler = SDF_OCTREE_SAMPLER_MIPSKIP_3X3;
+  p.sdf_node_intersect = SDF_OCTREE_NODE_INTERSECT_ST;
+  p.mesh_normal_mode = MESH_NORMAL_MODE_GEOMETRY;
+  p.ray_gen_mode = RAY_GEN_MODE_REGULAR;
+  p.spp = 1;
+
+  return p;
+}
