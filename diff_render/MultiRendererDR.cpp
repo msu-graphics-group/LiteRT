@@ -119,11 +119,8 @@ namespace dr
     m_mainLightColor = 1.0f * normalize3(float4(1, 1, 0.98, 1));
     m_seed = rand();
 
-    bounds[0] = {0, m_width};
-    bounds[1] = {0, m_height};
-
     //  extend object frame on 5 pixels to cast rays right in object and not in empty space 
-    extend_pixels_num = 5;
+    extend_pixels_num = 2;
   }
 
   void MultiRendererDR::SetReference(const std::vector<LiteImage::Image2D<float4>> &images,
@@ -305,6 +302,9 @@ namespace dr
       m_width = preset.render_width;
       m_height = preset.render_height;
     }
+
+    object_mask.resize(m_width * m_height);
+    std::fill(object_mask.begin(), object_mask.end(), true);
 
     PreprocessRefImages(m_width, m_height, preset.dr_render_mode == DR_RENDER_MODE_MASK);
 
@@ -888,6 +888,28 @@ namespace dr
       return 0.0f;
   }
 
+  bool 
+  MultiRendererDR::isObjectNearPixex(const uint32_t &x, const uint32_t &y)
+  {
+    uint32_t left_x = std::max(x - extend_pixels_num, (uint32_t)0), right_x = std::min(x + extend_pixels_num, m_width - 1);
+    uint32_t left_y = std::max(y - extend_pixels_num, (uint32_t)0), right_y = std::min(y + extend_pixels_num, m_height - 1);
+
+    // for (uint32_t i = left_y; i <= right_y; ++i)
+    // {
+    //   for (uint32_t j = left_x; j <= right_x; ++j)
+    //   {
+    //     if (object_mask[i * m_width + j])
+    //     {
+    //       return true;
+    //     }
+    //   }
+    // }
+
+    // return false;
+
+    return object_mask[right_y * m_width + left_x] || object_mask[right_y * m_width + right_x];
+  }
+
   float MultiRendererDR::CastRayWithGrad(uint32_t tidX, const float4 *image_ref, LiteMath::float4 *out_image, float *out_dLoss_dS,
                                          LiteMath::float4* out_image_depth, LiteMath::float4* out_image_debug, PDFinalColor *out_pd_tmp)
   {
@@ -897,6 +919,11 @@ namespace dr
     const uint XY = m_packedXY[tidX];
     const uint x  = (XY & 0x0000FFFF);
     const uint y  = (XY & 0xFFFF0000) >> 16;
+    
+    if (!object_mask[y * m_width + x] && !isObjectNearPixex(x, y))
+    {
+      return 0.0;
+    }
     
     float3 res_color = float3(0,0,0);
     float3 debug_color = float3(0,0,0);
@@ -955,9 +982,12 @@ namespace dr
       if (hit.primId == 0xFFFFFFFF) //no hit
       {
         color = background_color;
+        object_mask[y * m_width + x] = false;
       }
       else
       {
+        object_mask[y * m_width + x] = true;
+
         color = CalculateColorWithGrad(hit, dColor_dDiffuse, dColor_dNorm);
 
         if (m_preset_dr.debug_render_mode != DR_DEBUG_RENDER_MODE_NONE)

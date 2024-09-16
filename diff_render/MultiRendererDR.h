@@ -93,6 +93,8 @@ namespace dr
     float SolveEikonal(float3 axes_mins, float grid_spacing);
     void Redistance(float *dist_in, uint3 size_in, float grid_spacing, uint32_t num_iters);
 
+    bool isObjectNearPixex(const uint32_t &x, const uint32_t &y);
+
     std::vector<LiteImage::Image2D<float4>> m_imagesRefOriginal;
     std::vector<LiteImage::Image2D<float4>> m_imagesRefMask;
     std::vector<LiteImage::Image2D<float4>> m_imagesRef;
@@ -101,7 +103,7 @@ namespace dr
     //  but now it may be complicated to use it in that way
     std::vector<std::pair<int, int>> ray_bounds;
     //  So, let's determine object frame size and then extend it on N pixels on every side
-    std::pair<uint32_t, uint32_t> bounds[2];
+    std::vector<bool> object_mask;
     uint32_t extend_pixels_num;
 
     std::vector<LiteImage::Image2D<float4>> m_images;
