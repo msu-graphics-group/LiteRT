@@ -654,6 +654,28 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
           (  dp.x)*(  dp.y)*(  dp.z)*values[7];
   }
 
+  float node_RMSE_linear(const float node_values[8], MultithreadedDistanceFunction sdf, float3 corner, float3 offset)
+  {
+    float rmse = 0.0f;
+    for (int x = 0; x <= 2; x += 1)
+    {
+      for (int y = 0; y <= 2; y += 1)
+      {
+        for (int z = 0; z <= 2; z += 1)
+        {
+          float3 off_idx = float3((float)x / 2.0, (float)y / 2.0, (float)z / 2.0);
+          float coeff = 1.0;
+          if (x == 1) coeff *= 2.0;
+          if (y == 1) coeff *= 2.0;
+          if (z == 1) coeff *= 2.0;
+          sdf_val = sdf(corner + offset * off_idx);//TODO save it to cash and take
+          rmse += pow((sdf_val - trilinear_interpolation(node_values, off_idx)), 2);
+        }
+      }
+    }
+    return sqrt(rmse / 64.0);
+  }
+
   static void print_layers(const std::vector<std::vector<LayerFrameNodeInfo>> &layers, bool count_only_border_nodes)
   {
     for (auto &layer : layers)
