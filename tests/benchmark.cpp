@@ -449,7 +449,7 @@ void main_benchmark(const std::string &path, const std::string &mesh_name, unsig
     }
   }
 
-  fprintf(log_fd, "mesh_name, render_mode, structure, size_limit, intersect_mode, image_metrics::PSNR, average_time (ms), min_time (ms)\n");
+  fprintf(log_fd, "mesh_name, device, render_mode, structure, size_limit, intersect_mode, image_metrics::PSNR, average_time (ms), min_time (ms)\n");
   fflush(log_fd);
 
   for (int rm_id = 0; rm_id < render_modes.size(); rm_id++)
@@ -602,8 +602,8 @@ void main_benchmark(const std::string &path, const std::string &mesh_name, unsig
             float4 render_average_time_ms = float4(sum_ms[0], sum_ms[1], sum_ms[2], sum_ms[3])/(iters*pass_size);
             float4 render_min_time_ms = float4(min_ms[0], min_ms[1], min_ms[2], min_ms[3])/pass_size;
 
-            fprintf(log_fd, "%20s, %20s, %20s, %6s, %20s, %6.2f, %7.2f, %7.2f\n", 
-                    mesh_name.c_str(), render_mode.c_str(), structure.c_str(), size_limit.c_str(), intersect_mode.c_str(),
+            fprintf(log_fd, "%20s, %6s, %12s, %20s, %6s, %20s, %6.2f, %7.2f, %7.2f\n", 
+                    mesh_name.c_str(), render_device.c_str(), render_mode.c_str(), structure.c_str(), size_limit.c_str(), intersect_mode.c_str(),
                     psnr/iters,
                     render_average_time_ms.x,
                     render_min_time_ms.x);
@@ -651,14 +651,18 @@ void SBS_benchmark(const std::string &path, const std::string &mesh_name, unsign
                  25, 10);
 }
 
-void rtx_benchmark(const std::string &path, const std::string &mesh_name, unsigned flags, const std::string &supported_type)
+void rtx_benchmark(const std::string &path, const std::string &mesh_name, unsigned flags, const std::string &supported_type, const std::string &device)
 {
-  std::vector<std::string> types = {"mesh", "mesh_lod", "sdf_grid", "sdf_octree", "sdf_frame_octree", "sdf_SVS", "sdf_SBS-2-1", "sdf_SBS-2-2"};
+  std::vector<std::string> types = {"mesh", "sdf_grid", "sdf_frame_octree", "sdf_SVS", "sdf_SBS-2-1"};
   if (supported_type != "")
     types = {supported_type};
 
+  int pass_size = 1;
+  if (device == "CPU")
+    pass_size = 1;
+
   main_benchmark(path, mesh_name, flags, "image", 
   types,
-  std::vector<std::string>{"4Mb", "16Mb", "64Mb"},
-  std::vector<std::string>{"bvh_newton"}, 100, 1);
+  std::vector<std::string>{"64Mb"},
+  std::vector<std::string>{"bvh_newton"}, pass_size, 1, device);
 }
