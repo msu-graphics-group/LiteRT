@@ -606,8 +606,8 @@ void main_benchmark(const std::string &path, const std::string &mesh_name, unsig
                 pRender->GetExecutionTime("CastRaySingleBlock", timings);
               }
 
-              if (iter == 0)
-                LiteImage::SaveImage<uint32_t>((path + "/" + full_name + "/" + render_mode + "_" + intersect_mode + "_" + std::to_string(iter)+".bmp").c_str(), image); 
+              //if (iter == 0)
+              LiteImage::SaveImage<uint32_t>((path + "/" + full_name + "/" + render_mode + "_" + intersect_mode + "_" + std::to_string(iter)+".bmp").c_str(), image); 
 
               for (int i=0;i<4;i++)
               {
@@ -619,7 +619,9 @@ void main_benchmark(const std::string &path, const std::string &mesh_name, unsig
               if (structure == "mesh")
                 image_ref[iter] = image;
 
-              psnr += image_metrics::PSNR(image_ref[iter], image);
+              float psnr_one = image_metrics::PSNR(image_ref[iter], image);
+              //printf("psnr one %f\n", psnr_one);
+              psnr += psnr_one;
             }
 
             float4 render_average_time_ms = float4(sum_ms[0], sum_ms[1], sum_ms[2], sum_ms[3])/(iters*pass_size);
@@ -680,12 +682,12 @@ void rtx_benchmark(const std::string &path, const std::string &mesh_name, unsign
   if (supported_type != "")
     types = {supported_type};
 
-  int pass_size = 1;
+  int pass_size = 25;
   if (device == "CPU")
     pass_size = 1;
 
   main_benchmark(path, mesh_name, flags, "image", 
   types,
   std::vector<std::string>{"64Mb"},
-  std::vector<std::string>{"bvh_newton"}, pass_size, 1, device);
+  std::vector<std::string>{"bvh_newton"}, pass_size, 8, device);
 }
