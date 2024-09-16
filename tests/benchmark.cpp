@@ -253,7 +253,7 @@ void main_benchmark(const std::string &path, const std::string &mesh_name, unsig
     bool valid = false;
   };
 
-  unsigned W = 1024, H = 1024;
+  unsigned W = 2048, H = 2048;
   unsigned hydra_spp = 256;
   const std::string mesh_path = path + "/mesh.vsgf";
   auto mesh = cmesh4::LoadMeshFromVSGF(mesh_path.c_str());
