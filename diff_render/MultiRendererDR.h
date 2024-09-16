@@ -3,6 +3,7 @@
 #include "DR_common.h"
 #include "BVH2DR.h"
 #include "../Renderer/eye_ray.h"
+#include <set>
 
 namespace dr
 {
@@ -102,9 +103,9 @@ namespace dr
     //  It is needed to cast rays in image part where is object and not in empty space, 
     //  but now it may be complicated to use it in that way
     std::vector<std::pair<int, int>> ray_bounds;
+    std::vector<bool> mask;
     //  So, let's determine object frame size and then extend it on N pixels on every side
-    std::vector<bool> object_mask;
-    uint32_t extend_pixels_num;
+    uint32_t add_border;
 
     std::vector<LiteImage::Image2D<float4>> m_images;
     std::vector<LiteImage::Image2D<float4>> m_imagesDepth;
