@@ -240,6 +240,7 @@ struct BVHRT : public ISceneObject2
   virtual bool is_leaf(unsigned offset);
   virtual float eval_dist_trilinear(const float values[8], float3 dp);
   virtual bool need_normal();
+  virtual float2 encode_normal(float3 n);
 
 #ifndef DISABLE_SDF_OCTREE
   virtual float sdf_octree_sample_mipskip_3x3(unsigned octree_id, float3 p, unsigned max_level);

@@ -23,6 +23,14 @@ bool BVHRT::need_normal()
          m_preset.render_mode == MULTI_RENDER_MODE_PHONG;
 }
 
+//Octahedral Normal Vectors (ONV) encoding https://jcgt.org/published/0003/02/01/
+float2 BVHRT::encode_normal(float3 v)
+{
+  float2 p = float2(v.x, v.y) * (1.0f / (std::abs(v.x) + std::abs(v.y) + std::abs(v.z)));
+  float2 signNotZero = float2((p.x >= 0.0f) ? +1.0f : -1.0f, (p.y >= 0.0f) ? +1.0f : -1.0f);
+  return (v.z <= 0.0f) ? ((1.0f - abs(float2(p.y, p.x))) * signNotZero) : p;
+}
+
 float2 BVHRT::box_intersects(const float3 &min_pos, const float3 &max_pos, const float3 &origin, const float3 &dir)
 {
   float3 safe_dir = sign(dir) * max(float3(1e-9f), abs(dir));
@@ -487,14 +495,17 @@ void BVHRT::LocalSurfaceIntersection(uint32_t type, const float3 ray_dir, uint32
 
       norm = normalize(matmul4x3(m_instanceData[instId].transformInvTransposed, float3(ddx, ddy, ddz)));
     }
+    
+    float2 encoded_norm = encode_normal(norm);
+
     pHit->t = tReal;
     pHit->primId = primId;
     pHit->instId = instId;
     pHit->geomId = geomId | (type << SH_TYPE);
     pHit->coords[0] = 0;
     pHit->coords[1] = 0;
-    pHit->coords[2] = norm.x;
-    pHit->coords[3] = norm.y;
+    pHit->coords[2] = encoded_norm.x;
+    pHit->coords[3] = encoded_norm.y;
 
     if (m_preset.render_mode == MULTI_RENDER_MODE_ST_ITERATIONS)
       pHit->primId = iter;
@@ -753,14 +764,16 @@ void BVHRT::IntersectAllSdfsInLeaf(const float3 ray_pos, const float3 ray_dir,
     if (t > tNear && t < pHit->t)
     {
       float3 n = normalize(matmul4x3(m_instanceData[instId].transformInvTransposed, to_float3(hit.hit_norm)));
+      float2 encoded_norm = encode_normal(n);
+
       pHit->t         = t;
       pHit->primId    = primId;
       pHit->instId    = instId;
       pHit->geomId    = geomId | (type << SH_TYPE);  
       pHit->coords[0] = 0;
       pHit->coords[1] = 0;
-      pHit->coords[2] = n.x;
-      pHit->coords[3] = n.y;
+      pHit->coords[2] = encoded_norm.x;
+      pHit->coords[3] = encoded_norm.y;
 
       if (m_preset.render_mode == MULTI_RENDER_MODE_ST_ITERATIONS)
         pHit->primId = uint32_t(hit.hit_norm.w);
@@ -1483,9 +1496,10 @@ void BVHRT::IntersectAllTrianglesInLeaf(const float3 ray_pos, const float3 ray_d
         }
 
         n = normalize(matmul4x3(m_instanceData[instId].transformInvTransposed, n));
+        float2 encoded_norm = encode_normal(n);
 
-        pHit->coords[2] = n.x;
-        pHit->coords[3] = n.y;
+        pHit->coords[2] = encoded_norm.x;
+        pHit->coords[3] = encoded_norm.y;
       }
       else
       {

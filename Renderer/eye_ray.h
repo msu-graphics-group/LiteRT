@@ -139,6 +139,7 @@ protected:
 
   uint32_t encode_RGBA8(LiteMath::float4 c);
   LiteMath::float4 decode_RGBA8(uint32_t c);
+  LiteMath::float3 decode_normal(float2 v);
 
   uint32_t m_width;
   uint32_t m_height;

@@ -18,6 +18,19 @@ float4 MultiRenderer::decode_RGBA8(uint32_t c)
   return float4(col.x * (1.0f/255.0f), col.y * (1.0f/255.0f), col.z * (1.0f/255.0f), col.w * (1.0f/255.0f));
 }
 
+//Octahedral Normal Vectors (ONV) decoding https://jcgt.org/published/0003/02/01/
+float3 MultiRenderer::decode_normal(float2 e)
+{
+  float3 v = float3(e.x, e.y, 1.0f - std::abs(e.x) - std::abs(e.y));
+  if (v.z < 0) 
+  {
+    float vx = v.x;
+    v.x = (1.0f - std::abs(v.y)) * ((v.x >= 0.0) ? +1.0f : -1.0f);
+    v.y = (1.0f - std::abs( vx)) * ((v.y >= 0.0) ? +1.0f : -1.0f);
+  }
+  return normalize(v);
+}
+
 void MultiRenderer::CastRaySingle(uint32_t tidX, uint32_t* out_color)
 {
   if (tidX >= m_packedXY.size())
@@ -116,7 +129,7 @@ float4 MultiRenderer::kernel_RayTrace(uint32_t tidX, const float4* rayPosAndNear
   else
   {
     tc = float2(hit.coords[0], hit.coords[1]);
-    norm = float3(hit.coords[2], hit.coords[3], sqrt(max(0.0f, 1 - hit.coords[2] * hit.coords[2] - hit.coords[3] * hit.coords[3])));
+    norm = decode_normal(float2(hit.coords[2], hit.coords[3]));
   }
 
   switch (m_preset.render_mode)
