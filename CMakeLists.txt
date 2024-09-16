@@ -9,22 +9,22 @@ project(loader_app CXX)
 include_directories(${CMAKE_SOURCE_DIR}/dependencies/LiteMath/external)
 
 include(FetchContent)
-#FetchContent_Declare(
-#  LiteMath
-#  URL      https://github.com/msu-graphics-group/LiteMath/archive/refs/heads/main.zip
-#  SOURCE_DIR dependencies/LiteMath
-#)
-#FetchContent_Declare(
-#  LiteScene
-#  URL      https://github.com/msu-graphics-group/LiteScene/archive/refs/heads/main.zip
-#  SOURCE_DIR dependencies/LiteScene
-#)
-#FetchContent_Declare(
-#  CrossRT
-#  URL      https://github.com/msu-graphics-group/CrossRT/archive/refs/heads/main.zip
-#  SOURCE_DIR dependencies/CrossRT
-#)
-#FetchContent_MakeAvailable(LiteMath LiteScene CrossRT)
+FetchContent_Declare(
+  LiteMath
+  URL      https://github.com/msu-graphics-group/LiteMath/archive/refs/heads/main.zip
+  SOURCE_DIR dependencies/LiteMath
+)
+FetchContent_Declare(
+  LiteScene
+  URL      https://github.com/msu-graphics-group/LiteScene/archive/refs/heads/main.zip
+  SOURCE_DIR dependencies/LiteScene
+)
+FetchContent_Declare(
+  CrossRT
+  URL      https://github.com/msu-graphics-group/CrossRT/archive/refs/heads/main.zip
+  SOURCE_DIR dependencies/CrossRT
+)
+FetchContent_MakeAvailable(LiteMath LiteScene CrossRT)
 
 include_directories(${CMAKE_SOURCE_DIR})
 include_directories(${CMAKE_SOURCE_DIR}/dependencies)
@@ -126,12 +126,12 @@ if (USE_VULKAN)
     SOURCE_DIR dependencies/volk
     DOWNLOAD_DIR dependencies
   )
-  #FetchContent_Declare(
-  #  vkutils
-  #  URL      https://github.com/msu-graphics-group/vk-utils/archive/refs/heads/master.zip
-  #  SOURCE_DIR dependencies/vkutils
-  #  DOWNLOAD_DIR dependencies
-  #)
+  FetchContent_Declare(
+    vkutils
+    URL      https://github.com/msu-graphics-group/vk-utils/archive/refs/heads/master.zip
+    SOURCE_DIR dependencies/vkutils
+    DOWNLOAD_DIR dependencies
+  )
   FetchContent_MakeAvailable(volk)
 
   set(MODULES_INCLUDE_DIRS ${MODULES_INCLUDE_DIRS} ${Vulkan_INCLUDE_DIR}
