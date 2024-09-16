@@ -688,6 +688,6 @@ void rtx_benchmark(const std::string &path, const std::string &mesh_name, unsign
 
   main_benchmark(path, mesh_name, flags, "image", 
   types,
-  std::vector<std::string>{"64Mb"},
+  std::vector<std::string>{"1Mb","4Mb","16Mb","64Mb"},
   std::vector<std::string>{"bvh_newton"}, pass_size, 8, device);
 }
