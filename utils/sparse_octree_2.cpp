@@ -656,6 +656,8 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
 
   float node_RMSE_linear(const float node_values[8], MultithreadedDistanceFunction sdf, float3 corner, float3 offset)
   {
+    return 0.0f;
+    /*
     float rmse = 0.0f;
     for (int x = 0; x <= 2; x += 1)
     {
@@ -674,6 +676,7 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
       }
     }
     return sqrt(rmse / 64.0);
+    */
   }
 
   static void print_layers(const std::vector<std::vector<LayerFrameNodeInfo>> &layers, bool count_only_border_nodes)
