@@ -19,8 +19,9 @@ using LiteMath::perspectiveMatrix;
 using LiteMath::lookAt;
 using LiteMath::inverse4x4;
 
-MultiRenderer::MultiRenderer() 
+MultiRenderer::MultiRenderer(uint32_t maxPrimitives) 
 { 
+  m_maxPrimitives = maxPrimitives;
   m_pAccelStruct2 = CreateSceneRT("BVH2Common", "cbvh_embree2", "SuperTreeletAlignedMerged4"); //default
   m_pAccelStruct  = m_pAccelStruct2;
   m_preset = getDefaultPreset();
@@ -474,8 +475,8 @@ void MultiRenderer::SetMaterial(uint32_t matId, uint32_t geomId)
   #if defined(USE_RTX)
     #include "eye_ray_rtx.h"
     #include "vk_context.h"
-    std::shared_ptr<MultiRenderer> CreateMultiRenderer_RTX(vk_utils::VulkanContext a_ctx, size_t a_maxThreadsGenerated);
-    std::shared_ptr<MultiRenderer> CreateMultiRenderer(const char* a_name) 
+    std::shared_ptr<MultiRenderer> CreateMultiRenderer_RTX(uint32_t maxPrimitives, vk_utils::VulkanContext a_ctx, size_t a_maxThreadsGenerated);
+    std::shared_ptr<MultiRenderer> CreateMultiRenderer(const char* a_name, uint32_t maxPrimitives) 
     {
       static vk_utils::VulkanContext context;
       if (std::string(a_name) == "RTX" || std::string(a_name) == "GPU")
@@ -486,16 +487,16 @@ void MultiRenderer::SetMaterial(uint32_t matId, uint32_t geomId)
           auto deviceFeatures = MultiRenderer_RTX::ListRequiredDeviceFeatures(requiredExtensions);
           context = vk_utils::globalContextInit(requiredExtensions, true, 0, &deviceFeatures);
         }
-        return CreateMultiRenderer_RTX(context, 256);
+        return CreateMultiRenderer_RTX(maxPrimitives, context, 256);
       }
       else
-        return std::shared_ptr<MultiRenderer>(new MultiRenderer());
+        return std::shared_ptr<MultiRenderer>(new MultiRenderer(maxPrimitives));
     }
   #else
     #include "eye_ray_gpu.h"
     #include "vk_context.h"
-    std::shared_ptr<MultiRenderer> CreateMultiRenderer_GPU(vk_utils::VulkanContext a_ctx, size_t a_maxThreadsGenerated);
-    std::shared_ptr<MultiRenderer> CreateMultiRenderer(const char* a_name) 
+    std::shared_ptr<MultiRenderer> CreateMultiRenderer_GPU(uint32_t maxPrimitives, vk_utils::VulkanContext a_ctx, size_t a_maxThreadsGenerated);
+    std::shared_ptr<MultiRenderer> CreateMultiRenderer(const char* a_name, uint32_t maxPrimitives) 
     {
       static vk_utils::VulkanContext context;
 
@@ -508,16 +509,15 @@ void MultiRenderer::SetMaterial(uint32_t matId, uint32_t geomId)
           context = vk_utils::globalContextInit(requiredExtensions, true, 0, &deviceFeatures);
         }
 
-        return CreateMultiRenderer_GPU(context, 256);
-        //return CreateMultiRenderer_GPU(vk_utils::globalContextGet(true, 0u), 256); 
+        return CreateMultiRenderer_GPU(maxPrimitives, context, 256);
       }
       else
-        return std::shared_ptr<MultiRenderer>(new MultiRenderer());
+        return std::shared_ptr<MultiRenderer>(new MultiRenderer(maxPrimitives));
     }
   #endif
 #else
-std::shared_ptr<MultiRenderer> CreateMultiRenderer(const char* a_name) 
+std::shared_ptr<MultiRenderer> CreateMultiRenderer(const char* a_name, uint32_t maxPrimitives) 
 { 
-  return std::shared_ptr<MultiRenderer>(new MultiRenderer()); 
+  return std::shared_ptr<MultiRenderer>(new MultiRenderer(maxPrimitives)); 
 }
 #endif

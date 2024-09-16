@@ -527,53 +527,76 @@ void main_benchmark(const std::string &path, const std::string &mesh_name, unsig
               }
               else
               {
-                auto pRender = CreateMultiRenderer(render_device.c_str());
-                pRender->SetPreset(preset);
+                std::shared_ptr<MultiRenderer> pRender;
                 if (structure == "mesh")
                 {
                   std::filesystem::create_directory(path + "/" + full_name);
+
+                  pRender = CreateMultiRenderer(render_device.c_str());
+                  pRender->SetPreset(preset);
                   pRender->SetScene(mesh);
                 }
                 else if (structure == "mesh_lod")
                 {
                   auto mesh_lod = cmesh4::LoadMeshFromVSGF(filename.c_str());
                   cmesh4::normalize_mesh(mesh_lod);
+
+                  pRender = CreateMultiRenderer(render_device.c_str());
+                  pRender->SetPreset(preset);
                   pRender->SetScene(mesh_lod);
                 }
                 else if (structure == "sdf_grid")
                 {
                   SdfGrid grid;
                   load_sdf_grid(grid, filename);
+
+                  pRender = CreateMultiRenderer(render_device.c_str());
+                  pRender->SetPreset(preset);
                   pRender->SetScene(grid);
                 }
                 else if (structure == "sdf_octree")
                 {
                   std::vector<SdfOctreeNode> octree;
                   load_sdf_octree(octree, filename);
+
+                  pRender = CreateMultiRenderer(render_device.c_str(), octree.size() + 1);
+                  pRender->SetPreset(preset);
                   pRender->SetScene(octree);
                 }
                 else if (structure == "sdf_frame_octree")
                 {
                   std::vector<SdfFrameOctreeNode> frame_nodes;
                   load_sdf_frame_octree(frame_nodes, filename);
+
+                  pRender = CreateMultiRenderer(render_device.c_str(), frame_nodes.size() + 1);
+                  pRender->SetPreset(preset);                  
                   pRender->SetScene(frame_nodes);
                 }
                 else if (structure == "sdf_SVS")
                 {
                   std::vector<SdfSVSNode> svs_nodes;
                   load_sdf_SVS(svs_nodes, filename);
+
+                  pRender = CreateMultiRenderer(render_device.c_str(), svs_nodes.size() + 1);
+                  pRender->SetPreset(preset);                  
                   pRender->SetScene(svs_nodes);
                 }
                 else if (structure == "sdf_SBS-2-1" || structure == "sdf_SBS-2-2"|| structure == "sdf_SBS-3-1")
                 {
                   SdfSBS sbs;
                   load_sdf_SBS(sbs, filename);
+
+                  pRender = CreateMultiRenderer(render_device.c_str(), sbs.nodes.size()*std::pow(sbs.header.brick_size, 3) + 1);
+                  pRender->SetPreset(preset);                  
                   pRender->SetScene(sbs);
                 }
                 else if (structure == "sdf_SBS-3-1_SN")
                 {
                   SdfSBS sbs;
                   load_sdf_SBS(sbs, filename);
+
+                  pRender = CreateMultiRenderer(render_device.c_str(), sbs.nodes.size() + 1);
+                  pRender->SetPreset(preset);                  
                   pRender->SetScene(sbs, true);                  
                 }
 

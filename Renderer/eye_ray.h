@@ -64,16 +64,16 @@ public:
   void SetPreset(const MultiRenderPreset& a_preset);
 
   //functions implementing IRenderer interface
-  MultiRenderer(); 
+  MultiRenderer(uint32_t maxPrimitives); 
   const char* Name() const override;
   
   //required by slicer!
   virtual void SceneRestrictions(uint32_t a_restrictions[4]) const
   {
     uint32_t maxMeshes            = 1024;
-    uint32_t maxTotalVertices     = 8'000'000;
-    uint32_t maxTotalPrimitives   = 8'000'000;
-    uint32_t maxPrimitivesPerMesh = 4'000'000;
+    uint32_t maxTotalVertices     = m_maxPrimitives;
+    uint32_t maxTotalPrimitives   = m_maxPrimitives;
+    uint32_t maxPrimitivesPerMesh = m_maxPrimitives;
 
     a_restrictions[0] = maxMeshes;
     a_restrictions[1] = maxTotalVertices;
@@ -191,6 +191,8 @@ protected:
   uint32_t GetGeomNum() const override { return m_pAccelStruct2->GetGeomNum(); };
   uint32_t GetInstNum() const override { return m_pAccelStruct2->GetInstNum(); };
   const LiteMath::float4* GetGeomBoxes() const  override { return m_pAccelStruct2->GetGeomBoxes(); };
+
+  uint32_t m_maxPrimitives; //required in constructor to allocate enough memory in Vulkan
 };
 
-std::shared_ptr<MultiRenderer> CreateMultiRenderer(const char* a_name);
+std::shared_ptr<MultiRenderer> CreateMultiRenderer(const char* a_name, uint32_t maxPrimitives = 10'000'000);
