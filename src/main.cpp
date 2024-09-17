@@ -32,8 +32,8 @@ int main(int, char** argv)
   SDL_SetHint(SDL_HINT_IME_SHOW_UI, "1");
   SDL_SetHint(SDL_HINT_RENDER_VSYNC, "1");
 
-  int WIDTH = 1920;
-  int HEIGHT = 1080;
+  int WIDTH = 800;
+  int HEIGHT = 600;
   float aspect = static_cast<float>(WIDTH)/HEIGHT;
   float fov = M_PI_4;
 
@@ -143,7 +143,8 @@ int main(int, char** argv)
     }
 
     if (to_load_surface) {
-      ImGui::Begin("Loading Surface", nullptr, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoCollapse);
+      ImGui::SetNextWindowPos(ImVec2{ WIDTH/2.0f-327/2.0f, HEIGHT/2.0f-80/2.0f });
+      ImGui::Begin("Loading Surface", &to_load_surface, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoCollapse);
       ImGui::InputText("Path to surface", path_to_surf, sizeof(path_to_surf)-1);
       if (ImGui::Button("OK")) {
         to_load_surface = false;
@@ -169,8 +170,8 @@ int main(int, char** argv)
     SDL_RenderPresent(renderer);
   }
   
-  // auto save_path = std::filesystem::current_path().append("result.bmp");
-  // LiteImage::SaveBMP(save_path.c_str(), framebuffer.data(), WIDTH, HEIGHT);
+  auto save_path = std::filesystem::current_path().append("result.bmp");
+  LiteImage::SaveBMP(save_path.c_str(), framebuffer.data(), WIDTH, HEIGHT);
 
   // Cleanup
   SDL_DestroyTexture(texture);

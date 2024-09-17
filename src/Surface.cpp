@@ -7,6 +7,9 @@
 #include "Surface.hpp"
 
 int find_span(int n, int p, float u, const float *U) {
+  if (u == U[n+1])
+    return n;
+
   int l = p-1;
   int r = n+2;
   while(r-l > 1) {

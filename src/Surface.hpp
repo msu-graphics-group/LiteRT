@@ -67,16 +67,39 @@ public:
   }
   LiteMath::float4 uderivative(float u, float v) const {
     constexpr float EPS = 1e-2f;
-    return (get_point(u+EPS, v)-get_point(u-EPS, v)) / 2*EPS;
+    LiteMath::float4 res = {};
+    res += (u+EPS > 1.0f) ? get_point(u, v) : get_point(u+EPS, v);
+    res -= (u-EPS < 0.0f) ? get_point(u, v) : get_point(u-EPS, v);
+
+    return res / (EPS * (1 + ((u+EPS <= 1.0f) && (u-EPS >= 0.0f))));
   }
   LiteMath::float4 vderivative(float u, float v) const {
     constexpr float EPS = 1e-2f;
-    return (get_point(u, v+EPS)-get_point(u, v-EPS)) / 2*EPS;
+    LiteMath::float4 res = {};
+    res += (v+EPS > 1.0f) ? get_point(u, v) : get_point(u, v+EPS);
+    res -= (v-EPS < 0.0f) ? get_point(u, v) : get_point(u, v-EPS);
+
+    return res / (EPS * (1 + ((v+EPS <= 1.0f) && (v-EPS >= 0.0f))));
   }
   LiteMath::float3 get_normal(float u, float v) const {
     return LiteMath::normalize(LiteMath::cross(
         LiteMath::to_float3(uderivative(u, v)),
         LiteMath::to_float3(vderivative(u, v))));
+  }
+public:
+  bool u_closed() const {
+    constexpr float EPS = 1e-2;
+    for (int j = 0; j < points.get_m(); ++j) 
+      if (length(points[{0, j}] - points[{points.get_n()-1, j}]) > EPS)
+        return false;
+    return true;
+  }
+  bool v_closed() const {
+    constexpr float EPS = 1e-2;
+    for (int i = 0; i < points.get_n(); ++i) 
+      if (length(points[{i, 0}] - points[{i, points.get_m()-1}]) > EPS)
+        return false;
+    return true;
   }
 };
 
