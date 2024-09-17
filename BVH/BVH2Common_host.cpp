@@ -224,46 +224,43 @@ uint32_t BVHRT::AddGeom_RFScene(RFScene grid, BuildOptions a_qualityLevel)
   return AddGeom_AABB(AbstractObject::TAG_RF, (const CRT_AABB*)m_origNodes.data(), m_origNodes.size());
 }
 
-float4x4 Transpose(float4x4& a) {
-    float4x4 b;
-
-    for (int i = 0; i < 4; i++) {
-        for (int j = 0; j < 4; j++) {
-            b[j][i] = a[i][j];
-        }
-    }
-
-    return b;
-}
-
-std::vector<float4x4> ComputeCovarianceMatrices(std::vector<float4x4>& m_gs_data_0) {
+std::vector<float4x4> ComputeCovarianceMatrices3D(std::vector<float4x4>& m_gs_data_0) {
     std::vector<float4x4> covariance_matrices;
+    covariance_matrices.reserve(m_gs_data_0.size());
 
     for (int i = 0; i < m_gs_data_0.size(); ++i) {
-        float4x4 S = float4x4(
-            exp(m_gs_data_0[i][1][3]), 0.0f, 0.0f, 0.0f,
-            0.0f, exp(m_gs_data_0[i][2][0]), 0.0f, 0.0f,
-            0.0f, 0.0f, exp(m_gs_data_0[i][2][1]), 0.0f,
-            0.0f, 0.0f, 0.0f, 0.0f);
+        const auto scale = float3(
+          exp(m_gs_data_0[i][2][0]),
+          exp(m_gs_data_0[i][2][1]),
+          exp(m_gs_data_0[i][2][2]));
 
-        float4 q = normalize(
-            float4(m_gs_data_0[i][2][2], -m_gs_data_0[i][2][3], m_gs_data_0[i][3][0], m_gs_data_0[i][3][1]));
+        const auto S = float4x4(
+            scale.x, 0.0f,    0.0f,    0.0f,
+            0.0f,    scale.y, 0.0f,    0.0f,
+            0.0f,    0.0f,    scale.z, 0.0f,
+            0.0f,    0.0f,    0.0f,    1.0f);
 
-        float r = q.x;
-        float x = q.y;
-        float y = q.z;
-        float z = q.w;
+        const auto q = normalize(float4(
+          m_gs_data_0[i][1][0],
+          m_gs_data_0[i][1][1],
+          m_gs_data_0[i][1][2],
+          m_gs_data_0[i][1][3]));
 
-        float4x4 R = float4x4(
-            1.0f - 2.0f * (y * y + z * z), 2.0f * (x * y - r * z), 2.0f * (x * z + r * y), 0.0f,
-            2.0f * (x * y + r * z), 1.0f - 2.0f * (x * x + z * z), 2.0f * (y * z - r * x), 0.0f,
-            2.0f * (x * z - r * y), 2.0f * (y * z + r * x), 1.0f - 2.0f * (x * x + y * y), 0.0f,
-            0.0f, 0.0f, 0.0f, 0.0f);
+        const auto r = q.x;
+        const auto x = q.y;
+        const auto y = q.z;
+        const auto z = q.w;
 
-        float4x4 M = S * R;
-        float4x4 Sigma = Transpose(M) * M;
+        const auto R = float4x4(
+            1.0f - 2.0f * (y * y + z * z), 2.0f * (x * y - r * z),        2.0f * (x * z + r * y),        0.0f,
+            2.0f * (x * y + r * z),        1.0f - 2.0f * (x * x + z * z), 2.0f * (y * z - r * x),        0.0f,
+            2.0f * (x * z - r * y),        2.0f * (y * z + r * x),        1.0f - 2.0f * (x * x + y * y), 0.0f,
+            0.0f,                          0.0f,                          0.0f,                          1.0f);
 
-        covariance_matrices.push_back(Sigma);
+        const auto M = R * S;
+        auto Sigma = M * transpose(M);
+
+        covariance_matrices.push_back(std::move(Sigma));
     }
 
     return covariance_matrices;
@@ -274,57 +271,84 @@ std::vector<float4x4> InvertMatrices(std::vector<float4x4>&& matrices) {
     inverted_matrices.reserve(matrices.size());
 
     for (int i = 0; i < matrices.size(); ++i) {
-        float determinant = matrices[i][0][0] * (matrices[i][1][1] * matrices[i][2][2] - matrices[i][2][1] * matrices[i][1][2]) -
+        float determinant = matrices[i][0][0] * (matrices[i][1][1] * matrices[i][2][2] - matrices[i][1][2] * matrices[i][2][1]) -
                             matrices[i][0][1] * (matrices[i][1][0] * matrices[i][2][2] - matrices[i][1][2] * matrices[i][2][0]) +
                             matrices[i][0][2] * (matrices[i][1][0] * matrices[i][2][1] - matrices[i][1][1] * matrices[i][2][0]);
 
-        if (determinant < 1e-9f) {
-            matrices[i][0][0] += 1e-9f;
-            matrices[i][1][1] += 1e-9f;
-            matrices[i][2][2] += 1e-9f;
-
-            determinant = matrices[i][0][0] * (matrices[i][1][1] * matrices[i][2][2] - matrices[i][2][1] * matrices[i][1][2]) -
-                          matrices[i][0][1] * (matrices[i][1][0] * matrices[i][2][2] - matrices[i][1][2] * matrices[i][2][0]) +
-                          matrices[i][0][2] * (matrices[i][1][0] * matrices[i][2][1] - matrices[i][1][1] * matrices[i][2][0]);
+        if (determinant < std::numeric_limits<float>().epsilon()) {
+            matrices[i][0][0] += std::numeric_limits<float>().epsilon();
+            matrices[i][1][1] += std::numeric_limits<float>().epsilon();
+            matrices[i][2][2] += std::numeric_limits<float>().epsilon();
         }
 
-        float4x4 inverse_matrix;
-
-        inverse_matrix[0][0] = (matrices[i][1][1] * matrices[i][2][2] - matrices[i][2][1] * matrices[i][1][2]) / determinant;
-        inverse_matrix[0][1] = (matrices[i][0][2] * matrices[i][2][1] - matrices[i][0][1] * matrices[i][2][2]) / determinant;
-        inverse_matrix[0][2] = (matrices[i][0][1] * matrices[i][1][2] - matrices[i][0][2] * matrices[i][1][1]) / determinant;
-        inverse_matrix[1][0] = (matrices[i][1][2] * matrices[i][2][0] - matrices[i][1][0] * matrices[i][2][2]) / determinant;
-        inverse_matrix[1][1] = (matrices[i][0][0] * matrices[i][2][2] - matrices[i][0][2] * matrices[i][2][0]) / determinant;
-        inverse_matrix[1][2] = (matrices[i][1][0] * matrices[i][0][2] - matrices[i][0][0] * matrices[i][1][2]) / determinant;
-        inverse_matrix[2][0] = (matrices[i][1][0] * matrices[i][2][1] - matrices[i][2][0] * matrices[i][1][1]) / determinant;
-        inverse_matrix[2][1] = (matrices[i][2][0] * matrices[i][0][1] - matrices[i][0][0] * matrices[i][2][1]) / determinant;
-        inverse_matrix[2][2] = (matrices[i][0][0] * matrices[i][1][1] - matrices[i][1][0] * matrices[i][0][1]) / determinant;
-
-        inverted_matrices.push_back(std::move(inverse_matrix));
+        inverted_matrices.push_back(inverse4x4(matrices[i]));
     }
 
     return inverted_matrices;
 }
 
-uint32_t BVHRT::AddGeom_GSScene(GSScene grid, BuildOptions a_qualityLevel) 
-{
-  m_abstractObjects.resize(m_abstractObjects.size() + 1); 
+uint32_t BVHRT::AddGeom_GSScene(GSScene grid, BuildOptions a_qualityLevel) {
+  m_abstractObjects.resize(m_abstractObjects.size() + 1);
   new (m_abstractObjects.data() + m_abstractObjects.size() - 1) GeomDataGS();
   m_abstractObjects.back().geomId = m_abstractObjects.size() - 1;
   m_abstractObjects.back().m_tag = type_to_tag(TYPE_GS_PRIMITIVE);
 
   m_geomData.emplace_back();
-  m_geomData.back().boxMin = float4(-1.0f, -1.0f, -1.0f, 1.0f);
-  m_geomData.back().boxMax = float4(1.0f, 1.0f, 1.0f, 1.0f);
-  m_geomData.back().offset = uint2(grid.data_0.size(), 0);
+
+  auto boxMin = float4(
+    std::numeric_limits<float>().max(),
+    std::numeric_limits<float>().max(),
+    std::numeric_limits<float>().max(),
+    0.0f);
+
+  auto boxMax = float4(
+    std::numeric_limits<float>().min(),
+    std::numeric_limits<float>().min(),
+    std::numeric_limits<float>().min(),
+    0.0f);
+
+  for (auto& item : grid.data) {
+    if (item[0][0] < boxMin.x) {
+      boxMin.x = item[0][0];
+    }
+
+    if (item[0][0] > boxMax.x) {
+      boxMax.x = item[0][0];
+    }
+
+    if (item[0][1] < boxMin.y) {
+      boxMin.y = item[0][1];
+    }
+
+    if (item[0][1] > boxMax.y) {
+      boxMax.y = item[0][1];
+    }
+
+    if (item[0][2] < boxMin.z) {
+      boxMin.z = item[0][2];
+    }
+
+    if (item[0][2] > boxMax.z) {
+      boxMax.z = item[0][2];
+    }
+  }
+
+  m_geomData.back().boxMin = std::move(boxMin);
+  m_geomData.back().boxMax = std::move(boxMax);
+  m_geomData.back().offset = uint2(grid.data.size(), 0);
   m_geomData.back().bvhOffset = m_allNodePairs.size();
   m_geomData.back().type = TYPE_GS_PRIMITIVE;
 
-  m_gs_data_0 = grid.data_0;
-  m_gs_conic = InvertMatrices(ComputeCovarianceMatrices(m_gs_data_0));
+  m_gs_data = grid.data;
+
+  m_gs_data_r = grid.data_r;
+  m_gs_data_g = grid.data_g;
+  m_gs_data_b = grid.data_b;
+
+  m_gs_conic_3d = InvertMatrices(ComputeCovarianceMatrices3D(m_gs_data));
   m_origNodes = GetBoxes_GSGrid(grid);
-    
-  return AddGeom_AABB(AbstractObject::TAG_GS, (const CRT_AABB*)m_origNodes.data(), m_origNodes.size());
+
+  return AddGeom_AABB(AbstractObject::TAG_GS, (const CRT_AABB *) m_origNodes.data(), m_origNodes.size());
 }
 
 uint32_t BVHRT::AddGeom_SdfGrid(SdfGridView grid, BuildOptions a_qualityLevel)
@@ -973,19 +997,21 @@ std::vector<BVHNode> BVHRT::GetBoxes_RFGrid(RFScene grid, std::vector<float>& sp
   return nodes;
 }
 
-std::vector<BVHNode> BVHRT::GetBoxes_GSGrid(const GSScene& grid) {
+std::vector<BVHNode> BVHRT::GetBoxes_GSGrid(GSScene& grid) {
   std::vector<BVHNode> nodes;
-  nodes.reserve(grid.data_0.size());
+  nodes.reserve(grid.data.size());
 
-  for (size_t i = 0; i < grid.data_0.size(); ++i) {
-    float scale = exp(max(max(grid.data_0[i](1, 3), grid.data_0[i](2, 0)), grid.data_0[i](2, 1))) * 3.0f;
-
+  for (std::size_t i = 0; i < grid.data.size(); ++i) {
     BVHNode node;
 
-    node.boxMin = float3(grid.data_0[i](0, 0) - scale, grid.data_0[i](0, 1) - scale, grid.data_0[i](0, 2) - scale);
-    node.boxMax = float3(grid.data_0[i](0, 0) + scale, grid.data_0[i](0, 1) + scale, grid.data_0[i](0, 2) + scale);
+    node.boxMin = float3(grid.data[i][0][0], grid.data[i][0][1], grid.data[i][0][2]);
+    node.boxMax = float3(grid.data[i][0][0], grid.data[i][0][1], grid.data[i][0][2]);
 
-    nodes.push_back(node);
+    // the bounding box must contain 99.73% of the Gaussian according to the 68–95–99.7 rule
+    node.boxMin -= exp(max(max(m_gs_data[i][2][0], m_gs_data[i][2][1]), m_gs_data[i][2][2])) * 3.0f;
+    node.boxMax += exp(max(max(m_gs_data[i][2][0], m_gs_data[i][2][1]), m_gs_data[i][2][2])) * 3.0f;
+
+    nodes.push_back(std::move(node));
   }
 
   return nodes;

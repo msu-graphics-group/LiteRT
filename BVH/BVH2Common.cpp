@@ -956,80 +956,203 @@ float3 RotatePoint(const float3& p, const float4& q) {
     return float3(result.y, result.z, result.w);
 }
 
+float3 ComputeColorFromSH(int idx, int deg, const float3 pos, float3 ray_pos,
+    std::vector<float4x4>& data_r,
+    std::vector<float4x4>& data_g,
+    std::vector<float4x4>& data_b) {
+  // Spherical harmonics coefficients
+  const float SH_C0 = 0.28209479177387814f;
+  const float SH_C1 = 0.4886025119029199f;
+  const float SH_C2[] = {
+    1.0925484305920792f,
+    -1.0925484305920792f,
+    0.31539156525252005f,
+    -1.0925484305920792f,
+    0.5462742152960396f
+  };
+  const float SH_C3[] = {
+    -0.5900435899266435f,
+    2.890611442640554f,
+    -0.4570457994644658f,
+    0.3731763325901154f,
+    -0.4570457994644658f,
+    1.445305721320277f,
+    -0.5900435899266435f
+  };
+
+	float3 dir = pos - ray_pos;
+	dir = dir / length(dir);
+
+  const float3 sh[] = {
+    float3(data_r[idx][0][0], data_g[idx][0][0], data_b[idx][0][0]),
+    float3(data_r[idx][0][1], data_g[idx][0][1], data_b[idx][0][1]),
+    float3(data_r[idx][0][2], data_g[idx][0][2], data_b[idx][0][2]),
+    float3(data_r[idx][0][3], data_g[idx][0][3], data_b[idx][0][3]),
+    float3(data_r[idx][1][0], data_g[idx][1][0], data_b[idx][1][0]),
+    float3(data_r[idx][1][1], data_g[idx][1][1], data_b[idx][1][1]),
+    float3(data_r[idx][1][2], data_g[idx][1][2], data_b[idx][1][2]),
+    float3(data_r[idx][1][3], data_g[idx][1][3], data_b[idx][1][3]),
+    float3(data_r[idx][2][0], data_g[idx][2][0], data_b[idx][2][0]),
+    float3(data_r[idx][2][1], data_g[idx][2][1], data_b[idx][2][1]),
+    float3(data_r[idx][2][2], data_g[idx][2][2], data_b[idx][2][2]),
+    float3(data_r[idx][2][3], data_g[idx][2][3], data_b[idx][2][3]),
+    float3(data_r[idx][3][0], data_g[idx][3][0], data_b[idx][3][0]),
+    float3(data_r[idx][3][1], data_g[idx][3][1], data_b[idx][3][1]),
+    float3(data_r[idx][3][2], data_g[idx][3][2], data_b[idx][3][2]),
+    float3(data_r[idx][3][3], data_g[idx][3][3], data_b[idx][3][3]),
+  };
+
+	float3 result = SH_C0 * sh[0];
+
+	if (deg > 0) {
+		float x = dir.x;
+		float y = dir.y;
+		float z = dir.z;
+
+		result = result - SH_C1 * y * sh[1] +
+                      SH_C1 * z * sh[2] -
+                      SH_C1 * x * sh[3];
+
+		if (deg > 1) {
+			float xx = x * x;
+      float yy = y * y;
+      float zz = z * z;
+			float xy = x * y;
+      float yz = y * z;
+      float xz = x * z;
+
+			result = result +
+				SH_C2[0] * xy * sh[4] +
+				SH_C2[1] * yz * sh[5] +
+				SH_C2[2] * (2.0f * zz - xx - yy) * sh[6] +
+				SH_C2[3] * xz * sh[7] +
+				SH_C2[4] * (xx - yy) * sh[8];
+
+			if (deg > 2) {
+				result = result +
+					SH_C3[0] * y * (3.0f * xx - yy) * sh[9] +
+					SH_C3[1] * xy * z * sh[10] +
+					SH_C3[2] * y * (4.0f * zz - xx - yy) * sh[11] +
+					SH_C3[3] * z * (2.0f * zz - 3.0f * xx - 3.0f * yy) * sh[12] +
+					SH_C3[4] * x * (4.0f * zz - xx - yy) * sh[13] +
+					SH_C3[5] * z * (xx - yy) * sh[14] +
+					SH_C3[6] * x * (xx - 3.0f * yy) * sh[15];
+			}
+		}
+	}
+
+	result += 0.5f;
+
+	return max(result, float3(0.0f));
+}
+
 void BVHRT::IntersectGSInLeaf(const float3& ray_pos, const float3& ray_dir,
                               float tNear, uint32_t instId,
                               uint32_t geomId, uint32_t a_start,
                               uint32_t a_count, CRT_Hit* pHit) {
-    float sh_c0 = 0.28209479177387814f;
+      const int sh_degree = 3;
 
-    for (uint32_t i = a_start; i < a_start + a_count; ++i) {
-        float3 mean = float3(m_gs_data_0[i][0][0], m_gs_data_0[i][0][1], m_gs_data_0[i][0][2]);
-        float3 scale = float3(exp(m_gs_data_0[i][1][3]), exp(m_gs_data_0[i][2][0]), exp(m_gs_data_0[i][2][1])) * 3.0f;
-        float4 rotation = QuaternionConjugate(normalize(float4(m_gs_data_0[i][2][2], -m_gs_data_0[i][2][3], m_gs_data_0[i][3][0], m_gs_data_0[i][3][1])));
-        float3 diffuse_color = float3(m_gs_data_0[i][0][3], m_gs_data_0[i][1][0], m_gs_data_0[i][1][1]) * sh_c0;
-        float opacity = sigmoid(m_gs_data_0[i][1][2]);
+      const auto mean = float3(
+        m_gs_data[a_start][0][0],
+        m_gs_data[a_start][0][1],
+        m_gs_data[a_start][0][2]);
 
-        float3 origin = ray_pos - mean;
-        float3 direction = ray_dir;
+      const auto opacity = sigmoid(m_gs_data[a_start][0][3]);
+      const auto conic_3d = m_gs_conic_3d[a_start];
 
-        origin = RotatePoint(origin, rotation);
-        direction = RotatePoint(direction, rotation);
+      // START -- this block of code does the same thing as the isocahedrons
+      const auto scale = float3(
+        exp(m_gs_data[a_start][2][0]),
+        exp(m_gs_data[a_start][2][1]),
+        exp(m_gs_data[a_start][2][2]));
 
-        origin    = origin / scale;
-        direction = direction / scale;
+      const auto rotation = normalize(float4(
+        m_gs_data[a_start][1][0],
+        m_gs_data[a_start][1][1], 
+        m_gs_data[a_start][1][2],
+        m_gs_data[a_start][1][3]));
 
-        float a = dot(direction, direction);
-        float b = 2.0f * dot(origin, direction);
-        float c = dot(origin, origin) - 1.0f;
+      auto origin = ray_pos - mean;
+      auto direction = ray_dir;
 
-        float discriminant = b * b - 4.0f * a * c;
+      origin = RotatePoint(origin, rotation);
+      direction = RotatePoint(direction, rotation);
 
-        if (discriminant < 1e-9f) {
-            continue;
-        }
+      // we need to intersect 99.73% of the Gaussian according to the 68-95-99.7 rule
+      origin = origin / scale / 3.0f;
+      direction = direction / scale / 3.0f;
 
-        float t1 = (-b + sqrt(discriminant)) / (2.0f * a);
-        float t2 = (-b - sqrt(discriminant)) / (2.0f * a);
+      const auto normalized_direction = normalize(direction);
+      const auto b2 = dot(origin, normalized_direction);
+      const auto fd = origin - b2 * normalized_direction;
 
-        if (t1 > tNear && t2 > tNear) {
-            float t = (t1 + t2) / 2.0f;
-            float3 intersection = ray_pos + t * ray_dir;
-            float3 distance = intersection - mean;
+      const auto discriminant = 1.0f - dot(fd, fd);
 
-            float power  = -0.5f * (
-                m_gs_conic[i][0][0] * distance.x * distance.x +
-                m_gs_conic[i][1][1] * distance.y * distance.y +
-                m_gs_conic[i][2][2] * distance.z * distance.z) -
-                m_gs_conic[i][0][1] * distance.x * distance.y -
-                m_gs_conic[i][0][2] * distance.x * distance.z -
-                m_gs_conic[i][1][2] * distance.y * distance.z;
+      if (discriminant < 0.0f) {
+        return;
+      }
+      // END -- this block of code does the same thing as the isocahedrons
 
-            if (power > 0.0f) {
-                continue;
-            }
+      // first method
+      {
+        const auto c = dot(origin, origin) - 1.0f;
+        const auto sqrt_d = sqrt(discriminant);
 
-            float alpha = min(0.99f, opacity * float(exp(power)));
+        const auto q = (b2 < 0.0f) ? sqrt_d - b2 : 0.0f - sqrt_d - b2;
 
-            if (alpha < 1.0f / 255.0f) {
-                continue;
-            }
+        const auto t1 = c / q / length(direction);
+        const auto t2 = q / length(direction);
 
-            float transparency = pHit->coords[0] * (1.0f - alpha);
+        const auto tau = (t1 + t2) / 2.0f;
+        const auto intersection = ray_pos + tau * ray_dir;
 
-            if (transparency < 0.0001f) { 
-                break;
-            }
+        pHit->primId = a_start;
+        pHit->gaussians.push_back({
+          length(mean - ray_pos), intersection - mean,
+          ComputeColorFromSH(a_start, sh_degree, mean, ray_pos, m_gs_data_r, m_gs_data_g, m_gs_data_b),
+          opacity, conic_3d});
 
-            float weight = alpha * pHit->coords[0];
+        return;
+      }
 
-            pHit->coords[1] += (0.5f + diffuse_color.x) * weight;
-            pHit->coords[2] += (0.5f + diffuse_color.y) * weight;
-            pHit->coords[3] += (0.5f + diffuse_color.z) * weight;
-            pHit->coords[0] = transparency;
+      // second method – from the gaussiantracer.github.io/res/3DGRT_Anonymous_LQ.pdf
+      {
+        const auto S = float4x4(
+            scale.x, 0.0f,    0.0f,    0.0f,
+            0.0f,    scale.y, 0.0f,    0.0f,
+            0.0f,    0.0f,    scale.z, 0.0f,
+            0.0f,    0.0f,    0.0f,    1.0f);
 
-            pHit->primId = i;
-        }
-    }
+        const auto r = rotation.x;
+        const auto x = rotation.y;
+        const auto y = rotation.z;
+        const auto z = rotation.w;
+
+        const auto R = float4x4(
+            1.0f - 2.0f * (y * y + z * z), 2.0f * (x * y - r * z),        2.0f * (x * z + r * y),        0.0f,
+            2.0f * (x * y + r * z),        1.0f - 2.0f * (x * x + z * z), 2.0f * (y * z - r * x),        0.0f,
+            2.0f * (x * z - r * y),        2.0f * (y * z + r * x),        1.0f - 2.0f * (x * x + y * y), 0.0f,
+            0.0f,                          0.0f,                          0.0f,                          1.0f);
+
+        const auto M = inverse4x4(S) * transpose(R);
+
+        const auto o = ray_pos - mean;
+        const auto d = ray_dir;
+
+        const auto oo = M * float4(o.x, o.y, o.z, 0.0f);
+        const auto dd = M * float4(d.x, d.y, d.z, 0.0f);
+
+        const auto tau = -dot(oo, dd) / dot(dd, dd);
+        const auto intersection = ray_pos + tau * ray_dir;
+
+        pHit->primId = a_start;
+        pHit->gaussians.push_back({
+          length(mean - ray_pos), intersection - mean,
+          ComputeColorFromSH(a_start, sh_degree, mean, ray_pos, m_gs_data_r, m_gs_data_g, m_gs_data_b),
+          opacity, conic_3d});
+
+        return;
+      }
 }
 #endif
 

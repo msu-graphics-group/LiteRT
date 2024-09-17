@@ -127,7 +127,7 @@ namespace cmesh4
     float3 bbox_size = grid.max_pos - grid.min_pos;
     float3 node_size = bbox_size*float3(1.0f/grid_size.x, 1.0f/grid_size.y, 1.0f/grid_size.z);
 
-    //#pragma omp parallel for
+    #pragma omp parallel for
     for (int t_i=0;t_i<triangles_count;t_i++)
     {
       float3 a = to_float3(mesh.vPos4f[mesh.indices[3*t_i+0]]);

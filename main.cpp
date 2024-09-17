@@ -73,23 +73,23 @@ int main(int argc, const char** argv)
   //benchmark_framed_octree_intersection();
   // return 0;
 
-  uint32_t WIDTH  = 1024;
-  uint32_t HEIGHT = 1024;
+  uint32_t WIDTH  = 800;
+  uint32_t HEIGHT = 800;
   
 
-  const char* scenePath   = "scenes/03_gs_scenes/lego.xml";
+  std::string scenePath   = "scenes/03_gs_scenes/" + std::string(argv[1]) + "_" + std::string(argv[2]) + ".xml";
   const char* accelStruct  = "BVH2Common";
   const char* buildFormat  = "cbvh_embree2";
   const char* layout       = "SuperTreeletAlignedMerged4"; ///"opt";
 
-  const char* outImageFile = "z_out.bmp";
+  std::string outImageFile = std::string(argv[1]) + "_" + std::string(argv[2]) + ".png";
   int NUM_LAUNCHES = 1;
 
   Image2D<uint32_t> image(WIDTH, HEIGHT);
   std::shared_ptr<IRenderer> pRender = nullptr;
   std::cout << "[main]: init renderer ..." << std::endl; 
   {
-    pRender = CreateMultiRenderer("GPU");  
+    pRender = CreateMultiRenderer("CPU");  
     auto accelStructImpl = CreateSceneRT(accelStruct, buildFormat, layout);
     pRender->SetAccelStruct(accelStructImpl);
   }
@@ -99,7 +99,7 @@ int main(int argc, const char** argv)
   g_buildTime = 0.0;
   bool loaded = false; 
   std::cout << "[main]: load scene '" << scenePath << "'" << std::endl;
-  loaded = pRender->LoadScene(scenePath);
+  loaded = pRender->LoadScene(scenePath.c_str());
 
   std::cout << "Implementation:  " << pRender->Name() << "; builder = '" << buildFormat << "'" << std::endl;
 
@@ -146,7 +146,7 @@ int main(int argc, const char** argv)
     timeMin = timeAvg;
 
   std::cout << "[main]: save image to file ..." << std::endl;
-  LiteImage::SaveImage(outImageFile, image);
+  LiteImage::SaveImage(outImageFile.c_str(), image);
   
   float summDiffSquare = 0.0f;
   for(float time : allTimes)

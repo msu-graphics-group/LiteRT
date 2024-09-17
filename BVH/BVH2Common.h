@@ -226,7 +226,7 @@ struct BVHRT : public ISceneObject2
 
 #ifndef KERNEL_SLICER  
   std::vector<BVHNode> GetBoxes_RFGrid(RFScene grid, std::vector<float>& sparseGrid, std::vector<uint4>& sparsePtrs);
-  std::vector<BVHNode> GetBoxes_GSGrid(const GSScene& grid);
+  std::vector<BVHNode> GetBoxes_GSGrid(GSScene& grid);
   std::vector<BVHNode> GetBoxes_SdfGrid(SdfGridView grid);
   std::vector<BVHNode> GetBoxes_SdfOctree(SdfOctreeView octree);
   std::vector<BVHNode> GetBoxes_SdfFrameOctree(SdfFrameOctreeView octree);
@@ -279,8 +279,13 @@ struct BVHRT : public ISceneObject2
 
   // GS data
 #ifndef DISABLE_GS_PRIMITIVE
-  std::vector<float4x4> m_gs_data_0{};
-  std::vector<float4x4> m_gs_conic{};
+  std::vector<float4x4> m_gs_data{};
+
+  std::vector<float4x4> m_gs_data_r{};
+  std::vector<float4x4> m_gs_data_g{};
+  std::vector<float4x4> m_gs_data_b{};
+
+  std::vector<float4x4> m_gs_conic_3d{};
 #endif
 
   //SDF octree data
