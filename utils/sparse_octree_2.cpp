@@ -1,5 +1,6 @@
 #include "sparse_octree_2.h"
 #include "omp.h"
+#include <set>
 #include <chrono>
 #include <unordered_map>
 
@@ -83,24 +84,53 @@ namespace sdf_converter
     }
   }
 
-void check_and_fix_sdf_sign(std::vector<SdfOctreeNode> &nodes, float d_thr, unsigned idx, float d)
-{
-  unsigned ofs = nodes[idx].offset;
-  //printf("idx ofs size %u %u %u\n", idx, ofs, (unsigned)nodes.size());
-  if (!is_leaf(ofs))
+  void check_and_fix_sdf_sign(std::vector<SdfOctreeNode> &nodes, float d_thr, unsigned idx, float d)
   {
-    for (int i=0;i<8;i++)
+    unsigned ofs = nodes[idx].offset;
+    //printf("idx ofs size %u %u %u\n", idx, ofs, (unsigned)nodes.size());
+    if (!is_leaf(ofs))
     {
-      if (std::abs(nodes[ofs+i].value - nodes[idx].value)> 0.5*sqrt(3)*d)
-        nodes[ofs+i].value *= -1;
-      //if (nodes[idx].value < -d_thr)
-      //  printf("%u lol %f ch %d %f\n", idx, nodes[idx].value, i, nodes[ofs+i].value);
-    }
+      for (int i=0;i<8;i++)
+      {
+        if (std::abs(nodes[ofs+i].value - nodes[idx].value)> 0.5*sqrt(3)*d)
+          nodes[ofs+i].value *= -1;
+        //if (nodes[idx].value < -d_thr)
+        //  printf("%u lol %f ch %d %f\n", idx, nodes[idx].value, i, nodes[ofs+i].value);
+      }
 
-    for (int i=0;i<8;i++)
-      check_and_fix_sdf_sign(nodes, d_thr, ofs+i, d/2);
+      for (int i=0;i<8;i++)
+        check_and_fix_sdf_sign(nodes, d_thr, ofs+i, d/2);
+    }
   }
-}
+
+  void fill_frame(SdfFrameOctreeNode &node, MultithreadedDistanceFunction sdf, float3 p, float d)
+  {
+    float3 pos = 2.0f * (d * p) - 1.0f;
+    for (int i = 0; i < 8; i++)
+    {
+      float3 ch_pos = pos + 2 * d * float3((i & 4) >> 2, (i & 2) >> 1, i & 1);
+      node.values[i] = sdf(ch_pos, 1);
+    }
+  }
+
+  std::vector<SdfFrameOctreeNode> construct_sdf_frame_octree(SparseOctreeSettings settings, MultithreadedDistanceFunction sdf, float eps, 
+                                                             unsigned max_threads, bool is_smooth)
+  {
+    struct dirs {unsigned neighbour[3*2]; float3 p; float d;};
+    std::vector<SdfFrameOctreeNode> result(1);
+    fill_frame(result[0], sdf, float3(0, 0, 0), 1);
+    std::vector<struct dirs> directions(1);
+    directions[0].d = 1.0f;
+    directions[0].p = float3(0, 0, 0);
+    memset(directions[0].neighbour, 0, sizeof(unsigned) * 8);
+    std::set<unsigned> divided;
+    std::set<unsigned> last_level;
+    for (int i = 1; i < settings.depth; ++i)
+    {
+      //TODO
+    }
+    return result;
+  }
 
   std::vector<SdfOctreeNode> construct_sdf_octree(SparseOctreeSettings settings, MultithreadedDistanceFunction sdf, 
                                                   unsigned max_threads)
@@ -656,8 +686,6 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
 
   float node_RMSE_linear(const float node_values[8], MultithreadedDistanceFunction sdf, float3 corner, float3 offset)
   {
-    return 0.0f;
-    /*
     float rmse = 0.0f;
     for (int x = 0; x <= 2; x += 1)
     {
@@ -670,13 +698,13 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
           if (x == 1) coeff *= 2.0;
           if (y == 1) coeff *= 2.0;
           if (z == 1) coeff *= 2.0;
-          sdf_val = sdf(corner + offset * off_idx);//TODO save it to cash and take
+          float sdf_val = sdf(corner + offset * off_idx, 1);//TODO save it to cash and take
           rmse += pow((sdf_val - trilinear_interpolation(node_values, off_idx)), 2);
         }
       }
     }
     return sqrt(rmse / 64.0);
-    */
+    
   }
 
   static void print_layers(const std::vector<std::vector<LayerFrameNodeInfo>> &layers, bool count_only_border_nodes)

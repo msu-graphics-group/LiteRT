@@ -90,6 +90,16 @@ namespace sdf_converter
     return create_sdf_frame_octree(settings, [&](const float3 &p, unsigned idx) -> float { return sdf(p); }, 1);
   }
 
+  std::vector<SdfFrameOctreeNode> create_sdf_frame_octree(SparseOctreeSettings settings, MultithreadedDistanceFunction sdf, float eps, bool is_smooth = false)
+  {
+    assert(settings.remove_thr >= 0);
+    assert(settings.depth > 1);
+    assert(settings.build_type == SparseOctreeBuildType::DEFAULT); //MESH_TLO available only when building from mesh
+
+    return construct_sdf_frame_octree(settings, sdf, eps, 1, is_smooth);
+    //return {};
+  }
+
   std::vector<SdfFrameOctreeNode> create_sdf_frame_octree(SparseOctreeSettings settings, MultithreadedDistanceFunction sdf, unsigned max_threads)
   {
     auto raw_nodes = construct_sdf_octree(settings, sdf, max_threads);
