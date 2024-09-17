@@ -94,18 +94,14 @@ namespace dr
     float SolveEikonal(float3 axes_mins, float grid_spacing);
     void Redistance(float *dist_in, uint3 size_in, float grid_spacing, uint32_t num_iters);
 
-    bool isObjectNearPixex(const uint32_t &x, const uint32_t &y);
-
     std::vector<LiteImage::Image2D<float4>> m_imagesRefOriginal;
     std::vector<LiteImage::Image2D<float4>> m_imagesRefMask;
     std::vector<LiteImage::Image2D<float4>> m_imagesRef;
 
-    //  It is needed to cast rays in image part where is object and not in empty space, 
-    //  but now it may be complicated to use it in that way
-    std::vector<std::pair<int, int>> ray_bounds;
+    //  It is needed to cast rays in image part where is object and not in empty space
     std::vector<bool> mask;
     //  So, let's determine object frame size and then extend it on N pixels on every side
-    uint32_t add_border;
+    int32_t add_border;
 
     std::vector<LiteImage::Image2D<float4>> m_images;
     std::vector<LiteImage::Image2D<float4>> m_imagesDepth;

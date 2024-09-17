@@ -557,7 +557,37 @@ namespace dr
         {
           m_borderPixels.push_back(i);
 
-          if (mask[y * m_width])
+          if (mask[y * m_width + x] && x > 0 && x < m_width - 1 && y > 0 && y < m_height - 1)
+          {
+            if (mask[y * m_width + x - 1])
+            {
+              for (int p = x + 1; p < m_width && p < x + 1 + add_border; ++p)
+              {
+                mask[y * m_width + p] = true;
+              }
+            }
+            else if (mask[y * m_width + x + 1])
+            {
+              for (int p = x - 1; p >=0 && p > x - 1 - add_border; --p)
+              {
+                mask[y * m_width + p] = true;
+              }
+            }
+            else if (mask[(y - 1) * m_width + x])
+            {
+              for (int p = y + 1; p < m_height && p < y + 1 + add_border; ++p)
+              {
+                mask[p * m_width + x] = true;
+              }
+            }
+            else if (mask[(y + 1) * m_width + x])
+            {
+              for (int p = y - 1; p >= 0 && p > y - 1 - add_border; --p)
+              {
+                mask[p * m_width + x] = true;
+              }
+            }
+          }
         }
       }
     }
@@ -892,13 +922,6 @@ namespace dr
       return 0.0f;
   }
 
-  bool 
-  MultiRendererDR::isObjectNearPixex(const uint32_t &x, const uint32_t &y)
-  {
-    // return ray_bounds[y].first - add_border >= x && x <= ray_bounds[y].second + add_border;
-    return true;
-  }
-
   float MultiRendererDR::CastRayWithGrad(uint32_t tidX, const float4 *image_ref, LiteMath::float4 *out_image, float *out_dLoss_dS,
                                          LiteMath::float4* out_image_depth, LiteMath::float4* out_image_debug, PDFinalColor *out_pd_tmp)
   {
@@ -909,7 +932,7 @@ namespace dr
     const uint x  = (XY & 0x0000FFFF);
     const uint y  = (XY & 0xFFFF0000) >> 16;
     
-    if (!mask[y * m_width + x] && !isObjectNearPixex(x, y))
+    if (!mask[y * m_width + x])
     {
       return 0.0;
     }
