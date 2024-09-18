@@ -119,8 +119,8 @@ namespace dr
     m_mainLightColor = 1.0f * normalize3(float4(1, 1, 0.98, 1));
     m_seed = rand();
 
-    //  extend object frame on 5 pixels to cast rays right in object and not in empty space 
-    add_border = 10;
+    //  extend object frame on k pixels to cast rays right in object and not in empty space 
+    add_border = 5;
   }
 
   void MultiRendererDR::SetReference(const std::vector<LiteImage::Image2D<float4>> &images,
@@ -302,9 +302,12 @@ namespace dr
       m_width = preset.render_width;
       m_height = preset.render_height;
     }
-
-    mask.resize(m_width * m_height);
-    std::fill(mask.begin(), mask.end(), true);
+    
+    if (m_preset_dr.dr_raycasting_mask == DR_RENDER_MASK_CAST_OPT)
+    {
+      mask.resize(m_width * m_height);
+      std::fill(mask.begin(), mask.end(), true);
+    }
 
     PreprocessRefImages(m_width, m_height, preset.dr_render_mode == DR_RENDER_MODE_MASK);
 
@@ -498,8 +501,10 @@ namespace dr
       unsigned start = thread_id * steps;
       unsigned end = std::min((thread_id + 1) * steps, m_width * m_height);
       for (int i = start; i < end; i++)
+      {
         loss_v[thread_id] += CastRayWithGrad(i, image_ref, out_image, out_dLoss_dS + (params_count * thread_id), 
-                                             out_image_depth, out_image_debug, m_PD_tmp.data() + 2*8*m_preset_dr.spp * thread_id);
+                                            out_image_depth, out_image_debug, m_PD_tmp.data() + 2*8*m_preset_dr.spp * thread_id);
+      }
     }
 
     //II - find border pixels
@@ -556,38 +561,6 @@ namespace dr
         if (is_border || m_preset_dr.debug_forced_border)
         {
           m_borderPixels.push_back(i);
-
-          if (mask[y * m_width + x] && x > 0 && x < m_width - 1 && y > 0 && y < m_height - 1)
-          {
-            if (mask[y * m_width + x - 1])
-            {
-              for (int p = x + 1; p < m_width && p < x + 1 + add_border; ++p)
-              {
-                mask[y * m_width + p] = true;
-              }
-            }
-            else if (mask[y * m_width + x + 1])
-            {
-              for (int p = x - 1; p >=0 && p > x - 1 - add_border; --p)
-              {
-                mask[y * m_width + p] = true;
-              }
-            }
-            else if (mask[(y - 1) * m_width + x])
-            {
-              for (int p = y + 1; p < m_height && p < y + 1 + add_border; ++p)
-              {
-                mask[p * m_width + x] = true;
-              }
-            }
-            else if (mask[(y + 1) * m_width + x])
-            {
-              for (int p = y - 1; p >= 0 && p > y - 1 - add_border; --p)
-              {
-                mask[p * m_width + x] = true;
-              }
-            }
-          }
         }
       }
     }
@@ -922,6 +895,25 @@ namespace dr
       return 0.0f;
   }
 
+  bool 
+  MultiRendererDR::hasNearIntersection(const int &x, const int &y) const
+  {
+    bool has_near = false;
+    int i0 = std::max(y - add_border, 0), i1 = std::min(y + add_border, (int)m_height);
+    int j0 = std::max(x - add_border, 0), j1 = std::min(x + add_border, (int)m_width);
+
+    #pragma omp parallel for reduction(+:has_near)
+    for (int i = i0; i < i1; ++i)
+    {
+      for (int j = j0; j < j1; ++j)
+      {
+        has_near = has_near || mask[i * m_width + j]; 
+      }
+    }
+
+    return has_near;
+  }
+
   float MultiRendererDR::CastRayWithGrad(uint32_t tidX, const float4 *image_ref, LiteMath::float4 *out_image, float *out_dLoss_dS,
                                          LiteMath::float4* out_image_depth, LiteMath::float4* out_image_debug, PDFinalColor *out_pd_tmp)
   {
@@ -931,10 +923,10 @@ namespace dr
     const uint XY = m_packedXY[tidX];
     const uint x  = (XY & 0x0000FFFF);
     const uint y  = (XY & 0xFFFF0000) >> 16;
-    
-    if (!mask[y * m_width + x])
+
+    if (m_preset_dr.dr_raycasting_mask == DR_RENDER_MASK_CAST_OPT && !hasNearIntersection(x, y))
     {
-      return 0.0;
+      return 0;
     }
     
     float3 res_color = float3(0,0,0);
@@ -994,11 +986,19 @@ namespace dr
       if (hit.primId == 0xFFFFFFFF) //no hit
       {
         color = background_color;
-        mask[y * m_width + x] = false;
+
+        if (m_preset_dr.dr_raycasting_mask == DR_RENDER_MASK_CAST_OPT)
+        {
+          mask[y * m_width + x] = false;
+        }
       }
       else
       {
-        mask[y * m_width + x] = true;
+        if (m_preset_dr.dr_raycasting_mask == DR_RENDER_MASK_CAST_OPT)
+        {
+          mask[y * m_width + x] = true;
+        }
+        
         color = CalculateColorWithGrad(hit, dColor_dDiffuse, dColor_dNorm);
 
         if (m_preset_dr.debug_render_mode != DR_DEBUG_RENDER_MODE_NONE)
