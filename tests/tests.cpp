@@ -2135,6 +2135,66 @@ void litert_test_28_sbs_reg()
   
 }
 
+void litert_test_29_smoothed_frame_octree()
+{
+  auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path+"scenes/01_simple_scenes/data/teapot.vsgf").c_str());
+
+  SparseOctreeSettings settings(SparseOctreeBuildType::DEFAULT, 9);
+
+  unsigned W = 2048, H = 2048;
+  LiteImage::Image2D<uint32_t> image(W, H);
+  LiteImage::Image2D<uint32_t> image_1(W, H);
+  LiteImage::Image2D<uint32_t> image_2(W, H);
+  MultiRenderPreset preset = getDefaultPreset();
+  LiteImage::Image2D<float4> texture = LiteImage::LoadImage<float4>("scenes/porcelain.png");
+
+  {
+    auto pRender = CreateMultiRenderer("GPU");
+    pRender->SetPreset(preset);
+    pRender->SetViewport(0,0,W,H);
+
+    uint32_t texId = pRender->AddTexture(texture);
+    MultiRendererMaterial mat;
+    mat.type = MULTI_RENDER_MATERIAL_TYPE_TEXTURED;
+    mat.texId = texId;
+    uint32_t matId = pRender->AddMaterial(mat);
+    pRender->SetMaterial(matId, 0);
+
+    pRender->SetScene(mesh);
+    render(image, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+  }
+
+  std::vector<MeshBVH> bvh(1);
+    for (unsigned i = 0; i < 1; i++)
+      bvh[i].init(mesh);
+    auto real_sdf = [&](const float3 &p, unsigned idx) -> float 
+    { return bvh[idx].get_signed_distance(p);};
+
+    printf("TEST 29. New frame octree creation\n");
+
+  std::vector<SdfFrameOctreeNode> frame_nodes = sdf_converter::create_sdf_frame_octree(settings, real_sdf, 1e-2, true);
+
+  {
+    auto pRender = CreateMultiRenderer("GPU");
+    pRender->SetPreset(preset);
+    pRender->SetScene(frame_nodes);
+    render(image_1, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+  }
+
+  frame_nodes = sdf_converter::create_sdf_frame_octree(settings, real_sdf, 1);
+
+  {
+    auto pRender = CreateMultiRenderer("GPU");
+    pRender->SetPreset(preset);
+    pRender->SetScene(frame_nodes);
+    render(image_2, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+  }
+
+  LiteImage::SaveImage<uint32_t>("saves/test_29_mesh.bmp", image);
+  LiteImage::SaveImage<uint32_t>("saves/test_29_our_octree.bmp", image_1);
+  LiteImage::SaveImage<uint32_t>("saves/test_29_octree.bmp", image_2);
+}
+
 void perform_tests_litert(const std::vector<int> &test_ids)
 {
   std::vector<int> tests = test_ids;
@@ -2149,7 +2209,7 @@ void perform_tests_litert(const std::vector<int> &test_ids)
       litert_test_19_marching_cubes, litert_test_20_radiance_fields, litert_test_21_rf_to_mesh,
       litert_test_22_sdf_grid_smoothing, litert_test_23_textured_sdf, litert_test_24_demo_meshes,
       litert_test_25_float_images, litert_test_26_sbs_shallow_bvh, litert_test_27_textured_colored_SBS,
-      litert_test_28_sbs_reg};
+      litert_test_28_sbs_reg, litert_test_29_smoothed_frame_octree};
 
   if (tests.empty())
   {
