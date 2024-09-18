@@ -42,4 +42,10 @@ void draw(
     LiteImage::Image2D<uint32_t> &image, 
     float col[4]);
 
+void draw_points(
+    const Surface &surface,
+    const Camera &camera,
+    LiteImage::Image2D<uint32_t> &image, 
+    float col[4]);
+
 #endif

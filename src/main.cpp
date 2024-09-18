@@ -2,6 +2,7 @@
 #include <filesystem>
 #include <cmath>
 #include <cinttypes>
+#include <string_view>
 
 #include "imgui.h"
 #include "imgui_impl_sdl2.h"
@@ -78,6 +79,10 @@ int main(int, char** argv)
   bool camera_move = false;
   int prev_x = 0, prev_y = 0;
 
+  auto b = std::chrono::high_resolution_clock::now();
+  const char *renderers[] = { "Regular Sample Points", "Newton Method (in progress)" };
+  int cur_renderer = 0;
+
   while (!done)
   {
     SDL_Event event;
@@ -113,6 +118,9 @@ int main(int, char** argv)
       camera_move = false;
     }
 
+    auto e = std::chrono::high_resolution_clock::now();
+    float sec = std::chrono::duration_cast<std::chrono::milliseconds>(e-b).count()/1000.0f;
+    
     if (SDL_GetWindowFlags(window) & SDL_WINDOW_MINIMIZED) {
       SDL_Delay(10);
       continue;
@@ -127,7 +135,9 @@ int main(int, char** argv)
     // 2. Show a simple window that we create ourselves. We use a Begin/End pair to create a named window.
     {  
       ImGui::SetNextWindowPos({0, 0});
-      ImGui::Begin("Preferences", nullptr, ImGuiWindowFlags_NoMove|ImGuiWindowFlags_NoResize);
+      ImGui::SetNextWindowSize({ 333*1.0f, HEIGHT*1.0f });
+      ImGui::Begin("Preferences", nullptr, 
+          ImGuiWindowFlags_NoMove|ImGuiWindowFlags_NoResize);
       ImGui::Text("Surface preferences:");
       if (ImGui::Button("Load new surface")) {
         to_load_surface = true;
@@ -137,8 +147,10 @@ int main(int, char** argv)
       ImGui::DragFloat3("Camera position", camera.position.M);
       ImGui::DragFloat3("Camera target", camera.target.M);
       camera = Camera(camera.aspect, camera.fov, camera.position, camera.target);
-      // ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
-      // ImGui::Text("Camera is moving: %s", camera_move ? "true" : "false");
+      ImGui::Text("Renderer settings:");
+      ImGui::ListBox("Method", &cur_renderer, renderers, 2);
+      ImGui::Text("Debug Info");
+      ImGui::Text("\tApplication average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
       ImGui::End();
     }
 
@@ -161,7 +173,11 @@ int main(int, char** argv)
     // Rendering
     ImGui::Render();
 
-    draw(surf, camera, framebuffer, surf_color);
+    if (cur_renderer)
+      draw(surf, camera, framebuffer, surf_color);
+    else 
+      draw_points(surf, camera, framebuffer, surf_color);
+
     copy_image_to_texture(framebuffer, texture);
     SDL_RenderClear(renderer);
     SDL_RenderSetScale(renderer, io.DisplayFramebufferScale.x, io.DisplayFramebufferScale.y);

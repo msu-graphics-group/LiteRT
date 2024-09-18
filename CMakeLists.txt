@@ -30,8 +30,11 @@ add_executable(
     src/utils.hpp
     src/utils.cpp
 )
+
+find_package(OpenMP)
 target_link_libraries(
   ${PROJECT_NAME}
     LiteMath
     ImGui
+    OpenMP::OpenMP_CXX
 )
