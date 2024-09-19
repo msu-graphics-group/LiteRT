@@ -17,7 +17,7 @@ struct IRenderer
 
   virtual void SetViewport(int a_xStart, int a_yStart, int a_width, int a_height){}
   virtual void SetAccelStruct(std::shared_ptr<ISceneObject2> a_customAccelStruct) {}
-  virtual std::shared_ptr<ISceneObject2> GetAccelStruct() { return nullptr; }
+  virtual std::shared_ptr<ISceneObject> GetAccelStruct() { return nullptr; }
   
   virtual void GetExecutionTime(const char* a_funcName, float a_out[4]){}; // will be overriden in generated class
 

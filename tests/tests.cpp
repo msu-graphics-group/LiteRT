@@ -296,8 +296,8 @@ void litert_test_4_hydra_scene()
   auto pRender = CreateMultiRenderer("GPU");
   pRender->SetPreset(preset);
   pRender->SetViewport(0,0,W,H);
-  pRender->LoadSceneHydra((scenes_folder_path+scene_name).c_str(), TYPE_SDF_SVS, 
-                          SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 9));
+  pRender->CreateSceneFromHydra((scenes_folder_path+scene_name).c_str(), TYPE_SDF_SVS, 
+                                SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 9));
 
   auto m1 = pRender->getWorldView();
   auto m2 = pRender->getProj();
@@ -345,8 +345,8 @@ void litert_test_5_interval_tracing()
   auto pRender = CreateMultiRenderer("GPU");
   pRender->SetPreset(preset_1);
   pRender->SetViewport(0,0,W,H);
-  pRender->LoadSceneHydra((scenes_folder_path+scene_name).c_str(), TYPE_SDF_SVS,
-                          SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 9));
+  pRender->CreateSceneFromHydra((scenes_folder_path+scene_name).c_str(), TYPE_SDF_SVS,
+                                SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 9));
 
   auto m1 = pRender->getWorldView();
   auto m2 = pRender->getProj();
@@ -401,8 +401,8 @@ void litert_test_6_faster_bvh_build()
   pRender_1->SetPreset(preset_1);
   pRender_1->SetViewport(0,0,W,H);
 auto t1 = std::chrono::steady_clock::now();
-  pRender_1->LoadSceneHydra((scenes_folder_path+scene_name).c_str(), TYPE_SDF_SVS,
-                            SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 9));
+  pRender_1->CreateSceneFromHydra((scenes_folder_path+scene_name).c_str(), TYPE_SDF_SVS,
+                                  SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 9));
 auto t2 = std::chrono::steady_clock::now();
   float time_1 = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
 
@@ -410,8 +410,8 @@ auto t2 = std::chrono::steady_clock::now();
   pRender_2->SetPreset(preset_2);
   pRender_2->SetViewport(0,0,W,H);
 auto t3 = std::chrono::steady_clock::now();
-  pRender_2->LoadSceneHydra((scenes_folder_path+scene_name).c_str(), TYPE_SDF_SVS,
-                            SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, 9));
+  pRender_2->CreateSceneFromHydra((scenes_folder_path+scene_name).c_str(), TYPE_SDF_SVS,
+                                  SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, 9));
 auto t4 = std::chrono::steady_clock::now();
   float time_2 = std::chrono::duration_cast<std::chrono::milliseconds>(t4 - t3).count();
 
@@ -466,8 +466,8 @@ void litert_test_8_SDF_grid()
   auto pRender = CreateMultiRenderer("GPU");
   pRender->SetPreset(preset);
   pRender->SetViewport(0,0,W,H);
-  pRender->LoadSceneHydra((scenes_folder_path+scene_name).c_str(), TYPE_SDF_GRID, 
-                          SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 7));
+  pRender->CreateSceneFromHydra((scenes_folder_path+scene_name).c_str(), TYPE_SDF_GRID, 
+                                SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 7));
 
   auto m1 = pRender->getWorldView();
   auto m2 = pRender->getProj();
@@ -1837,14 +1837,18 @@ void litert_test_24_demo_meshes()
         unsigned geomId = 0;
         if (type_names[type_i] == "mesh")
         {
-          unsigned geomId =  pRender->GetAccelStruct()->AddGeom_Triangles3f((const float*)mesh.vPos4f.data(), (const float*)mesh.vNorm4f.data(), mesh.vPos4f.size(),
-                                                                            mesh.indices.data(), mesh.indices.size(), BUILD_HIGH, sizeof(float)*4);
+          auto BVH_RT = dynamic_cast<BVHRT*>(pRender->GetAccelStruct().get());
+          assert(BVH_RT);
+          unsigned geomId = BVH_RT->AddGeom_Triangles3f((const float*)mesh.vPos4f.data(), (const float*)mesh.vNorm4f.data(), mesh.vPos4f.size(),
+                                                        mesh.indices.data(), mesh.indices.size(), BUILD_HIGH, sizeof(float)*4);
           pRender->add_mesh_internal(mesh, geomId);
         }
         else if (type_names[type_i] == "sdf_SVS")
         {
           auto sdf_SVS = sdf_converter::create_sdf_frame_octree_tex(SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, 7), mesh);
-          unsigned geomId = pRender->GetAccelStruct()->AddGeom_SdfFrameOctreeTex(sdf_SVS);
+          auto BVH_RT = dynamic_cast<BVHRT*>(pRender->GetAccelStruct().get());
+          assert(BVH_RT);
+          unsigned geomId = BVH_RT->AddGeom_SdfFrameOctreeTex(sdf_SVS);
           pRender->add_SdfFrameOctreeTex_internal(sdf_SVS, geomId);
         }
         pRender->GetAccelStruct()->ClearScene();

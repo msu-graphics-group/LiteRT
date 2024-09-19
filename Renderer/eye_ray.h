@@ -93,7 +93,7 @@ public:
     m_pAccelStruct2 = a_customAccelStruct;
     m_pAccelStruct  = a_customAccelStruct;
   }
-  std::shared_ptr<ISceneObject2> GetAccelStruct() override { return m_pAccelStruct2; }
+  std::shared_ptr<ISceneObject> GetAccelStruct() override { return m_pAccelStruct; }
 
   void GetExecutionTime(const char* a_funcName, float a_out[4]) override;
 
@@ -101,11 +101,11 @@ public:
 
   void UpdateCamera(const LiteMath::float4x4& a_worldView, const LiteMath::float4x4& a_proj) override;
   
-  //ddefault one, loading meshes
+  //default one, loading already existing stuff
   bool LoadSceneHydra(const std::string& a_path);
 
-  //so_settings is used only when type is soem kind of SDF octree
-  bool LoadSceneHydra(const std::string& a_path, unsigned type, SparseOctreeSettings so_settings);  
+  //load hydra scene with some meshes, convert them to SDF with given settings and load to MultiRenderer
+  bool CreateSceneFromHydra(const std::string& a_path, unsigned type, SparseOctreeSettings so_settings);  
 
   uint32_t AddTexture(const Image2D<float4> &image);
   uint32_t AddMaterial(const MultiRendererMaterial &material);

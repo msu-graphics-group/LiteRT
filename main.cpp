@@ -22,7 +22,7 @@ int main(int argc, const char** argv)
   {
     if (std::string(argv[1]) == "-tests_litert")
     {
-      perform_tests_litert({});
+      perform_tests_litert({17});
       return 0;
     }
     else if (std::string(argv[1]) == "-intersection_benchmark")

@@ -312,7 +312,7 @@ namespace dr
     m_images = std::vector<LiteImage::Image2D<float4>>(m_imagesRef.size(), LiteImage::Image2D<float4>(m_width, m_height, float4(0, 0, 0, 1)));
     m_imagesDepth = std::vector<LiteImage::Image2D<float4>>(m_imagesRef.size(), LiteImage::Image2D<float4>(m_width, m_height, float4(0, 0, 0, 1)));
     SetAccelStruct(std::shared_ptr<ISceneObject2>(new BVHDR()));
-    m_pAccelStruct2->SetPreset(m_preset);
+    SetPreset(m_preset);
     SetScene(sbs, true);
 
     float *params = ((BVHDR*)m_pAccelStruct.get())->m_SdfSBSDataF.data();
@@ -440,13 +440,13 @@ namespace dr
           {
             auto original_mode = m_preset.render_mode;
             m_preset.render_mode = preset.debug_progress_images;
-            m_pAccelStruct2->SetPreset(m_preset);
+            SetPreset(m_preset);
 
             UpdateCamera(m_worldViewRef[image_id], m_projRef[image_id]);
             RenderFloat(m_images[image_id].data(), m_width, m_height, "color");
 
             m_preset.render_mode = original_mode;
-            m_pAccelStruct2->SetPreset(m_preset);
+            SetPreset(m_preset);
           }
           
           LiteImage::SaveImage<float4>(("saves/iter_"+std::to_string(iter)+"_"+std::to_string(image_id)+".png").c_str(), m_images[image_id]);

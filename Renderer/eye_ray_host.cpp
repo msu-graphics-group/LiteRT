@@ -22,8 +22,7 @@ using LiteMath::inverse4x4;
 MultiRenderer::MultiRenderer(uint32_t maxPrimitives) 
 { 
   m_maxPrimitives = maxPrimitives;
-  m_pAccelStruct2 = CreateSceneRT("BVH2Common", "cbvh_embree2", "SuperTreeletAlignedMerged4"); //default
-  m_pAccelStruct  = m_pAccelStruct2;
+  SetAccelStruct(CreateSceneRT("BVH2Common", "cbvh_embree2", "SuperTreeletAlignedMerged4"));
   m_preset = getDefaultPreset();
   m_mainLightDir = normalize3(float4(1,0.5,0.5,1));
   m_mainLightColor = 1.0f*normalize3(float4(1,1,0.98,1));
@@ -65,11 +64,6 @@ void MultiRenderer::UpdateCamera(const LiteMath::float4x4& worldView, const Lite
 
 bool MultiRenderer::LoadSceneHydra(const std::string& a_path)
 {
-  return LoadSceneHydra(a_path, TYPE_MESH_TRIANGLE, SparseOctreeSettings());
-}
-
-bool MultiRenderer::LoadSceneHydra(const std::string& a_path, unsigned type, SparseOctreeSettings so_settings)
-{
   hydra_xml::HydraScene scene;
   if(scene.LoadState(a_path) < 0)
     return false;
@@ -102,46 +96,9 @@ bool MultiRenderer::LoadSceneHydra(const std::string& a_path, unsigned type, Spa
       float4x4 trans = cmesh4::normalize_mesh(currMesh, true);
       addGeomTransform.back() = inverse4x4(trans);
 
-      switch (type)
-      {
-      case TYPE_MESH_TRIANGLE:
-      {
-        unsigned geomId = m_pAccelStruct->AddGeom_Triangles3f((const float *)currMesh.vPos4f.data(), currMesh.vPos4f.size(),
-                                                              currMesh.indices.data(), currMesh.indices.size(), BUILD_HIGH, sizeof(float) * 4);
-        add_mesh_internal(currMesh, geomId);
-      }
-      break;
-      case TYPE_SDF_SVS:
-      {
-        std::vector<SdfSVSNode> svs_nodes = sdf_converter::create_sdf_SVS(so_settings, currMesh);
-        m_pAccelStruct2->AddGeom_SdfSVS(svs_nodes);
-      }
-      break;
-      case TYPE_SDF_GRID:
-      {
-        MeshBVH mesh_bvh;
-        mesh_bvh.init(currMesh);
-        unsigned sz = pow(2, so_settings.depth);
-        std::vector<float> data(sz * sz * sz, 0);
-
-        for (int i = 0; i < sz; i++)
-        {
-          for (int j = 0; j < sz; j++)
-          {
-            for (int k = 0; k < sz; k++)
-            {
-              data[i * sz * sz + j * sz + k] = mesh_bvh.get_signed_distance(2.0f * (float3(k + 0.5, j + 0.5, i + 0.5) / float(sz)) - 1.0f);
-            }
-          }
-        }
-
-        m_pAccelStruct2->AddGeom_SdfGrid(SdfGridView(uint3(sz, sz, sz), data));
-      }
-      break;
-      default:
-        printf("cannot transform meshes from Hydra scene to type %u\n", type);
-        break;
-      }
+      unsigned geomId = m_pAccelStruct->AddGeom_Triangles3f((const float *)currMesh.vPos4f.data(), currMesh.vPos4f.size(),
+                                                            currMesh.indices.data(), currMesh.indices.size(), BUILD_HIGH, sizeof(float) * 4);
+      add_mesh_internal(currMesh, geomId);
     }
     else if (name == "sdf")
     {
@@ -219,6 +176,96 @@ bool MultiRenderer::LoadSceneHydra(const std::string& a_path, unsigned type, Spa
   return true;
 }
 
+bool MultiRenderer::CreateSceneFromHydra(const std::string& a_path, unsigned type, SparseOctreeSettings so_settings)
+{
+  hydra_xml::HydraScene scene;
+  if(scene.LoadState(a_path) < 0)
+    return false;
+
+  for(auto cam : scene.Cameras())
+  {
+    float aspect   = float(m_width) / float(m_height);
+    auto proj      = perspectiveMatrix(cam.fov, aspect, cam.nearPlane, cam.farPlane);
+    auto worldView = lookAt(float3(cam.pos), float3(cam.lookAt), float3(cam.up));
+    UpdateCamera(worldView, proj);
+    break; // take first cam
+  }
+
+  m_pAccelStruct->ClearGeom();
+  auto mIter = scene.GeomNodes().begin();
+  size_t pos = a_path.find_last_of('/');
+  std::string root_dir = a_path.substr(0, pos);
+
+  std::vector<LiteMath::float4x4> addGeomTransform;
+
+  while (mIter != scene.GeomNodes().end())
+  {
+    std::string dir = root_dir + "/" + hydra_xml::ws2s(std::wstring(mIter->attribute(L"loc").as_string()));
+    std::string name = hydra_xml::ws2s(std::wstring(mIter->name()));
+    addGeomTransform.push_back(float4x4());
+    if (name == "mesh")
+    {
+      std::cout << "[LoadScene]: mesh = " << dir.c_str() << std::endl;
+      auto currMesh = cmesh4::LoadMeshFromVSGF(dir.c_str());
+      float4x4 trans = cmesh4::normalize_mesh(currMesh, true);
+      addGeomTransform.back() = inverse4x4(trans);
+
+      switch (type)
+      {
+      case TYPE_MESH_TRIANGLE:
+      {
+        unsigned geomId = m_pAccelStruct->AddGeom_Triangles3f((const float *)currMesh.vPos4f.data(), currMesh.vPos4f.size(),
+                                                              currMesh.indices.data(), currMesh.indices.size(), BUILD_HIGH, sizeof(float) * 4);
+        add_mesh_internal(currMesh, geomId);
+      }
+      break;
+      case TYPE_SDF_SVS:
+      {
+        std::vector<SdfSVSNode> svs_nodes = sdf_converter::create_sdf_SVS(so_settings, currMesh);
+        m_pAccelStruct2->AddGeom_SdfSVS(svs_nodes);
+      }
+      break;
+      case TYPE_SDF_GRID:
+      {
+        MeshBVH mesh_bvh;
+        mesh_bvh.init(currMesh);
+        unsigned sz = pow(2, so_settings.depth);
+        std::vector<float> data(sz * sz * sz, 0);
+
+        for (int i = 0; i < sz; i++)
+        {
+          for (int j = 0; j < sz; j++)
+          {
+            for (int k = 0; k < sz; k++)
+            {
+              data[i * sz * sz + j * sz + k] = mesh_bvh.get_signed_distance(2.0f * (float3(k + 0.5, j + 0.5, i + 0.5) / float(sz)) - 1.0f);
+            }
+          }
+        }
+
+        m_pAccelStruct2->AddGeom_SdfGrid(SdfGridView(uint3(sz, sz, sz), data));
+      }
+      break;
+      default:
+        printf("cannot transform meshes from Hydra scene to type %u\n", type);
+        break;
+      }
+    }
+    else
+    {
+      std::cout << "[CreateSceneFromHydra]: Only meshes are supported. If you want to render existing SDFs, use LoadSceneHydra instead " << std::endl;
+    }
+    mIter++;
+  }
+  
+  m_pAccelStruct->ClearScene();
+  for(auto inst : scene.InstancesGeom())
+    m_pAccelStruct->AddInstance(inst.geomId, inst.matrix*addGeomTransform[inst.geomId]);
+  m_pAccelStruct->CommitScene();
+
+  return true;
+}
+
 ////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////
@@ -277,8 +324,6 @@ void MultiRenderer::GetExecutionTime(const char* a_funcName, float a_out[4])
 void MultiRenderer::SetScene(const cmesh4::SimpleMesh &scene)
 {
   m_pAccelStruct->ClearGeom();
-  //unsigned geomId =  GetAccelStruct()->AddGeom_Triangles3f((const float*)scene.vPos4f.data(), (const float*)scene.vNorm4f.data(), scene.vPos4f.size(),
-  //                                                         scene.indices.data(), scene.indices.size(), BUILD_HIGH, sizeof(float)*4);
   unsigned geomId = m_pAccelStruct->AddGeom_Triangles3f((const float*)scene.vPos4f.data(), scene.vPos4f.size(), scene.indices.data(), scene.indices.size(), BUILD_HIGH, sizeof(float)*4);                                                          
   add_mesh_internal(scene, geomId);
   m_pAccelStruct->ClearScene();
@@ -349,12 +394,14 @@ void MultiRenderer::SetScene(SdfSBSView scene, bool single_bvh_node)
 void MultiRenderer::SetScene(SdfFrameOctreeTexView scene)
 {
   SetPreset(m_preset);
-  GetAccelStruct()->ClearGeom();
-  auto geomId = GetAccelStruct()->AddGeom_SdfFrameOctreeTex(scene);
+  if(m_pAccelStruct != m_pAccelStruct2)
+    m_pAccelStruct2->SetProxy(m_pAccelStruct);
+  m_pAccelStruct->ClearGeom();
+  auto geomId = m_pAccelStruct2->AddGeom_SdfFrameOctreeTex(scene);
   add_SdfFrameOctreeTex_internal(scene, geomId);
-  GetAccelStruct()->ClearScene();
-  GetAccelStruct()->AddInstance(0, LiteMath::float4x4());
-  GetAccelStruct()->CommitScene();
+  m_pAccelStruct->ClearScene();
+  m_pAccelStruct->AddInstance(0, LiteMath::float4x4());
+  m_pAccelStruct->CommitScene();
 }
 
 void MultiRenderer::SetPreset(const MultiRenderPreset& a_preset)
