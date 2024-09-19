@@ -323,6 +323,7 @@ void MultiRenderer::GetExecutionTime(const char* a_funcName, float a_out[4])
 
 void MultiRenderer::SetScene(const cmesh4::SimpleMesh &scene)
 {
+  SetPreset(m_preset);
   m_pAccelStruct->ClearGeom();
   unsigned geomId = m_pAccelStruct->AddGeom_Triangles3f((const float*)scene.vPos4f.data(), scene.vPos4f.size(), scene.indices.data(), scene.indices.size(), BUILD_HIGH, sizeof(float)*4);                                                          
   add_mesh_internal(scene, geomId);
@@ -335,8 +336,17 @@ void MultiRenderer::SetScene(SdfGridView scene)
 {
   if(m_pAccelStruct != m_pAccelStruct2)
     m_pAccelStruct2->SetProxy(m_pAccelStruct);
+  
+  BVHRT *bvhrt = dynamic_cast<BVHRT*>(m_pAccelStruct.get());
+  if (!bvhrt)
+  {
+    printf("only BVHRT supports SdfGrid\n");
+    return;
+  }
+
+  SetPreset(m_preset);
   m_pAccelStruct->ClearGeom();
-  auto geomId = m_pAccelStruct2->AddGeom_SdfGrid(scene);
+  auto geomId = bvhrt->AddGeom_SdfGrid(scene);
   m_pAccelStruct->ClearScene();
   m_pAccelStruct->AddInstance(geomId, LiteMath::float4x4());
   m_pAccelStruct->CommitScene();
@@ -344,11 +354,19 @@ void MultiRenderer::SetScene(SdfGridView scene)
 
 void MultiRenderer::SetScene(SdfOctreeView scene)
 {
-  SetPreset(m_preset);
-  if(m_pAccelStruct != m_pAccelStruct2)
+if(m_pAccelStruct != m_pAccelStruct2)
     m_pAccelStruct2->SetProxy(m_pAccelStruct);
+  
+  BVHRT *bvhrt = dynamic_cast<BVHRT*>(m_pAccelStruct.get());
+  if (!bvhrt)
+  {
+    printf("only BVHRT supports SdfOctree\n");
+    return;
+  }
+
+  SetPreset(m_preset);
   m_pAccelStruct->ClearGeom();
-  auto geomId = m_pAccelStruct2->AddGeom_SdfOctree(scene);
+  auto geomId = bvhrt->AddGeom_SdfOctree(scene);
   m_pAccelStruct->ClearScene();
   m_pAccelStruct->AddInstance(geomId, LiteMath::float4x4());
   m_pAccelStruct->CommitScene();
@@ -356,11 +374,19 @@ void MultiRenderer::SetScene(SdfOctreeView scene)
 
 void MultiRenderer::SetScene(SdfFrameOctreeView scene)
 {
-  SetPreset(m_preset);
   if(m_pAccelStruct != m_pAccelStruct2)
     m_pAccelStruct2->SetProxy(m_pAccelStruct);
+  
+  BVHRT *bvhrt = dynamic_cast<BVHRT*>(m_pAccelStruct.get());
+  if (!bvhrt)
+  {
+    printf("only BVHRT supports SdfFrameOctree\n");
+    return;
+  }
+
+  SetPreset(m_preset);
   m_pAccelStruct->ClearGeom();
-  auto geomId = m_pAccelStruct2->AddGeom_SdfFrameOctree(scene);
+  auto geomId = bvhrt->AddGeom_SdfFrameOctree(scene);
   m_pAccelStruct->ClearScene();
   m_pAccelStruct->AddInstance(geomId, LiteMath::float4x4());
   m_pAccelStruct->CommitScene();
@@ -368,11 +394,19 @@ void MultiRenderer::SetScene(SdfFrameOctreeView scene)
 
 void MultiRenderer::SetScene(SdfSVSView scene)
 {
-  SetPreset(m_preset);
   if(m_pAccelStruct != m_pAccelStruct2)
     m_pAccelStruct2->SetProxy(m_pAccelStruct);
+  
+  BVHRT *bvhrt = dynamic_cast<BVHRT*>(m_pAccelStruct.get());
+  if (!bvhrt)
+  {
+    printf("only BVHRT supports SdfSVS\n");
+    return;
+  }
+
+  SetPreset(m_preset);
   m_pAccelStruct->ClearGeom();
-  auto geomId = m_pAccelStruct2->AddGeom_SdfSVS(scene);
+  auto geomId = bvhrt->AddGeom_SdfSVS(scene);
   m_pAccelStruct->ClearScene();
   m_pAccelStruct->AddInstance(geomId, LiteMath::float4x4());
   m_pAccelStruct->CommitScene();
@@ -381,11 +415,19 @@ void MultiRenderer::SetScene(SdfSVSView scene)
 
 void MultiRenderer::SetScene(SdfSBSView scene, bool single_bvh_node)
 {
-  SetPreset(m_preset);
   if(m_pAccelStruct != m_pAccelStruct2)
     m_pAccelStruct2->SetProxy(m_pAccelStruct);
+  
+  BVHRT *bvhrt = dynamic_cast<BVHRT*>(m_pAccelStruct.get());
+  if (!bvhrt)
+  {
+    printf("only BVHRT supports SdfSBS\n");
+    return;
+  }
+
+  SetPreset(m_preset);
   m_pAccelStruct->ClearGeom();
-  auto geomId = m_pAccelStruct2->AddGeom_SdfSBS(scene, single_bvh_node);
+  auto geomId = bvhrt->AddGeom_SdfSBS(scene, single_bvh_node);
   m_pAccelStruct->ClearScene();
   m_pAccelStruct->AddInstance(geomId, LiteMath::float4x4());
   m_pAccelStruct->CommitScene();
@@ -393,11 +435,19 @@ void MultiRenderer::SetScene(SdfSBSView scene, bool single_bvh_node)
 
 void MultiRenderer::SetScene(SdfFrameOctreeTexView scene)
 {
-  SetPreset(m_preset);
   if(m_pAccelStruct != m_pAccelStruct2)
     m_pAccelStruct2->SetProxy(m_pAccelStruct);
+  
+  BVHRT *bvhrt = dynamic_cast<BVHRT*>(m_pAccelStruct.get());
+  if (!bvhrt)
+  {
+    printf("only BVHRT supports SdfFrameOctreeTex\n");
+    return;
+  }
+
+  SetPreset(m_preset);
   m_pAccelStruct->ClearGeom();
-  auto geomId = m_pAccelStruct2->AddGeom_SdfFrameOctreeTex(scene);
+  auto geomId = bvhrt->AddGeom_SdfFrameOctreeTex(scene);
   add_SdfFrameOctreeTex_internal(scene, geomId);
   m_pAccelStruct->ClearScene();
   m_pAccelStruct->AddInstance(0, LiteMath::float4x4());
