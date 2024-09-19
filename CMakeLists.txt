@@ -66,6 +66,7 @@ set(SCENE_LOADER_SRC
     ${CMAKE_SOURCE_DIR}/utils/sdf_smoother.cpp
     ${CMAKE_SOURCE_DIR}/utils/demo_meshes.cpp
     ${CMAKE_SOURCE_DIR}/utils/image_metrics.cpp
+    ${CMAKE_SOURCE_DIR}/utils/iou.cpp
     ${CMAKE_SOURCE_DIR}/utils/points_visualizer.cpp
     ${CMAKE_SOURCE_DIR}/tests/tests.cpp
     ${CMAKE_SOURCE_DIR}/tests/benchmark.cpp

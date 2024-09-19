@@ -739,11 +739,18 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
     {
       //TODO
       bool is_end = true;
-      printf("%d\n", i);
+      //printf("%d\n", i);
+      //printf("%d\n", last_level.size());
       for (auto node_idx : last_level)
       {
         float3 corner = 2.0 * directions[node_idx].p * directions[node_idx].d - 1.0;
-        if (node_RMSE_linear(result[node_idx].values, sdf, corner, 2 * directions[node_idx].d * float3(1, 1, 1)) >= eps)
+        float min_vert = std::abs(result[node_idx].values[0]);
+        float max_dist = std::sqrt(3) * directions[node_idx].d;
+        for (unsigned vert = 1; vert < 8; ++vert)
+        {
+          min_vert = std::min(min_vert, std::abs(result[node_idx].values[vert]));
+        }
+        if (node_RMSE_linear(result[node_idx].values, sdf, corner, 2 * directions[node_idx].d * float3(1, 1, 1)) >= eps && max_dist > min_vert)
         {
           divided.insert(node_idx);
           is_end = false;
@@ -811,6 +818,8 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
         }
       }
       divided.clear();
+
+      //printf("%d\n", last_level.size());
     }
     return result;
   }
@@ -901,6 +910,7 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
         for (unsigned i=0;i<8;i++)
           frame[frame[idx].offset+i].offset = INVALID_IDX;
         frame[idx].offset = 0;
+        //printf("%f\n", merge_candidates[c_i].weighted_diff * 7.0 / 64.0);
         //printf("removing %u %u %f, left %d\n", idx, merge_candidates[c_i].active_children, 
         //merge_candidates[c_i].weighted_diff, cnt);
         cnt -= (merge_candidates[c_i].active_children - 1);

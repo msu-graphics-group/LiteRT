@@ -12,6 +12,7 @@
 #include "../utils/demo_meshes.h"
 #include "../utils/image_metrics.h"
 #include "../diff_render/MultiRendererDR.h"
+#include "../utils/iou.h"
 
 #include <functional>
 #include <cassert>
@@ -2320,6 +2321,23 @@ void litert_test_28_sbs_reg()
   
 }
 
+void count_of_nodes_in_layers(const std::vector<SdfFrameOctreeNode> &frame_nodes, unsigned layer, std::vector<unsigned> &layers, unsigned idx)
+{
+  if (layer + 1 > layers.size())
+  {
+    layers.resize(layer + 1);
+    layers[layer] = 0;
+  }
+  layers[layer] += 1;
+  if (frame_nodes[idx].offset != 0)
+  {
+    for (unsigned num = 0; num < 8; ++num)
+    {
+      count_of_nodes_in_layers(frame_nodes, layer + 1, layers, frame_nodes[idx].offset + num);
+    }
+  }
+}
+
 void litert_test_29_smoothed_frame_octree()
 {
   auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path+"scenes/01_simple_scenes/data/teapot.vsgf").c_str());
@@ -2331,19 +2349,11 @@ void litert_test_29_smoothed_frame_octree()
   LiteImage::Image2D<uint32_t> image_1(W, H);
   LiteImage::Image2D<uint32_t> image_2(W, H);
   MultiRenderPreset preset = getDefaultPreset();
-  LiteImage::Image2D<float4> texture = LiteImage::LoadImage<float4>("scenes/porcelain.png");
 
   {
     auto pRender = CreateMultiRenderer("GPU");
     pRender->SetPreset(preset);
     pRender->SetViewport(0,0,W,H);
-
-    uint32_t texId = pRender->AddTexture(texture);
-    MultiRendererMaterial mat;
-    mat.type = MULTI_RENDER_MATERIAL_TYPE_TEXTURED;
-    mat.texId = texId;
-    uint32_t matId = pRender->AddMaterial(mat);
-    pRender->SetMaterial(matId, 0);
 
     pRender->SetScene(mesh);
     render(image, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
@@ -2353,31 +2363,83 @@ void litert_test_29_smoothed_frame_octree()
     for (unsigned i = 0; i < 1; i++)
       bvh[i].init(mesh);
     auto real_sdf = [&](const float3 &p, unsigned idx) -> float 
-    { return bvh[idx].get_signed_distance(p);};
+    { /*return bvh[idx].get_signed_distance(p);*/ return std::sqrt(p.x * p.x + p.y * p.y + p.z * p.z) - 0.8;};
 
     printf("TEST 29. New frame octree creation\n");
 
-  std::vector<SdfFrameOctreeNode> frame_nodes = sdf_converter::create_sdf_frame_octree(settings, real_sdf, 1e-2, true);
-
-  {
-    auto pRender = CreateMultiRenderer("GPU");
-    pRender->SetPreset(preset);
-    pRender->SetScene(frame_nodes);
-    render(image_1, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
-  }
-
-  frame_nodes = sdf_converter::create_sdf_frame_octree(settings, real_sdf, 1);
-
-  {
-    auto pRender = CreateMultiRenderer("GPU");
-    pRender->SetPreset(preset);
-    pRender->SetScene(frame_nodes);
-    render(image_2, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
-  }
-
   LiteImage::SaveImage<uint32_t>("saves/test_29_mesh.bmp", image);
-  LiteImage::SaveImage<uint32_t>("saves/test_29_our_octree.bmp", image_1);
-  LiteImage::SaveImage<uint32_t>("saves/test_29_octree.bmp", image_2);
+
+  unsigned num_of_test = 1;
+  for (float eps = 1e-2; eps > 1e-5; eps /= std::sqrt(10), ++num_of_test)
+  {
+
+    std::vector<SdfFrameOctreeNode> frame_nodes = sdf_converter::create_sdf_frame_octree(settings, real_sdf, eps, false);
+
+    {
+      auto pRender = CreateMultiRenderer("GPU");
+      pRender->SetPreset(preset);
+      pRender->SetScene(frame_nodes);
+      render(image_1, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+
+      float psnr = image_metrics::PSNR(image, image_1);
+
+      printf("  29.1.%u %-64s", num_of_test, "mesh and new frame octree PSNR > 30");
+      if (psnr >= 30)
+        printf("passed    (%.2f), eps = %f\n", psnr, eps);
+      else
+        printf("FAILED, psnr = %f, eps = %f\n", psnr, eps);
+
+      float iou = IoU::IoU_frame_octree(frame_nodes, real_sdf, 1000000);
+
+      printf("  29.2.%u %-64s", num_of_test, "sdf and new frame octree IoU > 0.9");
+      if (iou >= 0.9)
+        printf("passed    (%.5f), eps = %f\n", iou, eps);
+      else
+        printf("FAILED, iou = %f, eps = %f\n", iou, eps);
+      
+    }
+
+    settings.nodes_limit = frame_nodes.size();
+    //printf("%d\n", frame_nodes.size());
+
+    frame_nodes = sdf_converter::create_sdf_frame_octree(settings, real_sdf, 1);
+    //std::vector<unsigned> buffer = {0};
+
+    //count_of_nodes_in_layers(frame_nodes, 0, buffer, 0);
+
+    /*for (auto i : buffer)
+    {
+      printf("%u ", i);
+    }
+    printf("\n");*/
+
+    {
+      auto pRender = CreateMultiRenderer("GPU");
+      pRender->SetPreset(preset);
+      pRender->SetScene(frame_nodes);
+      render(image_2, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+
+      float psnr = image_metrics::PSNR(image, image_2);
+
+      printf("  29.3.%u %-64s", num_of_test, "mesh and old frame octree PSNR > 30 (with same nodes count) ");
+      if (psnr >= 30)
+        printf("passed    (%.2f), eps = %f\n", psnr, eps);
+      else
+        printf("FAILED, psnr = %f, eps = %f\n", psnr, eps);
+
+      float iou = IoU::IoU_frame_octree(frame_nodes, real_sdf, 1000000);
+
+      printf("  29.4.%u %-64s", num_of_test, "sdf and old frame octree IoU > 0.9 (with same nodes count) ");
+      if (iou >= 0.9)
+        printf("passed    (%.5f), eps = %f\n", iou, eps);
+      else
+        printf("FAILED, iou = %f, eps = %f\n", iou, eps);
+
+      LiteImage::SaveImage<uint32_t>(("saves/test_29_our_octree_" + std::to_string(num_of_test) + ".bmp").c_str(), image_1);
+      LiteImage::SaveImage<uint32_t>(("saves/test_29_octree_" + std::to_string(num_of_test) + ".bmp").c_str(), image_2);
+    }
+
+  }
 }
 
 void perform_tests_litert(const std::vector<int> &test_ids)
