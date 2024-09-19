@@ -6,31 +6,14 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
 project(loader_app CXX)
 
-include_directories(${CMAKE_SOURCE_DIR}/dependencies/LiteMath/external)
-
-include(FetchContent)
-FetchContent_Declare(
-  LiteMath
-  URL      https://github.com/msu-graphics-group/LiteMath/archive/refs/heads/main.zip
-  SOURCE_DIR dependencies/LiteMath
-)
-FetchContent_Declare(
-  LiteScene
-  URL      https://github.com/msu-graphics-group/LiteScene/archive/refs/heads/main.zip
-  SOURCE_DIR dependencies/LiteScene
-)
-FetchContent_Declare(
-  CrossRT
-  URL      https://github.com/msu-graphics-group/CrossRT/archive/refs/heads/main.zip
-  SOURCE_DIR dependencies/CrossRT
-)
-FetchContent_MakeAvailable(LiteMath LiteScene CrossRT)
+include_directories(${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/LiteMath/external)
 
 include_directories(${CMAKE_SOURCE_DIR})
 include_directories(${CMAKE_SOURCE_DIR}/dependencies)
-include_directories(${CMAKE_SOURCE_DIR}/dependencies/LiteMath)
-include_directories(${CMAKE_SOURCE_DIR}/dependencies/LiteScene)
-include_directories(${CMAKE_SOURCE_DIR}/dependencies/CrossRT)
+include_directories(${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external)
+include_directories(${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/LiteMath)
+include_directories(${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/LiteScene)
+include_directories(${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/CrossRT)
 include_directories(${CMAKE_SOURCE_DIR}/dependencies/embree)
 include_directories(${CMAKE_SOURCE_DIR}/sdfScene)
 include_directories(${CMAKE_SOURCE_DIR}/BVH)
@@ -49,9 +32,9 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS} -std=c++17 -O3 -Wall
                      -Wno-narrowing -Wno-attributes -Wno-sign-compare")
 
 set(SCENE_LOADER_SRC
-    ${CMAKE_SOURCE_DIR}/dependencies/LiteScene/pugixml.cpp
-    ${CMAKE_SOURCE_DIR}/dependencies/LiteScene/hydraxml.cpp
-    ${CMAKE_SOURCE_DIR}/dependencies/LiteScene/cmesh4.cpp
+    ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/LiteScene/pugixml.cpp
+    ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/LiteScene/hydraxml.cpp
+    ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/LiteScene/cmesh4.cpp
     ${CMAKE_SOURCE_DIR}/sdfScene/sdf_scene.cpp
     ${CMAKE_SOURCE_DIR}/utils/mesh_bvh.cpp
     ${CMAKE_SOURCE_DIR}/utils/mesh.cpp
@@ -78,7 +61,7 @@ set(SCENE_LOADER_SRC
     )
 
 set(CORE_SRC
-    ${CMAKE_SOURCE_DIR}/dependencies/LiteMath/Image2d.cpp
+    ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/LiteMath/Image2d.cpp
     ${CMAKE_SOURCE_DIR}/Timer.cpp
     ${CMAKE_SOURCE_DIR}/Renderer/eye_ray.cpp
     ${CMAKE_SOURCE_DIR}/Renderer/eye_ray_host.cpp
@@ -141,26 +124,13 @@ if (USE_VULKAN)
   list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}")
   set(SLICER_DIR "/home/sammael/kernel_slicer" CACHE STRING "Custom diff render location")
   
-  find_package(Vulkan)
-  FetchContent_Declare(
-    volk
-    URL      https://github.com/zeux/volk/archive/refs/heads/master.zip
-    SOURCE_DIR dependencies/volk
-    DOWNLOAD_DIR dependencies
-  )
-  FetchContent_Declare(
-    vkutils
-    URL      https://github.com/msu-graphics-group/vk-utils/archive/refs/heads/master.zip
-    SOURCE_DIR dependencies/vkutils
-    DOWNLOAD_DIR dependencies
-  )
-  FetchContent_MakeAvailable(volk)
-
   set(MODULES_INCLUDE_DIRS ${MODULES_INCLUDE_DIRS} ${Vulkan_INCLUDE_DIR}
-                                                   ${CMAKE_SOURCE_DIR}/dependencies/vkutils
-                                                   ${CMAKE_SOURCE_DIR}/dependencies/volk)
+                                                   ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/vkutils
+                                                   ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/volk)
 
-  link_directories(${CMAKE_SOURCE_DIR}/dependencies/volk)
+  link_directories(${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/volk)
+
+  add_subdirectory(${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/volk)
 
   add_compile_definitions(USE_GPU)
   add_compile_definitions(USE_VOLK)
@@ -170,21 +140,21 @@ if (USE_VULKAN)
       ${CMAKE_SOURCE_DIR}/Renderer/eye_ray_gpu_ds.cpp 
       ${CMAKE_SOURCE_DIR}/Renderer/eye_ray_gpu_init.cpp)
 
-  set(VKUTILS_SOURCE ${CMAKE_SOURCE_DIR}/dependencies/vkutils/vk_utils.cpp
-                     ${CMAKE_SOURCE_DIR}/dependencies/vkutils/vk_copy.cpp
-                     ${CMAKE_SOURCE_DIR}/dependencies/vkutils/vk_buffers.cpp
-                     ${CMAKE_SOURCE_DIR}/dependencies/vkutils/vk_images.cpp
-                     ${CMAKE_SOURCE_DIR}/dependencies/vkutils/vk_context.cpp
-                     ${CMAKE_SOURCE_DIR}/dependencies/vkutils/vk_alloc_simple.cpp
-                     ${CMAKE_SOURCE_DIR}/dependencies/vkutils/vk_pipeline.cpp
-                     ${CMAKE_SOURCE_DIR}/dependencies/vkutils/vk_descriptor_sets.cpp
-                     ${CMAKE_SOURCE_DIR}/dependencies/vkutils/ray_tracing/vk_rt_utils.cpp
+  set(VKUTILS_SOURCE ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/vkutils/vk_utils.cpp
+                     ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/vkutils/vk_copy.cpp
+                     ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/vkutils/vk_buffers.cpp
+                     ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/vkutils/vk_images.cpp
+                     ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/vkutils/vk_context.cpp
+                     ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/vkutils/vk_alloc_simple.cpp
+                     ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/vkutils/vk_pipeline.cpp
+                     ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/vkutils/vk_descriptor_sets.cpp
+                     ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/vkutils/ray_tracing/vk_rt_utils.cpp
                      
-                     ${CMAKE_SOURCE_DIR}/dependencies/CrossRT/EmbreeRT.cpp
-                     ${CMAKE_SOURCE_DIR}/dependencies/CrossRT/VulkanRTX.cpp
-                     ${CMAKE_SOURCE_DIR}/dependencies/LiteScene/scene_mgr.cpp         
-                     ${CMAKE_SOURCE_DIR}/dependencies/vkutils/geom/cmesh.cpp
-                     ${CMAKE_SOURCE_DIR}/dependencies/vkutils/geom/vk_mesh.cpp
+                     ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/CrossRT/EmbreeRT.cpp
+                     ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/CrossRT/VulkanRTX.cpp
+                     ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/LiteScene/scene_mgr.cpp         
+                     ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/vkutils/geom/cmesh.cpp
+                     ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/vkutils/geom/vk_mesh.cpp
                      )    
 
   set(VKGEN_SOURCE_RTX "")

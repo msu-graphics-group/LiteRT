@@ -14,7 +14,8 @@ $2 $start_dir/Renderer/eye_ray.cpp $start_dir/BVH/BVH2Common.cpp \
 -pattern rtv \
 -I$PWD/TINYSTL                     ignore  \
 -I$start_dir/dependencies          ignore  \
--I$start_dir/dependencies/LiteMath ignore  \
+-I$start_dir/dependencies/HydraCore3/external          ignore  \
+-I$start_dir/dependencies/HydraCore3/external/LiteMath ignore  \
 -I$start_dir                       process \
 -I$start_dir/Renderer              process \
 -I$start_dir/BVH                   process \

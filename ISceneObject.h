@@ -5,7 +5,7 @@
 #include <unordered_set>
 
 #include "LiteMath.h"
-#include "dependencies/CrossRT/CrossRT.h"
+#include "dependencies/HydraCore3/external/CrossRT/CrossRT.h"
 #include "sdfScene/sdf_scene.h"
 #include "utils/radiance_field.h"
 #include "utils/gaussian_field.h"
