@@ -13,6 +13,7 @@
 #include "../IRenderer.h"
 #include "LiteScene/cmesh4.h"
 #include "Image2d.h"
+#include "BVH/BVH2Common.h"
 
 using LiteMath::uint;
 using LiteImage::Image2D;
@@ -138,8 +139,8 @@ protected:
   uint32_t encode_RGBA8(LiteMath::float4 c);
   LiteMath::float4 decode_RGBA8(uint32_t c);
   LiteMath::float3 decode_normal(float2 v);
-  float3 rand3(uint32_t x, uint32_t y, uint32_t iter);
-  float2 rand2(uint32_t x, uint32_t y, uint32_t iter);
+  LiteMath::float3 rand3(uint32_t x, uint32_t y, uint32_t iter);
+  LiteMath::float2 rand2(uint32_t x, uint32_t y, uint32_t iter);
 
   uint32_t m_width;
   uint32_t m_height;

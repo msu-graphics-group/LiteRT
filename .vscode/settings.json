@@ -84,5 +84,6 @@
         "shared_mutex": "cpp",
         "complex": "cpp",
         "list": "cpp"
-    }
+    },
+    "C_Cpp.default.compilerPath": "/usr/bin/g++-11"
 }

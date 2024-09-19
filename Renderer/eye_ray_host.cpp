@@ -48,6 +48,7 @@ void MultiRenderer::SetViewport(int a_xStart, int a_yStart, int a_width, int a_h
 
 bool MultiRenderer::LoadScene(const char* a_scenePath)
 {
+  m_seed = rand();
   m_pAccelStruct->ClearGeom();
   return LoadSceneHydra(std::string(a_scenePath));
 }

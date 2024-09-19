@@ -52,9 +52,9 @@ uint3 pcg3d(uint3 v)
 
 float3 MultiRenderer::rand3(uint32_t x, uint32_t y, uint32_t iter)
 {
-  x = x + 1233*(iter+m_seed) % 171;
-  y = y + 453*(iter+m_seed) % 765;
-  uint3 v = uint3(x, y, uint32_t(x) ^ uint32_t(y));
+  x = x + 1233u*(iter+m_seed) % 171u;
+  y = y + 453u*(iter+m_seed) % 765u;
+  uint3 v = uint3(x, y, x ^ y);
 
   // http://www.jcgt.org/published/0009/03/02/
   v = v * 1664525u + 1013904223u;
@@ -71,7 +71,7 @@ float3 MultiRenderer::rand3(uint32_t x, uint32_t y, uint32_t iter)
   v.y += v.z * v.x;
   v.z += v.x * v.y;
 
-  return float3(v) * (1.0/float(0xffffffffu));
+  return float3(v) * (1.0f/float(0xffffffffu));
 }
 
 float2 MultiRenderer::rand2(uint32_t x, uint32_t y, uint32_t iter)
@@ -95,7 +95,7 @@ void MultiRenderer::CastRaySingle(uint32_t tidX, uint32_t* out_color)
 
   for (uint32_t i = 0; i < m_preset.spp; i++)
   {
-    float2 d = m_preset.ray_gen_mode == RAY_GEN_MODE_RANDOM ? rand2(x, y, i) : i_spp_sqrt*float2(i/spp_sqrt+0.5, i%spp_sqrt+0.5);
+    float2 d = m_preset.ray_gen_mode == RAY_GEN_MODE_RANDOM ? rand2(x, y, i + m_seed % 2) : i_spp_sqrt*float2(i/spp_sqrt+0.5, i%spp_sqrt+0.5);
     float4 rayPosAndNear, rayDirAndFar;
     kernel_InitEyeRay(tidX, d, &rayPosAndNear, &rayDirAndFar);
     res_color += kernel_RayTrace(tidX, &rayPosAndNear, &rayDirAndFar);
@@ -120,7 +120,7 @@ void MultiRenderer::CastRayFloatSingle(uint32_t tidX, float4* out_color)
 
   for (uint32_t i = 0; i < m_preset.spp; i++)
   {
-    float2 d = m_preset.ray_gen_mode == RAY_GEN_MODE_RANDOM ? rand2(x, y, i) : i_spp_sqrt*float2(i/spp_sqrt+0.5, i%spp_sqrt+0.5);
+    float2 d = m_preset.ray_gen_mode == RAY_GEN_MODE_RANDOM ? rand2(x, y, i + m_seed % 2) : i_spp_sqrt*float2(i/spp_sqrt+0.5, i%spp_sqrt+0.5);
     float4 rayPosAndNear, rayDirAndFar;
     kernel_InitEyeRay(tidX, d, &rayPosAndNear, &rayDirAndFar);
     res_color += kernel_RayTrace(tidX, &rayPosAndNear, &rayDirAndFar);
