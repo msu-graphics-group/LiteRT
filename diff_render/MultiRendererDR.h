@@ -55,7 +55,7 @@ namespace dr
   class MultiRendererDR : public MultiRenderer
   {
   public:
-    MultiRendererDR();
+    MultiRendererDR(uint32_t maxPrimitives = 10'000'000);
     void SetReference(const std::vector<LiteImage::Image2D<float4>>& images, 
                       const std::vector<LiteMath::float4x4>& worldView, 
                       const std::vector<LiteMath::float4x4>& proj);

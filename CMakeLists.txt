@@ -19,12 +19,18 @@ FetchContent_Declare(
   URL      https://github.com/msu-graphics-group/LiteScene/archive/refs/heads/main.zip
   SOURCE_DIR dependencies/LiteScene
 )
-FetchContent_MakeAvailable(LiteMath LiteScene)
+FetchContent_Declare(
+  CrossRT
+  URL      https://github.com/msu-graphics-group/CrossRT/archive/refs/heads/main.zip
+  SOURCE_DIR dependencies/CrossRT
+)
+FetchContent_MakeAvailable(LiteMath LiteScene CrossRT)
 
 include_directories(${CMAKE_SOURCE_DIR})
 include_directories(${CMAKE_SOURCE_DIR}/dependencies)
 include_directories(${CMAKE_SOURCE_DIR}/dependencies/LiteMath)
 include_directories(${CMAKE_SOURCE_DIR}/dependencies/LiteScene)
+include_directories(${CMAKE_SOURCE_DIR}/dependencies/CrossRT)
 include_directories(${CMAKE_SOURCE_DIR}/dependencies/embree)
 include_directories(${CMAKE_SOURCE_DIR}/sdfScene)
 include_directories(${CMAKE_SOURCE_DIR}/BVH)
@@ -98,7 +104,8 @@ endif()
 
 add_compile_definitions(ON_CPU=1)
 
-option(MODULE_VULKAN "include GPU support for neural networks" ON)
+option(USE_VULKAN "include GPU support" ON)
+option(USE_RTX    "include RTX support" OFF)
 
 option(USE_STB_IMAGE "Enable STB image " ON)
 if(USE_STB_IMAGE)
@@ -130,7 +137,7 @@ set(OpenMP_CXX_FLAGS "-fopenmp=libomp")
 set(OpenMP_CXX_LIB_NAMES "libomp")
 set(OpenMP_libomp_LIBRARY ${OpenMP_CXX_LIB_NAMES})
 
-if (MODULE_VULKAN)
+if (USE_VULKAN)
   list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}")
   set(SLICER_DIR "/home/sammael/kernel_slicer" CACHE STRING "Custom diff render location")
   
@@ -139,13 +146,15 @@ if (MODULE_VULKAN)
     volk
     URL      https://github.com/zeux/volk/archive/refs/heads/master.zip
     SOURCE_DIR dependencies/volk
+    DOWNLOAD_DIR dependencies
   )
   FetchContent_Declare(
     vkutils
     URL      https://github.com/msu-graphics-group/vk-utils/archive/refs/heads/master.zip
     SOURCE_DIR dependencies/vkutils
+    DOWNLOAD_DIR dependencies
   )
-  FetchContent_MakeAvailable(volk vkutils)
+  FetchContent_MakeAvailable(volk)
 
   set(MODULES_INCLUDE_DIRS ${MODULES_INCLUDE_DIRS} ${Vulkan_INCLUDE_DIR}
                                                    ${CMAKE_SOURCE_DIR}/dependencies/vkutils
@@ -168,9 +177,26 @@ if (MODULE_VULKAN)
                      ${CMAKE_SOURCE_DIR}/dependencies/vkutils/vk_context.cpp
                      ${CMAKE_SOURCE_DIR}/dependencies/vkutils/vk_alloc_simple.cpp
                      ${CMAKE_SOURCE_DIR}/dependencies/vkutils/vk_pipeline.cpp
-                     ${CMAKE_SOURCE_DIR}/dependencies/vkutils/vk_descriptor_sets.cpp)   
+                     ${CMAKE_SOURCE_DIR}/dependencies/vkutils/vk_descriptor_sets.cpp
+                     ${CMAKE_SOURCE_DIR}/dependencies/vkutils/ray_tracing/vk_rt_utils.cpp
+                     
+                     ${CMAKE_SOURCE_DIR}/dependencies/CrossRT/EmbreeRT.cpp
+                     ${CMAKE_SOURCE_DIR}/dependencies/CrossRT/VulkanRTX.cpp
+                     ${CMAKE_SOURCE_DIR}/dependencies/LiteScene/scene_mgr.cpp         
+                     ${CMAKE_SOURCE_DIR}/dependencies/vkutils/geom/cmesh.cpp
+                     ${CMAKE_SOURCE_DIR}/dependencies/vkutils/geom/vk_mesh.cpp
+                     )    
 
-  set(MODULES_SRC ${MODULES_SRC} ${VKGEN_SOURCE} ${VKUTILS_SOURCE})
+  set(VKGEN_SOURCE_RTX "")
+  if (USE_RTX)
+    add_compile_definitions(USE_RTX)
+    set(VKGEN_SOURCE_RTX
+        ${CMAKE_SOURCE_DIR}/Renderer/eye_ray_rtx.cpp 
+        ${CMAKE_SOURCE_DIR}/Renderer/eye_ray_rtx_ds.cpp 
+        ${CMAKE_SOURCE_DIR}/Renderer/eye_ray_rtx_init.cpp)
+  endif()
+
+  set(MODULES_SRC ${MODULES_SRC} ${VKGEN_SOURCE} ${VKUTILS_SOURCE} ${VKGEN_SOURCE_RTX})
 
   set(MODULES_LIBRARIES ${MODULES_LIBRARIES} ${Vulkan_LIBRARY} OpenMP::OpenMP_CXX volk dl)
 endif()

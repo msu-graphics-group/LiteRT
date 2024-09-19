@@ -59,6 +59,20 @@ int main(int argc, const char** argv)
     else if (std::string(argv[1]) == "-benchmark_dr")
     {
       benchmark_iteration_time();
+    }
+    else if (std::string(argv[1]) == "-rtx_benchmark" && argc > 2)
+    {
+      std::string mesh_name = argv[2];
+      std::string supported_type = argc == 3  ? "" : argv[3];
+      std::string device = argc == 4  ? "GPU" : argv[4];
+      unsigned flags = BENCHMARK_FLAG_RENDER_RT;
+      if (supported_type == "build")
+      {
+        flags = BENCHMARK_FLAG_BUILD;
+        supported_type = "";
+      }
+      rtx_benchmark("saves/"+mesh_name, mesh_name, flags, supported_type, device);
+
       return 0;
     }
   }
