@@ -2153,55 +2153,6 @@ void litert_test_27_textured_colored_SBS()
     printf("FAILED, psnr = %f\n", psnr_4);
 }
 
-/*SdfSBS create_float_sbs_by_cube_grid(SdfGrid grid)
-{
-  SdfSBS sbs;
-  sbs.header.brick_size = 1;
-  sbs.header.brick_pad = 0;
-  sbs.header.bytes_per_value = 1;
-  sbs.header.aux_data = SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F;
-
-  sbs.values_f = grid.data;
-  sbs.values = {};
-
-
-  auto sz = min(grid.size.x, min(grid.size.y, grid.size.z));
-
-  auto idx_cnt = [&](uint32_t x, uint32_t y, uint32_t z, uint32_t sz) -> uint32_t {return x * sz * sz + y * sz + z;};
-
-  for (int i = 0; i < sz - 1; ++i)
-  {
-    for (int j = 0; j < sz - 1; ++j)
-    {
-      for (int k = 0; k < sz - 1; ++k)
-      {
-        SdfSBSNode node;
-        node.data_offset = (i * (sz - 1) * (sz - 1) + j * (sz - 1) + k) * 32;
-        node.pos_xy = (k << 16) | j;
-        node.pos_z_lod_size = (i << 16) | (sz - 1);
-        node._pad = 0;
-        sbs.nodes.push_back(node);
-        for (int i0 = 0; i0 <= 1; ++i0)
-        {
-          for (int j0 = 0; j0 <= 1; ++j0)
-          {
-            for (int k0 = 0; k0 <= 1; ++k0)
-            {
-              sbs.values.push_back(idx_cnt(i + k0, j + j0, k + i0, sz));
-              //printf("%f - %f :\n", grid.data[idx_cnt(i + i0, j + j0, k + k0, sz)], sbs.values_f[idx_cnt(i + i0, j + j0, k + k0, sz)]);
-            }
-          }
-        }
-        for (int ind = 0; ind < 24; ++ind)
-        {
-          sbs.values.push_back(1.0);
-        }
-      }
-    }
-  }
-  return sbs;
-}*/
-
 void litert_test_28_sbs_reg()
 {
   
@@ -2246,40 +2197,6 @@ void litert_test_28_sbs_reg()
   }
 
   printf("TEST 28. SBS regularization\n");
-
-  /*{
-    auto pRender = CreateMultiRenderer("GPU");
-    pRender->SetPreset(preset);
-    pRender->SetViewport(0,0,W,H);
-    
-    uint32_t texId = pRender->AddTexture(texture);
-    MultiRendererMaterial mat;
-    mat.type = MULTI_RENDER_MATERIAL_TYPE_TEXTURED;
-    mat.texId = texId;
-    uint32_t matId = pRender->AddMaterial(mat);
-    pRender->SetMaterial(matId, 0);  
-
-    unsigned grid_size = 65;
-    unsigned max_threads = 15;
-    float noise = 0.03f;
-
-    std::vector<MeshBVH> bvh(max_threads);
-    for (unsigned i = 0; i < max_threads; i++)
-      bvh[i].init(mesh);
-    auto real_sdf = [&](const float3 &p, unsigned idx) -> float 
-    { return bvh[idx].get_signed_distance(p) + (fmod(p.x * 153 + p.y * 427 + p.z * 311, 2.0) - 1) * 0.003; /*return sqrt(p.x * p.x + p.y * p.y + p.z * p.z) - 0.3; };
-
-    auto grid = sdf_converter::create_sdf_grid(GridSettings(grid_size), real_sdf, max_threads);
-    SdfSBS grid_sbs = create_float_sbs_by_cube_grid(grid);
-
-    auto grid_smooth_sbs = sdf_converter::sdf_SBS_smoother(grid_sbs, 1, 0.001, 0.3f, 100);
-    
-    pRender->SetScene(grid_sbs);
-    render(image_SBS_grid, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
-
-    pRender->SetScene(grid_smooth_sbs);
-    render(image_SBS_grid_smooth, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
-  }*/
   
   {
     

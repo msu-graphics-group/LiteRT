@@ -42,10 +42,6 @@ struct ISceneObject2 : public ISceneObject
   virtual void set_debug_mode(bool enable) { };
 #endif
 
-  virtual uint32_t GetGeomNum() const  { return 0; }
-  virtual uint32_t GetInstNum() const  { return 0; }
-  virtual const LiteMath::float4* GetGeomBoxes() const { return nullptr; }
-
   void SetPreset(const MultiRenderPreset& a_preset){ m_preset = a_preset; }
   MultiRenderPreset GetPreset() const { return m_preset; }
   MultiRenderPreset m_preset;

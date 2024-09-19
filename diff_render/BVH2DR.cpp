@@ -1121,7 +1121,12 @@ namespace dr
           vmin = std::min(vmin, values[i]);
         }
       }
-      //else - error
+      else
+      {
+        //you should not be here
+        for (int i = 0; i < 8; i++)
+          missed_indices_tmp[i] = 0u;
+      }
 
       fNearFar = RayBoxIntersection2(ray_pos, SafeInverse(ray_dir), min_pos, max_pos);
       if (tNear < fNearFar.x)

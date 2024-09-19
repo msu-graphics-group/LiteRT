@@ -152,9 +152,6 @@ struct BVHRT : public ISceneObject2
   bool    RayQuery_AnyHit(float4 posAndNear, float4 dirAndFar) override;
   bool    RayQuery_AnyHitMotion(LiteMath::float4 posAndNear, LiteMath::float4 dirAndFar, float time = 0.0f) override
   { return RayQuery_AnyHit(posAndNear, dirAndFar); }
-  
-  uint32_t GetGeomNum() const override { return uint32_t(m_geomData.size()); }
-  uint32_t GetInstNum() const override { return uint32_t(m_instanceData.size()); }
 
 //protected:
 

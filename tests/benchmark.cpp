@@ -246,10 +246,10 @@ void main_benchmark(const std::string &path, const std::string &mesh_name, unsig
 {
   struct StructureInfo
   {
-    unsigned nodes;
-    unsigned memory;
-    unsigned max_depth;
-    float build_time_ms;
+    unsigned nodes = 0;
+    unsigned memory = 0;
+    unsigned max_depth = 0;
+    float build_time_ms = 0.0f;
     bool valid = false;
   };
 

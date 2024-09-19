@@ -195,10 +195,6 @@ protected:
   uint64_t m_totalTris         = 0;
   uint64_t m_totalTrisVisiable = 0;
 
-  uint32_t GetGeomNum() const override { return m_pAccelStruct2->GetGeomNum(); };
-  uint32_t GetInstNum() const override { return m_pAccelStruct2->GetInstNum(); };
-  const LiteMath::float4* GetGeomBoxes() const  override { return m_pAccelStruct2->GetGeomBoxes(); };
-
   uint32_t m_maxPrimitives; //required in constructor to allocate enough memory in Vulkan
 };
 
