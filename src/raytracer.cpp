@@ -20,12 +20,12 @@ mul2x2x2(float2 m[2], const float2 &v)
   return m[0]*v[0]+m[1]*v[1];
 }
 
-float clamp_parameter(float val, float mx) {
+float closed_clamp(float val) {
   val -= static_cast<int>(val);
-  if (val < 0.0)
-    return mx+val;
-  if (val > mx)
-    return val-mx;
+  if (val < 0.0f)
+    return 1.0f+val;
+  if (val > 1.0f)
+    return val-1.0f;
   return val;
 }
 
@@ -39,8 +39,8 @@ float2 first_approx(
   for (int ui = 0; ui <= mx; ++ui)
   for (int vi = 0; vi <= mx; ++vi)
   {
-    float u = surf.u_knots.back()*1.0f/mx*ui;
-    float v = surf.v_knots.back()*1.0f/mx*vi;
+    float u = 1.0f/mx*ui;
+    float v = 1.0f/mx*vi;
     float2 new_D = { dot(P1, surf.get_point(u, v)), dot(P2, surf.get_point(u, v)) };
     if (length(new_D) < length(D)) {
       D = new_D;
@@ -56,17 +56,20 @@ std::optional<float3> trace_surface_newton(
     const Surface &surf) {
   bool u_closed = surf.u_closed();
   bool v_closed = surf.v_closed();
-  float u_max = surf.u_knots.back();
-  float v_max = surf.v_knots.back();
 
   float3 ortho_dir1 = (ray.x || ray.z) ? float3{ 0, 1, 0 } : float3{ 1, 0, 0 };
   float3 ortho_dir2 = normalize(cross(ortho_dir1, ray));
   ortho_dir1 = normalize(cross(ray, ortho_dir2));
+  assert(dot(ortho_dir1, ortho_dir2) < 1e-2f);
+  assert(dot(ortho_dir1, ray) < 1e-2f);
+  assert(dot(ortho_dir2, ray) < 1e-2f);
 
   float4 P1 = to_float4(ortho_dir1, -dot(ortho_dir1, pos));
   float4 P2 = to_float4(ortho_dir2, -dot(ortho_dir2, pos));
+  assert(dot(P1, to_float4(pos, 1.0f)) < 1e-2);
+  assert(dot(P2, to_float4(pos, 1.0f)) < 1e-2);
   
-  float2 uv = { rand()*1.0f/RAND_MAX*u_max, rand()*1.0f/RAND_MAX*v_max};
+  float2 uv = { rand()*1.0f/RAND_MAX, rand()*1.0f/RAND_MAX };
   float2 D = { dot(P1, surf.get_point(uv.x, uv.y)), dot(P2, surf.get_point(uv.x, uv.y)) };
   
   int steps_left = max_steps-1;
@@ -86,8 +89,8 @@ std::optional<float3> trace_surface_newton(
     };
 
     uv = uv - mul2x2x2(J_inversed, D);
-    uv.x = clamp(uv.x, 0.0f, u_max);
-    uv.y = clamp(uv.y, 0.0f, v_max);
+    uv.x = u_closed ? closed_clamp(uv.x) : clamp(uv.x, 0.0f, 1.0f);
+    uv.y = v_closed ? closed_clamp(uv.y) : clamp(uv.y, 0.0f, 1.0f);
 
     float2 new_D = { dot(P1, surf.get_point(uv.x, uv.y)), dot(P2, surf.get_point(uv.x, uv.y)) };
     
@@ -118,8 +121,8 @@ void draw_points(
   for (int ui = 0; ui < count; ++ui)
   for (int vi = 0; vi < count; ++vi)
   {
-    float u = surface.u_knots.back()*ui * 1.0f/count;
-    float v = surface.v_knots.back()*vi * 1.0f/count;
+    float u = ui * 1.0f/count;
+    float v = vi * 1.0f/count;
     float4 point = surface.get_point(u, v);
     point = proj * view * point;
     float w = point.w;
@@ -152,14 +155,17 @@ void draw(
     return;
   float3 forward = normalize(camera.target - camera.position);
 
-  #pragma omp parallel for schedule(dynamic)
   for (uint32_t y = 0; y < image.height(); ++y)
   for (uint32_t x = 0; x < image.width();  ++x)
   {
-    float2 norm_crds = { 2*(x+0.5f)/image.width() - 1.0f, 2*(y+0.5f)/image.height() - 1.0f };
+    float2 point = { x+0.5f, y+0.5f };
+    point /= float2{ image.width()*1.0f, image.height()*1.0f };
+    point *= 2.0f;
+    point -= 1.0f;
+
     float3 ray = normalize(forward 
-               + std::tan(camera.fov/2)*camera.up*norm_crds.y
-               + std::tan(camera.fov/2)*camera.right*norm_crds.x*camera.aspect);
+               + std::tan(camera.fov/2)*camera.up*point.y
+               + std::tan(camera.fov/2)*camera.right*point.x*camera.aspect);
     float3 pos = camera.position;
     auto intersect_point = trace_surface_newton(pos, ray, surface);
     if (intersect_point.has_value()) {

@@ -68,18 +68,18 @@ public:
   LiteMath::float4 uderivative(float u, float v) const {
     constexpr float EPS = 1e-2f;
     LiteMath::float4 res = {};
-    res += (u+EPS > u_knots.back()) ? get_point(u, v) : get_point(u+EPS, v);
+    res += (u+EPS > 1.0f) ? get_point(u, v) : get_point(u+EPS, v);
     res -= (u-EPS < 0.0f) ? get_point(u, v) : get_point(u-EPS, v);
 
-    return res / (EPS * (1 + ((u+EPS <= u_knots.back()) && (u-EPS >= 0.0f))));
+    return res / (EPS * (1 + ((u+EPS <= 1.0f) && (u-EPS >= 0.0f))));
   }
   LiteMath::float4 vderivative(float u, float v) const {
     constexpr float EPS = 1e-2f;
     LiteMath::float4 res = {};
-    res += (v+EPS > v_knots.back()) ? get_point(u, v) : get_point(u, v+EPS);
+    res += (v+EPS > 1.0f) ? get_point(u, v) : get_point(u, v+EPS);
     res -= (v-EPS < 0.0f) ? get_point(u, v) : get_point(u, v-EPS);
 
-    return res / (EPS * (1 + ((v+EPS <= v_knots.back()) && (v-EPS >= 0.0f))));
+    return res / (EPS * (1 + ((v+EPS <= 1.0f) && (v-EPS >= 0.0f))));
   }
   LiteMath::float3 get_normal(float u, float v) const {
     return LiteMath::normalize(LiteMath::cross(

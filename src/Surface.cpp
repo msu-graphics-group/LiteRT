@@ -111,12 +111,20 @@ Surface load_surface(const std::filesystem::path &path) {
   for (size_t i = 0; i < surf.u_knots.size(); ++i) {
     fin >> surf.u_knots[i];
   }
+  float u_min = surf.u_knots.front();
+  float u_max = surf.u_knots.back();
+  for (auto &elem: surf.u_knots)
+    elem = (elem-u_min)/u_max;
 
   surf.v_knots.resize(m+surf.deg_v+2);
   fin >> tmp_str; // "v_knots:"
   for (size_t i = 0; i < surf.v_knots.size(); ++i) {
     fin >> surf.v_knots[i];
   }
+  float v_min = surf.v_knots.front();
+  float v_max = surf.v_knots.back();
+  for (auto &elem: surf.v_knots)
+    elem = (elem-v_min)/v_max;
 
   return surf;
 }
