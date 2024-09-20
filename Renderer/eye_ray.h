@@ -9,7 +9,11 @@
 #include <unordered_map>
 
 #include "LiteMath.h"
-#include "../ISceneObject.h"
+#include "../dependencies/HydraCore3/external/CrossRT/CrossRT.h"
+#include "../sdfScene/sdf_scene.h"
+#include "../utils/radiance_field.h"
+#include "../utils/gaussian_field.h"
+#include "../render_settings.h"
 #include "../IRenderer.h"
 #include "LiteScene/cmesh4.h"
 #include "Image2d.h"
