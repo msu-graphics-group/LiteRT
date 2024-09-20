@@ -75,6 +75,77 @@ void BVHRT::ClearGeom()
   ClearScene();
 }
 
+uint32_t BVHRT::AddCustomGeom_FromFile(const char *geom_type_name, const char *filename, ISceneObject *fake_this)
+{
+  std::string name = geom_type_name;
+  if (name == "sdf")
+  {
+    std::cout << "[LoadScene]: sdf primitives scene was removed from LiteRT. Search for legacy version to load it. " << std::endl;
+  }
+  else if (name == "sdf_grid")
+  {
+    std::cout << "[LoadScene]: sdf grid = " << filename << std::endl;
+    SdfGrid scene;
+    load_sdf_grid(scene, filename);
+    return AddGeom_SdfGrid(scene, fake_this);
+  }
+  else if (name == "sdf_octree")
+  {
+    std::cout << "[LoadScene]: sdf octree = " << filename << std::endl;
+    std::vector<SdfOctreeNode> scene;
+    load_sdf_octree(scene, filename);
+    return AddGeom_SdfOctree(scene, fake_this);
+  }
+  else if (name == "sdf_frame_octree")
+  {
+    std::cout << "[LoadScene]: sdf frame octree = " << filename << std::endl;
+    std::vector<SdfFrameOctreeNode> scene;
+    load_sdf_frame_octree(scene, filename);
+    return AddGeom_SdfFrameOctree(scene, fake_this);
+  }
+  else if (name == "sdf_svs")
+  {
+    std::cout << "[LoadScene]: sdf svs = " << filename << std::endl;
+    std::vector<SdfSVSNode> scene;
+    load_sdf_SVS(scene, filename);
+    return AddGeom_SdfSVS(scene, fake_this);
+  }
+  else if (name == "sdf_sbs")
+  {
+    std::cout << "[LoadScene]: sdf sbs = " << filename << std::endl;
+    SdfSBS scene;
+    load_sdf_SBS(scene, filename);
+    return AddGeom_SdfSBS(scene, fake_this);
+  }
+  else if (name == "sdf_hp")
+  {
+    std::cout << "[LoadScene]: sdf hp was removed from LiteRT. Search for legacy version to load it. " << std::endl;
+  }
+  else if (name == "nsdf")
+  {
+    std::cout << "[LoadScene]: neural sdf scene was removed from LiteRT. Search for legacy version to load it. " << std::endl;
+  }
+  else if (name == "rf")
+  {
+    std::cout << "[LoadScene]: radiance fields = " << filename << std::endl;
+    RFScene scene;
+    load_rf_scene(scene, filename);
+    return AddGeom_RFScene(scene, fake_this);
+  }
+  else if (name == "gs")
+  {
+    std::cout << "[LoadScene]: gaussian splatting = " << filename << std::endl;
+    GSScene scene;
+    load_gs_scene(scene, filename);
+    return AddGeom_GSScene(scene, fake_this);
+  }
+  else
+  {
+    std::cout << "[LoadScene]: unknown geometry node type: " << name.c_str() << std::endl;
+  }
+  return 0;
+}
+
 void BVHRT::AppendTreeData(const std::vector<BVHNodePair>& a_nodes, const std::vector<uint32_t>& a_indices, const uint32_t *a_triIndices, size_t a_indNumber)
 {
   m_allNodePairs.insert(m_allNodePairs.end(), a_nodes.begin(), a_nodes.end());
@@ -182,7 +253,7 @@ uint32_t BVHRT::AddGeom_AABB(uint32_t a_typeId, const CRT_AABB* boxMinMaxF8, siz
   return AddGeom_AABB(a_typeId, boxMinMaxF8, a_boxNumber, nullptr, 0);
 }
 
-uint32_t BVHRT::AddGeom_RFScene(RFScene grid, BuildOptions a_qualityLevel)
+uint32_t BVHRT::AddGeom_RFScene(RFScene grid, ISceneObject *fake_this, BuildOptions a_qualityLevel)
 {
   //RF grid is always a unit cube
   float4 mn = float4(0, 0, 0,1);
@@ -306,7 +377,7 @@ std::vector<float4x4> InvertMatrices(std::vector<float4x4>&& matrices) {
     return inverted_matrices;
 }
 
-uint32_t BVHRT::AddGeom_GSScene(GSScene grid, BuildOptions a_qualityLevel) 
+uint32_t BVHRT::AddGeom_GSScene(GSScene grid, ISceneObject *fake_this, BuildOptions a_qualityLevel) 
 {
   m_abstractObjects.resize(m_abstractObjects.size() + 1); 
   new (m_abstractObjects.data() + m_abstractObjects.size() - 1) GeomDataGS();
@@ -327,7 +398,7 @@ uint32_t BVHRT::AddGeom_GSScene(GSScene grid, BuildOptions a_qualityLevel)
   return AddGeom_AABB(AbstractObject::TAG_GS, (const CRT_AABB*)m_origNodes.data(), m_origNodes.size());
 }
 
-uint32_t BVHRT::AddGeom_SdfGrid(SdfGridView grid, BuildOptions a_qualityLevel)
+uint32_t BVHRT::AddGeom_SdfGrid(SdfGridView grid, ISceneObject *fake_this, BuildOptions a_qualityLevel)
 {
   assert(grid.size.x*grid.size.y*grid.size.z > 0);
   assert(grid.size.x*grid.size.y*grid.size.z < (1u<<28)); //huge grids shouldn't be here
@@ -359,12 +430,10 @@ uint32_t BVHRT::AddGeom_SdfGrid(SdfGridView grid, BuildOptions a_qualityLevel)
   //create list of bboxes for BLAS
   std::vector<BVHNode> orig_nodes = GetBoxes_SdfGrid(grid);
   
-  auto pProxy = m_proxyAS.lock();
-  auto pImpl  = (pProxy == nullptr) ? this : pProxy.get();
-  return pImpl->AddGeom_AABB(AbstractObject::TAG_SDF_GRID, (const CRT_AABB*)orig_nodes.data(), orig_nodes.size(), nullptr, 1); // &pPointer, 1);
+  return fake_this->AddGeom_AABB(AbstractObject::TAG_SDF_GRID, (const CRT_AABB*)orig_nodes.data(), orig_nodes.size(), nullptr, 1); // &pPointer, 1);
 }
 
-uint32_t BVHRT::AddGeom_SdfOctree(SdfOctreeView octree, BuildOptions a_qualityLevel)
+uint32_t BVHRT::AddGeom_SdfOctree(SdfOctreeView octree, ISceneObject *fake_this, BuildOptions a_qualityLevel)
 {
   assert(octree.size > 0);
   assert(octree.size < (1u<<28)); //huge grids shouldn't be here
@@ -394,12 +463,10 @@ uint32_t BVHRT::AddGeom_SdfOctree(SdfOctreeView octree, BuildOptions a_qualityLe
   //create list of bboxes for BLAS
   std::vector<BVHNode> orig_nodes = GetBoxes_SdfOctree(octree);
   
-  auto pProxy = m_proxyAS.lock();
-  auto pImpl  = (pProxy == nullptr) ? this : pProxy.get();
-  return pImpl->AddGeom_AABB(AbstractObject::TAG_SDF_GRID, (const CRT_AABB*)orig_nodes.data(), orig_nodes.size(), nullptr, 1);
+  return fake_this->AddGeom_AABB(AbstractObject::TAG_SDF_GRID, (const CRT_AABB*)orig_nodes.data(), orig_nodes.size(), nullptr, 1);
 }
 
-uint32_t BVHRT::AddGeom_SdfFrameOctree(SdfFrameOctreeView octree, BuildOptions a_qualityLevel)
+uint32_t BVHRT::AddGeom_SdfFrameOctree(SdfFrameOctreeView octree, ISceneObject *fake_this, BuildOptions a_qualityLevel)
 {
   assert(octree.size > 0);
   assert(octree.size < (1u<<28)); //huge grids shouldn't be here
@@ -431,12 +498,10 @@ uint32_t BVHRT::AddGeom_SdfFrameOctree(SdfFrameOctreeView octree, BuildOptions a
   std::vector<BVHNode> orig_nodes = GetBoxes_SdfFrameOctree(octree);
   m_origNodes = orig_nodes;
   
-  auto pProxy = m_proxyAS.lock();
-  auto pImpl  = (pProxy == nullptr) ? this : pProxy.get();
-  return pImpl->AddGeom_AABB(AbstractObject::TAG_SDF_NODE, (const CRT_AABB*)orig_nodes.data(), orig_nodes.size(), nullptr, 1);
+  return fake_this->AddGeom_AABB(AbstractObject::TAG_SDF_NODE, (const CRT_AABB*)orig_nodes.data(), orig_nodes.size(), nullptr, 1);
 }
 
-uint32_t BVHRT::AddGeom_SdfSVS(SdfSVSView octree, BuildOptions a_qualityLevel)
+uint32_t BVHRT::AddGeom_SdfSVS(SdfSVSView octree, ISceneObject *fake_this, BuildOptions a_qualityLevel)
 {
   assert(octree.size > 0);
   assert(octree.size < (1u<<28)); //huge grids shouldn't be here
@@ -498,12 +563,10 @@ uint32_t BVHRT::AddGeom_SdfSVS(SdfSVSView octree, BuildOptions a_qualityLevel)
     orig_nodes[i].boxMax = orig_nodes[i].boxMin + 2.0f*float3(1,1,1)/sz;
   }
   
-  auto pProxy = m_proxyAS.lock();
-  auto pImpl  = (pProxy == nullptr) ? this : pProxy.get();
-  return pImpl->AddGeom_AABB(AbstractObject::TAG_SDF_NODE, (const CRT_AABB*)orig_nodes.data(), orig_nodes.size(), nullptr, 1);
+  return fake_this->AddGeom_AABB(AbstractObject::TAG_SDF_NODE, (const CRT_AABB*)orig_nodes.data(), orig_nodes.size(), nullptr, 1);
 }
 
-uint32_t BVHRT::AddGeom_SdfSBS(SdfSBSView octree, bool single_bvh_node, BuildOptions a_qualityLevel)
+uint32_t BVHRT::AddGeom_SdfSBS(SdfSBSView octree, ISceneObject *fake_this, bool single_bvh_node, BuildOptions a_qualityLevel)
 {
   assert(octree.size > 0 && octree.values_count > 0);
   assert(octree.size < (1u<<28) && octree.values_count < (1u<<28));
@@ -656,12 +719,10 @@ uint32_t BVHRT::AddGeom_SdfSBS(SdfSBSView octree, bool single_bvh_node, BuildOpt
     orig_nodes[1].boxMax = orig_nodes[0].boxMin;
   }
   
-  auto pProxy = m_proxyAS.lock();
-  auto pImpl  = (pProxy == nullptr) ? this : pProxy.get();
-  return pImpl->AddGeom_AABB(typeTag, (const CRT_AABB*)orig_nodes.data(), orig_nodes.size(), nullptr, 1);
+  return fake_this->AddGeom_AABB(typeTag, (const CRT_AABB*)orig_nodes.data(), orig_nodes.size(), nullptr, 1);
 }
 
-uint32_t BVHRT::AddGeom_SdfFrameOctreeTex(SdfFrameOctreeTexView octree, BuildOptions a_qualityLevel)
+uint32_t BVHRT::AddGeom_SdfFrameOctreeTex(SdfFrameOctreeTexView octree, ISceneObject *fake_this, BuildOptions a_qualityLevel)
 {
   assert(octree.size > 0);
   assert(octree.size < (1u<<28)); //huge grids shouldn't be here
@@ -1155,12 +1216,12 @@ std::shared_ptr<ISdfGridFunction> get_SdfGridFunction(SdfGridView scene)
   return rt;    
 }
 
-ISceneObject2* MakeBVH2CommonRT(const char* a_implName, const char* a_buildName, const char* a_layoutName) 
+ISceneObject* MakeBVH2CommonRT(const char* a_implName, const char* a_buildName, const char* a_layoutName) 
 {
   return new BVHRT(a_buildName, a_layoutName); 
 }
 
-std::shared_ptr<ISceneObject2> CreateSceneRT(const char* a_implName, const char* a_buildName, const char* a_layoutName)
+std::shared_ptr<ISceneObject> CreateSceneRT(const char* a_implName, const char* a_buildName, const char* a_layoutName)
 {
-  return std::shared_ptr<ISceneObject2>(MakeBVH2CommonRT(a_implName, a_buildName, a_layoutName));
+  return std::shared_ptr<ISceneObject>(MakeBVH2CommonRT(a_implName, a_buildName, a_layoutName));
 }

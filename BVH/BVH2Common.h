@@ -74,13 +74,13 @@ struct InstanceData
 
 // main class
 //
-struct BVHRT : public ISceneObject2
+struct BVHRT : public ISceneObject
 #ifndef KERNEL_SLICER  
 , public ISdfOctreeFunction
 , public ISdfGridFunction
 #endif
 {
-  //overiding ISceneObject2 interface
+  //overiding ISceneObject interface
   BVHRT(const char* a_buildName = nullptr, const char* a_layoutName = nullptr) : 
     m_buildName(a_buildName != nullptr ? a_buildName : ""), 
     m_layoutName(a_layoutName != nullptr ? a_layoutName : "") 
@@ -90,9 +90,10 @@ struct BVHRT : public ISceneObject2
   ~BVHRT() override {}
 
   const char* Name() const override { return "BVH2Fat"; }
-  const char* BuildName() const override { return m_buildName.c_str(); };
 
   void ClearGeom() override;
+
+  uint32_t AddCustomGeom_FromFile(const char *geom_type_name, const char *filename, ISceneObject *fake_this) override;
 
   uint32_t AddGeom_Triangles3f(const float *a_vpos3f, size_t a_vertNumber, const uint32_t *a_triIndices, size_t a_indNumber, uint32_t a_flags, size_t vByteStride) override;
   void     UpdateGeom_Triangles3f(uint32_t a_geomId, const float *a_vpos3f, size_t a_vertNumber, const uint32_t *a_triIndices, size_t a_indNumber, uint32_t a_flags, size_t vByteStride) override;
@@ -105,18 +106,21 @@ struct BVHRT : public ISceneObject2
 
 #ifndef KERNEL_SLICER  
   uint32_t AddGeom_Triangles3f(const float* a_vpos3f, const float* a_vnorm3f, size_t a_vertNumber, const uint32_t* a_triIndices, 
-                               size_t a_indNumber, BuildOptions a_qualityLevel, size_t vByteStride) override;
-  uint32_t AddGeom_SdfGrid(SdfGridView grid, BuildOptions a_qualityLevel = BUILD_HIGH) override;
-  uint32_t AddGeom_RFScene(RFScene grid, BuildOptions a_qualityLevel = BUILD_HIGH) override;
-  uint32_t AddGeom_GSScene(GSScene grid, BuildOptions a_qualityLevel = BUILD_HIGH) override;
-  uint32_t AddGeom_SdfOctree(SdfOctreeView octree, BuildOptions a_qualityLevel = BUILD_HIGH) override;
-  uint32_t AddGeom_SdfFrameOctree(SdfFrameOctreeView octree, BuildOptions a_qualityLevel = BUILD_HIGH) override;
-  uint32_t AddGeom_SdfSVS(SdfSVSView octree, BuildOptions a_qualityLevel = BUILD_HIGH) override;
-  uint32_t AddGeom_SdfSBS(SdfSBSView octree, bool single_bvh_node = false, BuildOptions a_qualityLevel = BUILD_HIGH) override;
-  uint32_t AddGeom_SdfFrameOctreeTex(SdfFrameOctreeTexView octree, BuildOptions a_qualityLevel = BUILD_HIGH) override;
+                               size_t a_indNumber, BuildOptions a_qualityLevel, size_t vByteStride);
+  uint32_t AddGeom_SdfGrid(SdfGridView grid, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
+  uint32_t AddGeom_RFScene(RFScene grid, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
+  uint32_t AddGeom_GSScene(GSScene grid, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
+  uint32_t AddGeom_SdfOctree(SdfOctreeView octree, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
+  uint32_t AddGeom_SdfFrameOctree(SdfFrameOctreeView octree, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
+  uint32_t AddGeom_SdfSVS(SdfSVSView octree, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
+  uint32_t AddGeom_SdfSBS(SdfSBSView octree, ISceneObject *fake_this, bool single_bvh_node = false, BuildOptions a_qualityLevel = BUILD_HIGH);
+  uint32_t AddGeom_SdfFrameOctreeTex(SdfFrameOctreeTexView octree, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
 
-  void set_debug_mode(bool enable) override;
+  void set_debug_mode(bool enable);
 #endif
+
+  void SetPreset(const MultiRenderPreset& a_preset){ m_preset = a_preset; }
+  MultiRenderPreset GetPreset() const { return m_preset; }
 
   //common functions for a few Sdf...Function interfaces
 #ifndef KERNEL_SLICER 
@@ -341,6 +345,8 @@ struct BVHRT : public ISceneObject2
 
   bool m_firstSceneCommit = true;
   bool debug_cur_pixel = false;
+  
+  MultiRenderPreset m_preset;
 };
 
 static bool need_normal(MultiRenderPreset preset)

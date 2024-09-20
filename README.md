@@ -22,7 +22,7 @@ bash slicer_execute.sh ~/kernel_slicer/ ~/kernel_slicer/kslicer
 
 cmake CMakeLists.txt -DUSE_VULKAN=ON -DUSE_RTX=OFF -DCMAKE_BUILD_TYPE=Debug -DUSE_STB_IMAGE=ON -- for GPU with compute shaders
 
-cmake CMakeLists.txt -DUSE_VULKAN=ON -DUSE_RTX=OFF -DCMAKE_BUILD_TYPE=Debug -DUSE_STB_IMAGE=ON --for GPU with RTX (tested only on Nvidia RTX GPUs)
+cmake CMakeLists.txt -DUSE_VULKAN=ON -DUSE_RTX=ON -DCMAKE_BUILD_TYPE=Debug -DUSE_STB_IMAGE=ON --for GPU with RTX (tested only on Nvidia RTX GPUs)
 
 make -j8
 

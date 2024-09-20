@@ -311,7 +311,7 @@ namespace dr
 
     m_images = std::vector<LiteImage::Image2D<float4>>(m_imagesRef.size(), LiteImage::Image2D<float4>(m_width, m_height, float4(0, 0, 0, 1)));
     m_imagesDepth = std::vector<LiteImage::Image2D<float4>>(m_imagesRef.size(), LiteImage::Image2D<float4>(m_width, m_height, float4(0, 0, 0, 1)));
-    SetAccelStruct(std::shared_ptr<ISceneObject2>(new BVHDR()));
+    SetAccelStruct(std::shared_ptr<ISceneObject>(new BVHDR()));
     SetPreset(m_preset);
     SetScene(sbs, true);
 

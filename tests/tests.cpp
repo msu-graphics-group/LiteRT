@@ -1830,7 +1830,7 @@ void litert_test_24_demo_meshes()
         unsigned geomId = 0;
         if (type_names[type_i] == "mesh")
         {
-          auto BVH_RT = dynamic_cast<BVHRT*>(pRender->GetAccelStruct().get());
+          auto BVH_RT = dynamic_cast<BVHRT*>(pRender->GetAccelStruct()->UnderlyingImpl(0));
           assert(BVH_RT);
           unsigned geomId = BVH_RT->AddGeom_Triangles3f((const float*)mesh.vPos4f.data(), (const float*)mesh.vNorm4f.data(), mesh.vPos4f.size(),
                                                         mesh.indices.data(), mesh.indices.size(), BUILD_HIGH, sizeof(float)*4);
@@ -1839,9 +1839,9 @@ void litert_test_24_demo_meshes()
         else if (type_names[type_i] == "sdf_SVS")
         {
           auto sdf_SVS = sdf_converter::create_sdf_frame_octree_tex(SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, 8), mesh);
-          auto BVH_RT = dynamic_cast<BVHRT*>(pRender->GetAccelStruct().get());
+          auto BVH_RT = dynamic_cast<BVHRT*>(pRender->GetAccelStruct()->UnderlyingImpl(0));
           assert(BVH_RT);
-          unsigned geomId = BVH_RT->AddGeom_SdfFrameOctreeTex(sdf_SVS);
+          unsigned geomId = BVH_RT->AddGeom_SdfFrameOctreeTex(sdf_SVS, pRender->GetAccelStruct().get());
           pRender->add_SdfFrameOctreeTex_internal(sdf_SVS, geomId);
         }
         pRender->GetAccelStruct()->ClearScene();

@@ -14,6 +14,8 @@ static constexpr unsigned TYPE_SDF_SBS_SINGLE_NODE  =  9;
 static constexpr unsigned TYPE_SDF_SBS_TEX          = 10;
 static constexpr unsigned TYPE_SDF_SBS_COL          = 11;
 
+static constexpr unsigned SH_TYPE = 28; //4 bits for type
+
 //enum SdfOctreeSampler
 static constexpr unsigned SDF_OCTREE_SAMPLER_MIPSKIP_3X3     = 0; //go to the deepest level possible, resampling larger nodes
 static constexpr unsigned SDF_OCTREE_SAMPLER_MIPSKIP_CLOSEST = 1; //go deeper while resampling is not needed, then sample
