@@ -130,7 +130,8 @@ if (USE_VULKAN)
 
   link_directories(${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/volk)
 
-  add_subdirectory(${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/volk)
+  add_subdirectory(${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/volk
+                   ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/volk/build)
 
   add_compile_definitions(USE_GPU)
   add_compile_definitions(USE_VOLK)
