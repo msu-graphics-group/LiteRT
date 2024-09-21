@@ -96,16 +96,16 @@ namespace dr
     float SolveEikonal(float3 axes_mins, float grid_spacing);
     void Redistance(float *dist_in, uint3 size_in, float grid_spacing, uint32_t num_iters);
 
-    bool hasNearIntersection(const int &x, const int &y) const;
-
     std::vector<LiteImage::Image2D<float4>> m_imagesRefOriginal;
     std::vector<LiteImage::Image2D<float4>> m_imagesRefMask;
     std::vector<LiteImage::Image2D<float4>> m_imagesRef;
 
     //  It is needed to cast rays in image part where is object and not in empty space
-    std::vector<bool> mask;
+    std::vector<std::vector<uint32_t>> masks;
+    std::vector<uint32_t> process_mask;
     //  So, let's determine object frame size and then extend it on N pixels on every side
-    int32_t add_border;
+    uint32_t add_border;
+    uint32_t mask_ind;
 
     std::vector<LiteImage::Image2D<float4>> m_images;
     std::vector<LiteImage::Image2D<float4>> m_imagesDepth;

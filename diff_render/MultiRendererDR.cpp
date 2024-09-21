@@ -302,12 +302,6 @@ namespace dr
       m_width = preset.render_width;
       m_height = preset.render_height;
     }
-    
-    if (m_preset_dr.dr_raycasting_mask == DR_RENDER_MASK_CAST_OPT)
-    {
-      mask.resize(m_width * m_height);
-      std::fill(mask.begin(), mask.end(), true);
-    }
 
     PreprocessRefImages(m_width, m_height, preset.dr_render_mode == DR_RENDER_MODE_MASK);
 
@@ -329,6 +323,23 @@ namespace dr
     if (preset.debug_border_samples_mega_image)
       samples_mega_image = LiteImage::Image2D<float4>(m_width*MEGA_PIXEL_SIZE, m_height*MEGA_PIXEL_SIZE);
 
+    if (m_preset_dr.dr_raycasting_mask == DR_RENDER_MASK_CAST_OPT)
+    { 
+      masks.resize(images_count);
+
+      for (auto &mask: masks)
+      {
+        mask.resize(m_width * m_height);
+        std::fill(mask.begin(), mask.end(), 1);
+      }
+
+      process_mask.resize(m_width * m_height);
+      std::fill(process_mask.begin(), process_mask.end(), 0);
+
+      //  Need to get right mask in ray tracing
+      mask_ind = 0;
+    }
+
     float timeAvg = 0.0f;
 
     for (int iter = 0; iter < preset.opt_iterations; iter++)
@@ -346,6 +357,8 @@ namespace dr
         m_preset_dr.debug_pd_images = base_debug_pd_images && (image_iter == 0);
 
         unsigned image_id = preset.image_batch_size == images_count ? image_iter : rand() % images_count;
+        mask_ind = image_id;
+
         SetViewport(0,0, m_width, m_height);
         UpdateCamera(m_worldViewRef[image_id], m_projRef[image_id]);
         Clear(m_width, m_height, "color");
@@ -377,6 +390,13 @@ namespace dr
         loss_min = std::min(loss_min, loss);
 
         m_preset_dr.debug_pd_images = base_debug_pd_images;
+
+        if (m_preset_dr.dr_raycasting_mask == DR_RENDER_MASK_CAST_OPT)
+        {
+          // masks[mask_ind] = process_mask;
+          std::copy(process_mask.begin(), process_mask.end(), masks[mask_ind].begin());
+          std::fill(process_mask.begin(), process_mask.end(), 0);
+        }
       }
 
       auto t2 = std::chrono::high_resolution_clock::now();
@@ -561,6 +581,34 @@ namespace dr
         if (is_border || m_preset_dr.debug_forced_border)
         {
           m_borderPixels.push_back(i);
+
+          if (m_preset_dr.dr_raycasting_mask == DR_RENDER_MASK_CAST_OPT)
+          {
+            int y0 = std::max(0, (int)y - (int)add_border), y1 = std::min(m_height - 1, y + add_border);
+            int x0 = std::max(0, (int)x - (int)add_border), x1 = std::min(m_width - 1, x + add_border);
+            for (int h = y0; h < y1; ++h)
+              {
+                process_mask[m_width * h + x] = 1;
+              }
+            for (int w = x0; w < x1; ++w)
+              {
+                process_mask[m_width * y + w] = 1;
+              }
+            // #pragma omp parallel sections
+            // {
+            //   #pragma omp section
+            //   for (int h = y0; h < y1; ++h)
+            //   {
+            //     process_mask[m_width * h + x] = 1;
+            //   }
+
+            //   #pragma omp section
+            //   for (int w = x0; w < x1; ++w)
+            //   {
+            //     process_mask[m_width * y + w] = 1;
+            //   }
+            // }
+          }
         }
       }
     }
@@ -895,24 +943,24 @@ namespace dr
       return 0.0f;
   }
 
-  bool 
-  MultiRendererDR::hasNearIntersection(const int &x, const int &y) const
-  {
-    bool has_near = false;
-    int i0 = std::max(y - add_border, 0), i1 = std::min(y + add_border, (int)m_height);
-    int j0 = std::max(x - add_border, 0), j1 = std::min(x + add_border, (int)m_width);
+  // bool 
+  // MultiRendererDR::hasNearIntersection(const int &x, const int &y) const
+  // {
+  //   bool has_near = false;
+  //   int i0 = std::max(y - add_border, 0), i1 = std::min(y + add_border, (int)m_height);
+  //   int j0 = std::max(x - add_border, 0), j1 = std::min(x + add_border, (int)m_width);
 
-    #pragma omp parallel for reduction(+:has_near)
-    for (int i = i0; i < i1; ++i)
-    {
-      for (int j = j0; j < j1; ++j)
-      {
-        has_near = has_near || mask[i * m_width + j]; 
-      }
-    }
+  //   #pragma omp parallel for reduction(+:has_near)
+  //   for (int i = i0; i < i1; ++i)
+  //   {
+  //     for (int j = j0; j < j1; ++j)
+  //     {
+  //       has_near = has_near || mask[i * m_width + j]; 
+  //     }
+  //   }
 
-    return has_near;
-  }
+  //   return has_near;
+  // }
 
   float MultiRendererDR::CastRayWithGrad(uint32_t tidX, const float4 *image_ref, LiteMath::float4 *out_image, float *out_dLoss_dS,
                                          LiteMath::float4* out_image_depth, LiteMath::float4* out_image_debug, PDFinalColor *out_pd_tmp)
@@ -924,9 +972,9 @@ namespace dr
     const uint x  = (XY & 0x0000FFFF);
     const uint y  = (XY & 0xFFFF0000) >> 16;
 
-    if (m_preset_dr.dr_raycasting_mask == DR_RENDER_MASK_CAST_OPT && !hasNearIntersection(x, y))
+    if (m_preset_dr.dr_raycasting_mask == DR_RENDER_MASK_CAST_OPT && !masks[mask_ind][y * m_width + x])
     {
-      return 0;
+      return 0.f;
     }
     
     float3 res_color = float3(0,0,0);
@@ -986,17 +1034,12 @@ namespace dr
       if (hit.primId == 0xFFFFFFFF) //no hit
       {
         color = background_color;
-
-        if (m_preset_dr.dr_raycasting_mask == DR_RENDER_MASK_CAST_OPT)
-        {
-          mask[y * m_width + x] = false;
-        }
       }
       else
       {
         if (m_preset_dr.dr_raycasting_mask == DR_RENDER_MASK_CAST_OPT)
         {
-          mask[y * m_width + x] = true;
+          process_mask[y * m_width + x] = 1;
         }
         
         color = CalculateColorWithGrad(hit, dColor_dDiffuse, dColor_dNorm);

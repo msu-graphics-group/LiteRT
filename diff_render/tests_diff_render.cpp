@@ -1310,7 +1310,7 @@ void diff_render_test_12_optimize_sphere_mask()
     dr_preset.image_batch_size = 4;
     dr_preset.debug_print = true;
 
-    dr_preset.dr_raycasting_mask = DR_RENDER_MASK_CAST_OPT;
+    // dr_preset.dr_raycasting_mask = DR_RENDER_MASK_CAST_OPT;
 
     MultiRendererDR dr_render;
     dr_render.SetReference(images_ref, view, proj);
@@ -1377,6 +1377,8 @@ void diff_render_test_13_optimize_sphere_diffuse()
     dr_preset.dr_border_sampling = DR_BORDER_SAMPLING_SVM;
     dr_preset.image_batch_size = 4;
     dr_preset.debug_print = true;
+
+    dr_preset.dr_raycasting_mask = DR_RENDER_MASK_CAST_OPT;
 
     MultiRendererDR dr_render;
     dr_render.SetReference(images_ref, view, proj);
