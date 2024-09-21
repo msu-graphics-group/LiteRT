@@ -137,6 +137,7 @@ namespace dr
     // border integral estimator parameters
     unsigned border_spp;
     float border_relax_eps;
+    float border_integral_mult; //multiplier of border integral, it should be 1 in theory, but making it smaller apparently improves quality
 
     //optimization parameters (Adam optimizer)
     float opt_lr;

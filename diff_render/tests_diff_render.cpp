@@ -2046,9 +2046,9 @@ void diff_render_test_21_optimization_stand()
   dr_preset.image_batch_size = 4;
   dr_preset.debug_print = true;
   dr_preset.debug_print_interval = 1;
-  dr_preset.debug_progress_interval = 10;
-  dr_preset.render_height = 400;
-  dr_preset.render_width = 400;
+  dr_preset.debug_progress_interval = 25;
+  dr_preset.render_height = 256;
+  dr_preset.render_width = 256;
 
   SdfSBS smallest_scene = create_grid_sbs(1, 2, 
                           [&](float3 p){return circle_sdf(float3(0,0,0), 0.8f, p);}, 
@@ -2133,13 +2133,24 @@ void diff_render_test_21_optimization_stand()
 
   dr_preset.dr_render_mode = DR_RENDER_MODE_LAMBERT;
   dr_preset.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_GEOMETRY | DR_RECONSTRUCTION_FLAG_COLOR;
-  dr_preset.dr_border_sampling = DR_BORDER_SAMPLING_RANDOM;
-  dr_preset.opt_lr = 0.025f;
-  dr_preset.opt_iterations = 500;
+  dr_preset.dr_border_sampling = DR_BORDER_SAMPLING_SVM;
+  dr_preset.opt_lr = 0.05f;
+  dr_preset.opt_iterations = 1000;
   dr_preset.border_spp = 1024;
+  dr_preset.spp = 16;
   dr_preset.debug_render_mode = DR_DEBUG_RENDER_MODE_BORDER_INTEGRAL;
-  dr_preset.border_relax_eps = 0.0001f;
-  optimization_stand_common(8, ts_scene, medium_initial, dr_preset, "Two spheres. Lambert. Colored.");
+  //dr_preset.redistancing_enable = true;
+  //dr_preset.redistancing_interval = 1;
+  //dr_preset.reg_function = DR_REG_FUNCTION_LK_DENOISING;
+  //dr_preset.reg_power = 2.0f;
+  //dr_preset.reg_lambda = 1.0f;
+
+  std::vector<float> mults = {1.0f, 0.5f, 0.25f, 0.125f};
+  for (int i = 0; i < mults.size(); i++)
+  {
+    dr_preset.border_integral_mult = mults[i];
+    optimization_stand_common(8+i, ts_scene, medium_initial, dr_preset, "Two spheres. Lambert. Colored.");
+  }
 
   dr_preset.dr_render_mode = DR_RENDER_MODE_LAMBERT;
   dr_preset.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_GEOMETRY | DR_RECONSTRUCTION_FLAG_COLOR;

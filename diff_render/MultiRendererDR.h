@@ -23,6 +23,7 @@ namespace dr
 
     preset.border_spp = 256;
     preset.border_relax_eps = 1e-3f;
+    preset.border_integral_mult = 1.0f;
 
     preset.opt_lr = 0.01f;
     preset.opt_beta_1 = 0.9f;

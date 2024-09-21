@@ -1143,13 +1143,13 @@ namespace dr
         {
           if (payload.missed_indices[j] == INVALID_INDEX)
             continue;
-          float diff = dot(dLoss_dColor, (1.0f / relax_eps) * payload.missed_dSDF_dtheta[j] * color_delta);
-          out_dLoss_dS[payload.missed_indices[j]] += diff / border_spp;
+          float diff = m_preset_dr.border_integral_mult * (1.0f / border_spp) *dot(dLoss_dColor, (1.0f / relax_eps) * payload.missed_dSDF_dtheta[j] * color_delta);
+          out_dLoss_dS[payload.missed_indices[j]] += diff;
 
-          total_diff += abs(diff) / border_spp;
+          total_diff += abs(diff);
           pixel_diff += length((1.0f / relax_eps) * payload.missed_dSDF_dtheta[j] * color_delta);
           if (m_preset_dr.debug_pd_images)
-            m_imagesDebugPD[payload.missed_indices[j]].data()[y * m_width + x] += (diff / border_spp) * float4(1, 1, 1, 0);
+            m_imagesDebugPD[payload.missed_indices[j]].data()[y * m_width + x] += diff * float4(1, 1, 1, 0);
         }
       }
 
@@ -1559,7 +1559,7 @@ namespace dr
 
         for (int j = 0; j < 8; j++)
         {
-          float diff = sampling_pdf * dot(dLoss_dColor, (1.0f / relax_eps) * payload.missed_dSDF_dtheta[j] * color_delta);
+          float diff = m_preset_dr.border_integral_mult * sampling_pdf * dot(dLoss_dColor, (1.0f / relax_eps) * payload.missed_dSDF_dtheta[j] * color_delta);
           out_dLoss_dS[payload.missed_indices[j]] += diff;
 
           total_diff += abs(diff);
