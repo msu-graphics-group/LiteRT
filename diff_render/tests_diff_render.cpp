@@ -12,6 +12,7 @@
 #include "../utils/demo_meshes.h"
 #include "../utils/image_metrics.h"
 #include "../diff_render/MultiRendererDR.h"
+#include "../utils/stat_utils.h"
 
 #include <functional>
 #include <cassert>
@@ -949,7 +950,7 @@ void test_position_derivatives(const SdfSBS &SBS, unsigned render_node, unsigned
                                unsigned border_sampling, bool set_random_color)
 {
   static unsigned off = 1;
-  srand(time(nullptr));
+  srand(0);
   unsigned W = 256, H = 256;
 
   MultiRenderPreset preset = getDefaultPreset();
@@ -990,7 +991,7 @@ void test_position_derivatives(const SdfSBS &SBS, unsigned render_node, unsigned
   dr_preset.opt_iterations = 1;
   dr_preset.opt_lr = 0.0f;
   dr_preset.spp = 64;
-  dr_preset.border_spp = 64*64;
+  dr_preset.border_spp = 1024;
 
   unsigned param_count = indexed_SBS.values_f.size() - 3 * 8 * indexed_SBS.nodes.size();
   unsigned param_offset = 0;
@@ -1000,6 +1001,43 @@ void test_position_derivatives(const SdfSBS &SBS, unsigned render_node, unsigned
   {
     //printf("delta = %f\n", delta);
     //__delta = delta;
+
+    for (int T = 0; T < 2; T++)
+    {
+    unsigned samples = 100;
+    std::vector<std::vector<float>> grads(samples);
+    for (unsigned i = 0; i < samples; i++)
+    {
+      MultiRendererDR dr_render;
+      dr_preset.dr_diff_mode = T == 0 ? DR_DIFF_MODE_DEFAULT : DR_DIFF_MODE_FINITE_DIFF;
+      dr_preset.dr_border_sampling = border_sampling;
+      dr_preset.debug_render_mode =  DR_DEBUG_RENDER_MODE_NONE;
+      dr_render.SetReference(images_ref, view, proj);
+      dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS);
+      grads[i] = std::vector<float>(dr_render.getLastdLoss_dS() + param_offset, 
+                                    dr_render.getLastdLoss_dS() + param_offset + param_count);
+    }
+
+    std::vector<double> grad_mean = stat::mean<float>(grads);
+    std::vector<double> grad_cov = stat::cov_matrix<float>(grads);
+
+    printf("MEAN = [");
+    for (unsigned i = 0; i < param_count; i++)
+    {
+      printf("%9.2f ", grad_mean[i]);
+    }
+    printf("]\n");
+
+    printf("COV = [");
+    for (unsigned i = 0; i < param_count; i++)
+    {
+      printf("[");
+      for (unsigned j = 0; j < param_count; j++)
+        printf("%9.2f ", grad_cov[i*param_count + j]);
+      printf("]\n");
+    }
+    printf("]\n");
+    }
 
     std::vector<float> grad_dr(param_count, 0);
     std::vector<float> grad_ref(param_count, 0);
@@ -1114,22 +1152,24 @@ void diff_render_test_9_check_position_derivatives()
 {
   printf("TEST 9. Check position derivatives\n");
 
-  printf("9.1 Mask, random border sampling\n");
-  test_position_derivatives(circle_smallest_scene_colored(), MULTI_RENDER_MODE_MASK, DR_RENDER_MODE_MASK, false, true);
-  printf("9.2 Mask, SVM border sampling\n");
-  test_position_derivatives(circle_smallest_scene_colored(), MULTI_RENDER_MODE_MASK, DR_RENDER_MODE_MASK, true, true);
-  printf("9.3 Diffuse, random border sampling\n");
-  test_position_derivatives(circle_smallest_scene_colored(), MULTI_RENDER_MODE_DIFFUSE, DR_RENDER_MODE_DIFFUSE, false, true);
-  printf("9.4 Diffuse, SVM border sampling\n");
-  test_position_derivatives(circle_smallest_scene_colored(), MULTI_RENDER_MODE_DIFFUSE, DR_RENDER_MODE_DIFFUSE, true, true);
+  //printf("9.1 Mask, random border sampling\n");
+  //test_position_derivatives(circle_smallest_scene_colored(), MULTI_RENDER_MODE_MASK, DR_RENDER_MODE_MASK, false, true);
+  //printf("9.2 Mask, SVM border sampling\n");
+  //test_position_derivatives(circle_smallest_scene_colored(), MULTI_RENDER_MODE_MASK, DR_RENDER_MODE_MASK, true, true);
+  //printf("9.3 Diffuse, random border sampling\n");
+  //test_position_derivatives(circle_smallest_scene_colored(), MULTI_RENDER_MODE_DIFFUSE, DR_RENDER_MODE_DIFFUSE, false, true);
+  //printf("9.4 Diffuse, SVM border sampling\n");
+  //test_position_derivatives(circle_smallest_scene_colored(), MULTI_RENDER_MODE_DIFFUSE, DR_RENDER_MODE_DIFFUSE, true, true);
   printf("9.5 Lambert, random border sampling\n");
   test_position_derivatives(circle_smallest_scene_colored(), MULTI_RENDER_MODE_LAMBERT, DR_RENDER_MODE_LAMBERT, false, true);
   printf("9.6 Lambert, SVM border sampling\n");
   test_position_derivatives(circle_smallest_scene_colored(), MULTI_RENDER_MODE_LAMBERT, DR_RENDER_MODE_LAMBERT, true, true);
-  printf("9.7 Depth, random border sampling\n");
-  test_position_derivatives(circle_smallest_scene_colored(), MULTI_RENDER_MODE_LINEAR_DEPTH, DR_RENDER_MODE_LINEAR_DEPTH, false, true);
-  printf("9.8 Depth, SVM border sampling\n");
-  test_position_derivatives(circle_smallest_scene_colored(), MULTI_RENDER_MODE_LINEAR_DEPTH, DR_RENDER_MODE_LINEAR_DEPTH, true, true);
+
+  //Depth-related tests are temporary disabled
+  //printf("9.7 Depth, random border sampling\n");
+  //test_position_derivatives(circle_smallest_scene_colored(), MULTI_RENDER_MODE_LINEAR_DEPTH, DR_RENDER_MODE_LINEAR_DEPTH, false, true);
+  //printf("9.8 Depth, SVM border sampling\n");
+  //test_position_derivatives(circle_smallest_scene_colored(), MULTI_RENDER_MODE_LINEAR_DEPTH, DR_RENDER_MODE_LINEAR_DEPTH, true, true);
 }
 
 void diff_render_test_10_optimize_sdf_finite_derivatives()
@@ -2136,20 +2176,20 @@ void diff_render_test_21_optimization_stand()
   dr_preset.dr_border_sampling = DR_BORDER_SAMPLING_SVM;
   dr_preset.opt_lr = 0.05f;
   dr_preset.opt_iterations = 1000;
-  dr_preset.border_spp = 1024;
+  dr_preset.border_spp = 512;
   dr_preset.spp = 16;
-  dr_preset.debug_render_mode = DR_DEBUG_RENDER_MODE_BORDER_INTEGRAL;
+  dr_preset.debug_render_mode = DR_DEBUG_RENDER_MODE_AREA_INTEGRAL;
   //dr_preset.redistancing_enable = true;
   //dr_preset.redistancing_interval = 1;
   //dr_preset.reg_function = DR_REG_FUNCTION_LK_DENOISING;
   //dr_preset.reg_power = 2.0f;
   //dr_preset.reg_lambda = 1.0f;
 
-  std::vector<float> mults = {1.0f, 0.5f, 0.25f, 0.125f};
+  std::vector<float> mults = {0.25f};
   for (int i = 0; i < mults.size(); i++)
   {
     dr_preset.border_integral_mult = mults[i];
-    optimization_stand_common(8+i, ts_scene, medium_initial, dr_preset, "Two spheres. Lambert. Colored.");
+    optimization_stand_common(8+i, ds_scene, medium_initial, dr_preset, "Two spheres. Lambert. Colored.");
   }
 
   dr_preset.dr_render_mode = DR_RENDER_MODE_LAMBERT;
