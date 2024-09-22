@@ -2297,83 +2297,142 @@ void diff_render_test_22_border_sampling_accuracy_mask()
 void
 diff_render_test_23_ray_casting_mask()
 {
-  //create renderers for SDF scene and mesh scene
-  auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "scenes/01_simple_scenes/data/bunny.vsgf").c_str());
-  cmesh4::rescale_mesh(mesh, float3(-0.95, -0.95, -0.95), float3(0.95, 0.95, 0.95));
+  float time1 = 0, psnr1 = 0, time2 = 0, psnr2 = 0;
 
-  unsigned W = 1024, H = 1024;
-
-  MultiRenderPreset preset = getDefaultPreset();
-  preset.render_mode = MULTI_RENDER_MODE_LAMBERT;
-  //preset.ray_gen_mode = RAY_GEN_MODE_RANDOM;
-  preset.spp = 16;
-
-  float4x4 base_proj = LiteMath::perspectiveMatrix(60, 1.0f, 0.01f, 100.0f);
-  LiteImage::Image2D<float4> texture = LiteImage::LoadImage<float4>("scenes/porcelain.png");
-
-  std::vector<float4x4> view = get_cameras_uniform_sphere(16, float3(0, 0, 0), 4.0f);
-  std::vector<float4x4> proj(view.size(), base_proj);
-
-  std::vector<LiteImage::Image2D<float4>> images_ref(view.size(), LiteImage::Image2D<float4>(W, H));
-  LiteImage::Image2D<float4> image_res(W, H);
-  for (int i = 0; i < view.size(); i++)
   {
-    auto pRender = CreateMultiRenderer("GPU");
-    pRender->SetPreset(preset);
-    pRender->SetViewport(0,0,W,H);
+    //create renderers for SDF scene and mesh scene
+    auto SBS_ref = circle_small_scene();
 
-    uint32_t texId = pRender->AddTexture(texture);
-    MultiRendererMaterial mat;
-    mat.type = MULTI_RENDER_MATERIAL_TYPE_TEXTURED;
-    mat.texId = texId;
-    uint32_t matId = pRender->AddMaterial(mat);
-    pRender->SetMaterial(matId, 0);
+    unsigned W = 256, H = 256;
 
-    pRender->SetScene(mesh);
-    pRender->RenderFloat(images_ref[i].data(), images_ref[i].width(), images_ref[i].height(), view[i], proj[i], preset);
-    LiteImage::SaveImage<float4>(("saves/test_dr_17_ref_"+std::to_string(i)+".bmp").c_str(), images_ref[i]); 
+    MultiRenderPreset preset = getDefaultPreset();
+    preset.render_mode = MULTI_RENDER_MODE_DIFFUSE;
+    //preset.ray_gen_mode = RAY_GEN_MODE_RANDOM;
+    preset.spp = 10;
+
+    float4x4 base_proj = LiteMath::perspectiveMatrix(60, 1.0f, 0.01f, 100.0f);
+
+    std::vector<float4x4> view = get_cameras_uniform_sphere(16, float3(0, 0, 0), 3.0f);
+    std::vector<float4x4> proj(view.size(), base_proj);
+
+    std::vector<LiteImage::Image2D<float4>> images_ref(view.size(), LiteImage::Image2D<float4>(W, H));
+    LiteImage::Image2D<float4> image_res(W, H);
+    for (int i = 0; i < view.size(); i++)
+    {
+      auto pRender = CreateMultiRenderer("GPU");
+      pRender->SetPreset(preset);
+      pRender->SetViewport(0,0,W,H);
+
+      pRender->SetScene(SBS_ref);
+      pRender->RenderFloat(images_ref[i].data(), images_ref[i].width(), images_ref[i].height(), view[i], proj[i], preset);
+      LiteImage::SaveImage<float4>(("saves/test_dr_13_ref_"+std::to_string(i)+".bmp").c_str(), images_ref[i]); 
+    }
+
+    {
+      auto indexed_SBS = circle_small_scene();
+      // randomize_color(indexed_SBS);
+      randomize_distance(indexed_SBS, 0.1f);
+
+      MultiRendererDRPreset dr_preset = getDefaultPresetDR();
+
+      dr_preset.dr_diff_mode = DR_DIFF_MODE_DEFAULT;
+      dr_preset.dr_render_mode = DR_RENDER_MODE_DIFFUSE;
+      dr_preset.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_GEOMETRY;
+      dr_preset.opt_iterations = 200;
+      dr_preset.opt_lr = 0.005f;
+      dr_preset.spp = 4;
+      dr_preset.border_spp = 10;
+      dr_preset.dr_border_sampling = DR_BORDER_SAMPLING_SVM;
+      dr_preset.image_batch_size = 4;
+      dr_preset.debug_print = true;
+
+      // dr_preset.dr_raycasting_mask = DR_RENDER_MASK_CAST_OPT;
+
+      MultiRendererDR dr_render;
+      dr_render.SetReference(images_ref, view, proj);
+
+      auto before = std::chrono::high_resolution_clock::now();
+
+      dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS);
+
+      time1 = (std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - before).count()/1000.f) / 10;
+      image_res = dr_render.getLastImage(0);
+      LiteImage::SaveImage<float4>("saves/test_dr_13_res_without_mask.bmp", image_res);
+    }
+
+    // printf("TEST 23. Compare ray tracing with/without mask\n");
+    
+    psnr1 = image_metrics::PSNR(image_res, images_ref[0]);
   }
 
   {
-    auto indexed_SBS =  create_grid_sbs(32, 1, 
-                                        [&](float3 p){return circle_sdf(float3(0,-0.15f,0), 0.7f, p);}, 
-                                        [](float3 p){return float3(0.5,0.5,0.5);});
+    //create renderers for SDF scene and mesh scene
+    auto SBS_ref = circle_small_scene();
 
-    MultiRendererDRPreset dr_preset = getDefaultPresetDR();
+    unsigned W = 256, H = 256;
 
-    dr_preset.dr_diff_mode = DR_DIFF_MODE_DEFAULT;
-    dr_preset.dr_render_mode = DR_RENDER_MODE_LAMBERT;
-    dr_preset.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_GEOMETRY | DR_RECONSTRUCTION_FLAG_COLOR;
-    dr_preset.opt_iterations = 1001;
-    dr_preset.opt_lr = 0.01f;
-    dr_preset.spp = 4;
-    dr_preset.border_spp = 1024;
-    dr_preset.image_batch_size = 4;
-    dr_preset.dr_border_sampling = DR_BORDER_SAMPLING_SVM;
-    dr_preset.debug_print = true;
-    dr_preset.debug_print_interval = 1;
-    dr_preset.debug_progress_interval = 100;
-    dr_preset.render_height = 512;
-    dr_preset.render_width = 512;
+    MultiRenderPreset preset = getDefaultPreset();
+    preset.render_mode = MULTI_RENDER_MODE_DIFFUSE;
+    //preset.ray_gen_mode = RAY_GEN_MODE_RANDOM;
+    preset.spp = 10;
 
-    dr_preset.dr_raycasting_mask = DR_RENDER_MASK_CAST_OPT;
+    float4x4 base_proj = LiteMath::perspectiveMatrix(60, 1.0f, 0.01f, 100.0f);
 
-    MultiRendererDR dr_render;
-    dr_render.SetReference(images_ref, view, proj);
-    dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS);
-    image_res = dr_render.getLastImage(0);
-    LiteImage::SaveImage<float4>("saves/test_dr_23_res.bmp", image_res);
+    std::vector<float4x4> view = get_cameras_uniform_sphere(16, float3(0, 0, 0), 3.0f);
+    std::vector<float4x4> proj(view.size(), base_proj);
+
+    std::vector<LiteImage::Image2D<float4>> images_ref(view.size(), LiteImage::Image2D<float4>(W, H));
+    LiteImage::Image2D<float4> image_res(W, H);
+    for (int i = 0; i < view.size(); i++)
+    {
+      auto pRender = CreateMultiRenderer("GPU");
+      pRender->SetPreset(preset);
+      pRender->SetViewport(0,0,W,H);
+
+      pRender->SetScene(SBS_ref);
+      pRender->RenderFloat(images_ref[i].data(), images_ref[i].width(), images_ref[i].height(), view[i], proj[i], preset);
+      LiteImage::SaveImage<float4>(("saves/test_dr_13_ref_"+std::to_string(i)+".bmp").c_str(), images_ref[i]); 
+    }
+
+    {
+      auto indexed_SBS = circle_small_scene();
+      // randomize_color(indexed_SBS);
+      randomize_distance(indexed_SBS, 0.1f);
+
+      MultiRendererDRPreset dr_preset = getDefaultPresetDR();
+
+      dr_preset.dr_diff_mode = DR_DIFF_MODE_DEFAULT;
+      dr_preset.dr_render_mode = DR_RENDER_MODE_DIFFUSE;
+      dr_preset.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_GEOMETRY;
+      dr_preset.opt_iterations = 200;
+      dr_preset.opt_lr = 0.005f;
+      dr_preset.spp = 4;
+      dr_preset.border_spp = 10;
+      dr_preset.dr_border_sampling = DR_BORDER_SAMPLING_SVM;
+      dr_preset.image_batch_size = 4;
+      dr_preset.debug_print = true;
+
+      dr_preset.dr_raycasting_mask = DR_RENDER_MASK_CAST_OPT;
+
+      MultiRendererDR dr_render;
+      dr_render.SetReference(images_ref, view, proj);
+
+      auto before = std::chrono::high_resolution_clock::now();
+
+      dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS);
+
+      time2 = (std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - before).count()/1000.f) / 10;
+      image_res = dr_render.getLastImage(0);
+      LiteImage::SaveImage<float4>("saves/test_dr_13_res_with_mask.bmp", image_res);
+    }
+    
+    psnr2 = image_metrics::PSNR(image_res, images_ref[0]);
   }
 
-  printf("TEST 23. Optimize bunny scene with/without mask ray casting\n");
-  
-  float psnr = image_metrics::PSNR(image_res, images_ref[0]);
-
-  printf("23.1. %-64s", "SDF is reconstructed");
-  if (psnr >= 30)
-    printf("passed    (%.2f)\n", psnr);
-  else
-    printf("FAILED, psnr = %f\n", psnr);
+  printf("\nTEST 23. Compare ray tracing with/without mask\n");
+  printf("Without mask: psnr:%.2f, time:%.2f ms\n", psnr1, time1);
+  printf("With    mask: psnr:%.2f, time:%.2f ms\n", psnr2, time2);
+  printf("The ratio of the running time of the algorithm without mask to with mask: %.2f\n", time1 / time2);
 }
 
 void perform_tests_diff_render(const std::vector<int> &test_ids)

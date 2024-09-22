@@ -586,28 +586,18 @@ namespace dr
           {
             int y0 = std::max(0, (int)y - (int)add_border), y1 = std::min(m_height - 1, y + add_border);
             int x0 = std::max(0, (int)x - (int)add_border), x1 = std::min(m_width - 1, x + add_border);
+            
             for (int h = y0; h < y1; ++h)
-              {
-                process_mask[m_width * h + x] = 1;
-              }
-            for (int w = x0; w < x1; ++w)
-              {
-                process_mask[m_width * y + w] = 1;
-              }
-            // #pragma omp parallel sections
-            // {
-            //   #pragma omp section
-            //   for (int h = y0; h < y1; ++h)
-            //   {
-            //     process_mask[m_width * h + x] = 1;
-            //   }
+            {
+              process_mask[m_width * h + x] = 1;
+            }
 
-            //   #pragma omp section
-            //   for (int w = x0; w < x1; ++w)
-            //   {
-            //     process_mask[m_width * y + w] = 1;
-            //   }
+            // for (int w = x0; w < x1; ++w)
+            // {
+            //   process_mask[m_width * y + w] = 1;
             // }
+
+            std::fill(process_mask.begin() + x0, process_mask.begin() + x1, 1);
           }
         }
       }
