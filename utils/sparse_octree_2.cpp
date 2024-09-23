@@ -690,12 +690,12 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
 
   struct dirs {unsigned neighbour[3*2]; float3 p; float d; unsigned parent;};//x+x-y+y-z+z-
 
-  void fill_neighbours_til_one_dir(std::vector<struct dirs> &directions, const std::set<unsigned> &divided, 
+  void fill_neighbours_til_one_dir(std::vector<struct dirs> &directions, 
                                    const std::vector<SdfFrameOctreeNode> &result,
                                    unsigned idx, unsigned num, int dir, unsigned counted_idx, unsigned another_idx)
   {
     directions[result[idx].offset + num].neighbour[counted_idx] = result[idx].offset + num + dir;
-    if (divided.find(directions[idx].neighbour[another_idx]) != divided.end() && directions[idx].neighbour[another_idx] != 0) 
+    if (result[directions[idx].neighbour[another_idx]].offset != 0 && directions[idx].neighbour[another_idx] != 0) //was changed need to check
         directions[result[idx].offset + num].neighbour[another_idx] = 
         result[directions[idx].neighbour[another_idx]].offset + num + dir;
     else
@@ -721,8 +721,121 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
       trilinear_interpolation(result[directions[result[idx].offset + num].neighbour[dir]].values, coeff);
   }
 
+  void sdf_artefacts_fix(std::vector<SdfFrameOctreeNode> &frame, std::vector<struct dirs> &directions, MultithreadedDistanceFunction sdf, float eps, 
+                         unsigned max_threads/*while unused*/, unsigned depth, std::set<unsigned> bad_nodes, bool is_smooth)
+  {
+    for (auto node : bad_nodes)
+    {
+      bool chk = true, chk2 = false;
+      unsigned x = node;
+      while (directions[x].parent != 0)
+      {
+        printf("%u, ", x);
+        x = directions[x].parent;
+      }
+      printf("%u 0\n", x);
+      for (int i = 0 ; i < 6; ++i)
+      {
+        unsigned neigh = directions[node].neighbour[i];
+        if (frame[neigh].offset == 0)
+        {
+          int j = i + 1;
+          if (i % 2 == 1) j = i - 1;
+          while (directions[neigh].neighbour[j] != node)
+          {
+            frame[neigh].offset = frame.size();
+            frame.resize(frame.size() + 8);
+            directions.resize(directions.size() + 8);
+            for (unsigned num = 0; num < 8; ++num)
+            {
+              //initialize
+              frame[frame[neigh].offset + num].offset = 0;
+              directions[frame[neigh].offset + num].p = 2 * directions[neigh].p + float3((num & 4) >> 2, (num & 2) >> 1, num & 1);
+              directions[frame[neigh].offset + num].d = directions[neigh].d / 2.0;
+              directions[frame[neigh].offset + num].parent = neigh;
+
+              if ((num & 4) != 0) fill_neighbours_til_one_dir(directions, frame, neigh, num, -4, 1, 0);
+              else fill_neighbours_til_one_dir(directions, frame, neigh, num, 4, 0, 1);
+
+              if ((num & 2) != 0) fill_neighbours_til_one_dir(directions, frame, neigh, num, -2, 3, 2);
+              else fill_neighbours_til_one_dir(directions, frame, neigh, num, 2, 2, 3);
+
+              if ((num & 1) != 0) fill_neighbours_til_one_dir(directions, frame, neigh, num, -1, 5, 4);
+              else fill_neighbours_til_one_dir(directions, frame, neigh, num, 1, 4, 5);
+
+              for (unsigned vert = 0; vert < 8; ++vert)
+              {
+                unsigned x_dir = (vert & 4) >> 2;
+                unsigned y_dir = 2 + ((vert & 2) >> 1);
+                unsigned z_dir = 4 + (vert & 1);
+                if (is_smooth && directions[directions[frame[neigh].offset + num].neighbour[x_dir]].d > directions[frame[neigh].offset + num].d && directions[frame[neigh].offset + num].neighbour[x_dir] != 0)
+                {
+                  //take vertex from x_dir neighbour
+                  interpolate_vertex(directions, frame, neigh, num, x_dir, vert);
+                }
+                else if (is_smooth && directions[directions[frame[neigh].offset + num].neighbour[y_dir]].d > directions[frame[neigh].offset + num].d && directions[frame[neigh].offset + num].neighbour[y_dir] != 0)
+                {
+                  //take vertex from y_dir neighbour
+                  interpolate_vertex(directions, frame, neigh, num, y_dir, vert);
+                }
+                else if (is_smooth && directions[directions[frame[neigh].offset + num].neighbour[z_dir]].d > directions[frame[neigh].offset + num].d && directions[frame[neigh].offset + num].neighbour[z_dir] != 0)
+                {
+                  //take vertex from z_dir neighbour
+                  interpolate_vertex(directions, frame, neigh, num, z_dir, vert);
+                }
+                else// all neighbours on the last level
+                {
+                  float3 p = directions[frame[neigh].offset + num].p;
+                  float d = directions[frame[neigh].offset + num].d;
+                  float3 ch_pos = 2.0f * (d * p) - 1.0f + 2 * d * float3((vert & 4) >> 2, (vert & 2) >> 1, vert & 1);
+                  frame[frame[neigh].offset + num].values[vert] = sdf(ch_pos, 0);
+                }
+              }
+            }
+            //init end
+            for (int num = 0; num < 8; ++num)
+            {
+              unsigned child = frame[neigh].offset + num;
+              int dirs[3] = {((num & 4) >> 2), ((num & 2) >> 1) + 2, (num & 1) + 4};
+              int another_dirs[3] = {(((num & 4) >> 2) ^ 1), (((num & 2) >> 1) ^ 1) + 2, ((num & 1) ^ 1) + 4};
+              int vert_mask[3] = {4, 2, 1};
+              int off[3] = {2, 1, 0};
+              for (int step = 0; step < 3; ++step)
+              {
+                if (directions[directions[child].neighbour[dirs[step]]].d <= directions[child].d)
+                {//need check all nodes
+                  std::vector<unsigned> recount_nodes(0);
+                  recount_nodes.push_back(directions[child].neighbour[dirs[step]]);
+                  for (int k = 0; k < recount_nodes.size(); ++k)
+                  {
+                    if (chk) if (dirs[step] == i || dirs[step] == j) {printf("%u - %u  %u\n", recount_nodes[k], directions[recount_nodes[k]].neighbour[another_dirs[step]], child); chk2 = true;}//DEBUGGING
+                    directions[recount_nodes[k]].neighbour[another_dirs[step]] = child;
+                    for (int vert = 0; vert < 8; ++vert)
+                    {
+                      if ((vert & vert_mask[step]) >> off[step] == another_dirs[step] % 2)
+                      {
+                        if (frame[recount_nodes[k]].offset != 0) recount_nodes.push_back(frame[recount_nodes[k]].offset + vert);
+                        interpolate_vertex(directions, frame, directions[recount_nodes[k]].parent, recount_nodes[k] - frame[directions[recount_nodes[k]].parent].offset, 
+                                           another_dirs[step], vert);
+                      }
+                    }
+                  }
+                }
+              }
+              
+            }
+            if (chk2 && chk) {chk = false; printf("\n");}
+            if (neigh != directions[node].neighbour[i]) printf("AAA\n");
+            //printf("BBB\n");
+            neigh = directions[node].neighbour[i];
+          }
+        }
+      }
+    }
+  }
+
   std::vector<SdfFrameOctreeNode> construct_sdf_frame_octree(SparseOctreeSettings settings, MultithreadedDistanceFunction sdf, float eps, 
-                                                             unsigned max_threads/*while unused*/, bool is_smooth)
+                                                             unsigned max_threads/*while unused*/, bool is_smooth, bool fix_artefacts)
   {
     //struct dirs {unsigned neighbour[3*2]; float3 p; float d; unsigned parent;};//x+x-y+y-z+z-
     std::vector<SdfFrameOctreeNode> result(1);
@@ -778,14 +891,14 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
       {
         for (unsigned num = 0; num < 8; ++num)
         {
-          if ((num & 4) != 0) fill_neighbours_til_one_dir(directions, divided, result, div_idx, num, -4, 1, 0);
-          else fill_neighbours_til_one_dir(directions, divided, result, div_idx, num, 4, 0, 1);
+          if ((num & 4) != 0) fill_neighbours_til_one_dir(directions, result, div_idx, num, -4, 1, 0);
+          else fill_neighbours_til_one_dir(directions, result, div_idx, num, 4, 0, 1);
 
-          if ((num & 2) != 0) fill_neighbours_til_one_dir(directions, divided, result, div_idx, num, -2, 3, 2);
-          else fill_neighbours_til_one_dir(directions, divided, result, div_idx, num, 2, 2, 3);
+          if ((num & 2) != 0) fill_neighbours_til_one_dir(directions, result, div_idx, num, -2, 3, 2);
+          else fill_neighbours_til_one_dir(directions, result, div_idx, num, 2, 2, 3);
 
-          if ((num & 1) != 0) fill_neighbours_til_one_dir(directions, divided, result, div_idx, num, -1, 5, 4);
-          else fill_neighbours_til_one_dir(directions, divided, result, div_idx, num, 1, 4, 5);
+          if ((num & 1) != 0) fill_neighbours_til_one_dir(directions, result, div_idx, num, -1, 5, 4);
+          else fill_neighbours_til_one_dir(directions, result, div_idx, num, 1, 4, 5);
 
           for (unsigned vert = 0; vert < 8; ++vert)
           {
@@ -817,10 +930,13 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
           }
         }
       }
-      divided.clear();
+      if (i < settings.depth - 1) divided.clear();
 
       //printf("%d\n", last_level.size());
-    }
+    }/*
+    printf("%d ", result.size());
+    if (fix_artefacts) sdf_artefacts_fix(result, directions, sdf, eps, max_threads, settings.depth, divided, is_smooth);
+    printf("%d\n", result.size());*/
     return result;
   }
 

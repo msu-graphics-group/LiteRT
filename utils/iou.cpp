@@ -62,7 +62,7 @@ namespace IoU
       {
         ++uni;
         if (is_pos_inside(frame_nodes, coeff)) ++inter;
-        else printf("%f %f %f\n", pos.x, pos.y, pos.z);
+        //else printf("%f %f %f\n", pos.x, pos.y, pos.z);
       }
     }
     if (uni > 0)

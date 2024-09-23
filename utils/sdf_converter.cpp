@@ -96,7 +96,7 @@ namespace sdf_converter
     assert(settings.depth > 1);
     assert(settings.build_type == SparseOctreeBuildType::DEFAULT); //MESH_TLO available only when building from mesh
 
-    return construct_sdf_frame_octree(settings, sdf, eps, 1, is_smooth);
+    return construct_sdf_frame_octree(settings, sdf, eps, 1, is_smooth, true);
   }
 
   std::vector<SdfFrameOctreeNode> create_sdf_frame_octree(SparseOctreeSettings settings, MultithreadedDistanceFunction sdf, unsigned max_threads)
