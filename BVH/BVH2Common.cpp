@@ -1267,6 +1267,37 @@ void BVHRT::IntersectGSInLeaf(const float3& ray_pos, const float3& ray_dir,
 }
 #endif
 
+void BVHRT::IntersectNURBS(const float3& ray_pos, const float3& ray_dir,
+                           float tNear, uint32_t instId,
+                           uint32_t geomId, CRT_Hit* pHit)
+{
+#ifndef DISABLE_NURBS
+  //
+  auto nurbsId = m_geomData[geomId].offset.x;
+  auto header  = m_NURBSHeaders[nurbsId];
+  auto type = m_geomData[geomId].type;
+  const float *nurbs_data = m_NURBSData.data() + header.offset;
+  //TODO:
+  float3 min_pos = to_float3(m_geomData[geomId].boxMin);
+  float3 max_pos = to_float3(m_geomData[geomId].boxMax);
+  float2 tNear_tFar = box_intersects(min_pos, max_pos, ray_pos, ray_dir);
+
+  float3 norm = normalize(ray_pos + tNear_tFar.x * ray_dir);
+  float2 encoded_norm = encode_normal(norm);
+  
+  pHit->t = tNear_tFar.x;
+  pHit->primId = 0;
+  pHit->geomId = geomId | (type << SH_TYPE);
+  pHit->instId = instId;
+
+
+  pHit->coords[0] = 0;
+  pHit->coords[1] = 0;
+  pHit->coords[2] = encoded_norm.x;
+  pHit->coords[3] = encoded_norm.y;
+#endif  
+}
+
 SdfHit BVHRT::sdf_sphere_tracing(uint32_t type, uint32_t sdf_id, const float3 &min_pos, const float3 &max_pos,
                                  float tNear, const float3 &pos, const float3 &dir, bool need_norm)
 {

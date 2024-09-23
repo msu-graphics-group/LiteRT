@@ -50,6 +50,9 @@ uint32_t type_to_tag(uint32_t type)
   case TYPE_SDF_SBS_ADAPT_COL:
     return AbstractObject::TAG_SDF_ADAPT_BRICK;
   
+  case TYPE_NURBS:
+    return AbstractObject::TAG_NURBS;
+
   default:
     return AbstractObject::TAG_NONE;
   }
@@ -934,6 +937,46 @@ uint32_t BVHRT::AddGeom_SdfFrameOctreeTex(SdfFrameOctreeTexView octree, ISceneOb
   m_origNodes = orig_nodes;
   
   return AddGeom_AABB(AbstractObject::TAG_SDF_NODE, (const CRT_AABB*)m_origNodes.data(), m_origNodes.size());
+}
+
+std::vector<BVHNode> GetBoxes_NURBS(const RawNURBS &nurbs)
+{
+  //TODO: find list of BVH leaf nodes for NURBS
+  std::vector<BVHNode> nodes;
+  nodes.resize(2);
+  nodes[0].boxMin = float3(-0.5,-0.5,-0.5);
+  nodes[0].boxMax = float3(0.5,0.5,0);
+  nodes[1].boxMin = float3(-0.5,-0.5,0);
+  nodes[1].boxMax = float3(0.5,0.5,0.5);
+  return nodes;
+}
+
+uint32_t BVHRT::AddGeom_NURBS(const RawNURBS &nurbs, ISceneObject *fake_this, BuildOptions a_qualityLevel)
+{
+  float4 mn = float4(-0.5,-0.5,-0.5,0.5);
+  float4 mx = float4( 0.5, 0.5, 0.5,0.5);
+
+  //TODO: find BBox for given NURBS
+
+  //fill geom data array
+  m_abstractObjects.resize(m_abstractObjects.size() + 1); 
+  new (m_abstractObjects.data() + m_abstractObjects.size() - 1) GeomDataNURBS();
+  m_abstractObjects.back().geomId = m_abstractObjects.size() - 1;
+  m_abstractObjects.back().m_tag = type_to_tag(TYPE_NURBS);
+
+  m_geomData.emplace_back();
+  m_geomData.back().boxMin = mn;
+  m_geomData.back().boxMax = mx;
+  m_geomData.back().offset = uint2(m_NURBSHeaders.size(), 0);
+  m_geomData.back().bvhOffset = m_allNodePairs.size();
+  m_geomData.back().type = TYPE_NURBS;
+
+  //TODO: save NURBS to headers and data
+
+  //create list of bboxes for BLAS
+  std::vector<BVHNode> orig_nodes = GetBoxes_NURBS(nurbs);
+  
+  return AddGeom_AABB(AbstractObject::TAG_NURBS, (const CRT_AABB*)orig_nodes.data(), orig_nodes.size());
 }
 
 void BVHRT::set_debug_mode(bool enable)

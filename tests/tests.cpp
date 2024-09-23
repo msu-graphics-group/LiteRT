@@ -2364,6 +2364,41 @@ void litert_test_30_verify_SBS_SBSAdapt()
       printf("FAILED, psnr = %f\n", sbsa_psnr);
   }
 }
+void litert_test_31_fake_nurbs_render()
+{
+  unsigned W = 1024, H = 1024;
+
+  MultiRenderPreset preset = getDefaultPreset();
+  LiteImage::Image2D<uint32_t> image(W, H);
+  LiteImage::Image2D<uint32_t> ref_image(W, H);
+
+  RawNURBS nurbs;
+  //TODO: nurbs = load_nurbs("my_nurbs.txt");
+
+  auto pRenderRef = CreateMultiRenderer("CPU");
+  pRenderRef->SetPreset(preset);
+  pRenderRef->SetViewport(0,0,W,H);
+  pRenderRef->SetScene(nurbs);
+
+  auto pRender = CreateMultiRenderer("GPU");
+  pRender->SetPreset(preset);
+  pRender->SetViewport(0,0,W,H);
+  pRender->SetScene(nurbs);
+
+  render(image, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+  render(ref_image, pRenderRef, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+
+  LiteImage::SaveImage<uint32_t>("saves/test_31_res.bmp", image); 
+  LiteImage::SaveImage<uint32_t>("saves/test_31_ref.bmp", ref_image);
+
+  float psnr = image_metrics::PSNR(ref_image, image);
+  printf("TEST 31. Rendering fake NURBS\n");
+  printf(" 31.1. %-64s", "CPU and GPU render image_metrics::PSNR > 45 ");
+  if (psnr <= 45)
+    printf("passed    (%.2f)\n", psnr);
+  else
+    printf("FAILED, psnr = %f\n", psnr);
+}
 
 void perform_tests_litert(const std::vector<int> &test_ids)
 {
@@ -2379,7 +2414,8 @@ void perform_tests_litert(const std::vector<int> &test_ids)
       litert_test_19_marching_cubes, litert_test_20_radiance_fields, litert_test_21_rf_to_mesh,
       litert_test_22_sdf_grid_smoothing, litert_test_23_textured_sdf, litert_test_24_demo_meshes,
       litert_test_25_float_images, litert_test_26_sbs_shallow_bvh, litert_test_27_textured_colored_SBS,
-      litert_test_28_sbs_reg, litert_test_29_smoothed_frame_octree, litert_test_30_verify_SBS_SBSAdapt};
+      litert_test_28_sbs_reg, litert_test_29_smoothed_frame_octree, litert_test_30_verify_SBS_SBSAdapt,
+      litert_test_31_fake_nurbs_render};
 
   if (tests.empty())
   {

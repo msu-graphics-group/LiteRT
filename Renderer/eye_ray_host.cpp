@@ -397,6 +397,23 @@ void MultiRenderer::SetScene(SdfFrameOctreeTexView scene)
   m_pAccelStruct->CommitScene();
 }
 
+void MultiRenderer::SetScene(const RawNURBS &nurbs)
+{
+  BVHRT *bvhrt = dynamic_cast<BVHRT*>(m_pAccelStruct->UnderlyingImpl(0));
+  if (!bvhrt)
+  {
+    printf("only BVHRT supports NURBS\n");
+    return;
+  }
+
+  SetPreset(m_preset);
+  m_pAccelStruct->ClearGeom();
+  auto geomId = bvhrt->AddGeom_NURBS(nurbs, m_pAccelStruct.get());
+  m_pAccelStruct->ClearScene();
+  m_pAccelStruct->AddInstance(0, LiteMath::float4x4());
+  m_pAccelStruct->CommitScene();
+}
+
 void MultiRenderer::SetPreset(const MultiRenderPreset& a_preset)
 {
   m_preset = a_preset;
