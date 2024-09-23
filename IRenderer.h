@@ -2,8 +2,7 @@
 #include <cstdint>
 #include <memory>
 
-#include "LiteMath.h"
-#include "dependencies/HydraCore3/external/CrossRT/CrossRT.h"
+#include "ISceneObject.h"
 
 struct IRenderer
 {
