@@ -1378,7 +1378,7 @@ void diff_render_test_13_optimize_sphere_diffuse()
     dr_preset.image_batch_size = 4;
     dr_preset.debug_print = true;
 
-    dr_preset.dr_raycasting_mask = DR_RENDER_MASK_CAST_OPT;
+    // dr_preset.dr_raycasting_mask = DR_RENDER_MASK_CAST_OPT;
 
     MultiRendererDR dr_render;
     dr_render.SetReference(images_ref, view, proj);
@@ -2357,7 +2357,7 @@ diff_render_test_23_ray_casting_mask()
 
       time1 = (std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - before).count()/1000.f) / 10;
       image_res = dr_render.getLastImage(0);
-      LiteImage::SaveImage<float4>("saves/test_dr_13_res_without_mask.bmp", image_res);
+      LiteImage::SaveImage<float4>("saves/test_dr_23_res_without_mask.bmp", image_res);
     }
 
     // printf("TEST 23. Compare ray tracing with/without mask\n");
@@ -2415,15 +2415,19 @@ diff_render_test_23_ray_casting_mask()
       dr_preset.dr_raycasting_mask = DR_RENDER_MASK_CAST_OPT;
 
       MultiRendererDR dr_render;
+      dr_render.setBorderThickness(5);
       dr_render.SetReference(images_ref, view, proj);
 
       auto before = std::chrono::high_resolution_clock::now();
 
       dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS);
-
+      
       time2 = (std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - before).count()/1000.f) / 10;
+      
+      dr_render.cleanMasks();
+
       image_res = dr_render.getLastImage(0);
-      LiteImage::SaveImage<float4>("saves/test_dr_13_res_with_mask.bmp", image_res);
+      LiteImage::SaveImage<float4>("saves/test_dr_23_res_with_mask.bmp", image_res);
     }
     
     psnr2 = image_metrics::PSNR(image_res, images_ref[0]);
@@ -2432,7 +2436,7 @@ diff_render_test_23_ray_casting_mask()
   printf("\nTEST 23. Compare ray tracing with/without mask\n");
   printf("Without mask: psnr:%.2f, time:%.2f ms\n", psnr1, time1);
   printf("With    mask: psnr:%.2f, time:%.2f ms\n", psnr2, time2);
-  printf("The ratio of the running time of the algorithm without mask to with mask: %.2f\n", time1 / time2);
+  printf("The ratio of the running time of the algorithm without mask to with mask: %.2f\n\n", time1 / time2);
 }
 
 void perform_tests_diff_render(const std::vector<int> &test_ids)

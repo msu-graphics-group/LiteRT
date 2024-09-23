@@ -59,6 +59,8 @@ namespace dr
   {
   public:
     MultiRendererDR();
+    void setBorderThickness(uint32_t thickness);
+    void cleanMasks();
     void SetReference(const std::vector<LiteImage::Image2D<float4>>& images, 
                       const std::vector<LiteMath::float4x4>& worldView, 
                       const std::vector<LiteMath::float4x4>& proj);

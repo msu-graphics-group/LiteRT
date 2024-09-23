@@ -120,7 +120,24 @@ namespace dr
     m_seed = rand();
 
     //  extend object frame on k pixels to cast rays right in object and not in empty space 
-    add_border = 5;
+    add_border = 0;
+  }
+
+  void MultiRendererDR::cleanMasks()
+  {
+    for (auto &mask: masks)
+    {
+      mask.clear();
+    }
+
+    masks.clear();
+    process_mask.clear();
+  }
+
+  void 
+  MultiRendererDR::setBorderThickness(uint32_t thickness)
+  {
+    this->add_border = thickness;
   }
 
   void MultiRendererDR::SetReference(const std::vector<LiteImage::Image2D<float4>> &images,
