@@ -246,14 +246,14 @@ void main_benchmark(const std::string &path, const std::string &mesh_name, unsig
 {
   struct StructureInfo
   {
-    unsigned nodes;
-    unsigned memory;
-    unsigned max_depth;
-    float build_time_ms;
+    unsigned nodes = 0;
+    unsigned memory = 0;
+    unsigned max_depth = 0;
+    float build_time_ms = 0.0f;
     bool valid = false;
   };
 
-  unsigned W = 1024, H = 1024;
+  unsigned W = 2048, H = 2048;
   unsigned hydra_spp = 256;
   const std::string mesh_path = path + "/mesh.vsgf";
   auto mesh = cmesh4::LoadMeshFromVSGF(mesh_path.c_str());
@@ -449,7 +449,7 @@ void main_benchmark(const std::string &path, const std::string &mesh_name, unsig
     }
   }
 
-  fprintf(log_fd, "mesh_name, render_mode, structure, size_limit, intersect_mode, image_metrics::PSNR, average_time (ms), min_time (ms)\n");
+  fprintf(log_fd, "mesh_name, device, render_mode, structure, size_limit, intersect_mode, image_metrics::PSNR, average_time (ms), min_time (ms)\n");
   fflush(log_fd);
 
   for (int rm_id = 0; rm_id < render_modes.size(); rm_id++)
@@ -527,53 +527,76 @@ void main_benchmark(const std::string &path, const std::string &mesh_name, unsig
               }
               else
               {
-                auto pRender = CreateMultiRenderer(render_device.c_str());
-                pRender->SetPreset(preset);
+                std::shared_ptr<MultiRenderer> pRender;
                 if (structure == "mesh")
                 {
                   std::filesystem::create_directory(path + "/" + full_name);
+
+                  pRender = CreateMultiRenderer(render_device.c_str());
+                  pRender->SetPreset(preset);
                   pRender->SetScene(mesh);
                 }
                 else if (structure == "mesh_lod")
                 {
                   auto mesh_lod = cmesh4::LoadMeshFromVSGF(filename.c_str());
                   cmesh4::normalize_mesh(mesh_lod);
+
+                  pRender = CreateMultiRenderer(render_device.c_str());
+                  pRender->SetPreset(preset);
                   pRender->SetScene(mesh_lod);
                 }
                 else if (structure == "sdf_grid")
                 {
                   SdfGrid grid;
                   load_sdf_grid(grid, filename);
+
+                  pRender = CreateMultiRenderer(render_device.c_str());
+                  pRender->SetPreset(preset);
                   pRender->SetScene(grid);
                 }
                 else if (structure == "sdf_octree")
                 {
                   std::vector<SdfOctreeNode> octree;
                   load_sdf_octree(octree, filename);
+
+                  pRender = CreateMultiRenderer(render_device.c_str(), octree.size() + 1);
+                  pRender->SetPreset(preset);
                   pRender->SetScene(octree);
                 }
                 else if (structure == "sdf_frame_octree")
                 {
                   std::vector<SdfFrameOctreeNode> frame_nodes;
                   load_sdf_frame_octree(frame_nodes, filename);
+
+                  pRender = CreateMultiRenderer(render_device.c_str(), frame_nodes.size() + 1);
+                  pRender->SetPreset(preset);                  
                   pRender->SetScene(frame_nodes);
                 }
                 else if (structure == "sdf_SVS")
                 {
                   std::vector<SdfSVSNode> svs_nodes;
                   load_sdf_SVS(svs_nodes, filename);
+
+                  pRender = CreateMultiRenderer(render_device.c_str(), svs_nodes.size() + 1);
+                  pRender->SetPreset(preset);                  
                   pRender->SetScene(svs_nodes);
                 }
                 else if (structure == "sdf_SBS-2-1" || structure == "sdf_SBS-2-2"|| structure == "sdf_SBS-3-1")
                 {
                   SdfSBS sbs;
                   load_sdf_SBS(sbs, filename);
+
+                  pRender = CreateMultiRenderer(render_device.c_str(), sbs.nodes.size()*std::pow(sbs.header.brick_size, 3) + 1);
+                  pRender->SetPreset(preset);                  
                   pRender->SetScene(sbs);
                 }
                 else if (structure == "sdf_SBS-3-1_SN")
                 {
                   SdfSBS sbs;
                   load_sdf_SBS(sbs, filename);
+
+                  pRender = CreateMultiRenderer(render_device.c_str(), sbs.nodes.size() + 1);
+                  pRender->SetPreset(preset);                  
                   pRender->SetScene(sbs, true);                  
                 }
 
@@ -583,8 +606,8 @@ void main_benchmark(const std::string &path, const std::string &mesh_name, unsig
                 pRender->GetExecutionTime("CastRaySingleBlock", timings);
               }
 
-              if (iter == 0)
-                LiteImage::SaveImage<uint32_t>((path + "/" + full_name + "/" + render_mode + "_" + intersect_mode + "_" + std::to_string(iter)+".bmp").c_str(), image); 
+              //if (iter == 0)
+              LiteImage::SaveImage<uint32_t>((path + "/" + full_name + "/" + render_mode + "_" + intersect_mode + "_" + std::to_string(iter)+".bmp").c_str(), image); 
 
               for (int i=0;i<4;i++)
               {
@@ -596,14 +619,16 @@ void main_benchmark(const std::string &path, const std::string &mesh_name, unsig
               if (structure == "mesh")
                 image_ref[iter] = image;
 
-              psnr += image_metrics::PSNR(image_ref[iter], image);
+              float psnr_one = image_metrics::PSNR(image_ref[iter], image);
+              //printf("psnr one %f\n", psnr_one);
+              psnr += psnr_one;
             }
 
             float4 render_average_time_ms = float4(sum_ms[0], sum_ms[1], sum_ms[2], sum_ms[3])/(iters*pass_size);
             float4 render_min_time_ms = float4(min_ms[0], min_ms[1], min_ms[2], min_ms[3])/pass_size;
 
-            fprintf(log_fd, "%20s, %20s, %20s, %6s, %20s, %6.2f, %7.2f, %7.2f\n", 
-                    mesh_name.c_str(), render_mode.c_str(), structure.c_str(), size_limit.c_str(), intersect_mode.c_str(),
+            fprintf(log_fd, "%20s, %6s, %12s, %20s, %6s, %20s, %6.2f, %7.2f, %7.2f\n", 
+                    mesh_name.c_str(), render_device.c_str(), render_mode.c_str(), structure.c_str(), size_limit.c_str(), intersect_mode.c_str(),
                     psnr/iters,
                     render_average_time_ms.x,
                     render_min_time_ms.x);
@@ -649,4 +674,20 @@ void SBS_benchmark(const std::string &path, const std::string &mesh_name, unsign
                  std::vector<std::string>{"16Mb"},
                  std::vector<std::string>{"bvh_analytic"},
                  25, 10);
+}
+
+void rtx_benchmark(const std::string &path, const std::string &mesh_name, unsigned flags, const std::string &supported_type, const std::string &device)
+{
+  std::vector<std::string> types = {"mesh", "sdf_grid", "sdf_frame_octree", "sdf_SVS", "sdf_SBS-2-1"};
+  if (supported_type != "")
+    types = {supported_type};
+
+  int pass_size = 25;
+  if (device == "CPU")
+    pass_size = 1;
+
+  main_benchmark(path, mesh_name, flags, "image", 
+  types,
+  std::vector<std::string>{"1Mb","4Mb","16Mb","64Mb"},
+  std::vector<std::string>{"bvh_newton"}, pass_size, 8, device);
 }

@@ -43,4 +43,3 @@ protected:
   virtual const LiteMath::float4* GetGeomBoxes() const { return nullptr; };
 };
 
-std::shared_ptr<ISceneObject> CreateSceneRT(const char* a_implName, const char* a_buildName, const char* a_layoutName);

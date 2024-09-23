@@ -986,7 +986,7 @@ namespace sdf_converter
 
     //printf("AAA %d\n", sbs.header.bytes_per_value);
 
-    if (original_sbs.header.aux_data & SDF_SBS_NODE_LAYOUT_MASK != SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F)
+    if ((original_sbs.header.aux_data & SDF_SBS_NODE_LAYOUT_MASK) != SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F)
     {
       return sbs;
     }

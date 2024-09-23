@@ -7,7 +7,6 @@
                 "/usr/lib/llvm-17/lib/clang/17/include"
             ],
             "defines": [],
-            "compilerPath": "/usr/bin/clang-17",
             "intelliSenseMode": "linux-clang-x64"
         }
     ],

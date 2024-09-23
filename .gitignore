@@ -42,8 +42,6 @@ z_timings.csv
 sdf_auto.*
 *.spv
 
-_deps/*
-dependencies/*
 math_tests
 saves/*
 scenes/02_sdf_scenes/model*.dat
@@ -55,6 +53,9 @@ Renderer/**/*temp*
 Renderer/**/*gpu*
 Renderer/**/*.comp
 Renderer/shaders_gpu/build.sh
+Renderer/**/*rtx*
+Renderer/**/*.glsl
+Renderer/shaders_rtx/build.sh
 .cache
 .DS_Store
 scenes/03_gs_scenes/nerf_synthetic

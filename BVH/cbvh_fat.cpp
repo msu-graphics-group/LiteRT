@@ -148,7 +148,8 @@ double g_buildTime;
 uint64_t g_buildTris;
 
 BVHTreeFat BuildBVHFat(const float* a_vpos3f,     size_t a_vertNum, size_t a_vByteStride, 
-                                 const uint32_t* a_indices, size_t a_indexNum, BuilderPresets a_presets, LayoutPresets a_layout)
+                       const uint32_t* a_indices, size_t a_indexNum, std::vector<uint32_t> &startCount,
+                       BuilderPresets a_presets, LayoutPresets a_layout)
 {
   std::vector<BVHNodePair> bvhFat;
   std::vector<uint32_t>   objIndicesReordered;
@@ -156,7 +157,7 @@ BVHTreeFat BuildBVHFat(const float* a_vpos3f,     size_t a_vertNum, size_t a_vBy
   // (1) build
   {
     a_presets.format    = BVH2_LEFT_OFFSET;
-    auto bvhData        = BuildBVH(a_vpos3f, a_vertNum, a_vByteStride, a_indices, a_indexNum, a_presets);
+    auto bvhData        = BuildBVH(a_vpos3f, a_vertNum, a_vByteStride, a_indices, a_indexNum, startCount, a_presets);
     bvhFat              = CreateFatTreeArray(bvhData.nodes);
     objIndicesReordered = bvhData.indices;
   }

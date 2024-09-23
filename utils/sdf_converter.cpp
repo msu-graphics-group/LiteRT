@@ -90,6 +90,15 @@ namespace sdf_converter
     return create_sdf_frame_octree(settings, [&](const float3 &p, unsigned idx) -> float { return sdf(p); }, 1);
   }
 
+  std::vector<SdfFrameOctreeNode> create_sdf_frame_octree(SparseOctreeSettings settings, MultithreadedDistanceFunction sdf, float eps, bool is_smooth)
+  {
+    assert(settings.remove_thr >= 0);//copy from another functions
+    assert(settings.depth > 1);
+    assert(settings.build_type == SparseOctreeBuildType::DEFAULT); //MESH_TLO available only when building from mesh
+
+    return construct_sdf_frame_octree(settings, sdf, eps, 1, is_smooth);
+  }
+
   std::vector<SdfFrameOctreeNode> create_sdf_frame_octree(SparseOctreeSettings settings, MultithreadedDistanceFunction sdf, unsigned max_threads)
   {
     auto raw_nodes = construct_sdf_octree(settings, sdf, max_threads);
@@ -236,28 +245,32 @@ namespace sdf_converter
 
   SdfSBS create_sdf_SBS_tex(SparseOctreeSettings settings, SdfSBSHeader header, const cmesh4::SimpleMesh &mesh, bool noisy)
   {
+
     unsigned max_threads = omp_get_max_threads();
 
     std::vector<MeshBVH> bvh(max_threads);
     for (unsigned i = 0; i < max_threads; i++)
       bvh[i].init(mesh);
 
-    //FILE *f = fopen("./hello_2.txt", "w");
+    if (noisy)
+    {    
+      MultithreadedDistanceFunction mt_sdf = [&, noisy](const float3 &p, unsigned idx) -> float 
+                                            {auto x = (fmod(p.x * 153 + p.y * 427 + p.z * 311, 2.0) - 1) * 0.003;
+                                             return bvh[idx].get_signed_distance(p) + x; };
     
-    MultithreadedDistanceFunction mt_sdf = [&, noisy](const float3 &p, unsigned idx) -> float 
-                                           { 
-                                            if (noisy) 
-                                            {
-                                              auto x = (fmod(p.x * 153 + p.y * 427 + p.z * 311, 2.0) - 1) * 0.003;
-                                              //fprintf (f, "%f %f %f, %f - %f\n", p.x, p.y, p.z, bvh[idx].get_signed_distance(p), x);
-                                              return bvh[idx].get_signed_distance(p)/*sqrt(p.x * p.x + p.y * p.y + p.z * p.z) - 0.3*/ + x; 
-                                            }
-                                              return bvh[idx].get_signed_distance(p)/*sqrt(p.x * p.x + p.y * p.y + p.z * p.z) - 0.3*/; };
+      std::vector<SdfFrameOctreeTexNode> frame = conv_octree_2_tex(create_sdf_frame_octree(settings, mt_sdf, max_threads));
+      auto a = frame_octree_to_SBS_tex(mt_sdf, max_threads, frame, header);
+      //fclose(f);
+      return a;
+    }
+    else
+    {
+      MultithreadedDistanceFunction mt_sdf = [&](const float3 &p, unsigned idx) -> float 
+                                           { return bvh[idx].get_signed_distance(p); };
   
-    std::vector<SdfFrameOctreeTexNode> frame = /*create_sdf_frame_octree_tex(settings, mesh);*/conv_octree_2_tex(create_sdf_frame_octree(settings, mt_sdf, max_threads));
-    auto a = frame_octree_to_SBS_tex(mt_sdf, max_threads, frame, header);
-    //fclose(f);
-    return a;
+      std::vector<SdfFrameOctreeTexNode> frame = create_sdf_frame_octree_tex(settings, mesh);
+      return frame_octree_to_SBS_tex(mt_sdf, max_threads, frame, header);
+    }
   }
 
   SdfSBS create_sdf_SBS_col(SparseOctreeSettings settings, SdfSBSHeader header, const cmesh4::SimpleMesh &mesh, unsigned mat_id,

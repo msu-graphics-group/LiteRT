@@ -175,7 +175,8 @@
   \return linearized layout bvh tree in two arrays 
   */
   BVHTreeCommon BuildBVH(const float* a_vpos3f,     size_t a_vertNum, size_t a_vByteStride, 
-                         const uint32_t* a_indices, size_t a_indexNum, BuilderPresets a_presets = BuilderPresets());
+                         const uint32_t* a_indices, size_t a_indexNum, std::vector<uint32_t> &startCount,
+                         BuilderPresets a_presets = BuilderPresets());
 
   /**
   \brief Main Builder C++ interface, build BLAS (Bottom Level Acceleration Structure) for input triangle mesh.
@@ -192,7 +193,8 @@
   \return linearized layout bvh tree in two arrays 
   */
   BVHTreeFat BuildBVHFat(const float* a_vpos3f,     size_t a_vertNum,  size_t a_vByteStride, 
-                         const uint32_t* a_indices, size_t a_indexNum, BuilderPresets a_presets, LayoutPresets a_layout);
+                         const uint32_t* a_indices, size_t a_indexNum, std::vector<uint32_t> &startCount,
+                         BuilderPresets a_presets, LayoutPresets a_layout);
 
   /**
   \brief Build BLAS (Bottom Level Acceleration Structure) for custom geometry.

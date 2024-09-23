@@ -24,6 +24,9 @@ namespace sdf_converter
                              const std::vector<SdfFrameOctreeNode> &nodes,
                              const SdfSBSHeader &header);
 
+  std::vector<SdfFrameOctreeNode> construct_sdf_frame_octree(SparseOctreeSettings settings, MultithreadedDistanceFunction sdf, float eps, 
+                                                             unsigned max_threads, bool is_smooth);
+
   void mesh_octree_to_sdf_frame_octree(const cmesh4::SimpleMesh &mesh,
                                        const cmesh4::TriangleListOctree &tl_octree, 
                                        std::vector<SdfFrameOctreeNode> &out_frame);

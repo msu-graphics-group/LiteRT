@@ -6,7 +6,7 @@
     "configurations": [
     
         {
-            "name": "Launch LiteRT",
+            "name": "Launch",
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/render_app",

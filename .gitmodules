@@ -1,0 +1,3 @@
+[submodule "dependencies/HydraCore3"]
+	path = dependencies/HydraCore3
+	url = https://github.com/Ray-Tracing-Systems/HydraCore3

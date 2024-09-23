@@ -11,9 +11,9 @@
 #include "LiteMath.h"
 #include "../ISceneObject.h"
 #include "../IRenderer.h"
-#include "../BVH/BVH2Common.h"
 #include "LiteScene/cmesh4.h"
 #include "Image2d.h"
+#include "BVH/BVH2Common.h"
 
 using LiteMath::uint;
 using LiteImage::Image2D;
@@ -51,6 +51,7 @@ public:
   void SetScene(SdfFrameOctreeView scene);
   void SetScene(SdfSVSView scene);
   void SetScene(SdfSBSView scene, bool single_bvh_node = false);
+  void SetScene(SdfSBSAdaptView scene, bool single_bvh_node = true);
 
   void SetScene(SdfFrameOctreeTexView scene);
 #endif
@@ -64,16 +65,16 @@ public:
   void SetPreset(const MultiRenderPreset& a_preset);
 
   //functions implementing IRenderer interface
-  MultiRenderer(); 
+  MultiRenderer(uint32_t maxPrimitives); 
   const char* Name() const override;
   
   //required by slicer!
   virtual void SceneRestrictions(uint32_t a_restrictions[4]) const
   {
     uint32_t maxMeshes            = 1024;
-    uint32_t maxTotalVertices     = 8'000'000;
-    uint32_t maxTotalPrimitives   = 8'000'000;
-    uint32_t maxPrimitivesPerMesh = 4'000'000;
+    uint32_t maxTotalVertices     = m_maxPrimitives;
+    uint32_t maxTotalPrimitives   = m_maxPrimitives;
+    uint32_t maxPrimitivesPerMesh = m_maxPrimitives;
 
     a_restrictions[0] = maxMeshes;
     a_restrictions[1] = maxTotalVertices;
@@ -88,7 +89,10 @@ public:
   void RenderFloat(LiteMath::float4* imageData, uint32_t a_width, uint32_t a_height, const char* a_what, int a_passNum = 1);
   void SetViewport(int a_xStart, int a_yStart, int a_width, int a_height) override;
 
-  void SetAccelStruct(std::shared_ptr<ISceneObject> a_customAccelStruct) override { m_pAccelStruct = a_customAccelStruct;}
+  void SetAccelStruct(std::shared_ptr<ISceneObject> a_customAccelStruct) override 
+  { 
+    m_pAccelStruct  = a_customAccelStruct;
+  }
   std::shared_ptr<ISceneObject> GetAccelStruct() override { return m_pAccelStruct; }
 
   void GetExecutionTime(const char* a_funcName, float a_out[4]) override;
@@ -97,11 +101,11 @@ public:
 
   void UpdateCamera(const LiteMath::float4x4& a_worldView, const LiteMath::float4x4& a_proj) override;
   
-  //ddefault one, loading meshes
+  //default one, loading already existing stuff
   bool LoadSceneHydra(const std::string& a_path);
 
-  //so_settings is used only when type is soem kind of SDF octree
-  bool LoadSceneHydra(const std::string& a_path, unsigned type, SparseOctreeSettings so_settings);  
+  //load hydra scene with some meshes, convert them to SDF with given settings and load to MultiRenderer
+  bool CreateSceneFromHydra(const std::string& a_path, unsigned type, SparseOctreeSettings so_settings);  
 
   uint32_t AddTexture(const Image2D<float4> &image);
   uint32_t AddMaterial(const MultiRendererMaterial &material);
@@ -139,8 +143,8 @@ protected:
   uint32_t encode_RGBA8(LiteMath::float4 c);
   LiteMath::float4 decode_RGBA8(uint32_t c);
   LiteMath::float3 decode_normal(float2 v);
-  float3 rand3(uint32_t x, uint32_t y, uint32_t iter);
-  float2 rand2(uint32_t x, uint32_t y, uint32_t iter);
+  LiteMath::float3 rand3(uint32_t x, uint32_t y, uint32_t iter);
+  LiteMath::float2 rand2(uint32_t x, uint32_t y, uint32_t iter);
 
   uint32_t m_width;
   uint32_t m_height;
@@ -152,8 +156,8 @@ protected:
   LiteMath::float4x4 m_projInv;
   LiteMath::float4x4 m_worldViewInv;
 
-  std::shared_ptr<ISceneObject> m_pAccelStruct;
-  std::vector<uint32_t>         m_packedXY;
+  std::shared_ptr<ISceneObject>  m_pAccelStruct;
+  std::vector<uint32_t>          m_packedXY;
 
   float4 m_mainLightDir; //direction to main light, normalized
   float4 m_mainLightColor; //color of main light, also intensity
@@ -190,9 +194,7 @@ protected:
   uint64_t m_totalTris         = 0;
   uint64_t m_totalTrisVisiable = 0;
 
-  uint32_t GetGeomNum() const override { return m_pAccelStruct->GetGeomNum(); };
-  uint32_t GetInstNum() const override { return m_pAccelStruct->GetInstNum(); };
-  const LiteMath::float4* GetGeomBoxes() const  override { return m_pAccelStruct->GetGeomBoxes(); };
+  uint32_t m_maxPrimitives; //required in constructor to allocate enough memory in Vulkan
 };
 
-std::shared_ptr<MultiRenderer> CreateMultiRenderer(const char* a_name);
+std::shared_ptr<MultiRenderer> CreateMultiRenderer(const char* a_name, uint32_t maxPrimitives = 10'000'000);

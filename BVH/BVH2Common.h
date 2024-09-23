@@ -29,26 +29,34 @@ using LiteMath::Box4f;
 #include "../raytrace_common.h"
 #include "cbvh.h"
 
-static MultiRenderPreset getDefaultPreset()
-{
-  MultiRenderPreset p;
-  p.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
-  p.sdf_octree_sampler = SDF_OCTREE_SAMPLER_MIPSKIP_3X3;
-  p.sdf_node_intersect = SDF_OCTREE_NODE_INTERSECT_ST;
-  p.mesh_normal_mode = MESH_NORMAL_MODE_GEOMETRY;
-  p.ray_gen_mode = RAY_GEN_MODE_REGULAR;
-  p.spp = 1;
-
-  return p;
-}
-
+struct BVHRT;
 struct GeomData
 {
   float4 boxMin;
   float4 boxMax;
-  uint2 offset;
+
   uint32_t bvhOffset;
   uint32_t type; // enum GeomType
+  uint2 offset;
+};
+
+struct AbstractObject
+{
+  static constexpr uint32_t TAG_NONE       = 0;    // !!! #REQUIRED by kernel slicer: Empty/Default impl must have zero both m_tag and offset
+  static constexpr uint32_t TAG_TRIANGLE   = 1; 
+  static constexpr uint32_t TAG_SDF_GRID   = 2; 
+  static constexpr uint32_t TAG_SDF_NODE   = 3; 
+  static constexpr uint32_t TAG_SDF_BRICK  = 4;
+  static constexpr uint32_t TAG_RF         = 5;
+  static constexpr uint32_t TAG_GS         = 6;
+  static constexpr uint32_t TAG_SDF_ADAPT_BRICK  = 7;
+
+  AbstractObject(){}  // Dispatching on GPU hierarchy must not have destructors, especially virtual   
+  virtual uint32_t GetTag()   const  { return TAG_NONE; }; // !!! #REQUIRED by kernel slicer
+  virtual uint32_t Intersect(float4 rayPosAndNear, float4 rayDirAndFar, CRT_LeafInfo info, CRT_Hit* pHit, BVHRT* pData)   const  { return 0; }; // !!! #REQUIRED by kernel slicer
+  //uint64_t vtable is here!
+  uint32_t m_tag;  // !!! #REQUIRED by kernel slicer with this specific name!
+  uint32_t geomId; //geometry Id (index in the list of all objects on scene, regardless of the type)
 };
 
 // common data for arch instance on scene
@@ -57,7 +65,9 @@ struct InstanceData
   float4 boxMin;
   float4 boxMax;
   uint32_t geomId;
-  uint32_t _pad[7];
+  uint32_t instStart;
+  uint32_t instEnd;
+  uint32_t _pad[5];
   float4x4 transform;
   float4x4 transformInv;
   float4x4 transformInvTransposed; //for normals
@@ -81,26 +91,38 @@ struct BVHRT : public ISceneObject
   ~BVHRT() override {}
 
   const char* Name() const override { return "BVH2Fat"; }
-  const char* BuildName() const override { return m_buildName.c_str(); };
 
   void ClearGeom() override;
 
-  uint32_t AddGeom_Triangles3f(const float *a_vpos3f, size_t a_vertNumber, const uint32_t *a_triIndices, size_t a_indNumber, BuildOptions a_qualityLevel, size_t vByteStride) override;
-  void     UpdateGeom_Triangles3f(uint32_t a_geomId, const float *a_vpos3f, size_t a_vertNumber, const uint32_t *a_triIndices, size_t a_indNumber, BuildOptions a_qualityLevel, size_t vByteStride) override;
+  uint32_t AddCustomGeom_FromFile(const char *geom_type_name, const char *filename, ISceneObject *fake_this) override;
+
+  uint32_t AddGeom_Triangles3f(const float *a_vpos3f, size_t a_vertNumber, const uint32_t *a_triIndices, size_t a_indNumber, uint32_t a_flags, size_t vByteStride) override;
+  void     UpdateGeom_Triangles3f(uint32_t a_geomId, const float *a_vpos3f, size_t a_vertNumber, const uint32_t *a_triIndices, size_t a_indNumber, uint32_t a_flags, size_t vByteStride) override;
+
+  //generic version, should not be used, use simplier version below
+  uint32_t AddGeom_AABB(uint32_t a_typeId, const CRT_AABB* boxMinMaxF8, size_t a_boxNumber, void** a_customPrimPtrs, size_t a_customPrimCount) override;
+  void     UpdateGeom_AABB(uint32_t a_geomId, uint32_t a_typeId, const CRT_AABB* boxMinMaxF8, size_t a_boxNumber, void** a_customPrimPtrs, size_t a_customPrimCount) override;
+
+  uint32_t AddGeom_AABB(uint32_t a_typeId, const CRT_AABB* boxMinMaxF8, size_t a_boxNumber);
+
 #ifndef KERNEL_SLICER  
   uint32_t AddGeom_Triangles3f(const float* a_vpos3f, const float* a_vnorm3f, size_t a_vertNumber, const uint32_t* a_triIndices, 
-                               size_t a_indNumber, BuildOptions a_qualityLevel, size_t vByteStride) override;
-  uint32_t AddGeom_SdfGrid(SdfGridView grid, BuildOptions a_qualityLevel = BUILD_HIGH) override;
-  uint32_t AddGeom_RFScene(RFScene grid, BuildOptions a_qualityLevel = BUILD_HIGH) override;
-  uint32_t AddGeom_GSScene(GSScene grid, BuildOptions a_qualityLevel = BUILD_HIGH) override;
-  uint32_t AddGeom_SdfOctree(SdfOctreeView octree, BuildOptions a_qualityLevel = BUILD_HIGH) override;
-  uint32_t AddGeom_SdfFrameOctree(SdfFrameOctreeView octree, BuildOptions a_qualityLevel = BUILD_HIGH) override;
-  uint32_t AddGeom_SdfSVS(SdfSVSView octree, BuildOptions a_qualityLevel = BUILD_HIGH) override;
-  uint32_t AddGeom_SdfSBS(SdfSBSView octree, bool single_bvh_node = false, BuildOptions a_qualityLevel = BUILD_HIGH) override;
-  uint32_t AddGeom_SdfFrameOctreeTex(SdfFrameOctreeTexView octree, BuildOptions a_qualityLevel = BUILD_HIGH) override;
+                               size_t a_indNumber, BuildOptions a_qualityLevel, size_t vByteStride);
+  uint32_t AddGeom_SdfGrid(SdfGridView grid, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
+  uint32_t AddGeom_RFScene(RFScene grid, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
+  uint32_t AddGeom_GSScene(GSScene grid, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
+  uint32_t AddGeom_SdfOctree(SdfOctreeView octree, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
+  uint32_t AddGeom_SdfFrameOctree(SdfFrameOctreeView octree, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
+  uint32_t AddGeom_SdfSVS(SdfSVSView octree, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
+  uint32_t AddGeom_SdfSBS(SdfSBSView octree, ISceneObject *fake_this, bool single_bvh_node = false, BuildOptions a_qualityLevel = BUILD_HIGH);
+  uint32_t AddGeom_SdfSBSAdapt(SdfSBSAdaptView octree, ISceneObject *fake_this, bool single_bvh_node = false, BuildOptions a_qualityLevel = BUILD_HIGH);
+  uint32_t AddGeom_SdfFrameOctreeTex(SdfFrameOctreeTexView octree, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
 
-  void set_debug_mode(bool enable) override;
+  void set_debug_mode(bool enable);
 #endif
+
+  void SetPreset(const MultiRenderPreset& a_preset){ m_preset = a_preset; }
+  MultiRenderPreset GetPreset() const { return m_preset; }
 
   //common functions for a few Sdf...Function interfaces
 #ifndef KERNEL_SLICER 
@@ -136,9 +158,6 @@ struct BVHRT : public ISceneObject
   bool    RayQuery_AnyHit(float4 posAndNear, float4 dirAndFar) override;
   bool    RayQuery_AnyHitMotion(LiteMath::float4 posAndNear, LiteMath::float4 dirAndFar, float time = 0.0f) override
   { return RayQuery_AnyHit(posAndNear, dirAndFar); }
-  
-  uint32_t GetGeomNum() const override { return uint32_t(m_geomData.size()); }
-  uint32_t GetInstNum() const override { return uint32_t(m_instanceData.size()); }
 
 //protected:
 
@@ -189,6 +208,11 @@ struct BVHRT : public ISceneObject
                             float tNear, uint32_t instId, uint32_t geomId,
                             uint32_t a_start, uint32_t a_count,
                             CRT_Hit *pHit);
+  
+  void OctreeAdaptBrickIntersect(uint32_t type, const float3 ray_pos, const float3 ray_dir,
+                                 float tNear, uint32_t instId, uint32_t geomId,
+                                 uint32_t a_start, uint32_t a_count,
+                                 CRT_Hit *pHit);
 
   virtual void BVH2TraverseF32(const float3 ray_pos, const float3 ray_dir, float tNear, 
                                uint32_t instId, uint32_t geomId, bool stopOnFirstHit,
@@ -213,7 +237,6 @@ struct BVHRT : public ISceneObject
   virtual bool is_leaf(unsigned offset);
   virtual float eval_dist_trilinear(const float values[8], float3 dp);
   virtual bool need_normal();
-
   virtual float2 encode_normal(float3 n);
 
 #ifndef DISABLE_SDF_OCTREE
@@ -287,6 +310,16 @@ struct BVHRT : public ISceneObject
   std::vector<uint2>        m_SdfSBSRemap;   //primId->nodeId, required as each SBS node can have >1 bbox in BLAS
 #endif
 
+  //SDF Adaptive Sparse Brick Sets
+#ifndef DISABLE_SDF_SBS_ADAPT
+  std::vector<SdfSBSAdaptNode>   m_SdfSBSAdaptNodes;   //nodes for all SDF Sparse Brick Sets
+  std::vector<uint32_t>          m_SdfSBSAdaptData;    //raw data for all Sparse Brick Sets
+  std::vector<float>             m_SdfSBSAdaptDataF;   //raw float data for all indexed Sparse Brick Sets
+  std::vector<uint32_t>          m_SdfSBSAdaptRoots;   //root node ids for each SDF Sparse Voxel Set
+  std::vector<SdfSBSAdaptHeader> m_SdfSBSAdaptHeaders; //header for each SDF Sparse Voxel Set
+  std::vector<uint2>             m_SdfSBSAdaptRemap;   //primId->nodeId, required as each SBS node can have >1 bbox in BLAS
+#endif
+
   //SDF textured frame octree data
 #ifndef DISABLE_SDF_FRAME_OCTREE_TEX
   std::vector<SdfFrameOctreeTexNode> m_SdfFrameOctreeTexNodes;//nodes for all SDF octrees
@@ -304,11 +337,17 @@ struct BVHRT : public ISceneObject
   std::vector<uint32_t> m_indices;
   std::vector<uint32_t> m_primIndices;
 
-  //geometric data
+  //geometric data, indexed by geomId
   std::vector<GeomData> m_geomData;
+  std::vector<AbstractObject>   m_abstractObjects;
+  std::vector<AbstractObject *> m_abstractObjectPtrs;
+  std::vector<uint2>    startEnd;
 
   //instance data
   std::vector<InstanceData> m_instanceData;
+
+  //AABB data, indexed by globalAABBId
+  std::vector<uint32_t> m_primIdCount; //for each AABB stores start index and number of primitives stored in this AABB
 
   //Top Level Acceleration Structure
   std::vector<BVHNode>    m_nodesTLAS;
@@ -323,4 +362,189 @@ struct BVHRT : public ISceneObject
 
   bool m_firstSceneCommit = true;
   bool debug_cur_pixel = false;
+  
+  MultiRenderPreset m_preset;
+};
+
+static bool need_normal(MultiRenderPreset preset)
+{
+  return preset.render_mode == MULTI_RENDER_MODE_LAMBERT_NO_TEX || 
+         preset.render_mode == MULTI_RENDER_MODE_NORMAL  ||
+         preset.render_mode == MULTI_RENDER_MODE_PHONG_NO_TEX ||
+         preset.render_mode == MULTI_RENDER_MODE_LAMBERT ||
+         preset.render_mode == MULTI_RENDER_MODE_PHONG;
+}
+
+struct EmptyGeomData : public AbstractObject
+{
+  EmptyGeomData() {m_tag = GetTag();} 
+
+  uint32_t GetTag() const override { return TAG_NONE; }  
+  uint32_t Intersect(float4 rayPosAndNear, float4 rayDirAndFar, CRT_LeafInfo info, 
+                     CRT_Hit* pHit, BVHRT* pData)   const override
+  {
+    return TAG_NONE;
+  }
+};
+
+struct GeomDataTriangle : public AbstractObject
+{
+  GeomDataTriangle() {m_tag = GetTag();} 
+
+  uint32_t GetTag() const override { return TAG_TRIANGLE; }  
+
+  uint32_t Intersect(float4 rayPosAndNear, float4 rayDirAndFar, CRT_LeafInfo info, 
+                     CRT_Hit* pHit, BVHRT* bvhrt) const override
+  {
+    float3 ray_pos = to_float3(rayPosAndNear);
+    float3 ray_dir = to_float3(rayDirAndFar);
+    float tNear    = rayPosAndNear.w;
+    uint32_t geometryId = geomId;
+    uint32_t globalAABBId = bvhrt->startEnd[geometryId].x + info.aabbId;
+    uint32_t start_count_packed = bvhrt->m_primIdCount[globalAABBId];
+    uint32_t a_start = EXTRACT_START(start_count_packed);
+    uint32_t a_count = EXTRACT_COUNT(start_count_packed);
+
+    bvhrt->IntersectAllTrianglesInLeaf(ray_pos, ray_dir, tNear, info.instId, geometryId, a_start, a_count, pHit);
+    return pHit->primId == 0xFFFFFFFF ? TAG_NONE : TAG_TRIANGLE;
+  }  
+};
+
+struct GeomDataSdfGrid : public AbstractObject
+{
+  GeomDataSdfGrid() {m_tag = GetTag();} 
+
+  uint32_t GetTag() const override { return TAG_SDF_GRID; }  
+  uint32_t Intersect(float4 rayPosAndNear, float4 rayDirAndFar, CRT_LeafInfo info, 
+                     CRT_Hit* pHit, BVHRT* bvhrt)   const override
+  {
+    float3 ray_pos = to_float3(rayPosAndNear);
+    float3 ray_dir = to_float3(rayDirAndFar);
+    float tNear    = rayPosAndNear.w;
+    uint32_t geometryId = geomId;
+    uint32_t globalAABBId = bvhrt->startEnd[geometryId].x + info.aabbId;
+    uint32_t start_count_packed = bvhrt->m_primIdCount[globalAABBId];
+    uint32_t a_start = EXTRACT_START(start_count_packed);
+    uint32_t a_count = EXTRACT_COUNT(start_count_packed);
+
+    bvhrt->IntersectAllSdfsInLeaf(ray_pos, ray_dir, tNear, info.instId, geometryId, a_start, a_count, pHit);
+    return pHit->primId == 0xFFFFFFFF ? TAG_NONE : TAG_SDF_GRID;
+  }
+};
+
+struct GeomDataSdfNode : public AbstractObject
+{
+  GeomDataSdfNode() {m_tag = GetTag();} 
+
+  uint32_t GetTag() const override { return TAG_SDF_NODE; }  
+  uint32_t Intersect(float4 rayPosAndNear, float4 rayDirAndFar, CRT_LeafInfo info, 
+                     CRT_Hit* pHit, BVHRT* bvhrt) const override
+  {
+    float3 ray_pos = to_float3(rayPosAndNear);
+    float3 ray_dir = to_float3(rayDirAndFar);
+    float tNear    = rayPosAndNear.w;
+    uint32_t geometryId = geomId;
+    uint32_t globalAABBId = bvhrt->startEnd[geometryId].x + info.aabbId;
+    uint32_t start_count_packed = bvhrt->m_primIdCount[globalAABBId];
+    uint32_t a_start = EXTRACT_START(start_count_packed);
+    uint32_t a_count = EXTRACT_COUNT(start_count_packed);
+    uint32_t type = bvhrt->m_geomData[geometryId].type;
+
+    bvhrt->OctreeNodeIntersect(type, ray_pos, ray_dir, tNear, info.instId, geometryId, a_start, a_count, pHit);
+    return pHit->primId == 0xFFFFFFFF ? TAG_NONE : TAG_SDF_NODE;
+  }
+};
+
+struct GeomDataSdfBrick : public AbstractObject
+{
+  GeomDataSdfBrick() {m_tag = GetTag();} 
+
+  uint32_t GetTag() const override { return TAG_SDF_BRICK; }  
+  uint32_t Intersect(float4 rayPosAndNear, float4 rayDirAndFar, CRT_LeafInfo info, 
+                     CRT_Hit* pHit, BVHRT* bvhrt)   const override
+  {
+    float3 ray_pos = to_float3(rayPosAndNear);
+    float3 ray_dir = to_float3(rayDirAndFar);
+    float tNear    = rayPosAndNear.w;
+    uint32_t geometryId = geomId;
+    uint32_t globalAABBId = bvhrt->startEnd[geometryId].x + info.aabbId;
+    uint32_t start_count_packed = bvhrt->m_primIdCount[globalAABBId];
+    uint32_t a_start = EXTRACT_START(start_count_packed);
+    uint32_t a_count = EXTRACT_COUNT(start_count_packed);
+    uint32_t type = bvhrt->m_geomData[geometryId].type;
+
+    bvhrt->OctreeBrickIntersect(type, ray_pos, ray_dir, tNear, info.instId, geometryId, a_start, a_count, pHit);
+    return pHit->primId == 0xFFFFFFFF ? TAG_NONE : TAG_SDF_BRICK;
+  }
+};
+
+struct GeomDataSdfAdaptBrick : public AbstractObject
+{
+  GeomDataSdfAdaptBrick() {m_tag = GetTag();} 
+
+  uint32_t GetTag() const override { return TAG_SDF_ADAPT_BRICK; }  
+  uint32_t Intersect(float4 rayPosAndNear, float4 rayDirAndFar, CRT_LeafInfo info, 
+                     CRT_Hit* pHit, BVHRT* bvhrt)   const override
+  {
+    float3 ray_pos = to_float3(rayPosAndNear);
+    float3 ray_dir = to_float3(rayDirAndFar);
+    float tNear    = rayPosAndNear.w;
+    uint32_t geometryId = geomId;
+    uint32_t globalAABBId = bvhrt->startEnd[geometryId].x + info.aabbId;
+    uint32_t start_count_packed = bvhrt->m_primIdCount[globalAABBId];
+    uint32_t a_start = EXTRACT_START(start_count_packed);
+    uint32_t a_count = EXTRACT_COUNT(start_count_packed);
+    uint32_t type = bvhrt->m_geomData[geometryId].type;
+
+    bvhrt->OctreeAdaptBrickIntersect(type, ray_pos, ray_dir, tNear, info.instId, geometryId, a_start, a_count, pHit);
+    return pHit->primId == 0xFFFFFFFF ? TAG_NONE : TAG_SDF_ADAPT_BRICK;
+  }
+};
+
+struct GeomDataRF : public AbstractObject
+{
+  GeomDataRF() {m_tag = GetTag();} 
+
+  uint32_t GetTag() const override { return TAG_RF; }  
+  uint32_t Intersect(float4 rayPosAndNear, float4 rayDirAndFar, CRT_LeafInfo info, 
+                     CRT_Hit* pHit, BVHRT* bvhrt)   const override
+  {
+#ifndef DISABLE_RF_GRID
+    float3 ray_pos = to_float3(rayPosAndNear);
+    float3 ray_dir = to_float3(rayDirAndFar);
+    float tNear    = rayPosAndNear.w;
+    uint32_t geometryId = geomId;
+    uint32_t globalAABBId = bvhrt->startEnd[geometryId].x + info.aabbId;
+    uint32_t start_count_packed = bvhrt->m_primIdCount[globalAABBId];
+    uint32_t a_start = EXTRACT_START(start_count_packed);
+    uint32_t a_count = EXTRACT_COUNT(start_count_packed);
+
+    bvhrt->IntersectRFInLeaf(ray_pos, ray_dir, tNear, info.instId, geometryId, a_start, a_count, pHit);
+#endif
+    return pHit->primId == 0xFFFFFFFF ? TAG_NONE : TAG_RF;
+  }
+};
+
+struct GeomDataGS : public AbstractObject
+{
+  GeomDataGS() {m_tag = GetTag();} 
+
+  uint32_t GetTag() const override { return TAG_GS; }  
+  uint32_t Intersect(float4 rayPosAndNear, float4 rayDirAndFar, CRT_LeafInfo info, 
+                     CRT_Hit* pHit, BVHRT* bvhrt)   const override
+  {
+#ifndef DISABLE_GS_PRIMITIVE
+    float3 ray_pos = to_float3(rayPosAndNear);
+    float3 ray_dir = to_float3(rayDirAndFar);
+    float tNear    = rayPosAndNear.w;
+    uint32_t geometryId = geomId;
+    uint32_t globalAABBId = bvhrt->startEnd[geometryId].x + info.aabbId;
+    uint32_t start_count_packed = bvhrt->m_primIdCount[globalAABBId];
+    uint32_t a_start = EXTRACT_START(start_count_packed);
+    uint32_t a_count = EXTRACT_COUNT(start_count_packed);
+
+    bvhrt->IntersectGSInLeaf(ray_pos, ray_dir, tNear, info.instId, geometryId, a_start, a_count, pHit);
+#endif
+    return pHit->primId == 0xFFFFFFFF ? TAG_NONE : TAG_GS;
+  }
 };

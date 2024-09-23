@@ -111,7 +111,8 @@ namespace dr
     }
   }
 
-  MultiRendererDR::MultiRendererDR()
+  MultiRendererDR::MultiRendererDR(uint32_t maxPrimitives):
+  MultiRenderer(maxPrimitives)
   {
     m_preset = getDefaultPreset();
     m_preset_dr = getDefaultPresetDR();
@@ -324,8 +325,8 @@ namespace dr
 
     m_images = std::vector<LiteImage::Image2D<float4>>(m_imagesRef.size(), LiteImage::Image2D<float4>(m_width, m_height, float4(0, 0, 0, 1)));
     m_imagesDepth = std::vector<LiteImage::Image2D<float4>>(m_imagesRef.size(), LiteImage::Image2D<float4>(m_width, m_height, float4(0, 0, 0, 1)));
-    m_pAccelStruct = std::shared_ptr<ISceneObject>(new BVHDR());
-    m_pAccelStruct->SetPreset(m_preset);
+    SetAccelStruct(std::shared_ptr<ISceneObject>(new BVHDR()));
+    SetPreset(m_preset);
     SetScene(sbs, true);
 
     float *params = ((BVHDR*)m_pAccelStruct.get())->m_SdfSBSDataF.data();
@@ -479,13 +480,13 @@ namespace dr
           {
             auto original_mode = m_preset.render_mode;
             m_preset.render_mode = preset.debug_progress_images;
-            m_pAccelStruct->SetPreset(m_preset);
+            SetPreset(m_preset);
 
             UpdateCamera(m_worldViewRef[image_id], m_projRef[image_id]);
             RenderFloat(m_images[image_id].data(), m_width, m_height, "color");
 
             m_preset.render_mode = original_mode;
-            m_pAccelStruct->SetPreset(m_preset);
+            SetPreset(m_preset);
           }
           
           LiteImage::SaveImage<float4>(("saves/iter_"+std::to_string(iter)+"_"+std::to_string(image_id)+".png").c_str(), m_images[image_id]);
@@ -1233,13 +1234,13 @@ namespace dr
         {
           if (payload.missed_indices[j] == INVALID_INDEX)
             continue;
-          float diff = dot(dLoss_dColor, (1.0f / relax_eps) * payload.missed_dSDF_dtheta[j] * color_delta);
-          out_dLoss_dS[payload.missed_indices[j]] += diff / border_spp;
+          float diff = m_preset_dr.border_integral_mult * (1.0f / border_spp) *dot(dLoss_dColor, (1.0f / relax_eps) * payload.missed_dSDF_dtheta[j] * color_delta);
+          out_dLoss_dS[payload.missed_indices[j]] += diff;
 
-          total_diff += abs(diff) / border_spp;
+          total_diff += abs(diff);
           pixel_diff += length((1.0f / relax_eps) * payload.missed_dSDF_dtheta[j] * color_delta);
           if (m_preset_dr.debug_pd_images)
-            m_imagesDebugPD[payload.missed_indices[j]].data()[y * m_width + x] += (diff / border_spp) * float4(1, 1, 1, 0);
+            m_imagesDebugPD[payload.missed_indices[j]].data()[y * m_width + x] += diff * float4(1, 1, 1, 0);
         }
       }
 
@@ -1649,7 +1650,7 @@ namespace dr
 
         for (int j = 0; j < 8; j++)
         {
-          float diff = sampling_pdf * dot(dLoss_dColor, (1.0f / relax_eps) * payload.missed_dSDF_dtheta[j] * color_delta);
+          float diff = m_preset_dr.border_integral_mult * sampling_pdf * dot(dLoss_dColor, (1.0f / relax_eps) * payload.missed_dSDF_dtheta[j] * color_delta);
           out_dLoss_dS[payload.missed_indices[j]] += diff;
 
           total_diff += abs(diff);

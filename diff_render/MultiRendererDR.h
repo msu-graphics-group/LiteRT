@@ -26,6 +26,7 @@ namespace dr
 
     preset.border_spp = 256;
     preset.border_relax_eps = 1e-3f;
+    preset.border_integral_mult = 1.0f;
 
     preset.opt_lr = 0.01f;
     preset.opt_beta_1 = 0.9f;
@@ -58,7 +59,7 @@ namespace dr
   class MultiRendererDR : public MultiRenderer
   {
   public:
-    MultiRendererDR();
+    MultiRendererDR(uint32_t maxPrimitives = 10'000'000);
     void setBorderThickness(uint32_t thickness);
     void cleanMasks();
     void SetReference(const std::vector<LiteImage::Image2D<float4>>& images, 

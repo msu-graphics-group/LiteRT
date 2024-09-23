@@ -37,6 +37,7 @@ static constexpr unsigned SDF_PRIM_SIREN = 3;
 static constexpr unsigned NEURAL_SDF_MAX_LAYERS = 8;
 static constexpr unsigned NEURAL_SDF_MAX_LAYER_SIZE = 1024;
 static constexpr float SIREN_W0 = 30;
+static constexpr unsigned SDF_SBS_ADAPT_MAX_UNITS = 1 << 15u;
 
 // enum SdfSBSNodeLayout
 static constexpr unsigned SDF_SBS_NODE_LAYOUT_UNDEFINED     = 0 << 24u; //should be interpreted as SDF_SBS_NODE_LAYOUT_D for legacy reasons
@@ -125,6 +126,15 @@ struct SdfSBSNode
   uint32_t _pad;
 };
 
+//node for Adaptive SBS, all brick offsets are in units.
+struct SdfSBSAdaptNode
+{
+  uint32_t pos_xy; // per-axis positions of the block's start voxel, in units. Limits: [0, 2^15). 2^15 means 1.0f (sdf scene's upper bound).
+  uint32_t pos_z_vox_size; // vox_size -- voxel size in units ('tis always a cube)
+  uint32_t data_offset;  //offset in data vector for block with distance values, offset is in uint32_t, not bytes
+  uint32_t vox_count_xyz_pad; // _pad - 1 byte | voxel_numbers_xyz - 3 bytes
+};
+
 //headed contains some info about particular SBS, such as size of a brick, precision of stored values etc
 //and also some precomputed values based on them to reduce the number of calculations during rendering
 struct SdfSBSHeader
@@ -133,6 +143,14 @@ struct SdfSBSHeader
   uint32_t brick_pad;       //how many additional voxels are stored on the borders, 0 is default, 1 is required for tricubic filtration
   uint32_t bytes_per_value; //1, 2 or 4 bytes per value is allowed
   uint32_t aux_data;        //SdfSBSNodeLayout
+};
+
+struct SdfSBSAdaptHeader
+{
+  uint32_t brick_pad;       //how many additional voxels are stored on the borders, 0 is default, 1 is required for tricubic filtration
+  uint32_t bytes_per_value; //1, 2 or 4 bytes per value is allowed
+  uint32_t aux_data;        //SdfSBSNodeLayout
+  uint32_t _pad;
 };
 
 struct SdfFrameOctreeTexNode
@@ -158,6 +176,14 @@ struct SdfSBS
 {
   SdfSBSHeader header;
   std::vector<SdfSBSNode> nodes;
+  std::vector<uint32_t> values;
+  std::vector<float> values_f; //used with indexed SBS layouts, as it is easier to have float values as a separate vector
+};
+
+struct SdfSBSAdapt
+{
+  SdfSBSAdaptHeader header;
+  std::vector<SdfSBSAdaptNode> nodes;
   std::vector<uint32_t> values;
   std::vector<float> values_f; //used with indexed SBS layouts, as it is easier to have float values as a separate vector
 };
@@ -270,6 +296,52 @@ struct SdfSBSView
   const float *values_f;
 };
 
+struct SdfSBSAdaptView
+{
+  SdfSBSAdaptView() = default;
+  SdfSBSAdaptView(const SdfSBSAdapt &sbs_adapt)
+  {
+    header = sbs_adapt.header;
+    size = sbs_adapt.nodes.size();
+    nodes = sbs_adapt.nodes.data();
+    values_count = sbs_adapt.values.size();
+    values = sbs_adapt.values.data();
+    values_f_count = sbs_adapt.values_f.size();
+    values_f = sbs_adapt.values_f.data();
+  }
+  SdfSBSAdaptView(SdfSBSAdaptHeader a_header, const std::vector<SdfSBSAdaptNode> &a_nodes, 
+             const std::vector<uint32_t> &a_values)
+  {
+    header = a_header;
+    size = a_nodes.size();
+    nodes = a_nodes.data();
+    values_count = a_values.size();
+    values = a_values.data();
+    values_f_count = 0;
+    values_f = nullptr;
+  }
+
+  SdfSBSAdaptView(SdfSBSAdaptHeader a_header, const std::vector<SdfSBSAdaptNode> &a_nodes,
+             const std::vector<uint32_t> &a_values, const std::vector<float> &a_values_f)
+  {
+    header = a_header;
+    size = a_nodes.size();
+    nodes = a_nodes.data();
+    values_count = a_values.size();
+    values = a_values.data();
+    values_f_count = a_values_f.size();
+    values_f = a_values_f.data();
+  }
+
+  SdfSBSAdaptHeader header;
+  unsigned size;
+  const SdfSBSAdaptNode *nodes;
+  unsigned values_count;
+  const uint32_t *values;
+  unsigned values_f_count;
+  const float *values_f;
+};
+
 // structure to access and transfer SdfScene data
 // all interfaces use SdfSceneView to be independant of how exactly SDF scenes are stored
 struct SdfSceneView
@@ -372,4 +444,7 @@ void save_sdf_frame_octree_tex(const SdfFrameOctreeTexView &scene, const std::st
 void load_sdf_frame_octree_tex(std::vector<SdfFrameOctreeTexNode> &scene, const std::string &path);
 
 void load_neural_sdf_scene_SIREN(SdfScene &scene, const std::string &path); // loads scene from raw SIREN weights file
+
+SdfSBSAdaptNode convert_sbs_node_to_adapt(const SdfSBSNode &sbs_node, uint32_t sbs_header_brick_size);
+SdfSBSAdaptView convert_sbs_to_adapt(SdfSBSAdapt &adapt_scene, const SdfSBSView &scene);
 #endif
