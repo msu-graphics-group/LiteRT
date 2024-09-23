@@ -3,6 +3,7 @@
 #include "DR_common.h"
 #include "BVH2DR.h"
 #include "../Renderer/eye_ray.h"
+#include <set>
 
 namespace dr
 {
@@ -20,6 +21,8 @@ namespace dr
     preset.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_COLOR;
     preset.dr_input_type = DR_INPUT_TYPE_COLOR;
     preset.dr_border_sampling = DR_BORDER_SAMPLING_RANDOM;
+
+    preset.dr_raycasting_mask = -1;
 
     preset.border_spp = 256;
     preset.border_relax_eps = 1e-3f;
@@ -57,6 +60,8 @@ namespace dr
   {
   public:
     MultiRendererDR(uint32_t maxPrimitives = 10'000'000);
+    void setBorderThickness(uint32_t thickness);
+    void cleanMasks();
     void SetReference(const std::vector<LiteImage::Image2D<float4>>& images, 
                       const std::vector<LiteMath::float4x4>& worldView, 
                       const std::vector<LiteMath::float4x4>& proj);
@@ -98,12 +103,12 @@ namespace dr
     std::vector<LiteImage::Image2D<float4>> m_imagesRefMask;
     std::vector<LiteImage::Image2D<float4>> m_imagesRef;
 
-    //  It is needed to cast rays in image part where is object and not in empty space, 
-    //  but now it may be complicated to use it in that way
-    std::vector<std::pair<int, int>> ray_bounds;
+    //  It is needed to cast rays in image part where is object and not in empty space
+    std::vector<std::vector<uint32_t>> masks;
+    std::vector<uint32_t> process_mask;
     //  So, let's determine object frame size and then extend it on N pixels on every side
-    std::pair<uint32_t, uint32_t> bounds[2];
-    uint32_t extend_pixels_num;
+    uint32_t add_border;
+    uint32_t mask_ind;
 
     std::vector<LiteImage::Image2D<float4>> m_images;
     std::vector<LiteImage::Image2D<float4>> m_imagesDepth;
