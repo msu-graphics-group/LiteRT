@@ -2287,6 +2287,84 @@ void litert_test_29_smoothed_frame_octree()
   LiteImage::SaveImage<uint32_t>("saves/test_29_octree.bmp", image_2);
 }
 
+void litert_test_30_verify_SBS_SBSAdapt()
+{
+  MultiRenderPreset preset = getDefaultPreset();
+  preset.render_mode = MULTI_RENDER_MODE_LINEAR_DEPTH;
+  preset.sdf_node_intersect = SDF_OCTREE_NODE_INTERSECT_ST;
+
+  auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path+"scenes/01_simple_scenes/data/teapot.vsgf").c_str());
+  cmesh4::rescale_mesh(mesh, float3(-0.9, -0.9, -0.9), float3(0.9, 0.9, 0.9));
+
+  SparseOctreeSettings settings(SparseOctreeBuildType::DEFAULT, 8);
+  SdfSBSHeader header_1_1{1,0,1,SDF_SBS_NODE_LAYOUT_DX};
+  SdfSBSHeader header_1_2{1,0,2,SDF_SBS_NODE_LAYOUT_DX};
+  SdfSBSHeader header_2_1{2,0,1,SDF_SBS_NODE_LAYOUT_DX};
+  SdfSBSHeader header_2_2{2,0,2,SDF_SBS_NODE_LAYOUT_DX};
+
+  SdfSBS sbs_1_1 = sdf_converter::create_sdf_SBS(settings, header_1_1, mesh);
+  SdfSBS sbs_1_2 = sdf_converter::create_sdf_SBS(settings, header_1_2, mesh);
+  SdfSBS sbs_2_1 = sdf_converter::create_sdf_SBS(settings, header_2_1, mesh);
+  SdfSBS sbs_2_2 = sdf_converter::create_sdf_SBS(settings, header_2_2, mesh);
+  SdfSBS &curr_sbs = sbs_2_2; // in all 4 cases (whether is_single_node is true or false) PSNR(sbs, sbs_adapted) == 100
+
+  unsigned W = 1024, H = 1024;
+  LiteImage::Image2D<uint32_t> image(W, H);
+  LiteImage::Image2D<uint32_t> ref_image(W, H);
+  LiteImage::Image2D<uint32_t> sbs_image(W, H);
+
+  printf("TEST 30. SBS and SBSAdapt correctness\n");
+  {
+    auto pRender = CreateMultiRenderer("CPU");
+    pRender->SetPreset(preset);
+    pRender->SetScene(mesh);
+    render(image, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset);
+    LiteImage::SaveImage<uint32_t>("saves/test_30_reference.bmp", image); 
+    ref_image = image;
+  }
+  {
+    auto pRender = CreateMultiRenderer("CPU");
+    pRender->SetPreset(preset);
+    pRender->SetScene(curr_sbs);
+
+    render(image, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset);
+    LiteImage::SaveImage<uint32_t>("saves/test_30_SBS.bmp", image); 
+    sbs_image = image;
+
+    float psnr = image_metrics::PSNR(ref_image, image);
+
+    printf("  30.1. %-64s", "[CPU] 2-voxel,2-byte SBS and reference image PSNR > 40 ");
+    if (psnr >= 40)
+      printf("passed    (%.2f)\n", psnr);
+    else
+      printf("FAILED, psnr = %f\n", psnr);
+  }
+  {
+    auto pRender = CreateMultiRenderer("CPU");
+    pRender->SetPreset(preset);
+    SdfSBSAdapt sbsa_scene;
+    SdfSBSAdaptView sbsa_view = convert_sbs_to_adapt(sbsa_scene, curr_sbs);
+    pRender->SetScene(sbsa_view);
+
+    render(image, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset);
+    LiteImage::SaveImage<uint32_t>("saves/test_30_SBSA.bmp", image); 
+
+    float psnr = image_metrics::PSNR(ref_image, image);
+    printf("  30.2. %-64s", "[CPU] SBSAdapt and reference image PSNR > 40 ");
+    if (psnr >= 40)
+      printf("passed    (%.2f)\n", psnr);
+    else
+      printf("FAILED, psnr = %f\n", psnr);
+
+    float sbsa_psnr = image_metrics::PSNR(sbs_image, image);
+    printf("  30.3. %-64s", "[CPU] 2-voxel,2-byte SBS matches SBSAdapt");
+    if (sbsa_psnr >= 40)
+      printf("passed    (%.2f)\n", sbsa_psnr);
+    else
+      printf("FAILED, psnr = %f\n", sbsa_psnr);
+  }
+}
+
 void perform_tests_litert(const std::vector<int> &test_ids)
 {
   std::vector<int> tests = test_ids;
@@ -2301,7 +2379,7 @@ void perform_tests_litert(const std::vector<int> &test_ids)
       litert_test_19_marching_cubes, litert_test_20_radiance_fields, litert_test_21_rf_to_mesh,
       litert_test_22_sdf_grid_smoothing, litert_test_23_textured_sdf, litert_test_24_demo_meshes,
       litert_test_25_float_images, litert_test_26_sbs_shallow_bvh, litert_test_27_textured_colored_SBS,
-      litert_test_28_sbs_reg, litert_test_29_smoothed_frame_octree};
+      litert_test_28_sbs_reg, litert_test_29_smoothed_frame_octree, litert_test_30_verify_SBS_SBSAdapt};
 
   if (tests.empty())
   {

@@ -334,7 +334,7 @@ float4 MultiRenderer::kernel_RayTrace(uint32_t tidX, const float4* rayPosAndNear
   case MULTI_RENDER_MODE_DIFFUSE:
   {
     float4 color = float4(0,0,1,1);
-    if (type == TYPE_SDF_SBS_COL)
+    if (type == TYPE_SDF_SBS_COL || type == TYPE_SDF_SBS_ADAPT_COL)
     {
       color.x = std::round(hit.coords[0])/255.0f;
       color.y = fract(hit.coords[0]);
@@ -352,7 +352,7 @@ float4 MultiRenderer::kernel_RayTrace(uint32_t tidX, const float4* rayPosAndNear
   case MULTI_RENDER_MODE_LAMBERT:
   {
     float4 color = float4(0,0,1,1);
-    if (type == TYPE_SDF_SBS_COL)
+    if (type == TYPE_SDF_SBS_COL || type == TYPE_SDF_SBS_ADAPT_COL)
     {
       color.x = std::round(hit.coords[0])/255.0f;
       color.y = fract(hit.coords[0]);
@@ -380,7 +380,7 @@ float4 MultiRenderer::kernel_RayTrace(uint32_t tidX, const float4* rayPosAndNear
     const float BIAS = 1e-6f;
 
     float4 color = float4(0,0,1,1);
-    if (type == TYPE_SDF_SBS_COL)
+    if (type == TYPE_SDF_SBS_COL || type == TYPE_SDF_SBS_ADAPT_COL)
     {
       color.x = std::round(hit.coords[0])/255.0f;
       color.y = fract(hit.coords[0]);

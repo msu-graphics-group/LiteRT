@@ -1,18 +1,22 @@
 #pragma once
 
 //enum GeomType
-static constexpr unsigned TYPE_MESH_TRIANGLE        =  0;
-static constexpr unsigned TYPE_SDF_GRID             =  1;
-static constexpr unsigned TYPE_SDF_OCTREE           =  2;
-static constexpr unsigned TYPE_SDF_FRAME_OCTREE     =  3;
-static constexpr unsigned TYPE_RF_GRID              =  4;
-static constexpr unsigned TYPE_SDF_SVS              =  5;
-static constexpr unsigned TYPE_SDF_SBS              =  6;
-static constexpr unsigned TYPE_GS_PRIMITIVE         =  7;
-static constexpr unsigned TYPE_SDF_FRAME_OCTREE_TEX =  8;
-static constexpr unsigned TYPE_SDF_SBS_SINGLE_NODE  =  9;
-static constexpr unsigned TYPE_SDF_SBS_TEX          = 10;
-static constexpr unsigned TYPE_SDF_SBS_COL          = 11;
+static constexpr unsigned TYPE_MESH_TRIANGLE              =  0;
+static constexpr unsigned TYPE_SDF_GRID                   =  1;
+static constexpr unsigned TYPE_SDF_OCTREE                 =  2;
+static constexpr unsigned TYPE_SDF_FRAME_OCTREE           =  3;
+static constexpr unsigned TYPE_RF_GRID                    =  4;
+static constexpr unsigned TYPE_SDF_SVS                    =  5;
+static constexpr unsigned TYPE_SDF_SBS                    =  6;
+static constexpr unsigned TYPE_GS_PRIMITIVE               =  7;
+static constexpr unsigned TYPE_SDF_FRAME_OCTREE_TEX       =  8;
+static constexpr unsigned TYPE_SDF_SBS_SINGLE_NODE        =  9;
+static constexpr unsigned TYPE_SDF_SBS_TEX                = 10;
+static constexpr unsigned TYPE_SDF_SBS_COL                = 11;
+static constexpr unsigned TYPE_SDF_SBS_ADAPT              = 12;
+static constexpr unsigned TYPE_SDF_SBS_ADAPT_SINGLE_NODE  = 13;
+static constexpr unsigned TYPE_SDF_SBS_ADAPT_TEX          = 14;
+static constexpr unsigned TYPE_SDF_SBS_ADAPT_COL          = 15;
 
 static constexpr unsigned SH_TYPE = 28; //4 bits for type
 

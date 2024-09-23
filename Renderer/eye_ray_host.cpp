@@ -362,6 +362,23 @@ void MultiRenderer::SetScene(SdfSBSView scene, bool single_bvh_node)
   m_pAccelStruct->CommitScene();
 }
 
+void MultiRenderer::SetScene(SdfSBSAdaptView scene, bool single_bvh_node)
+{
+  BVHRT *bvhrt = dynamic_cast<BVHRT*>(m_pAccelStruct->UnderlyingImpl(0));
+  if (!bvhrt)
+  {
+    printf("only BVHRT supports SdfSBSAdapt\n");
+    return;
+  }
+
+  SetPreset(m_preset);
+  m_pAccelStruct->ClearGeom();
+  auto geomId = bvhrt->AddGeom_SdfSBSAdapt(scene, m_pAccelStruct.get(), single_bvh_node);
+  m_pAccelStruct->ClearScene();
+  m_pAccelStruct->AddInstance(0, LiteMath::float4x4());
+  m_pAccelStruct->CommitScene();
+}
+
 void MultiRenderer::SetScene(SdfFrameOctreeTexView scene)
 {
   BVHRT *bvhrt = dynamic_cast<BVHRT*>(m_pAccelStruct->UnderlyingImpl(0));

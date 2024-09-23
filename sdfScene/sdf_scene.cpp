@@ -269,3 +269,87 @@ void save_sdf_scene_hydra(const SdfScene &scene, const std::string &folder, cons
   fs.flush();
   fs.close();
 }
+
+SdfSBSAdaptNode convert_sbs_node_to_adapt(const SdfSBSNode &sbs_node, uint32_t sbs_header_brick_size)
+{
+  assert(sbs_header_brick_size < 256u);
+
+  uint32_t vox_count_xyz_pad = (sbs_header_brick_size << 16) + (sbs_header_brick_size << 8) + sbs_header_brick_size;
+  uint32_t pos_x =    (sbs_node.pos_xy >> 16) & 0x0000FFFF;
+  uint32_t pos_y =    (sbs_node.pos_xy      ) & 0x0000FFFF;
+  uint32_t pos_z =    (sbs_node.pos_z_lod_size >> 16) & 0x0000FFFF;
+  uint32_t lod_size = (sbs_node.pos_z_lod_size      ) & 0x0000FFFF;
+  uint32_t d_off =     sbs_node.data_offset;
+
+  {
+    int bit_count = 0;
+    for (int j = 0; j < 16; ++j)
+      bit_count += (lod_size >> j) & 1u;
+    assert(bit_count == 1);
+      // throw std::runtime_error("Error: convert SBS to adapt - lod size is not a power of two");
+  }
+  uint32_t voxel_size_in_units = SDF_SBS_ADAPT_MAX_UNITS / lod_size;
+
+  pos_x *= voxel_size_in_units;
+  pos_y *= voxel_size_in_units;
+  pos_z *= voxel_size_in_units;
+
+  assert(pos_x < SDF_SBS_ADAPT_MAX_UNITS);
+  assert(pos_y < SDF_SBS_ADAPT_MAX_UNITS);
+  assert(pos_z < SDF_SBS_ADAPT_MAX_UNITS);
+
+  SdfSBSAdaptNode res_node;
+  res_node.pos_xy = (pos_x << 16) + pos_y;
+  res_node.pos_z_vox_size = (pos_z << 16) + voxel_size_in_units;
+  res_node.data_offset = d_off;
+  res_node.vox_count_xyz_pad = vox_count_xyz_pad;
+
+  return res_node;
+}
+
+SdfSBSAdaptView convert_sbs_to_adapt(SdfSBSAdapt &adapt_scene, const SdfSBSView &scene)
+{
+  assert(scene.header.brick_size < 256u);
+  const uint32_t vox_count_xyz_pad = (scene.header.brick_size << 16) + (scene.header.brick_size << 8) + scene.header.brick_size;
+
+  adapt_scene.header.brick_pad = scene.header.brick_pad;
+  adapt_scene.header.bytes_per_value = scene.header.bytes_per_value;
+  adapt_scene.header.aux_data = scene.header.aux_data;
+  adapt_scene.values.insert(adapt_scene.values.end(), scene.values, scene.values + scene.values_count);
+  adapt_scene.values_f.insert(adapt_scene.values_f.end(), scene.values_f, scene.values_f + scene.values_f_count);
+
+  for (uint32_t i = 0u; i < scene.size; ++i)
+  {
+    uint32_t pos_x =    (scene.nodes[i].pos_xy >> 16) & 0x0000FFFF;
+    uint32_t pos_y =    (scene.nodes[i].pos_xy      ) & 0x0000FFFF;
+    uint32_t pos_z =    (scene.nodes[i].pos_z_lod_size >> 16) & 0x0000FFFF;
+    uint32_t lod_size = (scene.nodes[i].pos_z_lod_size      ) & 0x0000FFFF;
+    uint32_t d_off =     scene.nodes[i].data_offset;
+
+    {
+      int bit_count = 0;
+      for (int j = 0; j < 16; ++j)
+        bit_count += (lod_size >> j) & 1u;
+      assert(bit_count == 1);
+        // throw std::runtime_error("Error: convert SBS to adapt - lod size is not a power of two");
+    }
+    uint32_t voxel_size_in_units = SDF_SBS_ADAPT_MAX_UNITS / lod_size;
+
+    pos_x *= voxel_size_in_units;
+    pos_y *= voxel_size_in_units;
+    pos_z *= voxel_size_in_units;
+
+    assert(pos_x < SDF_SBS_ADAPT_MAX_UNITS);
+    assert(pos_y < SDF_SBS_ADAPT_MAX_UNITS);
+    assert(pos_z < SDF_SBS_ADAPT_MAX_UNITS);
+
+    SdfSBSAdaptNode new_node;
+    new_node.pos_xy = (pos_x << 16) + pos_y;
+    new_node.pos_z_vox_size = (pos_z << 16) + voxel_size_in_units;
+    new_node.data_offset = d_off;
+    new_node.vox_count_xyz_pad = vox_count_xyz_pad;
+
+    adapt_scene.nodes.push_back(new_node);
+  }
+  return adapt_scene;
+}

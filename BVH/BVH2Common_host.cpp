@@ -36,6 +36,7 @@ uint32_t type_to_tag(uint32_t type)
   
   case TYPE_SDF_SVS:
   case TYPE_SDF_SBS:
+  case TYPE_SDF_SBS_ADAPT:
   case TYPE_SDF_FRAME_OCTREE:
   case TYPE_SDF_FRAME_OCTREE_TEX:
     return AbstractObject::TAG_SDF_NODE;
@@ -44,6 +45,10 @@ uint32_t type_to_tag(uint32_t type)
   case TYPE_SDF_SBS_TEX:
   case TYPE_SDF_SBS_COL:
     return AbstractObject::TAG_SDF_BRICK;
+  case TYPE_SDF_SBS_ADAPT_SINGLE_NODE:
+  case TYPE_SDF_SBS_ADAPT_TEX:
+  case TYPE_SDF_SBS_ADAPT_COL:
+    return AbstractObject::TAG_SDF_ADAPT_BRICK;
   
   default:
     return AbstractObject::TAG_NONE;
@@ -720,6 +725,180 @@ uint32_t BVHRT::AddGeom_SdfSBS(SdfSBSView octree, ISceneObject *fake_this, bool 
   }
   
   return fake_this->AddGeom_AABB(typeTag, (const CRT_AABB*)orig_nodes.data(), orig_nodes.size(), nullptr, 1);
+}
+
+uint32_t BVHRT::AddGeom_SdfSBSAdapt(SdfSBSAdaptView octree, ISceneObject *fake_this, bool single_bvh_node, BuildOptions a_qualityLevel)
+{
+  assert(octree.size > 0 && octree.values_count > 0);
+  assert(octree.size < (1u<<28) && octree.values_count < (1u<<28));
+
+  uint32_t type = TYPE_SDF_SBS_ADAPT;
+  uint32_t node_layout = octree.header.aux_data & SDF_SBS_NODE_LAYOUT_MASK;
+  if (node_layout == SDF_SBS_NODE_LAYOUT_UNDEFINED || node_layout == SDF_SBS_NODE_LAYOUT_DX) //only distances
+  {
+    type = single_bvh_node ? TYPE_SDF_SBS_ADAPT_SINGLE_NODE : TYPE_SDF_SBS_ADAPT;
+  }
+  else if (node_layout == SDF_SBS_NODE_LAYOUT_DX_UV16) //textured
+  {
+    type = TYPE_SDF_SBS_ADAPT_TEX;
+  }
+  else if (node_layout == SDF_SBS_NODE_LAYOUT_DX_RGB8 ||     //colored
+           node_layout == SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F) 
+  {
+    type = TYPE_SDF_SBS_ADAPT_COL;
+  }
+  else
+  {
+    printf("unsupported node layout %u\n", node_layout);
+  }
+  bool is_single_node = (type != TYPE_SDF_SBS_ADAPT); //only legacy SDF_SBS allows multiple nodes per brick
+
+  //SDF octree is always a unit cube
+  float4 mn = float4(-1,-1,-1,1);
+  float4 mx = float4( 1, 1, 1,1);
+
+  //fill geom data array
+  m_abstractObjects.resize(m_abstractObjects.size() + 1); 
+  uint32_t typeTag = type_to_tag(type);
+  if (is_single_node) 
+    new (m_abstractObjects.data() + m_abstractObjects.size() - 1) GeomDataSdfAdaptBrick();
+  else
+    new (m_abstractObjects.data() + m_abstractObjects.size() - 1) GeomDataSdfNode();
+
+  m_abstractObjects.back().geomId = m_abstractObjects.size() - 1;
+  m_abstractObjects.back().m_tag = typeTag;
+
+
+  m_geomData.emplace_back();
+  m_geomData.back().boxMin = mn;
+  m_geomData.back().boxMax = mx;
+  m_geomData.back().offset = uint2(m_SdfSBSAdaptRoots.size(), m_SdfSBSAdaptRemap.size());
+  m_geomData.back().bvhOffset = m_allNodePairs.size();
+  m_geomData.back().type = type;
+
+  //fill octree-specific data arrays
+  unsigned n_offset = m_SdfSBSAdaptNodes.size();
+  unsigned v_offset = m_SdfSBSAdaptData.size();
+  m_SdfSBSAdaptNodes.insert(m_SdfSBSAdaptNodes.end(), octree.nodes, octree.nodes + octree.size);
+  m_SdfSBSAdaptData.insert(m_SdfSBSAdaptData.end(), octree.values, octree.values + octree.values_count);
+  m_SdfSBSAdaptRoots.push_back(n_offset);
+  m_SdfSBSAdaptHeaders.push_back(octree.header);
+
+
+  for (int i=n_offset; i<m_SdfSBSAdaptNodes.size(); i++)
+    m_SdfSBSAdaptNodes[i].data_offset += v_offset;
+  
+  if (node_layout == SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F) //indexed layout reqires float values
+  {
+    unsigned f_offset = m_SdfSBSAdaptDataF.size();
+    m_SdfSBSAdaptDataF.insert(m_SdfSBSAdaptDataF.end(), octree.values_f, octree.values_f + octree.values_f_count);
+
+    //all integer values are indices, so we need to remap them
+    for (int i=v_offset; i<m_SdfSBSAdaptData.size(); i++)
+      m_SdfSBSAdaptData[i] += f_offset;
+  }
+  else
+  {
+    assert(octree.values_f_count == 0);
+  }
+
+  //create list of bboxes for BLAS
+  std::vector<BVHNode> orig_nodes;
+
+  if (is_single_node)  //one node for each brick
+  {
+    orig_nodes.resize(octree.size);
+
+    for (int i=0;i<octree.size;i++)
+    {
+      float px = octree.nodes[i].pos_xy >> 16;
+      float py = octree.nodes[i].pos_xy & 0x0000FFFF;
+      float pz = octree.nodes[i].pos_z_vox_size >> 16;
+      uint32_t vs = octree.nodes[i].pos_z_vox_size & 0x0000FFFF;
+      float brick_abs_size = (2.0f/SDF_SBS_ADAPT_MAX_UNITS)*vs;
+      uint3 brick_size{
+                        (octree.nodes[i].vox_count_xyz_pad >> 16) & 0x000000FF,
+                        (octree.nodes[i].vox_count_xyz_pad >>  8) & 0x000000FF,
+                        (octree.nodes[i].vox_count_xyz_pad      ) & 0x000000FF
+                      };
+
+      orig_nodes[i].boxMin = float3(-1,-1,-1) + (2.0f/SDF_SBS_ADAPT_MAX_UNITS)*float3(px,py,pz);
+      orig_nodes[i].boxMax = orig_nodes[i].boxMin + brick_abs_size;
+    }
+  }
+  else  //one node for each border voxel
+  {
+    for (int i=0;i<octree.size;i++)
+    {
+      float px = octree.nodes[i].pos_xy >> 16;
+      float py = octree.nodes[i].pos_xy & 0x0000FFFF;
+      float pz = octree.nodes[i].pos_z_vox_size >> 16;
+      float vs = octree.nodes[i].pos_z_vox_size & 0x0000FFFF;
+      float brick_abs_size = (2.0f/SDF_SBS_ADAPT_MAX_UNITS)*vs;
+
+      // a.k.a voxel_count_xyz
+      uint3 brick_size{
+                        (octree.nodes[i].vox_count_xyz_pad >> 16) & 0x000000FF,
+                        (octree.nodes[i].vox_count_xyz_pad >>  8) & 0x000000FF,
+                        (octree.nodes[i].vox_count_xyz_pad      ) & 0x000000FF
+                      };
+      uint3 v_size = brick_size + 2*octree.header.brick_pad + 1;
+
+      for (int x=0; x<brick_size.x; x++)
+      {
+        for (int y=0; y<brick_size.y; y++)
+        {
+          for (int z=0; z<brick_size.z; z++)
+          {
+            //check if this voxel is on the border, only border voxels became parts of BVH
+            uint3 voxelPos = uint3(x,y,z);
+            uint32_t voxelId = voxelPos.x*v_size.y*v_size.z + voxelPos.y*v_size.z + voxelPos.z;
+            uint32_t v_off = octree.nodes[i].data_offset;
+            uint32_t vals_per_int = 4/octree.header.bytes_per_value; 
+            uint32_t bits = 8*octree.header.bytes_per_value;
+            uint32_t max_val = octree.header.bytes_per_value == 4 ? 0xFFFFFFFF : ((1 << bits) - 1);
+            float d_max = 1.73205081f*brick_abs_size;
+            // if (brick_size.x != brick_size.y || brick_size.x != brick_size.z)
+            //   d_max = std::sqrt(d.x*d.x + std::sqrt(d.y*d.y + d.z*d.z));
+            float mult = 2*d_max/max_val;
+
+            float low = 1000;
+            float high = 1000;
+            for (int j=0;j<8;j++)
+            {
+              uint3 vPos = voxelPos + uint3((j & 4) >> 2, (j & 2) >> 1, j & 1);
+              uint32_t vId = vPos.x*v_size.y*v_size.z + vPos.y*v_size.z + vPos.z;
+              float val = -d_max + mult*((m_SdfSBSAdaptData[v_off + vId/vals_per_int] >> (bits*(vId%vals_per_int))) & max_val);
+
+              low = std::min(low, val);
+              high = std::max(high, val);
+            }
+
+            if (low*high <= 0)
+            {
+              orig_nodes.emplace_back();
+              orig_nodes.back().boxMin = float3(-1,-1,-1) + (2.0f/SDF_SBS_ADAPT_MAX_UNITS)*(float3(px,py,pz) + float3(voxelPos)*vs/float3(brick_size));
+              orig_nodes.back().boxMax = orig_nodes.back().boxMin + brick_abs_size/float3(brick_size);
+
+              m_SdfSBSAdaptRemap.push_back(uint2(n_offset+i, voxelId));
+            }
+          }        
+        }      
+      }
+    }
+  }
+
+  //edge case - one node for whole scene
+  //add one more node, because embree breaks when
+  //it tries to build BVH with only one node
+  if (orig_nodes.size() == 1)
+  {
+    orig_nodes.resize(2);
+    orig_nodes[1].boxMin = orig_nodes[0].boxMin - 0.001f*float3(-1,-1,-1);
+    orig_nodes[1].boxMax = orig_nodes[0].boxMin;
+  }
+
+  return fake_this->AddGeom_AABB(type_to_tag(type), (const CRT_AABB*)orig_nodes.data(), orig_nodes.size(), nullptr, 1);
 }
 
 uint32_t BVHRT::AddGeom_SdfFrameOctreeTex(SdfFrameOctreeTexView octree, ISceneObject *fake_this, BuildOptions a_qualityLevel)

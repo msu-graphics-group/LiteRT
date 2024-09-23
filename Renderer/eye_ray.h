@@ -51,6 +51,7 @@ public:
   void SetScene(SdfFrameOctreeView scene);
   void SetScene(SdfSVSView scene);
   void SetScene(SdfSBSView scene, bool single_bvh_node = false);
+  void SetScene(SdfSBSAdaptView scene, bool single_bvh_node = true);
 
   void SetScene(SdfFrameOctreeTexView scene);
 #endif

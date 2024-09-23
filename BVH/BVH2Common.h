@@ -49,6 +49,7 @@ struct AbstractObject
   static constexpr uint32_t TAG_SDF_BRICK  = 4;
   static constexpr uint32_t TAG_RF         = 5;
   static constexpr uint32_t TAG_GS         = 6;
+  static constexpr uint32_t TAG_SDF_ADAPT_BRICK  = 7;
 
   AbstractObject(){}  // Dispatching on GPU hierarchy must not have destructors, especially virtual   
   virtual uint32_t GetTag()   const  { return TAG_NONE; }; // !!! #REQUIRED by kernel slicer
@@ -114,6 +115,7 @@ struct BVHRT : public ISceneObject
   uint32_t AddGeom_SdfFrameOctree(SdfFrameOctreeView octree, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
   uint32_t AddGeom_SdfSVS(SdfSVSView octree, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
   uint32_t AddGeom_SdfSBS(SdfSBSView octree, ISceneObject *fake_this, bool single_bvh_node = false, BuildOptions a_qualityLevel = BUILD_HIGH);
+  uint32_t AddGeom_SdfSBSAdapt(SdfSBSAdaptView octree, ISceneObject *fake_this, bool single_bvh_node = false, BuildOptions a_qualityLevel = BUILD_HIGH);
   uint32_t AddGeom_SdfFrameOctreeTex(SdfFrameOctreeTexView octree, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
 
   void set_debug_mode(bool enable);
@@ -206,6 +208,11 @@ struct BVHRT : public ISceneObject
                             float tNear, uint32_t instId, uint32_t geomId,
                             uint32_t a_start, uint32_t a_count,
                             CRT_Hit *pHit);
+  
+  void OctreeAdaptBrickIntersect(uint32_t type, const float3 ray_pos, const float3 ray_dir,
+                                 float tNear, uint32_t instId, uint32_t geomId,
+                                 uint32_t a_start, uint32_t a_count,
+                                 CRT_Hit *pHit);
 
   virtual void BVH2TraverseF32(const float3 ray_pos, const float3 ray_dir, float tNear, 
                                uint32_t instId, uint32_t geomId, bool stopOnFirstHit,
@@ -301,6 +308,16 @@ struct BVHRT : public ISceneObject
   std::vector<uint32_t>     m_SdfSBSRoots;   //root node ids for each SDF Sparse Voxel Set
   std::vector<SdfSBSHeader> m_SdfSBSHeaders; //header for each SDF Sparse Voxel Set
   std::vector<uint2>        m_SdfSBSRemap;   //primId->nodeId, required as each SBS node can have >1 bbox in BLAS
+#endif
+
+  //SDF Adaptive Sparse Brick Sets
+#ifndef DISABLE_SDF_SBS_ADAPT
+  std::vector<SdfSBSAdaptNode>   m_SdfSBSAdaptNodes;   //nodes for all SDF Sparse Brick Sets
+  std::vector<uint32_t>          m_SdfSBSAdaptData;    //raw data for all Sparse Brick Sets
+  std::vector<float>             m_SdfSBSAdaptDataF;   //raw float data for all indexed Sparse Brick Sets
+  std::vector<uint32_t>          m_SdfSBSAdaptRoots;   //root node ids for each SDF Sparse Voxel Set
+  std::vector<SdfSBSAdaptHeader> m_SdfSBSAdaptHeaders; //header for each SDF Sparse Voxel Set
+  std::vector<uint2>             m_SdfSBSAdaptRemap;   //primId->nodeId, required as each SBS node can have >1 bbox in BLAS
 #endif
 
   //SDF textured frame octree data
@@ -458,6 +475,29 @@ struct GeomDataSdfBrick : public AbstractObject
 
     bvhrt->OctreeBrickIntersect(type, ray_pos, ray_dir, tNear, info.instId, geometryId, a_start, a_count, pHit);
     return pHit->primId == 0xFFFFFFFF ? TAG_NONE : TAG_SDF_BRICK;
+  }
+};
+
+struct GeomDataSdfAdaptBrick : public AbstractObject
+{
+  GeomDataSdfAdaptBrick() {m_tag = GetTag();} 
+
+  uint32_t GetTag() const override { return TAG_SDF_ADAPT_BRICK; }  
+  uint32_t Intersect(float4 rayPosAndNear, float4 rayDirAndFar, CRT_LeafInfo info, 
+                     CRT_Hit* pHit, BVHRT* bvhrt)   const override
+  {
+    float3 ray_pos = to_float3(rayPosAndNear);
+    float3 ray_dir = to_float3(rayDirAndFar);
+    float tNear    = rayPosAndNear.w;
+    uint32_t geometryId = geomId;
+    uint32_t globalAABBId = bvhrt->startEnd[geometryId].x + info.aabbId;
+    uint32_t start_count_packed = bvhrt->m_primIdCount[globalAABBId];
+    uint32_t a_start = EXTRACT_START(start_count_packed);
+    uint32_t a_count = EXTRACT_COUNT(start_count_packed);
+    uint32_t type = bvhrt->m_geomData[geometryId].type;
+
+    bvhrt->OctreeAdaptBrickIntersect(type, ray_pos, ray_dir, tNear, info.instId, geometryId, a_start, a_count, pHit);
+    return pHit->primId == 0xFFFFFFFF ? TAG_NONE : TAG_SDF_ADAPT_BRICK;
   }
 };
 
