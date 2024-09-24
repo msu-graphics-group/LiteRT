@@ -1004,7 +1004,7 @@ void test_position_derivatives(const SdfSBS &SBS, unsigned render_node, unsigned
 
     for (int T = 0; T < 2; T++)
     {
-    unsigned samples = 100;
+    unsigned samples = 50;
     std::vector<std::vector<float>> grads(samples);
     for (unsigned i = 0; i < samples; i++)
     {
@@ -1020,6 +1020,7 @@ void test_position_derivatives(const SdfSBS &SBS, unsigned render_node, unsigned
 
     std::vector<double> grad_mean = stat::mean<float>(grads);
     std::vector<double> grad_cov = stat::cov_matrix<float>(grads);
+    std::vector<double> grad_conf = stat::confidence<float>(grads, 0.95f);
 
     printf("MEAN = [");
     for (unsigned i = 0; i < param_count; i++)
@@ -1028,7 +1029,14 @@ void test_position_derivatives(const SdfSBS &SBS, unsigned render_node, unsigned
     }
     printf("]\n");
 
-    printf("COV = [");
+    printf("CONF = [");
+    for (unsigned i = 0; i < param_count; i++)
+    {
+      printf("[%9.2f - %9.2f] ", grad_mean[i]-grad_conf[i], grad_mean[i]+grad_conf[i]);
+    }
+    printf("]\n");
+
+    /*printf("COV = [");
     for (unsigned i = 0; i < param_count; i++)
     {
       printf("[");
@@ -1037,6 +1045,7 @@ void test_position_derivatives(const SdfSBS &SBS, unsigned render_node, unsigned
       printf("]\n");
     }
     printf("]\n");
+    */
     }
 
     std::vector<float> grad_dr(param_count, 0);
@@ -1152,18 +1161,18 @@ void diff_render_test_9_check_position_derivatives()
 {
   printf("TEST 9. Check position derivatives\n");
 
-  //printf("9.1 Mask, random border sampling\n");
-  //test_position_derivatives(circle_smallest_scene_colored(), MULTI_RENDER_MODE_MASK, DR_RENDER_MODE_MASK, false, true);
+  printf("9.1 Mask, random border sampling\n");
+  test_position_derivatives(circle_smallest_scene_colored(), MULTI_RENDER_MODE_MASK, DR_RENDER_MODE_MASK, false, true);
   //printf("9.2 Mask, SVM border sampling\n");
   //test_position_derivatives(circle_smallest_scene_colored(), MULTI_RENDER_MODE_MASK, DR_RENDER_MODE_MASK, true, true);
   //printf("9.3 Diffuse, random border sampling\n");
   //test_position_derivatives(circle_smallest_scene_colored(), MULTI_RENDER_MODE_DIFFUSE, DR_RENDER_MODE_DIFFUSE, false, true);
   //printf("9.4 Diffuse, SVM border sampling\n");
   //test_position_derivatives(circle_smallest_scene_colored(), MULTI_RENDER_MODE_DIFFUSE, DR_RENDER_MODE_DIFFUSE, true, true);
-  printf("9.5 Lambert, random border sampling\n");
-  test_position_derivatives(circle_smallest_scene_colored(), MULTI_RENDER_MODE_LAMBERT, DR_RENDER_MODE_LAMBERT, false, true);
-  printf("9.6 Lambert, SVM border sampling\n");
-  test_position_derivatives(circle_smallest_scene_colored(), MULTI_RENDER_MODE_LAMBERT, DR_RENDER_MODE_LAMBERT, true, true);
+  //printf("9.5 Lambert, random border sampling\n");
+  //test_position_derivatives(circle_smallest_scene_colored(), MULTI_RENDER_MODE_LAMBERT, DR_RENDER_MODE_LAMBERT, false, true);
+  //printf("9.6 Lambert, SVM border sampling\n");
+  //test_position_derivatives(circle_smallest_scene_colored(), MULTI_RENDER_MODE_LAMBERT, DR_RENDER_MODE_LAMBERT, true, true);
 
   //Depth-related tests are temporary disabled
   //printf("9.7 Depth, random border sampling\n");
