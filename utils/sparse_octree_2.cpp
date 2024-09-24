@@ -726,14 +726,14 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
   {
     for (auto node : bad_nodes)
     {
-      bool chk = true, chk2 = false;
+      /*bool chk = true, chk2 = false;
       unsigned x = node;
       while (directions[x].parent != 0)
       {
         printf("%u, ", x);
         x = directions[x].parent;
       }
-      printf("%u 0\n", x);
+      printf("%u 0\n", x);*/
       for (int i = 0 ; i < 6; ++i)
       {
         unsigned neigh = directions[node].neighbour[i];
@@ -763,11 +763,11 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
               if ((num & 1) != 0) fill_neighbours_til_one_dir(directions, frame, neigh, num, -1, 5, 4);
               else fill_neighbours_til_one_dir(directions, frame, neigh, num, 1, 4, 5);
 
-              for (int y = 0; y < 6; ++y)
+              /*for (int y = 0; y < 6; ++y)
               {
                 printf("%u ", directions[frame[neigh].offset + num].neighbour[y]);
               }
-              printf("\n");
+              printf("\n");*/
 
               for (unsigned vert = 0; vert < 8; ++vert)
               {
@@ -814,16 +814,56 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
                   recount_nodes.push_back(directions[child].neighbour[another_dirs[step]]);
                   for (int k = 0; k < recount_nodes.size(); ++k)
                   {
-                    if (recount_nodes[k] == node) printf("ya\n");
-                    if (dirs[step] == i || dirs[step] == j) {printf("%u - %u  %u\n", recount_nodes[k], directions[recount_nodes[k]].neighbour[dirs[step]], child); chk2 = true;}//DEBUGGING
+                    //if (recount_nodes[k] == node) printf("ya\n");
+                    //if (dirs[step] == i || dirs[step] == j) {printf("%u - %u  %u\n", recount_nodes[k], directions[recount_nodes[k]].neighbour[dirs[step]], child); chk2 = true;}//DEBUGGING
                     directions[recount_nodes[k]].neighbour[dirs[step]] = child;
                     for (int vert = 0; vert < 8; ++vert)
                     {
                       if ((vert & vert_mask[step]) >> off[step] == another_dirs[step] % 2)
                       {
                         if (frame[recount_nodes[k]].offset != 0) recount_nodes.push_back(frame[recount_nodes[k]].offset + vert);
-                        interpolate_vertex(directions, frame, directions[recount_nodes[k]].parent, recount_nodes[k] - frame[directions[recount_nodes[k]].parent].offset, 
-                                           another_dirs[step], vert);
+                        if (is_smooth) 
+                        {
+                          if (directions[recount_nodes[k]].d < directions[directions[recount_nodes[k]].neighbour[another_dirs[step]]].d) 
+                          {
+                            interpolate_vertex(directions, frame, directions[recount_nodes[k]].parent, 
+                                               recount_nodes[k] - frame[directions[recount_nodes[k]].parent].offset, 
+                                               another_dirs[step], vert);
+                          }
+                          else
+                          {
+                            float3 p = directions[recount_nodes[k]].p;
+                            float d = directions[recount_nodes[k]].d;
+                            float3 ch_pos = 2.0f * (d * p) - 1.0f + 2 * d * float3((vert & 4) >> 2, (vert & 2) >> 1, vert & 1);
+                            frame[recount_nodes[k]].values[vert] = sdf(ch_pos, 0);
+                          }
+                        }
+                        /*float3 p = directions[recount_nodes[k]].p;
+                        float d = directions[recount_nodes[k]].d;
+                        float3 ch_pos = 2.0f * (d * p) - 1.0f + 2 * d * float3((vert & 4) >> 2, (vert & 2) >> 1, vert & 1);
+                        printf("%f -|- %f %u %f\n", sdf(ch_pos, 0), frame[recount_nodes[k]].values[vert], vert, d);
+                        for (int u = 0; u < 3; ++u)
+                        {
+                          for (int y = 0; y < 8; ++y)
+                          {
+                            float3 p = directions[directions[recount_nodes[k]].neighbour[another_dirs[u]]].p;
+                            float d = directions[directions[recount_nodes[k]].neighbour[another_dirs[u]]].d;
+                            float3 ch_pos = 2.0f * (d * p) - 1.0f + 2 * d * float3((y & 4) >> 2, (y & 2) >> 1, y & 1);
+                            printf("%f %f -| ", frame[directions[recount_nodes[k]].neighbour[another_dirs[u]]].values[y], sdf(ch_pos, 0));
+                          }
+                          printf("%f\n", directions[directions[recount_nodes[k]].neighbour[another_dirs[u]]].d);
+                        }
+                        for (int u = 0; u < 3; ++u)
+                        {
+                          for (int y = 0; y < 8; ++y)
+                          {
+                            float3 p = directions[directions[recount_nodes[k]].neighbour[dirs[u]]].p;
+                            float d = directions[directions[recount_nodes[k]].neighbour[dirs[u]]].d;
+                            float3 ch_pos = 2.0f * (d * p) - 1.0f + 2 * d * float3((y & 4) >> 2, (y & 2) >> 1, y & 1);
+                            printf("%f %f -| ", frame[directions[recount_nodes[k]].neighbour[dirs[u]]].values[y], sdf(ch_pos, 0));
+                          }
+                          printf("%f\n", directions[directions[recount_nodes[k]].neighbour[dirs[u]]].d);
+                        }*/
                       }
                     }
                   }
@@ -831,7 +871,7 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
               }
               
             }
-            if (chk2 && chk) {chk = false; printf("\n");}
+            /*if (chk2 && chk) {chk = false; printf("\n");}
             if (neigh != directions[node].neighbour[i]) printf("AAA\n");
             //else if (directions[directions[node].neighbour[i]].neighbour[j])
             printf("%u %u -- %u %u\n", neigh, directions[node].neighbour[i], directions[directions[node].neighbour[i]].neighbour[j], node);
@@ -851,7 +891,7 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
               printf("%u, %u, %u\n", x, frame[x].offset, directions[x].neighbour[j]);
               x = directions[x].parent;
             }
-            printf("%u, %u, %u\n", x, frame[x].offset, directions[x].neighbour[j]);
+            printf("%u, %u, %u\n", x, frame[x].offset, directions[x].neighbour[j]);*/
 
             neigh = directions[node].neighbour[i];
           }
@@ -926,12 +966,12 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
           if ((num & 1) != 0) fill_neighbours_til_one_dir(directions, result, div_idx, num, -1, 5, 4);
           else fill_neighbours_til_one_dir(directions, result, div_idx, num, 1, 4, 5);
 
-          printf("%u", result[div_idx].offset + num);
+          /*printf("%u", result[div_idx].offset + num);
           for (int y = 0; y < 6; ++y)
           {
             printf(" %u", directions[result[div_idx].offset + num].neighbour[y]);
           }
-          printf("\n");
+          printf("\n");*/
 
           for (unsigned vert = 0; vert < 8; ++vert)
           {
@@ -967,9 +1007,9 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
 
       //printf("%d\n", last_level.size());
     }
-    printf("%d ", result.size());
+    //printf("%d ", result.size());
     if (fix_artefacts) sdf_artefacts_fix(result, directions, sdf, eps, max_threads, settings.depth, divided, is_smooth);
-    printf("%d\n", result.size());
+    //printf("%d\n", result.size());
     return result;
   }
 
