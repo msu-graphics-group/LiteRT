@@ -93,9 +93,8 @@ bool MultiRenderer::LoadSceneHydra(const std::string& a_path)
     isCustom.push_back(1);
     if (name == "mesh")
     {
-      std::cout << "[LoadScene]: mesh = " << dir.c_str() << std::endl;
       auto currMesh = cmesh4::LoadMeshFromVSGF(dir.c_str());
-      float4x4 trans = cmesh4::normalize_mesh(currMesh, true);
+      float4x4 trans = cmesh4::normalize_mesh(currMesh);
       addGeomTransform.back() = inverse4x4(trans);
       isCustom.back() = 0; 
 
@@ -150,9 +149,8 @@ bool MultiRenderer::CreateSceneFromHydra(const std::string& a_path, unsigned typ
     isCustom.push_back(1);
     if (name == "mesh")
     {
-      std::cout << "[LoadScene]: mesh = " << dir.c_str() << std::endl;
       auto currMesh = cmesh4::LoadMeshFromVSGF(dir.c_str());
-      float4x4 trans = cmesh4::normalize_mesh(currMesh, true);
+      float4x4 trans = cmesh4::normalize_mesh(currMesh);
       addGeomTransform.back() = inverse4x4(trans);
 
       switch (type)
@@ -204,7 +202,7 @@ bool MultiRenderer::CreateSceneFromHydra(const std::string& a_path, unsigned typ
     }
     else
     {
-      std::cout << "[CreateSceneFromHydra]: Only meshes are supported. If you want to render existing SDFs, use LoadSceneHydra instead " << std::endl;
+      printf("[CreateSceneFromHydra]: Only meshes are supported. If you want to render existing SDFs, use LoadSceneHydra instead\n");
     }
     mIter++;
   }

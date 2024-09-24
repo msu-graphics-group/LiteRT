@@ -141,7 +141,7 @@ namespace sdf_converter
 
       optimizer.step(grid.data.data(), diff.data(), step);
 
-      printf("step = %d, loss = %f(%f + %f*%f)\n", step, total_loss + lambda*total_reg_loss, total_loss, lambda, total_reg_loss);
+      //printf("step = %d, loss = %f(%f + %f*%f)\n", step, total_loss + lambda*total_reg_loss, total_loss, lambda, total_reg_loss);
 
       //for (int i = 0; i < grid.data.size(); i++)
       //{
@@ -1335,7 +1335,7 @@ namespace sdf_converter
 
       optimizer.step(sbs.values_f.data(), diff.data(), step);
 
-      printf("step = %d, loss = %f(%f + %f*%f)\n", step, total_loss + lambda*total_reg_loss, total_loss, lambda, total_reg_loss);
+      //printf("step = %d, loss = %f(%f + %f*%f)\n", step, total_loss + lambda*total_reg_loss, total_loss, lambda, total_reg_loss);
       //printf("nodes: %d\n", sbs.nodes.size());
       //for (int i = 0; i < grid.data.size(); i++)
       //{

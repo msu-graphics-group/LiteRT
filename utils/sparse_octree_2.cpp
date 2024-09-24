@@ -739,7 +739,6 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
     {
       //TODO
       bool is_end = true;
-      printf("%d\n", i);
       for (auto node_idx : last_level)
       {
         float3 corner = 2.0 * directions[node_idx].p * directions[node_idx].d - 1.0;

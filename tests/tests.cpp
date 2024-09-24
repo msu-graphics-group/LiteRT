@@ -725,18 +725,18 @@ void litert_test_14_octree_nodes_removal()
   float psnr_2 = image_metrics::PSNR(image_1, image_3);
 
   printf("TEST 14. Octree nodes removal\n");
-  printf("  14.1. %-64s", "octrees have the same node count ");
+  printf(" 14.1. %-64s", "octrees have the same node count ");
   if (octree_nodes_ref.size() == octree_nodes_7.size() && octree_nodes_ref.size() == octree_nodes_8.size())
     printf("passed\n");
   else
     printf("FAILED, %d, %d, %d\n", (int)octree_nodes_ref.size(), (int)octree_nodes_7.size(), (int)octree_nodes_8.size());
-  printf("  14.2. %-64s", "clear level 7 ");
+  printf(" 14.2. %-64s", "clear level 7 ");
   if (psnr_1 >= 45)
     printf("passed    (%.2f)\n", psnr_1);
   else
     printf("FAILED, psnr = %f\n", psnr_1);
 
-  printf("  14.3. %-64s", "clear levels 7 and 8 ");
+  printf(" 14.3. %-64s", "clear levels 7 and 8 ");
   if (psnr_2 >= 45)
     printf("passed    (%.2f)\n", psnr_2);
   else
@@ -809,18 +809,18 @@ void litert_test_15_frame_octree_nodes_removal()
   float psnr_2 = image_metrics::PSNR(image_1, image_3);
 
   printf("TEST 15. Frame octree nodes removal\n");
-  printf("  15.1. %-64s", "octrees have the same node count ");
+  printf(" 15.1. %-64s", "octrees have the same node count ");
   if (octree_nodes_ref.size() == octree_nodes_7.size() && octree_nodes_ref.size() == octree_nodes_8.size())
     printf("passed\n");
   else
     printf("FAILED, %d, %d, %d\n", (int)octree_nodes_ref.size(), (int)octree_nodes_7.size(), (int)octree_nodes_8.size());
-  printf("  15.2. %-64s", "clear level 7 ");
+  printf(" 15.2. %-64s", "clear level 7 ");
   if (psnr_1 >= 45)
     printf("passed    (%.2f)\n", psnr_1);
   else
     printf("FAILED, psnr = %f\n", psnr_1);
 
-  printf("  15.3. %-64s", "clear levels 7 and 8 ");
+  printf(" 15.3. %-64s", "clear levels 7 and 8 ");
   if (psnr_2 >= 45)
     printf("passed    (%.2f)\n", psnr_2);
   else
@@ -896,18 +896,18 @@ void litert_test_16_SVS_nodes_removal()
   float psnr_2 = image_metrics::PSNR(image_1, image_3);
 
   printf("TEST 16. SVS nodes removal\n");
-  printf("  16.1. %-64s", "octrees have correct node count ");
+  printf(" 16.1. %-64s", "octrees have correct node count ");
   if (octree_nodes_ref.size() >= octree_nodes_7.size() && octree_nodes_ref.size() >= octree_nodes_8.size())
     printf("passed\n");
   else
     printf("FAILED, %d, %d, %d\n", (int)octree_nodes_ref.size(), (int)octree_nodes_7.size(), (int)octree_nodes_8.size());
-  printf("  16.2. %-64s", "clear level 7 ");
+  printf(" 16.2. %-64s", "clear level 7 ");
   if (psnr_1 >= 45)
     printf("passed    (%.2f)\n", psnr_1);
   else
     printf("FAILED, psnr = %f\n", psnr_1);
 
-  printf("  16.3. %-64s", "clear levels 7 and 8 ");
+  printf(" 16.3. %-64s", "clear levels 7 and 8 ");
   if (psnr_2 >= 45)
     printf("passed    (%.2f)\n", psnr_2);
   else
@@ -1029,165 +1029,165 @@ void litert_test_17_all_types_sanity_check()
 
   printf("TEST 17. all types sanity check\n");
   
-  printf("  17.1.1 %-64s", "Mesh CPU - GPU");
+  printf("17.1.1 %-64s", "Mesh CPU - GPU");
   if (psnr_1_gpu >= 50)
-    printf("passed %f\n", psnr_1_gpu);
+    printf("passed    (%.2f)\n", psnr_1_gpu);
   else
     printf("FAILED, psnr = %f\n", psnr_1_gpu);
   
-  printf("  17.1.2 %-64s", "Mesh CPU - RTX");
+  printf("17.1.2 %-64s", "Mesh CPU - RTX");
   if (psnr_1_gpu >= 50)
-    printf("passed %f\n", psnr_1_rtx);
+    printf("passed    (%.2f)\n", psnr_1_rtx);
   else
     printf("FAILED, psnr = %f\n", psnr_1_rtx);
 
-  printf("  17.2.1 %-64s", "Grid CPU - Reference");
+  printf("17.2.1 %-64s", "Grid CPU - Reference");
   if (psnr_2_0 >= 30)
-    printf("passed %f\n", psnr_2_0);
+    printf("passed    (%.2f)\n", psnr_2_0);
   else
     printf("FAILED, psnr = %f\n", psnr_2_0);
   
-  printf("  17.2.2 %-64s", "Grid GPU - Reference");
+  printf("17.2.2 %-64s", "Grid GPU - Reference");
   if (psnr_2_1 >= 30)
-    printf("passed %f\n", psnr_2_1);
+    printf("passed    (%.2f)\n", psnr_2_1);
   else
     printf("FAILED, psnr = %f\n", psnr_2_1);
 
-  printf("  17.2.3 %-64s", "Grid RTX - Reference");
+  printf("17.2.3 %-64s", "Grid RTX - Reference");
   if (psnr_2_2 >= 30)
-    printf("passed %f\n", psnr_2_2);
+    printf("passed    (%.2f)\n", psnr_2_2);
   else
     printf("FAILED, psnr = %f\n", psnr_2_2);
   
-  printf("  17.2.4 %-64s", "Grid CPU - GPU");
+  printf("17.2.4 %-64s", "Grid CPU - GPU");
   if (psnr_2_gpu >= 50)
-    printf("passed %f\n", psnr_2_gpu);
+    printf("passed    (%.2f)\n", psnr_2_gpu);
   else
     printf("FAILED, psnr = %f\n", psnr_2_gpu);
   
-  printf("  17.2.5 %-64s", "Grid CPU - RTX");
+  printf("17.2.5 %-64s", "Grid CPU - RTX");
   if (psnr_2_rtx >= 50)
-    printf("passed %f\n", psnr_2_rtx);
+    printf("passed    (%.2f)\n", psnr_2_rtx);
   else
     printf("FAILED, psnr = %f\n", psnr_2_rtx);
 
-  printf("  17.3.1 %-64s", "Octree CPU - Reference");
+  printf("17.3.1 %-64s", "Octree CPU - Reference");
   if (psnr_3_0 >= 30)
-    printf("passed %f\n", psnr_3_0);
+    printf("passed    (%.2f)\n", psnr_3_0);
   else
     printf("FAILED, psnr = %f\n", psnr_3_0);
   
-  printf("  17.3.2 %-64s", "Octree GPU - Reference");
+  printf("17.3.2 %-64s", "Octree GPU - Reference");
   if (psnr_3_1 >= 30)
-    printf("passed %f\n", psnr_3_1);
+    printf("passed    (%.2f)\n", psnr_3_1);
   else
     printf("FAILED, psnr = %f\n", psnr_3_1);
 
-  printf("  17.3.3 %-64s", "Octree RTX - Reference");
+  printf("17.3.3 %-64s", "Octree RTX - Reference");
   if (psnr_3_2 >= 30)
-    printf("passed %f\n", psnr_3_2);
+    printf("passed    (%.2f)\n", psnr_3_2);
   else
     printf("FAILED, psnr = %f\n", psnr_3_2);
   
-  printf("  17.3.4 %-64s", "Octree CPU - GPU");
+  printf("17.3.4 %-64s", "Octree CPU - GPU");
   if (psnr_3_gpu >= 50)
-    printf("passed %f\n", psnr_3_gpu);
+    printf("passed    (%.2f)\n", psnr_3_gpu);
   else
     printf("FAILED, psnr = %f\n", psnr_3_gpu);
   
-  printf("  17.3.5 %-64s", "Octree CPU - RTX");
+  printf("17.3.5 %-64s", "Octree CPU - RTX");
   if (psnr_3_rtx >= 50)
-    printf("passed %f\n", psnr_3_rtx);
+    printf("passed    (%.2f)\n", psnr_3_rtx);
   else
     printf("FAILED, psnr = %f\n", psnr_3_rtx);
   
-  printf("  17.4.1 %-64s", "Frame Octree CPU - Reference");
+  printf("17.4.1 %-64s", "Frame Octree CPU - Reference");
   if (psnr_4_0 >= 30)
-    printf("passed %f\n", psnr_4_0);
+    printf("passed    (%.2f)\n", psnr_4_0);
   else 
     printf("FAILED, psnr = %f\n", psnr_4_0);
   
-  printf("  17.4.2 %-64s", "Frame Octree GPU - Reference");
+  printf("17.4.2 %-64s", "Frame Octree GPU - Reference");
   if (psnr_4_1 >= 30)
-    printf("passed %f\n", psnr_4_1);
+    printf("passed    (%.2f)\n", psnr_4_1);
   else
     printf("FAILED, psnr = %f\n", psnr_4_1);
   
-  printf("  17.4.3 %-64s", "Frame Octree RTX - Reference");
+  printf("17.4.3 %-64s", "Frame Octree RTX - Reference");
   if (psnr_4_2 >= 30)
-    printf("passed %f\n", psnr_4_2);
+    printf("passed    (%.2f)\n", psnr_4_2);
   else
     printf("FAILED, psnr = %f\n", psnr_4_2);
   
-  printf("  17.4.4 %-64s", "Frame Octree CPU - GPU");
+  printf("17.4.4 %-64s", "Frame Octree CPU - GPU");
   if (psnr_4_gpu >= 50)
-    printf("passed %f\n", psnr_4_gpu);
+    printf("passed    (%.2f)\n", psnr_4_gpu);
   else
     printf("FAILED, psnr = %f\n", psnr_4_gpu);
   
-  printf("  17.4.5 %-64s", "Frame Octree CPU - RTX");
+  printf("17.4.5 %-64s", "Frame Octree CPU - RTX");
   if (psnr_4_rtx >= 50)
-    printf("passed %f\n", psnr_4_rtx);
+    printf("passed    (%.2f)\n", psnr_4_rtx);
   else
     printf("FAILED, psnr = %f\n", psnr_4_rtx);
 
-  printf("  17.5.1 %-64s", "SVS CPU - Reference");
+  printf("17.5.1 %-64s", "SVS CPU - Reference");
   if (psnr_5_0 >= 30)
-    printf("passed %f\n", psnr_5_0);
+    printf("passed    (%.2f)\n", psnr_5_0);
   else
     printf("FAILED, psnr = %f\n", psnr_5_0);
   
-  printf("  17.5.2 %-64s", "SVS GPU - Reference");
+  printf("17.5.2 %-64s", "SVS GPU - Reference");
   if (psnr_5_1 >= 30)
-    printf("passed %f\n", psnr_5_1);
+    printf("passed    (%.2f)\n", psnr_5_1);
   else
     printf("FAILED, psnr = %f\n", psnr_5_1);
   
-  printf("  17.5.3 %-64s", "SVS RTX - Reference");
+  printf("17.5.3 %-64s", "SVS RTX - Reference");
   if (psnr_5_2 >= 30)
-    printf("passed %f\n", psnr_5_2);
+    printf("passed    (%.2f)\n", psnr_5_2);
   else
     printf("FAILED, psnr = %f\n", psnr_5_2);
   
-  printf("  17.5.4 %-64s", "SVS CPU - GPU");
+  printf("17.5.4 %-64s", "SVS CPU - GPU");
   if (psnr_5_gpu >= 50)
-    printf("passed %f\n", psnr_5_gpu);
+    printf("passed    (%.2f)\n", psnr_5_gpu);
   else
     printf("FAILED, psnr = %f\n", psnr_5_gpu);
   
-  printf("  17.5.5 %-64s", "SVS CPU - RTX");
+  printf("17.5.5 %-64s", "SVS CPU - RTX");
   if (psnr_5_rtx >= 50)
-    printf("passed %f\n", psnr_5_rtx);
+    printf("passed    (%.2f)\n", psnr_5_rtx);
   else
     printf("FAILED, psnr = %f\n", psnr_5_rtx);
 
-  printf("  17.6.1 %-64s", "SBS CPU - Reference");
+  printf("17.6.1 %-64s", "SBS CPU - Reference");
   if (psnr_6_0 >= 30)
-    printf("passed %f\n", psnr_6_0);
+    printf("passed    (%.2f)\n", psnr_6_0);
   else
     printf("FAILED, psnr = %f\n", psnr_6_0);
   
-  printf("  17.6.2 %-64s", "SBS GPU - Reference");
+  printf("17.6.2 %-64s", "SBS GPU - Reference");
   if (psnr_6_1 >= 30)
-    printf("passed %f\n", psnr_6_1);
+    printf("passed    (%.2f)\n", psnr_6_1);
   else
     printf("FAILED, psnr = %f\n", psnr_6_1);
   
-  printf("  17.6.3 %-64s", "SBS RTX - Reference");
+  printf("17.6.3 %-64s", "SBS RTX - Reference");
   if (psnr_6_2 >= 30)
-    printf("passed %f\n", psnr_6_2);
+    printf("passed    (%.2f)\n", psnr_6_2);
   else
     printf("FAILED, psnr = %f\n", psnr_6_2);
   
-  printf("  17.6.4 %-64s", "SBS CPU - GPU");
+  printf("17.6.4 %-64s", "SBS CPU - GPU");
   if (psnr_6_gpu >= 50)
-    printf("passed %f\n", psnr_6_gpu);
+    printf("passed    (%.2f)\n", psnr_6_gpu);
   else
     printf("FAILED, psnr = %f\n", psnr_6_gpu);
   
-  printf("  17.6.5 %-64s", "SBS CPU - RTX");
+  printf("17.6.5 %-64s", "SBS CPU - RTX");
   if (psnr_6_rtx >= 50) 
-    printf("passed %f\n", psnr_6_rtx);
+    printf("passed    (%.2f)\n", psnr_6_rtx);
   else
     printf("FAILED, psnr = %f\n", psnr_6_rtx);
 }
@@ -1199,8 +1199,6 @@ void litert_test_18_mesh_normalization()
   //mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "saves/dragon/mesh.vsgf").c_str());
   mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "scenes/01_simple_scenes/data/teapot.vsgf").c_str());
   cmesh4::rescale_mesh(mesh, 0.999f*float3(-1, -1, -1), 0.999f*float3(1, 1, 1));
-
-  printf("mesh size = %d\n", (int)mesh.TrianglesNum());
 
   unsigned W = 2048, H = 2048;
 
@@ -1531,9 +1529,9 @@ float2 get_quality(sdf_converter::MultithreadedDistanceFunction sdf, SdfGridView
     e_mat.w += d1 < 0 && d2 < 0;
   }
 
-  printf("E: %u, %u, %u, %u\n", e_mat.x, e_mat.y, e_mat.z, e_mat.w);
-  printf("IoU: %f\n", float(e_mat.w)/float(e_mat.y+e_mat.z+e_mat.w));
-  printf("V: %f\n", float(e_mat.y+e_mat.w)/float(e_mat.z+e_mat.w));
+  //printf("E: %u, %u, %u, %u\n", e_mat.x, e_mat.y, e_mat.z, e_mat.w);
+  //printf("IoU: %f\n", float(e_mat.w)/float(e_mat.y+e_mat.z+e_mat.w));
+  //printf("V: %f\n", float(e_mat.y+e_mat.w)/float(e_mat.z+e_mat.w));
 
   return float2(sum/points, sum_abs/points);
 }
@@ -1621,7 +1619,7 @@ void litert_test_22_sdf_grid_smoothing()
     LiteImage::SaveImage<uint32_t>("saves/test_22_grid.bmp", image_1);
   }
   float2 q_best = get_quality(real_sdf, grid);
-  printf("q_best = %f, %f\n", q_best.x, q_best.y);
+  //printf("q_best = %f, %f\n", q_best.x, q_best.y);
 
   auto noisy_grid = sdf_converter::create_sdf_grid(GridSettings(grid_size), noisy_sdf, max_threads);
   {
@@ -1633,7 +1631,7 @@ void litert_test_22_sdf_grid_smoothing()
     LiteImage::SaveImage<uint32_t>("saves/test_22_grid_noisy.bmp", image_1);
   }
   float2 q_noisy = get_quality(real_sdf, noisy_grid);
-  printf("q_noisy = %f, %f\n", q_noisy.x, q_noisy.y);
+  //printf("q_noisy = %f, %f\n", q_noisy.x, q_noisy.y);
 
   float lambda = 0.3f;
   auto smoothed_grid = sdf_converter::sdf_grid_smoother(noisy_grid, 1, 0.001, lambda, 100);
@@ -1645,9 +1643,9 @@ void litert_test_22_sdf_grid_smoothing()
     render(image_1, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
     LiteImage::SaveImage<uint32_t>("saves/test_22_grid_smoothed.bmp", image_1);    
   }
-  printf("\nlambda = %f\n", lambda);
+  //printf("\nlambda = %f\n", lambda);
   float2 q_smoothed = get_quality(real_sdf, smoothed_grid);
-  printf("q_smoothed = %f, %f\n", q_smoothed.x, q_smoothed.y);
+  //printf("q_smoothed = %f, %f\n", q_smoothed.x, q_smoothed.y);
 }
 
 void litert_test_23_textured_sdf()
@@ -2333,7 +2331,7 @@ void litert_test_30_verify_SBS_SBSAdapt()
 
     float psnr = image_metrics::PSNR(ref_image, image);
 
-    printf("  30.1. %-64s", "[CPU] 2-voxel,2-byte SBS and reference image PSNR > 40 ");
+    printf(" 30.1. %-64s", "[CPU] 2-voxel,2-byte SBS and reference image PSNR > 40 ");
     if (psnr >= 40)
       printf("passed    (%.2f)\n", psnr);
     else
@@ -2350,14 +2348,14 @@ void litert_test_30_verify_SBS_SBSAdapt()
     LiteImage::SaveImage<uint32_t>("saves/test_30_SBSA.bmp", image); 
 
     float psnr = image_metrics::PSNR(ref_image, image);
-    printf("  30.2. %-64s", "[CPU] SBSAdapt and reference image PSNR > 40 ");
+    printf(" 30.2. %-64s", "[CPU] SBSAdapt and reference image PSNR > 40 ");
     if (psnr >= 40)
       printf("passed    (%.2f)\n", psnr);
     else
       printf("FAILED, psnr = %f\n", psnr);
 
     float sbsa_psnr = image_metrics::PSNR(sbs_image, image);
-    printf("  30.3. %-64s", "[CPU] 2-voxel,2-byte SBS matches SBSAdapt");
+    printf(" 30.3. %-64s", "[CPU] 2-voxel,2-byte SBS matches SBSAdapt");
     if (sbsa_psnr >= 40)
       printf("passed    (%.2f)\n", sbsa_psnr);
     else
