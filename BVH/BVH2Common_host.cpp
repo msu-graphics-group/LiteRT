@@ -222,7 +222,7 @@ uint32_t BVHRT::AddGeom_Triangles3f(const float* a_vpos3f, const float* a_vnorm3
   AppendTreeData(bvhData.nodes, bvhData.indices, a_triIndices, a_indNumber);
 
   const size_t oldSize = m_primIdCount.size();
-  m_primIdCount.insert(m_primIdCount.begin(), startCount.begin(), startCount.end());
+  m_primIdCount.insert(m_primIdCount.end(), startCount.begin(), startCount.end());
   startEnd.push_back(uint2(uint32_t(oldSize), uint32_t(m_primIdCount.size())));
 
   return uint32_t(startEnd.size() - 1);
@@ -254,11 +254,6 @@ uint32_t BVHRT::AddGeom_AABB(uint32_t a_typeId, const CRT_AABB* boxMinMaxF8, siz
 void BVHRT::UpdateGeom_AABB(uint32_t a_geomId, uint32_t a_typeId, const CRT_AABB* boxMinMaxF8, size_t a_boxNumber, void** a_customPrimPtrs, size_t a_customPrimCount)
 {
   std::cout << "[BVHRT::UpdateGeom_AABB]: " << "not implemeted!" << std::endl; // not planned for this implementation (possible in general)
-}
-
-uint32_t BVHRT::AddGeom_AABB(uint32_t a_typeId, const CRT_AABB* boxMinMaxF8, size_t a_boxNumber)
-{
-  return AddGeom_AABB(a_typeId, boxMinMaxF8, a_boxNumber, nullptr, 0);
 }
 
 uint32_t BVHRT::AddGeom_RFScene(RFScene grid, ISceneObject *fake_this, BuildOptions a_qualityLevel)
@@ -300,7 +295,7 @@ uint32_t BVHRT::AddGeom_RFScene(RFScene grid, ISceneObject *fake_this, BuildOpti
       << (m_RFGridData.size() * sizeof(float) / 1024 / 1024 + m_RFGridPtrs.size() * sizeof(uint4) / 1024 / 1024) 
       << " MB for model" << std::endl;
   
-  return AddGeom_AABB(AbstractObject::TAG_RF, (const CRT_AABB*)m_origNodes.data(), m_origNodes.size());
+  return fake_this->AddGeom_AABB(AbstractObject::TAG_RF, (const CRT_AABB*)m_origNodes.data(), m_origNodes.size());
 }
 
 float4x4 Transpose(float4x4& a) {
@@ -403,7 +398,7 @@ uint32_t BVHRT::AddGeom_GSScene(GSScene grid, ISceneObject *fake_this, BuildOpti
   m_gs_conic = InvertMatrices(ComputeCovarianceMatrices(m_gs_data_0));
   m_origNodes = GetBoxes_GSGrid(grid);
     
-  return AddGeom_AABB(AbstractObject::TAG_GS, (const CRT_AABB*)m_origNodes.data(), m_origNodes.size());
+  return fake_this->AddGeom_AABB(AbstractObject::TAG_GS, (const CRT_AABB*)m_origNodes.data(), m_origNodes.size());
 }
 
 uint32_t BVHRT::AddGeom_SdfGrid(SdfGridView grid, ISceneObject *fake_this, BuildOptions a_qualityLevel)
@@ -936,7 +931,7 @@ uint32_t BVHRT::AddGeom_SdfFrameOctreeTex(SdfFrameOctreeTexView octree, ISceneOb
   std::vector<BVHNode> orig_nodes = GetBoxes_SdfFrameOctreeTex(octree);
   m_origNodes = orig_nodes;
   
-  return AddGeom_AABB(AbstractObject::TAG_SDF_NODE, (const CRT_AABB*)m_origNodes.data(), m_origNodes.size());
+  return fake_this->AddGeom_AABB(AbstractObject::TAG_SDF_NODE, (const CRT_AABB*)m_origNodes.data(), m_origNodes.size());
 }
 
 std::vector<BVHNode> GetBoxes_NURBS(const RawNURBS &nurbs)
@@ -976,7 +971,7 @@ uint32_t BVHRT::AddGeom_NURBS(const RawNURBS &nurbs, ISceneObject *fake_this, Bu
   //create list of bboxes for BLAS
   std::vector<BVHNode> orig_nodes = GetBoxes_NURBS(nurbs);
   
-  return AddGeom_AABB(AbstractObject::TAG_NURBS, (const CRT_AABB*)orig_nodes.data(), orig_nodes.size());
+  return fake_this->AddGeom_AABB(AbstractObject::TAG_NURBS, (const CRT_AABB*)orig_nodes.data(), orig_nodes.size());
 }
 
 void BVHRT::set_debug_mode(bool enable)

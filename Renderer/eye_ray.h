@@ -112,6 +112,8 @@ public:
   uint32_t AddMaterial(const MultiRendererMaterial &material);
   void     SetMaterial(uint32_t matId, uint32_t geomId);
   
+  uint32_t AddInstance(uint32_t a_geomId, const LiteMath::float4x4& a_matrix);
+  
 #ifndef KERNEL_SLICER 
   void add_mesh_internal(const cmesh4::SimpleMesh& mesh, unsigned geomId);
   void add_SdfFrameOctreeTex_internal(SdfFrameOctreeTexView scene, unsigned geomId);
@@ -179,6 +181,7 @@ protected:
   std::vector<uint2> m_matIdOffsets; //for every geometry, start and size of it's part of m_matIdbyPrimId
   unsigned active_textures_count = 0;
 //#endif
+  std::vector<LiteMath::float4x4> m_instanceTransformInvTransposed;
 
   // color palette to select color for objects based on mesh/instance id
   static constexpr uint32_t palette_size = 20;

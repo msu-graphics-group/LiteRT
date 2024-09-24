@@ -83,18 +83,21 @@ bool MultiRenderer::LoadSceneHydra(const std::string& a_path)
   std::string root_dir = a_path.substr(0, pos);
 
   std::vector<LiteMath::float4x4> addGeomTransform;
+  std::vector<unsigned> isCustom;
 
   while (mIter != scene.GeomNodes().end())
   {
     std::string dir = root_dir + "/" + hydra_xml::ws2s(std::wstring(mIter->attribute(L"loc").as_string()));
     std::string name = hydra_xml::ws2s(std::wstring(mIter->name()));
     addGeomTransform.push_back(float4x4());
+    isCustom.push_back(1);
     if (name == "mesh")
     {
       std::cout << "[LoadScene]: mesh = " << dir.c_str() << std::endl;
       auto currMesh = cmesh4::LoadMeshFromVSGF(dir.c_str());
       float4x4 trans = cmesh4::normalize_mesh(currMesh, true);
       addGeomTransform.back() = inverse4x4(trans);
+      isCustom.back() = 0; 
 
       unsigned geomId = m_pAccelStruct->AddGeom_Triangles3f((const float *)currMesh.vPos4f.data(), currMesh.vPos4f.size(),
                                                             currMesh.indices.data(), currMesh.indices.size(), BUILD_HIGH, sizeof(float) * 4);
@@ -109,7 +112,8 @@ bool MultiRenderer::LoadSceneHydra(const std::string& a_path)
   
   m_pAccelStruct->ClearScene();
   for(auto inst : scene.InstancesGeom())
-    m_pAccelStruct->AddInstance(inst.geomId, inst.matrix*addGeomTransform[inst.geomId]);
+    AddInstance(inst.geomId + isCustom[inst.geomId] * CRT_GEOM_MASK_AABB_BIT, 
+                inst.matrix*addGeomTransform[inst.geomId]);
   m_pAccelStruct->CommitScene();
 
   return true;
@@ -136,12 +140,14 @@ bool MultiRenderer::CreateSceneFromHydra(const std::string& a_path, unsigned typ
   std::string root_dir = a_path.substr(0, pos);
 
   std::vector<LiteMath::float4x4> addGeomTransform;
+  std::vector<unsigned> isCustom;
 
   while (mIter != scene.GeomNodes().end())
   {
     std::string dir = root_dir + "/" + hydra_xml::ws2s(std::wstring(mIter->attribute(L"loc").as_string()));
     std::string name = hydra_xml::ws2s(std::wstring(mIter->name()));
     addGeomTransform.push_back(float4x4());
+    isCustom.push_back(1);
     if (name == "mesh")
     {
       std::cout << "[LoadScene]: mesh = " << dir.c_str() << std::endl;
@@ -156,6 +162,7 @@ bool MultiRenderer::CreateSceneFromHydra(const std::string& a_path, unsigned typ
         unsigned geomId = m_pAccelStruct->AddGeom_Triangles3f((const float *)currMesh.vPos4f.data(), currMesh.vPos4f.size(),
                                                               currMesh.indices.data(), currMesh.indices.size(), BUILD_HIGH, sizeof(float) * 4);
         add_mesh_internal(currMesh, geomId);
+        isCustom.back() = 0; 
       }
       break;
       case TYPE_SDF_SVS:
@@ -204,7 +211,8 @@ bool MultiRenderer::CreateSceneFromHydra(const std::string& a_path, unsigned typ
   
   m_pAccelStruct->ClearScene();
   for(auto inst : scene.InstancesGeom())
-    m_pAccelStruct->AddInstance(inst.geomId, inst.matrix*addGeomTransform[inst.geomId]);
+    AddInstance(inst.geomId + isCustom[inst.geomId] * CRT_GEOM_MASK_AABB_BIT, 
+                inst.matrix*addGeomTransform[inst.geomId]);
   m_pAccelStruct->CommitScene();
 
   return true;
@@ -272,7 +280,7 @@ void MultiRenderer::SetScene(const cmesh4::SimpleMesh &scene)
   unsigned geomId = m_pAccelStruct->AddGeom_Triangles3f((const float*)scene.vPos4f.data(), scene.vPos4f.size(), scene.indices.data(), scene.indices.size(), BUILD_HIGH, sizeof(float)*4);                                                          
   add_mesh_internal(scene, geomId);
   m_pAccelStruct->ClearScene();
-  m_pAccelStruct->AddInstance(0, LiteMath::float4x4());
+  AddInstance(geomId, LiteMath::float4x4());
   m_pAccelStruct->CommitScene();
 }
 
@@ -289,7 +297,7 @@ void MultiRenderer::SetScene(SdfGridView scene)
   m_pAccelStruct->ClearGeom();
   auto geomId = bvhrt->AddGeom_SdfGrid(scene, m_pAccelStruct.get());
   m_pAccelStruct->ClearScene();
-  m_pAccelStruct->AddInstance(geomId, LiteMath::float4x4());
+  AddInstance(geomId, LiteMath::float4x4());
   m_pAccelStruct->CommitScene();
 }
 
@@ -306,7 +314,7 @@ void MultiRenderer::SetScene(SdfOctreeView scene)
   m_pAccelStruct->ClearGeom();
   auto geomId = bvhrt->AddGeom_SdfOctree(scene, m_pAccelStruct.get());
   m_pAccelStruct->ClearScene();
-  m_pAccelStruct->AddInstance(geomId, LiteMath::float4x4());
+  AddInstance(geomId, LiteMath::float4x4());
   m_pAccelStruct->CommitScene();
 }
 
@@ -323,7 +331,7 @@ void MultiRenderer::SetScene(SdfFrameOctreeView scene)
   m_pAccelStruct->ClearGeom();
   auto geomId = bvhrt->AddGeom_SdfFrameOctree(scene, m_pAccelStruct.get());
   m_pAccelStruct->ClearScene();
-  m_pAccelStruct->AddInstance(geomId, LiteMath::float4x4());
+  AddInstance(geomId, LiteMath::float4x4());
   m_pAccelStruct->CommitScene();
 }
 
@@ -340,7 +348,7 @@ void MultiRenderer::SetScene(SdfSVSView scene)
   m_pAccelStruct->ClearGeom();
   auto geomId = bvhrt->AddGeom_SdfSVS(scene, m_pAccelStruct.get());
   m_pAccelStruct->ClearScene();
-  m_pAccelStruct->AddInstance(geomId, LiteMath::float4x4());
+  AddInstance(geomId, LiteMath::float4x4());
   m_pAccelStruct->CommitScene();
 }
 
@@ -358,7 +366,7 @@ void MultiRenderer::SetScene(SdfSBSView scene, bool single_bvh_node)
   m_pAccelStruct->ClearGeom();
   auto geomId = bvhrt->AddGeom_SdfSBS(scene, m_pAccelStruct.get(), single_bvh_node);
   m_pAccelStruct->ClearScene();
-  m_pAccelStruct->AddInstance(geomId, LiteMath::float4x4());
+  AddInstance(geomId, LiteMath::float4x4());
   m_pAccelStruct->CommitScene();
 }
 
@@ -375,7 +383,7 @@ void MultiRenderer::SetScene(SdfSBSAdaptView scene, bool single_bvh_node)
   m_pAccelStruct->ClearGeom();
   auto geomId = bvhrt->AddGeom_SdfSBSAdapt(scene, m_pAccelStruct.get(), single_bvh_node);
   m_pAccelStruct->ClearScene();
-  m_pAccelStruct->AddInstance(0, LiteMath::float4x4());
+  AddInstance(geomId, LiteMath::float4x4());
   m_pAccelStruct->CommitScene();
 }
 
@@ -393,7 +401,7 @@ void MultiRenderer::SetScene(SdfFrameOctreeTexView scene)
   auto geomId = bvhrt->AddGeom_SdfFrameOctreeTex(scene, m_pAccelStruct.get());
   add_SdfFrameOctreeTex_internal(scene, geomId);
   m_pAccelStruct->ClearScene();
-  m_pAccelStruct->AddInstance(0, LiteMath::float4x4());
+  AddInstance(geomId, LiteMath::float4x4());
   m_pAccelStruct->CommitScene();
 }
 
@@ -410,7 +418,7 @@ void MultiRenderer::SetScene(const RawNURBS &nurbs)
   m_pAccelStruct->ClearGeom();
   auto geomId = bvhrt->AddGeom_NURBS(nurbs, m_pAccelStruct.get());
   m_pAccelStruct->ClearScene();
-  m_pAccelStruct->AddInstance(0, LiteMath::float4x4());
+  AddInstance(geomId, LiteMath::float4x4());
   m_pAccelStruct->CommitScene();
 }
 
@@ -528,6 +536,12 @@ void MultiRenderer::SetMaterial(uint32_t matId, uint32_t geomId)
   if (geomId >= m_matIdOffsets.size())
     m_matIdOffsets.resize(geomId + 1, uint2(0,1));
   m_matIdOffsets[geomId] = uint2(m_matIdbyPrimId.size()-1, 1);
+}
+
+uint32_t MultiRenderer::AddInstance(uint32_t a_geomId, const LiteMath::float4x4& a_matrix)
+{
+  m_instanceTransformInvTransposed.push_back(transpose(inverse4x4(a_matrix)));
+  return m_pAccelStruct->AddInstance(a_geomId, a_matrix);
 }
 
 #if defined(USE_GPU)

@@ -189,7 +189,7 @@ float4 MultiRenderer::kernel_RayTrace(uint32_t tidX, const float4* rayPosAndNear
     const float4 norm4 = (1.0f - uv.x - uv.y)*normA + uv.y*normB + uv.x*normC;
 
     tc = (1.0f - hit.coords[0] - hit.coords[1]) * A_tc + hit.coords[1] * B_tc + hit.coords[0] * C_tc;
-    norm = to_float3(norm4);
+    norm = normalize(matmul4x3(m_instanceTransformInvTransposed[hit.instId], to_float3(norm4)));
     // const uint2 a_geomOffsets = m_pAccelStruct-> m_geomData[geomId].offset;
   }
   else

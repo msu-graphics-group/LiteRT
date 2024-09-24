@@ -1850,21 +1850,21 @@ void litert_test_24_demo_meshes()
         {
           LiteMath::float4x4 m = LiteMath::translate4x4(float3(3.0f*((float)x_i - rots_x/2.0f + 0.5f), 3.0f, 0)) * 
                                 LiteMath::rotate4x4X(M_PI*float(x_i)/float(rots_x));
-          pRender->GetAccelStruct()->AddInstance(geomId, m);
+          pRender->AddInstance(geomId, m);
         }
 
         for (unsigned y_i = 0; y_i < rots_y; y_i++)
         {
           LiteMath::float4x4 m = LiteMath::translate4x4(float3(3.0f*((float)y_i - rots_y/2.0f + 0.5f), 0, 0)) * 
                                 LiteMath::rotate4x4Y(M_PI*float(y_i)/float(rots_y));
-          pRender->GetAccelStruct()->AddInstance(geomId, m);
+          pRender->AddInstance(geomId, m);
         }
 
         for (unsigned z_i = 0; z_i < rots_z; z_i++)
         {
           LiteMath::float4x4 m = LiteMath::translate4x4(float3(3.0f*((float)z_i - rots_z/2.0f + 0.5f), -3.0f, 0)) * 
                                 LiteMath::rotate4x4Z(M_PI*float(z_i)/float(rots_z));
-          pRender->GetAccelStruct()->AddInstance(geomId, m);
+          pRender->AddInstance(geomId, m);
         }
 
         pRender->GetAccelStruct()->CommitScene();
