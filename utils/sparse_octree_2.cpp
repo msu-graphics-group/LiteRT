@@ -774,20 +774,20 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
                 unsigned x_dir = (vert & 4) >> 2;
                 unsigned y_dir = 2 + ((vert & 2) >> 1);
                 unsigned z_dir = 4 + (vert & 1);
-                if (is_smooth && directions[directions[frame[neigh].offset + num].neighbour[x_dir]].d > directions[frame[neigh].offset + num].d && directions[frame[neigh].offset + num].neighbour[x_dir] != 0)
+                if (is_smooth && directions[directions[frame[neigh].offset + num].neighbour[x_dir ^ 1]].d > directions[frame[neigh].offset + num].d && directions[frame[neigh].offset + num].neighbour[x_dir ^ 1] != 0)
                 {
                   //take vertex from x_dir neighbour
-                  interpolate_vertex(directions, frame, neigh, num, x_dir, vert);
+                  interpolate_vertex(directions, frame, neigh, num, x_dir ^ 1, vert);
                 }
-                else if (is_smooth && directions[directions[frame[neigh].offset + num].neighbour[y_dir]].d > directions[frame[neigh].offset + num].d && directions[frame[neigh].offset + num].neighbour[y_dir] != 0)
+                else if (is_smooth && directions[directions[frame[neigh].offset + num].neighbour[y_dir ^ 1]].d > directions[frame[neigh].offset + num].d && directions[frame[neigh].offset + num].neighbour[y_dir ^ 1] != 0)
                 {
                   //take vertex from y_dir neighbour
-                  interpolate_vertex(directions, frame, neigh, num, y_dir, vert);
+                  interpolate_vertex(directions, frame, neigh, num, y_dir ^ 1, vert);
                 }
-                else if (is_smooth && directions[directions[frame[neigh].offset + num].neighbour[z_dir]].d > directions[frame[neigh].offset + num].d && directions[frame[neigh].offset + num].neighbour[z_dir] != 0)
+                else if (is_smooth && directions[directions[frame[neigh].offset + num].neighbour[z_dir ^ 1]].d > directions[frame[neigh].offset + num].d && directions[frame[neigh].offset + num].neighbour[z_dir ^ 1] != 0)
                 {
                   //take vertex from z_dir neighbour
-                  interpolate_vertex(directions, frame, neigh, num, z_dir, vert);
+                  interpolate_vertex(directions, frame, neigh, num, z_dir ^ 1, vert);
                 }
                 else// all neighbours on the last level
                 {
@@ -910,9 +910,11 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
     directions[0].d = 1.0f;
     directions[0].p = float3(0, 0, 0);
     directions[0].parent = 0;
-    memset(directions[0].neighbour, 0, sizeof(unsigned) * 8);
+    memset(directions[0].neighbour, 0, sizeof(unsigned) * 6);
     std::set<unsigned> divided = {};
     std::set<unsigned> last_level = {0};
+
+    std::map<std::pair<std::pair<float, float>, float>, std::set<float>> data;//debug
 
     for (int i = 1; i < settings.depth; ++i)
     {
@@ -978,20 +980,89 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
             unsigned x_dir = (vert & 4) >> 2;
             unsigned y_dir = 2 + ((vert & 2) >> 1);
             unsigned z_dir = 4 + (vert & 1);
-            if (is_smooth && last_level.find(directions[result[div_idx].offset + num].neighbour[x_dir]) == last_level.end() && directions[result[div_idx].offset + num].neighbour[x_dir] != 0)
+            if (is_smooth && last_level.find(directions[result[div_idx].offset + num].neighbour[x_dir ^ 1]) == last_level.end() && directions[result[div_idx].offset + num].neighbour[x_dir ^ 1] != 0)
             {
               //take vertex from x_dir neighbour
-              interpolate_vertex(directions, result, div_idx, num, x_dir, vert);
+              interpolate_vertex(directions, result, div_idx, num, x_dir ^ 1, vert);
+
+              float3 ch_pos = 2.0 * directions[result[div_idx].offset + num].d * directions[result[div_idx].offset + num].p - 1.0 + 
+                  2 * directions[result[div_idx].offset + num].d * float3((vert & 4) >> 2, (vert & 2) >> 1, vert & 1);
+              if (data.find({{ch_pos.x, ch_pos.y}, ch_pos.z}) != data.end() && data[{{ch_pos.x, ch_pos.y}, ch_pos.z}].size() < 2)
+              {
+                data[{{ch_pos.x, ch_pos.y}, ch_pos.z}].insert(result[result[div_idx].offset + num].values[vert]);
+                if (data[{{ch_pos.x, ch_pos.y}, ch_pos.z}].size() > 1)
+                {
+                  printf("x %f %f %f %f\n", directions[result[div_idx].offset + num].d, directions[result[div_idx].offset + num].p.x, 
+                                            directions[result[div_idx].offset + num].p.y, directions[result[div_idx].offset + num].p.z);
+                  printf("X %f %u %u --", result[result[div_idx].offset + num].values[vert], num, vert);
+                  for (int n = 0; n < 8; ++n)
+                  {
+                    printf(" %f", result[div_idx].values[n]);
+                  }
+                  printf("\n");
+                  auto tmp = directions[result[div_idx].offset + num].neighbour[x_dir ^ 1];
+                  printf("N %f %f %f %f --", directions[tmp].d, directions[tmp].p.x, directions[tmp].p.y, directions[tmp].p.z);
+                  for (int n = 0; n < 8; ++n)
+                  {
+                    printf(" %f", result[tmp].values[n]);
+                  }
+                  printf("\n");
+                }
+              }
+              else
+              {
+                data[{{ch_pos.x, ch_pos.y}, ch_pos.z}] = {result[result[div_idx].offset + num].values[vert]};
+              }
             }
-            else if (is_smooth && last_level.find(directions[result[div_idx].offset + num].neighbour[y_dir]) == last_level.end() && directions[result[div_idx].offset + num].neighbour[y_dir] != 0)
+            else if (is_smooth && last_level.find(directions[result[div_idx].offset + num].neighbour[y_dir ^ 1]) == last_level.end() && directions[result[div_idx].offset + num].neighbour[y_dir ^ 1] != 0)
             {
               //take vertex from y_dir neighbour
-              interpolate_vertex(directions, result, div_idx, num, y_dir, vert);
+              interpolate_vertex(directions, result, div_idx, num, y_dir ^ 1, vert);
+
+              float3 ch_pos = 2.0 * directions[result[div_idx].offset + num].d * directions[result[div_idx].offset + num].p - 1.0 + 
+                  2 * directions[result[div_idx].offset + num].d * float3((vert & 4) >> 2, (vert & 2) >> 1, vert & 1);
+              if (data.find({{ch_pos.x, ch_pos.y}, ch_pos.z}) != data.end() && data[{{ch_pos.x, ch_pos.y}, ch_pos.z}].size() < 2)
+              {
+                data[{{ch_pos.x, ch_pos.y}, ch_pos.z}].insert(result[result[div_idx].offset + num].values[vert]);
+                if (data[{{ch_pos.x, ch_pos.y}, ch_pos.z}].size() > 1)
+                {
+                  printf("Y %f %u %u --", result[result[div_idx].offset + num].values[vert], num, vert);
+                  for (int n = 0; n < 8; ++n)
+                  {
+                    printf(" %f", result[div_idx].values[n]);
+                  }
+                  printf("\n");
+                }
+              }
+              else
+              {
+                data[{{ch_pos.x, ch_pos.y}, ch_pos.z}] = {result[result[div_idx].offset + num].values[vert]};
+              }
             }
-            else if (is_smooth && last_level.find(directions[result[div_idx].offset + num].neighbour[z_dir]) == last_level.end() && directions[result[div_idx].offset + num].neighbour[z_dir] != 0)
+            else if (is_smooth && last_level.find(directions[result[div_idx].offset + num].neighbour[z_dir ^ 1]) == last_level.end() && directions[result[div_idx].offset + num].neighbour[z_dir ^ 1] != 0)
             {
               //take vertex from z_dir neighbour
-              interpolate_vertex(directions, result, div_idx, num, z_dir, vert);
+              interpolate_vertex(directions, result, div_idx, num, z_dir ^ 1, vert);
+
+              float3 ch_pos = 2.0 * directions[result[div_idx].offset + num].d * directions[result[div_idx].offset + num].p - 1.0 + 
+                  2 * directions[result[div_idx].offset + num].d * float3((vert & 4) >> 2, (vert & 2) >> 1, vert & 1);
+              if (data.find({{ch_pos.x, ch_pos.y}, ch_pos.z}) != data.end() && data[{{ch_pos.x, ch_pos.y}, ch_pos.z}].size() < 2)
+              {
+                data[{{ch_pos.x, ch_pos.y}, ch_pos.z}].insert(result[result[div_idx].offset + num].values[vert]);
+                if (data[{{ch_pos.x, ch_pos.y}, ch_pos.z}].size() > 1)
+                {
+                  printf("Z %f %u %u --", result[result[div_idx].offset + num].values[vert], num, vert);
+                  for (int n = 0; n < 8; ++n)
+                  {
+                    printf(" %f", result[div_idx].values[n]);
+                  }
+                  printf("\n");
+                }
+              }
+              else
+              {
+                data[{{ch_pos.x, ch_pos.y}, ch_pos.z}] = {result[result[div_idx].offset + num].values[vert]};
+              }
             }
             else// all neighbours on the last level
             {
@@ -999,6 +1070,25 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
               float d = directions[result[div_idx].offset + num].d;
               float3 ch_pos = 2.0f * (d * p) - 1.0f + 2 * d * float3((vert & 4) >> 2, (vert & 2) >> 1, vert & 1);
               result[result[div_idx].offset + num].values[vert] = sdf(ch_pos, 0);
+
+
+              if (data.find({{ch_pos.x, ch_pos.y}, ch_pos.z}) != data.end() && data[{{ch_pos.x, ch_pos.y}, ch_pos.z}].size() < 2)
+              {
+                data[{{ch_pos.x, ch_pos.y}, ch_pos.z}].insert(result[result[div_idx].offset + num].values[vert]);
+                if (data[{{ch_pos.x, ch_pos.y}, ch_pos.z}].size() > 1)
+                {
+                  printf("S %f %u %u --", result[result[div_idx].offset + num].values[vert], num, vert);
+                  for (int n = 0; n < 8; ++n)
+                  {
+                    printf(" %f", result[div_idx].values[n]);
+                  }
+                  printf("\n");
+                }
+              }
+              else
+              {
+                data[{{ch_pos.x, ch_pos.y}, ch_pos.z}] = {result[result[div_idx].offset + num].values[vert]};
+              }
             }
           }
         }
