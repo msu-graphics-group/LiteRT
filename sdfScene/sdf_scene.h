@@ -39,12 +39,25 @@ static constexpr unsigned NEURAL_SDF_MAX_LAYER_SIZE = 1024;
 static constexpr float SIREN_W0 = 30;
 static constexpr unsigned SDF_SBS_ADAPT_MAX_UNITS = 1 << 15u;
 
+static constexpr unsigned SBS_IN_EMPTY = 0xFFFFFFFFu; //id
+
+// enum SBSInSide
+static constexpr unsigned SBS_IN_SIDE_X_NEG = 0u;
+static constexpr unsigned SBS_IN_SIDE_X_POS = 1u;
+static constexpr unsigned SBS_IN_SIDE_Y_NEG = 2u;
+static constexpr unsigned SBS_IN_SIDE_Y_POS = 3u;
+static constexpr unsigned SBS_IN_SIDE_Z_NEG = 4u;
+static constexpr unsigned SBS_IN_SIDE_Z_POS = 5u;
+
 // enum SdfSBSNodeLayout
-static constexpr unsigned SDF_SBS_NODE_LAYOUT_UNDEFINED     = 0 << 24u; //should be interpreted as SDF_SBS_NODE_LAYOUT_D for legacy reasons
-static constexpr unsigned SDF_SBS_NODE_LAYOUT_DX            = 1 << 24u; //v_size*3 distance values (<bytes_per_value> bytes each)
-static constexpr unsigned SDF_SBS_NODE_LAYOUT_DX_UV16       = 2 << 24u; //v_size*3 distance values (<bytes_per_value> bytes each), 8 tex coords (2*2 bytes each)
-static constexpr unsigned SDF_SBS_NODE_LAYOUT_DX_RGB8       = 3 << 24u; //v_size*3 distance values (<bytes_per_value> bytes each), 8 RBG colors (4 bytes, with padding)
-static constexpr unsigned SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F = 4 << 24u; //v_size*3 indices to distance values (1 float each), 8 indices to RBG colors (3 float)
+static constexpr unsigned SDF_SBS_NODE_LAYOUT_UNDEFINED        = 0 << 24u; //should be interpreted as SDF_SBS_NODE_LAYOUT_D for legacy reasons
+static constexpr unsigned SDF_SBS_NODE_LAYOUT_DX               = 1 << 24u; //v_size^3 distance values (<bytes_per_value> bytes each)
+static constexpr unsigned SDF_SBS_NODE_LAYOUT_DX_UV16          = 2 << 24u; //v_size^3 distance values (<bytes_per_value> bytes each), 8 tex coords (2*2 bytes each)
+static constexpr unsigned SDF_SBS_NODE_LAYOUT_DX_RGB8          = 3 << 24u; //v_size^3 distance values (<bytes_per_value> bytes each), 8 RBG colors (4 bytes, with padding)
+static constexpr unsigned SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F    = 4 << 24u; //v_size^3 indices to distance values (1 float each), 8 indices to RBG colors (3 float)
+static constexpr unsigned SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F_IN = 5 << 24u; //v_size^3 indices to distance values (1 float each), 8 indices to RBG colors (3 float),
+                                                                           //6 indices to adjacent bricks, SBS_IN_EMPTY indicates that the is no adjacent 
+                                                                           //voxel on this side, otherwise it is an index of this brick in nodes array
 static constexpr unsigned SDF_SBS_NODE_LAYOUT_MASK          = 0xFF000000;
 
 struct SdfObject

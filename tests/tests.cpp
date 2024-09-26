@@ -1372,7 +1372,7 @@ void litert_test_19_marching_cubes()
 
   unsigned W = 4096, H = 4096;
   MultiRenderPreset preset = getDefaultPreset();
-  preset.mesh_normal_mode = MESH_NORMAL_MODE_VERTEX;
+  preset.normal_mode = NORMAL_MODE_VERTEX;
   LiteImage::Image2D<uint32_t> image_1(W, H);
   {
     auto pRender = CreateMultiRenderer("GPU");
@@ -1462,7 +1462,7 @@ void litert_test_21_rf_to_mesh()
 
   unsigned W = 2048, H = 2048;
   MultiRenderPreset preset = getDefaultPreset();
-  preset.mesh_normal_mode = MESH_NORMAL_MODE_VERTEX;
+  preset.normal_mode = NORMAL_MODE_VERTEX;
   float4x4 m1, m2;
   LiteImage::Image2D<uint32_t> image_1(W, H);
   LiteImage::Image2D<uint32_t> image_2(W, H);
@@ -1485,7 +1485,7 @@ void litert_test_21_rf_to_mesh()
 
   {
     preset = getDefaultPreset();
-    preset.mesh_normal_mode = MESH_NORMAL_MODE_VERTEX;
+    preset.normal_mode = NORMAL_MODE_VERTEX;
     auto pRender = CreateMultiRenderer("GPU");
     pRender->SetPreset(preset);
     pRender->SetViewport(0,0,W,H);
@@ -1600,7 +1600,7 @@ void litert_test_22_sdf_grid_smoothing()
 
   {
     preset = getDefaultPreset();
-    preset.mesh_normal_mode = MESH_NORMAL_MODE_VERTEX;
+    preset.normal_mode = NORMAL_MODE_VERTEX;
     auto pRender = CreateMultiRenderer("GPU");
     pRender->SetPreset(preset);
     pRender->SetViewport(0,0,W,H);
@@ -1785,7 +1785,7 @@ void litert_test_24_demo_meshes()
   unsigned W = 4096, H = 4096;
 
   MultiRenderPreset preset = getDefaultPreset();
-  preset.mesh_normal_mode = MESH_NORMAL_MODE_VERTEX;
+  preset.normal_mode = NORMAL_MODE_VERTEX;
   preset.render_mode = MULTI_RENDER_MODE_DIFFUSE;
 
   LiteImage::Image2D<uint32_t> image(W, H);
@@ -2003,11 +2003,12 @@ void litert_test_27_textured_colored_SBS()
   unsigned W = 2048, H = 2048;
 
   MultiRenderPreset preset = getDefaultPreset();
-  preset.render_mode = MULTI_RENDER_MODE_LAMBERT;
-  SparseOctreeSettings settings(SparseOctreeBuildType::MESH_TLO, 9);
+  preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
+  preset.normal_mode = NORMAL_MODE_SDF_SMOOTHED;
+  SparseOctreeSettings settings(SparseOctreeBuildType::MESH_TLO, 4);
 
   SdfSBSHeader header;
-  header.brick_size = 2;
+  header.brick_size = 4;
   header.brick_pad = 0;
   header.bytes_per_value = 1;
 

@@ -1222,6 +1222,11 @@ namespace dr
               //normal = normalize(eval_dist_trilinear_diff(values, start_q + t(values) * ray_dir))
               //dnormal_dvalues[3x8] = dnormalize_dD[3x3] * (dD_d1[3x8] + (dD_d2[3x3] * ray_dir[3x1])[3x1] * dt_dvalues[1x8])
 
+              //normal = alpha(p0)*n1 + (1-alpha(p0))*n2
+              //p0 = start_q + t(values) * ray_dir
+              //n1 = normalize(eval_dist_trilinear_diff(values, start_q + t(values) * ray_dir))
+              //n2 = normalize(eval_dist_trilinear_diff(values, start_q + t(values) * ray_dir))
+
               float3 t1 = dD_d2*ray_dir;
 
               for (int i = 0; i < 8; i++) //dD_d1 = dD_d1 + (dD_d2 * ray_dir) * dt_dvalues

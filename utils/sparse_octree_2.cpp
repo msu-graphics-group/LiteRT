@@ -1493,4 +1493,92 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
 
     return sbs_ind;
   }
+
+  SdfSBS SBS_col_to_SBS_ind_with_neighbors(const SdfSBS &sbs)
+  {
+    SdfSBS sbs_ind;
+    //same header, except for layout
+    //same nodes and offsets (UV and RGB occupy the same space)
+    //completely different data structure (it is now only indices) + 
+    //additional array for actual values (floats)
+    sbs_ind.header = sbs.header;
+    sbs_ind.header.aux_data = SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F;
+
+    sbs_ind.nodes = sbs.nodes;
+
+    unsigned vals_per_int = 4/sbs.header.bytes_per_value;
+    unsigned v_size = sbs.header.brick_size + 2*sbs.header.brick_pad + 1;
+    unsigned dist_size = (v_size*v_size*v_size+vals_per_int-1)/vals_per_int;
+    unsigned bits = 8*sbs.header.bytes_per_value;
+    unsigned max_val = sbs.header.bytes_per_value == 4 ? 0xFFFFFFFF : ((1 << bits) - 1);
+
+    sbs_ind.values.resize(sbs.nodes.size()*(v_size*v_size*v_size + 8)); //v_size^3 indices for distances + 8 for textures
+    unsigned f_offset = 0;
+    unsigned i_offset = 0;
+
+    std::unordered_map<float3, unsigned, PositionHasher, PositionEqual> distance_indices;
+    std::unordered_map<float3, unsigned, PositionHasher, PositionEqual> color_indices;
+
+    for (int n_idx = 0; n_idx < sbs.nodes.size(); n_idx++)
+    {
+      const SdfSBSNode &n = sbs.nodes[n_idx];
+      float px = n.pos_xy >> 16;
+      float py = n.pos_xy & 0x0000FFFF;
+      float pz = n.pos_z_lod_size >> 16;
+      float sz = n.pos_z_lod_size & 0x0000FFFF;
+      float sz_inv = 2.0f/sz;
+      float d = 2.0f/(sz*sbs.header.brick_size);
+
+      sbs_ind.nodes[n_idx].data_offset = i_offset;
+
+      unsigned col_off = n.data_offset + dist_size;
+      for (unsigned i = 0; i < v_size*v_size*v_size; i++)
+      {
+        uint32_t v_off = n.data_offset;
+        float d_max = 2*1.73205081f/sz;
+        float mult = 2*d_max/max_val;
+        float val = -d_max + mult*((sbs.values[n.data_offset + i/vals_per_int] >> (bits*(i%vals_per_int))) & max_val);
+
+        uint3 voxelPos = uint3(i/(v_size*v_size), i/v_size%v_size, i%v_size);
+        float3 pos = float3(-1,-1,-1) + 2.0f*(float3(px,py,pz)/sz + float3(voxelPos)/(sz*sbs.header.brick_size));
+                      
+        //printf("%u %u val = %f pos = %f %f %f\n", n.data_offset, i, val, pos.x, pos.y, pos.z);
+        //printf("min_pos, pos, sz = %f %f %f %f %f %f %f\n", px, py, pz, pos.x, pos.y, pos.z, sz);
+        auto it = distance_indices.find(pos);
+        if (it == distance_indices.end())
+        {
+          sbs_ind.values_f.push_back(val);
+          distance_indices[pos] = sbs_ind.values_f.size() - 1;
+          sbs_ind.values[i_offset + i] = sbs_ind.values_f.size() - 1;
+        }
+        else
+        {
+          sbs_ind.values[i_offset + i] = it->second;
+        }
+      }
+      for (unsigned i = 0; i < 8; i++)
+      {
+        unsigned col_packed = sbs.values[col_off + i];
+        float3 f_color = float3(col_packed & 0xFF, (col_packed >> 8) & 0xFF, (col_packed >> 16) & 0xFF)/255.0f;
+
+        float3 pos = float3(px, py, pz) + float3((i & 4) >> 2, (i & 2) >> 1, i & 1)/sz;
+        auto it = distance_indices.find(pos);
+        if (it == color_indices.end())
+        {
+          sbs_ind.values_f.push_back(f_color.x);
+          sbs_ind.values_f.push_back(f_color.y);
+          sbs_ind.values_f.push_back(f_color.z);
+          color_indices[pos] = sbs_ind.values_f.size() - 3;
+          sbs_ind.values[i_offset + v_size*v_size*v_size + i] = sbs_ind.values_f.size() - 3;
+        }
+        else
+        {
+          sbs_ind.values[i_offset + v_size*v_size*v_size + i] = it->second;
+        }
+      }
+      i_offset += v_size*v_size*v_size + 8;
+    }
+
+    return sbs_ind;
+  }
 }

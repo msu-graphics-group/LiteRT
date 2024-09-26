@@ -614,6 +614,94 @@ void BVHRT::OctreeNodeIntersect(uint32_t type, const float3 ray_pos, const float
                            pHit); /*out*/
 }
 
+  static float3 eval_dist_trilinear_diff(const float values[8], float3 dp)
+  {
+    float ddist_dx = -(1-dp.y)*(1-dp.z)*values[0] + 
+                     -(1-dp.y)*(  dp.z)*values[1] + 
+                     -(  dp.y)*(1-dp.z)*values[2] + 
+                     -(  dp.y)*(  dp.z)*values[3] + 
+                      (1-dp.y)*(1-dp.z)*values[4] + 
+                      (1-dp.y)*(  dp.z)*values[5] + 
+                      (  dp.y)*(1-dp.z)*values[6] + 
+                      (  dp.y)*(  dp.z)*values[7];
+    
+    float ddist_dy = -(1-dp.x)*(1-dp.z)*values[0] + 
+                     -(1-dp.x)*(  dp.z)*values[1] + 
+                      (1-dp.x)*(1-dp.z)*values[2] + 
+                      (1-dp.x)*(  dp.z)*values[3] + 
+                     -(  dp.x)*(1-dp.z)*values[4] + 
+                     -(  dp.x)*(  dp.z)*values[5] + 
+                      (  dp.x)*(1-dp.z)*values[6] + 
+                      (  dp.x)*(  dp.z)*values[7];
+
+    float ddist_dz = -(1-dp.x)*(1-dp.y)*values[0] + 
+                      (1-dp.x)*(1-dp.y)*values[1] + 
+                     -(1-dp.x)*(  dp.y)*values[2] + 
+                      (1-dp.x)*(  dp.y)*values[3] + 
+                     -(  dp.x)*(1-dp.y)*values[4] + 
+                      (  dp.x)*(1-dp.y)*values[5] + 
+                     -(  dp.x)*(  dp.y)*values[6] + 
+                      (  dp.x)*(  dp.y)*values[7];
+  
+    return float3(ddist_dx, ddist_dy, ddist_dz);
+  }
+
+  static float3 eval_normal_trilinear(const float3 values[8], float3 dp)
+  {
+    return (1-dp.x)*(1-dp.y)*(1-dp.z)*values[0] + 
+           (1-dp.x)*(1-dp.y)*(  dp.z)*values[1] + 
+           (1-dp.x)*(  dp.y)*(1-dp.z)*values[2] + 
+           (1-dp.x)*(  dp.y)*(  dp.z)*values[3] + 
+           (  dp.x)*(1-dp.y)*(1-dp.z)*values[4] + 
+           (  dp.x)*(1-dp.y)*(  dp.z)*values[5] + 
+           (  dp.x)*(  dp.y)*(1-dp.z)*values[6] + 
+           (  dp.x)*(  dp.y)*(  dp.z)*values[7];
+  }
+
+//smooth transition from 0 (x=edge0) to 1 (x=edge1)
+static float smoothstep(float edge0, float edge1, float x)
+{
+  float t = clamp((x - edge0) / (edge1 - edge0), 0.0, 1.0);
+  return t;
+  return t * t * (3.0 - 2.0 * t);
+}
+
+float BVHRT::load_distance_values(uint32_t nodeId, float3 voxelPos, uint32_t v_size, float sz_inv, const SdfSBSHeader &header, 
+                                  float values[8])
+{
+  float vmin = 1e6f;
+  if (header.aux_data == SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F)
+  {
+    uint32_t v_off = m_SdfSBSNodes[nodeId].data_offset;
+    for (int i = 0; i < 8; i++)
+    {
+      uint3 vPos = uint3(voxelPos) + uint3((i & 4) >> 2, (i & 2) >> 1, i & 1);
+      uint32_t vId = vPos.x * v_size * v_size + vPos.y * v_size + vPos.z;
+      values[i] = m_SdfSBSDataF[m_SdfSBSData[v_off + vId]];
+      // printf("%f\n", values[i]);
+      vmin = std::min(vmin, values[i]);
+    }
+  }
+  else
+  {
+    uint32_t v_off = m_SdfSBSNodes[nodeId].data_offset;
+    uint32_t vals_per_int = 4 / header.bytes_per_value;
+    uint32_t bits = 8 * header.bytes_per_value;
+    uint32_t max_val = header.bytes_per_value == 4 ? 0xFFFFFFFF : ((1 << bits) - 1);
+    float d_max = 1.73205081f * sz_inv;
+    float mult = 2 * d_max / max_val;
+    for (int i = 0; i < 8; i++)
+    {
+      uint3 vPos = uint3(voxelPos) + uint3((i & 4) >> 2, (i & 2) >> 1, i & 1);
+      uint32_t vId = vPos.x * v_size * v_size + vPos.y * v_size + vPos.z;
+      values[i] = -d_max + mult * ((m_SdfSBSData[v_off + vId / vals_per_int] >> (bits * (vId % vals_per_int))) & max_val);
+      vmin = std::min(vmin, values[i]);
+    }
+  }
+
+  return vmin;
+}
+
 void BVHRT::OctreeBrickIntersect(uint32_t type, const float3 ray_pos, const float3 ray_dir,
                                  float tNear, uint32_t instId, uint32_t geomId,
                                  uint32_t bvhNodeId, uint32_t a_count,
@@ -657,36 +745,7 @@ void BVHRT::OctreeBrickIntersect(uint32_t type, const float3 ray_pos, const floa
     float3 max_pos = min_pos + d*float3(1,1,1);
     float3 size = max_pos - min_pos;
 
-    float vmin = 1.0f;
-
-    if (header.aux_data == SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F)
-    {
-      uint32_t v_off = m_SdfSBSNodes[nodeId].data_offset;
-      for (int i=0;i<8;i++)
-      {
-        uint3 vPos = uint3(voxelPos) + uint3((i & 4) >> 2, (i & 2) >> 1, i & 1);
-        uint32_t vId = vPos.x*v_size*v_size + vPos.y*v_size + vPos.z;
-        values[i] = m_SdfSBSDataF[m_SdfSBSData[v_off + vId]];
-        //printf("%f\n", values[i]);
-        vmin = std::min(vmin, values[i]);
-      }
-    }
-    else
-    {
-      uint32_t v_off = m_SdfSBSNodes[nodeId].data_offset;
-      uint32_t vals_per_int = 4/header.bytes_per_value; 
-      uint32_t bits = 8*header.bytes_per_value;
-      uint32_t max_val = header.bytes_per_value == 4 ? 0xFFFFFFFF : ((1 << bits) - 1);
-      float d_max = 1.73205081f*sz_inv;
-      float mult = 2*d_max/max_val;
-      for (int i=0;i<8;i++)
-      {
-        uint3 vPos = uint3(voxelPos) + uint3((i & 4) >> 2, (i & 2) >> 1, i & 1);
-        uint32_t vId = vPos.x*v_size*v_size + vPos.y*v_size + vPos.z;
-        values[i] = -d_max + mult*((m_SdfSBSData[v_off + vId/vals_per_int] >> (bits*(vId%vals_per_int))) & max_val);
-        vmin = std::min(vmin, values[i]);
-      }
-    }
+    float vmin = load_distance_values(nodeId, voxelPos, v_size, sz_inv, header, values);
 
     fNearFar = RayBoxIntersection2(ray_pos, SafeInverse(ray_dir), min_pos, max_pos);
     if (tNear < fNearFar.x && vmin <= 0.0f)    
@@ -697,13 +756,157 @@ void BVHRT::OctreeBrickIntersect(uint32_t type, const float3 ray_pos, const floa
     
       LocalSurfaceIntersection(type, ray_dir, instId, geomId, values, nodeId, primId, d, 0.0f, qFar, fNearFar, start_q, /*in */
                                pHit); /*out*/
+    
+      if (false && m_preset.normal_mode == NORMAL_MODE_SDF_SMOOTHED && pHit->t != old_t)
+      {
+
+        float3 dp = start_q + ((pHit->t - fNearFar.x)/d)*ray_dir; //linear interpolation coefficients in voxels
+        float3 normal;
+        {
+          float3 dSDF_dp0 = eval_dist_trilinear_diff(values, dp);
+          normal = normalize(dSDF_dp0);
+          float2 encoded_norm = encode_normal(normal);
+
+          pHit->coords[2] = encoded_norm.x;
+          pHit->coords[3] = encoded_norm.y;
+        }
+
+        const float beta = 0.25f;
+        uint32_t side_min = SBS_IN_EMPTY;
+        float side_min_val = beta;
+        if (dp.x < side_min_val)
+        {
+          side_min = SBS_IN_SIDE_X_NEG;
+          side_min_val = dp.x;
+        }
+        if (1-dp.x < side_min_val)
+        {
+          side_min = SBS_IN_SIDE_X_POS;
+          side_min_val = 1-dp.x;
+        }
+        if (dp.y < side_min_val)
+        {
+          side_min = SBS_IN_SIDE_Y_NEG;
+          side_min_val = dp.y;
+        }
+        if (1-dp.y < side_min_val)
+        {
+          side_min = SBS_IN_SIDE_Y_POS;
+          side_min_val = 1-dp.y;  
+        }
+        if (dp.z < side_min_val)
+        {
+          side_min = SBS_IN_SIDE_Z_NEG;
+          side_min_val = dp.z;
+        }
+        if (1-dp.z < side_min_val)
+        {
+          side_min = SBS_IN_SIDE_Z_POS;
+          side_min_val = 1-dp.z;
+        }
+
+        //we are near one of the sides of the voxel and should smooth the normal
+        //with the neighbor voxel
+        if (side_min_val < beta)
+        {
+          float values_n[8];
+          float3 norm_neighbor = float3(1,0,0);
+
+          float norm_mix_q = smoothstep(-beta, beta, side_min_val);
+          //printf("side_min = %u, side_min_val = %f, norm_mix_q = %f\n", side_min, side_min_val, norm_mix_q);
+
+          //check if the neighbor voxel is in the same brick
+          const int3 vox_offsets[6] = {int3(-1,0,0), int3(1,0,0), int3(0,-1,0), int3(0,1,0), int3(0,0,-1), int3(0,0,1)};
+          int3 neighborVoxelPos = int3(voxelPos) + vox_offsets[side_min];
+          if (neighborVoxelPos.x >= 0 && neighborVoxelPos.x < header.brick_size && 
+              neighborVoxelPos.y >= 0 && neighborVoxelPos.y < header.brick_size && 
+              neighborVoxelPos.z >= 0 && neighborVoxelPos.z < header.brick_size)
+          {
+            //load values from the neighbor voxel in brick and calculate its normal
+            //the same code as above, only with different voxelPos
+            load_distance_values(nodeId, float3(neighborVoxelPos), v_size, sz_inv, header, values_n);
+
+            //calculate the normal from different_voxel
+            float3 dSDF_dp0 = eval_dist_trilinear_diff(values_n, dp - float3(vox_offsets[side_min]));
+            norm_neighbor = normalize(dSDF_dp0);
+          }
+          else
+          {
+            //normal = float3(1,0,0);
+            //norm_neighbor = float3(1,0,0);
+            norm_neighbor = normal;
+          }
+
+          float3 smoothed_norm = normalize(norm_mix_q*normal + (1-norm_mix_q)*norm_neighbor);
+          float2 encoded_norm = encode_normal(smoothed_norm);
+
+          pHit->coords[2] = encoded_norm.x;
+          pHit->coords[3] = encoded_norm.y;
+        }
+                        
+      }
+      else if (m_preset.normal_mode == NORMAL_MODE_SDF_SMOOTHED && pHit->t != old_t)
+      {
+        const float beta = 0.25f;
+        float3 dp = start_q + ((pHit->t - fNearFar.x)/d)*ray_dir; //linear interpolation coefficients in voxels
+        float3 default_normal = normalize(eval_dist_trilinear_diff(values, dp));
+
+        float3 normals[8];
+        float values_n[8];
+        for (int i=0;i<8;i++)
+          normals[i] = default_normal;
+        
+        float3 norm_mix_q = float3(0.5f,0.5f,0.5f);
+        norm_mix_q.x = dp.x < 0.5f ? smoothstep(-beta, beta, dp.x) : smoothstep(-beta, beta, dp.x - 1.0f);
+        norm_mix_q.y = dp.y < 0.5f ? smoothstep(-beta, beta, dp.y) : smoothstep(-beta, beta, dp.y - 1.0f);
+        norm_mix_q.z = dp.z < 0.5f ? smoothstep(-beta, beta, dp.z) : smoothstep(-beta, beta, dp.z - 1.0f);
+
+        int3 voxelPos0 = int3(dp.x < 0.5f ? voxelPos.x - 1 : voxelPos.x, dp.y < 0.5f ? voxelPos.y - 1 : voxelPos.y, dp.z < 0.5f ? voxelPos.z - 1 : voxelPos.z);
+        for (int i=0;i<8;i++)
+        {
+          int3 VoxelPosI = voxelPos0 + int3((i & 4) >> 2, (i & 2) >> 1, i & 1);
+          if (VoxelPosI.x >= 0 && VoxelPosI.x < header.brick_size &&
+              VoxelPosI.y >= 0 && VoxelPosI.y < header.brick_size &&
+              VoxelPosI.z >= 0 && VoxelPosI.z < header.brick_size)
+          {
+            float3 dVoxelPos = float3(VoxelPosI) - float3(voxelPos);
+
+            float vmin = load_distance_values(nodeId, float3(VoxelPosI), v_size, sz_inv, header, values_n);
+
+            //calculate the normal from different_voxel
+            //if (vmin <= 0.0f)
+            normals[i] = normalize(eval_dist_trilinear_diff(values_n, dp - dVoxelPos));
+            float3 pp = dp - dVoxelPos;
+            //printf("%f %f %f\n", (dp + dVoxelPos).x, (dp + dVoxelPos).y, (dp + dVoxelPos).z);
+            if (pp.x > 1.5 || pp.y > 1.5 || pp.z > 1.5)
+            {
+              printf("%f %f %f\n", (dp + dVoxelPos).x, (dp + dVoxelPos).y, (dp + dVoxelPos).z);
+              printf("VoxelPos0 = %d %d %d, VoxelPosI = %d %d %d, VoxelPos = %f %f %f\n", voxelPos0.x, voxelPos0.y, voxelPos0.z, 
+                     VoxelPosI.x, VoxelPosI.y, VoxelPosI.z, voxelPos.x, voxelPos.y, voxelPos.z);
+              //if (length(default_normal - normals[i]) > 0.01f)
+              printf("default_normal = %f %f %f normals[i] = %f %f %f\n", default_normal.x, default_normal.y, default_normal.z,
+                     normals[i].x, normals[i].y, normals[i].z);
+              printf("i = %d norm_mix_q = %f %f %f dp = %f %f %f\n\n",i, norm_mix_q.x, norm_mix_q.y, norm_mix_q.z, dp.x, dp.y, dp.z);
+            }
+          }
+        }
+
+        //printf("dp = %f %f %f -- ", dp.x, dp.y, dp.z);
+        //printf("norm_mix_q = %f %f %f\n", norm_mix_q.x, norm_mix_q.y, norm_mix_q.z);
+
+        float3 smoothed_norm = normalize(eval_normal_trilinear(normals, norm_mix_q));
+        float2 encoded_norm = encode_normal(smoothed_norm);
+
+        pHit->coords[2] = encoded_norm.x;
+        pHit->coords[3] = encoded_norm.y;
+      }
     }
     
     brick_fNearFar.x += std::max(0.0f, fNearFar.y-brick_fNearFar.x) + 1e-6f;
   }
   
   //ray hit a brick
-  if (pHit->t < old_t)
+  if (pHit->t < old_t && false)
   {
     float3 pos = ray_pos + pHit->t*ray_dir;
     float3 dp = (pos - brick_min_pos)*(0.5f*sz);
@@ -1738,11 +1941,11 @@ void BVHRT::IntersectAllTrianglesInLeaf(const float3 ray_pos, const float3 ray_d
       if (need_normal())
       {
         float3 n = float3(1,0,0);
-        if (m_preset.mesh_normal_mode == MESH_NORMAL_MODE_GEOMETRY)
+        if (m_preset.normal_mode == NORMAL_MODE_GEOMETRY)
         {
           n = cross(edge1, edge2);
         }
-        else if (m_preset.mesh_normal_mode == MESH_NORMAL_MODE_VERTEX)
+        else if (m_preset.normal_mode == NORMAL_MODE_VERTEX)
         {
           n = to_float3(m_vertNorm[a_geomOffsets.y + A] * (1.0f - u - v) + m_vertNorm[a_geomOffsets.y + B] * v + u * m_vertNorm[a_geomOffsets.y + C]);
         }

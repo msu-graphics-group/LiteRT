@@ -585,7 +585,8 @@ uint32_t BVHRT::AddGeom_SdfSBS(SdfSBSView octree, ISceneObject *fake_this, bool 
     type = TYPE_SDF_SBS_TEX;
   }
   else if (node_layout == SDF_SBS_NODE_LAYOUT_DX_RGB8 ||     //colored
-           node_layout == SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F) 
+           node_layout == SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F || 
+           node_layout == SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F_IN) 
   {
     type = TYPE_SDF_SBS_COL;
   }
@@ -629,7 +630,8 @@ uint32_t BVHRT::AddGeom_SdfSBS(SdfSBSView octree, ISceneObject *fake_this, bool 
   for (int i=n_offset; i<m_SdfSBSNodes.size(); i++)
     m_SdfSBSNodes[i].data_offset += v_offset;
   
-  if (node_layout == SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F) //indexed layout reqires float values
+  if (node_layout == SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F|| 
+      node_layout == SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F_IN) //indexed layout reqires float values
   {
     unsigned f_offset = m_SdfSBSDataF.size();
     m_SdfSBSDataF.insert(m_SdfSBSDataF.end(), octree.values_f, octree.values_f + octree.values_f_count);
@@ -741,7 +743,8 @@ uint32_t BVHRT::AddGeom_SdfSBSAdapt(SdfSBSAdaptView octree, ISceneObject *fake_t
     type = TYPE_SDF_SBS_ADAPT_TEX;
   }
   else if (node_layout == SDF_SBS_NODE_LAYOUT_DX_RGB8 ||     //colored
-           node_layout == SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F) 
+           node_layout == SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F || 
+           node_layout == SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F_IN) 
   {
     type = TYPE_SDF_SBS_ADAPT_COL;
   }
@@ -786,7 +789,8 @@ uint32_t BVHRT::AddGeom_SdfSBSAdapt(SdfSBSAdaptView octree, ISceneObject *fake_t
   for (int i=n_offset; i<m_SdfSBSAdaptNodes.size(); i++)
     m_SdfSBSAdaptNodes[i].data_offset += v_offset;
   
-  if (node_layout == SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F) //indexed layout reqires float values
+  if (node_layout == SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F|| 
+      node_layout == SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F_IN) //indexed layout reqires float values
   {
     unsigned f_offset = m_SdfSBSAdaptDataF.size();
     m_SdfSBSAdaptDataF.insert(m_SdfSBSAdaptDataF.end(), octree.values_f, octree.values_f + octree.values_f_count);
