@@ -951,16 +951,16 @@ void test_position_derivatives(const SdfSBS &SBS, unsigned render_node, unsigned
 {
   static unsigned off = 1;
   srand(0);
-  unsigned W = 256, H = 256;
+  unsigned W = 128, H = 128;
 
   MultiRenderPreset preset = getDefaultPreset();
   preset.render_mode = render_node;
   //preset.ray_gen_mode = RAY_GEN_MODE_RANDOM;
   preset.spp = 256;
 
-  float4x4 base_proj = LiteMath::perspectiveMatrix(60, 1.0f, 0.01f, 100.0f);
+  float4x4 base_proj = LiteMath::perspectiveMatrix(20, 1.0f, 0.01f, 100.0f);
 
-  std::vector<float4x4> view = get_cameras_uniform_sphere(1, float3(0, 0, 0), 3.0f);
+  std::vector<float4x4> view = {LiteMath::lookAt(float3(0.3, 0, 2), float3(0, 0, 0), float3(0, 1, 0))};
   std::vector<float4x4> proj(view.size(), base_proj);
 
   std::vector<LiteImage::Image2D<float4>> images_ref(view.size(), LiteImage::Image2D<float4>(W, H));
@@ -972,15 +972,15 @@ void test_position_derivatives(const SdfSBS &SBS, unsigned render_node, unsigned
     pRender->SetViewport(0,0,W,H);
 
     pRender->SetScene(SBS);
-    pRender->RenderFloat(images_ref[i].data(), images_ref[i].width(), images_ref[i].height(), view[i], proj[i], preset);
+    //pRender->RenderFloat(images_ref[i].data(), images_ref[i].width(), images_ref[i].height(), view[i], proj[i], preset);
     LiteImage::SaveImage<float4>(("saves/test_dr_9_"+std::to_string(off)+"_ref.bmp").c_str(), images_ref[i]); 
   }
 
   // put random colors to SBS
   auto indexed_SBS = SBS;
-  if (set_random_color)
-    randomize_color(indexed_SBS);
-  randomize_distance(indexed_SBS, 0.1f);
+  //if (set_random_color)
+  //  randomize_color(indexed_SBS);
+  //randomize_distance(indexed_SBS, 0.1f);
 
   MultiRendererDRPreset dr_preset = getDefaultPresetDR();
 
@@ -992,6 +992,7 @@ void test_position_derivatives(const SdfSBS &SBS, unsigned render_node, unsigned
   dr_preset.opt_lr = 0.0f;
   dr_preset.spp = 64;
   dr_preset.border_spp = 1024;
+  dr_preset.debug_pd_images = true;
 
   unsigned param_count = indexed_SBS.values_f.size() - 3 * 8 * indexed_SBS.nodes.size();
   unsigned param_offset = 0;
@@ -1004,7 +1005,7 @@ void test_position_derivatives(const SdfSBS &SBS, unsigned render_node, unsigned
 
     for (int T = 0; T < 2; T++)
     {
-    unsigned samples = 50;
+    unsigned samples = 2;
     std::vector<std::vector<float>> grads(samples);
     for (unsigned i = 0; i < samples; i++)
     {
@@ -1032,7 +1033,7 @@ void test_position_derivatives(const SdfSBS &SBS, unsigned render_node, unsigned
     printf("CONF = [");
     for (unsigned i = 0; i < param_count; i++)
     {
-      printf("[%9.2f - %9.2f] ", grad_mean[i]-grad_conf[i], grad_mean[i]+grad_conf[i]);
+      printf("%u [%9.2f - %9.2f]\n", i, grad_mean[i]-grad_conf[i], grad_mean[i]+grad_conf[i]);
     }
     printf("]\n");
 
@@ -1161,16 +1162,16 @@ void diff_render_test_9_check_position_derivatives()
 {
   printf("TEST 9. Check position derivatives\n");
 
-  printf("9.1 Mask, random border sampling\n");
-  test_position_derivatives(circle_smallest_scene_colored(), MULTI_RENDER_MODE_MASK, DR_RENDER_MODE_MASK, false, true);
+  //printf("9.1 Mask, random border sampling\n");
+  //test_position_derivatives(circle_smallest_scene_colored(), MULTI_RENDER_MODE_MASK, DR_RENDER_MODE_MASK, false, true);
   //printf("9.2 Mask, SVM border sampling\n");
   //test_position_derivatives(circle_smallest_scene_colored(), MULTI_RENDER_MODE_MASK, DR_RENDER_MODE_MASK, true, true);
   //printf("9.3 Diffuse, random border sampling\n");
   //test_position_derivatives(circle_smallest_scene_colored(), MULTI_RENDER_MODE_DIFFUSE, DR_RENDER_MODE_DIFFUSE, false, true);
   //printf("9.4 Diffuse, SVM border sampling\n");
   //test_position_derivatives(circle_smallest_scene_colored(), MULTI_RENDER_MODE_DIFFUSE, DR_RENDER_MODE_DIFFUSE, true, true);
-  //printf("9.5 Lambert, random border sampling\n");
-  //test_position_derivatives(circle_smallest_scene_colored(), MULTI_RENDER_MODE_LAMBERT, DR_RENDER_MODE_LAMBERT, false, true);
+  printf("9.5 Lambert, random border sampling\n");
+  test_position_derivatives(circle_smallest_scene_colored(), MULTI_RENDER_MODE_LAMBERT, DR_RENDER_MODE_LAMBERT, false, true);
   //printf("9.6 Lambert, SVM border sampling\n");
   //test_position_derivatives(circle_smallest_scene_colored(), MULTI_RENDER_MODE_LAMBERT, DR_RENDER_MODE_LAMBERT, true, true);
 
