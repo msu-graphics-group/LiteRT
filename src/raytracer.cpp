@@ -8,8 +8,8 @@
 #include "raytracer.hpp"
 
 
-constexpr float EPS = 1e-4f;
-constexpr int max_steps = 16;
+constexpr float EPS = 1e-2f;
+constexpr int max_steps = 30;
 
 using namespace LiteMath;
 using namespace LiteImage;
@@ -91,6 +91,8 @@ std::optional<float3> trace_surface_newton(
     uv = uv - mul2x2x2(J_inversed, D);
     uv.x = u_closed ? closed_clamp(uv.x) : clamp(uv.x, 0.0f, 1.0f);
     uv.y = v_closed ? closed_clamp(uv.y) : clamp(uv.y, 0.0f, 1.0f);
+    assert(0 <= uv.x && uv.x <= 1);
+    assert(0 <= uv.y && uv.y <= 1);
 
     float2 new_D = { dot(P1, surf.get_point(uv.x, uv.y)), dot(P2, surf.get_point(uv.x, uv.y)) };
     
@@ -103,7 +105,7 @@ std::optional<float3> trace_surface_newton(
   if (length(D) > EPS)
     return {};
   
-  return to_float3(surf.get_point(uv.x, uv.y));
+  return float3(uv.x, uv.y, 0.0f);
 }
 
 void draw_points(
@@ -116,7 +118,7 @@ void draw_points(
     return;
   float3 forward = normalize(camera.target - camera.position);
   float4x4 view = lookAt(camera.position, camera.target, camera.up);
-  float4x4 proj = perspectiveMatrix(45, camera.aspect, 0.01f, 150.0f);
+  float4x4 proj = perspectiveMatrix(camera.fov*180*M_1_PI, camera.aspect, 0.01f, 150.0f);
   int count = 250;
   for (int ui = 0; ui < count; ++ui)
   for (int vi = 0; vi < count; ++vi)
@@ -138,10 +140,10 @@ void draw_points(
     y = clamp(image.height() - y, 0u, image.height()-1);
 
     image[uint2{x, y}] = uchar4{ 
-        static_cast<u_char>(col[0]*255.0f),
-        static_cast<u_char>(col[1]*255.0f),
-        static_cast<u_char>(col[2]*255.0f),
-        static_cast<u_char>(col[3]*255.0f) }.u32;
+        static_cast<u_char>(u*255.0f),
+        static_cast<u_char>(v*255.0f),
+        static_cast<u_char>(0*255.0f),
+        static_cast<u_char>(1*255.0f) }.u32;
   }
 }
 
@@ -153,27 +155,31 @@ void draw(
   image.clear(LiteMath::uchar4{ 153, 153, 153, 255 }.u32);
   if (surface.u_knots.size() < 2 || surface.v_knots.size() < 2)
     return;
-  float3 forward = normalize(camera.target - camera.position);
+  float4x4 mat  = perspectiveMatrix(camera.fov*180*M_1_PI, camera.aspect, 0.001f, 100.0f)
+                * lookAt(camera.position, camera.target, camera.up);
+  float4x4 inversed_mat = inverse4x4(mat);
 
   for (uint32_t y = 0; y < image.height(); ++y)
   for (uint32_t x = 0; x < image.width();  ++x)
   {
-    float2 point = { x+0.5f, y+0.5f };
-    point /= float2{ image.width()*1.0f, image.height()*1.0f };
-    point *= 2.0f;
-    point -= 1.0f;
+    float2 ndc_point  = float2{ x+0.5f, y+0.5f } 
+                      / float2{ image.width()*1.0f, image.height()*1.0f }
+                      * 2.0f
+                      - 1.0f;
+    float4 ndc_point4 = { ndc_point.x, ndc_point.y, 0.0f, 1.0f };
+    float4 point = inversed_mat * ndc_point4;
+    point /= point.w;
 
-    float3 ray = normalize(forward 
-               + std::tan(camera.fov/2)*camera.up*point.y
-               + std::tan(camera.fov/2)*camera.right*point.x*camera.aspect);
+    float3 ray = normalize(to_float3(point)-camera.position);
     float3 pos = camera.position;
     auto intersect_point = trace_surface_newton(pos, ray, surface);
     if (intersect_point.has_value()) {
+      float3 new_col = intersect_point.value();
       image[uint2{ x, image.height()-1-y }] = uchar4{ 
-        static_cast<u_char>(col[0]*255.0f),
-        static_cast<u_char>(col[1]*255.0f),
-        static_cast<u_char>(col[2]*255.0f),
-        static_cast<u_char>(col[3]*255.0f) }.u32;
+        static_cast<u_char>(new_col[0]*255.0f),
+        static_cast<u_char>(new_col[1]*255.0f),
+        static_cast<u_char>(new_col[2]*255.0f),
+        static_cast<u_char>(new_col[3]*255.0f) }.u32;
     }
   }
 }

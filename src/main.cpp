@@ -32,6 +32,7 @@ int main(int, char** argv)
   SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_GAMECONTROLLER) ;
   SDL_SetHint(SDL_HINT_IME_SHOW_UI, "1");
   SDL_SetHint(SDL_HINT_RENDER_VSYNC, "1");
+  atexit(SDL_Quit);
 
   int WIDTH = 800;
   int HEIGHT = 600;
@@ -79,9 +80,10 @@ int main(int, char** argv)
   bool camera_move = false;
   int prev_x = 0, prev_y = 0;
 
-  auto b = std::chrono::high_resolution_clock::now();
+  
   const char *renderers[] = { "Regular Sample Points", "Newton Method (in progress)" };
   int cur_renderer = 0;
+  float ms = 0.0f;
 
   while (!done)
   {
@@ -118,13 +120,19 @@ int main(int, char** argv)
       camera_move = false;
     }
 
-    auto e = std::chrono::high_resolution_clock::now();
-    float sec = std::chrono::duration_cast<std::chrono::milliseconds>(e-b).count()/1000.0f;
-    
     if (SDL_GetWindowFlags(window) & SDL_WINDOW_MINIMIZED) {
       SDL_Delay(10);
       continue;
     }
+
+    //Render image
+    auto b = std::chrono::high_resolution_clock::now();
+    if (cur_renderer)
+      draw(surf, camera, framebuffer, surf_color);
+    else 
+      draw_points(surf, camera, framebuffer, surf_color);
+    auto e = std::chrono::high_resolution_clock::now();
+    ms = std::chrono::duration_cast<std::chrono::microseconds>(e-b).count()/1000.0f;
 
     // Start the Dear ImGui frame
     ImGui_ImplSDLRenderer2_NewFrame();
@@ -142,7 +150,7 @@ int main(int, char** argv)
       if (ImGui::Button("Load new surface")) {
         to_load_surface = true;
       }
-      ImGui::ColorPicker3("Surface Color", surf_color);
+      //ImGui::ColorPicker3("Surface Color", surf_color);
       ImGui::Text("Camera settings:");
       ImGui::DragFloat3("Camera position", camera.position.M);
       ImGui::DragFloat3("Camera target", camera.target.M);
@@ -151,6 +159,7 @@ int main(int, char** argv)
       ImGui::ListBox("Method", &cur_renderer, renderers, 2);
       ImGui::Text("Debug Info");
       ImGui::Text("\tApplication average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
+      ImGui::Text("\tCurrent render time: %.3f ms/frame (%.1f FPS)", ms, 1000.0f/ms);
       ImGui::End();
     }
 
@@ -173,11 +182,6 @@ int main(int, char** argv)
     // Rendering
     ImGui::Render();
 
-    if (cur_renderer)
-      draw(surf, camera, framebuffer, surf_color);
-    else 
-      draw_points(surf, camera, framebuffer, surf_color);
-
     copy_image_to_texture(framebuffer, texture);
     SDL_RenderClear(renderer);
     SDL_RenderSetScale(renderer, io.DisplayFramebufferScale.x, io.DisplayFramebufferScale.y);
@@ -198,7 +202,6 @@ int main(int, char** argv)
 
   SDL_DestroyRenderer(renderer);
   SDL_DestroyWindow(window);
-  atexit(SDL_Quit);
 
   return 0;
 }
