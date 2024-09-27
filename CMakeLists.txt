@@ -75,6 +75,10 @@ set(BUILDERS_SRC
     ${CMAKE_SOURCE_DIR}/BVH/cbvh_embree2.cpp
     )
 
+set(NURBS_SRC 
+    ${CMAKE_SOURCE_DIR}/nurbs/nurbs_common.cpp
+    )
+
 message(STATUS "CMAKE_BUILD_TYPE = ${CMAKE_BUILD_TYPE}")
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
   message(STATUS "Debug is ON!")
@@ -179,7 +183,9 @@ target_sources(render_app PRIVATE main.cpp
                ${MODULES_SRC}
                ${SCENE_LOADER_SRC}
                ${CORE_SRC}
-               ${BUILDERS_SRC})
+               ${BUILDERS_SRC}
+               ${NURBS_SRC}
+              )
 
 set_property(TARGET render_app PROPERTY CXX_STANDARD 17)
 target_link_libraries(render_app PRIVATE Threads::Threads dl ${RAYTRACING_EMBREE_LIBS} ${MODULES_LIBRARIES})

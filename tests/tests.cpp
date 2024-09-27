@@ -2364,7 +2364,7 @@ void litert_test_30_verify_SBS_SBSAdapt()
 }
 void litert_test_31_fake_nurbs_render()
 {
-  unsigned W = 1024, H = 1024;
+  unsigned W = 800, H = 600;
 
   MultiRenderPreset preset = getDefaultPreset();
   LiteImage::Image2D<uint32_t> image(W, H);
