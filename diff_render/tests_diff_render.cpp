@@ -150,10 +150,11 @@ void diff_render_test_2_forward_pass()
     uint32_t matId = pRender->AddMaterial(mat);
     pRender->SetMaterial(matId, 0);  
 
-    indexed_SBS = sdf_converter::create_sdf_SBS_indexed(settings, header, mesh, matId, pRender->getMaterials(), pRender->getTextures());
+    indexed_SBS = sdf_converter::create_sdf_SBS_indexed_with_neighbors(settings, header, mesh, matId, pRender->getMaterials(), pRender->getTextures());
     pRender->SetScene(indexed_SBS);
 
     preset.render_mode = MULTI_RENDER_MODE_LAMBERT;
+    preset.normal_mode = NORMAL_MODE_SDF_SMOOTHED;
     pRender->RenderFloat(image_SBS.data(), image_SBS.width(), image_SBS.height(), view, proj, preset);   
 
     preset.render_mode = MULTI_RENDER_MODE_LINEAR_DEPTH;
@@ -955,6 +956,7 @@ void test_position_derivatives(const SdfSBS &SBS, unsigned render_node, unsigned
 
   MultiRenderPreset preset = getDefaultPreset();
   preset.render_mode = render_node;
+  preset.normal_mode = NORMAL_MODE_SDF_SMOOTHED;
   //preset.ray_gen_mode = RAY_GEN_MODE_RANDOM;
   preset.spp = 256;
 

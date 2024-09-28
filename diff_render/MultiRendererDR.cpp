@@ -276,7 +276,8 @@ namespace dr
     assert(sbs.nodes.size() > 0);
     assert(sbs.values.size() > 0);
     assert(sbs.values_f.size() > 0);
-    assert(sbs.header.aux_data == SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F);
+    assert(sbs.header.aux_data == SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F || 
+           sbs.header.aux_data == SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F_IN);
     assert(preset.opt_iterations > 0);
     assert(preset.spp > 0);
     assert(m_imagesRefOriginal.size() > 0);
@@ -299,6 +300,7 @@ namespace dr
     m_preset.spp = preset.spp;
     m_preset.sdf_node_intersect = SDF_OCTREE_NODE_INTERSECT_NEWTON; //we need newton to minimize calculations for border integral
     m_preset.ray_gen_mode = RAY_GEN_MODE_RANDOM;
+    m_preset.normal_mode = NORMAL_MODE_SDF_SMOOTHED; //we need continuous normal field
     if (preset.debug_render_mode == DR_DEBUG_RENDER_MODE_PRIMITIVE)
       m_preset.render_mode = MULTI_RENDER_MODE_PRIMITIVE;
     else
