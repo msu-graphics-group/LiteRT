@@ -822,7 +822,7 @@ void BVHRT::OctreeBrickIntersect(uint32_t type, const float3 ray_pos, const floa
   }
   
   //ray hit a brick
-  if (pHit->t < old_t && false)
+  if (pHit->t < old_t)
   {
     float3 pos = ray_pos + pHit->t*ray_dir;
     float3 dp = (pos - brick_min_pos)*(0.5f*sz);
