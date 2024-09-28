@@ -752,12 +752,11 @@ void BVHRT::OctreeBrickIntersect(uint32_t type, const float3 ray_pos, const floa
       {
         const float beta = 0.5f;
         float3 dp = start_q + ((pHit->t - fNearFar.x)/d)*ray_dir; //linear interpolation coefficients in voxels
-        float3 default_normal = normalize(eval_dist_trilinear_diff(values, dp));
 
         float3 normals[8];
         float values_n[8];
         for (int i=0;i<8;i++)
-          normals[i] = default_normal;
+          normals[i] = float3(0,0,0);
         
         float3 nmq = float3(0.5f,0.5f,0.5f);
         nmq.x = dp.x < 0.5f ? step(-beta, beta, dp.x) : step(-beta, beta, dp.x - 1.0f);
