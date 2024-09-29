@@ -2049,7 +2049,8 @@ void optimization_stand_common(uint32_t num, const SdfSBS &SBS_ref, const SdfSBS
     preset.render_mode = MULTI_RENDER_MODE_DIFFUSE;
   else if (dr_preset.dr_render_mode == DR_RENDER_MODE_LAMBERT)
     preset.render_mode = MULTI_RENDER_MODE_LAMBERT;
-  preset.spp = 16;
+  preset.spp = 64;
+  preset.normal_mode = NORMAL_MODE_SDF_SMOOTHED;
 
   float4x4 base_proj = LiteMath::perspectiveMatrix(60, 1.0f, 0.01f, 100.0f);
 
@@ -2192,7 +2193,7 @@ void diff_render_test_21_optimization_stand()
   dr_preset.dr_render_mode = DR_RENDER_MODE_LAMBERT;
   dr_preset.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_GEOMETRY | DR_RECONSTRUCTION_FLAG_COLOR;
   dr_preset.dr_border_sampling = DR_BORDER_SAMPLING_SVM;
-  dr_preset.opt_lr = 0.05f;
+  dr_preset.opt_lr = 0.025f;
   dr_preset.opt_iterations = 1000;
   dr_preset.border_spp = 512;
   dr_preset.spp = 16;
@@ -2203,7 +2204,7 @@ void diff_render_test_21_optimization_stand()
   //dr_preset.reg_power = 2.0f;
   //dr_preset.reg_lambda = 1.0f;
 
-  std::vector<float> mults = {0.25f};
+  std::vector<float> mults = {1.0f};
   for (int i = 0; i < mults.size(); i++)
   {
     dr_preset.border_integral_mult = mults[i];
