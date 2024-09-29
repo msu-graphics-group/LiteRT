@@ -413,7 +413,7 @@ namespace dr
           unsigned active_params_end   = is_geometry ? params_count - color_params : params_count;
 
           loss = RenderDRFiniteDiff(m_imagesRef[image_id].data(), m_images[image_id].data(), m_dLoss_dS_tmp.data(), params_count,
-                                    active_params_start, active_params_end, 0.005f);
+                                    active_params_start, active_params_end, 0.01f);
         }
 
         loss_sum += loss;
@@ -1126,7 +1126,7 @@ namespace dr
 
     res_loss = Loss(m_preset_dr.dr_loss_function, color_mask, image_ref[y * m_width + x]);
     float3 dLoss_dColor = to_float3(LossGrad(m_preset_dr.dr_loss_function, color_mask, image_ref[y * m_width + x]));
-    float ref_mask = image_ref[y * m_width + x].w;
+    float ref_mask = 1.0f;//image_ref[y * m_width + x].w;
     
     dLoss_dColor = dLoss_dColor * ref_mask / m_preset.spp;
 

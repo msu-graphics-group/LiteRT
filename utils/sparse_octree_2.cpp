@@ -4,8 +4,6 @@
 #include <chrono>
 #include <unordered_map>
 
-static constexpr unsigned INVALID_IDX = 1u<<31u;
-
 namespace LiteMath
 {
   static inline float2 to_float2(float3 f3)         
@@ -1492,5 +1490,105 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
     }
 
     return sbs_ind;
+  }
+
+  SdfSBS SBS_ind_to_SBS_ind_with_neighbors(const SdfSBS &sbs)
+  {
+    unsigned vals_per_int = 4/sbs.header.bytes_per_value;
+    unsigned v_size = sbs.header.brick_size + 2*sbs.header.brick_pad + 1;
+    unsigned dist_size = (v_size*v_size*v_size+vals_per_int-1)/vals_per_int;
+    unsigned bits = 8*sbs.header.bytes_per_value;
+    unsigned max_val = sbs.header.bytes_per_value == 4 ? 0xFFFFFFFF : ((1 << bits) - 1);
+
+    unsigned values_per_node_old = v_size*v_size*v_size + 8;
+    unsigned values_per_node_new = v_size*v_size*v_size + 8 + 27;
+    unsigned nbr_offset =          v_size*v_size*v_size + 8;
+
+    //check if given sbs in valid and has the required layout
+    assert((sbs.header.aux_data & SDF_SBS_NODE_LAYOUT_MASK) == SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F);
+    assert(sbs.nodes.size() > 0);
+    assert(sbs.values.size() == sbs.nodes.size()*values_per_node_old);
+    assert(sbs.values_f.size() > 0);
+
+    SdfSBS sbs_n;
+    //same header, except for layout
+    //same nodes, but different data offsets
+    //different offset (sbs_ind.values)
+    //same distance values (sbs_ind.values_f)
+    sbs_n.header = sbs.header;
+    sbs_n.header.aux_data = SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F_IN;
+    sbs_n.nodes = sbs.nodes;
+    sbs_n.values_f = sbs.values_f;
+
+    sbs_n.values.resize(sbs.nodes.size()*values_per_node_new);
+    //change data_offsets in nodes, copy indices from sbs.values, leave neighbor indices empty
+    for (int n = 0; n < sbs.nodes.size(); n++)
+    {
+      unsigned offset = sbs.nodes[n].data_offset;
+      unsigned new_offset = n*values_per_node_new;
+
+      sbs_n.nodes[n].data_offset = new_offset;
+      for (int i = 0; i < values_per_node_old; i++)
+        sbs_n.values[new_offset + i] = sbs.values[offset + i];
+
+      for (int i = 0; i < 27; i++)
+        sbs_n.values[new_offset + values_per_node_old + i] = INVALID_IDX;
+    }
+
+    struct AdjList
+    {
+      unsigned count = 0;
+      unsigned node_ids[8] = {INVALID_IDX, INVALID_IDX, INVALID_IDX, INVALID_IDX, INVALID_IDX, INVALID_IDX, INVALID_IDX, INVALID_IDX};
+    };
+    std::vector<AdjList> adj_lists(sbs.values_f.size());
+
+    //for every corner of every node, find all other nodes with the same corner
+    for (int n = 0; n < sbs.nodes.size(); n++)
+    {
+      unsigned offset = sbs.nodes[n].data_offset;
+      //iterate only corners
+      for (int r_id=0; r_id<8; r_id++)
+      {
+        uint3 idx = (v_size-1)*uint3((r_id & 4) >> 2, (r_id & 2) >> 1, r_id & 1);
+        unsigned corner_id = sbs.values[sbs.nodes[n].data_offset + idx.x*v_size*v_size + idx.y*v_size + idx.z];
+        adj_lists[corner_id].node_ids[r_id] = n;
+        adj_lists[corner_id].count++;
+      }
+    }
+
+    //if the corner is shared between two or more node, they are all neighbors of each other
+    //currently we only consider nodes as neighbors if they have the same size
+    for (int i = 0; i < sbs.values_f.size(); i++)
+    {
+      if (adj_lists[i].count <= 1)
+        continue;
+      for (int r_id1 = 0; r_id1 < 8; r_id1++)
+      {
+        if (adj_lists[i].node_ids[r_id1] == INVALID_IDX)
+          continue;
+        for (int r_id2 = 0; r_id2 < 8; r_id2++)
+        {
+          if (adj_lists[i].node_ids[r_id2] == INVALID_IDX || r_id1 == r_id2)
+            continue;
+          
+          unsigned size_1 = sbs_n.nodes[r_id1].pos_z_lod_size & 0x0000FFFF;
+          unsigned size_2 = sbs_n.nodes[r_id2].pos_z_lod_size & 0x0000FFFF;
+          if (size_1 != size_2)
+            continue;
+
+          int3 idx1((r_id1 & 4) >> 2, (r_id1 & 2) >> 1, r_id1 & 1);
+          int3 idx2((r_id2 & 4) >> 2, (r_id2 & 2) >> 1, r_id2 & 1);
+
+          int3 d_idx = idx2 - idx1 + int3(1,1,1);
+          unsigned neighbor_n = 3*3*d_idx.x + 3*d_idx.y + d_idx.z;
+          unsigned node_id = adj_lists[i].node_ids[r_id2];
+          unsigned neighbor_node_id = adj_lists[i].node_ids[r_id1];
+
+          sbs_n.values[sbs_n.nodes[node_id].data_offset + nbr_offset + neighbor_n] = neighbor_node_id;
+        }
+      }
+    }
+
+    return sbs_n;
   }
 }

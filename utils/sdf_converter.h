@@ -79,7 +79,13 @@ namespace sdf_converter
                             const std::vector<MultiRendererMaterial> &materials_lib, 
                             const std::vector<std::shared_ptr<ICombinedImageSampler>> &textures_lib, bool noisy = false);
 
+  //creates SBS with layout SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F
   SdfSBS create_sdf_SBS_indexed(SparseOctreeSettings settings, SdfSBSHeader header, const cmesh4::SimpleMesh &mesh, unsigned mat_id,
                                 const std::vector<MultiRendererMaterial> &materials_lib, 
                                 const std::vector<std::shared_ptr<ICombinedImageSampler>> &textures_lib, bool noisy = false);
+
+  //creates SBS with layout SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F_IN
+  SdfSBS create_sdf_SBS_indexed_with_neighbors(SparseOctreeSettings settings, SdfSBSHeader header, const cmesh4::SimpleMesh &mesh, unsigned mat_id,
+                                               const std::vector<MultiRendererMaterial> &materials_lib, 
+                                               const std::vector<std::shared_ptr<ICombinedImageSampler>> &textures_lib);
 }

@@ -48,4 +48,6 @@ namespace sdf_converter
                                  const SdfSBSHeader &header);
 
   SdfSBS SBS_col_to_SBS_ind(const SdfSBS &sbs);
+
+  SdfSBS SBS_ind_to_SBS_ind_with_neighbors(const SdfSBS &sbs);
 }

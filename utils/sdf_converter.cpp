@@ -315,4 +315,12 @@ namespace sdf_converter
     SdfSBS sbs = create_sdf_SBS_col(settings, header, mesh, mat_id, materials_lib, textures_lib, noisy);
     return SBS_col_to_SBS_ind(sbs);
   }
+
+  SdfSBS create_sdf_SBS_indexed_with_neighbors(SparseOctreeSettings settings, SdfSBSHeader header, const cmesh4::SimpleMesh &mesh, unsigned mat_id,
+                                               const std::vector<MultiRendererMaterial> &materials_lib, 
+                                               const std::vector<std::shared_ptr<ICombinedImageSampler>> &textures_lib)
+  {
+    SdfSBS sbs = create_sdf_SBS_indexed(settings, header, mesh, mat_id, materials_lib, textures_lib);
+    return SBS_ind_to_SBS_ind_with_neighbors(sbs);
+  }
 }

@@ -1372,7 +1372,7 @@ void litert_test_19_marching_cubes()
 
   unsigned W = 4096, H = 4096;
   MultiRenderPreset preset = getDefaultPreset();
-  preset.mesh_normal_mode = MESH_NORMAL_MODE_VERTEX;
+  preset.normal_mode = NORMAL_MODE_VERTEX;
   LiteImage::Image2D<uint32_t> image_1(W, H);
   {
     auto pRender = CreateMultiRenderer("GPU");
@@ -1462,7 +1462,7 @@ void litert_test_21_rf_to_mesh()
 
   unsigned W = 2048, H = 2048;
   MultiRenderPreset preset = getDefaultPreset();
-  preset.mesh_normal_mode = MESH_NORMAL_MODE_VERTEX;
+  preset.normal_mode = NORMAL_MODE_VERTEX;
   float4x4 m1, m2;
   LiteImage::Image2D<uint32_t> image_1(W, H);
   LiteImage::Image2D<uint32_t> image_2(W, H);
@@ -1485,7 +1485,7 @@ void litert_test_21_rf_to_mesh()
 
   {
     preset = getDefaultPreset();
-    preset.mesh_normal_mode = MESH_NORMAL_MODE_VERTEX;
+    preset.normal_mode = NORMAL_MODE_VERTEX;
     auto pRender = CreateMultiRenderer("GPU");
     pRender->SetPreset(preset);
     pRender->SetViewport(0,0,W,H);
@@ -1600,7 +1600,7 @@ void litert_test_22_sdf_grid_smoothing()
 
   {
     preset = getDefaultPreset();
-    preset.mesh_normal_mode = MESH_NORMAL_MODE_VERTEX;
+    preset.normal_mode = NORMAL_MODE_VERTEX;
     auto pRender = CreateMultiRenderer("GPU");
     pRender->SetPreset(preset);
     pRender->SetViewport(0,0,W,H);
@@ -1785,7 +1785,7 @@ void litert_test_24_demo_meshes()
   unsigned W = 4096, H = 4096;
 
   MultiRenderPreset preset = getDefaultPreset();
-  preset.mesh_normal_mode = MESH_NORMAL_MODE_VERTEX;
+  preset.normal_mode = NORMAL_MODE_VERTEX;
   preset.render_mode = MULTI_RENDER_MODE_DIFFUSE;
 
   LiteImage::Image2D<uint32_t> image(W, H);
@@ -2398,6 +2398,72 @@ void litert_test_31_fake_nurbs_render()
     printf("FAILED, psnr = %f\n", psnr);
 }
 
+void litert_test_32_smooth_sbs_normals()
+{
+  //create renderers for SDF scene and mesh scene
+  auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "scenes/01_simple_scenes/data/bunny.vsgf").c_str());
+  cmesh4::rescale_mesh(mesh, float3(-0.95, -0.95, -0.95), float3(0.95, 0.95, 0.95));
+
+  unsigned W = 2048, H = 2048;
+
+  MultiRenderPreset preset = getDefaultPreset();
+  preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
+  SparseOctreeSettings settings(SparseOctreeBuildType::MESH_TLO, 5);
+
+  SdfSBSHeader header;
+  header.brick_size = 4;
+  header.brick_pad = 0;
+  header.bytes_per_value = 1;
+
+  LiteImage::Image2D<uint32_t> image_mesh(W, H);
+  LiteImage::Image2D<uint32_t> image_SBS(W, H);
+  LiteImage::Image2D<uint32_t> image_SBS_n(W, H);
+
+  {
+    auto pRender = CreateMultiRenderer("GPU");
+    preset.normal_mode = NORMAL_MODE_VERTEX;
+    pRender->SetPreset(preset);
+    pRender->SetViewport(0,0,W,H);
+    pRender->SetScene(mesh);
+    render(image_mesh, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+  }
+
+  {
+    auto pRender = CreateMultiRenderer("GPU");
+    pRender->SetPreset(preset);
+    pRender->SetViewport(0,0,W,H);
+    auto indexed_SBS = sdf_converter::create_sdf_SBS_indexed_with_neighbors(settings, header, mesh, 0, pRender->getMaterials(), pRender->getTextures());
+    pRender->SetScene(indexed_SBS);
+
+    preset.normal_mode = NORMAL_MODE_GEOMETRY;
+    //auto t1 = std::chrono::high_resolution_clock::now();
+    render(image_SBS, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);    
+    //auto t2 = std::chrono::high_resolution_clock::now();
+
+    preset.normal_mode = NORMAL_MODE_SDF_SMOOTHED;
+    //auto t3 = std::chrono::high_resolution_clock::now();
+    render(image_SBS_n, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);  
+    //auto t4 = std::chrono::high_resolution_clock::now();
+
+    //printf("render times in ms: %f %f\n", std::chrono::duration<double, std::milli>(t2-t1).count(), std::chrono::duration<double, std::milli>(t4-t3).count());  
+  }
+
+  LiteImage::SaveImage<uint32_t>("saves/test_32_mesh.bmp", image_mesh); 
+  LiteImage::SaveImage<uint32_t>("saves/test_32_sbs.bmp", image_SBS);
+  LiteImage::SaveImage<uint32_t>("saves/test_32_sbs_n.bmp", image_SBS_n);
+
+  float psnr_1 = image_metrics::PSNR(image_mesh, image_SBS);
+  float psnr_2 = image_metrics::PSNR(image_mesh, image_SBS_n);
+
+  printf("TEST 32. SBS with smooth normals\n");
+
+  printf(" 32.1. %-64s", "Smooth normals increase PSNR");
+  if (psnr_1 > 30 && psnr_2 >= psnr_1)
+    printf("passed    (%.2f > %.2f)\n", psnr_2, psnr_1);
+  else
+    printf("FAILED    (%.2f < %.2f)\n", psnr_2, psnr_1);  
+}
+
 void perform_tests_litert(const std::vector<int> &test_ids)
 {
   std::vector<int> tests = test_ids;
@@ -2413,7 +2479,7 @@ void perform_tests_litert(const std::vector<int> &test_ids)
       litert_test_22_sdf_grid_smoothing, litert_test_23_textured_sdf, litert_test_24_demo_meshes,
       litert_test_25_float_images, litert_test_26_sbs_shallow_bvh, litert_test_27_textured_colored_SBS,
       litert_test_28_sbs_reg, litert_test_29_smoothed_frame_octree, litert_test_30_verify_SBS_SBSAdapt,
-      litert_test_31_fake_nurbs_render};
+      litert_test_31_fake_nurbs_render, litert_test_32_smooth_sbs_normals};
 
   if (tests.empty())
   {

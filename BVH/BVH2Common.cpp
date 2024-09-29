@@ -614,6 +614,83 @@ void BVHRT::OctreeNodeIntersect(uint32_t type, const float3 ray_pos, const float
                            pHit); /*out*/
 }
 
+  static float3 eval_dist_trilinear_diff(const float values[8], float3 dp)
+  {
+    float ddist_dx = -(1-dp.y)*(1-dp.z)*values[0] + 
+                     -(1-dp.y)*(  dp.z)*values[1] + 
+                     -(  dp.y)*(1-dp.z)*values[2] + 
+                     -(  dp.y)*(  dp.z)*values[3] + 
+                      (1-dp.y)*(1-dp.z)*values[4] + 
+                      (1-dp.y)*(  dp.z)*values[5] + 
+                      (  dp.y)*(1-dp.z)*values[6] + 
+                      (  dp.y)*(  dp.z)*values[7];
+    
+    float ddist_dy = -(1-dp.x)*(1-dp.z)*values[0] + 
+                     -(1-dp.x)*(  dp.z)*values[1] + 
+                      (1-dp.x)*(1-dp.z)*values[2] + 
+                      (1-dp.x)*(  dp.z)*values[3] + 
+                     -(  dp.x)*(1-dp.z)*values[4] + 
+                     -(  dp.x)*(  dp.z)*values[5] + 
+                      (  dp.x)*(1-dp.z)*values[6] + 
+                      (  dp.x)*(  dp.z)*values[7];
+
+    float ddist_dz = -(1-dp.x)*(1-dp.y)*values[0] + 
+                      (1-dp.x)*(1-dp.y)*values[1] + 
+                     -(1-dp.x)*(  dp.y)*values[2] + 
+                      (1-dp.x)*(  dp.y)*values[3] + 
+                     -(  dp.x)*(1-dp.y)*values[4] + 
+                      (  dp.x)*(1-dp.y)*values[5] + 
+                     -(  dp.x)*(  dp.y)*values[6] + 
+                      (  dp.x)*(  dp.y)*values[7];
+  
+    return float3(ddist_dx, ddist_dy, ddist_dz);
+  }
+
+//transition from 0 (x=edge0) to 1 (x=edge1)
+static float step(float edge0, float edge1, float x)
+{
+  float t = clamp((x - edge0) / (edge1 - edge0), 0.0, 1.0);
+  return t;
+}
+
+
+float BVHRT::load_distance_values(uint32_t nodeId, float3 voxelPos, uint32_t v_size, float sz_inv, const SdfSBSHeader &header, 
+                                  float values[8])
+{
+  float vmin = 1e6f;
+  if (header.aux_data == SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F ||
+      header.aux_data == SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F_IN)
+  {
+    uint32_t v_off = m_SdfSBSNodes[nodeId].data_offset;
+    for (int i = 0; i < 8; i++)
+    {
+      uint3 vPos = uint3(voxelPos) + uint3((i & 4) >> 2, (i & 2) >> 1, i & 1);
+      uint32_t vId = vPos.x * v_size * v_size + vPos.y * v_size + vPos.z;
+      values[i] = m_SdfSBSDataF[m_SdfSBSData[v_off + vId]];
+      // printf("%f\n", values[i]);
+      vmin = std::min(vmin, values[i]);
+    }
+  }
+  else
+  {
+    uint32_t v_off = m_SdfSBSNodes[nodeId].data_offset;
+    uint32_t vals_per_int = 4 / header.bytes_per_value;
+    uint32_t bits = 8 * header.bytes_per_value;
+    uint32_t max_val = header.bytes_per_value == 4 ? 0xFFFFFFFF : ((1 << bits) - 1);
+    float d_max = 1.73205081f * sz_inv;
+    float mult = 2 * d_max / max_val;
+    for (int i = 0; i < 8; i++)
+    {
+      uint3 vPos = uint3(voxelPos) + uint3((i & 4) >> 2, (i & 2) >> 1, i & 1);
+      uint32_t vId = vPos.x * v_size * v_size + vPos.y * v_size + vPos.z;
+      values[i] = -d_max + mult * ((m_SdfSBSData[v_off + vId / vals_per_int] >> (bits * (vId % vals_per_int))) & max_val);
+      vmin = std::min(vmin, values[i]);
+    }
+  }
+
+  return vmin;
+}
+
 void BVHRT::OctreeBrickIntersect(uint32_t type, const float3 ray_pos, const float3 ray_dir,
                                  float tNear, uint32_t instId, uint32_t geomId,
                                  uint32_t bvhNodeId, uint32_t a_count,
@@ -657,36 +734,7 @@ void BVHRT::OctreeBrickIntersect(uint32_t type, const float3 ray_pos, const floa
     float3 max_pos = min_pos + d*float3(1,1,1);
     float3 size = max_pos - min_pos;
 
-    float vmin = 1.0f;
-
-    if (header.aux_data == SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F)
-    {
-      uint32_t v_off = m_SdfSBSNodes[nodeId].data_offset;
-      for (int i=0;i<8;i++)
-      {
-        uint3 vPos = uint3(voxelPos) + uint3((i & 4) >> 2, (i & 2) >> 1, i & 1);
-        uint32_t vId = vPos.x*v_size*v_size + vPos.y*v_size + vPos.z;
-        values[i] = m_SdfSBSDataF[m_SdfSBSData[v_off + vId]];
-        //printf("%f\n", values[i]);
-        vmin = std::min(vmin, values[i]);
-      }
-    }
-    else
-    {
-      uint32_t v_off = m_SdfSBSNodes[nodeId].data_offset;
-      uint32_t vals_per_int = 4/header.bytes_per_value; 
-      uint32_t bits = 8*header.bytes_per_value;
-      uint32_t max_val = header.bytes_per_value == 4 ? 0xFFFFFFFF : ((1 << bits) - 1);
-      float d_max = 1.73205081f*sz_inv;
-      float mult = 2*d_max/max_val;
-      for (int i=0;i<8;i++)
-      {
-        uint3 vPos = uint3(voxelPos) + uint3((i & 4) >> 2, (i & 2) >> 1, i & 1);
-        uint32_t vId = vPos.x*v_size*v_size + vPos.y*v_size + vPos.z;
-        values[i] = -d_max + mult*((m_SdfSBSData[v_off + vId/vals_per_int] >> (bits*(vId%vals_per_int))) & max_val);
-        vmin = std::min(vmin, values[i]);
-      }
-    }
+    float vmin = load_distance_values(nodeId, voxelPos, v_size, sz_inv, header, values);
 
     fNearFar = RayBoxIntersection2(ray_pos, SafeInverse(ray_dir), min_pos, max_pos);
     if (tNear < fNearFar.x && vmin <= 0.0f)    
@@ -697,6 +745,76 @@ void BVHRT::OctreeBrickIntersect(uint32_t type, const float3 ray_pos, const floa
     
       LocalSurfaceIntersection(type, ray_dir, instId, geomId, values, nodeId, primId, d, 0.0f, qFar, fNearFar, start_q, /*in */
                                pHit); /*out*/
+    
+      if (header.aux_data == SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F_IN &&
+          m_preset.normal_mode == NORMAL_MODE_SDF_SMOOTHED && 
+          need_normal() && pHit->t != old_t)
+      {
+        const float beta = 0.5f;
+        float3 dp = start_q + ((pHit->t - fNearFar.x)/d)*ray_dir; //linear interpolation coefficients in voxels
+
+        float3 normals[8];
+        float values_n[8];
+        for (int i=0;i<8;i++)
+          normals[i] = float3(0,0,0);
+        
+        float3 nmq = float3(0.5f,0.5f,0.5f);
+        nmq.x = dp.x < 0.5f ? step(-beta, beta, dp.x) : step(-beta, beta, dp.x - 1.0f);
+        nmq.y = dp.y < 0.5f ? step(-beta, beta, dp.y) : step(-beta, beta, dp.y - 1.0f);
+        nmq.z = dp.z < 0.5f ? step(-beta, beta, dp.z) : step(-beta, beta, dp.z - 1.0f);
+
+        int3 voxelPos0 = int3(dp.x < 0.5f ? voxelPos.x - 1 : voxelPos.x, dp.y < 0.5f ? voxelPos.y - 1 : voxelPos.y, dp.z < 0.5f ? voxelPos.z - 1 : voxelPos.z);
+        for (int i=0;i<8;i++)
+        {
+          int3 VoxelPosI = voxelPos0 + int3((i & 4) >> 2, (i & 2) >> 1, i & 1);
+          int3 BrickPosI = int3((VoxelPosI.x >= 0 ? (VoxelPosI.x < header.brick_size ? 0 : 1) : -1),
+                                (VoxelPosI.y >= 0 ? (VoxelPosI.y < header.brick_size ? 0 : 1) : -1),
+                                (VoxelPosI.z >= 0 ? (VoxelPosI.z < header.brick_size ? 0 : 1) : -1));
+
+          uint32_t neighborId = 0;
+          neighborId += 3*3 * (BrickPosI.x + 1);
+          neighborId +=   3 * (BrickPosI.y + 1);
+          neighborId +=       (BrickPosI.z + 1);
+          
+          float3 dVoxelPos = float3(VoxelPosI) - voxelPos;
+          uint32_t neighbor_nodeId;
+          float3   neighbor_voxelPos;
+
+          if (neighborId == 9+3+1)//we have our neighbor voxel in the same brick
+          {
+            neighbor_nodeId = nodeId;
+            neighbor_voxelPos = float3(VoxelPosI);
+          }
+          else //we have our neighbor voxel in a different brick, read it from neigbors data
+          {
+            uint32_t v_off = m_SdfSBSNodes[nodeId].data_offset;
+            uint32_t neighbors_data_offset = v_size*v_size*v_size + 8;
+
+            neighbor_nodeId = m_SdfSBSData[v_off + neighbors_data_offset + neighborId];
+            neighbor_voxelPos = float3(VoxelPosI) - header.brick_size*float3(BrickPosI);
+          }
+
+          if (neighbor_nodeId != INVALID_IDX)
+          {
+            load_distance_values(neighbor_nodeId, neighbor_voxelPos, v_size, sz_inv, header, values_n);
+            normals[i] = normalize(eval_dist_trilinear_diff(values_n, dp - dVoxelPos));
+          }
+        }
+
+        float3 smoothed_norm = (1-nmq.x)*(1-nmq.y)*(1-nmq.z)*normals[0] + 
+                               (1-nmq.x)*(1-nmq.y)*(  nmq.z)*normals[1] + 
+                               (1-nmq.x)*(  nmq.y)*(1-nmq.z)*normals[2] + 
+                               (1-nmq.x)*(  nmq.y)*(  nmq.z)*normals[3] + 
+                               (  nmq.x)*(1-nmq.y)*(1-nmq.z)*normals[4] + 
+                               (  nmq.x)*(1-nmq.y)*(  nmq.z)*normals[5] + 
+                               (  nmq.x)*(  nmq.y)*(1-nmq.z)*normals[6] + 
+                               (  nmq.x)*(  nmq.y)*(  nmq.z)*normals[7];
+        smoothed_norm = normalize(smoothed_norm);
+        float2 encoded_norm = encode_normal(smoothed_norm);
+
+        pHit->coords[2] = encoded_norm.x;
+        pHit->coords[3] = encoded_norm.y;
+      }
     }
     
     brick_fNearFar.x += std::max(0.0f, fNearFar.y-brick_fNearFar.x) + 1e-6f;
@@ -752,7 +870,8 @@ void BVHRT::OctreeBrickIntersect(uint32_t type, const float3 ray_pos, const floa
 
       //printf("color = %f %f %f coords = %f %f\n", color.x, color.y, color.z, pHit->coords[0], pHit->coords[1]);
     }
-    else if (header.aux_data == SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F)
+    else if (header.aux_data == SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F ||
+             header.aux_data == SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F_IN)
     {
       uint32_t t_off = m_SdfSBSNodes[nodeId].data_offset + v_size*v_size*v_size;
 
@@ -1738,11 +1857,11 @@ void BVHRT::IntersectAllTrianglesInLeaf(const float3 ray_pos, const float3 ray_d
       if (need_normal())
       {
         float3 n = float3(1,0,0);
-        if (m_preset.mesh_normal_mode == MESH_NORMAL_MODE_GEOMETRY)
+        if (m_preset.normal_mode == NORMAL_MODE_GEOMETRY)
         {
           n = cross(edge1, edge2);
         }
-        else if (m_preset.mesh_normal_mode == MESH_NORMAL_MODE_VERTEX)
+        else if (m_preset.normal_mode == NORMAL_MODE_VERTEX)
         {
           n = to_float3(m_vertNorm[a_geomOffsets.y + A] * (1.0f - u - v) + m_vertNorm[a_geomOffsets.y + B] * v + u * m_vertNorm[a_geomOffsets.y + C]);
         }

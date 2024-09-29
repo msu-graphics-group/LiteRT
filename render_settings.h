@@ -54,9 +54,10 @@ static constexpr unsigned MULTI_RENDER_MODE_DIFFUSE              = 16; //renderi
 static constexpr unsigned MULTI_RENDER_MODE_LAMBERT              = 17; //Lambert shading, no shadows
 static constexpr unsigned MULTI_RENDER_MODE_PHONG                = 18; //Phong shading
 
-//enum MeshNormalMode
-static constexpr unsigned MESH_NORMAL_MODE_GEOMETRY = 0; //geometry normal, faceted look but it do not rely on vertex normals
-static constexpr unsigned MESH_NORMAL_MODE_VERTEX   = 1; //vertex normal, smooth look but vertex normals should be available
+//enum NormalMode
+static constexpr unsigned NORMAL_MODE_GEOMETRY     = 0; //geometry normal, default for all types of geometry
+static constexpr unsigned NORMAL_MODE_VERTEX       = 1; //vertex normal, available only for meshes with vertex normals gives
+static constexpr unsigned NORMAL_MODE_SDF_SMOOTHED = 2; //smoothed SDF normal, available only for SBS with layouts containing neighbors
 
 //enum RayGenMode
 static constexpr unsigned RAY_GEN_MODE_REGULAR = 0;
@@ -67,7 +68,7 @@ struct MultiRenderPreset
   unsigned render_mode;        //enum MultiRenderMode
   unsigned sdf_octree_sampler; //enum SdfOctreeSampler
   unsigned sdf_node_intersect; //enum SdfNodeIntersect
-  unsigned mesh_normal_mode;   //enum MeshNormalMode
+  unsigned normal_mode;        //enum NormalMode
   unsigned ray_gen_mode;       //enum RayGenMode
   unsigned spp;                //samples per pixel
 };
@@ -78,7 +79,7 @@ static MultiRenderPreset getDefaultPreset()
   p.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
   p.sdf_octree_sampler = SDF_OCTREE_SAMPLER_MIPSKIP_3X3;
   p.sdf_node_intersect = SDF_OCTREE_NODE_INTERSECT_ST;
-  p.mesh_normal_mode = MESH_NORMAL_MODE_GEOMETRY;
+  p.normal_mode = NORMAL_MODE_GEOMETRY;
   p.ray_gen_mode = RAY_GEN_MODE_REGULAR;
   p.spp = 1;
 
