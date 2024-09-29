@@ -24,7 +24,7 @@ namespace dr
     preset.dr_input_type = DR_INPUT_TYPE_COLOR;
     preset.dr_border_sampling = DR_BORDER_SAMPLING_RANDOM;
 
-    preset.dr_raycasting_mask = -1;
+    preset.dr_raycasting_mask = DR_RAYCASTING_MASK_OFF;
 
     preset.border_spp = 256;
     preset.border_relax_eps = 1e-3f;

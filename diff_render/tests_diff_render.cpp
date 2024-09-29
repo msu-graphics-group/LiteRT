@@ -1362,7 +1362,7 @@ void diff_render_test_12_optimize_sphere_mask()
     dr_preset.image_batch_size = 4;
     dr_preset.debug_print = true;
 
-    // dr_preset.dr_raycasting_mask = DR_RENDER_MASK_CAST_OPT;
+    // dr_preset.dr_raycasting_mask = DR_RAYCASTING_MASK_ON;
 
     MultiRendererDR dr_render;
     dr_render.SetReference(images_ref, view, proj);
@@ -1430,7 +1430,7 @@ void diff_render_test_13_optimize_sphere_diffuse()
     dr_preset.image_batch_size = 4;
     dr_preset.debug_print = true;
 
-    // dr_preset.dr_raycasting_mask = DR_RENDER_MASK_CAST_OPT;
+    // dr_preset.dr_raycasting_mask = DR_RAYCASTING_MASK_ON;
 
     MultiRendererDR dr_render;
     dr_render.SetReference(images_ref, view, proj);
@@ -1771,7 +1771,7 @@ void diff_render_test_17_optimize_bunny()
     dr_preset.render_height = 512;
     dr_preset.render_width = 512;
 
-    // dr_preset.dr_raycasting_mask = DR_RENDER_MASK_CAST_OPT;
+    // dr_preset.dr_raycasting_mask = DR_RAYCASTING_MASK_ON;
 
     MultiRendererDR dr_render;
     dr_render.SetReference(images_ref, view, proj);
@@ -2410,7 +2410,7 @@ diff_render_test_23_ray_casting_mask()
       dr_preset.image_batch_size = 4;
       dr_preset.debug_print = true;
 
-      // dr_preset.dr_raycasting_mask = DR_RENDER_MASK_CAST_OPT;
+      // dr_preset.dr_raycasting_mask = DR_RAYCASTING_MASK_ON;
 
       MultiRendererDR dr_render;
       dr_render.SetReference(images_ref, view, proj);
@@ -2476,7 +2476,7 @@ diff_render_test_23_ray_casting_mask()
       dr_preset.image_batch_size = 4;
       dr_preset.debug_print = true;
 
-      dr_preset.dr_raycasting_mask = DR_RENDER_MASK_CAST_OPT;
+      dr_preset.dr_raycasting_mask = DR_RAYCASTING_MASK_ON;
 
       MultiRendererDR dr_render;
       dr_render.setBorderThickness(5);

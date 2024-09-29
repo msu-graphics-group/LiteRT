@@ -358,7 +358,7 @@ namespace dr
     if (preset.debug_border_samples_mega_image)
       samples_mega_image = LiteImage::Image2D<float4>(m_width*MEGA_PIXEL_SIZE, m_height*MEGA_PIXEL_SIZE);
 
-    if (m_preset_dr.dr_raycasting_mask == DR_RENDER_MASK_CAST_OPT)
+    if (m_preset_dr.dr_raycasting_mask == DR_RAYCASTING_MASK_ON)
     { 
       masks.resize(images_count);
 
@@ -426,7 +426,7 @@ namespace dr
 
         m_preset_dr.debug_pd_images = base_debug_pd_images;
 
-        if (m_preset_dr.dr_raycasting_mask == DR_RENDER_MASK_CAST_OPT)
+        if (m_preset_dr.dr_raycasting_mask == DR_RAYCASTING_MASK_ON)
         {
           masks[mask_ind] = process_mask;
           // std::copy(process_mask.begin(), process_mask.end(), masks[mask_ind].begin());
@@ -619,7 +619,7 @@ namespace dr
         {
           m_borderPixels.push_back(i);
 
-          if (m_preset_dr.dr_raycasting_mask == DR_RENDER_MASK_CAST_OPT)
+          if (m_preset_dr.dr_raycasting_mask == DR_RAYCASTING_MASK_ON)
           {
             int y0 = std::max(0, (int)y - (int)add_border), y1 = std::min(m_height - 1, y + add_border);
             int x0 = std::max(0, (int)x - (int)add_border), x1 = std::min(m_width - 1, x + add_border);
@@ -1009,7 +1009,7 @@ namespace dr
     const uint x  = (XY & 0x0000FFFF);
     const uint y  = (XY & 0xFFFF0000) >> 16;
 
-    if (m_preset_dr.dr_raycasting_mask == DR_RENDER_MASK_CAST_OPT && !masks[mask_ind][y * m_width + x])
+    if (m_preset_dr.dr_raycasting_mask == DR_RAYCASTING_MASK_ON && !masks[mask_ind][y * m_width + x])
     {
       return 0.f;
     }
@@ -1076,7 +1076,7 @@ namespace dr
       }
       else
       {
-        if (m_preset_dr.dr_raycasting_mask == DR_RENDER_MASK_CAST_OPT)
+        if (m_preset_dr.dr_raycasting_mask == DR_RAYCASTING_MASK_ON)
         {
           process_mask[y * m_width + x] = 1;
         }
