@@ -37,13 +37,20 @@ namespace dr
     {
       relax_pt->missed_indices[i] = INVALID_INDEX;
       relax_pt->missed_dSDF_dtheta[i] = 0.0f;
+    }
 
+    for (int i=0;i<MAX_PD_COUNT_COLOR;i++)
+    {
       relax_pt->dDiffuse_dSc[i].index = INVALID_INDEX;
       relax_pt->dDiffuse_dSc[i].value = 0.0f;
-
+    }
+    
+    for (int i=0;i<MAX_PD_COUNT_DIST;i++)
+    {
       relax_pt->dDiffuseNormal_dSd[i].index = INVALID_INDEX;
       relax_pt->dDiffuseNormal_dSd[i].dDiffuse = float3(0.0f, 0.0f, 0.0f);
       relax_pt->dDiffuseNormal_dSd[i].dNorm    = float3(0.0f, 0.0f, 0.0f);
+      relax_pt->dDiffuseNormal_dSd[i].dDist    = 0.0f;
     }
 
     {
@@ -1195,6 +1202,20 @@ namespace dr
           pHit->instId = instId;
           pHit->geomId = geomId | (type << SH_TYPE);
 
+          //with normal smoothing normal can depend on up to 64 SDF values
+          //while actual intersection position depends only on 8 main values
+          //as they are stored in the same structure, we should find out where
+          //to store these main values
+          unsigned dvalues_offset = 0;
+          if (header.aux_data == SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F_IN)
+          {
+            float3 p0 = start_q + t * ray_dir;
+            dvalues_offset += p0.x < 0.5f ? 4 : 0;
+            dvalues_offset += p0.y < 0.5f ? 2 : 0;
+            dvalues_offset += p0.z < 0.5f ? 1 : 0;
+            dvalues_offset *= 8;
+          }
+
           //calculate dt_dvalues
           float dt_dvalues[8];
           if (ray_flags & (DR_RAY_FLAG_DDIFFUSE_DPOS | DR_RAY_FLAG_DNORM_DPOS | DR_RAY_FLAG_DDIST_DPOS))
@@ -1206,9 +1227,9 @@ namespace dr
             {
               uint3 vPos = uint3(voxelPos) + uint3((i & 4) >> 2, (i & 2) >> 1, i & 1);
               uint32_t vId = vPos.x * v_size * v_size + vPos.y * v_size + vPos.z;
-              //values[i] = m_SdfSBSDataF[m_SdfSBSData[v_off + vId]];
-              relax_pt->dDiffuseNormal_dSd[i].index = m_SdfSBSData[v_off + vId];
-              relax_pt->dDiffuseNormal_dSd[i].dDist = 2.0f * d * dt_dvalues[i]; //d(tReal)/dS
+
+              relax_pt->dDiffuseNormal_dSd[dvalues_offset+i].index = m_SdfSBSData[v_off + vId];
+              relax_pt->dDiffuseNormal_dSd[dvalues_offset+i].dDist = 2.0f * d * dt_dvalues[i]; //d(tReal)/dS
             }
           }
 
@@ -1218,7 +1239,7 @@ namespace dr
             if (header.aux_data == SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F_IN)
             {
               const float beta = 0.5f;
-              float3 dp = start_q + ((pHit->t - fNearFar.x)/d)*ray_dir; //linear interpolation coefficients in voxels
+              float3 dp = start_q + t * ray_dir; //linear interpolation coefficients in voxels
               
               float3 normals[8];
               float values_n[8];
@@ -1247,6 +1268,14 @@ namespace dr
                 uint32_t neighbor_nodeId;
                 float3   neighbor_voxelPos;
 
+                if (length(dVoxelPos) < 1e-3f && 8*i != dvalues_offset)
+                {
+                  printf("dp %f %f %f\n", dp.x, dp.y, dp.z);
+                  printf("voxelPos %f %f %f\n", voxelPos.x, voxelPos.y, voxelPos.z);
+                  printf("voxelPos0 %d %d %d\n", voxelPos0.x, voxelPos0.y, voxelPos0.z);
+                  printf("voxelPosI %d %d %d\n", VoxelPosI.x, VoxelPosI.y, VoxelPosI.z);
+                  printf("offset %u real_offset %u \n",dvalues_offset, 8*i);
+                }
                 if (neighborId == 9+3+1)//we have our neighbor voxel in the same brick
                 {
                   neighbor_nodeId = nodeId;
@@ -1301,7 +1330,7 @@ namespace dr
                 }
 
                 for (int i = 0; i < 8; i++)
-                  relax_pt->dDiffuseNormal_dSd[i].dNorm = dNormalize_dD * float3(dD_d1[8*0 + i], dD_d1[8*1 + i], dD_d1[8*2 + i]);
+                  relax_pt->dDiffuseNormal_dSd[dvalues_offset+i].dNorm = dNormalize_dD * float3(dD_d1[8*0 + i], dD_d1[8*1 + i], dD_d1[8*2 + i]);
               }
             }
           }
@@ -1338,7 +1367,7 @@ namespace dr
               float3x3 dLerp_d1 = eval_color_trilinear_ddp(colors, dp);
               for (int i = 0; i < 8; i++)
               {
-                relax_pt->dDiffuseNormal_dSd[i].dDiffuse = dLerp_d1 * float3(0.5f*sz*ray_dir.x*dt_dvalues[i], 0.5f*sz*ray_dir.y*dt_dvalues[i], 0.5f*sz*ray_dir.z*dt_dvalues[i]);
+                relax_pt->dDiffuseNormal_dSd[dvalues_offset+i].dDiffuse = dLerp_d1 * float3(0.5f*sz*ray_dir.x*dt_dvalues[i], 0.5f*sz*ray_dir.y*dt_dvalues[i], 0.5f*sz*ray_dir.z*dt_dvalues[i]);
               }
             }
           }

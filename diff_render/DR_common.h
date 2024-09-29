@@ -21,7 +21,9 @@ namespace dr
   using LiteMath::to_float3;
   using LiteMath::uint2;
   
-  static constexpr uint32_t INVALID_INDEX = 0xFFFFFFFF;
+  static constexpr uint32_t INVALID_INDEX        = 0xFFFFFFFF;
+  static constexpr uint32_t MAX_PD_COUNT_DIST    = 64;
+    static constexpr uint32_t MAX_PD_COUNT_COLOR = 8;
   struct PDColor
   {
     uint32_t index;
@@ -64,8 +66,8 @@ namespace dr
     std::vector<float> sdf_i;
 #endif
 
-    PDColor dDiffuse_dSc[8]; //8 color points, PDs for diffuse (PDs for R,G,B are the same)
-    PDDist  dDiffuseNormal_dSd[8]; //8 distance points, PDs for diffuse and normal
+    PDColor dDiffuse_dSc[MAX_PD_COUNT_COLOR]; //8 color points, PDs for diffuse (PDs for R,G,B are the same)
+    PDDist  dDiffuseNormal_dSd[MAX_PD_COUNT_DIST]; //up to 64 distance points, PDs for diffuse and normal
   };
 
   //enum DRLossFunction

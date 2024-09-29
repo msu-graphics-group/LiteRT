@@ -294,7 +294,7 @@ namespace dr
 
     m_dLoss_dS_tmp = std::vector<float>(params_count*max_threads, 0);
     m_Opt_tmp = std::vector<float>(2*params_count, 0);
-    m_PD_tmp = std::vector<PDFinalColor>(2*8*preset.spp*max_threads);
+    m_PD_tmp = std::vector<PDFinalColor>((MAX_PD_COUNT_COLOR+MAX_PD_COUNT_DIST)*preset.spp*max_threads);
 
     m_preset_dr = preset;
     m_preset.spp = preset.spp;
@@ -543,7 +543,8 @@ namespace dr
       for (int i = start; i < end; i++)
       {
         loss_v[thread_id] += CastRayWithGrad(i, image_ref, out_image, out_dLoss_dS + (params_count * thread_id), 
-                                            out_image_depth, out_image_debug, m_PD_tmp.data() + 2*8*m_preset_dr.spp * thread_id);
+                                             out_image_depth, out_image_debug, 
+                                             m_PD_tmp.data() + (MAX_PD_COUNT_COLOR+MAX_PD_COUNT_DIST)*m_preset_dr.spp * thread_id);
       }
     }
 
@@ -995,7 +996,7 @@ namespace dr
 
     uint32_t spp_sqrt = uint32_t(sqrt(m_preset.spp));
     float i_spp_sqrt = 1.0f/spp_sqrt;
-    uint32_t color_pd_offset = 8*m_preset.spp;
+    uint32_t color_pd_offset = MAX_PD_COUNT_DIST*m_preset.spp;
     const float3 background_color = float3(0.0f, 0.0f, 0.0f);
 
     uint32_t ray_flags;
@@ -1062,11 +1063,11 @@ namespace dr
         //fill buffer with final color partial derivatives w.r.t. voxel color
         if (ray_flags & DR_RAY_FLAG_DDIFFUSE_DCOLOR)
         {
-          for (int i = 0; i < 8; i++)
+          for (int i = 0; i < MAX_PD_COUNT_COLOR; i++)
           {
             float dDiffuse_dSc = payload.dDiffuse_dSc[i].value;
-            out_pd_tmp[color_pd_offset + 8*hit_count + i].index = payload.dDiffuse_dSc[i].index;
-            out_pd_tmp[color_pd_offset + 8*hit_count + i].dFinalColor = dColor_dDiffuse * float3(dDiffuse_dSc);
+            out_pd_tmp[color_pd_offset + MAX_PD_COUNT_COLOR*hit_count + i].index = payload.dDiffuse_dSc[i].index;
+            out_pd_tmp[color_pd_offset + MAX_PD_COUNT_COLOR*hit_count + i].dFinalColor = dColor_dDiffuse * float3(dDiffuse_dSc);
           }
         }
 
@@ -1075,20 +1076,20 @@ namespace dr
         //when input data is depth it is done via dDist partial derivative
         if (ray_flags & (DR_RAY_FLAG_DDIFFUSE_DPOS | DR_RAY_FLAG_DNORM_DPOS))
         {
-          for (int i = 0; i < 8; i++)
+          for (int i = 0; i < MAX_PD_COUNT_DIST; i++)
           {
             PDDist &pd = payload.dDiffuseNormal_dSd[i];
-            out_pd_tmp[8*hit_count + i].index = pd.index;
-            out_pd_tmp[8*hit_count + i].dFinalColor = dColor_dDiffuse*pd.dDiffuse + dColor_dNorm*pd.dNorm;
+            out_pd_tmp[MAX_PD_COUNT_DIST*hit_count + i].index = pd.index;
+            out_pd_tmp[MAX_PD_COUNT_DIST*hit_count + i].dFinalColor = dColor_dDiffuse*pd.dDiffuse + dColor_dNorm*pd.dNorm;
           }
         }
         else if (ray_flags & DR_RAY_FLAG_DDIST_DPOS)
         {
-          for (int i = 0; i < 8; i++)
+          for (int i = 0; i < MAX_PD_COUNT_DIST; i++)
           {
             PDDist &pd = payload.dDiffuseNormal_dSd[i];
-            out_pd_tmp[8*hit_count + i].index = pd.index;
-            out_pd_tmp[8*hit_count + i].dFinalColor = float3(pd.dDist) / (z_far - z_near);
+            out_pd_tmp[MAX_PD_COUNT_DIST*hit_count + i].index = pd.index;
+            out_pd_tmp[MAX_PD_COUNT_DIST*hit_count + i].dFinalColor = float3(pd.dDist) / (z_far - z_near);
           }
         }
 
@@ -1121,8 +1122,11 @@ namespace dr
 
     if (ray_flags & DR_RAY_FLAG_DDIFFUSE_DCOLOR)
     {
-      for (int i = color_pd_offset; i < color_pd_offset + 8 * hit_count; i++)
+      for (int i = color_pd_offset; i < color_pd_offset + MAX_PD_COUNT_COLOR * hit_count; i++)
       {
+        if (out_pd_tmp[i].index == INVALID_INDEX)
+          continue;
+
         float3 diff = dLoss_dColor * out_pd_tmp[i].dFinalColor;
         out_dLoss_dS[out_pd_tmp[i].index + 0] += diff.x;
         out_dLoss_dS[out_pd_tmp[i].index + 1] += diff.y;
@@ -1139,8 +1143,11 @@ namespace dr
 
     if (ray_flags & (DR_RAY_FLAG_DDIFFUSE_DPOS | DR_RAY_FLAG_DNORM_DPOS | DR_RAY_FLAG_DDIST_DPOS))
     {
-      for (int i = 0; i < 8 * hit_count; i++)
+      for (int i = 0; i < MAX_PD_COUNT_DIST * hit_count; i++)
       {
+        if (out_pd_tmp[i].index == INVALID_INDEX)
+          continue;
+
         float diff = dot(dLoss_dColor, out_pd_tmp[i].dFinalColor);
         out_dLoss_dS[out_pd_tmp[i].index] += diff;
         total_diff += diff;
