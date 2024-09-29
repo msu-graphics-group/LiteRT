@@ -721,6 +721,25 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
       trilinear_interpolation(result[directions[result[idx].offset + num].neighbour[dir]].values, coeff);
   }
 
+  void interpolate_vertex(const std::vector<struct dirs> &directions, 
+                                   std::vector<SdfFrameOctreeNode> &result,
+                                   unsigned idx, unsigned num, unsigned dir1, unsigned dir2, unsigned vert)
+  {
+    float3 p = directions[directions[directions[result[idx].offset + num].neighbour[dir1]].neighbour[dir2]].p;
+    float d = directions[directions[directions[result[idx].offset + num].neighbour[dir1]].neighbour[dir2]].d;
+    float3 ch_pos_1 = 2.0f * (d * p) - 1.0f;
+    float3 ch_pos_2 = ch_pos_1 + 2 * d;
+
+    p = directions[result[idx].offset + num].p;
+    d = directions[result[idx].offset + num].d;
+    float3 ch_pos = 2.0f * (d * p) - 1.0f + 2 * d * float3((vert & 4) >> 2, (vert & 2) >> 1, vert & 1);
+
+    float3 coeff = 1.0f - (ch_pos_2 - ch_pos) / (ch_pos_2 - ch_pos_1);
+    
+    result[result[idx].offset + num].values[vert] = 
+      trilinear_interpolation(result[directions[directions[result[idx].offset + num].neighbour[dir1]].neighbour[dir2]].values, coeff);
+  }
+
   void sdf_artefacts_fix(std::vector<SdfFrameOctreeNode> &frame, std::vector<struct dirs> &directions, MultithreadedDistanceFunction sdf, float eps, 
                          unsigned max_threads/*while unused*/, unsigned depth, std::set<unsigned> bad_nodes, bool is_smooth)
   {
@@ -900,6 +919,14 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
     }
   }
 
+  struct compar
+  { 
+    bool operator()(const float &a, const float &b) const
+    {
+      return fabs(a - b) > 1e-7;
+    }
+  };
+
   std::vector<SdfFrameOctreeNode> construct_sdf_frame_octree(SparseOctreeSettings settings, MultithreadedDistanceFunction sdf, float eps, 
                                                              unsigned max_threads/*while unused*/, bool is_smooth, bool fix_artefacts)
   {
@@ -914,7 +941,7 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
     std::set<unsigned> divided = {};
     std::set<unsigned> last_level = {0};
 
-    std::map<std::pair<std::pair<float, float>, float>, std::set<float>> data;//debug
+    std::map<std::pair<std::pair<int, int>, int>, std::set<float, compar>> data;//debug
 
     for (int i = 1; i < settings.depth; ++i)
     {
@@ -967,6 +994,20 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
 
           if ((num & 1) != 0) fill_neighbours_til_one_dir(directions, result, div_idx, num, -1, 5, 4);
           else fill_neighbours_til_one_dir(directions, result, div_idx, num, 1, 4, 5);
+        }
+      }
+      for (auto div_idx : divided)
+      {
+        for (unsigned num = 0; num < 8; ++num)
+        {
+          /*if ((num & 4) != 0) fill_neighbours_til_one_dir(directions, result, div_idx, num, -4, 1, 0);
+          else fill_neighbours_til_one_dir(directions, result, div_idx, num, 4, 0, 1);
+
+          if ((num & 2) != 0) fill_neighbours_til_one_dir(directions, result, div_idx, num, -2, 3, 2);
+          else fill_neighbours_til_one_dir(directions, result, div_idx, num, 2, 2, 3);
+
+          if ((num & 1) != 0) fill_neighbours_til_one_dir(directions, result, div_idx, num, -1, 5, 4);
+          else fill_neighbours_til_one_dir(directions, result, div_idx, num, 1, 4, 5);*///move to previous for and change function
 
           /*printf("%u", result[div_idx].offset + num);
           for (int y = 0; y < 6; ++y)
@@ -987,13 +1028,18 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
 
               float3 ch_pos = 2.0 * directions[result[div_idx].offset + num].d * directions[result[div_idx].offset + num].p - 1.0 + 
                   2 * directions[result[div_idx].offset + num].d * float3((vert & 4) >> 2, (vert & 2) >> 1, vert & 1);
-              if (data.find({{ch_pos.x, ch_pos.y}, ch_pos.z}) != data.end() && data[{{ch_pos.x, ch_pos.y}, ch_pos.z}].size() < 2)
+              if (data.find({{ch_pos.x * 1024, ch_pos.y * 1024}, ch_pos.z * 1024}) != data.end() && data[{{ch_pos.x * 1024, ch_pos.y * 1024}, ch_pos.z * 1024}].size() < 2)
               {
-                data[{{ch_pos.x, ch_pos.y}, ch_pos.z}].insert(result[result[div_idx].offset + num].values[vert]);
-                if (data[{{ch_pos.x, ch_pos.y}, ch_pos.z}].size() > 1)
+                data[{{ch_pos.x * 1024, ch_pos.y * 1024}, ch_pos.z * 1024}].insert(result[result[div_idx].offset + num].values[vert]);
+                if (data[{{ch_pos.x * 1024, ch_pos.y * 1024}, ch_pos.z * 1024}].size() > 1/* || ((int)(ch_pos.x * 1024) == -640 && (int)(ch_pos.y * 1024) == 0 && (int)(ch_pos.z * 1024) == -256)*/)
                 {
-                  printf("x %f %f %f %f\n", directions[result[div_idx].offset + num].d, directions[result[div_idx].offset + num].p.x, 
+                  printf("x %f %f %f %f ", directions[result[div_idx].offset + num].d, directions[result[div_idx].offset + num].p.x, 
                                             directions[result[div_idx].offset + num].p.y, directions[result[div_idx].offset + num].p.z);
+                  for (auto a : data[{{ch_pos.x * 1024, ch_pos.y * 1024}, ch_pos.z * 1024}])
+                  {
+                    printf("%f ", a);
+                  }
+                  printf("\n");
                   printf("X %f %u %u --", result[result[div_idx].offset + num].values[vert], num, vert);
                   for (int n = 0; n < 8; ++n)
                   {
@@ -1011,7 +1057,7 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
               }
               else
               {
-                data[{{ch_pos.x, ch_pos.y}, ch_pos.z}] = {result[result[div_idx].offset + num].values[vert]};
+                data[{{ch_pos.x * 1024, ch_pos.y * 1024}, ch_pos.z * 1024}] = {result[result[div_idx].offset + num].values[vert]};
               }
             }
             else if (is_smooth && last_level.find(directions[result[div_idx].offset + num].neighbour[y_dir ^ 1]) == last_level.end() && directions[result[div_idx].offset + num].neighbour[y_dir ^ 1] != 0)
@@ -1021,22 +1067,36 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
 
               float3 ch_pos = 2.0 * directions[result[div_idx].offset + num].d * directions[result[div_idx].offset + num].p - 1.0 + 
                   2 * directions[result[div_idx].offset + num].d * float3((vert & 4) >> 2, (vert & 2) >> 1, vert & 1);
-              if (data.find({{ch_pos.x, ch_pos.y}, ch_pos.z}) != data.end() && data[{{ch_pos.x, ch_pos.y}, ch_pos.z}].size() < 2)
+              if (data.find({{ch_pos.x * 1024, ch_pos.y * 1024}, ch_pos.z * 1024}) != data.end() && data[{{ch_pos.x * 1024, ch_pos.y * 1024}, ch_pos.z * 1024}].size() < 2)
               {
-                data[{{ch_pos.x, ch_pos.y}, ch_pos.z}].insert(result[result[div_idx].offset + num].values[vert]);
-                if (data[{{ch_pos.x, ch_pos.y}, ch_pos.z}].size() > 1)
+                data[{{ch_pos.x * 1024, ch_pos.y * 1024}, ch_pos.z * 1024}].insert(result[result[div_idx].offset + num].values[vert]);
+                if (data[{{ch_pos.x * 1024, ch_pos.y * 1024}, ch_pos.z * 1024}].size() > 1/* || ((int)(ch_pos.x * 1024) == -640 && (int)(ch_pos.y * 1024) == 0 && (int)(ch_pos.z * 1024) == -256)*/)
                 {
+                  printf("y %f %f %f %f ", directions[result[div_idx].offset + num].d, directions[result[div_idx].offset + num].p.x, 
+                                            directions[result[div_idx].offset + num].p.y, directions[result[div_idx].offset + num].p.z);
+                  for (auto a : data[{{ch_pos.x * 1024, ch_pos.y * 1024}, ch_pos.z * 1024}])
+                  {
+                    printf("%f ", a);
+                  }
+                  printf("\n");
                   printf("Y %f %u %u --", result[result[div_idx].offset + num].values[vert], num, vert);
                   for (int n = 0; n < 8; ++n)
                   {
                     printf(" %f", result[div_idx].values[n]);
                   }
                   printf("\n");
+                  auto tmp = directions[result[div_idx].offset + num].neighbour[y_dir ^ 1];
+                  printf("N %f %f %f %f --", directions[tmp].d, directions[tmp].p.x, directions[tmp].p.y, directions[tmp].p.z);
+                  for (int n = 0; n < 8; ++n)
+                  {
+                    printf(" %f", result[tmp].values[n]);
+                  }
+                  printf("\n");
                 }
               }
               else
               {
-                data[{{ch_pos.x, ch_pos.y}, ch_pos.z}] = {result[result[div_idx].offset + num].values[vert]};
+                data[{{ch_pos.x * 1024, ch_pos.y * 1024}, ch_pos.z * 1024}] = {result[result[div_idx].offset + num].values[vert]};
               }
             }
             else if (is_smooth && last_level.find(directions[result[div_idx].offset + num].neighbour[z_dir ^ 1]) == last_level.end() && directions[result[div_idx].offset + num].neighbour[z_dir ^ 1] != 0)
@@ -1046,22 +1106,87 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
 
               float3 ch_pos = 2.0 * directions[result[div_idx].offset + num].d * directions[result[div_idx].offset + num].p - 1.0 + 
                   2 * directions[result[div_idx].offset + num].d * float3((vert & 4) >> 2, (vert & 2) >> 1, vert & 1);
-              if (data.find({{ch_pos.x, ch_pos.y}, ch_pos.z}) != data.end() && data[{{ch_pos.x, ch_pos.y}, ch_pos.z}].size() < 2)
+              if (data.find({{ch_pos.x, ch_pos.y}, ch_pos.z}) != data.end() && data[{{ch_pos.x * 1024, ch_pos.y * 1024}, ch_pos.z * 1024}].size() < 2)
               {
-                data[{{ch_pos.x, ch_pos.y}, ch_pos.z}].insert(result[result[div_idx].offset + num].values[vert]);
-                if (data[{{ch_pos.x, ch_pos.y}, ch_pos.z}].size() > 1)
+                data[{{ch_pos.x * 1024, ch_pos.y * 1024}, ch_pos.z * 1024}].insert(result[result[div_idx].offset + num].values[vert]);
+                if (data[{{ch_pos.x * 1024, ch_pos.y * 1024}, ch_pos.z}].size() > 1/* || ((int)(ch_pos.x * 1024) == -640 && (int)(ch_pos.y * 1024) == 0 && (int)(ch_pos.z * 1024) == -256)*/)
                 {
+                  printf("z %f %f %f %f ", directions[result[div_idx].offset + num].d, directions[result[div_idx].offset + num].p.x, 
+                                            directions[result[div_idx].offset + num].p.y, directions[result[div_idx].offset + num].p.z);
+                  for (auto a : data[{{ch_pos.x * 1024, ch_pos.y * 1024}, ch_pos.z * 1024}])
+                  {
+                    printf("%f ", a);
+                  }
+                  printf("\n");
                   printf("Z %f %u %u --", result[result[div_idx].offset + num].values[vert], num, vert);
                   for (int n = 0; n < 8; ++n)
                   {
                     printf(" %f", result[div_idx].values[n]);
                   }
                   printf("\n");
+                  auto tmp = directions[result[div_idx].offset + num].neighbour[z_dir ^ 1];
+                  printf("N %f %f %f %f --", directions[tmp].d, directions[tmp].p.x, directions[tmp].p.y, directions[tmp].p.z);
+                  for (int n = 0; n < 8; ++n)
+                  {
+                    printf(" %f", result[tmp].values[n]);
+                  }
+                  printf("\n");
                 }
               }
               else
               {
-                data[{{ch_pos.x, ch_pos.y}, ch_pos.z}] = {result[result[div_idx].offset + num].values[vert]};
+                data[{{ch_pos.x * 1024, ch_pos.y * 1024}, ch_pos.z * 1024}] = {result[result[div_idx].offset + num].values[vert]};
+              }
+            }
+            else if (is_smooth && last_level.find(directions[result[div_idx].offset + num].neighbour[x_dir ^ 1]) != last_level.end() && directions[result[div_idx].offset + num].neighbour[x_dir ^ 1] != 0 &&
+                     last_level.find(directions[directions[result[div_idx].offset + num].neighbour[x_dir ^ 1]].neighbour[y_dir ^ 1]) == last_level.end() && directions[directions[result[div_idx].offset + num].neighbour[x_dir ^ 1]].neighbour[y_dir ^ 1] != 0)
+            {
+              //take vertex from xy_dir neighbour
+              interpolate_vertex(directions, result, div_idx, num, x_dir ^ 1, y_dir ^ 1, vert);
+
+              float3 ch_pos = 2.0 * directions[result[div_idx].offset + num].d * directions[result[div_idx].offset + num].p - 1.0 + 
+                  2 * directions[result[div_idx].offset + num].d * float3((vert & 4) >> 2, (vert & 2) >> 1, vert & 1);
+              if (data.find({{ch_pos.x * 1024, ch_pos.y * 1024}, ch_pos.z * 1024}) != data.end() && data[{{ch_pos.x * 1024, ch_pos.y * 1024}, ch_pos.z * 1024}].size() < 2)
+              {
+                data[{{ch_pos.x * 1024, ch_pos.y * 1024}, ch_pos.z * 1024}].insert(result[result[div_idx].offset + num].values[vert]);
+              }
+              else
+              {
+                data[{{ch_pos.x * 1024, ch_pos.y * 1024}, ch_pos.z * 1024}] = {result[result[div_idx].offset + num].values[vert]};
+              }
+            }
+            else if (is_smooth && last_level.find(directions[result[div_idx].offset + num].neighbour[y_dir ^ 1]) != last_level.end() && directions[result[div_idx].offset + num].neighbour[y_dir ^ 1] != 0 &&
+                     last_level.find(directions[directions[result[div_idx].offset + num].neighbour[y_dir ^ 1]].neighbour[z_dir ^ 1]) == last_level.end() && directions[directions[result[div_idx].offset + num].neighbour[y_dir ^ 1]].neighbour[z_dir ^ 1] != 0)
+            {
+              //take vertex from yz_dir neighbour
+              interpolate_vertex(directions, result, div_idx, num, y_dir ^ 1, z_dir ^ 1, vert);
+
+              float3 ch_pos = 2.0 * directions[result[div_idx].offset + num].d * directions[result[div_idx].offset + num].p - 1.0 + 
+                  2 * directions[result[div_idx].offset + num].d * float3((vert & 4) >> 2, (vert & 2) >> 1, vert & 1);
+              if (data.find({{ch_pos.x * 1024, ch_pos.y * 1024}, ch_pos.z * 1024}) != data.end() && data[{{ch_pos.x * 1024, ch_pos.y * 1024}, ch_pos.z * 1024}].size() < 2)
+              {
+                data[{{ch_pos.x * 1024, ch_pos.y * 1024}, ch_pos.z * 1024}].insert(result[result[div_idx].offset + num].values[vert]);
+              }
+              else
+              {
+                data[{{ch_pos.x * 1024, ch_pos.y * 1024}, ch_pos.z * 1024}] = {result[result[div_idx].offset + num].values[vert]};
+              }
+            }
+            else if (is_smooth && last_level.find(directions[result[div_idx].offset + num].neighbour[x_dir ^ 1]) != last_level.end() && directions[result[div_idx].offset + num].neighbour[x_dir ^ 1] != 0 &&
+                     last_level.find(directions[directions[result[div_idx].offset + num].neighbour[x_dir ^ 1]].neighbour[z_dir ^ 1]) == last_level.end() && directions[directions[result[div_idx].offset + num].neighbour[x_dir ^ 1]].neighbour[z_dir ^ 1] != 0)
+            {
+              //take vertex from xz_dir neighbour
+              interpolate_vertex(directions, result, div_idx, num, x_dir ^ 1, z_dir ^ 1, vert);
+
+              float3 ch_pos = 2.0 * directions[result[div_idx].offset + num].d * directions[result[div_idx].offset + num].p - 1.0 + 
+                  2 * directions[result[div_idx].offset + num].d * float3((vert & 4) >> 2, (vert & 2) >> 1, vert & 1);
+              if (data.find({{ch_pos.x * 1024, ch_pos.y * 1024}, ch_pos.z * 1024}) != data.end() && data[{{ch_pos.x * 1024, ch_pos.y * 1024}, ch_pos.z * 1024}].size() < 2)
+              {
+                data[{{ch_pos.x * 1024, ch_pos.y * 1024}, ch_pos.z * 1024}].insert(result[result[div_idx].offset + num].values[vert]);
+              }
+              else
+              {
+                data[{{ch_pos.x * 1024, ch_pos.y * 1024}, ch_pos.z * 1024}] = {result[result[div_idx].offset + num].values[vert]};
               }
             }
             else// all neighbours on the last level
@@ -1072,22 +1197,50 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
               result[result[div_idx].offset + num].values[vert] = sdf(ch_pos, 0);
 
 
-              if (data.find({{ch_pos.x, ch_pos.y}, ch_pos.z}) != data.end() && data[{{ch_pos.x, ch_pos.y}, ch_pos.z}].size() < 2)
+              if (data.find({{ch_pos.x * 1024, ch_pos.y * 1024}, ch_pos.z * 1024}) != data.end() && data[{{ch_pos.x * 1024, ch_pos.y * 1024}, ch_pos.z * 1024}].size() < 2)
               {
-                data[{{ch_pos.x, ch_pos.y}, ch_pos.z}].insert(result[result[div_idx].offset + num].values[vert]);
-                if (data[{{ch_pos.x, ch_pos.y}, ch_pos.z}].size() > 1)
+                data[{{ch_pos.x * 1024, ch_pos.y * 1024}, ch_pos.z * 1024}].insert(result[result[div_idx].offset + num].values[vert]);
+                if (data[{{ch_pos.x * 1024, ch_pos.y * 1024}, ch_pos.z * 1024}].size() > 1/* || ((int)(ch_pos.x * 1024) == -640 && (int)(ch_pos.y * 1024) == 0 && (int)(ch_pos.z * 1024) == -256)*/)
                 {
+                  printf("s %f %f %f %f ", directions[result[div_idx].offset + num].d, directions[result[div_idx].offset + num].p.x, 
+                                            directions[result[div_idx].offset + num].p.y, directions[result[div_idx].offset + num].p.z);
+                  for (auto a : data[{{ch_pos.x * 1024, ch_pos.y * 1024}, ch_pos.z * 1024}])
+                  {
+                    printf("%f ", a);
+                  }
+                  printf("\n");
                   printf("S %f %u %u --", result[result[div_idx].offset + num].values[vert], num, vert);
                   for (int n = 0; n < 8; ++n)
                   {
                     printf(" %f", result[div_idx].values[n]);
                   }
                   printf("\n");
+                  auto tmp = directions[result[div_idx].offset + num].neighbour[x_dir ^ 1];
+                  printf("Nx %f %f %f %f --", directions[tmp].d, directions[tmp].p.x, directions[tmp].p.y, directions[tmp].p.z);
+                  for (int n = 0; n < 8; ++n)
+                  {
+                    printf(" %f", result[tmp].values[n]);
+                  }
+                  printf("\n");
+                  tmp = directions[result[div_idx].offset + num].neighbour[y_dir ^ 1];
+                  printf("Ny %f %f %f %f --", directions[tmp].d, directions[tmp].p.x, directions[tmp].p.y, directions[tmp].p.z);
+                  for (int n = 0; n < 8; ++n)
+                  {
+                    printf(" %f", result[tmp].values[n]);
+                  }
+                  printf("\n");
+                  tmp = directions[result[div_idx].offset + num].neighbour[z_dir ^ 1];
+                  printf("Nz %f %f %f %f --", directions[tmp].d, directions[tmp].p.x, directions[tmp].p.y, directions[tmp].p.z);
+                  for (int n = 0; n < 8; ++n)
+                  {
+                    printf(" %f", result[tmp].values[n]);
+                  }
+                  printf("\n");
                 }
               }
               else
               {
-                data[{{ch_pos.x, ch_pos.y}, ch_pos.z}] = {result[result[div_idx].offset + num].values[vert]};
+                data[{{ch_pos.x * 1024, ch_pos.y * 1024}, ch_pos.z * 1024}] = {result[result[div_idx].offset + num].values[vert]};
               }
             }
           }
