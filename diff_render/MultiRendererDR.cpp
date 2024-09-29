@@ -221,12 +221,91 @@ namespace dr
     }
   }
 
+  /*
+  float BVHRT::tricubic_eval_distance_sdf_grid(uint32_t grid_id, float3 pos)
+{
+  uint32_t off = m_SdfGridOffsets[grid_id];
+  uint3 size = m_SdfGridSizes[grid_id];
+
+  //bbox for grid is a unit cube
+  float3 grid_size_f = float3(size);
+  float3 vox_f = grid_size_f*((pos-float3(-1,-1,-1))/float3(2,2,2)) - float3(0.5, 0.5, 0.5);
+  vox_f = min(max(vox_f, float3(0.0f)), grid_size_f - float3(1e-5f));
+  uint3 vox_u = uint3(vox_f);
+  float3 dp = vox_f - float3(vox_u);
+
+  //trilinear sampling
+  float res = 0.0;
+  if (vox_u.x < size.x-1 && vox_u.y < size.y-1 && vox_u.z < size.z-1)
+  {
+    float b[8] = {0}, coefs[64] = {0};
+
+    b[0] = m_SdfGridData[off + (vox_u.z + 0)*size.x*size.y + (vox_u.y + 0)*size.x + (vox_u.x + 0)];
+    b[1] = m_SdfGridData[off + (vox_u.z + 0)*size.x*size.y + (vox_u.y + 0)*size.x + (vox_u.x + 1)];
+    b[2] = m_SdfGridData[off + (vox_u.z + 0)*size.x*size.y + (vox_u.y + 1)*size.x + (vox_u.x + 0)];
+    b[3] = m_SdfGridData[off + (vox_u.z + 0)*size.x*size.y + (vox_u.y + 1)*size.x + (vox_u.x + 1)];
+    b[4] = m_SdfGridData[off + (vox_u.z + 1)*size.x*size.y + (vox_u.y + 0)*size.x + (vox_u.x + 0)];
+    b[5] = m_SdfGridData[off + (vox_u.z + 1)*size.x*size.y + (vox_u.y + 0)*size.x + (vox_u.x + 1)];
+    b[6] = m_SdfGridData[off + (vox_u.z + 1)*size.x*size.y + (vox_u.y + 1)*size.x + (vox_u.x + 0)];
+    b[7] = m_SdfGridData[off + (vox_u.z + 1)*size.x*size.y + (vox_u.y + 1)*size.x + (vox_u.x + 1)];
+
+    for (int i = 0; i < 64; i++)
+    {
+      for (int j = 0; j < 64; j++)
+      {
+        coefs[i] += (float)B[64 * i + j] * b[j % 8];
+      }
+    }
+
+    float power_x[4], power_y[4], power_z[4];
+      
+    power_x[0] = 1;
+    power_x[1] = dp.x;
+    power_x[2] = dp.x * dp.x;
+    power_x[3] = dp.x * dp.x * dp.x;
+
+    power_y[0] = 1;
+    power_y[1] = dp.y;
+    power_y[2] = dp.y * dp.y;
+    power_y[3] = dp.y * dp.y * dp.y;
+
+    power_z[0] = 1;
+    power_z[1] = dp.z;
+    power_z[2] = dp.z * dp.z;
+    power_z[3] = dp.z * dp.z * dp.z;
+
+    for (int i = 0; i < 4; i++)
+    {
+      for (int j = 0; j < 4; j++)
+      {
+        for (int k = 0; k < 4; k++)
+        {
+          res += coefs[i + 4 * j + 16 * k] * power_x[i] * power_y[j] * power_z[k];
+        }
+      }
+    }
+  }
+  else
+  {
+    res += m_SdfGridData[off + (vox_u.z)*size.x*size.y + (vox_u.y)*size.x + (vox_u.x)]; 
+  }
+  
+  return res;
+}
+  */
+
+  float
+  MultiRendererDR::tricubicInterpolation() const
+  {
+
+  }
+
   void MultiRendererDR::OptimizeGrid(unsigned start_grid_size, bool no_last_step_resize, std::vector<MultiRendererDRPreset> presets)
   {
     unsigned grid_size = start_grid_size;
     unsigned grid_steps = presets.size();
     unsigned brick_size = 1;
-
+    
     auto grid =  create_grid_sbs(grid_size, brick_size, 
                                  [&](float3 p){return circle_sdf(float3(0,-0.15f,0), 0.7f, p);}, 
                                  gradient_color);

@@ -79,6 +79,7 @@ namespace dr
     const float *getLastdLoss_dS() const { return m_dLoss_dS_tmp.data(); }
 
   protected:
+    float tricubicInterpolation() const;
     float RenderDR(const float4 *image_ref, LiteMath::float4* out_image, float *out_dLoss_dS, unsigned params_count,
                    LiteMath::float4* out_image_depth, LiteMath::float4* out_image_debug);
     float RenderDRFiniteDiff(const float4 *image_ref, LiteMath::float4* out_image, float *out_dLoss_dS, unsigned params_count,
