@@ -4,6 +4,8 @@
 #include "BVH2DR.h"
 #include "../Renderer/eye_ray.h"
 #include <set>
+#include <atomic>
+
 
 namespace dr
 {
@@ -116,6 +118,7 @@ namespace dr
     std::vector<LiteMath::float4x4> m_worldViewRef;
     std::vector<LiteMath::float4x4> m_projRef;
     std::vector<float> m_dLoss_dS_tmp;
+    std::vector<std::atomic<uint32_t>> m_dLoss_dS_tmp_atomic_pos, m_dLoss_dS_tmp_atomic_neg;
     std::vector<float> m_Opt_tmp;
     std::vector<PDFinalColor> m_PD_tmp;
     std::vector<uint32_t> m_borderPixels;

@@ -292,6 +292,19 @@ namespace dr
     unsigned params_count = sbs.values_f.size();
 
     m_dLoss_dS_tmp = std::vector<float>(params_count*max_threads, 0);
+    m_dLoss_dS_tmp_atomic_pos = std::vector<std::atomic<unsigned>>(params_count * max_threads);
+    m_dLoss_dS_tmp_atomic_neg = std::vector<std::atomic<unsigned>>(params_count * max_threads);
+
+    for (auto &el: m_dLoss_dS_tmp_atomic_pos)
+    {
+      el.store(0);
+    }
+
+    for (auto &el: m_dLoss_dS_tmp_atomic_neg)
+    {
+      el.store(0);
+    }
+
     m_Opt_tmp = std::vector<float>(2*params_count, 0);
     m_PD_tmp = std::vector<PDFinalColor>(2*8*preset.spp*max_threads);
 
@@ -411,8 +424,8 @@ namespace dr
 
         if (m_preset_dr.dr_raycasting_mask == DR_RENDER_MASK_CAST_OPT)
         {
-          // masks[mask_ind] = process_mask;
-          std::copy(process_mask.begin(), process_mask.end(), masks[mask_ind].begin());
+          masks[mask_ind] = process_mask;
+          // std::copy(process_mask.begin(), process_mask.end(), masks[mask_ind].begin());
           std::fill(process_mask.begin(), process_mask.end(), 0);
         }
       }
