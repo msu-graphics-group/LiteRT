@@ -2363,7 +2363,7 @@ void litert_test_29_smoothed_frame_octree()
     for (unsigned i = 0; i < 1; i++)
       bvh[i].init(mesh);
     auto real_sdf = [&](const float3 &p, unsigned idx) -> float 
-    { /*return bvh[idx].get_signed_distance(p);*/ return std::sqrt(p.x * p.x + p.y * p.y + p.z * p.z) - 0.8;};
+    { return bvh[idx].get_signed_distance(p); /*return std::sqrt(p.x * p.x + p.y * p.y + p.z * p.z) - 0.8;*/};
 
     printf("TEST 29. New frame octree creation\n");
 
@@ -2373,7 +2373,7 @@ void litert_test_29_smoothed_frame_octree()
   for (float eps = 1e-2; eps > 1e-5; eps /= std::sqrt(10), ++num_of_test)
   {
 
-    std::vector<SdfFrameOctreeNode> frame_nodes = sdf_converter::create_sdf_frame_octree(settings, real_sdf, eps, false);
+    std::vector<SdfFrameOctreeNode> frame_nodes = sdf_converter::create_sdf_frame_octree(settings, real_sdf, eps, true, false);
 
     {
       auto pRender = CreateMultiRenderer("GPU");
