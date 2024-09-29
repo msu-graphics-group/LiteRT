@@ -25,6 +25,7 @@ namespace dr
     preset.dr_border_sampling = DR_BORDER_SAMPLING_RANDOM;
 
     preset.dr_raycasting_mask = -1;
+    preset.dr_atomic_ders = -1;
 
     preset.border_spp = 256;
     preset.border_relax_eps = 1e-3f;

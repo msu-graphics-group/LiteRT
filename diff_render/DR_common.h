@@ -81,6 +81,9 @@ namespace dr
   //enum optimizeRayCastingFrame
   static constexpr unsigned DR_RENDER_MASK_CAST_OPT = 0;
 
+  //enum DRAtomicDerrivatives
+  static constexpr unsigned DR_ATOMIC_DERRIVATIVES = 0;
+
   //enum DRDebugRenderMode
   static constexpr unsigned DR_DEBUG_RENDER_MODE_NONE             = 0;
   static constexpr unsigned DR_DEBUG_RENDER_MODE_PRIMITIVE        = 1;
@@ -132,6 +135,7 @@ namespace dr
     unsigned dr_input_type;           //enum DRInputType
     unsigned dr_border_sampling;      //enum DRBorderSampling
     unsigned dr_raycasting_mask;      //enum optimizeRayCastingFrame
+    unsigned dr_atomic_ders;          //enum DRAtomicDerrivatives
 
     // main parameters
     unsigned spp;
