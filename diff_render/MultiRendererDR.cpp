@@ -105,6 +105,8 @@ namespace dr
       return MULTI_RENDER_MODE_MASK;
     case DR_RENDER_MODE_LINEAR_DEPTH:
       return MULTI_RENDER_MODE_LINEAR_DEPTH;
+    case DR_RENDER_MODE_NORMAL:
+      return MULTI_RENDER_MODE_NORMAL;
     default:
       printf("Unknown diff_render_mode: %u\n", diff_render_mode);
       return MULTI_RENDER_MODE_DIFFUSE;
@@ -592,6 +594,7 @@ namespace dr
           case DR_RENDER_MODE_LINEAR_DEPTH:
           case DR_RENDER_MODE_DIFFUSE:
           case DR_RENDER_MODE_LAMBERT:
+          case DR_RENDER_MODE_NORMAL:
             is_border = max_diff > 0 || max_depth_thr > 0;
           break;
           default:
@@ -810,6 +813,9 @@ namespace dr
       color = float3(d, d, d);
     }
     break;
+    case DR_RENDER_MODE_NORMAL:
+      color = hit.normal;
+    break;
     default:
       break;
     }
@@ -861,6 +867,13 @@ namespace dr
     {
       float d = absolute_to_linear_depth(hit.t);
       color = float3(d, d, d);
+    }
+    break;
+    case DR_RENDER_MODE_NORMAL:
+    {
+      color = hit.normal;
+      dColor_dDiffuse = LiteMath::make_float3x3(float3(0, 0, 0), float3(0, 0, 0), float3(0, 0, 0));
+      dColor_dNorm = LiteMath::make_float3x3(float3(1, 0, 0), float3(0, 1, 0), float3(0, 0, 1));
     }
     break;
     default:
@@ -1024,6 +1037,8 @@ namespace dr
           ray_flags |= DR_RAY_FLAG_DDIFFUSE_DPOS;
         else if (m_preset_dr.dr_render_mode == DR_RENDER_MODE_LAMBERT)
           ray_flags |= DR_RAY_FLAG_DDIFFUSE_DPOS | DR_RAY_FLAG_DNORM_DPOS;
+        else if (m_preset_dr.dr_render_mode == DR_RENDER_MODE_NORMAL)
+          ray_flags |= DR_RAY_FLAG_DNORM_DPOS | DR_RAY_FLAG_DNORM_DPOS;
       }
     }
 

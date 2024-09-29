@@ -79,6 +79,7 @@ namespace dr
   static constexpr unsigned DR_RENDER_MODE_LAMBERT          = 1;
   static constexpr unsigned DR_RENDER_MODE_MASK             = 2;
   static constexpr unsigned DR_RENDER_MODE_LINEAR_DEPTH     = 3;
+  static constexpr unsigned DR_RENDER_MODE_NORMAL           = 4;
 
   //enum optimizeRayCastingFrame
   static constexpr unsigned DR_RENDER_MASK_CAST_OPT = 0;
