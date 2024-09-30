@@ -690,6 +690,8 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
 
   struct dirs {unsigned neighbour[3*2]; float3 p; float d; unsigned parent;};//x+x-y+y-z+z-
 
+  struct vert_casche {std::set<unsigned> voxels; float dist; bool is_interp; std::map<unsigned, unsigned> idx_2_vert;};
+
   void fill_neighbours_til_one_dir(std::vector<struct dirs> &directions, 
                                    const std::vector<SdfFrameOctreeNode> &result,
                                    unsigned idx, unsigned num, int dir, unsigned counted_idx, unsigned another_idx)
@@ -700,6 +702,47 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
         result[directions[idx].neighbour[another_idx]].offset + num + dir;
     else
         directions[result[idx].offset + num].neighbour[another_idx] = directions[idx].neighbour[another_idx];
+  }
+
+  void fill_all_neighbours_til_one_dir(std::vector<struct dirs> &directions, 
+                                       const std::vector<SdfFrameOctreeNode> &result,
+                                       unsigned idx, unsigned num, int dir, unsigned counted_idx, unsigned another_idx)
+  {
+    fill_neighbours_til_one_dir(directions, result, idx, num, dir, counted_idx, another_idx); 
+    unsigned udir = 0, sgn = 0;
+    if (dir < 0)
+    {
+      udir = -dir;
+      sgn = 0;
+    }
+    else
+    {
+      udir = dir;
+      sgn = udir;
+    }
+    if (directions[directions[result[idx].offset + num].neighbour[another_idx]].d <= directions[result[idx].offset + num].d)
+    {
+      directions[directions[result[idx].offset + num].neighbour[another_idx]].neighbour[counted_idx] = result[idx].offset + num;
+      std::vector<unsigned> nodes = {directions[result[idx].offset + num].neighbour[another_idx]};
+      for (unsigned n = 0; n < nodes.size(); ++n)
+      {
+        if (result[nodes[n]].offset != 0)
+        {
+          //printf("%u ", nodes[n]);
+          for (unsigned number = 0; number < 8; ++number)
+          {
+            if ((number & udir) == sgn) 
+            {
+              directions[result[nodes[n]].offset + number].neighbour[counted_idx] = result[idx].offset + num;
+              nodes.push_back(result[nodes[n]].offset + number);
+              //printf("%u ", result[nodes[n]].offset + number);
+            }
+          }
+          //printf("\n");
+        }
+      }
+      //printf("\n");
+    }
   }
 
   void interpolate_vertex(const std::vector<struct dirs> &directions, 
@@ -740,8 +783,9 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
       trilinear_interpolation(result[directions[directions[result[idx].offset + num].neighbour[dir1]].neighbour[dir2]].values, coeff);
   }
 
-  void sdf_artefacts_fix(std::vector<SdfFrameOctreeNode> &frame, std::vector<struct dirs> &directions, MultithreadedDistanceFunction sdf, float eps, 
-                         unsigned max_threads/*while unused*/, unsigned depth, std::set<unsigned> bad_nodes, bool is_smooth)
+  void sdf_artefacts_fix(std::vector<SdfFrameOctreeNode> &frame, std::vector<struct dirs> &directions, 
+                         std::unordered_map<float3, vert_casche, PositionHasher, PositionEqual> &distance_cache, MultithreadedDistanceFunction sdf, 
+                         float eps, unsigned max_threads/*while unused*/, unsigned depth, std::set<unsigned> bad_nodes, bool is_smooth)
   {
     for (auto node : bad_nodes)
     {
@@ -773,15 +817,60 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
               directions[frame[neigh].offset + num].d = directions[neigh].d / 2.0;
               directions[frame[neigh].offset + num].parent = neigh;
 
-              if ((num & 4) != 0) fill_neighbours_til_one_dir(directions, frame, neigh, num, -4, 1, 0);
-              else fill_neighbours_til_one_dir(directions, frame, neigh, num, 4, 0, 1);
+              if ((num & 4) != 0) 
+              {
+                fill_all_neighbours_til_one_dir(directions, frame, neigh, num, -4, 1, 0); 
+                /*if (directions[directions[frame[neigh].offset + num].neighbour[0]].d <= directions[frame[neigh].offset + num].d)
+                {
+                  directions[directions[frame[neigh].offset + num].neighbour[0]].neighbour[1] = frame[neigh].offset + num;
+                } //TODO recount all children inside directions[frame[neigh].offset + num].neighbour[0]*/
+                
+              }
+              else 
+              {
+                fill_all_neighbours_til_one_dir(directions, frame, neigh, num, 4, 0, 1);
+                /*if (directions[directions[frame[neigh].offset + num].neighbour[1]].d <= directions[frame[neigh].offset + num].d)
+                {
+                  directions[directions[frame[neigh].offset + num].neighbour[1]].neighbour[0] = frame[neigh].offset + num;
+                } */
+              }
 
-              if ((num & 2) != 0) fill_neighbours_til_one_dir(directions, frame, neigh, num, -2, 3, 2);
-              else fill_neighbours_til_one_dir(directions, frame, neigh, num, 2, 2, 3);
+              if ((num & 2) != 0) 
+              {
+                fill_all_neighbours_til_one_dir(directions, frame, neigh, num, -2, 3, 2);
+                /*if (directions[directions[frame[neigh].offset + num].neighbour[2]].d <= directions[frame[neigh].offset + num].d)
+                {
+                  directions[directions[frame[neigh].offset + num].neighbour[2]].neighbour[3] = frame[neigh].offset + num;
+                } */
+              }
+              else 
+              {
+                fill_all_neighbours_til_one_dir(directions, frame, neigh, num, 2, 2, 3);
+                /*if (directions[directions[frame[neigh].offset + num].neighbour[3]].d <= directions[frame[neigh].offset + num].d)
+                {
+                  directions[directions[frame[neigh].offset + num].neighbour[3]].neighbour[2] = frame[neigh].offset + num;
+                } */
+              }
 
-              if ((num & 1) != 0) fill_neighbours_til_one_dir(directions, frame, neigh, num, -1, 5, 4);
-              else fill_neighbours_til_one_dir(directions, frame, neigh, num, 1, 4, 5);
-
+              if ((num & 1) != 0) 
+              {
+                fill_all_neighbours_til_one_dir(directions, frame, neigh, num, -1, 5, 4);
+                /*if (directions[directions[frame[neigh].offset + num].neighbour[4]].d <= directions[frame[neigh].offset + num].d)
+                {
+                  directions[directions[frame[neigh].offset + num].neighbour[4]].neighbour[5] = frame[neigh].offset + num;
+                } */
+              }
+              else 
+              {
+                fill_all_neighbours_til_one_dir(directions, frame, neigh, num, 1, 4, 5);
+                /*if (directions[directions[frame[neigh].offset + num].neighbour[5]].d <= directions[frame[neigh].offset + num].d)
+                {
+                  directions[directions[frame[neigh].offset + num].neighbour[5]].neighbour[4] = frame[neigh].offset + num;
+                } */
+              }
+            }
+            for (unsigned num = 0; num < 8; ++num)
+            {
               /*for (int y = 0; y < 6; ++y)
               {
                 printf("%u ", directions[frame[neigh].offset + num].neighbour[y]);
@@ -793,20 +882,180 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
                 unsigned x_dir = (vert & 4) >> 2;
                 unsigned y_dir = 2 + ((vert & 2) >> 1);
                 unsigned z_dir = 4 + (vert & 1);
-                if (is_smooth && directions[directions[frame[neigh].offset + num].neighbour[x_dir ^ 1]].d > directions[frame[neigh].offset + num].d && directions[frame[neigh].offset + num].neighbour[x_dir ^ 1] != 0)
+
+                float3 v_pos = 2.0 * directions[frame[neigh].offset + num].d * directions[frame[neigh].offset + num].p - 1.0 + 
+                  2 * directions[frame[neigh].offset + num].d * float3((vert & 4) >> 2, (vert & 2) >> 1, vert & 1);
+
+                if (distance_cache.find(v_pos) != distance_cache.end() && !distance_cache[v_pos].is_interp)
+                {
+                  frame[frame[neigh].offset + num].values[vert] = distance_cache[v_pos].dist;
+                  distance_cache[v_pos].voxels.insert(frame[neigh].offset + num);
+                  distance_cache[v_pos].idx_2_vert[frame[neigh].offset + num] = vert;
+                }
+                else if (is_smooth && directions[directions[frame[neigh].offset + num].neighbour[x_dir ^ 1]].d > directions[frame[neigh].offset + num].d && directions[frame[neigh].offset + num].neighbour[x_dir ^ 1] != 0)
                 {
                   //take vertex from x_dir neighbour
                   interpolate_vertex(directions, frame, neigh, num, x_dir ^ 1, vert);
+                  
+                  if (distance_cache.find(v_pos) != distance_cache.end())
+                  {
+                    if (frame[frame[neigh].offset + num].values[vert] != distance_cache[v_pos].dist)
+                    {
+                      distance_cache[v_pos].dist = frame[frame[neigh].offset + num].values[vert];
+                      for (auto recount : distance_cache[v_pos].voxels)
+                      {
+                        frame[recount].values[distance_cache[v_pos].idx_2_vert[recount]] = distance_cache[v_pos].dist;
+                      }
+                    }
+                    distance_cache[v_pos].is_interp = true;
+                    distance_cache[v_pos].voxels.insert(frame[neigh].offset + num);
+                    distance_cache[v_pos].idx_2_vert[frame[neigh].offset + num] = vert;
+                  }
+                  else
+                  {
+                    distance_cache[v_pos].dist = frame[frame[neigh].offset + num].values[vert];
+                    distance_cache[v_pos].is_interp = true;
+                    distance_cache[v_pos].voxels.insert(frame[neigh].offset + num);
+                    distance_cache[v_pos].idx_2_vert[frame[neigh].offset + num] = vert;
+                  }
                 }
                 else if (is_smooth && directions[directions[frame[neigh].offset + num].neighbour[y_dir ^ 1]].d > directions[frame[neigh].offset + num].d && directions[frame[neigh].offset + num].neighbour[y_dir ^ 1] != 0)
                 {
                   //take vertex from y_dir neighbour
                   interpolate_vertex(directions, frame, neigh, num, y_dir ^ 1, vert);
+                  
+                  if (distance_cache.find(v_pos) != distance_cache.end())
+                  {
+                    if (frame[frame[neigh].offset + num].values[vert] != distance_cache[v_pos].dist)
+                    {
+                      distance_cache[v_pos].dist = frame[frame[neigh].offset + num].values[vert];
+                      for (auto recount : distance_cache[v_pos].voxels)
+                      {
+                        frame[recount].values[distance_cache[v_pos].idx_2_vert[recount]] = distance_cache[v_pos].dist;
+                      }
+                    }
+                    distance_cache[v_pos].is_interp = true;
+                    distance_cache[v_pos].voxels.insert(frame[neigh].offset + num);
+                    distance_cache[v_pos].idx_2_vert[frame[neigh].offset + num] = vert;
+                  }
+                  else
+                  {
+                    distance_cache[v_pos].dist = frame[frame[neigh].offset + num].values[vert];
+                    distance_cache[v_pos].is_interp = true;
+                    distance_cache[v_pos].voxels.insert(frame[neigh].offset + num);
+                    distance_cache[v_pos].idx_2_vert[frame[neigh].offset + num] = vert;
+                  }
                 }
                 else if (is_smooth && directions[directions[frame[neigh].offset + num].neighbour[z_dir ^ 1]].d > directions[frame[neigh].offset + num].d && directions[frame[neigh].offset + num].neighbour[z_dir ^ 1] != 0)
                 {
                   //take vertex from z_dir neighbour
                   interpolate_vertex(directions, frame, neigh, num, z_dir ^ 1, vert);
+                  
+                  if (distance_cache.find(v_pos) != distance_cache.end())
+                  {
+                    if (frame[frame[neigh].offset + num].values[vert] != distance_cache[v_pos].dist)
+                    {
+                      distance_cache[v_pos].dist = frame[frame[neigh].offset + num].values[vert];
+                      for (auto recount : distance_cache[v_pos].voxels)
+                      {
+                        frame[recount].values[distance_cache[v_pos].idx_2_vert[recount]] = distance_cache[v_pos].dist;
+                      }
+                    }
+                    distance_cache[v_pos].is_interp = true;
+                    distance_cache[v_pos].voxels.insert(frame[neigh].offset + num);
+                    distance_cache[v_pos].idx_2_vert[frame[neigh].offset + num] = vert;
+                  }
+                  else
+                  {
+                    distance_cache[v_pos].dist = frame[frame[neigh].offset + num].values[vert];
+                    distance_cache[v_pos].is_interp = true;
+                    distance_cache[v_pos].voxels.insert(frame[neigh].offset + num);
+                    distance_cache[v_pos].idx_2_vert[frame[neigh].offset + num] = vert;
+                  }
+                }//TODO add diagonal checks and cache
+                else if (is_smooth && directions[directions[frame[neigh].offset + num].neighbour[x_dir ^ 1]].d <= directions[frame[neigh].offset + num].d && directions[frame[neigh].offset + num].neighbour[x_dir ^ 1] != 0 &&
+                         directions[directions[directions[frame[neigh].offset + num].neighbour[x_dir ^ 1]].neighbour[y_dir ^ 1]].d > directions[frame[neigh].offset + num].d && directions[directions[frame[neigh].offset + num].neighbour[x_dir ^ 1]].neighbour[y_dir ^ 1] != 0)
+                {
+                  //take vertex from xy_dir neighbour
+                  interpolate_vertex(directions, frame, neigh, num, x_dir ^ 1, y_dir ^ 1, vert);
+                  
+                  if (distance_cache.find(v_pos) != distance_cache.end())
+                  {
+                    if (frame[frame[neigh].offset + num].values[vert] != distance_cache[v_pos].dist)
+                    {
+                      distance_cache[v_pos].dist = frame[frame[neigh].offset + num].values[vert];
+                      for (auto recount : distance_cache[v_pos].voxels)
+                      {
+                        frame[recount].values[distance_cache[v_pos].idx_2_vert[recount]] = distance_cache[v_pos].dist;
+                      }
+                    }
+                    distance_cache[v_pos].is_interp = true;
+                    distance_cache[v_pos].voxels.insert(frame[neigh].offset + num);
+                    distance_cache[v_pos].idx_2_vert[frame[neigh].offset + num] = vert;
+                  }
+                  else
+                  {
+                    distance_cache[v_pos].dist = frame[frame[neigh].offset + num].values[vert];
+                    distance_cache[v_pos].is_interp = true;
+                    distance_cache[v_pos].voxels.insert(frame[neigh].offset + num);
+                    distance_cache[v_pos].idx_2_vert[frame[neigh].offset + num] = vert;
+                  }
+                }
+                else if (is_smooth && directions[directions[frame[neigh].offset + num].neighbour[y_dir ^ 1]].d <= directions[frame[neigh].offset + num].d && directions[frame[neigh].offset + num].neighbour[y_dir ^ 1] != 0 &&
+                         directions[directions[directions[frame[neigh].offset + num].neighbour[y_dir ^ 1]].neighbour[z_dir ^ 1]].d > directions[frame[neigh].offset + num].d && directions[directions[frame[neigh].offset + num].neighbour[y_dir ^ 1]].neighbour[z_dir ^ 1] != 0)
+                {
+                  //take vertex from yz_dir neighbour
+                  interpolate_vertex(directions, frame, neigh, num, y_dir ^ 1, z_dir ^ 1, vert);
+                  
+                  if (distance_cache.find(v_pos) != distance_cache.end())
+                  {
+                    if (frame[frame[neigh].offset + num].values[vert] != distance_cache[v_pos].dist)
+                    {
+                      distance_cache[v_pos].dist = frame[frame[neigh].offset + num].values[vert];
+                      for (auto recount : distance_cache[v_pos].voxels)
+                      {
+                        frame[recount].values[distance_cache[v_pos].idx_2_vert[recount]] = distance_cache[v_pos].dist;
+                      }
+                    }
+                    distance_cache[v_pos].is_interp = true;
+                    distance_cache[v_pos].voxels.insert(frame[neigh].offset + num);
+                    distance_cache[v_pos].idx_2_vert[frame[neigh].offset + num] = vert;
+                  }
+                  else
+                  {
+                    distance_cache[v_pos].dist = frame[frame[neigh].offset + num].values[vert];
+                    distance_cache[v_pos].is_interp = true;
+                    distance_cache[v_pos].voxels.insert(frame[neigh].offset + num);
+                    distance_cache[v_pos].idx_2_vert[frame[neigh].offset + num] = vert;
+                  }
+                }
+                else if (is_smooth && directions[directions[frame[neigh].offset + num].neighbour[x_dir ^ 1]].d <= directions[frame[neigh].offset + num].d && directions[frame[neigh].offset + num].neighbour[x_dir ^ 1] != 0 &&
+                         directions[directions[directions[frame[neigh].offset + num].neighbour[x_dir ^ 1]].neighbour[z_dir ^ 1]].d > directions[frame[neigh].offset + num].d && directions[directions[frame[neigh].offset + num].neighbour[x_dir ^ 1]].neighbour[z_dir ^ 1] != 0)
+                {
+                  //take vertex from xz_dir neighbour
+                  interpolate_vertex(directions, frame, neigh, num, x_dir ^ 1, z_dir ^ 1, vert);
+                  
+                  if (distance_cache.find(v_pos) != distance_cache.end())
+                  {
+                    if (frame[frame[neigh].offset + num].values[vert] != distance_cache[v_pos].dist)
+                    {
+                      distance_cache[v_pos].dist = frame[frame[neigh].offset + num].values[vert];
+                      for (auto recount : distance_cache[v_pos].voxels)
+                      {
+                        frame[recount].values[distance_cache[v_pos].idx_2_vert[recount]] = distance_cache[v_pos].dist;
+                      }
+                    }
+                    distance_cache[v_pos].is_interp = true;
+                    distance_cache[v_pos].voxels.insert(frame[neigh].offset + num);
+                    distance_cache[v_pos].idx_2_vert[frame[neigh].offset + num] = vert;
+                  }
+                  else
+                  {
+                    distance_cache[v_pos].dist = frame[frame[neigh].offset + num].values[vert];
+                    distance_cache[v_pos].is_interp = true;
+                    distance_cache[v_pos].voxels.insert(frame[neigh].offset + num);
+                    distance_cache[v_pos].idx_2_vert[frame[neigh].offset + num] = vert;
+                  }
                 }
                 else// all neighbours on the last level
                 {
@@ -814,11 +1063,33 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
                   float d = directions[frame[neigh].offset + num].d;
                   float3 ch_pos = 2.0f * (d * p) - 1.0f + 2 * d * float3((vert & 4) >> 2, (vert & 2) >> 1, vert & 1);
                   frame[frame[neigh].offset + num].values[vert] = sdf(ch_pos, 0);
+
+                  if (distance_cache.find(v_pos) != distance_cache.end())
+                  {
+                    distance_cache[v_pos].dist = frame[frame[neigh].offset + num].values[vert];
+                    if (distance_cache[v_pos].is_interp)
+                    {
+                      for (auto recount : distance_cache[v_pos].voxels)
+                      {
+                        frame[recount].values[distance_cache[v_pos].idx_2_vert[recount]] = distance_cache[v_pos].dist;
+                      }
+                    }
+                    distance_cache[v_pos].is_interp = false;
+                    distance_cache[v_pos].voxels.insert(frame[neigh].offset + num);
+                    distance_cache[v_pos].idx_2_vert[frame[neigh].offset + num] = vert;
+                  }
+                  else
+                  {
+                    distance_cache[v_pos].dist = frame[frame[neigh].offset + num].values[vert];
+                    distance_cache[v_pos].is_interp = false;
+                    distance_cache[v_pos].voxels.insert(frame[neigh].offset + num);
+                    distance_cache[v_pos].idx_2_vert[frame[neigh].offset + num] = vert;
+                  }
                 }
               }
             }
             //init end
-            for (int num = 0; num < 8; ++num)
+            /*for (int num = 0; num < 8; ++num)
             {
               unsigned child = frame[neigh].offset + num;
               int dirs[3] = {((num & 4) >> 2), ((num & 2) >> 1) + 2, (num & 1) + 4};
@@ -857,39 +1128,13 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
                             frame[recount_nodes[k]].values[vert] = sdf(ch_pos, 0);
                           }
                         }
-                        /*float3 p = directions[recount_nodes[k]].p;
-                        float d = directions[recount_nodes[k]].d;
-                        float3 ch_pos = 2.0f * (d * p) - 1.0f + 2 * d * float3((vert & 4) >> 2, (vert & 2) >> 1, vert & 1);
-                        printf("%f -|- %f %u %f\n", sdf(ch_pos, 0), frame[recount_nodes[k]].values[vert], vert, d);
-                        for (int u = 0; u < 3; ++u)
-                        {
-                          for (int y = 0; y < 8; ++y)
-                          {
-                            float3 p = directions[directions[recount_nodes[k]].neighbour[another_dirs[u]]].p;
-                            float d = directions[directions[recount_nodes[k]].neighbour[another_dirs[u]]].d;
-                            float3 ch_pos = 2.0f * (d * p) - 1.0f + 2 * d * float3((y & 4) >> 2, (y & 2) >> 1, y & 1);
-                            printf("%f %f -| ", frame[directions[recount_nodes[k]].neighbour[another_dirs[u]]].values[y], sdf(ch_pos, 0));
-                          }
-                          printf("%f\n", directions[directions[recount_nodes[k]].neighbour[another_dirs[u]]].d);
-                        }
-                        for (int u = 0; u < 3; ++u)
-                        {
-                          for (int y = 0; y < 8; ++y)
-                          {
-                            float3 p = directions[directions[recount_nodes[k]].neighbour[dirs[u]]].p;
-                            float d = directions[directions[recount_nodes[k]].neighbour[dirs[u]]].d;
-                            float3 ch_pos = 2.0f * (d * p) - 1.0f + 2 * d * float3((y & 4) >> 2, (y & 2) >> 1, y & 1);
-                            printf("%f %f -| ", frame[directions[recount_nodes[k]].neighbour[dirs[u]]].values[y], sdf(ch_pos, 0));
-                          }
-                          printf("%f\n", directions[directions[recount_nodes[k]].neighbour[dirs[u]]].d);
-                        }*/
                       }
                     }
                   }
                 }
               }
               
-            }
+            }*/
             /*if (chk2 && chk) {chk = false; printf("\n");}
             if (neigh != directions[node].neighbour[i]) printf("AAA\n");
             //else if (directions[directions[node].neighbour[i]].neighbour[j])
@@ -930,9 +1175,18 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
   std::vector<SdfFrameOctreeNode> construct_sdf_frame_octree(SparseOctreeSettings settings, MultithreadedDistanceFunction sdf, float eps, 
                                                              unsigned max_threads/*while unused*/, bool is_smooth, bool fix_artefacts)
   {
+    std::unordered_map<float3, vert_casche, PositionHasher, PositionEqual> distance_cache;
     //struct dirs {unsigned neighbour[3*2]; float3 p; float d; unsigned parent;};//x+x-y+y-z+z-
     std::vector<SdfFrameOctreeNode> result(1);
     fill_frame(result[0], sdf, float3(0, 0, 0), 1);
+    for (unsigned v = 0; v < 8; ++v)
+    {
+      float3 ch_pos = float3(-1, -1, -1) + 2 * float3((v & 4) >> 2, (v & 2) >> 1, v & 1);
+      distance_cache[ch_pos].dist = result[0].values[v];
+      distance_cache[ch_pos].is_interp = false;
+      distance_cache[ch_pos].voxels.insert(0);
+      distance_cache[ch_pos].idx_2_vert[0] = v;
+    }
     std::vector<struct dirs> directions(1);
     directions[0].d = 1.0f;
     directions[0].p = float3(0, 0, 0);
@@ -1021,17 +1275,42 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
             unsigned x_dir = (vert & 4) >> 2;
             unsigned y_dir = 2 + ((vert & 2) >> 1);
             unsigned z_dir = 4 + (vert & 1);
-            if (is_smooth && last_level.find(directions[result[div_idx].offset + num].neighbour[x_dir ^ 1]) == last_level.end() && directions[result[div_idx].offset + num].neighbour[x_dir ^ 1] != 0)
+
+            float3 v_pos = 2.0 * directions[result[div_idx].offset + num].d * directions[result[div_idx].offset + num].p - 1.0 + 
+                  2 * directions[result[div_idx].offset + num].d * float3((vert & 4) >> 2, (vert & 2) >> 1, vert & 1);
+            if (distance_cache.find(v_pos) != distance_cache.end())
             {
-              //take vertex from x_dir neighbour
-              interpolate_vertex(directions, result, div_idx, num, x_dir ^ 1, vert);
+              result[result[div_idx].offset + num].values[vert] = distance_cache[v_pos].dist;
+              distance_cache[v_pos].voxels.insert(result[div_idx].offset + num);
+              distance_cache[v_pos].idx_2_vert[result[div_idx].offset + num] = vert;
+              //if (!distance_cache[v_pos].is_interp) printf("%u %f %f\n", result[div_idx].offset + num, distance_cache[v_pos].dist, sdf(v_pos, 0));
 
               float3 ch_pos = 2.0 * directions[result[div_idx].offset + num].d * directions[result[div_idx].offset + num].p - 1.0 + 
                   2 * directions[result[div_idx].offset + num].d * float3((vert & 4) >> 2, (vert & 2) >> 1, vert & 1);
               if (data.find({{ch_pos.x * 1024, ch_pos.y * 1024}, ch_pos.z * 1024}) != data.end() && data[{{ch_pos.x * 1024, ch_pos.y * 1024}, ch_pos.z * 1024}].size() < 2)
               {
                 data[{{ch_pos.x * 1024, ch_pos.y * 1024}, ch_pos.z * 1024}].insert(result[result[div_idx].offset + num].values[vert]);
-                if (data[{{ch_pos.x * 1024, ch_pos.y * 1024}, ch_pos.z * 1024}].size() > 1/* || ((int)(ch_pos.x * 1024) == -640 && (int)(ch_pos.y * 1024) == 0 && (int)(ch_pos.z * 1024) == -256)*/)
+              }
+              else
+              {
+                data[{{ch_pos.x * 1024, ch_pos.y * 1024}, ch_pos.z * 1024}] = {result[result[div_idx].offset + num].values[vert]};
+              }
+            }
+            else if (is_smooth && last_level.find(directions[result[div_idx].offset + num].neighbour[x_dir ^ 1]) == last_level.end() && directions[result[div_idx].offset + num].neighbour[x_dir ^ 1] != 0)
+            {
+              //take vertex from x_dir neighbour
+              interpolate_vertex(directions, result, div_idx, num, x_dir ^ 1, vert);
+              distance_cache[v_pos].dist = result[result[div_idx].offset + num].values[vert];
+              distance_cache[v_pos].is_interp = true;
+              distance_cache[v_pos].voxels.insert(result[div_idx].offset + num);
+              distance_cache[v_pos].idx_2_vert[result[div_idx].offset + num] = vert;
+
+              /*float3 ch_pos = 2.0 * directions[result[div_idx].offset + num].d * directions[result[div_idx].offset + num].p - 1.0 + 
+                  2 * directions[result[div_idx].offset + num].d * float3((vert & 4) >> 2, (vert & 2) >> 1, vert & 1);
+              if (data.find({{ch_pos.x * 1024, ch_pos.y * 1024}, ch_pos.z * 1024}) != data.end() && data[{{ch_pos.x * 1024, ch_pos.y * 1024}, ch_pos.z * 1024}].size() < 2)
+              {
+                data[{{ch_pos.x * 1024, ch_pos.y * 1024}, ch_pos.z * 1024}].insert(result[result[div_idx].offset + num].values[vert]);
+                if (data[{{ch_pos.x * 1024, ch_pos.y * 1024}, ch_pos.z * 1024}].size() > 1 || ((int)(ch_pos.x * 1024) == -640 && (int)(ch_pos.y * 1024) == 0 && (int)(ch_pos.z * 1024) == -256))
                 {
                   printf("x %f %f %f %f ", directions[result[div_idx].offset + num].d, directions[result[div_idx].offset + num].p.x, 
                                             directions[result[div_idx].offset + num].p.y, directions[result[div_idx].offset + num].p.z);
@@ -1058,19 +1337,23 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
               else
               {
                 data[{{ch_pos.x * 1024, ch_pos.y * 1024}, ch_pos.z * 1024}] = {result[result[div_idx].offset + num].values[vert]};
-              }
+              }*/
             }
             else if (is_smooth && last_level.find(directions[result[div_idx].offset + num].neighbour[y_dir ^ 1]) == last_level.end() && directions[result[div_idx].offset + num].neighbour[y_dir ^ 1] != 0)
             {
               //take vertex from y_dir neighbour
               interpolate_vertex(directions, result, div_idx, num, y_dir ^ 1, vert);
+              distance_cache[v_pos].dist = result[result[div_idx].offset + num].values[vert];
+              distance_cache[v_pos].is_interp = true;
+              distance_cache[v_pos].voxels.insert(result[div_idx].offset + num);
+              distance_cache[v_pos].idx_2_vert[result[div_idx].offset + num] = vert;
 
-              float3 ch_pos = 2.0 * directions[result[div_idx].offset + num].d * directions[result[div_idx].offset + num].p - 1.0 + 
+              /*float3 ch_pos = 2.0 * directions[result[div_idx].offset + num].d * directions[result[div_idx].offset + num].p - 1.0 + 
                   2 * directions[result[div_idx].offset + num].d * float3((vert & 4) >> 2, (vert & 2) >> 1, vert & 1);
               if (data.find({{ch_pos.x * 1024, ch_pos.y * 1024}, ch_pos.z * 1024}) != data.end() && data[{{ch_pos.x * 1024, ch_pos.y * 1024}, ch_pos.z * 1024}].size() < 2)
               {
                 data[{{ch_pos.x * 1024, ch_pos.y * 1024}, ch_pos.z * 1024}].insert(result[result[div_idx].offset + num].values[vert]);
-                if (data[{{ch_pos.x * 1024, ch_pos.y * 1024}, ch_pos.z * 1024}].size() > 1/* || ((int)(ch_pos.x * 1024) == -640 && (int)(ch_pos.y * 1024) == 0 && (int)(ch_pos.z * 1024) == -256)*/)
+                if (data[{{ch_pos.x * 1024, ch_pos.y * 1024}, ch_pos.z * 1024}].size() > 1 || ((int)(ch_pos.x * 1024) == -640 && (int)(ch_pos.y * 1024) == 0 && (int)(ch_pos.z * 1024) == -256))
                 {
                   printf("y %f %f %f %f ", directions[result[div_idx].offset + num].d, directions[result[div_idx].offset + num].p.x, 
                                             directions[result[div_idx].offset + num].p.y, directions[result[div_idx].offset + num].p.z);
@@ -1097,19 +1380,23 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
               else
               {
                 data[{{ch_pos.x * 1024, ch_pos.y * 1024}, ch_pos.z * 1024}] = {result[result[div_idx].offset + num].values[vert]};
-              }
+              }*/
             }
             else if (is_smooth && last_level.find(directions[result[div_idx].offset + num].neighbour[z_dir ^ 1]) == last_level.end() && directions[result[div_idx].offset + num].neighbour[z_dir ^ 1] != 0)
             {
               //take vertex from z_dir neighbour
               interpolate_vertex(directions, result, div_idx, num, z_dir ^ 1, vert);
+              distance_cache[v_pos].dist = result[result[div_idx].offset + num].values[vert];
+              distance_cache[v_pos].is_interp = true;
+              distance_cache[v_pos].voxels.insert(result[div_idx].offset + num);
+              distance_cache[v_pos].idx_2_vert[result[div_idx].offset + num] = vert;
 
-              float3 ch_pos = 2.0 * directions[result[div_idx].offset + num].d * directions[result[div_idx].offset + num].p - 1.0 + 
+              /*float3 ch_pos = 2.0 * directions[result[div_idx].offset + num].d * directions[result[div_idx].offset + num].p - 1.0 + 
                   2 * directions[result[div_idx].offset + num].d * float3((vert & 4) >> 2, (vert & 2) >> 1, vert & 1);
               if (data.find({{ch_pos.x, ch_pos.y}, ch_pos.z}) != data.end() && data[{{ch_pos.x * 1024, ch_pos.y * 1024}, ch_pos.z * 1024}].size() < 2)
               {
                 data[{{ch_pos.x * 1024, ch_pos.y * 1024}, ch_pos.z * 1024}].insert(result[result[div_idx].offset + num].values[vert]);
-                if (data[{{ch_pos.x * 1024, ch_pos.y * 1024}, ch_pos.z}].size() > 1/* || ((int)(ch_pos.x * 1024) == -640 && (int)(ch_pos.y * 1024) == 0 && (int)(ch_pos.z * 1024) == -256)*/)
+                if (data[{{ch_pos.x * 1024, ch_pos.y * 1024}, ch_pos.z}].size() > 1 || ((int)(ch_pos.x * 1024) == -640 && (int)(ch_pos.y * 1024) == 0 && (int)(ch_pos.z * 1024) == -256))
                 {
                   printf("z %f %f %f %f ", directions[result[div_idx].offset + num].d, directions[result[div_idx].offset + num].p.x, 
                                             directions[result[div_idx].offset + num].p.y, directions[result[div_idx].offset + num].p.z);
@@ -1136,15 +1423,19 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
               else
               {
                 data[{{ch_pos.x * 1024, ch_pos.y * 1024}, ch_pos.z * 1024}] = {result[result[div_idx].offset + num].values[vert]};
-              }
+              }*/
             }
             else if (is_smooth && last_level.find(directions[result[div_idx].offset + num].neighbour[x_dir ^ 1]) != last_level.end() && directions[result[div_idx].offset + num].neighbour[x_dir ^ 1] != 0 &&
                      last_level.find(directions[directions[result[div_idx].offset + num].neighbour[x_dir ^ 1]].neighbour[y_dir ^ 1]) == last_level.end() && directions[directions[result[div_idx].offset + num].neighbour[x_dir ^ 1]].neighbour[y_dir ^ 1] != 0)
             {
               //take vertex from xy_dir neighbour
               interpolate_vertex(directions, result, div_idx, num, x_dir ^ 1, y_dir ^ 1, vert);
+              distance_cache[v_pos].dist = result[result[div_idx].offset + num].values[vert];
+              distance_cache[v_pos].is_interp = true;
+              distance_cache[v_pos].voxels.insert(result[div_idx].offset + num);
+              distance_cache[v_pos].idx_2_vert[result[div_idx].offset + num] = vert;
 
-              float3 ch_pos = 2.0 * directions[result[div_idx].offset + num].d * directions[result[div_idx].offset + num].p - 1.0 + 
+              /*float3 ch_pos = 2.0 * directions[result[div_idx].offset + num].d * directions[result[div_idx].offset + num].p - 1.0 + 
                   2 * directions[result[div_idx].offset + num].d * float3((vert & 4) >> 2, (vert & 2) >> 1, vert & 1);
               if (data.find({{ch_pos.x * 1024, ch_pos.y * 1024}, ch_pos.z * 1024}) != data.end() && data[{{ch_pos.x * 1024, ch_pos.y * 1024}, ch_pos.z * 1024}].size() < 2)
               {
@@ -1153,15 +1444,19 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
               else
               {
                 data[{{ch_pos.x * 1024, ch_pos.y * 1024}, ch_pos.z * 1024}] = {result[result[div_idx].offset + num].values[vert]};
-              }
+              }*/
             }
             else if (is_smooth && last_level.find(directions[result[div_idx].offset + num].neighbour[y_dir ^ 1]) != last_level.end() && directions[result[div_idx].offset + num].neighbour[y_dir ^ 1] != 0 &&
                      last_level.find(directions[directions[result[div_idx].offset + num].neighbour[y_dir ^ 1]].neighbour[z_dir ^ 1]) == last_level.end() && directions[directions[result[div_idx].offset + num].neighbour[y_dir ^ 1]].neighbour[z_dir ^ 1] != 0)
             {
               //take vertex from yz_dir neighbour
               interpolate_vertex(directions, result, div_idx, num, y_dir ^ 1, z_dir ^ 1, vert);
+              distance_cache[v_pos].dist = result[result[div_idx].offset + num].values[vert];
+              distance_cache[v_pos].is_interp = true;
+              distance_cache[v_pos].voxels.insert(result[div_idx].offset + num);
+              distance_cache[v_pos].idx_2_vert[result[div_idx].offset + num] = vert;
 
-              float3 ch_pos = 2.0 * directions[result[div_idx].offset + num].d * directions[result[div_idx].offset + num].p - 1.0 + 
+              /*float3 ch_pos = 2.0 * directions[result[div_idx].offset + num].d * directions[result[div_idx].offset + num].p - 1.0 + 
                   2 * directions[result[div_idx].offset + num].d * float3((vert & 4) >> 2, (vert & 2) >> 1, vert & 1);
               if (data.find({{ch_pos.x * 1024, ch_pos.y * 1024}, ch_pos.z * 1024}) != data.end() && data[{{ch_pos.x * 1024, ch_pos.y * 1024}, ch_pos.z * 1024}].size() < 2)
               {
@@ -1170,15 +1465,19 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
               else
               {
                 data[{{ch_pos.x * 1024, ch_pos.y * 1024}, ch_pos.z * 1024}] = {result[result[div_idx].offset + num].values[vert]};
-              }
+              }*/
             }
             else if (is_smooth && last_level.find(directions[result[div_idx].offset + num].neighbour[x_dir ^ 1]) != last_level.end() && directions[result[div_idx].offset + num].neighbour[x_dir ^ 1] != 0 &&
                      last_level.find(directions[directions[result[div_idx].offset + num].neighbour[x_dir ^ 1]].neighbour[z_dir ^ 1]) == last_level.end() && directions[directions[result[div_idx].offset + num].neighbour[x_dir ^ 1]].neighbour[z_dir ^ 1] != 0)
             {
               //take vertex from xz_dir neighbour
               interpolate_vertex(directions, result, div_idx, num, x_dir ^ 1, z_dir ^ 1, vert);
+              distance_cache[v_pos].dist = result[result[div_idx].offset + num].values[vert];
+              distance_cache[v_pos].is_interp = true;
+              distance_cache[v_pos].voxels.insert(result[div_idx].offset + num);
+              distance_cache[v_pos].idx_2_vert[result[div_idx].offset + num] = vert;
 
-              float3 ch_pos = 2.0 * directions[result[div_idx].offset + num].d * directions[result[div_idx].offset + num].p - 1.0 + 
+              /*loat3 ch_pos = 2.0 * directions[result[div_idx].offset + num].d * directions[result[div_idx].offset + num].p - 1.0 + 
                   2 * directions[result[div_idx].offset + num].d * float3((vert & 4) >> 2, (vert & 2) >> 1, vert & 1);
               if (data.find({{ch_pos.x * 1024, ch_pos.y * 1024}, ch_pos.z * 1024}) != data.end() && data[{{ch_pos.x * 1024, ch_pos.y * 1024}, ch_pos.z * 1024}].size() < 2)
               {
@@ -1187,7 +1486,7 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
               else
               {
                 data[{{ch_pos.x * 1024, ch_pos.y * 1024}, ch_pos.z * 1024}] = {result[result[div_idx].offset + num].values[vert]};
-              }
+              }*/
             }
             else// all neighbours on the last level
             {
@@ -1196,11 +1495,15 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
               float3 ch_pos = 2.0f * (d * p) - 1.0f + 2 * d * float3((vert & 4) >> 2, (vert & 2) >> 1, vert & 1);
               result[result[div_idx].offset + num].values[vert] = sdf(ch_pos, 0);
 
+              distance_cache[v_pos].dist = result[result[div_idx].offset + num].values[vert];
+              distance_cache[v_pos].is_interp = false;
+              distance_cache[v_pos].voxels.insert(result[div_idx].offset + num);
+              distance_cache[v_pos].idx_2_vert[result[div_idx].offset + num] = vert;
 
-              if (data.find({{ch_pos.x * 1024, ch_pos.y * 1024}, ch_pos.z * 1024}) != data.end() && data[{{ch_pos.x * 1024, ch_pos.y * 1024}, ch_pos.z * 1024}].size() < 2)
+              /*if (data.find({{ch_pos.x * 1024, ch_pos.y * 1024}, ch_pos.z * 1024}) != data.end() && data[{{ch_pos.x * 1024, ch_pos.y * 1024}, ch_pos.z * 1024}].size() < 2)
               {
                 data[{{ch_pos.x * 1024, ch_pos.y * 1024}, ch_pos.z * 1024}].insert(result[result[div_idx].offset + num].values[vert]);
-                if (data[{{ch_pos.x * 1024, ch_pos.y * 1024}, ch_pos.z * 1024}].size() > 1/* || ((int)(ch_pos.x * 1024) == -640 && (int)(ch_pos.y * 1024) == 0 && (int)(ch_pos.z * 1024) == -256)*/)
+                if (data[{{ch_pos.x * 1024, ch_pos.y * 1024}, ch_pos.z * 1024}].size() > 1 || ((int)(ch_pos.x * 1024) == -640 && (int)(ch_pos.y * 1024) == 0 && (int)(ch_pos.z * 1024) == -256))
                 {
                   printf("s %f %f %f %f ", directions[result[div_idx].offset + num].d, directions[result[div_idx].offset + num].p.x, 
                                             directions[result[div_idx].offset + num].p.y, directions[result[div_idx].offset + num].p.z);
@@ -1241,7 +1544,7 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
               else
               {
                 data[{{ch_pos.x * 1024, ch_pos.y * 1024}, ch_pos.z * 1024}] = {result[result[div_idx].offset + num].values[vert]};
-              }
+              }*/
             }
           }
         }
@@ -1251,7 +1554,7 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
       //printf("%d\n", last_level.size());
     }
     //printf("%d ", result.size());
-    if (fix_artefacts) sdf_artefacts_fix(result, directions, sdf, eps, max_threads, settings.depth, divided, is_smooth);
+    if (fix_artefacts) sdf_artefacts_fix(result, directions, distance_cache, sdf, eps, max_threads, settings.depth, divided, is_smooth);
     //printf("%d\n", result.size());
     return result;
   }
