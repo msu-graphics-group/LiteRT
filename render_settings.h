@@ -71,6 +71,7 @@ struct MultiRenderPreset
   unsigned normal_mode;        //enum NormalMode
   unsigned ray_gen_mode;       //enum RayGenMode
   unsigned spp;                //samples per pixel
+  unsigned interpolation_type; //0 - trilinear, 1 - tricubic
 };
 
 static MultiRenderPreset getDefaultPreset()
@@ -82,6 +83,7 @@ static MultiRenderPreset getDefaultPreset()
   p.normal_mode = NORMAL_MODE_GEOMETRY;
   p.ray_gen_mode = RAY_GEN_MODE_REGULAR;
   p.spp = 1;
+  p.interpolation_type = 0;
 
   return p;
 }

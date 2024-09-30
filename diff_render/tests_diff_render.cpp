@@ -2544,18 +2544,35 @@ diff_render_test_25_optimization_with_tricubic()
 {
   auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "scenes/01_simple_scenes/data/teapot.vsgf").c_str());
   cmesh4::normalize_mesh(mesh);
-
   unsigned W = 512, H = 512;
-  MultiRenderPreset preset = getDefaultPreset();
-  preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
-  LiteImage::Image2D<float4> image_1(W, H);
+  
+  {
+    MultiRenderPreset preset = getDefaultPreset();
+    preset.interpolation_type = 0;
+    preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
+    LiteImage::Image2D<float4> image_1(W, H);
 
-  auto grid = sdf_converter::create_sdf_grid(GridSettings(64), mesh);
-  auto pRender = CreateMultiRenderer("CPU");
-  pRender->SetPreset(preset);
-  pRender->SetScene(grid);
-  render(image_1, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
-  LiteImage::SaveImage<float4>("saves/test_25_grid.bmp", image_1);
+    auto grid = sdf_converter::create_sdf_grid(GridSettings(64), mesh);
+    auto pRender = CreateMultiRenderer("CPU");
+    pRender->SetPreset(preset);
+    pRender->SetScene(grid);
+    render(image_1, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+    LiteImage::SaveImage<float4>("saves/test_25_grid_trilinear.bmp", image_1);
+  }
+
+  {
+    MultiRenderPreset preset = getDefaultPreset();
+    preset.interpolation_type = 1;
+    preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
+    LiteImage::Image2D<float4> image_1(W, H);
+
+    auto grid = sdf_converter::create_sdf_grid(GridSettings(64), mesh);
+    auto pRender = CreateMultiRenderer("CPU");
+    pRender->SetPreset(preset);
+    pRender->SetScene(grid);
+    render(image_1, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+    LiteImage::SaveImage<float4>("saves/test_25_grid_tricubic.bmp", image_1);
+  }
 }
 
 void perform_tests_diff_render(const std::vector<int> &test_ids)
