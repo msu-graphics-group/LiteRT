@@ -2539,6 +2539,25 @@ diff_render_test_24_tricubic_interpolation()
   std::cout << "INTERPOLATED VALUE IS: " << interpolated_value << std::endl;
 }
 
+void
+diff_render_test_25_optimization_with_tricubic()
+{
+  auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "scenes/01_simple_scenes/data/teapot.vsgf").c_str());
+  cmesh4::normalize_mesh(mesh);
+
+  unsigned W = 512, H = 512;
+  MultiRenderPreset preset = getDefaultPreset();
+  preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
+  LiteImage::Image2D<float4> image_1(W, H);
+
+  auto grid = sdf_converter::create_sdf_grid(GridSettings(64), mesh);
+  auto pRender = CreateMultiRenderer("CPU");
+  pRender->SetPreset(preset);
+  pRender->SetScene(grid);
+  render(image_1, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+  LiteImage::SaveImage<float4>("saves/test_25_grid.bmp", image_1);
+}
+
 void perform_tests_diff_render(const std::vector<int> &test_ids)
 {
   std::vector<int> tests = test_ids;
@@ -2551,7 +2570,8 @@ void perform_tests_diff_render(const std::vector<int> &test_ids)
       diff_render_test_13_optimize_sphere_diffuse, diff_render_test_14_optimize_sphere_lambert, diff_render_test_15_combined_reconstruction,
       diff_render_test_16_borders_detection, diff_render_test_17_optimize_bunny, diff_render_test_18_sphere_depth,
       diff_render_test_19_expanding_grid, diff_render_test_20_sphere_depth_with_redist, diff_render_test_21_optimization_stand,
-      diff_render_test_22_border_sampling_accuracy_mask, diff_render_test_23_ray_casting_mask, diff_render_test_24_tricubic_interpolation};
+      diff_render_test_22_border_sampling_accuracy_mask, diff_render_test_23_ray_casting_mask, diff_render_test_24_tricubic_interpolation,
+      diff_render_test_25_optimization_with_tricubic};
 
   if (tests.empty())
   {

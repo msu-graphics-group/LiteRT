@@ -480,15 +480,15 @@ namespace dr
         Clear(m_width, m_height, "color");
         std::fill(m_dLoss_dS_tmp.begin(), m_dLoss_dS_tmp.end(), 0.0f);
 
-        for (auto &el: m_dLoss_dS_tmp_atomic_pos)
-        {
-          el.store(0);
-        }
+        // for (auto &el: m_dLoss_dS_tmp_atomic_pos)
+        // {
+        //   el.store(0);
+        // }
 
-        for (auto &el: m_dLoss_dS_tmp_atomic_neg)
-        {
-          el.store(0);
-        }
+        // for (auto &el: m_dLoss_dS_tmp_atomic_neg)
+        // {
+        //   el.store(0);
+        // }
 
         if (m_preset_dr.debug_render_mode != DR_DEBUG_RENDER_MODE_NONE)
           m_imagesDebug[image_id].clear(float4(0,0,0,1));
