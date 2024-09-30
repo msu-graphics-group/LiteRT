@@ -166,10 +166,15 @@ namespace dr
 
     //debug settings
     bool debug_print;                //wether to print loss and ETA during optimization or not
-    unsigned debug_render_mode;      //enum DRDebugRenderMode
     unsigned debug_print_interval;   //how often to print
+
     unsigned debug_progress_images;  //render mode to progress images,either DEBUG_PROGRESS_NONE, DEBUG_PROGRESS_RAW or any MultiRenderMode
     unsigned debug_progress_interval;//how often to save progress images
+
+    unsigned debug_render_mode;      //enum DRDebugRenderMode
+    float finite_diff_delta;         //for DR_DIFF_MODE_FINITE_DIFF
+    float finite_diff_brightness;    //brightness of difference debug image
+
     bool     debug_forced_border;    //disable border detection, force border integral estimation in every pixel
     
     //very heavy and specific debug modes. You probably shouldn't use them on a regular scene

@@ -417,7 +417,7 @@ namespace dr
           unsigned active_params_end   = is_geometry ? params_count - color_params : params_count;
 
           loss = RenderDRFiniteDiff(m_imagesRef[image_id].data(), m_images[image_id].data(), m_dLoss_dS_tmp.data(), params_count,
-                                    active_params_start, active_params_end, 0.01f);
+                                    active_params_start, active_params_end, m_preset_dr.finite_diff_delta);
         }
 
         loss_sum += loss;
@@ -752,13 +752,18 @@ namespace dr
 
         for (int j = 0; j < m_width * m_height; j++)
         {
-          float l1 = Loss(m_preset_dr.dr_loss_function, image_1.data()[j], image_ref[j]);
-          float l2 = Loss(m_preset_dr.dr_loss_function, image_2.data()[j], image_ref[j]);
+          float4 c1 = image_1.data()[j];
+          float4 c2 = image_2.data()[j];
+          float l1 = Loss(m_preset_dr.dr_loss_function, c1, image_ref[j]);
+          float l2 = Loss(m_preset_dr.dr_loss_function, c2, image_ref[j]);
           float l = (l1 - l2) / (2 * delta);
           image_1.data()[j] = float4(std::max(0.0f, l*m_preset_dr.debug_pd_brightness), std::max(0.0f, -l*m_preset_dr.debug_pd_brightness),0,1);
+          image_2.data()[j] = m_preset_dr.finite_diff_brightness*abs(c1 - c2);
+          image_2.data()[j].w = 1;
         }
 
         LiteImage::SaveImage<float4>(("saves/PD_"+std::to_string(i)+"b.png").c_str(), image_1);
+        LiteImage::SaveImage<float4>(("saves/PD_"+std::to_string(i)+"_diff.png").c_str(), image_2);
       }
 
       out_dLoss_dS[i] = (loss_plus - loss_minus) / (2 * delta);

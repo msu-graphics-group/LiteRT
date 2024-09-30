@@ -45,11 +45,16 @@ namespace dr
     preset.redistancing_interval = 1;
 
     preset.debug_print = false;
-    preset.debug_render_mode = DR_DEBUG_RENDER_MODE_NONE;
     preset.debug_print_interval = 10;
+
     preset.debug_progress_images = DEBUG_PROGRESS_RAW;
     preset.debug_progress_interval = 100;
+
     preset.debug_forced_border = false;
+
+    preset.debug_render_mode = DR_DEBUG_RENDER_MODE_NONE;
+    preset.finite_diff_delta = 0.001f;
+    preset.finite_diff_brightness = 100.0f;
 
     preset.debug_pd_images = false;
     preset.debug_pd_brightness = 0.1f;
