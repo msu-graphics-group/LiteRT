@@ -992,9 +992,10 @@ void test_position_derivatives(const SdfSBS &SBS, unsigned render_node, unsigned
   dr_preset.dr_input_type = diff_render_mode == DR_RENDER_MODE_LINEAR_DEPTH ? DR_INPUT_TYPE_LINEAR_DEPTH : DR_INPUT_TYPE_COLOR;
   dr_preset.opt_iterations = 1;
   dr_preset.opt_lr = 0.0f;
-  dr_preset.spp = 64;
-  dr_preset.border_spp = 1024;
-  dr_preset.debug_pd_images = true;
+  dr_preset.spp = 8;
+  dr_preset.border_spp = 512;
+  dr_preset.debug_pd_brightness = 1.0f;
+  bool debug_pd_images = true;
 
   unsigned param_count = indexed_SBS.values_f.size() - 3 * 8 * indexed_SBS.nodes.size();
   unsigned param_offset = 0;
@@ -1007,7 +1008,7 @@ void test_position_derivatives(const SdfSBS &SBS, unsigned render_node, unsigned
 
     for (int T = 0; T < 2; T++)
     {
-    unsigned samples = 2;
+    unsigned samples = T == 0 ? 50 : 2;
     std::vector<std::vector<float>> grads(samples);
     for (unsigned i = 0; i < samples; i++)
     {
@@ -1015,6 +1016,8 @@ void test_position_derivatives(const SdfSBS &SBS, unsigned render_node, unsigned
       dr_preset.dr_diff_mode = T == 0 ? DR_DIFF_MODE_DEFAULT : DR_DIFF_MODE_FINITE_DIFF;
       dr_preset.dr_border_sampling = border_sampling;
       dr_preset.debug_render_mode =  DR_DEBUG_RENDER_MODE_NONE;
+      dr_preset.debug_pd_images = i == 0 ? debug_pd_images : false;
+
       dr_render.SetReference(images_ref, view, proj);
       dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS);
       grads[i] = std::vector<float>(dr_render.getLastdLoss_dS() + param_offset, 
@@ -2193,11 +2196,12 @@ void diff_render_test_21_optimization_stand()
   dr_preset.dr_render_mode = DR_RENDER_MODE_LAMBERT;
   dr_preset.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_GEOMETRY | DR_RECONSTRUCTION_FLAG_COLOR;
   dr_preset.dr_border_sampling = DR_BORDER_SAMPLING_SVM;
-  dr_preset.opt_lr = 0.025f;
+  dr_preset.opt_lr = 0.01f;
   dr_preset.opt_iterations = 1000;
   dr_preset.border_spp = 512;
-  dr_preset.spp = 16;
+  dr_preset.spp = 8;
   dr_preset.debug_render_mode = DR_DEBUG_RENDER_MODE_AREA_INTEGRAL;
+  dr_preset.image_batch_size = 2;
   //dr_preset.redistancing_enable = true;
   //dr_preset.redistancing_interval = 1;
   //dr_preset.reg_function = DR_REG_FUNCTION_LK_DENOISING;

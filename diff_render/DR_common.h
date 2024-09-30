@@ -174,6 +174,8 @@ namespace dr
     
     //very heavy and specific debug modes. You probably shouldn't use them on a regular scene
     bool debug_pd_images;
+    float debug_pd_brightness; //how bright the PD debug images should be
+    
     bool debug_border_samples;
     bool debug_border_samples_mega_image;
   };

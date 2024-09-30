@@ -52,6 +52,8 @@ namespace dr
     preset.debug_forced_border = false;
 
     preset.debug_pd_images = false;
+    preset.debug_pd_brightness = 0.1f;
+    
     preset.debug_border_samples = false;
     preset.debug_border_samples_mega_image = false;
 

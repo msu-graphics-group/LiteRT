@@ -521,7 +521,7 @@ namespace dr
           for (int j = 0; j < m_width * m_height; j++)
           {
             float l = m_imagesDebugPD[i].data()[j].x;
-            m_imagesDebugPD[i].data()[j] = float4(std::max(0.0f, l/20), std::max(0.0f, -l/20),0,1);
+            m_imagesDebugPD[i].data()[j] = float4(std::max(0.0f, l*m_preset_dr.debug_pd_brightness), std::max(0.0f, -l*m_preset_dr.debug_pd_brightness),0,1);
           }
           LiteImage::SaveImage<float4>(("saves/PD_"+std::to_string(i)+"a.png").c_str(), m_imagesDebugPD[i]);
         }
@@ -755,7 +755,7 @@ namespace dr
           float l1 = Loss(m_preset_dr.dr_loss_function, image_1.data()[j], image_ref[j]);
           float l2 = Loss(m_preset_dr.dr_loss_function, image_2.data()[j], image_ref[j]);
           float l = (l1 - l2) / (2 * delta);
-          image_1.data()[j] = float4(std::max(0.0f, l/20), std::max(0.0f, -l/20),0,1);
+          image_1.data()[j] = float4(std::max(0.0f, l*m_preset_dr.debug_pd_brightness), std::max(0.0f, -l*m_preset_dr.debug_pd_brightness),0,1);
         }
 
         LiteImage::SaveImage<float4>(("saves/PD_"+std::to_string(i)+"b.png").c_str(), image_1);
