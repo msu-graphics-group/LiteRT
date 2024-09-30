@@ -1368,7 +1368,7 @@ static float3 dp_to_nmq(float3 dp, float beta)
                     for (int j = 0; j < 8; j++)
                     {
                       float3 dD_dv_ij = float3(dD_d1[8*0 + j], dD_d1[8*1 + j], dD_d1[8*2 + j]);
-                      relax_pt->dDiffuseNormal_dSd[8*i+j].dNorm = dtrilinear3_di[i] * (dNormalize_dD * dD_dv_ij);
+                      relax_pt->dDiffuseNormal_dSd[8*i+j].dNorm += dtrilinear3_di[i] * (dNormalize_dD * dD_dv_ij);
                     }
 
                     //  d(n_i)_d(v_k)
