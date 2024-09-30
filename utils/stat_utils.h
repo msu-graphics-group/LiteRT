@@ -71,7 +71,7 @@ namespace stat
       z += (1.0 / sqrt(2.0 * M_PI)) * exp(-(x * x) / 2.0) * step;
       x += step;
     }
-    printf("z_score for confidence level %f is %f\n", (float)confidence_level, (float)x);
+
     return x;
   }
 
