@@ -9,8 +9,8 @@
 #include "raytracer.hpp"
 
 
-constexpr float EPS = 1e-3f;
-constexpr int max_steps = 16;
+constexpr float EPS = 0.001f;
+constexpr int max_steps = 15;
 
 using namespace LiteMath;
 using namespace LiteImage;
@@ -34,7 +34,7 @@ float2 first_approx(
     const float4 &P1,
     const float4 &P2,
     const Surface &surf) {
-  int mx = static_cast<int>(std::sqrt(max_steps));
+  int mx = 20;
   float2 D = { std::numeric_limits<float>::max(), std::numeric_limits<float>::max() };
   float2 best_uv;
   for (int ui = 0; ui <= mx; ++ui)
@@ -70,7 +70,7 @@ std::optional<float3> trace_surface_newton(
   assert(dot(P1, to_float4(pos, 1.0f)) < 1e-2);
   assert(dot(P2, to_float4(pos, 1.0f)) < 1e-2);
   
-  float2 uv = { rand()*1.0f/RAND_MAX, rand()*1.0f/RAND_MAX };
+  float2 uv = first_approx(P1, P2, surf);
   float2 D = { dot(P1, surf.get_point(uv.x, uv.y)), dot(P2, surf.get_point(uv.x, uv.y)) };
   
   int steps_left = max_steps-1;
@@ -120,7 +120,21 @@ float2 bezier_project(
   return float2 { dot(point, P1), dot(point, P2) };
 }
 
-float2 new_bound(
+void update_res(
+    float3 &res,
+    float2 &uv,
+    float &t,
+    const float3 &new_point,
+    const float2 &new_uv,
+    float new_t) {
+  if (new_t >= 0 && (t==-1.0f || t > new_t)) {
+    t = new_t;
+    res = new_point;
+    uv = new_uv;
+  }
+}
+
+std::optional<float2> new_bound(
     const Surface &surf,
     const float4 &P1,
     const float4 &P2,
@@ -132,37 +146,38 @@ float2 new_bound(
   int n = surf.points.get_n()-1;
   int m = surf.points.get_m()-1;
 
-  float2 bl = { -1e16f, bounds.y};
-  float2 br = { -1e16f, bounds.x };
-  float2 tl = { 1e16f, bounds.y };
-  float2 tr = { 1e16f, bounds.x };
+  std::vector<float2> top;
+  std::vector<float2> bottom;
 
-  for (int i = 0; i < surf.points.get_n()-1; ++i)
-  for (int j = 0; j < surf.points.get_m()-1; ++j)
+  for (int i = 0; i <= surf.points.get_n()-1; ++i)
+  for (int j = 0; j <= surf.points.get_m()-1; ++j)
   {
     float u = ubounds.x + (ubounds.y-ubounds.x)*1.0f/n*i;
-    float v = vbounds.x + (vbounds.y-vbounds.x)*1.0f/m*i;
+    float v = vbounds.x + (vbounds.y-vbounds.x)*1.0f/m*j;
     float2 pij = bezier_project(P1, P2, surf.get_point(u, v));
     float dij = dot(pij, nL);
     float par = isu ? u : v;
 
     if (dij < 0) {
-      if (pseudo_dot(tl-bl, float2{dij, par}-bl) < 0)
-        bl = float2{dij, par};
-      if (pseudo_dot(tr-br, float2{dij, par}-br) > 0)
-        br = float2{dij, par};
+      bottom.push_back({par, dij});
     } else {
-      if (pseudo_dot(tl-bl, float2{dij, par}-bl) < 0)
-        tl = float2{dij, par};
-      if (pseudo_dot(tr-br, float2{dij, par}-br) > 0)
-        tr = float2{dij, par};
+      top.push_back({par, dij});
     }
   }
 
-  float mn = tl.x-bl.y/(tl.y-bl.y)*(tl.x-bl.x);
-  float mx = tr.x-br.y/(tr.y-br.y)*(tr.x-br.x);
+  float mn = 3.0f;
+  float mx = -1.0f;
+  for (auto &p1: top)
+  for (auto &p2: bottom)
+  {
+    float value = p2.x-p2.y/(p1.y-p2.y)*(p1.x-p2.x);
+    mx = std::max(mx, value);
+    mn = std::min(mn, value);
+  }
 
-  return { mn, mx };
+  if (mn > bounds.y || mx < bounds.x || mn > mx)
+    return {};
+  return float2{ mn, mx };
 }
 
 std::optional<float3> trace_surface_bezier(
@@ -219,25 +234,81 @@ std::optional<float3> trace_surface_bezier(
   float3 res;
   float2 res_uv;
   float t = -1.0f;
-
   while(!bounds.empty()) {
     auto [ubounds, vbounds, isu] = bounds.back();
     bounds.pop_back();
     if (isu) {
-      float2 new_ubounds = new_bound(
+      auto new_bounds = new_bound(
           surf, 
           P1, P2, 
           nLu, 
           ubounds, vbounds, 
           ubounds, 
           true);
-      if (new_ubounds.y-new_ubounds.x < EPS && vbounds.y-vbounds.x < EPS) {
-        
+      if (!new_bounds.has_value())
+        continue;
+      float2 new_ubounds = new_bounds.value();
+      // new_ubounds.x *= 0.999f;
+      // new_ubounds.y = 0.999f*ubounds.y+0.001f;
+      float len = new_ubounds.y-new_ubounds.x;
+      if ((len < EPS) && (vbounds.y-vbounds.x < EPS)) {
+        float u = (new_ubounds.x+new_ubounds.y)/2;
+        float v = (vbounds.x+vbounds.y)/2;
+        float3 point = to_float3(surf.get_point(u, v));
+        update_res(res, res_uv, t, point, float2{u, v}, dot(point-pos, ray));
+      } else if (len >= EPS && len/(ubounds.y-ubounds.x) > 0.8f) {
+        bounds.push_back({
+          float2{new_ubounds.x, (new_ubounds.x+new_ubounds.y)/2}, 
+          vbounds, false });
+        bounds.push_back({
+          float2{(new_ubounds.x+new_ubounds.y)/2, new_ubounds.y }, 
+          vbounds, false });
+      } else {
+        bounds.push_back({
+          new_ubounds, 
+          vbounds, false });
       }
-    } 
-
+    } else {
+      auto new_bounds = new_bound(
+          surf, 
+          P1, P2, 
+          nLv, 
+          ubounds, vbounds, 
+          vbounds, 
+          false);
+      if (!new_bounds.has_value())
+        continue;
+      float2 new_vbounds = new_bounds.value();
+      // new_vbounds.x *= 0.999f;
+      // new_vbounds.y = 0.999f*vbounds.y+0.001f;
+      float len = new_vbounds.y-new_vbounds.x;
+      if ((len < EPS) && (ubounds.y-ubounds.x < EPS)) {
+        float v = (new_vbounds.x+new_vbounds.y)/2;
+        float u = (ubounds.x+ubounds.y)/2;
+        float3 point = to_float3(surf.get_point(u, v));
+        update_res(res, res_uv, t, point, float2{u, v}, dot(point-pos, ray));
+      } else if (len >= EPS && len/(vbounds.y-vbounds.x) > 0.8f) {
+        bounds.push_back({
+          ubounds,
+          float2{new_vbounds.x, (new_vbounds.x+new_vbounds.y)/2}, 
+          true });
+        bounds.push_back({
+          ubounds,
+          float2{ (new_vbounds.x+new_vbounds.y)/2, new_vbounds.y }, 
+          true });
+      } else {
+        bounds.push_back({
+          ubounds, 
+          new_vbounds, true });
+      }
+    }
   }
-  
+
+  if (t >= 0) {
+    return float3{ res_uv.x, res_uv.y, 0.0f };
+  }
+
+  return {};
 }
 
 void draw_points(
@@ -341,9 +412,9 @@ void draw_bezier(
 
     float3 ray = normalize(to_float3(point)-camera.position);
     float3 pos = camera.position;
-    auto intersect_point = trace_surface_newton(pos, ray, surface);
+    auto intersect_point = trace_surface_bezier(pos, ray, surface);
     if (intersect_point.has_value()) {
-      float3 new_col = intersect_point.value();
+      float4 new_col = to_float4(intersect_point.value(), 1.0f);
       image[uint2{ x, image.height()-1-y }] = uchar4{ 
         static_cast<u_char>(new_col[0]*255.0f),
         static_cast<u_char>(new_col[1]*255.0f),
