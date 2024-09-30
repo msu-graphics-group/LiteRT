@@ -36,7 +36,13 @@ std::optional<LiteMath::float3> trace_surface_newton(
     const LiteMath::float3 &ray,
     const Surface &surf);
 
-void draw(
+void draw_newton(
+    const Surface &surface,
+    const Camera &camera,
+    LiteImage::Image2D<uint32_t> &image, 
+    float col[4]);
+
+void draw_bezier(
     const Surface &surface,
     const Camera &camera,
     LiteImage::Image2D<uint32_t> &image, 

@@ -81,7 +81,11 @@ int main(int, char** argv)
   int prev_x = 0, prev_y = 0;
 
   
-  const char *renderers[] = { "Regular Sample Points", "Newton Method (in progress)" };
+  const char *renderers[] = { 
+    "Regular Sample Points", 
+    "Newton Method (in progress)",
+    "Bezier Method (in progress)"
+  };
   int cur_renderer = 0;
   float ms = 0.0f;
 
@@ -127,10 +131,13 @@ int main(int, char** argv)
 
     //Render image
     auto b = std::chrono::high_resolution_clock::now();
-    if (cur_renderer)
-      draw(surf, camera, framebuffer, surf_color);
-    else 
-      draw_points(surf, camera, framebuffer, surf_color);
+    switch(cur_renderer)
+    {
+      case 0: draw_points(surf, camera, framebuffer, surf_color); break;
+      case 1: draw_newton(surf, camera, framebuffer, surf_color); break;
+      case 2: draw_bezier(surf, camera, framebuffer, surf_color); break;
+    }
+      
     auto e = std::chrono::high_resolution_clock::now();
     ms = std::chrono::duration_cast<std::chrono::microseconds>(e-b).count()/1000.0f;
 
@@ -156,7 +163,7 @@ int main(int, char** argv)
       ImGui::DragFloat3("Camera target", camera.target.M);
       camera = Camera(camera.aspect, camera.fov, camera.position, camera.target);
       ImGui::Text("Renderer settings:");
-      ImGui::ListBox("Method", &cur_renderer, renderers, 2);
+      ImGui::ListBox("Method", &cur_renderer, renderers, 3);
       ImGui::Text("Debug Info");
       ImGui::Text("\tApplication average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
       ImGui::Text("\tCurrent render time: %.3f ms/frame (%.1f FPS)", ms, 1000.0f/ms);
