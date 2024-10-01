@@ -816,13 +816,14 @@ uint32_t BVHRT::AddGeom_SdfSBSAdapt(SdfSBSAdaptView octree, ISceneObject *fake_t
       float px = octree.nodes[i].pos_xy >> 16;
       float py = octree.nodes[i].pos_xy & 0x0000FFFF;
       float pz = octree.nodes[i].pos_z_vox_size >> 16;
-      uint32_t vs = octree.nodes[i].pos_z_vox_size & 0x0000FFFF;
-      float brick_abs_size = (2.0f/SDF_SBS_ADAPT_MAX_UNITS)*vs;
-      uint3 brick_size{
+      float vs = octree.nodes[i].pos_z_vox_size & 0x0000FFFF;
+
+      float3 brick_size{
                         (octree.nodes[i].vox_count_xyz_pad >> 16) & 0x000000FF,
                         (octree.nodes[i].vox_count_xyz_pad >>  8) & 0x000000FF,
                         (octree.nodes[i].vox_count_xyz_pad      ) & 0x000000FF
-                      };
+                       };
+      float3 brick_abs_size = (2.0f/SDF_SBS_ADAPT_MAX_UNITS)*vs*brick_size;
 
       orig_nodes[i].boxMin = float3(-1,-1,-1) + (2.0f/SDF_SBS_ADAPT_MAX_UNITS)*float3(px,py,pz);
       orig_nodes[i].boxMax = orig_nodes[i].boxMin + brick_abs_size;
@@ -836,7 +837,7 @@ uint32_t BVHRT::AddGeom_SdfSBSAdapt(SdfSBSAdaptView octree, ISceneObject *fake_t
       float py = octree.nodes[i].pos_xy & 0x0000FFFF;
       float pz = octree.nodes[i].pos_z_vox_size >> 16;
       float vs = octree.nodes[i].pos_z_vox_size & 0x0000FFFF;
-      float brick_abs_size = (2.0f/SDF_SBS_ADAPT_MAX_UNITS)*vs;
+      float d = (2.0f/SDF_SBS_ADAPT_MAX_UNITS)*vs;
 
       // a.k.a voxel_count_xyz
       uint3 brick_size{
@@ -845,6 +846,7 @@ uint32_t BVHRT::AddGeom_SdfSBSAdapt(SdfSBSAdaptView octree, ISceneObject *fake_t
                         (octree.nodes[i].vox_count_xyz_pad      ) & 0x000000FF
                       };
       uint3 v_size = brick_size + 2*octree.header.brick_pad + 1;
+      float3 brick_abs_size = d*float3{brick_size};
 
       for (int x=0; x<brick_size.x; x++)
       {
@@ -859,9 +861,7 @@ uint32_t BVHRT::AddGeom_SdfSBSAdapt(SdfSBSAdaptView octree, ISceneObject *fake_t
             uint32_t vals_per_int = 4/octree.header.bytes_per_value; 
             uint32_t bits = 8*octree.header.bytes_per_value;
             uint32_t max_val = octree.header.bytes_per_value == 4 ? 0xFFFFFFFF : ((1 << bits) - 1);
-            float d_max = 1.73205081f*brick_abs_size;
-            // if (brick_size.x != brick_size.y || brick_size.x != brick_size.z)
-            //   d_max = std::sqrt(d.x*d.x + std::sqrt(d.y*d.y + d.z*d.z));
+            float d_max = 1.73205081f*std::max(std::max(brick_abs_size.x, brick_abs_size.y), brick_abs_size.z);
             float mult = 2*d_max/max_val;
 
             float low = 1000;

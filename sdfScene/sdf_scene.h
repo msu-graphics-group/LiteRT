@@ -458,6 +458,6 @@ void load_sdf_frame_octree_tex(std::vector<SdfFrameOctreeTexNode> &scene, const 
 
 void load_neural_sdf_scene_SIREN(SdfScene &scene, const std::string &path); // loads scene from raw SIREN weights file
 
-SdfSBSAdaptNode convert_sbs_node_to_adapt(const SdfSBSNode &sbs_node, uint32_t sbs_header_brick_size);
 SdfSBSAdaptView convert_sbs_to_adapt(SdfSBSAdapt &adapt_scene, const SdfSBSView &scene);
+SdfSBSAdaptView convert_sbs_to_adapt_with_split(SdfSBSAdapt &adapt_scene, const SdfSBSView &scene);
 #endif
