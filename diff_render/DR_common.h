@@ -61,6 +61,7 @@ namespace dr
     CRT_HitDR missed_hit;
     uint32_t  missed_indices[8];
     float     missed_dSDF_dtheta[8];
+    float3    missed_dp_dsdf[8];
 
 #ifdef DEBUG_PAYLOAD_STORE_SDF
     std::vector<float> sdf_i;

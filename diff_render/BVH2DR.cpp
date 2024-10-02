@@ -37,6 +37,7 @@ namespace dr
     {
       relax_pt->missed_indices[i] = INVALID_INDEX;
       relax_pt->missed_dSDF_dtheta[i] = 0.0f;
+      relax_pt->missed_dp_dsdf[i] = float3(0.0f, 0.0f, 0.0f);
     }
 
     for (int i=0;i<MAX_PD_COUNT_COLOR;i++)
@@ -1209,7 +1210,10 @@ static float3 dp_to_nmq(float3 dp, float beta)
             { 
               eval_dist_trilinear_d_dtheta(relax_pt->missed_dSDF_dtheta, q_ast); // dSDF/dTheta
               for (int i=0; i<8; ++i)
+              {
+                relax_pt->missed_dp_dsdf[i]  = -1.0f*relax_pt->missed_dSDF_dtheta[i]*dSDF_dy/(dSDF_dy_norm*dSDF_dy_norm);
                 relax_pt->missed_dSDF_dtheta[i] /= -1.0f*dSDF_dy_norm;
+              }
 
               uint32_t t_off = m_SdfSBSNodes[nodeId].data_offset + v_size * v_size * v_size;
               float3 colors[8];

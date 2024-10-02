@@ -578,6 +578,11 @@ namespace dr
         const uint x  = (XY & 0x0000FFFF);
         const uint y  = (XY & 0xFFFF0000) >> 16;
 
+
+        if (x < search_radius || x >= m_width - search_radius || y <= search_radius || y >= m_height - search_radius)
+          continue;
+        
+        
         if (x < search_radius || x >= m_width - search_radius || y <= search_radius || y >= m_height - search_radius)
           continue;
         
@@ -587,6 +592,8 @@ namespace dr
         float max_diff = 0.0f;
         float  max_depth_thr = 0.0f;
 
+        if (x >= search_radius && x < m_width - search_radius && y >= search_radius && y < m_height - search_radius)
+        {
         for (int dx = -search_radius; dx <= search_radius; dx++)
         {
           for (int dy = -search_radius; dy <= search_radius; dy++)
@@ -596,6 +603,7 @@ namespace dr
             max_diff      = std::max(max_diff,      std::abs(d0 - out_image[(y + dy) * m_width + x + dx].w));
             max_depth_thr = std::max(max_depth_thr, out_image_depth[(y + dy) * m_width + x + dx].w);
           }
+        }
         }
 
         bool is_border = false;
@@ -1213,6 +1221,13 @@ namespace dr
     return res_loss;
   }
 
+  float2 MultiRendererDR::TransformWorldToScreenSpace(float4 pos)
+  {
+    float4 res = m_proj*m_worldView*pos;
+    res = 0.5f*(res/res.w + 1.0f);
+    return float2(res.x, 1.0 - res.y);
+  }
+
   void MultiRendererDR::CastBorderRay(uint32_t tidX, const float4 *image_ref, LiteMath::float4* out_image, float* out_dLoss_dS,
                                       LiteMath::float4* out_image_debug)
   {
@@ -1272,15 +1287,55 @@ namespace dr
           color_delta = float4(d_in - d_out, d_in - d_out, d_in - d_out, hit.primId == 0xFFFFFFFF ? 1.0f : 0.0f);
         }
 
+        float border_dist = std::max(0.0f, payload.missed_hit.sdf);
+        float3 hit_pos = to_float3(rayPosAndNear) + payload.missed_hit.t * to_float3(rayDirAndFar);
+        float3 area_pos_1 = hit_pos - border_dist*payload.missed_hit.normal;
+        float3 area_pos_2 = hit_pos + (relax_eps - border_dist)*payload.missed_hit.normal;
+
+        float2 ppos_1 = TransformWorldToScreenSpace(to_float4(area_pos_1, 1.0f));
+        float2 ppos_2 = TransformWorldToScreenSpace(to_float4(area_pos_2, 1.0f));
+        //printf("t = %f\n", payload.missed_hit.t);
+        //printf("%f %f %f %f - %f %f %f %f\n", ppos_1.x, ppos_1.y, ppos_1.z, ppos_1.w, ppos_2.x, ppos_2.y, ppos_2.z,  ppos_2.w);
+        //ppos_1 = 0.5f*(ppos_1/ppos_1.w + 1.0f);
+        //ppos_2 = 0.5f*(ppos_2/ppos_2.w + 1.0f);
+        //int2 pixel = int2(m_width*ppos_1.x, m_height*(1.0f - ppos_1.y));
+
+        //printf("pixel %f %f\n", m_width*ppos_1.x, m_height*(1.0f - ppos_1.y));
+        //printf("real pixel %u %u\n", x, y);
+        //assert(pixel.x == x && pixel.y == y);
+
+        float2 dir = float2(ppos_2.x - ppos_1.x, ppos_2.y - ppos_1.y);
+        //printf("border size %f\n", length(dir)*m_width);
+        //printf("dir = %f %f\n", dir.x, dir.y);//0.0001f;
+        //float aa = abs(dot(payload.missed_hit.normal, normalize(to_float3(rayDirAndFar))));
+        //printf("aa = %f\n", aa);
+        //printf("diff %f\n", relax_eps/(length(dir)));
+        float mult = relax_eps/dot(dir, dir);
+        mult = 1.0f/length(dir);
+
         for (int j = 0; j < 8; j++)
         {
           if (payload.missed_indices[j] == INVALID_INDEX)
             continue;
-          float diff = m_preset_dr.border_integral_mult * (1.0f / border_spp) *dot(dLoss_dColor, (1.0f / relax_eps) * payload.missed_dSDF_dtheta[j] * color_delta);
+
+          float v1 = payload.missed_dSDF_dtheta[j];
+          float2 n_s = TransformWorldToScreenSpace(to_float4(payload.missed_hit.normal, 0.0f));
+          float4 dmmul_dsdf = LiteMath::transpose(m_proj*m_worldView) * to_float4(payload.missed_dp_dsdf[j], 0);
+          float4 ps = m_proj*m_worldView*to_float4(hit_pos, 1.0f);
+          float4 d_ps_x = float4(0.5/ps.w,0,0,-0.5*ps.x/(ps.w*ps.w));
+          float4 d_ps_y = float4(0,-0.5/ps.w,0,0.5*ps.y/(ps.w*ps.w));
+          float2 d_ps = float2(dot(d_ps_x, dmmul_dsdf), dot(d_ps_y, dmmul_dsdf));
+          float v2 = dot(d_ps, n_s);
+          //printf("v1 = %f v2 = %f diff = %f\n", v1, v2, v1/v2);
+
+          float4 old_estimate = (1.0f / relax_eps) * payload.missed_dSDF_dtheta[j] * color_delta;
+          float4 new_estimate = mult * v2 * color_delta;
+
+          float diff = m_preset_dr.border_integral_mult * (1.0f / border_spp) *dot(dLoss_dColor, new_estimate);
           out_dLoss_dS[payload.missed_indices[j]] += diff;
 
           total_diff += abs(diff);
-          pixel_diff += length((1.0f / relax_eps) * payload.missed_dSDF_dtheta[j] * color_delta);
+          pixel_diff += length(new_estimate);
           if (m_preset_dr.debug_pd_images)
             m_imagesDebugPD[payload.missed_indices[j]].data()[y * m_width + x] += diff * float4(1, 1, 1, 0);
         }
