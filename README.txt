@@ -4,7 +4,7 @@ Installation guide (Ubuntu):
 2) install cmake:
   sudo apt install cmake
 3) install dependencies:
-  sudo apt install libglfw3 libsdl2-dev
+  sudo apt install libglfw3 libglfw3-dev libsdl2-dev libomp-dev
 2) make "build" folder in the project directory:
   mkdir build
   cd ./build 
