@@ -958,7 +958,7 @@ void test_position_derivatives(const SdfSBS &SBS, unsigned render_node, unsigned
   
   srand(0);
 
-  unsigned W = 16, H = 16;
+  unsigned W = 512, H = 512;
 
   MultiRenderPreset preset = getDefaultPreset();
   preset.render_mode = render_node;
@@ -966,13 +966,13 @@ void test_position_derivatives(const SdfSBS &SBS, unsigned render_node, unsigned
   //preset.ray_gen_mode = RAY_GEN_MODE_RANDOM;
   preset.spp = 256;
 
-  float4x4 base_proj = LiteMath::perspectiveMatrix(close_view ? 20 : 40, 1.0f, 0.01f, 100.0f);
+  float4x4 base_proj = LiteMath::perspectiveMatrix(close_view ? 20 : 60, 1.0f, 0.01f, 100.0f);
 
   std::vector<float4x4> view; 
-  //if (close_view)
-    view = std::vector<float4x4>{LiteMath::lookAt(float3(1, 0, 2.0), float3(1, 0, 0), float3(0, 1, 0))};
-  //else
-  //  view = get_cameras_uniform_sphere(1, float3(0, 0, 0), 5.0f);
+  if (close_view)
+    view = std::vector<float4x4>{LiteMath::lookAt(float3(0.3, 0, 2), float3(0, 0, 0), float3(0, 1, 0))};
+  else
+    view = get_cameras_uniform_sphere(1, float3(0, 0, 0), 2.5f);
   std::vector<float4x4> proj(view.size(), base_proj);
 
   std::vector<LiteImage::Image2D<float4>> images_ref(view.size(), LiteImage::Image2D<float4>(W, H));
@@ -1005,15 +1005,12 @@ void test_position_derivatives(const SdfSBS &SBS, unsigned render_node, unsigned
   dr_preset.dr_input_type = diff_render_mode == DR_RENDER_MODE_LINEAR_DEPTH ? DR_INPUT_TYPE_LINEAR_DEPTH : DR_INPUT_TYPE_COLOR;
   dr_preset.opt_iterations = 1;
   dr_preset.opt_lr = 0.0f;
-  dr_preset.spp = 512;
-  dr_preset.border_spp = 16*1024;
-  dr_preset.debug_pd_brightness = 0.001f;
-  dr_preset.border_relax_eps = 2e-3f;
-  dr_preset.finite_diff_delta = 0.001f;
+  dr_preset.spp = 16;
+  dr_preset.border_spp = 1024;
+  dr_preset.debug_pd_brightness = 0.01f;
+  dr_preset.border_relax_eps = 1e-4f;
+  dr_preset.finite_diff_delta = 0.025f;
   dr_preset.finite_diff_brightness = 0.25f;
-  dr_preset.debug_render_mode = DR_DEBUG_RENDER_MODE_BORDER_DETECTION;
-  dr_preset.debug_progress_images = DEBUG_PROGRESS_RAW;
-  dr_preset.debug_forced_border = true;
   bool debug_pd_images = true;
 
   unsigned param_count = indexed_SBS.values_f.size() - 3 * 8 * indexed_SBS.nodes.size();
@@ -1037,9 +1034,8 @@ void test_position_derivatives(const SdfSBS &SBS, unsigned render_node, unsigned
       MultiRendererDR dr_render;
       dr_preset.dr_diff_mode = T == 0 ? DR_DIFF_MODE_DEFAULT : DR_DIFF_MODE_FINITE_DIFF;
       dr_preset.dr_border_sampling = border_sampling;
+      dr_preset.debug_render_mode =  DR_DEBUG_RENDER_MODE_NONE;
       dr_preset.debug_pd_images = i == 0 ? debug_pd_images : false;
-      dr_preset.debug_border_samples_mega_image = T == 0 && i == 0;
-      dr_preset.debug_border_samples = T == 0 && i == 0;
 
       dr_render.SetReference(images_ref, view, proj);
       dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS);

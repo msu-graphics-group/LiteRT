@@ -108,8 +108,6 @@ namespace dr
     float SolveEikonal(float3 axes_mins, float grid_spacing);
     void Redistance(float *dist_in, uint3 size_in, float grid_spacing, uint32_t num_iters);
 
-    float2 TransformWorldToScreenSpace(float4 pos);
-
     std::vector<LiteImage::Image2D<float4>> m_imagesRefOriginal;
     std::vector<LiteImage::Image2D<float4>> m_imagesRefMask;
     std::vector<LiteImage::Image2D<float4>> m_imagesRef;
@@ -138,7 +136,7 @@ namespace dr
     std::vector<float4> samples_debug_color;
     std::vector<float4> samples_debug_pos_size;
   public:
-    static constexpr unsigned MEGA_PIXEL_SIZE = 256;
+    static constexpr unsigned MEGA_PIXEL_SIZE = 64;
     LiteImage::Image2D<float4> samples_mega_image;
   };
 }
