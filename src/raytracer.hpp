@@ -31,11 +31,6 @@ public:
   float fov;
 };
 
-std::optional<LiteMath::float3> trace_surface_newton(
-    const LiteMath::float3 &pos,
-    const LiteMath::float3 &ray,
-    const Surface &surf);
-
 void draw_newton(
     const Surface &surface,
     const Camera &camera,

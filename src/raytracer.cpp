@@ -1,5 +1,6 @@
 #include <random>
 #include <cmath>
+#include <vector>
 #include <iostream>
 #include <cassert>
 #include <limits>
@@ -8,12 +9,12 @@
 
 #include "raytracer.hpp"
 
-
-constexpr float EPS = 0.001f;
-constexpr int max_steps = 15;
-
 using namespace LiteMath;
 using namespace LiteImage;
+
+constexpr float EPS = 0.001f;
+constexpr int max_steps = 16;
+std::vector<std::mt19937> generators(omp_get_max_threads());
 
 static float2
 mul2x2x2(float2 m[2], const float2 &v)
@@ -33,7 +34,7 @@ float closed_clamp(float val) {
 float2 first_approx(
     const float4 &P1,
     const float4 &P2,
-    const Surface &surf) {
+    const SurfaceView &surf) {
   int mx = 20;
   float2 D = { std::numeric_limits<float>::max(), std::numeric_limits<float>::max() };
   float2 best_uv;
@@ -54,7 +55,7 @@ float2 first_approx(
 std::optional<float3> trace_surface_newton(
     const float3 &pos,
     const float3 &ray,
-    const Surface &surf) {
+    const SurfaceView &surf) {
   bool u_closed = surf.u_closed();
   bool v_closed = surf.v_closed();
 
@@ -70,7 +71,9 @@ std::optional<float3> trace_surface_newton(
   assert(dot(P1, to_float4(pos, 1.0f)) < 1e-2);
   assert(dot(P2, to_float4(pos, 1.0f)) < 1e-2);
   
-  float2 uv = first_approx(P1, P2, surf);
+  auto distr = std::uniform_real_distribution<float>(0.0f, 1.0f);
+  auto &generator = generators[omp_get_thread_num()];
+  float2 uv = float2{ distr(generator), distr(generator) };
   float2 D = { dot(P1, surf.get_point(uv.x, uv.y)), dot(P2, surf.get_point(uv.x, uv.y)) };
   
   int steps_left = max_steps-1;
@@ -135,7 +138,7 @@ void update_res(
 }
 
 std::optional<float2> new_bound(
-    const Surface &surf,
+    const SurfaceView &surf,
     const float4 &P1,
     const float4 &P2,
     const float2 &nL,
@@ -143,17 +146,14 @@ std::optional<float2> new_bound(
     const float2 &vbounds,
     const float2 &bounds,
     bool isu) {
-  int n = surf.points.get_n()-1;
-  int m = surf.points.get_m()-1;
-
   std::vector<float2> top;
   std::vector<float2> bottom;
 
-  for (int i = 0; i <= surf.points.get_n()-1; ++i)
-  for (int j = 0; j <= surf.points.get_m()-1; ++j)
+  for (int i = 0; i <= surf.n(); ++i)
+  for (int j = 0; j <= surf.m(); ++j)
   {
-    float u = ubounds.x + (ubounds.y-ubounds.x)*1.0f/n*i;
-    float v = vbounds.x + (vbounds.y-vbounds.x)*1.0f/m*j;
+    float u = ubounds.x + (ubounds.y-ubounds.x)*1.0f/surf.n()*i;
+    float v = vbounds.x + (vbounds.y-vbounds.x)*1.0f/surf.m()*j;
     float2 pij = bezier_project(P1, P2, surf.get_point(u, v));
     float dij = dot(pij, nL);
     float par = isu ? u : v;
@@ -183,10 +183,7 @@ std::optional<float2> new_bound(
 std::optional<float3> trace_surface_bezier(
     const float3 &pos,
     const float3 &ray,
-    const Surface &surf) {
-  int n = surf.points.get_n()-1;
-  int m = surf.points.get_m()-1;
-
+    const SurfaceView &surf) {
   float3 ortho_dir1 = (ray.x || ray.z) ? float3{ 0, 1, 0 } : float3{ 1, 0, 0 };
   float3 ortho_dir2 = normalize(cross(ortho_dir1, ray));
   ortho_dir1 = normalize(cross(ray, ortho_dir2));
@@ -201,18 +198,18 @@ std::optional<float3> trace_surface_bezier(
 
   float2 Lu = 
             (
-              bezier_project(P1, P2, surf.points[{n, 0}])
-            - bezier_project(P1, P2, surf.points[{0, 0}])
-            + bezier_project(P1, P2, surf.points[{n, m}])
-            - bezier_project(P1, P2, surf.points[{0, m}])
+              bezier_project(P1, P2, surf.p_surf->points[{surf.n(), 0}])
+            - bezier_project(P1, P2, surf.p_surf->points[{0, 0}])
+            + bezier_project(P1, P2, surf.p_surf->points[{surf.n(), surf.m()}])
+            - bezier_project(P1, P2, surf.p_surf->points[{0, surf.m()}])
             )
             * 0.5f;
   float2 Lv = 
             (
-              bezier_project(P1, P2, surf.points[{0, m}])
-            - bezier_project(P1, P2, surf.points[{0, 0}])
-            + bezier_project(P1, P2, surf.points[{n, m}])
-            - bezier_project(P1, P2, surf.points[{n, 0}])
+              bezier_project(P1, P2, surf.p_surf->points[{0, surf.m()}])
+            - bezier_project(P1, P2, surf.p_surf->points[{0, 0}])
+            + bezier_project(P1, P2, surf.p_surf->points[{surf.n(), surf.m()}])
+            - bezier_project(P1, P2, surf.p_surf->points[{surf.n(), 0}])
             )
             * 0.5f;
   if (length(Lu) < EPS && length(Lv) < EPS) {
@@ -248,8 +245,6 @@ std::optional<float3> trace_surface_bezier(
       if (!new_bounds.has_value())
         continue;
       float2 new_ubounds = new_bounds.value();
-      // new_ubounds.x *= 0.999f;
-      // new_ubounds.y = 0.999f*ubounds.y+0.001f;
       float len = new_ubounds.y-new_ubounds.x;
       if ((len < EPS) && (vbounds.y-vbounds.x < EPS)) {
         float u = (new_ubounds.x+new_ubounds.y)/2;
@@ -279,8 +274,6 @@ std::optional<float3> trace_surface_bezier(
       if (!new_bounds.has_value())
         continue;
       float2 new_vbounds = new_bounds.value();
-      // new_vbounds.x *= 0.999f;
-      // new_vbounds.y = 0.999f*vbounds.y+0.001f;
       float len = new_vbounds.y-new_vbounds.x;
       if ((len < EPS) && (ubounds.y-ubounds.x < EPS)) {
         float v = (new_vbounds.x+new_vbounds.y)/2;
@@ -323,12 +316,13 @@ void draw_points(
   float4x4 view = lookAt(camera.position, camera.target, camera.up);
   float4x4 proj = perspectiveMatrix(camera.fov*180*M_1_PI, camera.aspect, 0.01f, 150.0f);
   int count = 250;
+  SurfaceView surf = surface;
   for (int ui = 0; ui < count; ++ui)
   for (int vi = 0; vi < count; ++vi)
   {
     float u = ui * 1.0f/count;
     float v = vi * 1.0f/count;
-    float4 point = surface.get_point(u, v);
+    float4 point = surf.get_point(u, v);
     point = proj * view * point;
     float w = point.w;
     if (!(-w <= point.x && point.x <= w) ||
@@ -361,7 +355,8 @@ void draw_newton(
   float4x4 mat  = perspectiveMatrix(camera.fov*180*M_1_PI, camera.aspect, 0.001f, 100.0f)
                 * lookAt(camera.position, camera.target, camera.up);
   float4x4 inversed_mat = inverse4x4(mat);
-
+  std::vector<SurfaceView> views(omp_get_max_threads(), surface);
+  #pragma omp parallel for 
   for (uint32_t y = 0; y < image.height(); ++y)
   for (uint32_t x = 0; x < image.width();  ++x)
   {
@@ -375,7 +370,9 @@ void draw_newton(
 
     float3 ray = normalize(to_float3(point)-camera.position);
     float3 pos = camera.position;
-    auto intersect_point = trace_surface_newton(pos, ray, surface);
+    if (!surface.bbox.intersects(pos, ray))
+      continue;
+    auto intersect_point = trace_surface_newton(pos, ray, views[omp_get_thread_num()]);
     if (intersect_point.has_value()) {
       float3 new_col = intersect_point.value();
       image[uint2{ x, image.height()-1-y }] = uchar4{ 
@@ -398,7 +395,8 @@ void draw_bezier(
   float4x4 mat  = perspectiveMatrix(camera.fov*180*M_1_PI, camera.aspect, 0.001f, 100.0f)
                 * lookAt(camera.position, camera.target, camera.up);
   float4x4 inversed_mat = inverse4x4(mat);
-
+  std::vector<SurfaceView> views(omp_get_max_threads(), surface);
+  #pragma omp parallel for
   for (uint32_t y = 0; y < image.height(); ++y)
   for (uint32_t x = 0; x < image.width();  ++x)
   {
@@ -412,7 +410,9 @@ void draw_bezier(
 
     float3 ray = normalize(to_float3(point)-camera.position);
     float3 pos = camera.position;
-    auto intersect_point = trace_surface_bezier(pos, ray, surface);
+    if (!surface.bbox.intersects(pos, ray))
+      continue;
+    auto intersect_point = trace_surface_bezier(pos, ray, views[omp_get_thread_num()]);
     if (intersect_point.has_value()) {
       float4 new_col = to_float4(intersect_point.value(), 1.0f);
       image[uint2{ x, image.height()-1-y }] = uchar4{ 

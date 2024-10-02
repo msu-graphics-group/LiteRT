@@ -6,7 +6,7 @@
 
 #include "Surface.hpp"
 
-int find_span(int n, int p, float u, const float *U) {
+int SurfaceView::find_span(int n, int p, float u, const float *U) const {
   if (u == U[n+1])
     return n;
 
@@ -24,10 +24,8 @@ int find_span(int n, int p, float u, const float *U) {
   return l;
 }
 
-void basis_funs(int i, float u, int p, const float *U, float *N) {
+void SurfaceView::basis_funs(int i, float u, int p, const float *U, float *N) const {
   N[0] = 1.0f;
-  std::vector<float> left(p+1, 0);
-  std::vector<float> right(p+1, 0);
   for (int j = 1; j <= p; ++j) {
     left[j] = u - U[i+1-j];
     right[j] = U[i+j]-u;
@@ -41,34 +39,69 @@ void basis_funs(int i, float u, int p, const float *U, float *N) {
   }
 }
 
-LiteMath::float4 surface_point(
-    int n, int p, 
-    const float *U, 
-    int m, int q,
-    const float *V,
-    const Matrix2D<LiteMath::float4> &P,
-    const Matrix2D<float> &W,
-    float u, float v) {
-  int uspan = find_span(n, p, u, U);
-  std::vector<float> Nu(p+1);
-  basis_funs(uspan, u, p, U, Nu.data());
-  
-  int vspan = find_span(m, q, v, V);
-  std::vector<float> Nv(q+1);
-  basis_funs(vspan, v, q, V, Nv.data());
+LiteMath::float4 SurfaceView::get_point(float u, float v) const {
+  const float *U = p_surf->u_knots.data();
+  const float *V = p_surf->v_knots.data();
 
-  std::vector<LiteMath::float4> temp(q+1);
-  for (int l = std::max(0, q-vspan); l <= q; ++l) 
-  for (int k = std::max(0, p-uspan); k <= p; ++k) 
+  int uspan = find_span(n(), p(), u, U);
+  basis_funs(uspan, u, p(), U, Nu.data());
+  
+  int vspan = find_span(m(), q(), v, V);
+  basis_funs(vspan, v, q(), V, Nv.data());
+
+  std::fill(temp.begin(), temp.end(), LiteMath::float4{0.0f});
+  for (int l = 0; l <= q(); ++l) 
+  for (int k = 0; k <= p(); ++k) 
   {
-    temp[l] += Nu[k] * P[{uspan-p+k, vspan-q+l}] * W[{uspan-p+k, vspan-q+l}];
+    temp[l] += Nu[k] * (p_surf->points[{uspan-p()+k, vspan-q()+l}])
+                * (p_surf->weights[{uspan-p()+k, vspan-q()+l}]);
   }
 
   LiteMath::float4 res = {};
-  for (int l = 0; l <= q; ++l)
+  for (int l = 0; l <= q(); ++l)
     res += Nv[l] * temp[l];
   
   return res/res.w;
+}
+
+LiteMath::float4 SurfaceView::uderivative(float u, float v) const {
+  constexpr float EPS = 1e-2f;
+  LiteMath::float4 res = {};
+  res += (u+EPS > 1.0f) ? get_point(u, v) : get_point(u+EPS, v);
+  res -= (u-EPS < 0.0f) ? get_point(u, v) : get_point(u-EPS, v);
+
+  return res / (EPS * (1 + ((u+EPS <= 1.0f) && (u-EPS >= 0.0f))));
+}
+
+LiteMath::float4 SurfaceView::vderivative(float u, float v) const {
+  constexpr float EPS = 1e-2f;
+  LiteMath::float4 res = {};
+  res += (v+EPS > 1.0f) ? get_point(u, v) : get_point(u, v+EPS);
+  res -= (v-EPS < 0.0f) ? get_point(u, v) : get_point(u, v-EPS);
+
+  return res / (EPS * (1 + ((v+EPS <= 1.0f) && (v-EPS >= 0.0f))));
+}
+
+LiteMath::float3 SurfaceView::get_normal(float u, float v) const {
+  return LiteMath::normalize(LiteMath::cross(
+        LiteMath::to_float3(uderivative(u, v)),
+        LiteMath::to_float3(vderivative(u, v))));
+}
+
+bool SurfaceView::u_closed() const {
+  constexpr float EPS = 1e-2;
+    for (int j = 0; j <= m(); ++j) 
+      if (length(p_surf->points[{0, j}] - p_surf->points[{n(), j}]) > EPS)
+        return false;
+    return true;
+}
+
+bool SurfaceView::v_closed() const {
+  constexpr float EPS = 1e-2;
+    for (int i = 0; i <= n(); ++i) 
+      if (length(p_surf->points[{i, 0}] - p_surf->points[{i, m()}]) > EPS)
+        return false;
+    return true;
 }
 
 Surface load_surface(const std::filesystem::path &path) {
@@ -92,6 +125,7 @@ Surface load_surface(const std::filesystem::path &path) {
     auto &point = surf.points[{i, j}];
     fin >> tmp_chr >> point.x >> tmp_chr >> point.y >> tmp_chr >> point.z >> tmp_chr; // { ..., ..., ... }
   }
+  surf.bbox = BoundingBox3d(surf.points.data(), surf.points.get_n()*surf.points.get_m());
 
   fin >> tmp_str; // "weights:"
   for (int i = 0; i <= n; ++i)
