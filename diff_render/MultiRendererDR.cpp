@@ -1331,11 +1331,11 @@ namespace dr
           float4 old_estimate = (1.0f / relax_eps) * payload.missed_dSDF_dtheta[j] * color_delta;
           float4 new_estimate = mult * v2 * color_delta;
 
-          float diff = m_preset_dr.border_integral_mult * (1.0f / border_spp) *dot(dLoss_dColor, new_estimate);
+          float diff = m_preset_dr.border_integral_mult * (1.0f / border_spp) *dot(dLoss_dColor, old_estimate);
           out_dLoss_dS[payload.missed_indices[j]] += diff;
 
           total_diff += abs(diff);
-          pixel_diff += length(new_estimate);
+          pixel_diff += length(old_estimate);
           if (m_preset_dr.debug_pd_images)
             m_imagesDebugPD[payload.missed_indices[j]].data()[y * m_width + x] += diff * float4(1, 1, 1, 0);
         }

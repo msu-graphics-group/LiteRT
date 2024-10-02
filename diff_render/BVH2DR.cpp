@@ -1013,9 +1013,15 @@ namespace dr
 
           if (t_min >= 0 && t_min <= qFar && sdf_min < 0.f && -sdf_min*d < relax_pt->missed_hit.sdf) // Found relaxation point
           {
-            //printf("t_min = %f in (%f, %f)\n", t_min, qNear, qFar);
+            printf("t_min = %f in (%f, %f)\n", t_min, qNear, qFar);
+            assert(false);
             relax_pt->missed_hit.t = t_min;
             relax_pt->missed_hit.sdf = -sdf_min*d;
+          }
+          else
+          {
+            //relax_pt->missed_hit.t = 1e6f;
+            //relax_pt->missed_hit.sdf = 1e6f;            
           }
         }
 
@@ -1061,7 +1067,7 @@ namespace dr
                                  float qNear, float qFar, float3 start_q, float out_dValues[8])
   {
     //use finite differences to calculate dValues
-    float delta = 0.0001f;
+    float delta = 0.001f;
 
     for (int i = 0; i < 8; i++)
     {
@@ -1205,14 +1211,29 @@ static float3 dp_to_nmq(float3 dp, float beta)
             float3 dSDF_dy = eval_dist_trilinear_diff(values, q_ast); // grad
             //printf("dSDF_dy: %f %f %f\n", dSDF_dy.x, dSDF_dy.y, dSDF_dy.z);
 
+            float dt_dvalues[8];
+            float dSDF_dvalues[8];
+            dIntersect_dValues(ray_flags, ray_dir, values, d, 0.0f, qFar, start_q, dt_dvalues);
+
             float dSDF_dy_norm = length(dSDF_dy);
             if (dSDF_dy_norm > 1e-9f) 
             { 
-              eval_dist_trilinear_d_dtheta(relax_pt->missed_dSDF_dtheta, q_ast); // dSDF/dTheta
+              eval_dist_trilinear_d_dtheta(dSDF_dvalues, q_ast); // dSDF/dTheta
               for (int i=0; i<8; ++i)
               {
                 relax_pt->missed_dp_dsdf[i]  = -1.0f*relax_pt->missed_dSDF_dtheta[i]*dSDF_dy/(dSDF_dy_norm*dSDF_dy_norm);
-                relax_pt->missed_dSDF_dtheta[i] /= -1.0f*dSDF_dy_norm;
+                relax_pt->missed_dSDF_dtheta[i] = -dSDF_dvalues[i]/dSDF_dy_norm;
+                float3 new_val_1 = dt_dvalues[i]*ray_dir - dSDF_dvalues[i]*dSDF_dy*(dSDF_dy_norm*dSDF_dy_norm);
+                float new_val_2 = dot(new_val_1, dSDF_dy / dSDF_dy_norm);
+                //printf("%f %f\n", relax_pt->missed_dSDF_dtheta[i], new_val_2);
+                //if (abs(new_val_2)/(abs(relax_pt->missed_dSDF_dtheta[i])+1) > 2)
+                {
+                  printf("%f %f\n", relax_pt->missed_dSDF_dtheta[i], new_val_2);
+                  printf("t= %f tminMax = (%f %f) dp = %f %f %f\n", missed_t, 0.0f, qFar, q_ast.x, q_ast.y, q_ast.z);
+                  printf("dt_dvalues: %f %f %f %f %f %f %f %f\n", dt_dvalues[0], dt_dvalues[1], dt_dvalues[2], dt_dvalues[3], dt_dvalues[4], dt_dvalues[5], dt_dvalues[6], dt_dvalues[7]);
+                }
+                //else
+                  relax_pt->missed_dSDF_dtheta[i] = new_val_2;
               }
 
               uint32_t t_off = m_SdfSBSNodes[nodeId].data_offset + v_size * v_size * v_size;
