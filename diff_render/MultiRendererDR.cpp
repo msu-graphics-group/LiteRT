@@ -228,7 +228,7 @@ namespace dr
     unsigned grid_size = start_grid_size;
     unsigned grid_steps = presets.size();
     unsigned brick_size = 1;
-
+    
     auto grid =  create_grid_sbs(grid_size, brick_size, 
                                  [&](float3 p){return circle_sdf(float3(0,-0.15f,0), 0.7f, p);}, 
                                  gradient_color);
@@ -294,18 +294,24 @@ namespace dr
     unsigned max_threads = omp_get_max_threads();
     unsigned params_count = sbs.values_f.size();
 
-    m_dLoss_dS_tmp = std::vector<float>(params_count*max_threads, 0);
-    m_dLoss_dS_tmp_atomic_pos = std::vector<std::atomic<unsigned>>(params_count * max_threads);
-    m_dLoss_dS_tmp_atomic_neg = std::vector<std::atomic<unsigned>>(params_count * max_threads);
-
-    for (auto &el: m_dLoss_dS_tmp_atomic_pos)
+    if (m_preset_dr.dr_atomic_ders != DR_ATOMIC_DERRIVATIVES)
     {
-      el.store(0);
+      m_dLoss_dS_tmp = std::vector<float>(params_count*max_threads, 0);
     }
-
-    for (auto &el: m_dLoss_dS_tmp_atomic_neg)
+    else
     {
-      el.store(0);
+      m_dLoss_dS_tmp_atomic_pos = std::vector<std::atomic<unsigned>>(params_count * max_threads);
+      m_dLoss_dS_tmp_atomic_neg = std::vector<std::atomic<unsigned>>(params_count * max_threads);
+
+      for (auto &el: m_dLoss_dS_tmp_atomic_pos)
+      {
+        el.store(0);
+      }
+
+      for (auto &el: m_dLoss_dS_tmp_atomic_neg)
+      {
+        el.store(0);
+      }
     }
 
     m_Opt_tmp = std::vector<float>(2*params_count, 0);
@@ -398,6 +404,16 @@ namespace dr
         UpdateCamera(m_worldViewRef[image_id], m_projRef[image_id]);
         Clear(m_width, m_height, "color");
         std::fill(m_dLoss_dS_tmp.begin(), m_dLoss_dS_tmp.end(), 0.0f);
+
+        // for (auto &el: m_dLoss_dS_tmp_atomic_pos)
+        // {
+        //   el.store(0);
+        // }
+
+        // for (auto &el: m_dLoss_dS_tmp_atomic_neg)
+        // {
+        //   el.store(0);
+        // }
 
         if (m_preset_dr.debug_render_mode != DR_DEBUG_RENDER_MODE_NONE)
           m_imagesDebug[image_id].clear(float4(0,0,0,1));
@@ -628,11 +644,6 @@ namespace dr
             {
               process_mask[m_width * h + x] = 1;
             }
-
-            // for (int w = x0; w < x1; ++w)
-            // {
-            //   process_mask[m_width * y + w] = 1;
-            // }
 
             std::fill(process_mask.begin() + x0, process_mask.begin() + x1, 1);
           }

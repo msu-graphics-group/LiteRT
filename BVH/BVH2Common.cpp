@@ -1500,25 +1500,55 @@ float BVHRT::eval_distance_sdf_grid(uint32_t grid_id, float3 pos)
 
   //trilinear sampling
   float res = 0.0;
-  if (vox_u.x < size.x-1 && vox_u.y < size.y-1 && vox_u.z < size.z-1)
+  if (m_preset.interpolation_type == 0)
   {
-    for (int i=0;i<2;i++)
+    if (vox_u.x < size.x-1 && vox_u.y < size.y-1 && vox_u.z < size.z-1)
     {
-      for (int j=0;j<2;j++)
+      for (int i=0;i<2;i++)
       {
-        for (int k=0;k<2;k++)
+        for (int j=0;j<2;j++)
         {
-          float qx = (1 - dp.x + i*(2*dp.x-1));
-          float qy = (1 - dp.y + j*(2*dp.y-1));
-          float qz = (1 - dp.z + k*(2*dp.z-1));   
-          res += qx*qy*qz*m_SdfGridData[off + (vox_u.z + k)*size.x*size.y + (vox_u.y + j)*size.x + (vox_u.x + i)];   
-        }      
+          for (int k=0;k<2;k++)
+          {
+            float qx = (1 - dp.x + i*(2*dp.x-1));
+            float qy = (1 - dp.y + j*(2*dp.y-1));
+            float qz = (1 - dp.z + k*(2*dp.z-1));   
+            res += qx*qy*qz*m_SdfGridData[off + (vox_u.z + k)*size.x*size.y + (vox_u.y + j)*size.x + (vox_u.x + i)];   
+          }      
+        }
       }
     }
-  }
-  else
+    else
+    {
+      res += m_SdfGridData[off + (vox_u.z)*size.x*size.y + (vox_u.y)*size.x + (vox_u.x)]; 
+    }
+  } // tricubic interpolation
+  else if (m_preset.interpolation_type == 1)
   {
-    res += m_SdfGridData[off + (vox_u.z)*size.x*size.y + (vox_u.y)*size.x + (vox_u.x)]; 
+    if (vox_u.x < size.x-2 && vox_u.y < size.y-2 && vox_u.z < size.z-2 && vox_u.x > 0 && vox_u.y > 0 && vox_u.z > 0)
+    {
+      res = tricubicInterpolation(vox_u, dp, off, size);
+    }
+    else if (vox_u.x < size.x-1 && vox_u.y < size.y-1 && vox_u.z < size.z-1)
+    {
+      for (int i=0;i<2;i++)
+      {
+        for (int j=0;j<2;j++)
+        {
+          for (int k=0;k<2;k++)
+          {
+            float qx = (1 - dp.x + i*(2*dp.x-1));
+            float qy = (1 - dp.y + j*(2*dp.y-1));
+            float qz = (1 - dp.z + k*(2*dp.z-1));   
+            res += qx*qy*qz*m_SdfGridData[off + (vox_u.z + k)*size.x*size.y + (vox_u.y + j)*size.x + (vox_u.x + i)];   
+          }      
+        }
+      }
+    }
+    else
+    {
+      res += m_SdfGridData[off + (vox_u.z)*size.x*size.y + (vox_u.y)*size.x + (vox_u.x)]; 
+    }
   }
   
   return res;
@@ -1548,6 +1578,75 @@ float BVHRT::eval_distance_sdf_octree(uint32_t octree_id, float3 position, uint3
     return 1e6;
     break;
   }
+}
+
+float
+BVHRT::tricubicInterpolation(const uint3& vox_u, const float3 &dp, const uint32_t &off, const uint3 &size) const
+{
+  float res = 0;
+  int x0 = vox_u.x - 1, y0 = vox_u.y - 1, z0 = vox_u.z - 1;
+  auto spline = [&](const float &p0, const float &p1, const float &p2, const float &p3, const float &x)
+  {
+    return p1 + 0.5 * x * (p2 - p0 + x * (2.0 * p0 - 5.0 * p1 + 4.0 * p2 - p3 + x * (3.0 * (p1 - p2) + p3 - p0)));
+  };
+
+  float values_yz[4][4] = {0}, values_z[4] = {0};
+
+  for (int j = 0; j < 4; ++j)
+  {
+    for (int k = 0; k < 4; ++k)
+    {
+      //m_SdfGridData[off + (vox_u.z)*size.x*size.y + (vox_u.y)*size.x + (vox_u.x)]
+      values_yz[j][k] = spline(m_SdfGridData[off + (z0 + k)*size.x*size.y + (y0 + j)*size.x + (x0 + 0)],
+                                m_SdfGridData[off + (z0 + k)*size.x*size.y + (y0 + j)*size.x + (x0 + 1)],
+                                m_SdfGridData[off + (z0 + k)*size.x*size.y + (y0 + j)*size.x + (x0 + 2)],
+                                m_SdfGridData[off + (z0 + k)*size.x*size.y + (y0 + j)*size.x + (x0 + 3)], 
+                                dp.x
+      );
+    }
+  }
+
+  for (int k = 0; k < 4; ++k)
+  {
+    values_z[k] = spline(values_yz[0][k], 
+                          values_yz[1][k], 
+                          values_yz[2][k], 
+                          values_yz[3][k], 
+                          dp.y
+    );
+  }
+
+  res = spline(values_z[0], values_z[1], values_z[2], values_z[3], dp.z);
+  return res;
+}
+
+float3 
+BVHRT::tricubicInterpolationDerrivative(const uint3& vox_u, const float3 &dp, const uint32_t &off, const uint3 &size) const
+{
+  float eps = 0.00001;
+  float3 d_dist(0, 0, 0);
+  
+  float3 dp2 = dp, dp1 = dp;
+  dp2.x += eps;
+  dp1.x -= eps;
+
+  d_dist.x = (tricubicInterpolation(vox_u, dp2, off, size) - tricubicInterpolation(vox_u, dp1, off, size)) / (2 * eps);
+
+  dp2.x -= eps;
+  dp1.x += eps;
+  dp2.y += eps;
+  dp1.y -= eps;
+
+  d_dist.y = (tricubicInterpolation(vox_u, dp2, off, size) - tricubicInterpolation(vox_u, dp1, off, size)) / (2 * eps);
+
+  dp2.y -= eps;
+  dp1.y += eps;
+  dp2.z += eps;
+  dp1.z -= eps;
+
+  d_dist.z = (tricubicInterpolation(vox_u, dp2, off, size) - tricubicInterpolation(vox_u, dp1, off, size)) / (2 * eps);
+
+  return d_dist;
 }
 
 float BVHRT::sdf_octree_sample_mipskip_closest(uint32_t octree_id, float3 position, uint32_t max_level)

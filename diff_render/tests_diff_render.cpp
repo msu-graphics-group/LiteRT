@@ -2471,6 +2471,87 @@ diff_render_test_23_ray_casting_mask()
   printf("The ratio of the running time of the algorithm without mask to with mask: %.2f\n\n", time1 / time2);
 }
 
+void
+diff_render_test_24_tricubic_interpolation()
+{
+  float grid[4][4][4] = {
+    {{0.1, 0.2, 0.3, 0.4}, {0.2, 0.3, 0.4, 0.5}, {0.3, 0.4, 0.5, 0.6}, {0.4, 0.5, 0.6, 0.7}},
+    {{0.2, 0.3, 0.4, 0.5}, {0.3, 0.4, 0.5, 0.6}, {0.4, 0.5, 0.6, 0.7}, {0.5, 0.6, 0.7, 0.8}},
+    {{0.3, 0.4, 0.5, 0.6}, {0.4, 0.5, 0.6, 0.7}, {0.5, 0.6, 0.7, 0.8}, {0.6, 0.7, 0.8, 0.9}},
+    {{0.4, 0.5, 0.6, 0.7}, {0.5, 0.6, 0.7, 0.8}, {0.6, 0.7, 0.8, 0.9}, {0.7, 0.8, 0.9, 1.0}}
+  };
+
+  float x = 0.5, y = 0.5, z = 0.5;
+  float interpolated_value = 0;
+  
+  float values_yz[4][4] = {0}, values_z[4] = {0};
+  //  Catmull–Rom spline
+  //  p[1] + 0.5 * x * (p[2] - p[0] + x * (2.0 * p[0] - 5.0 * p[1] + 4.0 * p[2] - p[3] + x * (3.0 * (p[1] - p[2]) + p[3] - p[0])))
+  auto spline = [&](const float &p0, const float &p1, const float &p2, const float &p3, const float &x)
+  {
+    return p1 + 0.5 * x * (p2 - p0 + x * (2.0 * p0 - 5.0 * p1 + 4.0 * p2 - p3 + x * (3.0 * (p1 - p2) + p3 - p0)));
+  };
+
+  for (int j = 0; j < 4; ++j)
+  {
+    for (int k = 0; k < 4; ++k)
+    {
+      values_yz[j][k] = spline(grid[0][j][k], grid[1][j][k], grid[2][j][k], grid[3][j][k], x);
+    }
+  }
+
+  for (int k = 0; k < 4; k++)
+  {
+    values_z[k] = spline(values_yz[0][k], values_yz[1][k], values_yz[2][k], values_yz[3][k], y);
+  }
+
+  interpolated_value = spline(values_z[0], values_z[1], values_z[2], values_z[3], z);
+
+  std::cout << "INTERPOLATED VALUE IS: " << interpolated_value << std::endl;
+}
+
+void
+diff_render_test_25_optimization_with_tricubic()
+{
+  auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "scenes/01_simple_scenes/data/teapot.vsgf").c_str());
+  cmesh4::normalize_mesh(mesh);
+  unsigned W = 512, H = 512;
+  
+  {
+    MultiRenderPreset preset = getDefaultPreset();
+    preset.interpolation_type = 0;
+    preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
+    LiteImage::Image2D<float4> image_1(W, H);
+
+    auto grid = sdf_converter::create_sdf_grid(GridSettings(64), mesh);
+    auto pRender = CreateMultiRenderer("CPU");
+    pRender->SetPreset(preset);
+    pRender->SetScene(grid);
+    render(image_1, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+    LiteImage::SaveImage<float4>("saves/test_25_grid_trilinear.bmp", image_1);
+  }
+
+  {
+    MultiRenderPreset preset = getDefaultPreset();
+    preset.interpolation_type = 1;
+    preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
+    LiteImage::Image2D<float4> image_1(W, H);
+
+    auto grid = sdf_converter::create_sdf_grid(GridSettings(64), mesh);
+    auto pRender = CreateMultiRenderer("CPU");
+    pRender->SetPreset(preset);
+    pRender->SetScene(grid);
+    render(image_1, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+    LiteImage::SaveImage<float4>("saves/test_25_grid_tricubic.bmp", image_1);
+  }
+}
+
+void
+diff_render_test_26_tricubic_derrivative()
+{
+  
+}
+
 void perform_tests_diff_render(const std::vector<int> &test_ids)
 {
   std::vector<int> tests = test_ids;
@@ -2483,7 +2564,8 @@ void perform_tests_diff_render(const std::vector<int> &test_ids)
       diff_render_test_13_optimize_sphere_diffuse, diff_render_test_14_optimize_sphere_lambert, diff_render_test_15_combined_reconstruction,
       diff_render_test_16_borders_detection, diff_render_test_17_optimize_bunny, diff_render_test_18_sphere_depth,
       diff_render_test_19_expanding_grid, diff_render_test_20_sphere_depth_with_redist, diff_render_test_21_optimization_stand,
-      diff_render_test_22_border_sampling_accuracy_mask, diff_render_test_23_ray_casting_mask};
+      diff_render_test_22_border_sampling_accuracy_mask, diff_render_test_23_ray_casting_mask, diff_render_test_24_tricubic_interpolation,
+      diff_render_test_25_optimization_with_tricubic, diff_render_test_26_tricubic_derrivative};
 
   if (tests.empty())
   {
