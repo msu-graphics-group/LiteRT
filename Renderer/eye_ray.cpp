@@ -77,7 +77,7 @@ float3 MultiRenderer::rand3(uint32_t x, uint32_t y, uint32_t iter)
 float2 MultiRenderer::rand2(uint32_t x, uint32_t y, uint32_t iter)
 {
   float3 r3 = rand3(x, y, iter);
-  return float2(r3.x, r3.y);
+  return float2((float)rand()/RAND_MAX, (float)rand()/RAND_MAX);
 }
 
 void MultiRenderer::CastRaySingle(uint32_t tidX, uint32_t* out_color)
@@ -95,7 +95,8 @@ void MultiRenderer::CastRaySingle(uint32_t tidX, uint32_t* out_color)
 
   for (uint32_t i = 0; i < m_preset.spp; i++)
   {
-    float2 d = m_preset.ray_gen_mode == RAY_GEN_MODE_RANDOM ? rand2(x, y, i + m_seed % 2) : i_spp_sqrt*float2(i/spp_sqrt+0.5, i%spp_sqrt+0.5);
+      float2 rnd = rand2(x, y, i);
+      float2 d = i_spp_sqrt * float2(i / spp_sqrt + rnd.x, i % spp_sqrt + rnd.y);
     float4 rayPosAndNear, rayDirAndFar;
     kernel_InitEyeRay(tidX, d, &rayPosAndNear, &rayDirAndFar);
     res_color += kernel_RayTrace(tidX, &rayPosAndNear, &rayDirAndFar);
@@ -120,7 +121,8 @@ void MultiRenderer::CastRayFloatSingle(uint32_t tidX, float4* out_color)
 
   for (uint32_t i = 0; i < m_preset.spp; i++)
   {
-    float2 d = m_preset.ray_gen_mode == RAY_GEN_MODE_RANDOM ? rand2(x, y, i + m_seed % 2) : i_spp_sqrt*float2(i/spp_sqrt+0.5, i%spp_sqrt+0.5);
+      float2 rnd = rand2(x, y, i);
+      float2 d = i_spp_sqrt * float2(i / spp_sqrt + rnd.x, i % spp_sqrt + rnd.y);
     float4 rayPosAndNear, rayDirAndFar;
     kernel_InitEyeRay(tidX, d, &rayPosAndNear, &rayDirAndFar);
     res_color += kernel_RayTrace(tidX, &rayPosAndNear, &rayDirAndFar);

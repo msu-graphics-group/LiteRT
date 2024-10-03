@@ -577,14 +577,6 @@ namespace dr
         const uint XY = m_packedXY[i];
         const uint x  = (XY & 0x0000FFFF);
         const uint y  = (XY & 0xFFFF0000) >> 16;
-
-
-        if (x < search_radius || x >= m_width - search_radius || y <= search_radius || y >= m_height - search_radius)
-          continue;
-        
-        
-        if (x < search_radius || x >= m_width - search_radius || y <= search_radius || y >= m_height - search_radius)
-          continue;
         
         //finding external borders nearby (borders with background)
         //TODO: find internal borders
@@ -1071,7 +1063,8 @@ namespace dr
     float total_diff = 0;
     for (uint32_t i = 0; i < m_preset.spp; i++)
     {
-      float2 d = m_preset.ray_gen_mode == RAY_GEN_MODE_RANDOM ? rand2(x, y, i) : i_spp_sqrt*float2(i/spp_sqrt+0.5, i%spp_sqrt+0.5);
+      float2 rnd = rand2(x, y, i);
+      float2 d = i_spp_sqrt * float2(i / spp_sqrt + rnd.x, i % spp_sqrt + rnd.y);
       float4 rayPosAndNear, rayDirAndFar;
       kernel_InitEyeRay(tidX, d, &rayPosAndNear, &rayDirAndFar);
       
@@ -1250,6 +1243,7 @@ namespace dr
     
     unsigned border_points = 0;
     float total_diff = 0.0f;
+    std::vector<float2> lines(2*border_spp);
 
     if (m_preset_dr.debug_border_samples || m_preset_dr.debug_border_samples_mega_image)
     {
@@ -1260,7 +1254,8 @@ namespace dr
     for (int sample_id = 0; sample_id < border_spp; sample_id++)
     {
       float pixel_diff = 0.0f;
-      float2 d = m_preset.ray_gen_mode == RAY_GEN_MODE_RANDOM ? rand2(x, y, sample_id) : i_spp_sqrt * float2(sample_id / spp_sqrt + 0.5, sample_id % spp_sqrt + 0.5);
+      float2 rnd = rand2(x, y, sample_id);
+      float2 d = i_spp_sqrt * float2(sample_id / spp_sqrt + rnd.x, sample_id % spp_sqrt + rnd.y);
       float4 rayPosAndNear, rayDirAndFar;
       kernel_InitEyeRay(tidX, d, &rayPosAndNear, &rayDirAndFar);
 
@@ -1271,8 +1266,6 @@ namespace dr
 
       if (is_border_ray)
       {
-        border_points++;
-
         float4 color_delta = float4(0,0,0,0);
         if (m_preset_dr.dr_input_type == DR_INPUT_TYPE_COLOR)
         {
@@ -1305,6 +1298,32 @@ namespace dr
         //assert(pixel.x == x && pixel.y == y);
 
         float2 dir = float2(ppos_2.x - ppos_1.x, ppos_2.y - ppos_1.y);
+        float dir_mult = relax_eps/length(dir);
+        static std::vector<float> low_y;
+        static std::vector<float> high_y;
+        if (y < 7)
+          low_y.push_back(dir_mult);
+        else if (y > 9)
+          high_y.push_back(dir_mult);
+        if (border_points == 0)
+        {
+          float average_high = 0.0f;
+          float average_low = 0.0f;
+          for (int i = 0; i < low_y.size(); i++)
+            average_low += low_y[i];
+          for (int i = 0; i < high_y.size(); i++)
+            average_high += high_y[i];
+          average_low /= low_y.size();
+          average_high /= high_y.size();
+          //printf("average = %f %f\n", average_high, average_low);
+        }
+        //printf("dir_mult = %f\n", dir_mult);
+        float2 pp1 = float2(m_width*ppos_1.x - x, m_height*ppos_1.y - y);
+        float2 pp2 = float2(m_height*ppos_2.x - x, m_height*ppos_2.y - y);
+        lines[2*border_points + 0] = pp1;
+        lines[2*border_points + 1] = pp2;
+        border_points++;
+
         //printf("border size %f\n", length(dir)*m_width);
         //printf("dir = %f %f\n", dir.x, dir.y);//0.0001f;
         //float aa = abs(dot(payload.missed_hit.normal, normalize(to_float3(rayDirAndFar))));
@@ -1326,9 +1345,12 @@ namespace dr
           float4 d_ps_y = float4(0,-0.5/ps.w,0,0.5*ps.y/(ps.w*ps.w));
           float2 d_ps = float2(dot(d_ps_x, dmmul_dsdf), dot(d_ps_y, dmmul_dsdf));
           float v2 = dot(d_ps, n_s);
+          float v3 = -dot(normalize(dir), float2(payload.missed_dp_dsdf[j].x, payload.missed_dp_dsdf[j].y));
+          //printf("v1 = %f v3 = %f v1/v3 = %f\n", v1, v3, v1/v3);
           //printf("v1 = %f v2 = %f diff = %f\n", v1, v2, v1/v2);
+          //printf("color_delta = %f %f %f %f\n", color_delta.x, color_delta.y, color_delta.z, color_delta.w);
 
-          float4 old_estimate = (1.0f / relax_eps) * payload.missed_dSDF_dtheta[j] * color_delta;
+          float4 old_estimate = (1.0f / relax_eps) * v3 * color_delta;
           float4 new_estimate = mult * v2 * color_delta;
 
           float diff = m_preset_dr.border_integral_mult * (1.0f / border_spp) *dot(dLoss_dColor, old_estimate);
@@ -1376,12 +1398,17 @@ namespace dr
       }
     }
 
+    //if (x == 10 && y == 8)
+    printf("[%u %u] border_points %u\n", x, y, border_points);
+
     if (m_preset_dr.debug_border_samples || m_preset_dr.debug_border_samples_mega_image)
     {
       unsigned wmult = MEGA_PIXEL_SIZE, hmult = MEGA_PIXEL_SIZE;
       unsigned sw = m_width * wmult, sh = m_height * hmult;
       LiteImage::Image2D<float4> debug_image(wmult, hmult);
       draw_points(samples_debug_pos_size, samples_debug_color, debug_image);
+      //for (int i=0;i<border_points;i++)
+      //  draw_line(lines[i*2], lines[i*2+1], 1.0/MEGA_PIXEL_SIZE, float4(0,1,0,1), debug_image);
       if (tidX % 10 == 0)
         LiteImage::SaveImage(("saves/debug_border"+std::to_string(x)+"_"+std::to_string(y)+".png").c_str(), debug_image);
       

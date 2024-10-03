@@ -947,6 +947,25 @@ void diff_render_test_8_optimize_with_lambert()
     printf("FAILED, psnr = %f\n", psnr_2);
 }
 
+  //orthographic projection with right-handed coordinate system to unit cube [-1,1]^3
+  static inline float4x4 orthoRH_NO(float left, float right, float bottom, float top, float zNear, float zFar)
+	{
+		float4x4 Result;
+		Result(0,0) =  2.0f / (right - left);
+		Result(1,1) =  2.0f / (top - bottom);
+		Result(2,2) = -2.0f / (zFar - zNear);
+		Result(0,3) = - (right + left) / (right - left);
+		Result(1,3) = - (top + bottom) / (top - bottom);
+		Result(2,3) = - (zFar + zNear) / (zFar - zNear);
+		return Result;
+	}
+
+  //orthographic projection
+  static inline float4x4 ortho(float left, float right, float bottom, float top, float zNear, float zFar)
+	{
+    return orthoRH_NO(left, right, bottom, top, zNear, zFar);
+  }
+
 void test_position_derivatives(const SdfSBS &SBS, unsigned render_node, unsigned diff_render_mode,
                                unsigned border_sampling, bool close_view, bool empty_reference)
 {
@@ -958,7 +977,7 @@ void test_position_derivatives(const SdfSBS &SBS, unsigned render_node, unsigned
   
   srand(0);
 
-  unsigned W = 16, H = 16;
+  unsigned W = 1, H = 1;
 
   MultiRenderPreset preset = getDefaultPreset();
   preset.render_mode = render_node;
@@ -966,11 +985,12 @@ void test_position_derivatives(const SdfSBS &SBS, unsigned render_node, unsigned
   //preset.ray_gen_mode = RAY_GEN_MODE_RANDOM;
   preset.spp = 256;
 
-  float4x4 base_proj = LiteMath::perspectiveMatrix(close_view ? 20 : 40, 1.0f, 0.01f, 100.0f);
+  float4x4 base_proj = LiteMath::perspectiveMatrix(close_view ? 20 : 20, 1.0f, 0.01f, 100.0f);
+  //base_proj = LiteMath::ort
 
   std::vector<float4x4> view; 
   //if (close_view)
-    view = std::vector<float4x4>{LiteMath::lookAt(float3(1, 0, 2.0), float3(1, 0, 0), float3(0, 1, 0))};
+    view = std::vector<float4x4>{LiteMath::lookAt(float3(0.4, -0.4, 2.0), float3(0.4, -0.4, 0), float3(0, 1, 0))};
   //else
   //  view = get_cameras_uniform_sphere(1, float3(0, 0, 0), 5.0f);
   std::vector<float4x4> proj(view.size(), base_proj);
@@ -1005,10 +1025,10 @@ void test_position_derivatives(const SdfSBS &SBS, unsigned render_node, unsigned
   dr_preset.dr_input_type = diff_render_mode == DR_RENDER_MODE_LINEAR_DEPTH ? DR_INPUT_TYPE_LINEAR_DEPTH : DR_INPUT_TYPE_COLOR;
   dr_preset.opt_iterations = 1;
   dr_preset.opt_lr = 0.0f;
-  dr_preset.spp = 512;
-  dr_preset.border_spp = 16*1024;
+  dr_preset.spp = 8*1024;
+  dr_preset.border_spp = 32*1024;
   dr_preset.debug_pd_brightness = 0.001f;
-  dr_preset.border_relax_eps = 2e-3f;
+  dr_preset.border_relax_eps = 0.005f;
   dr_preset.finite_diff_delta = 0.001f;
   dr_preset.finite_diff_brightness = 0.25f;
   dr_preset.debug_render_mode = DR_DEBUG_RENDER_MODE_BORDER_DETECTION;
@@ -1030,10 +1050,11 @@ void test_position_derivatives(const SdfSBS &SBS, unsigned render_node, unsigned
 
     for (int T = 0; T < 2; T++)
     {
-    unsigned samples = 2;
+    unsigned samples = 500;
     std::vector<std::vector<float>> grads(samples);
     for (unsigned i = 0; i < samples; i++)
     {
+          srand(time(nullptr) + i);
       MultiRendererDR dr_render;
       dr_preset.dr_diff_mode = T == 0 ? DR_DIFF_MODE_DEFAULT : DR_DIFF_MODE_FINITE_DIFF;
       dr_preset.dr_border_sampling = border_sampling;
@@ -1041,10 +1062,16 @@ void test_position_derivatives(const SdfSBS &SBS, unsigned render_node, unsigned
       dr_preset.debug_border_samples_mega_image = T == 0 && i == 0;
       dr_preset.debug_border_samples = T == 0 && i == 0;
 
+      //if (T == 0)
+      //  indexed_SBS.values_f[13] += 0.01f;
+
       dr_render.SetReference(images_ref, view, proj);
       dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS);
       grads[i] = std::vector<float>(dr_render.getLastdLoss_dS() + param_offset, 
                                     dr_render.getLastdLoss_dS() + param_offset + param_count);
+
+      //if (T == 0)
+      //  indexed_SBS.values_f[13] -= 0.01f;
     }
 
     grad_mean[T] = stat::mean<float>(grads);

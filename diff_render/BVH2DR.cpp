@@ -638,7 +638,7 @@ namespace dr
       // Borders for bisection and SDF min point
       float2 t_dsdf_l { (qFar + 2), 0.f },
              t_dsdf_r { (qFar + 1), 0.f },
-             t_sdf_res{ (qFar + 1), relax_pt->missed_hit.sdf };
+             t_sdf_res{ (qFar + 1), relax_pt ? relax_pt->missed_hit.sdf : 0.0f };
 
       // SDF values in t0, tFar
       const float t0 = 0.f;
@@ -1080,6 +1080,21 @@ namespace dr
     }
   }
 
+  void BVHDR::dBorderIntersect_dValues(uint32_t ray_flags, const float3 ray_dir, float values[8], float d,
+                                       float qNear, float qFar, float3 start_q, float min_sdf, float out_dValues[8])
+  {
+    float delta = 0.1f*min_sdf + 1e-6f;
+    for (int i = 0; i < 8; i++)
+    {
+      values[i] += delta;
+      float d1 = Intersect(ray_flags, ray_dir, values, d, qNear, qFar, start_q, nullptr);
+      values[i] -= 2 * delta;
+      float d2 = Intersect(ray_flags, ray_dir, values, d, qNear, qFar, start_q, nullptr);
+      values[i] += delta;
+      out_dValues[i] = (d1 - d2) / (2 * delta);
+    }
+  }
+
 float BVHDR::load_distance_values_with_indices(uint32_t nodeId, float3 voxelPos, uint32_t v_size, float sz_inv, const SdfSBSHeader &header, 
                                                float values[8], uint32_t indices[8])
 {
@@ -1105,6 +1120,14 @@ float BVHDR::load_distance_values_with_indices(uint32_t nodeId, float3 voxelPos,
   }
 
   return vmin;
+}
+
+float y_from_x(float x, float d00, float d01, float d10, float d11)
+{
+  float k = d00*(x-1) + (1-x)*d01 - x*d10 + x*d11;
+  //printf("d00: %f d01: %f d10: %f d11: %f k: %f\n", d00, d01, d10, d11, k);
+  assert(std::abs(k) > 1e-10f);
+  return (d00*(x-1) - d10*x)/(k);
 }
 
 static float3 dp_to_nmq(float3 dp, float beta)
@@ -1206,35 +1229,81 @@ static float3 dp_to_nmq(float3 dp, float beta)
             float missed_t = relax_pt->missed_hit.t;
             relax_pt->missed_hit.t = fNearFar.x + d * relax_pt->missed_hit.t; //MultiRendrer expectes t as an absolute distance
             float3 q_ast = start_q + missed_t * ray_dir;
+            //float3 pos = ray_pos + (fNearFar.x + d * relax_pt->missed_hit.t)*ray_dir;
+            //pos = ray_pos + fNearFar.x*ray_dir + d * missed_t * ray_dir;
+            //q_ast = (pos - ray_pos + fNearFar.x*ray_dir)/d + start_q;
+            //dSDF_dpos = d_SDF_dq_ast*(1/d);
             float3 y_ast = ray_pos + (fNearFar.x + (d * missed_t)) * ray_dir;
             float3 dp_ast = (y_ast - brick_min_pos) * (0.5f * sz);
-            float3 dSDF_dy = eval_dist_trilinear_diff(values, q_ast); // grad
+            float3 dSDF_dpos = eval_dist_trilinear_diff(values, q_ast)*(1/d); // grad
+            //dSDF_dpos.z = 0;
+            //printf("dSDF_dpos: %f %f %f\n", dSDF_dpos.x, dSDF_dpos.y, dSDF_dpos.z);
+            //printf("d = %f q_ast = %f %f %f\n", d, q_ast.x, q_ast.y, q_ast.z);
+            //float l = length(dSDF_dpos);
+            //dSDF_dy.z = 0;
+            //dSDF_dy = l*normalize(dSDF_dy);
+            //printf("q_ast: %f %f %f\n", q_ast.x, q_ast.y, q_ast.z);
+            //printf("ray_dir: %f %f %f\n", ray_dir.x, ray_dir.y, ray_dir.z);
+            bool voxel_border = (q_ast.x < 1e-6f || q_ast.x > 1.0f - 1e-6f || q_ast.y < 1e-6f || q_ast.y > 1.0f - 1e-6f || q_ast.z < 1e-6f || q_ast.z > 1.0f - 1e-6f);
+
             //printf("dSDF_dy: %f %f %f\n", dSDF_dy.x, dSDF_dy.y, dSDF_dy.z);
 
             float dt_dvalues[8];
             float dSDF_dvalues[8];
             dIntersect_dValues(ray_flags, ray_dir, values, d, 0.0f, qFar, start_q, dt_dvalues);
 
-            float dSDF_dy_norm = length(dSDF_dy);
-            if (dSDF_dy_norm > 1e-9f) 
+            float dSDF_dpos_len = length(dSDF_dpos);
+            if (dSDF_dpos_len > 1e-9f) 
             { 
               eval_dist_trilinear_d_dtheta(dSDF_dvalues, q_ast); // dSDF/dTheta
               for (int i=0; i<8; ++i)
               {
-                relax_pt->missed_dp_dsdf[i]  = -1.0f*relax_pt->missed_dSDF_dtheta[i]*dSDF_dy/(dSDF_dy_norm*dSDF_dy_norm);
-                relax_pt->missed_dSDF_dtheta[i] = -dSDF_dvalues[i]/dSDF_dy_norm;
-                float3 new_val_1 = dt_dvalues[i]*ray_dir - dSDF_dvalues[i]*dSDF_dy*(dSDF_dy_norm*dSDF_dy_norm);
-                float new_val_2 = dot(new_val_1, dSDF_dy / dSDF_dy_norm);
+                //relax_pt->missed_dp_dsdf[i]  = -1.0f*relax_pt->missed_dSDF_dtheta[i]*dSDF_dy/(dSDF_dy_norm*dSDF_dy_norm);
+                relax_pt->missed_dSDF_dtheta[i] = -dSDF_dvalues[i]/dSDF_dpos_len;
+                //float3 new_val_1 = dt_dvalues[i]*ray_dir - dSDF_dvalues[i]*dSDF_dy*(dSDF_dy_norm*dSDF_dy_norm);
+                //float new_val_2 = dot(new_val_1, dSDF_dy / dSDF_dy_norm);
                 //printf("%f %f\n", relax_pt->missed_dSDF_dtheta[i], new_val_2);
                 //if (abs(new_val_2)/(abs(relax_pt->missed_dSDF_dtheta[i])+1) > 2)
-                {
-                  printf("%f %f\n", relax_pt->missed_dSDF_dtheta[i], new_val_2);
-                  printf("t= %f tminMax = (%f %f) dp = %f %f %f\n", missed_t, 0.0f, qFar, q_ast.x, q_ast.y, q_ast.z);
-                  printf("dt_dvalues: %f %f %f %f %f %f %f %f\n", dt_dvalues[0], dt_dvalues[1], dt_dvalues[2], dt_dvalues[3], dt_dvalues[4], dt_dvalues[5], dt_dvalues[6], dt_dvalues[7]);
-                }
+                //if (!voxel_border)
+                //{
+                //  printf("%f %f\n", relax_pt->missed_dSDF_dtheta[i], new_val_2);
+                //  printf("t= %f tminMax = (%f %f) dp = %f %f %f\n", missed_t, 0.0f, qFar, q_ast.x, q_ast.y, q_ast.z);
+                //  printf("dt_dvalues: %f %f %f %f %f %f %f %f\n", dt_dvalues[0], dt_dvalues[1], dt_dvalues[2], dt_dvalues[3], dt_dvalues[4], dt_dvalues[5], dt_dvalues[6], dt_dvalues[7]);
+                //}
                 //else
-                  relax_pt->missed_dSDF_dtheta[i] = new_val_2;
+                //  relax_pt->missed_dSDF_dtheta[i] = new_val_2;
               }
+
+              float d00 = values[4*0+2*0+1];
+              float d01 = values[4*0+2*1+1];
+              float d10 = values[4*1+2*0+1];
+              float d11 = values[4*1+2*1+1];
+
+              float x = q_ast.x;
+              float y = y_from_x(x, d00, d01, d10, d11);
+              float delta = 0.0001f;
+
+              relax_pt->missed_dp_dsdf[4*0+2*0+1] = float3(0, (y_from_x(x, d00+delta, d01, d10, d11) - y_from_x(x, d00-delta, d01, d10, d11))/(2*delta), 0);
+              relax_pt->missed_dp_dsdf[4*0+2*1+1] = float3(0, (y_from_x(x, d00, d01+delta, d10, d11) - y_from_x(x, d00, d01-delta, d10, d11))/(2*delta), 0);
+              relax_pt->missed_dp_dsdf[4*1+2*0+1] = float3(0, (y_from_x(x, d00, d01, d10+delta, d11) - y_from_x(x, d00, d01, d10-delta, d11))/(2*delta), 0);
+              relax_pt->missed_dp_dsdf[4*1+2*1+1] = float3(0, (y_from_x(x, d00, d01, d10, d11+delta) - y_from_x(x, d00, d01, d10, d11-delta))/(2*delta), 0);
+
+              float max_val = 0.0;
+              for (int i = 0; i < 8; i++)
+                max_val = std::max(max_val, std::abs(relax_pt->missed_dSDF_dtheta[i]));
+              if (max_val > 1)
+              printf("%f %f %f %f %f %f %f %f\n",
+                     relax_pt->missed_dSDF_dtheta[0], relax_pt->missed_dSDF_dtheta[1],
+                     relax_pt->missed_dSDF_dtheta[2], relax_pt->missed_dSDF_dtheta[3],
+                     relax_pt->missed_dSDF_dtheta[4], relax_pt->missed_dSDF_dtheta[5],
+                     relax_pt->missed_dSDF_dtheta[6], relax_pt->missed_dSDF_dtheta[7]);
+              //assert(missed_indices_tmp[0] == 12 && missed_indices_tmp[1] == 13 && missed_indices_tmp[2] == 15 && missed_indices_tmp[3] == 16 && 
+              //missed_indices_tmp[4] == 21);
+              //printf("missed indices = %d %d %d %d %d %d %d %d\n",
+              //       missed_indices_tmp[0], missed_indices_tmp[1],
+              //       missed_indices_tmp[2], missed_indices_tmp[3],
+              //       missed_indices_tmp[4], missed_indices_tmp[5],
+              //       missed_indices_tmp[6], missed_indices_tmp[7]);
 
               uint32_t t_off = m_SdfSBSNodes[nodeId].data_offset + v_size * v_size * v_size;
               float3 colors[8];
@@ -1244,7 +1313,7 @@ static float3 dp_to_nmq(float3 dp, float beta)
                                    m_SdfSBSDataF[m_SdfSBSData[t_off + i] + 2]);
               
               relax_pt->missed_hit.color = eval_color_trilinear(colors, dp_ast);
-              relax_pt->missed_hit.normal = dSDF_dy / dSDF_dy_norm;
+              relax_pt->missed_hit.normal = dSDF_dpos / dSDF_dpos_len;
 
               for (int i = 0; i < 8; i++)
                 relax_pt->missed_indices[i] = missed_indices_tmp[i];
