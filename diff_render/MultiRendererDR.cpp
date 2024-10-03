@@ -639,11 +639,6 @@ namespace dr
               process_mask[m_width * h + x] = 1;
             }
 
-            // for (int w = x0; w < x1; ++w)
-            // {
-            //   process_mask[m_width * y + w] = 1;
-            // }
-
             std::fill(process_mask.begin() + x0, process_mask.begin() + x1, 1);
           }
         }

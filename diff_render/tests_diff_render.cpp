@@ -2575,6 +2575,12 @@ diff_render_test_25_optimization_with_tricubic()
   }
 }
 
+void
+diff_render_test_26_tricubic_derrivative()
+{
+  
+}
+
 void perform_tests_diff_render(const std::vector<int> &test_ids)
 {
   std::vector<int> tests = test_ids;
@@ -2588,7 +2594,7 @@ void perform_tests_diff_render(const std::vector<int> &test_ids)
       diff_render_test_16_borders_detection, diff_render_test_17_optimize_bunny, diff_render_test_18_sphere_depth,
       diff_render_test_19_expanding_grid, diff_render_test_20_sphere_depth_with_redist, diff_render_test_21_optimization_stand,
       diff_render_test_22_border_sampling_accuracy_mask, diff_render_test_23_ray_casting_mask, diff_render_test_24_tricubic_interpolation,
-      diff_render_test_25_optimization_with_tricubic};
+      diff_render_test_25_optimization_with_tricubic, diff_render_test_26_tricubic_derrivative};
 
   if (tests.empty())
   {
