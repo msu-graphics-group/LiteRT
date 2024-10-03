@@ -12,6 +12,7 @@
 #include "../utils/demo_meshes.h"
 #include "../utils/image_metrics.h"
 #include "../diff_render/MultiRendererDR.h"
+#include "../utils/iou.h"
 
 #include <functional>
 #include <cassert>
@@ -2225,6 +2226,23 @@ void litert_test_28_sbs_reg()
   
 }
 
+void count_of_nodes_in_layers(const std::vector<SdfFrameOctreeNode> &frame_nodes, unsigned layer, std::vector<unsigned> &layers, unsigned idx)
+{
+  if (layer + 1 > layers.size())
+  {
+    layers.resize(layer + 1);
+    layers[layer] = 0;
+  }
+  layers[layer] += 1;
+  if (frame_nodes[idx].offset != 0)
+  {
+    for (unsigned num = 0; num < 8; ++num)
+    {
+      count_of_nodes_in_layers(frame_nodes, layer + 1, layers, frame_nodes[idx].offset + num);
+    }
+  }
+}
+
 void litert_test_29_smoothed_frame_octree()
 {
   auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path+"scenes/01_simple_scenes/data/teapot.vsgf").c_str());
@@ -2236,19 +2254,11 @@ void litert_test_29_smoothed_frame_octree()
   LiteImage::Image2D<uint32_t> image_1(W, H);
   LiteImage::Image2D<uint32_t> image_2(W, H);
   MultiRenderPreset preset = getDefaultPreset();
-  LiteImage::Image2D<float4> texture = LiteImage::LoadImage<float4>("scenes/porcelain.png");
 
   {
     auto pRender = CreateMultiRenderer("GPU");
     pRender->SetPreset(preset);
     pRender->SetViewport(0,0,W,H);
-
-    uint32_t texId = pRender->AddTexture(texture);
-    MultiRendererMaterial mat;
-    mat.type = MULTI_RENDER_MATERIAL_TYPE_TEXTURED;
-    mat.texId = texId;
-    uint32_t matId = pRender->AddMaterial(mat);
-    pRender->SetMaterial(matId, 0);
 
     pRender->SetScene(mesh);
     render(image, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
@@ -2258,37 +2268,89 @@ void litert_test_29_smoothed_frame_octree()
     for (unsigned i = 0; i < 1; i++)
       bvh[i].init(mesh);
     auto real_sdf = [&](const float3 &p, unsigned idx) -> float 
-    { return bvh[idx].get_signed_distance(p);};
+    { return bvh[idx].get_signed_distance(p); /*return std::sqrt(p.x * p.x + p.y * p.y + p.z * p.z) - 0.8;*/};
 
     printf("TEST 29. New frame octree creation\n");
 
-  std::vector<SdfFrameOctreeNode> frame_nodes = sdf_converter::create_sdf_frame_octree(settings, real_sdf, 1e-2, true);
-
-  {
-    auto pRender = CreateMultiRenderer("GPU");
-    pRender->SetPreset(preset);
-    pRender->SetScene(frame_nodes);
-    render(image_1, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
-  }
-
-  frame_nodes = sdf_converter::create_sdf_frame_octree(settings, real_sdf, 1);
-
-  {
-    auto pRender = CreateMultiRenderer("GPU");
-    pRender->SetPreset(preset);
-    pRender->SetScene(frame_nodes);
-    render(image_2, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
-  }
-
   LiteImage::SaveImage<uint32_t>("saves/test_29_mesh.bmp", image);
-  LiteImage::SaveImage<uint32_t>("saves/test_29_our_octree.bmp", image_1);
-  LiteImage::SaveImage<uint32_t>("saves/test_29_octree.bmp", image_2);
+
+  unsigned num_of_test = 1;
+  for (float eps = 1e-2; eps > 1e-5; eps /= std::sqrt(10), ++num_of_test)
+  {
+
+    std::vector<SdfFrameOctreeNode> frame_nodes = sdf_converter::create_sdf_frame_octree(settings, real_sdf, eps, true, false);
+
+    {
+      auto pRender = CreateMultiRenderer("GPU");
+      pRender->SetPreset(preset);
+      pRender->SetScene(frame_nodes);
+      render(image_1, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+
+      float psnr = image_metrics::PSNR(image, image_1);
+
+      printf("  29.1.%u %-64s", num_of_test, "mesh and new frame octree PSNR > 30");
+      if (psnr >= 30)
+        printf("passed    (%.2f), eps = %f\n", psnr, eps);
+      else
+        printf("FAILED, psnr = %f, eps = %f\n", psnr, eps);
+
+      float iou = IoU::IoU_frame_octree(frame_nodes, real_sdf, 1000000);
+
+      printf("  29.2.%u %-64s", num_of_test, "sdf and new frame octree IoU > 0.9");
+      if (iou >= 0.9)
+        printf("passed    (%.5f), eps = %f\n", iou, eps);
+      else
+        printf("FAILED, iou = %f, eps = %f\n", iou, eps);
+      
+    }
+
+    settings.nodes_limit = frame_nodes.size();
+    //printf("%d\n", frame_nodes.size());
+
+    frame_nodes = sdf_converter::create_sdf_frame_octree(settings, real_sdf, 1);
+    //std::vector<unsigned> buffer = {0};
+
+    //count_of_nodes_in_layers(frame_nodes, 0, buffer, 0);
+
+    /*for (auto i : buffer)
+    {
+      printf("%u ", i);
+    }
+    printf("\n");*/
+
+    {
+      auto pRender = CreateMultiRenderer("GPU");
+      pRender->SetPreset(preset);
+      pRender->SetScene(frame_nodes);
+      render(image_2, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+
+      float psnr = image_metrics::PSNR(image, image_2);
+
+      printf("  29.3.%u %-64s", num_of_test, "mesh and old frame octree PSNR > 30 (with same nodes count) ");
+      if (psnr >= 30)
+        printf("passed    (%.2f), eps = %f\n", psnr, eps);
+      else
+        printf("FAILED, psnr = %f, eps = %f\n", psnr, eps);
+
+      float iou = IoU::IoU_frame_octree(frame_nodes, real_sdf, 1000000);
+
+      printf("  29.4.%u %-64s", num_of_test, "sdf and old frame octree IoU > 0.9 (with same nodes count) ");
+      if (iou >= 0.9)
+        printf("passed    (%.5f), eps = %f\n", iou, eps);
+      else
+        printf("FAILED, iou = %f, eps = %f\n", iou, eps);
+
+      LiteImage::SaveImage<uint32_t>(("saves/test_29_our_octree_" + std::to_string(num_of_test) + ".bmp").c_str(), image_1);
+      LiteImage::SaveImage<uint32_t>(("saves/test_29_octree_" + std::to_string(num_of_test) + ".bmp").c_str(), image_2);
+    }
+
+  }
 }
 
 void litert_test_30_verify_SBS_SBSAdapt()
 {
   MultiRenderPreset preset = getDefaultPreset();
-  preset.render_mode = MULTI_RENDER_MODE_LINEAR_DEPTH;
+  preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
   preset.sdf_node_intersect = SDF_OCTREE_NODE_INTERSECT_ST;
 
   auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path+"scenes/01_simple_scenes/data/teapot.vsgf").c_str());
@@ -2464,6 +2526,93 @@ void litert_test_32_smooth_sbs_normals()
     printf("FAILED    (%.2f < %.2f)\n", psnr_2, psnr_1);  
 }
 
+void litert_test_33_verify_SBS_SBSAdapt_split()
+{
+  MultiRenderPreset preset = getDefaultPreset();
+  preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
+  preset.sdf_node_intersect = SDF_OCTREE_NODE_INTERSECT_ST;
+
+  auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path+"scenes/01_simple_scenes/data/teapot.vsgf").c_str());
+  cmesh4::rescale_mesh(mesh, float3(-0.9, -0.9, -0.9), float3(0.9, 0.9, 0.9));
+
+  SparseOctreeSettings settings(SparseOctreeBuildType::DEFAULT, 8);
+  std::vector<SdfSBSHeader> headers = {{2,0,2,SDF_SBS_NODE_LAYOUT_DX}};
+  // Note: when SBS brick size is not a power of 2, it cannot be identically converted to Adaptive SBS
+
+  unsigned W = 1024, H = 1024;
+  LiteImage::Image2D<uint32_t> image(W, H);
+  LiteImage::Image2D<uint32_t> ref_image(W, H);
+  LiteImage::Image2D<uint32_t> sbs_image(W, H);
+
+  printf("TEST 33. SBS and non-cubic SBSAdapt correctness\n");
+  {
+    auto pRender = CreateMultiRenderer("CPU");
+    pRender->SetPreset(preset);
+    pRender->SetScene(mesh);
+    render(image, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset);
+    LiteImage::SaveImage<uint32_t>("saves/test_33_reference.bmp", image); 
+    ref_image = image;
+  }
+
+  for (int i = 0; i < headers.size(); ++i)
+  {
+    SdfSBS curr_sbs = sdf_converter::create_sdf_SBS(settings, headers[i], mesh);
+    std::string voxel_count = std::to_string(headers[i].brick_size);
+    std::string bytes_count = std::to_string(headers[i].bytes_per_value);
+
+    {
+      auto pRender = CreateMultiRenderer("CPU");
+      pRender->SetPreset(preset);
+
+      // SdfSBSAdapt sbsa_scene;
+      // SdfSBSAdaptView sbsa_view = convert_sbs_to_adapt(sbsa_scene, curr_sbs);
+      // pRender->SetScene(sbsa_view);
+      pRender->SetScene(curr_sbs);
+
+      render(image, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset);
+      std::string img_path = "saves/test_33_" + voxel_count + '_' + bytes_count + "_SBS.bmp";
+      LiteImage::SaveImage<uint32_t>(img_path.c_str(), image);
+      sbs_image = image;
+
+      float psnr = image_metrics::PSNR(ref_image, image);
+
+      std::string result = "[CPU] " + voxel_count + "-voxel," + bytes_count + "-byte SBS and reference image PSNR > 40 ";
+      printf("\n 33.%d. %-64s", 3*i, result.c_str());
+      if (psnr >= 40)
+        printf("passed    (%.2f)\n", psnr);
+      else
+        printf("FAILED, psnr = %f\n", psnr);
+    }
+    {
+      auto pRender = CreateMultiRenderer("CPU");
+      pRender->SetPreset(preset);
+
+      SdfSBSAdapt sbsa_scene;
+      SdfSBSAdaptView sbsa_view = convert_sbs_to_adapt_with_split(sbsa_scene, curr_sbs);
+      pRender->SetScene(sbsa_view);
+
+      render(image, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset);
+      std::string img_path = "saves/test_33_" + voxel_count + '_' + bytes_count + "_SBSA_split.bmp";
+      LiteImage::SaveImage<uint32_t>(img_path.c_str(), image); 
+
+      float psnr = image_metrics::PSNR(ref_image, image);
+      printf(" 33.%d. %-64s", 3*i+1, "[CPU] SBSAdapt with split and reference image PSNR > 40 ");
+      if (psnr >= 40)
+        printf("passed    (%.2f)\n", psnr);
+      else
+        printf("FAILED, psnr = %f\n", psnr);
+
+      float sbsa_psnr = image_metrics::PSNR(sbs_image, image);
+      std::string result = "[CPU] " + voxel_count + "-voxel," + bytes_count + "-byte SBS matches SBSAdapt with split ";
+      printf(" 33.%d. %-64s", 3*i+2, result.c_str());
+      if (sbsa_psnr >= 40)
+        printf("passed    (%.2f)\n", sbsa_psnr);
+      else
+        printf("FAILED, psnr = %f\n", sbsa_psnr);
+    }
+  }
+}
+
 void perform_tests_litert(const std::vector<int> &test_ids)
 {
   std::vector<int> tests = test_ids;
@@ -2479,7 +2628,7 @@ void perform_tests_litert(const std::vector<int> &test_ids)
       litert_test_22_sdf_grid_smoothing, litert_test_23_textured_sdf, litert_test_24_demo_meshes,
       litert_test_25_float_images, litert_test_26_sbs_shallow_bvh, litert_test_27_textured_colored_SBS,
       litert_test_28_sbs_reg, litert_test_29_smoothed_frame_octree, litert_test_30_verify_SBS_SBSAdapt,
-      litert_test_31_fake_nurbs_render, litert_test_32_smooth_sbs_normals};
+      litert_test_31_fake_nurbs_render, litert_test_32_smooth_sbs_normals, litert_test_33_verify_SBS_SBSAdapt_split };
 
   if (tests.empty())
   {

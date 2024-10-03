@@ -105,6 +105,8 @@ namespace dr
       return MULTI_RENDER_MODE_MASK;
     case DR_RENDER_MODE_LINEAR_DEPTH:
       return MULTI_RENDER_MODE_LINEAR_DEPTH;
+    case DR_RENDER_MODE_NORMAL:
+      return MULTI_RENDER_MODE_NORMAL;
     default:
       printf("Unknown diff_render_mode: %u\n", diff_render_mode);
       return MULTI_RENDER_MODE_DIFFUSE;
@@ -276,7 +278,8 @@ namespace dr
     assert(sbs.nodes.size() > 0);
     assert(sbs.values.size() > 0);
     assert(sbs.values_f.size() > 0);
-    assert(sbs.header.aux_data == SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F);
+    assert(sbs.header.aux_data == SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F || 
+           sbs.header.aux_data == SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F_IN);
     assert(preset.opt_iterations > 0);
     assert(preset.spp > 0);
     assert(m_imagesRefOriginal.size() > 0);
@@ -312,12 +315,13 @@ namespace dr
     }
 
     m_Opt_tmp = std::vector<float>(2*params_count, 0);
-    m_PD_tmp = std::vector<PDFinalColor>(2*8*preset.spp*max_threads);
+    m_PD_tmp = std::vector<PDFinalColor>((MAX_PD_COUNT_COLOR+MAX_PD_COUNT_DIST)*preset.spp*max_threads);
 
     m_preset_dr = preset;
     m_preset.spp = preset.spp;
     m_preset.sdf_node_intersect = SDF_OCTREE_NODE_INTERSECT_NEWTON; //we need newton to minimize calculations for border integral
     m_preset.ray_gen_mode = RAY_GEN_MODE_RANDOM;
+    m_preset.normal_mode = NORMAL_MODE_SDF_SMOOTHED; //we need continuous normal field
     if (preset.debug_render_mode == DR_DEBUG_RENDER_MODE_PRIMITIVE)
       m_preset.render_mode = MULTI_RENDER_MODE_PRIMITIVE;
     else
@@ -360,7 +364,7 @@ namespace dr
     if (preset.debug_border_samples_mega_image)
       samples_mega_image = LiteImage::Image2D<float4>(m_width*MEGA_PIXEL_SIZE, m_height*MEGA_PIXEL_SIZE);
 
-    if (m_preset_dr.dr_raycasting_mask == DR_RENDER_MASK_CAST_OPT)
+    if (m_preset_dr.dr_raycasting_mask == DR_RAYCASTING_MASK_ON)
     { 
       masks.resize(images_count);
 
@@ -429,7 +433,7 @@ namespace dr
           unsigned active_params_end   = is_geometry ? params_count - color_params : params_count;
 
           loss = RenderDRFiniteDiff(m_imagesRef[image_id].data(), m_images[image_id].data(), m_dLoss_dS_tmp.data(), params_count,
-                                    active_params_start, active_params_end, 0.01f);
+                                    active_params_start, active_params_end, m_preset_dr.finite_diff_delta);
         }
 
         loss_sum += loss;
@@ -438,7 +442,7 @@ namespace dr
 
         m_preset_dr.debug_pd_images = base_debug_pd_images;
 
-        if (m_preset_dr.dr_raycasting_mask == DR_RENDER_MASK_CAST_OPT)
+        if (m_preset_dr.dr_raycasting_mask == DR_RAYCASTING_MASK_ON)
         {
           masks[mask_ind] = process_mask;
           // std::copy(process_mask.begin(), process_mask.end(), masks[mask_ind].begin());
@@ -533,7 +537,7 @@ namespace dr
           for (int j = 0; j < m_width * m_height; j++)
           {
             float l = m_imagesDebugPD[i].data()[j].x;
-            m_imagesDebugPD[i].data()[j] = float4(std::max(0.0f, l/20), std::max(0.0f, -l/20),0,1);
+            m_imagesDebugPD[i].data()[j] = float4(std::max(0.0f, l*m_preset_dr.debug_pd_brightness), std::max(0.0f, -l*m_preset_dr.debug_pd_brightness),0,1);
           }
           LiteImage::SaveImage<float4>(("saves/PD_"+std::to_string(i)+"a.png").c_str(), m_imagesDebugPD[i]);
         }
@@ -570,7 +574,8 @@ namespace dr
       for (int i = start; i < end; i++)
       {
         loss_v[thread_id] += CastRayWithGrad(i, image_ref, out_image, out_dLoss_dS + (params_count * thread_id), 
-                                            out_image_depth, out_image_debug, m_PD_tmp.data() + 2*8*m_preset_dr.spp * thread_id);
+                                             out_image_depth, out_image_debug, 
+                                             m_PD_tmp.data() + (MAX_PD_COUNT_COLOR+MAX_PD_COUNT_DIST)*m_preset_dr.spp * thread_id);
       }
     }
 
@@ -618,6 +623,7 @@ namespace dr
           case DR_RENDER_MODE_LINEAR_DEPTH:
           case DR_RENDER_MODE_DIFFUSE:
           case DR_RENDER_MODE_LAMBERT:
+          case DR_RENDER_MODE_NORMAL:
             is_border = max_diff > 0 || max_depth_thr > 0;
           break;
           default:
@@ -629,7 +635,7 @@ namespace dr
         {
           m_borderPixels.push_back(i);
 
-          if (m_preset_dr.dr_raycasting_mask == DR_RENDER_MASK_CAST_OPT)
+          if (m_preset_dr.dr_raycasting_mask == DR_RAYCASTING_MASK_ON)
           {
             int y0 = std::max(0, (int)y - (int)add_border), y1 = std::min(m_height - 1, y + add_border);
             int x0 = std::max(0, (int)x - (int)add_border), x1 = std::min(m_width - 1, x + add_border);
@@ -757,13 +763,18 @@ namespace dr
 
         for (int j = 0; j < m_width * m_height; j++)
         {
-          float l1 = Loss(m_preset_dr.dr_loss_function, image_1.data()[j], image_ref[j]);
-          float l2 = Loss(m_preset_dr.dr_loss_function, image_2.data()[j], image_ref[j]);
+          float4 c1 = image_1.data()[j];
+          float4 c2 = image_2.data()[j];
+          float l1 = Loss(m_preset_dr.dr_loss_function, c1, image_ref[j]);
+          float l2 = Loss(m_preset_dr.dr_loss_function, c2, image_ref[j]);
           float l = (l1 - l2) / (2 * delta);
-          image_1.data()[j] = float4(std::max(0.0f, l/20), std::max(0.0f, -l/20),0,1);
+          image_1.data()[j] = float4(std::max(0.0f, l*m_preset_dr.debug_pd_brightness), std::max(0.0f, -l*m_preset_dr.debug_pd_brightness),0,1);
+          image_2.data()[j] = m_preset_dr.finite_diff_brightness*abs(c1 - c2);
+          image_2.data()[j].w = 1;
         }
 
         LiteImage::SaveImage<float4>(("saves/PD_"+std::to_string(i)+"b.png").c_str(), image_1);
+        LiteImage::SaveImage<float4>(("saves/PD_"+std::to_string(i)+"_diff.png").c_str(), image_2);
       }
 
       out_dLoss_dS[i] = (loss_plus - loss_minus) / (2 * delta);
@@ -831,6 +842,9 @@ namespace dr
       color = float3(d, d, d);
     }
     break;
+    case DR_RENDER_MODE_NORMAL:
+      color = hit.normal;
+    break;
     default:
       break;
     }
@@ -882,6 +896,13 @@ namespace dr
     {
       float d = absolute_to_linear_depth(hit.t);
       color = float3(d, d, d);
+    }
+    break;
+    case DR_RENDER_MODE_NORMAL:
+    {
+      color = hit.normal;
+      dColor_dDiffuse = LiteMath::make_float3x3(float3(0, 0, 0), float3(0, 0, 0), float3(0, 0, 0));
+      dColor_dNorm = LiteMath::make_float3x3(float3(1, 0, 0), float3(0, 1, 0), float3(0, 0, 1));
     }
     break;
     default:
@@ -1004,7 +1025,7 @@ namespace dr
     const uint x  = (XY & 0x0000FFFF);
     const uint y  = (XY & 0xFFFF0000) >> 16;
 
-    if (m_preset_dr.dr_raycasting_mask == DR_RENDER_MASK_CAST_OPT && !masks[mask_ind][y * m_width + x])
+    if (m_preset_dr.dr_raycasting_mask == DR_RAYCASTING_MASK_ON && !masks[mask_ind][y * m_width + x])
     {
       return 0.f;
     }
@@ -1017,7 +1038,7 @@ namespace dr
 
     uint32_t spp_sqrt = uint32_t(sqrt(m_preset.spp));
     float i_spp_sqrt = 1.0f/spp_sqrt;
-    uint32_t color_pd_offset = 8*m_preset.spp;
+    uint32_t color_pd_offset = MAX_PD_COUNT_DIST*m_preset.spp;
     const float3 background_color = float3(0.0f, 0.0f, 0.0f);
 
     uint32_t ray_flags;
@@ -1045,6 +1066,8 @@ namespace dr
           ray_flags |= DR_RAY_FLAG_DDIFFUSE_DPOS;
         else if (m_preset_dr.dr_render_mode == DR_RENDER_MODE_LAMBERT)
           ray_flags |= DR_RAY_FLAG_DDIFFUSE_DPOS | DR_RAY_FLAG_DNORM_DPOS;
+        else if (m_preset_dr.dr_render_mode == DR_RENDER_MODE_NORMAL)
+          ray_flags |= DR_RAY_FLAG_DNORM_DPOS | DR_RAY_FLAG_DNORM_DPOS;
       }
     }
 
@@ -1069,7 +1092,7 @@ namespace dr
       }
       else
       {
-        if (m_preset_dr.dr_raycasting_mask == DR_RENDER_MASK_CAST_OPT)
+        if (m_preset_dr.dr_raycasting_mask == DR_RAYCASTING_MASK_ON)
         {
           process_mask[y * m_width + x] = 1;
         }
@@ -1084,11 +1107,11 @@ namespace dr
         //fill buffer with final color partial derivatives w.r.t. voxel color
         if (ray_flags & DR_RAY_FLAG_DDIFFUSE_DCOLOR)
         {
-          for (int i = 0; i < 8; i++)
+          for (int i = 0; i < MAX_PD_COUNT_COLOR; i++)
           {
             float dDiffuse_dSc = payload.dDiffuse_dSc[i].value;
-            out_pd_tmp[color_pd_offset + 8*hit_count + i].index = payload.dDiffuse_dSc[i].index;
-            out_pd_tmp[color_pd_offset + 8*hit_count + i].dFinalColor = dColor_dDiffuse * float3(dDiffuse_dSc);
+            out_pd_tmp[color_pd_offset + MAX_PD_COUNT_COLOR*hit_count + i].index = payload.dDiffuse_dSc[i].index;
+            out_pd_tmp[color_pd_offset + MAX_PD_COUNT_COLOR*hit_count + i].dFinalColor = dColor_dDiffuse * float3(dDiffuse_dSc);
           }
         }
 
@@ -1097,20 +1120,20 @@ namespace dr
         //when input data is depth it is done via dDist partial derivative
         if (ray_flags & (DR_RAY_FLAG_DDIFFUSE_DPOS | DR_RAY_FLAG_DNORM_DPOS))
         {
-          for (int i = 0; i < 8; i++)
+          for (int i = 0; i < MAX_PD_COUNT_DIST; i++)
           {
             PDDist &pd = payload.dDiffuseNormal_dSd[i];
-            out_pd_tmp[8*hit_count + i].index = pd.index;
-            out_pd_tmp[8*hit_count + i].dFinalColor = dColor_dDiffuse*pd.dDiffuse + dColor_dNorm*pd.dNorm;
+            out_pd_tmp[MAX_PD_COUNT_DIST*hit_count + i].index = pd.index;
+            out_pd_tmp[MAX_PD_COUNT_DIST*hit_count + i].dFinalColor = dColor_dDiffuse*pd.dDiffuse + dColor_dNorm*pd.dNorm;
           }
         }
         else if (ray_flags & DR_RAY_FLAG_DDIST_DPOS)
         {
-          for (int i = 0; i < 8; i++)
+          for (int i = 0; i < MAX_PD_COUNT_DIST; i++)
           {
             PDDist &pd = payload.dDiffuseNormal_dSd[i];
-            out_pd_tmp[8*hit_count + i].index = pd.index;
-            out_pd_tmp[8*hit_count + i].dFinalColor = float3(pd.dDist) / (z_far - z_near);
+            out_pd_tmp[MAX_PD_COUNT_DIST*hit_count + i].index = pd.index;
+            out_pd_tmp[MAX_PD_COUNT_DIST*hit_count + i].dFinalColor = float3(pd.dDist) / (z_far - z_near);
           }
         }
 
@@ -1143,8 +1166,11 @@ namespace dr
 
     if (ray_flags & DR_RAY_FLAG_DDIFFUSE_DCOLOR)
     {
-      for (int i = color_pd_offset; i < color_pd_offset + 8 * hit_count; i++)
+      for (int i = color_pd_offset; i < color_pd_offset + MAX_PD_COUNT_COLOR * hit_count; i++)
       {
+        if (out_pd_tmp[i].index == INVALID_INDEX)
+          continue;
+
         float3 diff = dLoss_dColor * out_pd_tmp[i].dFinalColor;
         out_dLoss_dS[out_pd_tmp[i].index + 0] += diff.x;
         out_dLoss_dS[out_pd_tmp[i].index + 1] += diff.y;
@@ -1161,8 +1187,11 @@ namespace dr
 
     if (ray_flags & (DR_RAY_FLAG_DDIFFUSE_DPOS | DR_RAY_FLAG_DNORM_DPOS | DR_RAY_FLAG_DDIST_DPOS))
     {
-      for (int i = 0; i < 8 * hit_count; i++)
+      for (int i = 0; i < MAX_PD_COUNT_DIST * hit_count; i++)
       {
+        if (out_pd_tmp[i].index == INVALID_INDEX)
+          continue;
+
         float diff = dot(dLoss_dColor, out_pd_tmp[i].dFinalColor);
         out_dLoss_dS[out_pd_tmp[i].index] += diff;
         total_diff += diff;

@@ -924,12 +924,11 @@ void BVHRT::OctreeAdaptBrickIntersect(uint32_t type, const float3 ray_pos, const
   uint3 v_size = brick_size + 2*header.brick_pad + 1;
 
 
-
-  float  brick_abs_size = (2.0f/SDF_SBS_ADAPT_MAX_UNITS)*vs;
-  float3 d = brick_abs_size / float3(brick_size);
-  float3 voxel_abs_size_inv = 1.f / d;
+  float d = (2.0f/SDF_SBS_ADAPT_MAX_UNITS) * vs;
+  float voxel_abs_size_inv = 1.f / d;
+  float3 brick_abs_size = d * float3(brick_size);
   float3 brick_min_pos = float3(-1,-1,-1) + (2.0f/SDF_SBS_ADAPT_MAX_UNITS)*float3(px,py,pz);
-  float3 brick_max_pos = brick_min_pos + float3(brick_abs_size);
+  float3 brick_max_pos = brick_min_pos + brick_abs_size;
 
 
   float2 brick_fNearFar = RayBoxIntersection2(ray_pos, SafeInverse(ray_dir), brick_min_pos, brick_max_pos);
@@ -965,9 +964,7 @@ void BVHRT::OctreeAdaptBrickIntersect(uint32_t type, const float3 ray_pos, const
       uint32_t vals_per_int = 4/header.bytes_per_value; 
       uint32_t bits = 8*header.bytes_per_value;
       uint32_t max_val = header.bytes_per_value == 4 ? 0xFFFFFFFF : ((1 << bits) - 1);
-      float d_max = 1.73205081f*brick_abs_size;
-      // if (brick_size_x != brick_size_y || brick_size_x != brick_size_z)
-      //   d_max = std::sqrt(d.x*d.x + std::sqrt(d.y*d.y + d.z*d.z));
+      float d_max = 1.73205081f*std::max(std::max(brick_abs_size.x, brick_abs_size.y), brick_abs_size.z);
       float mult = 2*d_max/max_val;
       for (int i=0;i<8;i++)
       {
@@ -983,9 +980,9 @@ void BVHRT::OctreeAdaptBrickIntersect(uint32_t type, const float3 ray_pos, const
     {
       float3 start_pos = ray_pos + fNearFar.x*ray_dir;
       start_q = (start_pos - min_pos) * voxel_abs_size_inv;
-      qFar = (fNearFar.y - fNearFar.x) * voxel_abs_size_inv.x; // TODO: VEC3
-    
-      LocalSurfaceIntersection(type, ray_dir, instId, geomId, values, nodeId, primId, d.x, 0.0f, qFar, fNearFar, start_q, /*in */
+      qFar = (fNearFar.y - fNearFar.x) * voxel_abs_size_inv;
+
+      LocalSurfaceIntersection(type, ray_dir, instId, geomId, values, nodeId, primId, d, 0.0f, qFar, fNearFar, start_q, /*in */
                                pHit); /*out*/
     }
 

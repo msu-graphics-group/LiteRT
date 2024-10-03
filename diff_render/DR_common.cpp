@@ -1,5 +1,6 @@
 #include "DR_common.h"
 #include "MultiRendererDR.h"
+#include "../utils/sparse_octree_2.h"
 
 #include <functional>
 #include <cassert>
@@ -136,7 +137,7 @@ namespace dr
       }
     }
 
-    return scene;  
+    return sdf_converter::SBS_ind_to_SBS_ind_with_neighbors(scene);  
   }
 
   SdfSBS circle_one_brick_scene()
