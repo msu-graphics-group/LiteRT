@@ -1295,21 +1295,18 @@ void BVHRT::IntersectNURBS(const float3& ray_pos, const float3& ray_dir,
     float3 uder = to_float3(nurbs.uder(uv.x, uv.y));
     float3 vder = to_float3(nurbs.vder(uv.x, uv.y));
     float t = dot(normalize(ray_dir), point-ray_pos);
-    if (tNear_tFar[0] <= t && t <= tNear_tFar[1]) {
-      norm = normalize(cross(uder, vder));
-      encoded_norm = encode_normal(norm);
-    }
-  }
-  
-  pHit->t = t;
-  pHit->primId = 0;
-  pHit->geomId = geomId | (type << SH_TYPE);
-  pHit->instId = instId;
+    norm = normalize(cross(uder, vder));
+    encoded_norm = encode_normal(norm);
+    pHit->geomId = geomId | (type << SH_TYPE);
+    pHit->t = t;
+    pHit->primId = 0;
+    pHit->instId = instId;
 
-  pHit->coords[0] = 0;
-  pHit->coords[1] = 0;
-  pHit->coords[2] = encoded_norm.x;
-  pHit->coords[3] = encoded_norm.y;
+    pHit->coords[0] = uv.x;
+    pHit->coords[1] = uv.y;
+    pHit->coords[2] = encoded_norm.x;
+    pHit->coords[3] = encoded_norm.y;
+  }
 #endif  
 }
 //////////////////////// END NURBS SECTION ///////////////////////////////////////////////

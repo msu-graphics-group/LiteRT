@@ -1,9 +1,12 @@
 #include <cassert>
 #include <random>
+#include <ctime>
 
 #include "nurbs_common.h"
 
 using namespace LiteMath;
+
+#ifndef KERNEL_SLICER
 
 int DecomposedNURBS::find_span(int n, int p, float u, const float *U) const {
   if (u == U[n+1])
@@ -68,8 +71,8 @@ LiteMath::float4 DecomposedNURBS::surface_point(float u, float v) const {
 LiteMath::float4 DecomposedNURBS::uder(float u, float v) const {
     constexpr float EPS = 1e-2f;
   LiteMath::float4 res = {};
-  res += (u+EPS > 1.0f) ? point(u, v) : point(u+EPS, v);
-  res -= (u-EPS < 0.0f) ? point(u, v) : point(u-EPS, v);
+  res += (u+EPS > 1.0f) ? surface_point(u, v) : surface_point(u+EPS, v);
+  res -= (u-EPS < 0.0f) ? surface_point(u, v) : surface_point(u-EPS, v);
 
   return res / (EPS * (1 + ((u+EPS <= 1.0f) && (u-EPS >= 0.0f))));
 }
@@ -78,10 +81,35 @@ LiteMath::float4 DecomposedNURBS::uder(float u, float v) const {
 LiteMath::float4 DecomposedNURBS::vder(float u, float v) const {
     constexpr float EPS = 1e-2f;
   LiteMath::float4 res = {};
-  res += (v+EPS > 1.0f) ? point(u, v) : point(u, v+EPS);
-  res -= (v-EPS < 0.0f) ? point(u, v) : point(u, v-EPS);
+  res += (v+EPS > 1.0f) ? surface_point(u, v) : surface_point(u, v+EPS);
+  res -= (v-EPS < 0.0f) ? surface_point(u, v) : surface_point(u, v-EPS);
 
   return res / (EPS * (1 + ((v+EPS <= 1.0f) && (v-EPS >= 0.0f))));
+}
+
+bool DecomposedNURBS::u_closed() const {
+  constexpr float EPS = 1e-2;
+  for (int j = 0; j <= header.m; ++j) 
+    if (length(point(0, j) - point(header.n, j)) > EPS)
+      return false;
+  return true;
+}
+
+bool DecomposedNURBS::v_closed() const {
+  constexpr float EPS = 1e-2;
+  for (int i = 0; i <= header.n; ++i) 
+    if (length(point(i, 0) - point(i, header.m)) > EPS)
+      return false;
+  return true;
+}
+
+float closed_clamp(float val) {
+  val -= static_cast<int>(val);
+  if (val < 0.0f)
+    return 1.0f+val;
+  if (val > 1.0f)
+    return val-1.0f;
+  return val;
 }
 
 static float2
@@ -90,12 +118,17 @@ mul2x2x2(float2 m[2], const float2 &v)
   return m[0]*v[0]+m[1]*v[1];
 }
 
+std::mt19937 generator;
+
 std::optional<LiteMath::float2> ray_nurbs_newton_intersection(
     const LiteMath::float3 &pos,
     const LiteMath::float3 &ray,
     const DecomposedNURBS &surf) {
   constexpr int max_steps = 16;
-  constexpr float EPS = 1e-2;
+  constexpr float EPS = 0.001f;
+
+  bool u_closed = surf.u_closed();
+  bool v_closed = surf.v_closed();
 
   float3 ortho_dir1 = (ray.x || ray.z) ? float3{ 0, 1, 0 } : float3{ 1, 0, 0 };
   float3 ortho_dir2 = normalize(cross(ortho_dir1, ray));
@@ -108,9 +141,10 @@ std::optional<LiteMath::float2> ray_nurbs_newton_intersection(
   float4 P2 = to_float4(ortho_dir2, -dot(ortho_dir2, pos));
   assert(dot(P1, to_float4(pos, 1.0f)) < EPS);
   assert(dot(P2, to_float4(pos, 1.0f)) < EPS);
-  
-  float2 uv = { rand()*1.0f/static_cast<float>(RAND_MAX), rand()*1.0f/static_cast<float>(RAND_MAX) };
-  float2 D = { dot(P1, surf.point(uv.x, uv.y)), dot(P2, surf.point(uv.x, uv.y)) };
+
+  std::uniform_real_distribution<float> distr(0.0f, 1.0f);
+  float2 uv = { distr(generator), distr(generator) };
+  float2 D = { dot(P1, surf.surface_point(uv.x, uv.y)), dot(P2, surf.surface_point(uv.x, uv.y)) };
   
   int steps_left = max_steps-1;
   while(length(D) > EPS && steps_left--) {
@@ -129,12 +163,12 @@ std::optional<LiteMath::float2> ray_nurbs_newton_intersection(
     };
 
     uv = uv - mul2x2x2(J_inversed, D);
-    uv.x = clamp(uv.x, 0.0f, 1.0f);
-    uv.y = clamp(uv.y, 0.0f, 1.0f);
+    uv.x = u_closed ? closed_clamp(uv.x) : clamp(uv.x, 0.0f, 1.0f);
+    uv.y = v_closed ? closed_clamp(uv.y) : clamp(uv.y, 0.0f, 1.0f);
     assert(0 <= uv.x && uv.x <= 1);
     assert(0 <= uv.y && uv.y <= 1);
 
-    float2 new_D = { dot(P1, surf.point(uv.x, uv.y)), dot(P2, surf.point(uv.x, uv.y)) };
+    float2 new_D = { dot(P1, surf.surface_point(uv.x, uv.y)), dot(P2, surf.surface_point(uv.x, uv.y)) };
     
     if (length(new_D) > length(D))
       return {};
@@ -147,3 +181,5 @@ std::optional<LiteMath::float2> ray_nurbs_newton_intersection(
   
   return uv;
 }
+
+#endif

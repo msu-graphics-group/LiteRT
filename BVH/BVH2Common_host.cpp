@@ -948,10 +948,16 @@ std::vector<BVHNode> GetBoxes_NURBS(const RawNURBS &nurbs)
 
 uint32_t BVHRT::AddGeom_NURBS(const RawNURBS &nurbs, ISceneObject *fake_this, BuildOptions a_qualityLevel)
 {
-  float4 mn = float4(-0.5,-0.5,-0.5,0.5);
-  float4 mx = float4( 0.5, 0.5, 0.5,0.5);
+  float4 mn = float4{std::numeric_limits<float>::infinity()};
+  float4 mx = -mn;
 
-  //TODO: find BBox for given NURBS
+  //find BBox for given NURBS
+  for (uint32_t i = 0; i <= nurbs.get_n(); ++i)
+  for (uint32_t j = 0; j <= nurbs.get_m(); ++j)
+  {
+    mn = LiteMath::min(mn, nurbs.points[{i, j}]);
+    mx = LiteMath::max(mx, nurbs.points[{i, j}]);
+  }
 
   //fill geom data array
   m_abstractObjects.resize(m_abstractObjects.size() + 1); 
@@ -966,10 +972,31 @@ uint32_t BVHRT::AddGeom_NURBS(const RawNURBS &nurbs, ISceneObject *fake_this, Bu
   m_geomData.back().bvhOffset = m_allNodePairs.size();
   m_geomData.back().type = TYPE_NURBS;
 
-  //TODO: save NURBS to headers and data
+  //save NURBS to headers and data
+  uint32_t offset = m_NURBSData.size();
+  uint32_t n = nurbs.get_n(), m = nurbs.get_m();
+  m_NURBSHeaders.push_back({offset, n, m, nurbs.get_p(), nurbs.get_q()});
+  std::copy(
+    reinterpret_cast<const float*>(nurbs.points.data()),
+    reinterpret_cast<const float*>(nurbs.points.data()+(n+1)*(m+1)),
+    std::back_inserter(m_NURBSData));
+  std::copy(
+    nurbs.weights.data(),
+    nurbs.weights.data()+(n+1)*(m+1),
+    std::back_inserter(m_NURBSData));
+  std::copy(
+    nurbs.u_knots.begin(), nurbs.u_knots.end(), 
+    std::back_inserter(m_NURBSData));
+  std::copy(
+    nurbs.v_knots.begin(), nurbs.v_knots.end(),
+    std::back_inserter(m_NURBSData));
 
   //create list of bboxes for BLAS
-  std::vector<BVHNode> orig_nodes = GetBoxes_NURBS(nurbs);
+  std::vector<BVHNode> orig_nodes(2);
+  orig_nodes[0].boxMin = to_float3(mn);
+  orig_nodes[0].boxMax = float3{ mx.x, mx.y, (mn.z+mx.z)/2.0f };
+  orig_nodes[1].boxMin = float3{ mn.x, mn.y, (mn.z+mx.z)/2.0f };
+  orig_nodes[1].boxMax = to_float3(mx);
   
   return fake_this->AddGeom_AABB(AbstractObject::TAG_NURBS, (const CRT_AABB*)orig_nodes.data(), orig_nodes.size());
 }

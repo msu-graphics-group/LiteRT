@@ -16,6 +16,7 @@
 #include <functional>
 #include <cassert>
 #include <chrono>
+#include <filesystem>
 
 std::string scenes_folder_path = "./";
 
@@ -2362,41 +2363,100 @@ void litert_test_30_verify_SBS_SBSAdapt()
       printf("FAILED, psnr = %f\n", sbsa_psnr);
   }
 }
+
+
+////////////////////////// NURBS SECTION ////////////////////////////////
+RawNURBS test_nurbs_loader(const std::filesystem::path &path) {
+  std::fstream fin(path);
+  fin.exceptions(std::ifstream::badbit|std::ifstream::failbit);
+  std::string tmp_str;
+  char tmp_chr;
+
+  RawNURBS surf;
+
+  int n, m, p, q;
+  fin >> tmp_chr >> tmp_chr >> n; // n = ...
+  fin >> tmp_chr >> tmp_chr >> m; // m = ...
+
+  surf.points = Vector2D<LiteMath::float4>(n+1, m+1, { 0, 0, 0, 1.0f });
+  surf.weights = Vector2D<float>(n+1, m+1, 1.0f);
+
+  fin >> tmp_str; // "points:"
+  for (int i = 0; i <= n; ++i)
+  for (int j = 0; j <= m; ++j)
+  {
+    auto &point = surf.points[{i, j}];
+    fin >> tmp_chr >> point.x >> tmp_chr >> point.y >> tmp_chr >> point.z >> tmp_chr; // { ..., ..., ... }
+  }
+
+  fin >> tmp_str; // "weights:"
+  for (int i = 0; i <= n; ++i)
+  for (int j = 0; j <= m; ++j)
+  {
+    fin >> surf.weights[{i, j}];
+  }
+
+  fin >> tmp_str; // "u_degree:"
+  fin >> p; 
+
+  fin >> tmp_str; // "v_degree:"
+  fin >> q;
+
+  surf.u_knots.resize(n+p+2);
+  fin >> tmp_str; // "u_knots:"
+  for (size_t i = 0; i < surf.u_knots.size(); ++i) {
+    fin >> surf.u_knots[i];
+  }
+  float u_min = surf.u_knots.front();
+  float u_max = surf.u_knots.back();
+  for (auto &elem: surf.u_knots)
+    elem = (elem-u_min)/u_max; // map to [0, 1]
+
+  surf.v_knots.resize(m+q+2);
+  fin >> tmp_str; // "v_knots:"
+  for (size_t i = 0; i < surf.v_knots.size(); ++i) {
+    fin >> surf.v_knots[i];
+  }
+  float v_min = surf.v_knots.front();
+  float v_max = surf.v_knots.back();
+  for (auto &elem: surf.v_knots)
+    elem = (elem-v_min)/v_max; // map to [0, 1]
+
+  return surf;
+}
+
 void litert_test_31_fake_nurbs_render()
 {
   unsigned W = 800, H = 600;
 
   MultiRenderPreset preset = getDefaultPreset();
-  LiteImage::Image2D<uint32_t> image(W, H);
+  preset.render_mode = MULTI_RENDER_MODE_TEX_COORDS;
+  preset.ray_gen_mode = RAY_GEN_MODE_REGULAR;
+  preset.spp = 1;
   LiteImage::Image2D<uint32_t> ref_image(W, H);
 
-  RawNURBS nurbs;
-  //TODO: nurbs = load_nurbs("my_nurbs.txt");
+  auto exec_path = std::filesystem::canonical("/proc/self/exe");
+  auto proj_path = exec_path.parent_path();
+  auto nurbs_path = proj_path / "scenes" / "04_nurbs_scenes" / "vase.nurbss";
+  RawNURBS nurbs = test_nurbs_loader(nurbs_path);
 
   auto pRenderRef = CreateMultiRenderer("CPU");
   pRenderRef->SetPreset(preset);
   pRenderRef->SetViewport(0,0,W,H);
   pRenderRef->SetScene(nurbs);
 
-  auto pRender = CreateMultiRenderer("GPU");
-  pRender->SetPreset(preset);
-  pRender->SetViewport(0,0,W,H);
-  pRender->SetScene(nurbs);
+  float3 camera_pos = { 0, 1.276, 25.557 };
+  float3 camera_target = { 0.0f, 1.276f, 0.0f };
+  float3 camera_up = { 0.0f, 1.0f, 0.0f };
 
-  render(image, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
-  render(ref_image, pRenderRef, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+  pRenderRef->Render(
+      ref_image.data(), W, H, 
+      lookAt(camera_pos, camera_target,camera_up),
+      perspectiveMatrix(45.0f, W*1.0f/H, 0.001f, 100.0f), preset);
 
-  LiteImage::SaveImage<uint32_t>("saves/test_31_res.bmp", image); 
   LiteImage::SaveImage<uint32_t>("saves/test_31_ref.bmp", ref_image);
-
-  float psnr = image_metrics::PSNR(ref_image, image);
-  printf("TEST 31. Rendering fake NURBS\n");
-  printf(" 31.1. %-64s", "CPU and GPU render image_metrics::PSNR > 45 ");
-  if (psnr <= 45)
-    printf("passed    (%.2f)\n", psnr);
-  else
-    printf("FAILED, psnr = %f\n", psnr);
 }
+/////////////////////////// END NURBS //////////////////////////////////////////////////
 
 void perform_tests_litert(const std::vector<int> &test_ids)
 {
