@@ -30,6 +30,9 @@ using LiteMath::Box4f;
 #include "cbvh.h"
 #include "nurbs/nurbs_common.h"
 
+float3 tricubicInterpolationDerrivative(const float *m_SdfGridData, const uint vox_u[3], const float dp[3], const uint32_t off, const uint size[3]);
+float tricubicInterpolation(const float *m_SdfGridData, const uint vox_u[3], const float dp[3], const uint32_t off, const uint size[3]);
+
 struct BVHRT;
 struct GeomData
 {
@@ -225,8 +228,6 @@ struct BVHRT : public ISceneObject
 
   virtual void AppendTreeData(const std::vector<BVHNodePair>& a_nodes, const std::vector<uint32_t>& a_indices, 
                               const uint32_t *a_triIndices, size_t a_indNumber);
-  float3 tricubicInterpolationDerrivative(const uint3& vox_u, const float3 &dp, const uint32_t &off, const uint3 &size) const;
-  float tricubicInterpolation(const uint3& vox_u, const float3 &dp, const uint32_t &off, const uint3 &size) const;
 
 #ifndef KERNEL_SLICER  
   std::vector<BVHNode> GetBoxes_RFGrid(RFScene grid, std::vector<float>& sparseGrid, std::vector<uint4>& sparsePtrs);

@@ -1527,7 +1527,9 @@ float BVHRT::eval_distance_sdf_grid(uint32_t grid_id, float3 pos)
   {
     if (vox_u.x < size.x-2 && vox_u.y < size.y-2 && vox_u.z < size.z-2 && vox_u.x > 0 && vox_u.y > 0 && vox_u.z > 0)
     {
-      res = tricubicInterpolation(vox_u, dp, off, size);
+      uint v_u[3] = {vox_u.x, vox_u.y, vox_u.z}, s_u[3] = {size.x, size.y, size.z};
+      float f_dp[3] = {dp.x, dp.y, dp.z};
+      res = tricubicInterpolation(m_SdfGridData.data(), v_u, f_dp, off, s_u);
     }
     else if (vox_u.x < size.x-1 && vox_u.y < size.y-1 && vox_u.z < size.z-1)
     {
@@ -1581,10 +1583,10 @@ float BVHRT::eval_distance_sdf_octree(uint32_t octree_id, float3 position, uint3
 }
 
 float
-BVHRT::tricubicInterpolation(const uint3& vox_u, const float3 &dp, const uint32_t &off, const uint3 &size) const
+tricubicInterpolation(const float *m_SdfGridData, const uint vox_u[3], const float dp[3], const uint32_t off, const uint size[3])
 {
   float res = 0;
-  int x0 = vox_u.x - 1, y0 = vox_u.y - 1, z0 = vox_u.z - 1;
+  int x0 = vox_u[0] - 1, y0 = vox_u[1] - 1, z0 = vox_u[2] - 1;
   auto spline = [&](const float &p0, const float &p1, const float &p2, const float &p3, const float &x)
   {
     return p1 + 0.5 * x * (p2 - p0 + x * (2.0 * p0 - 5.0 * p1 + 4.0 * p2 - p3 + x * (3.0 * (p1 - p2) + p3 - p0)));
@@ -1597,11 +1599,11 @@ BVHRT::tricubicInterpolation(const uint3& vox_u, const float3 &dp, const uint32_
     for (int k = 0; k < 4; ++k)
     {
       //m_SdfGridData[off + (vox_u.z)*size.x*size.y + (vox_u.y)*size.x + (vox_u.x)]
-      values_yz[j][k] = spline(m_SdfGridData[off + (z0 + k)*size.x*size.y + (y0 + j)*size.x + (x0 + 0)],
-                                m_SdfGridData[off + (z0 + k)*size.x*size.y + (y0 + j)*size.x + (x0 + 1)],
-                                m_SdfGridData[off + (z0 + k)*size.x*size.y + (y0 + j)*size.x + (x0 + 2)],
-                                m_SdfGridData[off + (z0 + k)*size.x*size.y + (y0 + j)*size.x + (x0 + 3)], 
-                                dp.x
+      values_yz[j][k] = spline(m_SdfGridData[off + (z0 + k)*size[0]*size[1] + (y0 + j)*size[0] + (x0 + 0)],
+                                m_SdfGridData[off + (z0 + k)*size[0]*size[1] + (y0 + j)*size[0] + (x0 + 1)],
+                                m_SdfGridData[off + (z0 + k)*size[0]*size[1] + (y0 + j)*size[0] + (x0 + 2)],
+                                m_SdfGridData[off + (z0 + k)*size[0]*size[1] + (y0 + j)*size[0] + (x0 + 3)], 
+                                dp[0]
       );
     }
   }
@@ -1612,39 +1614,36 @@ BVHRT::tricubicInterpolation(const uint3& vox_u, const float3 &dp, const uint32_
                           values_yz[1][k], 
                           values_yz[2][k], 
                           values_yz[3][k], 
-                          dp.y
+                          dp[1]
     );
   }
 
-  res = spline(values_z[0], values_z[1], values_z[2], values_z[3], dp.z);
+  res = spline(values_z[0], values_z[1], values_z[2], values_z[3], dp[2]);
   return res;
 }
 
+void __enzyme_autodiff(void*, ...);
+int enzyme_dup;
+int enzyme_dupnoneed;
+int enzyme_out;
+int enzyme_const;
+
 float3 
-BVHRT::tricubicInterpolationDerrivative(const uint3& vox_u, const float3 &dp, const uint32_t &off, const uint3 &size) const
+tricubicInterpolationDerrivative(const float *m_SdfGridData, const uint vox_u[3], const float dp[3], const uint32_t off, const uint size[3])
 {
-  float eps = 0.00001;
-  float3 d_dist(0, 0, 0);
-  
-  float3 dp2 = dp, dp1 = dp;
-  dp2.x += eps;
-  dp1.x -= eps;
+  float d_pos[3] = {0};
+  float3 d_dist;
 
-  d_dist.x = (tricubicInterpolation(vox_u, dp2, off, size) - tricubicInterpolation(vox_u, dp1, off, size)) / (2 * eps);
+  __enzyme_autodiff((void*)(tricubicInterpolation), 
+                    enzyme_const, m_SdfGridData, 
+                    enzyme_const, vox_u, 
+                    enzyme_dup, dp, d_pos, 
+                    enzyme_const, off, 
+                    enzyme_const, size);
 
-  dp2.x -= eps;
-  dp1.x += eps;
-  dp2.y += eps;
-  dp1.y -= eps;
-
-  d_dist.y = (tricubicInterpolation(vox_u, dp2, off, size) - tricubicInterpolation(vox_u, dp1, off, size)) / (2 * eps);
-
-  dp2.y -= eps;
-  dp1.y += eps;
-  dp2.z += eps;
-  dp1.z -= eps;
-
-  d_dist.z = (tricubicInterpolation(vox_u, dp2, off, size) - tricubicInterpolation(vox_u, dp1, off, size)) / (2 * eps);
+  d_dist.x = d_pos[0];
+  d_dist.y = d_pos[1];
+  d_dist.z = d_pos[2];
 
   return d_dist;
 }

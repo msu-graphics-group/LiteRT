@@ -34,53 +34,53 @@ void render(LiteImage::Image2D<float4> &image, std::shared_ptr<MultiRenderer> pR
   pRender->RenderFloat(image.data(), image.width(), image.height(), worldView, proj, preset, a_passNum);
 }
 
-#ifdef USE_ENZYME
-int enzyme_const, enzyme_dup, enzyme_out; // must be global
-double __enzyme_autodiff(void*, ...);
+// #ifdef USE_ENZYME
+// int enzyme_const, enzyme_dup, enzyme_out; // must be global
+// double __enzyme_autodiff(void*, ...);
 
-double litert_test_28_enzyme_ad_sqr_1(double  x) { return  x *  x; }
-double litert_test_28_enzyme_ad_sqr_2(double* x) { return *x * *x; }
-double litert_test_28_enzyme_ad_mul(double k, double x) { return k * x; }
-#endif
+// double litert_test_28_enzyme_ad_sqr_1(double  x) { return  x *  x; }
+// double litert_test_28_enzyme_ad_sqr_2(double* x) { return *x * *x; }
+// double litert_test_28_enzyme_ad_mul(double k, double x) { return k * x; }
+// #endif
 
 void diff_render_test_1_enzyme_ad()
 {
-  printf("TEST 1. Enzyme AD\n");
-#ifdef USE_ENZYME
-  double x = 5.;
-  double df_dx_res = 2*x;
+//   printf("TEST 1. Enzyme AD\n");
+// #ifdef USE_ENZYME
+//   double x = 5.;
+//   double df_dx_res = 2*x;
 
-  // Output argument
-  printf(" 1.1. %-64s", "Basic square derivative");
-  double df_dx_out = __enzyme_autodiff((void*)litert_test_28_enzyme_ad_sqr_1, x);
-  if ((df_dx_out - df_dx_res) < 1e-7 && (df_dx_out - df_dx_res) > -1e-7) // actually even (df_dx_out == df_dx_res) works
-    printf("passed    (d(x^2) = %.1f, x = %.1f)\n", df_dx_out, x);
-  else
-    printf("FAILED,   (df_dx_out = %f, must be %.1f)\n", df_dx_out, df_dx_res);
+//   // Output argument
+//   printf(" 1.1. %-64s", "Basic square derivative");
+//   double df_dx_out = __enzyme_autodiff((void*)litert_test_28_enzyme_ad_sqr_1, x);
+//   if ((df_dx_out - df_dx_res) < 1e-7 && (df_dx_out - df_dx_res) > -1e-7) // actually even (df_dx_out == df_dx_res) works
+//     printf("passed    (d(x^2) = %.1f, x = %.1f)\n", df_dx_out, x);
+//   else
+//     printf("FAILED,   (df_dx_out = %f, must be %.1f)\n", df_dx_out, df_dx_res);
 
-  // Duplicated argument
-  printf(" 1.2. %-64s", "Square derivative, dx is stored in an argument");
-  double df_dx_arg = 0.;
-  __enzyme_autodiff((void*)litert_test_28_enzyme_ad_sqr_2, &x, &df_dx_arg);
-  if ((df_dx_arg - df_dx_res) < 1e-7 && (df_dx_arg - df_dx_res) > -1e-7) // actually even (df_dx_arg == df_dx_res) works
-    printf("passed    (d(x^2) = %.1f, x = %.1f)\n", df_dx_arg, x);
-  else
-    printf("FAILED,   (df_dx_arg = %f, must be %.1f)\n", df_dx_arg, df_dx_res);
+//   // Duplicated argument
+//   printf(" 1.2. %-64s", "Square derivative, dx is stored in an argument");
+//   double df_dx_arg = 0.;
+//   __enzyme_autodiff((void*)litert_test_28_enzyme_ad_sqr_2, &x, &df_dx_arg);
+//   if ((df_dx_arg - df_dx_res) < 1e-7 && (df_dx_arg - df_dx_res) > -1e-7) // actually even (df_dx_arg == df_dx_res) works
+//     printf("passed    (d(x^2) = %.1f, x = %.1f)\n", df_dx_arg, x);
+//   else
+//     printf("FAILED,   (df_dx_arg = %f, must be %.1f)\n", df_dx_arg, df_dx_res);
 
-  // Inactive (const) argument (explicit)
-  printf(" 1.3. %-64s", "Derivative d(k*x)/dx, k - parameter");
-  double k = 7;
-  df_dx_out = 0.; // only to verify the result
-  df_dx_out = __enzyme_autodiff((void*)litert_test_28_enzyme_ad_mul, enzyme_const, k, x); // enzyme_const not needed if k is int
-  if ((df_dx_out - k) < 1e-7 && (df_dx_out - k) > -1e-7) // actually even (df_dx_out == k) works
-    printf("passed    (d(k*x)/dx = %.1f, k = %.1f)\n", df_dx_out, k);
-  else
-    printf("FAILED,   (df_dx_out = %f, must be %.1f)\n", df_dx_out, k);
+//   // Inactive (const) argument (explicit)
+//   printf(" 1.3. %-64s", "Derivative d(k*x)/dx, k - parameter");
+//   double k = 7;
+//   df_dx_out = 0.; // only to verify the result
+//   df_dx_out = __enzyme_autodiff((void*)litert_test_28_enzyme_ad_mul, enzyme_const, k, x); // enzyme_const not needed if k is int
+//   if ((df_dx_out - k) < 1e-7 && (df_dx_out - k) > -1e-7) // actually even (df_dx_out == k) works
+//     printf("passed    (d(k*x)/dx = %.1f, k = %.1f)\n", df_dx_out, k);
+//   else
+//     printf("FAILED,   (df_dx_out = %f, must be %.1f)\n", df_dx_out, k);
 
-#else
-  printf("  Enzyme AD is not used.\n");
+// #else
+//   printf("  Enzyme AD is not used.\n");
 
-#endif
+// #endif
 }
 
 void diff_render_test_2_forward_pass()
@@ -2472,46 +2472,7 @@ diff_render_test_23_ray_casting_mask()
 }
 
 void
-diff_render_test_24_tricubic_interpolation()
-{
-  float grid[4][4][4] = {
-    {{0.1, 0.2, 0.3, 0.4}, {0.2, 0.3, 0.4, 0.5}, {0.3, 0.4, 0.5, 0.6}, {0.4, 0.5, 0.6, 0.7}},
-    {{0.2, 0.3, 0.4, 0.5}, {0.3, 0.4, 0.5, 0.6}, {0.4, 0.5, 0.6, 0.7}, {0.5, 0.6, 0.7, 0.8}},
-    {{0.3, 0.4, 0.5, 0.6}, {0.4, 0.5, 0.6, 0.7}, {0.5, 0.6, 0.7, 0.8}, {0.6, 0.7, 0.8, 0.9}},
-    {{0.4, 0.5, 0.6, 0.7}, {0.5, 0.6, 0.7, 0.8}, {0.6, 0.7, 0.8, 0.9}, {0.7, 0.8, 0.9, 1.0}}
-  };
-
-  float x = 0.5, y = 0.5, z = 0.5;
-  float interpolated_value = 0;
-  
-  float values_yz[4][4] = {0}, values_z[4] = {0};
-  //  Catmull–Rom spline
-  //  p[1] + 0.5 * x * (p[2] - p[0] + x * (2.0 * p[0] - 5.0 * p[1] + 4.0 * p[2] - p[3] + x * (3.0 * (p[1] - p[2]) + p[3] - p[0])))
-  auto spline = [&](const float &p0, const float &p1, const float &p2, const float &p3, const float &x)
-  {
-    return p1 + 0.5 * x * (p2 - p0 + x * (2.0 * p0 - 5.0 * p1 + 4.0 * p2 - p3 + x * (3.0 * (p1 - p2) + p3 - p0)));
-  };
-
-  for (int j = 0; j < 4; ++j)
-  {
-    for (int k = 0; k < 4; ++k)
-    {
-      values_yz[j][k] = spline(grid[0][j][k], grid[1][j][k], grid[2][j][k], grid[3][j][k], x);
-    }
-  }
-
-  for (int k = 0; k < 4; k++)
-  {
-    values_z[k] = spline(values_yz[0][k], values_yz[1][k], values_yz[2][k], values_yz[3][k], y);
-  }
-
-  interpolated_value = spline(values_z[0], values_z[1], values_z[2], values_z[3], z);
-
-  std::cout << "INTERPOLATED VALUE IS: " << interpolated_value << std::endl;
-}
-
-void
-diff_render_test_25_optimization_with_tricubic()
+diff_render_test_24_optimization_with_tricubic()
 {
   auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "scenes/01_simple_scenes/data/teapot.vsgf").c_str());
   cmesh4::normalize_mesh(mesh);
@@ -2547,9 +2508,25 @@ diff_render_test_25_optimization_with_tricubic()
 }
 
 void
-diff_render_test_26_tricubic_derrivative()
+diff_render_test_25_tricubic_enzyme_derrivative()
 {
-  
+  float grid[64] = {
+    0.1, 0.2, 0.3, 0.4, 0.2, 0.3, 0.4, 0.5, 0.3, 0.4, 0.5, 0.6, 0.4, 0.5, 0.6, 0.7,
+    0.2, 0.3, 0.4, 0.5, 0.3, 0.4, 0.5, 0.6, 0.4, 0.5, 0.6, 0.7, 0.5, 0.6, 0.7, 0.8,
+    0.3, 0.4, 0.5, 0.6, 0.4, 0.5, 0.6, 0.7, 0.5, 0.6, 0.7, 0.8, 0.6, 0.7, 0.8, 0.9,
+    0.4, 0.5, 0.6, 0.7, 0.5, 0.6, 0.7, 0.8, 0.6, 0.7, 0.8, 0.9, 0.7, 0.8, 0.9, 1.0
+  };
+
+  float x[3] = {0.5, 0.5, 0.5};
+  uint vox_u[3] = {1, 1, 1};
+  uint off = 0;
+  uint size[3] = {4, 4, 4}; 
+
+  float interpolated_value = tricubicInterpolation(grid, vox_u, x, off, size);
+  std::cout << "INTERPOLATED VALUE IS: " << interpolated_value << std::endl;
+
+  auto dp_x = tricubicInterpolationDerrivative(grid, vox_u, x, off, size);
+  printf("%f %f %f\n", dp_x.x, dp_x.y, dp_x.z);
 }
 
 void perform_tests_diff_render(const std::vector<int> &test_ids)
@@ -2564,8 +2541,8 @@ void perform_tests_diff_render(const std::vector<int> &test_ids)
       diff_render_test_13_optimize_sphere_diffuse, diff_render_test_14_optimize_sphere_lambert, diff_render_test_15_combined_reconstruction,
       diff_render_test_16_borders_detection, diff_render_test_17_optimize_bunny, diff_render_test_18_sphere_depth,
       diff_render_test_19_expanding_grid, diff_render_test_20_sphere_depth_with_redist, diff_render_test_21_optimization_stand,
-      diff_render_test_22_border_sampling_accuracy_mask, diff_render_test_23_ray_casting_mask, diff_render_test_24_tricubic_interpolation,
-      diff_render_test_25_optimization_with_tricubic, diff_render_test_26_tricubic_derrivative};
+      diff_render_test_22_border_sampling_accuracy_mask, diff_render_test_23_ray_casting_mask,
+      diff_render_test_24_optimization_with_tricubic, diff_render_test_25_tricubic_enzyme_derrivative};
 
   if (tests.empty())
   {
