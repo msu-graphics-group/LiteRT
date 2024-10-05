@@ -1,0 +1,45 @@
+buildType:
+      default: debug
+      choices:
+        debug:
+          short: Debug
+          long: Emit debug information
+          buildType: Debug
+        release:
+          short: Release
+          long: Optimize generated code
+          buildType: Release
+        asan:
+          short: Asan
+          long: Instrument with Address Sanitizer
+          buildType: Asan
+        tsan:
+          short: Tsan
+          long: Instrument with Thread Sanitizer
+          buildType: Tsan
+useVulkan:
+  default: 'ON'
+  choices:
+    'ON':
+      short: Vulkan
+      long: Enable Vulkan for GPU computations
+      settings: 
+        USE_VULKAN: true
+    'OFF':
+      short: NoVulkan
+      long: Only CPU computations
+      settings:
+        USE_VULKAN: false
+useRTX:
+  default: 'ON'
+  choices:
+    'ON':
+      short: RTX
+      long: Enable RTX Hardware support
+      settings: 
+        USE_RTX: true
+    'OFF':
+      short: NoRTX
+      long: Disable RTX Hardware support
+      settings:
+        USE_RTX: false

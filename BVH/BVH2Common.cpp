@@ -1283,20 +1283,17 @@ void BVHRT::IntersectNURBS(const float3& ray_pos, const float3& ray_dir,
   float3 max_pos = to_float3(m_geomData[geomId].boxMax);
   float2 tNear_tFar = box_intersects(min_pos, max_pos, ray_pos, ray_dir);
 
-  //default values
-  float3 norm = normalize(ray_pos + tNear_tFar.x * ray_dir);
-  float2 encoded_norm = encode_normal(norm);
-  float t = -1.0f;
-
-  auto hit_pos = ray_nurbs_newton_intersection(ray_pos, normalize(ray_dir), nurbs);
+  auto hit_pos = ray_nurbs_newton_intersection(ray_pos, ray_dir, nurbs);
   if (hit_pos) {
     float2 uv = hit_pos.value();
-    float3 point = to_float3(nurbs.point(uv.x, uv.y));
+    float3 point = to_float3(nurbs.surface_point(uv.x, uv.y));
     float3 uder = to_float3(nurbs.uder(uv.x, uv.y));
     float3 vder = to_float3(nurbs.vder(uv.x, uv.y));
     float t = dot(normalize(ray_dir), point-ray_pos);
-    norm = normalize(cross(uder, vder));
-    encoded_norm = encode_normal(norm);
+    if (t < tNear_tFar.x || t > tNear_tFar.y)
+      return;
+    float3 norm = normalize(cross(uder, vder));
+    float2 encoded_norm = encode_normal(norm);
     pHit->geomId = geomId | (type << SH_TYPE);
     pHit->t = t;
     pHit->primId = 0;

@@ -958,6 +958,10 @@ uint32_t BVHRT::AddGeom_NURBS(const RawNURBS &nurbs, ISceneObject *fake_this, Bu
     mn = LiteMath::min(mn, nurbs.points[{i, j}]);
     mx = LiteMath::max(mx, nurbs.points[{i, j}]);
   }
+  if (LiteMath::any_of(mn == mx)) {
+    mx += float4{1e-1f};
+    mn -= float4{1e-1f};
+  }
 
   //fill geom data array
   m_abstractObjects.resize(m_abstractObjects.size() + 1); 
