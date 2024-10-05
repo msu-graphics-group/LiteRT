@@ -138,6 +138,9 @@ namespace dr
     std::vector<float4> samples_debug_color;
     std::vector<float4> samples_debug_pos_size;
   public:
+    std::atomic<uint32_t> border_rays_total{0};
+    std::atomic<uint32_t> border_rays_hit{0};
+
     static constexpr unsigned MEGA_PIXEL_SIZE = 256;
     LiteImage::Image2D<float4> samples_mega_image;
   };

@@ -4,6 +4,7 @@
 
 #include <omp.h>
 #include <chrono>
+#include <atomic>
 
 using LiteMath::float2;
 using LiteMath::float3;
@@ -1299,24 +1300,6 @@ namespace dr
 
         float2 dir = float2(ppos_2.x - ppos_1.x, ppos_2.y - ppos_1.y);
         float dir_mult = relax_eps/length(dir);
-        static std::vector<float> low_y;
-        static std::vector<float> high_y;
-        if (y < 7)
-          low_y.push_back(dir_mult);
-        else if (y > 9)
-          high_y.push_back(dir_mult);
-        if (border_points == 0)
-        {
-          float average_high = 0.0f;
-          float average_low = 0.0f;
-          for (int i = 0; i < low_y.size(); i++)
-            average_low += low_y[i];
-          for (int i = 0; i < high_y.size(); i++)
-            average_high += high_y[i];
-          average_low /= low_y.size();
-          average_high /= high_y.size();
-          //printf("average = %f %f\n", average_high, average_low);
-        }
         //printf("dir_mult = %f\n", dir_mult);
         float2 pp1 = float2(m_width*ppos_1.x - x, m_height*ppos_1.y - y);
         float2 pp2 = float2(m_height*ppos_2.x - x, m_height*ppos_2.y - y);
@@ -1399,7 +1382,9 @@ namespace dr
     }
 
     //if (x == 10 && y == 8)
-    printf("[%u %u] border_points %u\n", x, y, border_points);
+    //printf("[%u %u] border_points %u\n", x, y, border_points);
+    border_rays_total += border_spp;
+    border_rays_hit   += border_points;
 
     if (m_preset_dr.debug_border_samples || m_preset_dr.debug_border_samples_mega_image)
     {
