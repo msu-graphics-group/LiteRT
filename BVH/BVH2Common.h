@@ -157,6 +157,7 @@ struct BVHRT : public ISceneObject2
   void UpdateInstance(uint32_t a_instanceId, const float4x4 &a_matrix) override;
 
   CRT_Hit RayQuery_NearestHit(float4 posAndNear, float4 dirAndFar) override;
+  CRT_Hit RayQuery_NearestHitGS(float4 posAndNear, float4 dirAndFar) override;
   CRT_Hit RayQuery_NearestHitMotion(LiteMath::float4 posAndNear, LiteMath::float4 dirAndFar, float time) override
   { return RayQuery_NearestHit(posAndNear, dirAndFar); }
 
@@ -188,6 +189,9 @@ struct BVHRT : public ISceneObject2
                          float tNear, uint32_t instId,
                          uint32_t geomId, uint32_t a_start,
                          uint32_t a_count, CRT_Hit* pHit);
+
+  void InsertToGaussianBuffer(CRT_Hit* hit, uint32_t index, float distance, float tau);
+  void CompressGaussianBuffer(CRT_Hit* hit);
 
   void RayGridIntersection(float3 ray_dir, uint gridSize, float3 p, float3 lastP, uint4 ptrs, uint4 ptrs2, float &throughput, float3 &colour);
   void lerpCell(const uint idx0, const uint idx1, const float t, float memory[28]);

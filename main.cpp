@@ -89,7 +89,7 @@ int main(int argc, const char** argv)
   std::shared_ptr<IRenderer> pRender = nullptr;
   std::cout << "[main]: init renderer ..." << std::endl; 
   {
-    pRender = CreateMultiRenderer("CPU");  
+    pRender = CreateMultiRenderer("GPU");  
     auto accelStructImpl = CreateSceneRT(accelStruct, buildFormat, layout);
     pRender->SetAccelStruct(accelStructImpl);
   }
