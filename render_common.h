@@ -3,9 +3,28 @@
 
 using namespace LiteMath;
 
+// orthographic projection with right-handed coordinate system to unit cube [-1,1]^3
+static inline float4x4 orthoRH_NO(float left, float right, float bottom, float top, float zNear, float zFar)
+{
+  float4x4 Result;
+  Result(0, 0) = 2.0f / (right - left);
+  Result(1, 1) = 2.0f / (top - bottom);
+  Result(2, 2) = -2.0f / (zFar - zNear);
+  Result(0, 3) = -(right + left) / (right - left);
+  Result(1, 3) = -(top + bottom) / (top - bottom);
+  Result(2, 3) = -(zFar + zNear) / (zFar - zNear);
+  return Result;
+}
+
+// orthographic projection
+static inline float4x4 ortho(float left, float right, float bottom, float top, float zNear, float zFar)
+{
+  return orthoRH_NO(left, right, bottom, top, zNear, zFar);
+}
+
 static inline float3 EyeRayDirNormalized(float x, float y, float4x4 a_mViewProjInv)
 {
-  float4 pos = float4(2.0f*x - 1.0f, -2.0f*y + 1.0f, 0.0f, 1.0f );
+  float4 pos = float4(2.0f*x - 1.0f, -2.0f*y + 1.0f, 1.0f, 1.0f );
   pos = a_mViewProjInv * pos;
   pos /= pos.w;
   return normalize(to_float3(pos));

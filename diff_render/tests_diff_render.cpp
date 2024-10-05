@@ -13,6 +13,7 @@
 #include "../utils/image_metrics.h"
 #include "../diff_render/MultiRendererDR.h"
 #include "../utils/stat_utils.h"
+#include "../render_common.h"
 
 #include <functional>
 #include <cassert>
@@ -986,6 +987,7 @@ void test_position_derivatives(const SdfSBS &SBS, unsigned render_node, unsigned
   preset.spp = 256;
 
   float4x4 base_proj = LiteMath::perspectiveMatrix(close_view ? 20 : 20, 1.0f, 0.01f, 100.0f);
+  base_proj = ortho(-0.8f, 0.8f, -0.8f, 0.8f, 1.0f, 10.0f);
   //base_proj = LiteMath::ort
 
   std::vector<float4x4> view; 
