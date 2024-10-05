@@ -1,0 +1,24 @@
+<!-- this scene is similar to the lego train/r_0 scene -->
+<?xml version="1.0"?>
+<textures_lib/>
+<materials_lib/>
+<geometry_lib>
+  <gs points="../../../gaussian-splatting/output/lego/point_cloud/iteration_30000/point_cloud.ply"/>
+</geometry_lib>
+<lights_lib/>
+<cam_lib>
+  <camera>
+    <fov>39.597755335771296</fov>
+    <nearClipPlane>0.01</nearClipPlane>
+    <farClipPlane>100.0</farClipPlane>
+    <position>-6.330681041369702e-10 5.15363601674331e-08 -4.0311294416755175</position>
+    <look_at>-6.330681041369702e-10 5.15363601674331e-08 100.0</look_at>
+    <up>0.0 -1.0 0.0</up>
+  </camera>
+</cam_lib>
+<render_lib/>
+<scenes>
+  <scene>
+    <instance matrix="-0.9999021184605151 -0.013988680256845 -1.192642714380828e-10 0.0 -0.004192244007389245 0.2996590144500511 -0.9540371093771693 0.0 0.013345722973470963 -0.9539439308979806 -0.29968842520819977 0.0 0.0 0.0 0.0 1.0"/>
+  </scene>
+</scenes>

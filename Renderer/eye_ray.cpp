@@ -77,7 +77,11 @@ float4 MultiRenderer::kernel_RayTrace(uint32_t tidX, const float4* rayPosAndNear
   const uint y  = (XY & 0xFFFF0000) >> 16;
 
 
+#ifndef DISABLE_GS_PRIMITIVE
+  CRT_Hit hit = m_pAccelStruct->RayQuery_NearestHitGS(rayPos, rayDir);
+#else
   CRT_Hit hit = m_pAccelStruct->RayQuery_NearestHit(rayPos, rayDir);
+#endif
 
   if (hit.primId == 0xFFFFFFFF) //no hit
     return float4(0,0,0,1);
@@ -236,57 +240,7 @@ float4 MultiRenderer::kernel_RayTrace(uint32_t tidX, const float4* rayPosAndNear
 
   case MULTI_RENDER_MODE_GS:
   {
-    std::sort(
-        hit.gaussians.begin(),
-        hit.gaussians.end(),
-        [](const auto& left, const auto& right) {
-          return std::get<0>(left) < std::get<0>(right);
-        }
-      );
-
-      auto col = float4(0.0f, 0.0f, 0.0f, 1.0f);
-
-      for (auto& [_, distance_to_intersection, diffuse_color, opacity, conic_3d] : hit.gaussians) {
-        const auto power_a = (
-            conic_3d[0][0] * distance_to_intersection.x * distance_to_intersection.x +
-            conic_3d[1][1] * distance_to_intersection.y * distance_to_intersection.y +
-            conic_3d[2][2] * distance_to_intersection.z * distance_to_intersection.z
-        );
-
-        const auto power_b = (
-            conic_3d[0][1] * distance_to_intersection.x * distance_to_intersection.y +
-            conic_3d[0][2] * distance_to_intersection.x * distance_to_intersection.z +
-            conic_3d[1][2] * distance_to_intersection.y * distance_to_intersection.z
-        );
-
-        const auto power = -0.5f * power_a - power_b;
-
-        if (power > 0.0f) {
-            continue;
-        }
-
-        const auto alpha = min(0.99f, opacity * float(exp(power)));
-
-        if (alpha < 1.0f / 255.0f) {
-            continue;
-        }
-
-        const auto transparency = col.w * (1.0f - alpha);
-
-        if (transparency < 0.0001f) { 
-            break;
-        }
-
-        const auto weight = alpha * col.w;
-
-        col.x += diffuse_color.x * weight;
-        col.y += diffuse_color.y * weight;
-        col.z += diffuse_color.z * weight;
-
-        col.w = transparency;
-      }
-
-      res_color = clamp(float4(col.x, col.y, col.z, 1.0f), 0.0f, 1.0f);
+      res_color = clamp(float4(hit.coords[1], hit.coords[2], hit.coords[3], 1.0f), 0.0f, 1.0f);
   }
   break;
 

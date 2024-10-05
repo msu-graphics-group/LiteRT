@@ -22,6 +22,6 @@ $2 $start_dir/Renderer/eye_ray.cpp $start_dir/BVH/BVH2Common.cpp \
 -DPUGIXML_NO_EXCEPTIONS -DKERNEL_SLICER -v \
 -DDISABLE_SDF_HP \
 -DDISABLE_RF_GRID \
--DDISABLE_GS_PRIMITIVE
+# -DDISABLE_GS_PRIMITIVE
 
 cd $start_dir

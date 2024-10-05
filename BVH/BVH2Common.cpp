@@ -768,6 +768,10 @@ void BVHRT::IntersectAllSdfsInLeaf(const float3 ray_pos, const float3 ray_dir,
   }
 }
 
+static float sigmoid(float x) {
+  return 1 / (1 + exp(-x));
+}
+
 #ifndef DISABLE_RF_GRID
 int indexGrid(int x, int y, int z, int gridSize) {
     return (x + y * gridSize + z * gridSize * gridSize) * 28;
@@ -820,10 +824,6 @@ float eval_sh(float sh[28], float3 rayDir, const int offset)
     sum += sh[offset + i] * sh_coeffs[i];
 
   return sum;
-}
-
-static float sigmoid(float x) {
-  return 1 / (1 + exp(-x));
 }
 
 void BVHRT::RayGridIntersection(float3 ray_dir, uint gridSize, float3 p, float3 lastP, uint4 ptrs, uint4 ptrs2, float &throughput, float3 &colour)
@@ -956,10 +956,13 @@ float3 RotatePoint(const float3& p, const float4& q) {
     return float3(result.y, result.z, result.w);
 }
 
-float3 ComputeColorFromSH(int idx, int deg, const float3 pos, float3 ray_pos,
-    std::vector<float4x4>& data_r,
-    std::vector<float4x4>& data_g,
-    std::vector<float4x4>& data_b) {
+float3 ComputeColorFromSH(
+    const int sh_degree,
+    const float3& gaussian_pos,
+    const float3& ray_pos,
+    float4x4& data_r,
+    float4x4& data_g,
+    float4x4& data_b) {
   // Spherical harmonics coefficients
   const float SH_C0 = 0.28209479177387814f;
   const float SH_C1 = 0.4886025119029199f;
@@ -980,31 +983,24 @@ float3 ComputeColorFromSH(int idx, int deg, const float3 pos, float3 ray_pos,
     -0.5900435899266435f
   };
 
-	float3 dir = pos - ray_pos;
+	float3 dir = gaussian_pos - ray_pos;
 	dir = dir / length(dir);
 
-  const float3 sh[] = {
-    float3(data_r[idx][0][0], data_g[idx][0][0], data_b[idx][0][0]),
-    float3(data_r[idx][0][1], data_g[idx][0][1], data_b[idx][0][1]),
-    float3(data_r[idx][0][2], data_g[idx][0][2], data_b[idx][0][2]),
-    float3(data_r[idx][0][3], data_g[idx][0][3], data_b[idx][0][3]),
-    float3(data_r[idx][1][0], data_g[idx][1][0], data_b[idx][1][0]),
-    float3(data_r[idx][1][1], data_g[idx][1][1], data_b[idx][1][1]),
-    float3(data_r[idx][1][2], data_g[idx][1][2], data_b[idx][1][2]),
-    float3(data_r[idx][1][3], data_g[idx][1][3], data_b[idx][1][3]),
-    float3(data_r[idx][2][0], data_g[idx][2][0], data_b[idx][2][0]),
-    float3(data_r[idx][2][1], data_g[idx][2][1], data_b[idx][2][1]),
-    float3(data_r[idx][2][2], data_g[idx][2][2], data_b[idx][2][2]),
-    float3(data_r[idx][2][3], data_g[idx][2][3], data_b[idx][2][3]),
-    float3(data_r[idx][3][0], data_g[idx][3][0], data_b[idx][3][0]),
-    float3(data_r[idx][3][1], data_g[idx][3][1], data_b[idx][3][1]),
-    float3(data_r[idx][3][2], data_g[idx][3][2], data_b[idx][3][2]),
-    float3(data_r[idx][3][3], data_g[idx][3][3], data_b[idx][3][3]),
-  };
+  float3 sh[16];
+
+  for (int i = 0; i < 4; ++i) {
+    for (int j = 0; j < 4; ++j) {
+      const auto r = data_r[i][j];
+      const auto g = data_g[i][j];
+      const auto b = data_b[i][j];
+
+      sh[i * 4 + j] = float3(r, g, b);
+    }
+  }
 
 	float3 result = SH_C0 * sh[0];
 
-	if (deg > 0) {
+	if (sh_degree > 0) {
 		float x = dir.x;
 		float y = dir.y;
 		float z = dir.z;
@@ -1013,7 +1009,7 @@ float3 ComputeColorFromSH(int idx, int deg, const float3 pos, float3 ray_pos,
                       SH_C1 * z * sh[2] -
                       SH_C1 * x * sh[3];
 
-		if (deg > 1) {
+		if (sh_degree > 1) {
 			float xx = x * x;
       float yy = y * y;
       float zz = z * z;
@@ -1028,7 +1024,7 @@ float3 ComputeColorFromSH(int idx, int deg, const float3 pos, float3 ray_pos,
 				SH_C2[3] * xz * sh[7] +
 				SH_C2[4] * (xx - yy) * sh[8];
 
-			if (deg > 2) {
+			if (sh_degree > 2) {
 				result = result +
 					SH_C3[0] * y * (3.0f * xx - yy) * sh[9] +
 					SH_C3[1] * xy * z * sh[10] +
@@ -1046,11 +1042,102 @@ float3 ComputeColorFromSH(int idx, int deg, const float3 pos, float3 ray_pos,
 	return max(result, float3(0.0f));
 }
 
+void BVHRT::CompressGaussianBuffer(CRT_Hit* hit) {
+    const uint32_t sh_degree = 3;
+
+    for (uint32_t i = 0; i < hit->gaussian_buffer_size; ++i) {
+        const auto gaussian_index = hit->gaussian_index_buffer[i];
+        const auto intersection = hit->ray_pos + hit->gaussian_tau_buffer[i] * hit->ray_dir;
+
+        const auto mean = float3(
+            m_gs_data[gaussian_index][0][0],
+            m_gs_data[gaussian_index][0][1],
+            m_gs_data[gaussian_index][0][2]);
+
+        const auto opacity = sigmoid(m_gs_data[gaussian_index][0][3]);
+        auto conic_3d = m_gs_conic_3d[gaussian_index];
+
+        const auto power_a = (
+            conic_3d[0][0] * (intersection - mean).x * (intersection - mean).x +
+            conic_3d[1][1] * (intersection - mean).y * (intersection - mean).y +
+            conic_3d[2][2] * (intersection - mean).z * (intersection - mean).z);
+
+        const auto power_b = (
+            conic_3d[0][1] * (intersection - mean).x * (intersection - mean).y +
+            conic_3d[0][2] * (intersection - mean).x * (intersection - mean).z +
+            conic_3d[1][2] * (intersection - mean).y * (intersection - mean).z);
+
+        const auto power = -0.5f * power_a - power_b;
+
+        if (power > 0.0f) {
+            continue;
+        }
+
+        const auto alpha = min(0.99f, opacity * float(exp(power)));
+
+        if (alpha < 1.0f / 255.0f) {
+            continue;
+        }
+
+        const auto transparency = hit->coords[0] * (1.0f - alpha);
+
+        if (transparency < 0.0001f) { 
+            continue;
+        }
+
+        const auto weight = alpha * hit->coords[0];
+
+        const auto diffuse_color = ComputeColorFromSH(
+            sh_degree,
+            mean,
+            hit->ray_pos,
+            m_gs_data_r[gaussian_index],
+            m_gs_data_g[gaussian_index],
+            m_gs_data_b[gaussian_index]);
+
+        hit->coords[1] += diffuse_color.x * weight;
+        hit->coords[2] += diffuse_color.y * weight;
+        hit->coords[3] += diffuse_color.z * weight;
+
+        hit->coords[0] = transparency;
+    }
+
+    hit->gaussian_buffer_size = 0;
+}
+
+void BVHRT::InsertToGaussianBuffer(CRT_Hit* hit, uint32_t index, float distance, float tau) {
+    const uint32_t max_buffer_size = 2048;
+
+    if (hit->gaussian_buffer_size == max_buffer_size) {
+        CompressGaussianBuffer(hit);
+    }
+
+    uint32_t size = hit->gaussian_buffer_size;
+    uint32_t position = 0;
+
+    while (position < size && hit->gaussian_distance_buffer[position] < distance) {
+        position += 1;
+    }
+
+    for (uint32_t i = size; i > position; --i) {
+        hit->gaussian_index_buffer[i] = hit->gaussian_index_buffer[i - 1];
+        hit->gaussian_distance_buffer[i] = hit->gaussian_distance_buffer[i - 1];
+        hit->gaussian_tau_buffer[i] = hit->gaussian_tau_buffer[i - 1];
+    }
+
+    hit->gaussian_index_buffer[position] = index;
+    hit->gaussian_distance_buffer[position] = distance;
+    hit->gaussian_tau_buffer[position] = tau;
+
+    hit->gaussian_buffer_size += 1;
+}
+
 void BVHRT::IntersectGSInLeaf(const float3& ray_pos, const float3& ray_dir,
                               float tNear, uint32_t instId,
                               uint32_t geomId, uint32_t a_start,
                               uint32_t a_count, CRT_Hit* pHit) {
-      const int sh_degree = 3;
+      pHit->ray_pos = ray_pos;
+      pHit->ray_dir = ray_dir;
 
       const auto mean = float3(
         m_gs_data[a_start][0][0],
@@ -1058,7 +1145,7 @@ void BVHRT::IntersectGSInLeaf(const float3& ray_pos, const float3& ray_dir,
         m_gs_data[a_start][0][2]);
 
       const auto opacity = sigmoid(m_gs_data[a_start][0][3]);
-      const auto conic_3d = m_gs_conic_3d[a_start];
+      auto conic_3d = m_gs_conic_3d[a_start];
 
       // START -- this block of code does the same thing as the isocahedrons
       const auto scale = float3(
@@ -1107,32 +1194,54 @@ void BVHRT::IntersectGSInLeaf(const float3& ray_pos, const float3& ray_dir,
         const auto intersection = ray_pos + tau * ray_dir;
 
         pHit->primId = a_start;
-        pHit->gaussians.push_back({
-          length(mean - ray_pos), intersection - mean,
-          ComputeColorFromSH(a_start, sh_degree, mean, ray_pos, m_gs_data_r, m_gs_data_g, m_gs_data_b),
-          opacity, conic_3d});
+
+        InsertToGaussianBuffer(
+            pHit,
+            a_start,
+            length(mean - ray_pos),
+            tau);
 
         return;
       }
 
       // second method – from the gaussiantracer.github.io/res/3DGRT_Anonymous_LQ.pdf
       {
-        const auto S = float4x4(
-            scale.x, 0.0f,    0.0f,    0.0f,
-            0.0f,    scale.y, 0.0f,    0.0f,
-            0.0f,    0.0f,    scale.z, 0.0f,
-            0.0f,    0.0f,    0.0f,    1.0f);
+        float4x4 S;
+
+        for (int i = 0; i < 4; ++i) {
+          for (int j = 0; j < 4; ++j) {
+            S[i][j] = 0.0f;
+          }
+        }
+
+        S[0][0] = scale.x;
+        S[1][1] = scale.y;
+        S[2][2] = scale.z;
+        S[3][3] = 1.0f;
 
         const auto r = rotation.x;
         const auto x = rotation.y;
         const auto y = rotation.z;
         const auto z = rotation.w;
 
-        const auto R = float4x4(
-            1.0f - 2.0f * (y * y + z * z), 2.0f * (x * y - r * z),        2.0f * (x * z + r * y),        0.0f,
-            2.0f * (x * y + r * z),        1.0f - 2.0f * (x * x + z * z), 2.0f * (y * z - r * x),        0.0f,
-            2.0f * (x * z - r * y),        2.0f * (y * z + r * x),        1.0f - 2.0f * (x * x + y * y), 0.0f,
-            0.0f,                          0.0f,                          0.0f,                          1.0f);
+        float4x4 R;
+
+        R[0][0] = 1.0f - 2.0f * (y * y + z * z);
+        R[0][1] = 2.0f * (x * y - r * z);
+        R[0][2] = 2.0f * (x * z + r * y);
+        R[0][3] = 0.0f;
+        R[1][0] = 2.0f * (x * y + r * z);
+        R[1][1] = 1.0f - 2.0f * (x * x + z * z);
+        R[1][2] = 2.0f * (y * z - r * x);
+        R[1][3] = 0.0f;
+        R[2][0] = 2.0f * (x * z - r * y);
+        R[2][1] = 2.0f * (y * z + r * x);
+        R[2][2] = 1.0f - 2.0f * (x * x + y * y);
+        R[2][3] = 0.0f;
+        R[3][0] = 0.0f;
+        R[3][1] = 0.0f;
+        R[3][2] = 0.0f;
+        R[3][3] = 1.0f;
 
         const auto M = inverse4x4(S) * transpose(R);
 
@@ -1146,10 +1255,12 @@ void BVHRT::IntersectGSInLeaf(const float3& ray_pos, const float3& ray_dir,
         const auto intersection = ray_pos + tau * ray_dir;
 
         pHit->primId = a_start;
-        pHit->gaussians.push_back({
-          length(mean - ray_pos), intersection - mean,
-          ComputeColorFromSH(a_start, sh_degree, mean, ray_pos, m_gs_data_r, m_gs_data_g, m_gs_data_b),
-          opacity, conic_3d});
+
+        InsertToGaussianBuffer(
+            pHit,
+            a_start,
+            length(mean - ray_pos),
+            tau);
 
         return;
       }
@@ -1712,6 +1823,10 @@ CRT_Hit BVHRT::RayQuery_NearestHit(float4 posAndNear, float4 dirAndFar)
   hit.coords[2] = 0.0f;
   hit.coords[3] = 0.0f;
 
+#ifndef DISABLE_GS_PRIMITIVE
+  hit.gaussian_buffer_size = 0;
+#endif
+
   {
     uint32_t nodeIdx = 0;
     do
@@ -1757,6 +1872,16 @@ CRT_Hit BVHRT::RayQuery_NearestHit(float4 posAndNear, float4 dirAndFar)
   }
   
   return hit;
+}
+
+CRT_Hit BVHRT::RayQuery_NearestHitGS(float4 posAndNear, float4 dirAndFar) {
+    CRT_Hit hit = RayQuery_NearestHit(posAndNear, dirAndFar);
+
+#ifndef DISABLE_GS_PRIMITIVE
+    CompressGaussianBuffer(&hit);
+#endif
+
+    return hit;
 }
 
 bool BVHRT::RayQuery_AnyHit(float4 posAndNear, float4 dirAndFar)
