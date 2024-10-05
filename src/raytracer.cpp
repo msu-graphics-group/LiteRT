@@ -88,8 +88,8 @@ std::optional<float3> trace_surface_newton(
 
     float2 J_inversed[2] = 
     {
-      { J[1][1]/det, -J[1][0]/det },
-      { -J[0][1]/det, J[0][0]/det }
+      { J[1][1]/det, -J[0][1]/det },
+      { -J[1][0]/det, J[0][0]/det }
     };
 
     uv = uv - mul2x2x2(J_inversed, D);

@@ -114,8 +114,8 @@ int main(int, char** argv)
         prev_y = y;
         float distance = length(camera.position-camera.target);
         float3 new_pos  = camera.position 
-                        + camera.up * dy * ImGui::GetIO().DeltaTime  * 5
-                        - camera.right * dx * ImGui::GetIO().DeltaTime * 5;
+                        + camera.up * dy * distance / 150.0f
+                        - camera.right * dx * distance / 150.0f;
         camera.position = camera.target + normalize(new_pos-camera.target)*distance;
         camera = Camera(camera.aspect, camera.fov, camera.position, camera.target);
       }
