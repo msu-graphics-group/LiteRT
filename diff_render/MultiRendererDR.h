@@ -111,6 +111,7 @@ namespace dr
     void Redistance(float *dist_in, uint3 size_in, float grid_spacing, uint32_t num_iters);
 
     float2 TransformWorldToScreenSpace(float4 pos);
+    std::array<float4, 2> TransformWorldToScreenSpaceDiff(float4 pos);
 
     std::vector<LiteImage::Image2D<float4>> m_imagesRefOriginal;
     std::vector<LiteImage::Image2D<float4>> m_imagesRefMask;

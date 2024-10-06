@@ -525,8 +525,6 @@ namespace dr
           {
             float l = m_imagesDebugPD[i].data()[j].x;
             m_imagesDebugPD[i].data()[j] = float4(std::max(0.0f, l*m_preset_dr.debug_pd_brightness), std::max(0.0f, -l*m_preset_dr.debug_pd_brightness),0,1);
-            if (i == 3)
-            printf("dataA[%d] = %f %f\n", j, m_imagesDebugPD[i].data()[j].x, m_imagesDebugPD[i].data()[j].y);
           }
           LiteImage::SaveImage<float4>(("saves/PD_"+std::to_string(i)+"a.png").c_str(), m_imagesDebugPD[i]);
         }
@@ -769,9 +767,6 @@ namespace dr
           image_1.data()[j] = float4(std::max(0.0f, l*m_preset_dr.debug_pd_brightness), std::max(0.0f, -l*m_preset_dr.debug_pd_brightness),0,1);
           image_2.data()[j] = m_preset_dr.finite_diff_brightness*abs(c1 - c2);
           image_2.data()[j].w = 1;
-
-          if (i == 3)
-          printf("dataB[%d] = %f %f\n", j, image_1.data()[j].x, image_1.data()[j].y);
         }
 
         LiteImage::SaveImage<float4>(("saves/PD_"+std::to_string(i)+"b.png").c_str(), image_1);
@@ -1231,6 +1226,22 @@ namespace dr
     float4 res = m_proj*m_worldView*pos;
     res = 0.5f*(res/res.w + 1.0f);
     return float2(res.x, 1.0 - res.y);
+  }
+
+  std::array<float4, 2> MultiRendererDR::TransformWorldToScreenSpaceDiff(float4 pos)
+  {
+    //res = proj(mul(pos))
+    //dres_dpos = dproj * dmul = (dmul^T * dproj^T)^T
+    //verified via finite differences
+    float4x4 dmmul_dpos = LiteMath::transpose(m_proj*m_worldView);
+          float4 ps = m_proj*m_worldView*pos;
+          float4 d_ps_x = float4(0.5/ps.w,0,0,-0.5*ps.x/(ps.w*ps.w));
+          float4 d_ps_y = float4(0,-0.5/ps.w,0,0.5*ps.y/(ps.w*ps.w));
+    std::array<float4, 2> diff;
+    diff[0] = dmmul_dpos*d_ps_x;
+    diff[1] = dmmul_dpos*d_ps_y;
+
+    return diff;
   }
 
   void MultiRendererDR::CastBorderRay(uint32_t tidX, const float4 *image_ref, LiteMath::float4* out_image, float* out_dLoss_dS,
@@ -2279,7 +2290,7 @@ namespace dr
     float3 center = float3(params[0], params[1], params[2]);
     float radius = params[3];
 
-    int samples = 20000;
+    int samples = 100000;
     for (int i = 0; i < samples; ++i)
     {
       float phi = 2.0f * LiteMath::M_PI * urand(0, 1);
@@ -2306,22 +2317,19 @@ namespace dr
       const float4 color_delta = float4(1,1,1,1);
 
       //printf("pos = %f, %f, norm = %f, %f\n", pos_screen.x, pos_screen.y, norm_screen.x, norm_screen.y);
+      //dp_dpj = dtransform_dpos_world * dpos_world_dpj
+      auto dtransform_dpos_world = TransformWorldToScreenSpaceDiff(to_float4(pos_world, 1.0f));
+      std::array<float4, 4> dpos_world_dpj;
+      dpos_world_dpj[0] = float4(1, 0, 0, 0);
+      dpos_world_dpj[1] = float4(0, 1, 0, 0);
+      dpos_world_dpj[2] = float4(0, 0, 1, 0);
+      dpos_world_dpj[3] = float4(sin(phi), cos(phi), 0, 0);
 
       for (int j=0; j < 4; j++)
       {
-        params[j] += 0.001f;
-        float3 pos_world_1 = float3(params[0], params[1], params[2]) + float3(sin(phi), cos(phi), 0) * params[3];
-        float2 pos_screen_1 = TransformWorldToScreenSpace(to_float4(pos_world_1, 1.0f));
-
-        params[j] -= 0.002f;
-        float3 pos_world_2 = float3(params[0], params[1], params[2]) + float3(sin(phi), cos(phi), 0) * params[3];
-        float2 pos_screen_2 = TransformWorldToScreenSpace(to_float4(pos_world_2, 1.0f));
-
-        params[j] += 0.001f;
-
-        float2 dpos_dpj = (pos_screen_1 - pos_screen_2) / 0.002f;
+        float2 dpos_dpj = float2(dot(dtransform_dpos_world[0], dpos_world_dpj[j]), dot(dtransform_dpos_world[1], dpos_world_dpj[j]));
         float length_mult = 2*LiteMath::M_PI * radius * viewproj_scale;
-        //printf("viewproj_scale = %f length_mult = %f\n", viewproj_scale, length_mult);
+
         float diff = length_mult * dot(dLoss_dColor, color_delta) * dot(norm_screen, dpos_dpj) / samples;
         out_dLoss_dS[j] += diff;
         

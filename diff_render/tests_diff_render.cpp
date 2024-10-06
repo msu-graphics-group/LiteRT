@@ -959,7 +959,7 @@ void test_position_derivatives(const SdfSBS &SBS, unsigned render_node, unsigned
   
   srand(0);
 
-  unsigned W = 8, H = 8;
+  unsigned W = 64, H = 64;
 
   MultiRenderPreset preset = getDefaultPreset();
   preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
@@ -968,8 +968,8 @@ void test_position_derivatives(const SdfSBS &SBS, unsigned render_node, unsigned
   preset.spp = 256;
 
   float4x4 base_proj = LiteMath::perspectiveMatrix(close_view ? 20 : 20, 1.0f, 0.01f, 100.0f);
-  base_proj = ortho(-0.8f, 0.8f, -0.8f, 0.8f, 1.0f, 10.0f);
-  base_proj = LiteMath::perspectiveMatrix(20, 1.0f, 0.01f, 100.0f);
+  //base_proj = ortho(-0.8f, 0.8f, -0.8f, 0.8f, 1.0f, 10.0f);
+  //base_proj = LiteMath::perspectiveMatrix(20, 1.0f, 0.01f, 100.0f);
   //base_proj = LiteMath::ort
 
   std::vector<float4x4> view; 
@@ -1010,11 +1010,11 @@ void test_position_derivatives(const SdfSBS &SBS, unsigned render_node, unsigned
   dr_preset.dr_input_type = diff_render_mode == DR_RENDER_MODE_LINEAR_DEPTH ? DR_INPUT_TYPE_LINEAR_DEPTH : DR_INPUT_TYPE_COLOR;
   dr_preset.opt_iterations = 1;
   dr_preset.opt_lr = 0.0f;
-  dr_preset.spp = 64*1024;
+  dr_preset.spp = 1024;
   dr_preset.border_spp = 128*1024;
   dr_preset.debug_pd_brightness = 0.001f;
   dr_preset.border_relax_eps = 0.005f;
-  dr_preset.finite_diff_delta = 0.001f;
+  dr_preset.finite_diff_delta = 0.005f;
   dr_preset.finite_diff_brightness = 0.25f;
   dr_preset.debug_render_mode = DR_DEBUG_RENDER_MODE_BORDER_DETECTION;
   dr_preset.debug_progress_images = DEBUG_PROGRESS_RAW;
@@ -1035,7 +1035,7 @@ void test_position_derivatives(const SdfSBS &SBS, unsigned render_node, unsigned
 
     for (int T = 0; T < 2; T++)
     {
-    unsigned samples = 2;
+    unsigned samples = 10;
     std::vector<std::vector<float>> grads(samples);
     for (unsigned i = 0; i < samples; i++)
     {
@@ -1121,13 +1121,13 @@ void test_position_derivatives(const SdfSBS &SBS, unsigned render_node, unsigned
         double error = std::abs(grad_mean[0][i] - grad_mean[1][i]) / grad_conf[1][i];
         average_error += error;
         max_error = std::max<double>(max_error, error);
-        relative_error += std::abs(grad_mean[0][i] - grad_mean[1][i]) / (std::abs(grad_mean[0][i]) + std::abs(grad_mean[1][i]) + 1e-6f);
+        relative_error += std::abs(grad_mean[0][i] - grad_mean[1][i]);
         relative_bias  +=         (grad_mean[0][i] - grad_mean[1][i]);
         total_sum += std::abs(grad_mean[0][i]) + std::abs(grad_mean[1][i]);
       }
       std_dev_mult /= param_count;
       average_error /= param_count;
-      relative_error /= param_count;
+      relative_error /= 0.5f*total_sum;
       relative_bias  /= 0.5f*total_sum;
     
       printf(" 9.%d.1 %-64s", off, "Average confidence interval size (relative to finite diff)");
