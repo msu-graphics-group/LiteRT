@@ -117,8 +117,9 @@ namespace dr
   static constexpr unsigned DR_RAY_FLAG_DDIST_DPOS      = 1 << 4;
 
   //enum DRBorderSampling
-  static constexpr unsigned DR_BORDER_SAMPLING_RANDOM = 0;
-  static constexpr unsigned DR_BORDER_SAMPLING_SVM    = 1;
+  static constexpr unsigned DR_BORDER_SAMPLING_RANDOM   = 0;
+  static constexpr unsigned DR_BORDER_SAMPLING_SVM      = 1;
+  static constexpr unsigned DR_BORDER_SAMPLING_ANALYTIC = 2;
 
   //enum DRRegFunction
   static constexpr unsigned DR_REG_FUNCTION_NONE         = 0;

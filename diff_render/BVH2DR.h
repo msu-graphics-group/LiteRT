@@ -34,6 +34,12 @@ namespace dr
                                       RayDiffPayload *relax_pt,
                                       CRT_HitDR *pHit);
 
+    void PrimitiveIntersectWithGrad(uint32_t type, uint32_t ray_flags, const float3 ray_pos, const float3 ray_dir,
+                                    float tNear, uint32_t instId, uint32_t geomId,
+                                    uint32_t a_start, uint32_t a_count,
+                                    RayDiffPayload *relax_pt,
+                                    CRT_HitDR *pHit);
+
     void BVH2TraverseF32WithGrad(uint32_t ray_flags, const float3 ray_pos, const float3 ray_dir, float tNear,
                                  uint32_t instId, uint32_t geomId, bool stopOnFirstHit,
                                  RayDiffPayload *relax_pt,

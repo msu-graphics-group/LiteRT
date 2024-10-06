@@ -416,6 +416,8 @@ namespace dr
           unsigned color_params = 3*8*sbs.nodes.size();
           unsigned active_params_start = is_geometry ? 0 : params_count - color_params;
           unsigned active_params_end   = is_geometry ? params_count - color_params : params_count;
+          active_params_start = 0;
+          active_params_end = 4;
 
           loss = RenderDRFiniteDiff(m_imagesRef[image_id].data(), m_images[image_id].data(), m_dLoss_dS_tmp.data(), params_count,
                                     active_params_start, active_params_end, m_preset_dr.finite_diff_delta);
@@ -523,6 +525,8 @@ namespace dr
           {
             float l = m_imagesDebugPD[i].data()[j].x;
             m_imagesDebugPD[i].data()[j] = float4(std::max(0.0f, l*m_preset_dr.debug_pd_brightness), std::max(0.0f, -l*m_preset_dr.debug_pd_brightness),0,1);
+            if (i == 3)
+            printf("dataA[%d] = %f %f\n", j, m_imagesDebugPD[i].data()[j].x, m_imagesDebugPD[i].data()[j].y);
           }
           LiteImage::SaveImage<float4>(("saves/PD_"+std::to_string(i)+"a.png").c_str(), m_imagesDebugPD[i]);
         }
@@ -684,6 +688,10 @@ namespace dr
             CastBorderRaySVM(m_borderPixels[i], image_ref, out_image, out_dLoss_dS + (params_count * thread_id), out_image_debug);
         }        
       }
+      else if (m_preset_dr.dr_border_sampling == DR_BORDER_SAMPLING_ANALYTIC)
+      {
+        EstimateBorderIntegralAnalytic(image_ref, out_image, out_dLoss_dS, out_image_debug);
+      }
     }
     if (m_preset_dr.debug_border_samples_mega_image)
     {
@@ -742,8 +750,8 @@ namespace dr
       params[i] = p0;
 
       //it is the same way as loss is accumulated in RenderDR
-      //loss_plus /= m_width * m_height;
-      //loss_minus /= m_width * m_height;
+      loss_plus /= m_width * m_height;
+      loss_minus /= m_width * m_height;
       //printf("loss_plus = %f, loss_minus = %f\n", loss_plus, loss_minus);
 
       if (m_preset_dr.debug_pd_images)
@@ -761,6 +769,9 @@ namespace dr
           image_1.data()[j] = float4(std::max(0.0f, l*m_preset_dr.debug_pd_brightness), std::max(0.0f, -l*m_preset_dr.debug_pd_brightness),0,1);
           image_2.data()[j] = m_preset_dr.finite_diff_brightness*abs(c1 - c2);
           image_2.data()[j].w = 1;
+
+          if (i == 3)
+          printf("dataB[%d] = %f %f\n", j, image_1.data()[j].x, image_1.data()[j].y);
         }
 
         LiteImage::SaveImage<float4>(("saves/PD_"+std::to_string(i)+"b.png").c_str(), image_1);
@@ -2257,5 +2268,66 @@ namespace dr
     delete[] dist_bord[1];
     delete[] dist_bord[0];
     // fclose(FOUT);
+  }
+
+  void MultiRendererDR::EstimateBorderIntegralAnalytic(const float4 *image_ref, LiteMath::float4* out_image, float* out_dLoss_dS,
+                                                       LiteMath::float4* out_image_debug)
+  {
+    //our model is sphere
+    //it's silhouette is a circle with z = 0
+    float *params = ((BVHDR*)m_pAccelStruct.get())->m_SdfSBSDataF.data();
+    float3 center = float3(params[0], params[1], params[2]);
+    float radius = params[3];
+
+    int samples = 20000;
+    for (int i = 0; i < samples; ++i)
+    {
+      float phi = 2.0f * LiteMath::M_PI * urand(0, 1);
+      float3 pos_world = center + float3(sin(phi), cos(phi), 0) * radius;
+      float3 norm_world = normalize(pos_world - center);
+      float3 tang_world = normalize(cross(norm_world, float3(0, 0, 1)));
+
+      float viewproj_scale = 1.0f;
+      {
+        float eps = 1e-4f;
+        float3 p1 = pos_world;
+        float3 p2 = pos_world + eps*tang_world;
+
+        float2 sp2 = TransformWorldToScreenSpace(to_float4(p2, 1.0f));
+        float2 sp1 = TransformWorldToScreenSpace(to_float4(p1, 1.0f));
+        viewproj_scale = length(sp2 - sp1) / eps;
+      }
+
+      float2 pos_screen = TransformWorldToScreenSpace(to_float4(pos_world, 1.0f));
+      float2 norm_screen = normalize(pos_screen - 0.5f);
+      uint x = uint(pos_screen.x*m_width);
+      uint y = uint(pos_screen.y*m_height);
+      const float4 dLoss_dColor = LossGrad(m_preset_dr.dr_loss_function, out_image[y * m_width + x], image_ref[y * m_width + x]);
+      const float4 color_delta = float4(1,1,1,1);
+
+      //printf("pos = %f, %f, norm = %f, %f\n", pos_screen.x, pos_screen.y, norm_screen.x, norm_screen.y);
+
+      for (int j=0; j < 4; j++)
+      {
+        params[j] += 0.001f;
+        float3 pos_world_1 = float3(params[0], params[1], params[2]) + float3(sin(phi), cos(phi), 0) * params[3];
+        float2 pos_screen_1 = TransformWorldToScreenSpace(to_float4(pos_world_1, 1.0f));
+
+        params[j] -= 0.002f;
+        float3 pos_world_2 = float3(params[0], params[1], params[2]) + float3(sin(phi), cos(phi), 0) * params[3];
+        float2 pos_screen_2 = TransformWorldToScreenSpace(to_float4(pos_world_2, 1.0f));
+
+        params[j] += 0.001f;
+
+        float2 dpos_dpj = (pos_screen_1 - pos_screen_2) / 0.002f;
+        float length_mult = 2*LiteMath::M_PI * radius * viewproj_scale;
+        //printf("viewproj_scale = %f length_mult = %f\n", viewproj_scale, length_mult);
+        float diff = length_mult * dot(dLoss_dColor, color_delta) * dot(norm_screen, dpos_dpj) / samples;
+        out_dLoss_dS[j] += diff;
+        
+        if (m_preset_dr.debug_pd_images)
+          m_imagesDebugPD[j].data()[y * m_width + x] += m_width * m_height * diff * float4(1, 1, 1, 0);
+      }
+    }
   }
 }

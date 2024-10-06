@@ -176,10 +176,11 @@ namespace dr
     case TYPE_MESH_TRIANGLE:
       IntersectAllTrianglesInLeafWithGrad(ray_flags, ray_pos, ray_dir, tNear, instId, geomId, a_start, a_count, pHit);
       break;
-    case TYPE_SDF_SBS_COL:
-      OctreeBrickIntersectWithGrad(type, ray_flags, ray_pos, ray_dir, tNearSdf, instId, geomId, a_start, a_count, relax_pt, pHit);
-      break;
+    //case TYPE_SDF_SBS_COL:
+    //  OctreeBrickIntersectWithGrad(type, ray_flags, ray_pos, ray_dir, tNearSdf, instId, geomId, a_start, a_count, relax_pt, pHit);
+    //  break;
     default:
+      PrimitiveIntersectWithGrad(type, ray_flags, ray_pos, ray_dir, tNear, instId, geomId, a_start, a_count, relax_pt, pHit);
       break;
     }
   }
@@ -1672,6 +1673,55 @@ static float3 dp_to_nmq(float3 dp, float beta)
       }
 
       brick_fNearFar.x += std::max(0.0f, fNearFar.y - brick_fNearFar.x) + 1e-6f;
+    }
+  }
+
+  const float sphere_dist(float3 p, float3 c, float r)
+  {
+    //printf("sphere pos %f %f %f\n", p.x, p.y, p.z);
+    return length(p - c) - r;
+  }
+
+  void BVHDR::PrimitiveIntersectWithGrad(uint32_t type, uint32_t ray_flags, const float3 ray_pos, const float3 ray_dir,
+                                         float tNear, uint32_t instId, uint32_t geomId,
+                                         uint32_t a_start, uint32_t a_count,
+                                         RayDiffPayload *relax_pt,
+                                         CRT_HitDR *pHit)
+  {
+
+    float3 sphere_pos   = float3(m_SdfSBSDataF[0],m_SdfSBSDataF[1],m_SdfSBSDataF[2]);
+    float  sphere_radius = m_SdfSBSDataF[3];
+    float3 sphere_color = float3(0,1,0);
+
+    float3 boxMin = sphere_pos - sphere_radius;
+    float3 boxMax = sphere_pos + sphere_radius;
+
+    //printf("ray pos ray dir %f %f %f %f %f %f\n", ray_pos.x, ray_pos.y, ray_pos.z, ray_dir.x, ray_dir.y, ray_dir.z);
+
+    float2 tNearFar = RayBoxIntersection2(ray_pos, SafeInverse(ray_dir), boxMin, boxMax);
+
+    //if (tNearFar.y > tNearFar.x)
+    //printf("tNearFar %f %f %f %f\n", tNearFar.x, tNearFar.y, pHit->t, tNear);
+    if (tNearFar.y <= tNearFar.x || tNearFar.x > pHit->t || tNearFar.y < tNear)
+      return;
+    
+    float t = tNearFar.x;
+    float dist = sphere_dist(ray_pos + t * ray_dir, sphere_pos, sphere_radius);
+
+    while (dist > 1e-6f && t < tNearFar.y)
+    {
+      t += dist;
+      dist = sphere_dist(ray_pos + t * ray_dir, sphere_pos, sphere_radius);
+    }
+
+    if (dist <= 1e-6f)
+    {
+      pHit->t = t;
+      pHit->primId = 0;
+      pHit->instId = instId;
+      pHit->geomId = geomId | (type << SH_TYPE);
+      pHit->color  = sphere_color;
+      pHit->normal = normalize(ray_pos + t * ray_dir - sphere_pos);
     }
   }
 }
