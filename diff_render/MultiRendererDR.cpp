@@ -2310,7 +2310,7 @@ namespace dr
       }
 
       float2 pos_screen = TransformWorldToScreenSpace(to_float4(pos_world, 1.0f));
-      float2 norm_screen = normalize(pos_screen - 0.5f);
+      float2 norm_screen = normalize(TransformWorldToScreenSpace(to_float4(pos_world + 0.0001f*norm_world, 1)) - pos_screen);
       uint x = uint(pos_screen.x*m_width);
       uint y = uint(pos_screen.y*m_height);
       const float4 dLoss_dColor = LossGrad(m_preset_dr.dr_loss_function, out_image[y * m_width + x], image_ref[y * m_width + x]);
@@ -2325,12 +2325,27 @@ namespace dr
       dpos_world_dpj[2] = float4(0, 0, 1, 0);
       dpos_world_dpj[3] = float4(sin(phi), cos(phi), 0, 0);
 
+      //sdf = length(p - c) - r;
+      //sdf = sqrt((p.x - c.x)*(p.x - c.x) + (p.y - c.y)*(p.y - c.y) + (p.z - c.z)*(p.z - c.z)) - r;
+      float3 dSDF_dp = (1/length(pos_world - center)) * (pos_world - center);
+      //normal = dSDF_dp /length(dSDF_dp) = (pos_world - center) / length(pos_world - center)
+      std::array<float, 4> dSDF_dpj;
+      dSDF_dpj[0] = (1/length(pos_world - center)) * (center.x - pos_world.x);
+      dSDF_dpj[1] = (1/length(pos_world - center)) * (center.y - pos_world.y);
+      dSDF_dpj[2] = (1/length(pos_world - center)) * (center.z - pos_world.z);
+      dSDF_dpj[3] = -1;
+
       for (int j=0; j < 4; j++)
       {
         float2 dpos_dpj = float2(dot(dtransform_dpos_world[0], dpos_world_dpj[j]), dot(dtransform_dpos_world[1], dpos_world_dpj[j]));
         float length_mult = 2*LiteMath::M_PI * radius * viewproj_scale;
 
-        float diff = length_mult * dot(dLoss_dColor, color_delta) * dot(norm_screen, dpos_dpj) / samples;
+        float u1 = dot(norm_screen, dpos_dpj);
+        float u2 = (-1.0f/length(dSDF_dp))*dSDF_dpj[j]*dot(norm_screen, float2(dot(dtransform_dpos_world[0],to_float4(norm_world, 0)), dot(dtransform_dpos_world[1], to_float4(norm_world, 0))));
+        //printf("u1, u2 = %f, %f\n", u1, u2);
+        //u2 is a wrong estimate, only normal component
+
+        float diff = length_mult * dot(dLoss_dColor, color_delta) * u1 / samples;
         out_dLoss_dS[j] += diff;
         
         if (m_preset_dr.debug_pd_images)
