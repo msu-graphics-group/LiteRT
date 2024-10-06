@@ -270,6 +270,28 @@ void save_sdf_scene_hydra(const SdfScene &scene, const std::string &folder, cons
   fs.close();
 }
 
+uint32_t sbs_adapt_node_metric(SdfSBSAdaptNode &node, SdfSBSAdaptHeader &header)
+{
+  uint32_t metric = sizeof(node);
+  uint32_t elem = header.bytes_per_value;
+  if ((header.aux_data & SDF_SBS_NODE_LAYOUT_MASK) == SDF_SBS_NODE_LAYOUT_DX_UV16) metric += 8 * 4;
+  else if ((header.aux_data & SDF_SBS_NODE_LAYOUT_MASK) == SDF_SBS_NODE_LAYOUT_DX_RGB8) metric += 8 * 4;
+  else if ((header.aux_data & SDF_SBS_NODE_LAYOUT_MASK) == SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F) 
+  {
+    metric += 8 * sizeof(float); 
+    elem = sizeof(float);
+  }
+  else if ((header.aux_data & SDF_SBS_NODE_LAYOUT_MASK) == SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F_IN)
+  {
+    metric += 8 * sizeof(float); 
+    elem = sizeof(float);
+  }
+  uint32_t x = ((node.vox_count_xyz_pad & 0xFF000000) >> 24) + 1;
+  uint32_t y = ((node.vox_count_xyz_pad & 0x00FF0000) >> 16) + 1;
+  uint32_t z = ((node.vox_count_xyz_pad & 0x0000FF00) >> 8) + 1;
+  metric += x * y * z * elem;
+  return metric;
+}
 
 SdfSBSAdaptView convert_sbs_to_adapt(SdfSBSAdapt &adapt_scene, const SdfSBSView &scene)
 {
