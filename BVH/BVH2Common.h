@@ -204,11 +204,11 @@ struct BVHRT : public ISceneObject
 
   void RayNodeIntersection(uint32_t type, const float3 ray_pos, const float3 ray_dir, 
                            float tNear, uint32_t geomId, uint32_t bvhNodeId, 
-                           float values[8], uint32_t &primId, uint32_t &nodeId, float &d, 
+                           float* values, uint32_t &primId, uint32_t &nodeId, float &d, 
                            float &qNear, float &qFar, float2 &fNearFar, float3 &start_q);
 
   void LocalSurfaceIntersection(uint32_t type, const float3 ray_dir, uint32_t instId, uint32_t geomId,
-                                float values[8], uint32_t nodeId, uint32_t primId, float d, float qNear, 
+                                float* values, uint32_t nodeId, uint32_t primId, float d, float qNear, 
                                 float qFar, float2 fNearFar, float3 start_q,
                                 CRT_Hit *pHit);
   

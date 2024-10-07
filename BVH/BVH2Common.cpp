@@ -73,7 +73,7 @@ float BVHRT::eval_dist_trilinear(const float values[8], float3 dp)
 //like in frame octree, SVS and SBS with multiple BVH nodes per brick
 void BVHRT::RayNodeIntersection(uint32_t type, const float3 ray_pos, const float3 ray_dir, 
                                 float tNear, uint32_t geomId, uint32_t bvhNodeId, 
-                                float values[8], uint32_t &primId, uint32_t &nodeId, float &d, 
+                                float* values, uint32_t &primId, uint32_t &nodeId, float &d, 
                                 float &qNear, float &qFar, float2 &fNearFar, float3 &start_q)
 {
   float3 min_pos, max_pos;
@@ -245,7 +245,7 @@ void BVHRT::RayNodeIntersection(uint32_t type, const float3 ray_pos, const float
 }
 
 void BVHRT::LocalSurfaceIntersection(uint32_t type, const float3 ray_dir, uint32_t instId, uint32_t geomId,
-                                     float values[8], uint32_t nodeId, uint32_t primId, float d, float qNear, 
+                                     float *values, uint32_t nodeId, uint32_t primId, float d, float qNear, 
                                      float qFar, float2 fNearFar, float3 start_q,
                                      CRT_Hit *pHit)
 {
@@ -269,7 +269,16 @@ void BVHRT::LocalSurfaceIntersection(uint32_t type, const float3 ray_dir, uint32
     while (t < qFar && dist > EPS && iter < ST_max_iters)
     {
       t += dist * d_inv;
-      dist = eval_dist_trilinear(values, start_q + t * ray_dir);
+      if (m_preset.interpolation_type == TRILINEAR_INTERPOLATION_MODE)
+      {
+        dist = eval_dist_trilinear(values, start_q + t * ray_dir);
+      }
+      else if (m_preset.interpolation_type == TRICUBIC_INTERPOLATION_MODE)
+      {
+        // TODO
+        dist += 0;
+      }
+      
       float3 pp = start_q + t * ray_dir;
       iter++;
     }
