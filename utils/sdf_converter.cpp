@@ -323,4 +323,182 @@ namespace sdf_converter
     SdfSBS sbs = create_sdf_SBS_indexed(settings, header, mesh, mat_id, materials_lib, textures_lib);
     return SBS_ind_to_SBS_ind_with_neighbors(sbs);
   }
+
+  uint32_t sbs_adapt_node_metric(SdfSBSAdaptNode &node, SdfSBSAdaptHeader &header)
+  {
+    uint32_t metric = sizeof(node);
+    uint32_t elem = header.bytes_per_value;
+    if ((header.aux_data & SDF_SBS_NODE_LAYOUT_MASK) == SDF_SBS_NODE_LAYOUT_DX_UV16) metric += 8 * 4;
+    else if ((header.aux_data & SDF_SBS_NODE_LAYOUT_MASK) == SDF_SBS_NODE_LAYOUT_DX_RGB8) metric += 8 * 4;
+    else if ((header.aux_data & SDF_SBS_NODE_LAYOUT_MASK) == SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F) 
+    {
+      metric += 8 * sizeof(float); 
+      elem = sizeof(float);
+    }
+    else if ((header.aux_data & SDF_SBS_NODE_LAYOUT_MASK) == SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F_IN)
+    {
+      metric += 8 * sizeof(float); 
+      elem = sizeof(float);
+    }
+    uint32_t x = ((node.vox_count_xyz_pad & 0xFF000000) >> 24) + 1;
+    uint32_t y = ((node.vox_count_xyz_pad & 0x00FF0000) >> 16) + 1;
+    uint32_t z = ((node.vox_count_xyz_pad & 0x0000FF00) >> 8) + 1;
+    metric += x * y * z * elem;
+    return metric;
+  }
+
+  SdfSBSAdapt greed_sbs_adapt(MultithreadedDistanceFunction sdf)//TODO
+  {
+    SdfSBSAdapt sbs;
+    sbs.header.aux_data = SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F;
+    sbs.header.bytes_per_value = 4;
+    sbs.header.brick_pad = 0;
+
+    sbs.nodes = {};
+    sbs.values = {};
+    sbs.values_f = {};
+
+    std::vector<uint32_t> imp_vox_cnt_nodes;
+    std::map<std::pair<std::pair<uint16_t, uint16_t>, uint16_t>, float> pos_to_val;
+    std::map<std::pair<std::pair<uint16_t, uint16_t>, uint16_t>, uint32_t> pos_to_idx;
+    std::pair<std::pair<uint16_t, uint16_t>, uint16_t> key;
+    std::vector<uint8_t> x_imps(8), y_imps(8), z_imps(8);
+
+
+    if ((sbs.header.aux_data & SDF_SBS_NODE_LAYOUT_MASK) == SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F)
+    {
+      for (uint16_t x = 0; x < 0x8000; x += 8)
+      {
+        for (uint16_t y = 0; y < 0x8000; y += 8)
+        {
+          for (uint16_t z = 0; z < 0x8000; z += 8)
+          {
+
+            std::fill(x_imps.begin(), x_imps.end(), 0);
+            std::fill(y_imps.begin(), y_imps.end(), 0);
+            std::fill(z_imps.begin(), z_imps.end(), 0);
+            uint32_t imp_vox_cnt = 0;
+            for (uint16_t x_off = 0; x_off < 8; ++x_off)
+            {
+              for (uint16_t y_off = 0; y_off < 8; ++y_off)
+              {
+                for (uint16_t z_off = 0; z_off < 8; ++z_off)
+                {
+                  float sgn = 0;
+                  bool is_first = true;
+                  bool is_vox_imp = false;
+                  float3 pos = float3((float)(x + x_off) / (float)0x8000, (float)(y + y_off) / (float)0x8000, (float)(z + z_off) / (float)0x8000);
+
+
+                  for (uint16_t x_neigh = 0; x_neigh <= 1; ++x_neigh)
+                  {
+                    for (uint16_t y_neigh = 0; y_neigh <= 1; ++y_neigh)
+                    {
+                      for (uint16_t z_neigh = 0; z_neigh <= 1; ++z_neigh)
+                      {
+                        key = std::pair(std::pair(x + x_off + x_neigh, y + y_off + y_neigh), z + z_off + z_neigh);
+                        if (pos_to_val.find(key) == pos_to_val.end())
+                        {
+                          float3 pos = float3((float)(x + x_off + x_neigh) / (float)0x8000, 
+                                              (float)(y + y_off + y_neigh) / (float)0x8000, 
+                                              (float)(z + z_off + z_neigh) / (float)0x8000);
+                          pos = pos * 2.0f - 1.0f;
+                          pos_to_val[key] = sdf(pos, 0);
+                        }
+                        if (is_first)
+                        {
+                          sgn = pos_to_val[key];
+                          is_first = false;
+                        }
+                        else if (sgn * pos_to_val[key] <= 0)
+                        {
+                          is_vox_imp = true;
+                          break;
+                        }
+                      }
+                      if (is_vox_imp) break;
+                    }
+                    if (is_vox_imp) break;
+                  }
+
+                  if (is_vox_imp) 
+                  {
+                    ++imp_vox_cnt;
+                    ++x_imps[x_off];
+                    ++y_imps[y_off];
+                    ++z_imps[z_off];
+                  }
+                }
+              }
+            }
+
+            if (imp_vox_cnt > 0)
+            {
+              bool is_div = false;
+
+              std::vector<uint8_t> x_idx_seq(0), y_idx_seq(0), z_idx_seq(0);
+              for (uint8_t idx = 0; idx < 8; ++idx)
+              {
+                if ((x_idx_seq.size() % 2 == 0 && x_imps[idx] == 0) || (x_idx_seq.size() % 2 != 0 && x_imps[idx] != 0))
+                {
+                  x_idx_seq.push_back(idx);
+                }
+                if ((y_idx_seq.size() % 2 == 0 && y_imps[idx] == 0) || (y_idx_seq.size() % 2 != 0 && y_imps[idx] != 0))
+                {
+                  y_idx_seq.push_back(idx);
+                }
+                if ((z_idx_seq.size() % 2 == 0 && z_imps[idx] == 0) || (z_idx_seq.size() % 2 != 0 && z_imps[idx] != 0))
+                {
+                  z_idx_seq.push_back(idx);
+                }
+              }//maybe need recursive function for checking better divs for block array
+
+              //using seq vectors
+
+              if (!is_div)
+              {
+                SdfSBSAdaptNode node;
+                node.data_offset = sbs.values.size();
+                node.pos_xy = ((uint32_t)x << 16) | (uint32_t)y;
+                node.pos_z_vox_size = ((uint32_t)z << 16) | 1;//maybe change vox size later
+                node.vox_count_xyz_pad = ((uint32_t)8 << 24) | ((uint32_t)8 << 16) | ((uint32_t)8 << 8);
+                for (uint16_t x_off = 0; x_off <= 8; ++x_off)
+                {
+                  for (uint16_t y_off = 0; y_off <= 8; ++y_off)
+                  {
+                    for (uint16_t z_off = 0; z_off <= 8; ++z_off)
+                    {
+                      key = std::pair(std::pair(x + x_off, y + y_off), z + z_off);
+                      if (pos_to_idx.find(key) == pos_to_idx.end())
+                      {
+                        sbs.values.push_back(sbs.values_f.size());
+                        pos_to_idx[key] = sbs.values_f.size();
+                        sbs.values_f.push_back(pos_to_val[key]);
+                      }
+                      else
+                      {
+                        sbs.values.push_back(pos_to_idx[key]);
+                      }
+                    }
+                  }
+                }
+                sbs.nodes.push_back(node);
+              }
+            }
+
+            //check all slices and find empties
+            //if empty slice near border or have another one empty slice -> divide
+            //if empty slice lonely -> check if we have better dividing after that dividing -> divide
+            //we should delete this node and create different smaller nodes
+
+          }
+        }
+      }
+    }
+
+
+    
+
+    return sbs;
+  }
 }
