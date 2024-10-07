@@ -108,7 +108,6 @@ namespace dr
     void Regularization(float *out_dLoss_dS, unsigned params_count);
 
     float SolveEikonal(float3 axes_mins, float grid_spacing);
-    void Redistance(float *dist_in, uint3 size_in, float grid_spacing, uint32_t num_iters);
 
     float2 TransformWorldToScreenSpace(float4 pos);
     std::array<float4, 2> TransformWorldToScreenSpaceDiff(float4 pos);
@@ -141,6 +140,8 @@ namespace dr
     std::vector<float4> samples_debug_color;
     std::vector<float4> samples_debug_pos_size;
   public:
+
+    void Redistance(float *dist_in, uint3 size_in, float grid_spacing, uint32_t num_iters);
     std::atomic<uint32_t> border_rays_total{0};
     std::atomic<uint32_t> border_rays_hit{0};
 

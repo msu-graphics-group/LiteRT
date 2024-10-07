@@ -2513,6 +2513,67 @@ diff_render_test_23_ray_casting_mask()
   printf("The ratio of the running time of the algorithm without mask to with mask: %.2f\n\n", time1 / time2);
 }
 
+void diff_render_test_24_visualize_bricks()
+{
+  //this test is rendering voxels with different combination of positive and negative distances in it's corners
+  srand(time(nullptr));
+
+  SdfSBS sbs;
+  sbs.header.brick_pad = 0;
+  sbs.header.brick_size = 1;
+  sbs.header.bytes_per_value = 1;
+  sbs.header.aux_data = SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F;
+
+  sbs.nodes.resize(1);
+  sbs.nodes[0].data_offset = 0;
+  sbs.nodes[0].pos_xy = (0 << 16) | 0;
+  sbs.nodes[0].pos_z_lod_size = (0 << 16) | 1;
+  
+  sbs.values = {0,1,2,3,4,5,6,7,
+                8, 11, 14, 17, 20, 23, 26, 29};
+
+  sbs.values_f.resize(8 + 3*8);
+
+  unsigned rnd = rand() % 256;
+  //rnd = 1*1 + 0*2 + 1*4 + 0*8 + 1*16 + 0*32 + 1*64 + 0*128;
+  for (int i = 0; i < 8; i++)
+  {
+    float rand_f = ((float)rand() / (float)RAND_MAX);
+    sbs.values_f[i] = (rnd & (1 << i)) ? -rand_f: rand_f;
+  }
+  for (int i = 8; i < 8+3*8; i++)
+  {
+    sbs.values_f[i] = 1.0f;
+  }
+
+  unsigned W = 1024, H = 1024;
+
+  MultiRenderPreset preset = getDefaultPreset();
+  preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
+  preset.spp = 1;
+
+  float4x4 base_proj = LiteMath::perspectiveMatrix(60, 1.0f, 0.01f, 100.0f);
+  std::vector<float4x4> view = get_cameras_turntable(16, float3(0,0,0), 4, 1);
+  std::vector<float4x4> proj(view.size(), base_proj);
+  LiteImage::Image2D<float4> image_res(W, H);
+
+  for (int i = 0; i < view.size(); i++)
+  {
+    MultiRendererDR pRender;
+    pRender.SetPreset(preset);
+    pRender.SetViewport(0,0,W,H);
+
+    //dr::BVHDR* bvhdr_tree = dynamic_cast<dr::BVHDR*>(pRender.GetAccelStruct().get());
+    //printf("BVH tree size: %lu\n", pRender.GetAccelStruct().get());
+    //pRender.Redistance(sbs.values_f.data(), {1, 1, 1}, 2.f / 1, 2);
+
+    pRender.SetScene(sbs, true);
+
+    pRender.RenderFloat(image_res.data(), W, H, view[i], proj[i], preset);
+    LiteImage::SaveImage<float4>(("saves/test_dr_24_"+std::to_string(i)+".bmp").c_str(), image_res); 
+  }
+}
+
 void perform_tests_diff_render(const std::vector<int> &test_ids)
 {
   std::vector<int> tests = test_ids;
@@ -2525,7 +2586,7 @@ void perform_tests_diff_render(const std::vector<int> &test_ids)
       diff_render_test_13_optimize_sphere_diffuse, diff_render_test_14_optimize_sphere_lambert, diff_render_test_15_combined_reconstruction,
       diff_render_test_16_borders_detection, diff_render_test_17_optimize_bunny, diff_render_test_18_sphere_depth,
       diff_render_test_19_expanding_grid, diff_render_test_20_sphere_depth_with_redist, diff_render_test_21_optimization_stand,
-      diff_render_test_22_border_sampling_accuracy_mask, diff_render_test_23_ray_casting_mask};
+      diff_render_test_22_border_sampling_accuracy_mask, diff_render_test_23_ray_casting_mask, diff_render_test_24_visualize_bricks};
 
   if (tests.empty())
   {
