@@ -959,7 +959,7 @@ void test_position_derivatives(const SdfSBS &SBS, unsigned render_node, unsigned
   
   srand(0);
 
-  unsigned W = 8, H = 8;
+  unsigned W = 64, H = 64;
 
   MultiRenderPreset preset = getDefaultPreset();
   preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
@@ -967,14 +967,14 @@ void test_position_derivatives(const SdfSBS &SBS, unsigned render_node, unsigned
   //preset.ray_gen_mode = RAY_GEN_MODE_RANDOM;
   preset.spp = 256;
 
-  float4x4 base_proj = LiteMath::perspectiveMatrix(close_view ? 20 : 20, 1.0f, 0.01f, 100.0f);
+  float4x4 base_proj = LiteMath::perspectiveMatrix(close_view ? 20 : 60, 1.0f, 0.01f, 100.0f);
   //base_proj = ortho(-0.8f, 0.8f, -0.8f, 0.8f, 1.0f, 10.0f);
   //base_proj = LiteMath::perspectiveMatrix(20, 1.0f, 0.01f, 100.0f);
   //base_proj = LiteMath::ort
 
   std::vector<float4x4> view; 
   //if (close_view)
-    //view = std::vector<float4x4>{LiteMath::lookAt(float3(0.4, -0.4, 2.0), float3(0.4, -0.4, 0), float3(0, 1, 0))};
+    view = std::vector<float4x4>{LiteMath::lookAt(float3(0.4, -0.4, 2.0), float3(0.4, -0.4, 0), float3(0, 1, 0))};
   view = std::vector<float4x4>{LiteMath::lookAt(float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0))};
   //else
   //  view = get_cameras_uniform_sphere(1, float3(0, 0, 0), 5.0f);
@@ -1010,10 +1010,10 @@ void test_position_derivatives(const SdfSBS &SBS, unsigned render_node, unsigned
   dr_preset.dr_input_type = diff_render_mode == DR_RENDER_MODE_LINEAR_DEPTH ? DR_INPUT_TYPE_LINEAR_DEPTH : DR_INPUT_TYPE_COLOR;
   dr_preset.opt_iterations = 1;
   dr_preset.opt_lr = 0.0f;
-  dr_preset.spp = 4096;
-  dr_preset.border_spp = 16*1024;
+  dr_preset.spp = 256;
+  dr_preset.border_spp = 4*1024;
   dr_preset.debug_pd_brightness = 0.001f;
-  dr_preset.border_relax_eps = 0.005f;
+  dr_preset.border_relax_eps = 0.01f;
   dr_preset.finite_diff_delta = 0.005f;
   dr_preset.finite_diff_brightness = 0.25f;
   dr_preset.debug_render_mode = DR_DEBUG_RENDER_MODE_BORDER_DETECTION;
@@ -1033,9 +1033,9 @@ void test_position_derivatives(const SdfSBS &SBS, unsigned render_node, unsigned
     std::array<std::vector<double>, 3> grad_mean;
     std::array<std::vector<double>, 3> grad_conf;
 
-    for (int T = 0; T < 3; T++)
+    for (int T = 0; T < 2; T++)
     {
-    unsigned samples = 10;
+    unsigned samples = 100;
     std::vector<std::vector<float>> grads(samples);
     for (unsigned i = 0; i < samples; i++)
     {
@@ -1050,10 +1050,10 @@ void test_position_derivatives(const SdfSBS &SBS, unsigned render_node, unsigned
       //if (T == 0)
       //  indexed_SBS.values_f[13] += 0.01f;
 
-      indexed_SBS.values_f[0] = 0.0f;
-      indexed_SBS.values_f[1] = 0.0f;
-      indexed_SBS.values_f[2] = 0.0f;
-      indexed_SBS.values_f[3] = 0.2f;
+      //indexed_SBS.values_f[0] = 0.0f;
+      //indexed_SBS.values_f[1] = 0.0f;
+      //indexed_SBS.values_f[2] = 0.0f;
+      //indexed_SBS.values_f[3] = 0.2f;
 
       dr_render.SetReference(images_ref, view, proj);
       dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS);

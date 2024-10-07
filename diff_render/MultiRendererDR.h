@@ -145,7 +145,7 @@ namespace dr
     std::atomic<uint32_t> border_rays_total{0};
     std::atomic<uint32_t> border_rays_hit{0};
 
-    static constexpr unsigned MEGA_PIXEL_SIZE = 256;
+    static constexpr unsigned MEGA_PIXEL_SIZE = 128;
     LiteImage::Image2D<float4> samples_mega_image;
   };
 }

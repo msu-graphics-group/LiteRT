@@ -176,9 +176,9 @@ namespace dr
     case TYPE_MESH_TRIANGLE:
       IntersectAllTrianglesInLeafWithGrad(ray_flags, ray_pos, ray_dir, tNear, instId, geomId, a_start, a_count, pHit);
       break;
-    //case TYPE_SDF_SBS_COL:
-    //  OctreeBrickIntersectWithGrad(type, ray_flags, ray_pos, ray_dir, tNearSdf, instId, geomId, a_start, a_count, relax_pt, pHit);
-    //  break;
+    case TYPE_SDF_SBS_COL:
+      OctreeBrickIntersectWithGrad(type, ray_flags, ray_pos, ray_dir, tNearSdf, instId, geomId, a_start, a_count, relax_pt, pHit);
+      break;
     default:
       PrimitiveIntersectWithGrad(type, ray_flags, ray_pos, ray_dir, tNear, instId, geomId, a_start, a_count, relax_pt, pHit);
       break;
@@ -1239,7 +1239,9 @@ static float3 dp_to_nmq(float3 dp, float beta)
             float3 dSDF_dpos = eval_dist_trilinear_diff(values, q_ast)*(1/d); // grad
             //dSDF_dpos.z = 0;
             //printf("dSDF_dpos: %f %f %f\n", dSDF_dpos.x, dSDF_dpos.y, dSDF_dpos.z);
-            //printf("d = %f q_ast = %f %f %f\n", d, q_ast.x, q_ast.y, q_ast.z);
+            if (std::abs(q_ast.z - 1.0f) > 1e-6f)
+              printf("d = %f q_ast = %f %f %f\n", d, q_ast.x, q_ast.y, q_ast.z);
+            dSDF_dpos.z = 0.0f;
             //float l = length(dSDF_dpos);
             //dSDF_dy.z = 0;
             //dSDF_dy = l*normalize(dSDF_dy);
@@ -1261,6 +1263,7 @@ static float3 dp_to_nmq(float3 dp, float beta)
               {
                 //relax_pt->missed_dp_dsdf[i]  = -1.0f*relax_pt->missed_dSDF_dtheta[i]*dSDF_dy/(dSDF_dy_norm*dSDF_dy_norm);
                 relax_pt->missed_dSDF_dtheta[i] = -dSDF_dvalues[i]/dSDF_dpos_len;
+                relax_pt->missed_dp_dsdf[i] = (dSDF_dpos / dSDF_dpos_len) * relax_pt->missed_dSDF_dtheta[i];
                 //float3 new_val_1 = dt_dvalues[i]*ray_dir - dSDF_dvalues[i]*dSDF_dy*(dSDF_dy_norm*dSDF_dy_norm);
                 //float new_val_2 = dot(new_val_1, dSDF_dy / dSDF_dy_norm);
                 //printf("%f %f\n", relax_pt->missed_dSDF_dtheta[i], new_val_2);
@@ -1284,20 +1287,22 @@ static float3 dp_to_nmq(float3 dp, float beta)
               float y = y_from_x(x, d00, d01, d10, d11);
               float delta = 0.0001f;
 
-              relax_pt->missed_dp_dsdf[4*0+2*0+1] = float3(0, (y_from_x(x, d00+delta, d01, d10, d11) - y_from_x(x, d00-delta, d01, d10, d11))/(2*delta), 0);
-              relax_pt->missed_dp_dsdf[4*0+2*1+1] = float3(0, (y_from_x(x, d00, d01+delta, d10, d11) - y_from_x(x, d00, d01-delta, d10, d11))/(2*delta), 0);
-              relax_pt->missed_dp_dsdf[4*1+2*0+1] = float3(0, (y_from_x(x, d00, d01, d10+delta, d11) - y_from_x(x, d00, d01, d10-delta, d11))/(2*delta), 0);
-              relax_pt->missed_dp_dsdf[4*1+2*1+1] = float3(0, (y_from_x(x, d00, d01, d10, d11+delta) - y_from_x(x, d00, d01, d10, d11-delta))/(2*delta), 0);
+              //float dp_dsdf_a[8] = {0, 0, 0, 0, 0, 0, 0, 0};
 
-              float max_val = 0.0;
-              for (int i = 0; i < 8; i++)
-                max_val = std::max(max_val, std::abs(relax_pt->missed_dSDF_dtheta[i]));
-              if (max_val > 1)
-              printf("%f %f %f %f %f %f %f %f\n",
-                     relax_pt->missed_dSDF_dtheta[0], relax_pt->missed_dSDF_dtheta[1],
-                     relax_pt->missed_dSDF_dtheta[2], relax_pt->missed_dSDF_dtheta[3],
-                     relax_pt->missed_dSDF_dtheta[4], relax_pt->missed_dSDF_dtheta[5],
-                     relax_pt->missed_dSDF_dtheta[6], relax_pt->missed_dSDF_dtheta[7]);
+              //relax_pt->missed_dp_dsdf[4*0+2*0+1] = float3(0, (y_from_x(x, d00+delta, d01, d10, d11) - y_from_x(x, d00-delta, d01, d10, d11))/(2*delta), 0);
+              //relax_pt->missed_dp_dsdf[4*0+2*1+1] = float3(0, (y_from_x(x, d00, d01+delta, d10, d11) - y_from_x(x, d00, d01-delta, d10, d11))/(2*delta), 0);
+              //relax_pt->missed_dp_dsdf[4*1+2*0+1] = float3(0, (y_from_x(x, d00, d01, d10+delta, d11) - y_from_x(x, d00, d01, d10-delta, d11))/(2*delta), 0);
+              //relax_pt->missed_dp_dsdf[4*1+2*1+1] = float3(0, (y_from_x(x, d00, d01, d10, d11+delta) - y_from_x(x, d00, d01, d10, d11-delta))/(2*delta), 0);
+
+              //float max_val = 0.0;
+              //for (int i = 0; i < 8; i++)
+              //  max_val = std::max(max_val, std::abs(relax_pt->missed_dSDF_dtheta[i]));
+              //if (max_val > 1)
+              //printf("%f %f %f %f %f %f %f %f\n",
+              //       relax_pt->missed_dSDF_dtheta[0], relax_pt->missed_dSDF_dtheta[1],
+              //       relax_pt->missed_dSDF_dtheta[2], relax_pt->missed_dSDF_dtheta[3],
+              //       relax_pt->missed_dSDF_dtheta[4], relax_pt->missed_dSDF_dtheta[5],
+              //       relax_pt->missed_dSDF_dtheta[6], relax_pt->missed_dSDF_dtheta[7]);
               //assert(missed_indices_tmp[0] == 12 && missed_indices_tmp[1] == 13 && missed_indices_tmp[2] == 15 && missed_indices_tmp[3] == 16 && 
               //missed_indices_tmp[4] == 21);
               //printf("missed indices = %d %d %d %d %d %d %d %d\n",

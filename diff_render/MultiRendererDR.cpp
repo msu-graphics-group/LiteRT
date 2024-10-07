@@ -416,8 +416,8 @@ namespace dr
           unsigned color_params = 3*8*sbs.nodes.size();
           unsigned active_params_start = is_geometry ? 0 : params_count - color_params;
           unsigned active_params_end   = is_geometry ? params_count - color_params : params_count;
-          active_params_start = 0;
-          active_params_end = 4;
+          //active_params_start = 0;
+          //active_params_end = 4;
 
           loss = RenderDRFiniteDiff(m_imagesRef[image_id].data(), m_images[image_id].data(), m_dLoss_dS_tmp.data(), params_count,
                                     active_params_start, active_params_end, m_preset_dr.finite_diff_delta);
@@ -1397,7 +1397,7 @@ namespace dr
           
             diff = (1.0f/border_spp) * (1.0f/length(dir)) * dot(dLoss_dColor, color_delta) * dot(dp2_dsdf, normalize(dir));
           
-            float3 on_sphere_pos = (x_star - float3(0,0,0)) / 0.2f;
+            /*float3 on_sphere_pos = (x_star - float3(0,0,0)) / 0.2f;
             //printf("on sphere pos = %f %f %f\n", on_sphere_pos.x, on_sphere_pos.y, on_sphere_pos.z);
             if (j == 0 && std::abs(on_sphere_pos.z) < 0.1f && std::abs(on_sphere_pos.y) < 0.1f && std::abs(on_sphere_pos.x) > 1.99f)
             {
@@ -1412,7 +1412,7 @@ namespace dr
               printf("%f %f %f %f\n %f %f %f %f\n\n", dtrans_dpos[0].x, dtrans_dpos[0].y, dtrans_dpos[0].z, dtrans_dpos[0].w,
                      dtrans_dpos[1].x, dtrans_dpos[1].y, dtrans_dpos[1].z, dtrans_dpos[1].w);
               //printf("%f %f %f %f\n\n", )
-            }
+            }*/
           }
 
           out_dLoss_dS[payload.missed_indices[j]] += diff;
