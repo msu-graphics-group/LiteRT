@@ -1682,6 +1682,11 @@ static float3 dp_to_nmq(float3 dp, float beta)
     return length(p - c) - r;
   }
 
+  const float3 d_sphere_dist_dpos(float3 p, float3 c, float r)
+  {
+    return (1/length(p - c)) * (p - c);
+  }
+
   void BVHDR::PrimitiveIntersectWithGrad(uint32_t type, uint32_t ray_flags, const float3 ray_pos, const float3 ray_dir,
                                          float tNear, uint32_t instId, uint32_t geomId,
                                          uint32_t a_start, uint32_t a_count,
@@ -1693,8 +1698,8 @@ static float3 dp_to_nmq(float3 dp, float beta)
     float  sphere_radius = m_SdfSBSDataF[3];
     float3 sphere_color = float3(0,1,0);
 
-    float3 boxMin = sphere_pos - sphere_radius;
-    float3 boxMax = sphere_pos + sphere_radius;
+    float3 boxMin = sphere_pos - 1.1f*sphere_radius;
+    float3 boxMax = sphere_pos + 1.1f*sphere_radius;
 
     //printf("ray pos ray dir %f %f %f %f %f %f\n", ray_pos.x, ray_pos.y, ray_pos.z, ray_dir.x, ray_dir.y, ray_dir.z);
 
@@ -1708,10 +1713,41 @@ static float3 dp_to_nmq(float3 dp, float beta)
     float t = tNearFar.x;
     float dist = sphere_dist(ray_pos + t * ray_dir, sphere_pos, sphere_radius);
 
+    float2 global_min = float2(tNearFar.y+1, 1e6f);
+
+    constexpr unsigned W_SIZE = 3;
+    constexpr unsigned MAX_BISECT_ITERS = 10;
+    float2 sliding_window[W_SIZE] = { float2(t, dist), float2(t, dist), float2(t, dist) };
+    unsigned w_idx = 0;
+
     while (dist > 1e-6f && t < tNearFar.y)
     {
       t += dist;
       dist = sphere_dist(ray_pos + t * ray_dir, sphere_pos, sphere_radius);
+
+      sliding_window[w_idx] = float2(t, dist);
+
+      if (sliding_window[(w_idx + 2) % W_SIZE].y < sliding_window[w_idx].y &&
+          sliding_window[(w_idx + 2) % W_SIZE].y < sliding_window[(w_idx + 1) % W_SIZE].y)
+      {
+        //it is local minimum
+        float t1 = sliding_window[(w_idx + 1) % W_SIZE].x;
+        float t2 = sliding_window[w_idx].x;
+        float2 left(t1, dot(ray_dir, d_sphere_dist_dpos(ray_pos + t1 * ray_dir, sphere_pos, sphere_radius)));
+        float2 right(t2, dot(ray_dir, d_sphere_dist_dpos(ray_pos + t2 * ray_dir, sphere_pos, sphere_radius)));
+        for (unsigned i = 0; i < MAX_BISECT_ITERS; i++)
+        {
+          float2 mid((t1 + t2) * 0.5f, dot(ray_dir, d_sphere_dist_dpos(ray_pos + (t1 + t2) * 0.5f * ray_dir, sphere_pos, sphere_radius)));
+          if (mid.y > 0)
+            left = mid;
+          else
+            right = mid; 
+        }
+
+        global_min = float2(right.x, sphere_dist(ray_pos + right.x * ray_dir, sphere_pos, sphere_radius));
+
+      }
+      w_idx = (w_idx + 1) % W_SIZE;
     }
 
     if (dist <= 1e-6f)
@@ -1722,6 +1758,43 @@ static float3 dp_to_nmq(float3 dp, float beta)
       pHit->geomId = geomId | (type << SH_TYPE);
       pHit->color  = sphere_color;
       pHit->normal = normalize(ray_pos + t * ray_dir - sphere_pos);
+    }
+    else if (global_min.x < tNearFar.y)
+    {
+      //printf("global_min %f %f %f\n", global_min.x, global_min.y, tNearFar.y);
+      relax_pt->missed_hit.t = global_min.x;
+      relax_pt->missed_hit.primId = 0;
+      relax_pt->missed_hit.instId = instId;
+      relax_pt->missed_hit.geomId = geomId | (type << SH_TYPE);
+      relax_pt->missed_hit.color = sphere_color;
+      relax_pt->missed_hit.sdf = global_min.y;
+      relax_pt->missed_hit.normal = normalize(ray_pos + global_min.x * ray_dir - sphere_pos);
+
+      relax_pt->missed_indices[0] = 0;
+      relax_pt->missed_indices[1] = 1;
+      relax_pt->missed_indices[2] = 2;
+      relax_pt->missed_indices[3] = 3;
+
+      relax_pt->missed_dp_dsdf[0] = float3(1, 0, 0);
+      relax_pt->missed_dp_dsdf[1] = float3(0, 1, 0);
+      relax_pt->missed_dp_dsdf[2] = float3(0, 0, 1);
+      relax_pt->missed_dp_dsdf[3] = normalize(ray_pos + global_min.x * ray_dir - sphere_pos);
+
+      float3 p = sphere_pos + (1.0f - 1e-6f)*sphere_radius*normalize(ray_pos + global_min.x * ray_dir - sphere_pos);
+
+      float x = p.x;
+      float y = p.y;
+      float z = p.z;
+      float a = sphere_pos.x;
+      float b = sphere_pos.y;
+      float c = sphere_pos.z;
+      float r = sphere_radius;
+      float tmp = 1.0f / sqrt(r*r - (x-a)*(x-a) - (z-c)*(z-c));
+
+      relax_pt->missed_dp_dsdf[0] = float3(0, sign(y - b) * (x-a) * tmp, 0);
+      relax_pt->missed_dp_dsdf[1] = float3(0, 1, 0);
+      relax_pt->missed_dp_dsdf[2] = float3(0, sign(y - b) * (z-c) * tmp, 0);
+      relax_pt->missed_dp_dsdf[3] = float3(0, sign(y - b) * r * tmp, 0);
     }
   }
 }

@@ -959,7 +959,7 @@ void test_position_derivatives(const SdfSBS &SBS, unsigned render_node, unsigned
   
   srand(0);
 
-  unsigned W = 64, H = 64;
+  unsigned W = 8, H = 8;
 
   MultiRenderPreset preset = getDefaultPreset();
   preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
@@ -1010,15 +1010,15 @@ void test_position_derivatives(const SdfSBS &SBS, unsigned render_node, unsigned
   dr_preset.dr_input_type = diff_render_mode == DR_RENDER_MODE_LINEAR_DEPTH ? DR_INPUT_TYPE_LINEAR_DEPTH : DR_INPUT_TYPE_COLOR;
   dr_preset.opt_iterations = 1;
   dr_preset.opt_lr = 0.0f;
-  dr_preset.spp = 1024;
-  dr_preset.border_spp = 128*1024;
+  dr_preset.spp = 4096;
+  dr_preset.border_spp = 16*1024;
   dr_preset.debug_pd_brightness = 0.001f;
   dr_preset.border_relax_eps = 0.005f;
   dr_preset.finite_diff_delta = 0.005f;
   dr_preset.finite_diff_brightness = 0.25f;
   dr_preset.debug_render_mode = DR_DEBUG_RENDER_MODE_BORDER_DETECTION;
   dr_preset.debug_progress_images = DEBUG_PROGRESS_RAW;
-  dr_preset.debug_forced_border = true;
+  dr_preset.debug_forced_border = false;
   bool debug_pd_images = true;
 
   unsigned param_count = indexed_SBS.values_f.size() - 3 * 8 * indexed_SBS.nodes.size();
@@ -1030,10 +1030,10 @@ void test_position_derivatives(const SdfSBS &SBS, unsigned render_node, unsigned
     //printf("delta = %f\n", delta);
     //__delta = delta;
 
-    std::array<std::vector<double>, 2> grad_mean;
-    std::array<std::vector<double>, 2> grad_conf;
+    std::array<std::vector<double>, 3> grad_mean;
+    std::array<std::vector<double>, 3> grad_conf;
 
-    for (int T = 0; T < 2; T++)
+    for (int T = 0; T < 3; T++)
     {
     unsigned samples = 10;
     std::vector<std::vector<float>> grads(samples);
@@ -1041,11 +1041,11 @@ void test_position_derivatives(const SdfSBS &SBS, unsigned render_node, unsigned
     {
           srand(time(nullptr) + i);
       MultiRendererDR dr_render;
-      dr_preset.dr_diff_mode = T == 0 ? DR_DIFF_MODE_DEFAULT : DR_DIFF_MODE_FINITE_DIFF;
-      dr_preset.dr_border_sampling = DR_BORDER_SAMPLING_ANALYTIC;
+      dr_preset.dr_diff_mode = T == 1 ? DR_DIFF_MODE_FINITE_DIFF : DR_DIFF_MODE_DEFAULT;
+      dr_preset.dr_border_sampling = T == 2 ? DR_BORDER_SAMPLING_ANALYTIC : DR_BORDER_SAMPLING_RANDOM;
       dr_preset.debug_pd_images = i == 0;
-      //dr_preset.debug_border_samples_mega_image = T == 0 && i == 0;
-      //dr_preset.debug_border_samples = T == 0 && i == 0;
+      dr_preset.debug_border_samples_mega_image = T == 0 && i == 0;
+      dr_preset.debug_border_samples = T == 0 && i == 0;
 
       //if (T == 0)
       //  indexed_SBS.values_f[13] += 0.01f;
@@ -1060,7 +1060,7 @@ void test_position_derivatives(const SdfSBS &SBS, unsigned render_node, unsigned
       grads[i] = std::vector<float>(dr_render.getLastdLoss_dS() + param_offset, 
                                     dr_render.getLastdLoss_dS() + param_offset + param_count);
 
-      //printf("border_rays hit chance = %f\n", dr_render.border_rays_hit/(dr_render.border_rays_total + 1e-6f));
+      //printf("border_rays hit chance = %f\n", dr_render.border_rays_hit/(dr_preset.border_spp*W*H + 1e-6f));
       image_res = dr_render.getLastImage(0);
       LiteImage::SaveImage<float4>(("saves/test_dr_9_"+std::to_string(off)+"_res.bmp").c_str(), image_res); 
       //if (T == 0)
