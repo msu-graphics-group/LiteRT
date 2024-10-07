@@ -88,7 +88,7 @@ endif()
 
 add_compile_definitions(ON_CPU=1)
 
-option(USE_VULKAN "include GPU support" ON)
+option(USE_VULKAN "incd L ude GPU support" ON)
 option(USE_RTX    "include RTX support" OFF)
 
 option(USE_STB_IMAGE "Enable STB image " ON)

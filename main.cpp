@@ -22,7 +22,7 @@ int main(int argc, const char** argv)
   {
     if (std::string(argv[1]) == "-tests_litert")
     {
-      perform_tests_litert({17});
+      perform_tests_litert({});
       return 0;
     }
     else if (std::string(argv[1]) == "-intersection_benchmark")
@@ -53,7 +53,7 @@ int main(int argc, const char** argv)
     }
     else if (std::string(argv[1]) == "-tests_dr")
     {
-      perform_tests_diff_render({25});
+      perform_tests_diff_render({});
       return 0;
     }
     else if (std::string(argv[1]) == "-benchmark_dr")

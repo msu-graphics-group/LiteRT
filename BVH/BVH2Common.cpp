@@ -1500,7 +1500,7 @@ float BVHRT::eval_distance_sdf_grid(uint32_t grid_id, float3 pos)
 
   //trilinear sampling
   float res = 0.0;
-  if (m_preset.interpolation_type == 0)
+  if (m_preset.interpolation_type == TRILINEAR_INTERPOLATION_MODE)
   {
     if (vox_u.x < size.x-1 && vox_u.y < size.y-1 && vox_u.z < size.z-1)
     {
@@ -1523,7 +1523,7 @@ float BVHRT::eval_distance_sdf_grid(uint32_t grid_id, float3 pos)
       res += m_SdfGridData[off + (vox_u.z)*size.x*size.y + (vox_u.y)*size.x + (vox_u.x)]; 
     }
   } // tricubic interpolation
-  else if (m_preset.interpolation_type == 1)
+  else if (m_preset.interpolation_type == TRICUBIC_INTERPOLATION_MODE)
   {
     if (vox_u.x < size.x-2 && vox_u.y < size.y-2 && vox_u.z < size.z-2 && vox_u.x > 0 && vox_u.y > 0 && vox_u.z > 0)
     {

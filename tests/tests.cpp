@@ -2613,6 +2613,32 @@ void litert_test_33_verify_SBS_SBSAdapt_split()
   }
 }
 
+void
+litert_test_34_tricubic_sbs()
+{
+  printf("TEST 34 DRAW SBS STRUCTURE WITH TRICUBIC INTERPOLATION\n");
+  auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "scenes/01_simple_scenes/data/teapot.vsgf").c_str());
+  cmesh4::normalize_mesh(mesh);
+
+  unsigned W = 512, H = 512;
+  MultiRenderPreset preset = getDefaultPreset();
+  preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
+
+  LiteImage::Image2D<uint32_t> img(W, H);
+  SdfSBSHeader header;
+  header.brick_size = 2;
+  header.brick_pad = 0;
+  header.bytes_per_value = 1;
+  header.aux_data = SDF_SBS_NODE_LAYOUT_DX;
+
+  auto sbs = sdf_converter::create_sdf_SBS(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 8, 64*64*64), header, mesh);
+  auto pRender = CreateMultiRenderer("CPU");
+  pRender->SetPreset(preset);
+  pRender->SetScene(sbs);
+  render(img, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+  LiteImage::SaveImage<uint32_t>("saves/test_34_sbs_tricubic.bmp", img);
+}
+
 void perform_tests_litert(const std::vector<int> &test_ids)
 {
   std::vector<int> tests = test_ids;
@@ -2628,7 +2654,8 @@ void perform_tests_litert(const std::vector<int> &test_ids)
       litert_test_22_sdf_grid_smoothing, litert_test_23_textured_sdf, litert_test_24_demo_meshes,
       litert_test_25_float_images, litert_test_26_sbs_shallow_bvh, litert_test_27_textured_colored_SBS,
       litert_test_28_sbs_reg, litert_test_29_smoothed_frame_octree, litert_test_30_verify_SBS_SBSAdapt,
-      litert_test_31_fake_nurbs_render, litert_test_32_smooth_sbs_normals, litert_test_33_verify_SBS_SBSAdapt_split };
+      litert_test_31_fake_nurbs_render, litert_test_32_smooth_sbs_normals, litert_test_33_verify_SBS_SBSAdapt_split, 
+      litert_test_34_tricubic_sbs };
 
   if (tests.empty())
   {
