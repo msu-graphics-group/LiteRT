@@ -1622,18 +1622,21 @@ tricubicInterpolation(const float *m_SdfGridData, const uint vox_u[3], const flo
   return res;
 }
 
+#ifdef USE_ENZYME
 void __enzyme_autodiff(void*, ...);
 int enzyme_dup;
 int enzyme_dupnoneed;
 int enzyme_out;
 int enzyme_const;
+#endif
 
 float3 
 tricubicInterpolationDerrivative(const float *m_SdfGridData, const uint vox_u[3], const float dp[3], const uint32_t off, const uint size[3])
 {
   float d_pos[3] = {0};
-  float3 d_dist;
+  float3 d_dist(0, 0, 0);
 
+  #ifdef USE_ENZYME
   __enzyme_autodiff((void*)(tricubicInterpolation), 
                     enzyme_const, m_SdfGridData, 
                     enzyme_const, vox_u, 
@@ -1644,6 +1647,7 @@ tricubicInterpolationDerrivative(const float *m_SdfGridData, const uint vox_u[3]
   d_dist.x = d_pos[0];
   d_dist.y = d_pos[1];
   d_dist.z = d_pos[2];
+  #endif
 
   return d_dist;
 }
