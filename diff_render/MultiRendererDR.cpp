@@ -416,6 +416,7 @@ namespace dr
           unsigned color_params = 3*8*sbs.nodes.size();
           unsigned active_params_start = is_geometry ? 0 : params_count - color_params;
           unsigned active_params_end   = is_geometry ? params_count - color_params : params_count;
+          printf("active_params_start = %d, active_params_end = %d\n", active_params_start, active_params_end);
           //active_params_start = 0;
           //active_params_end = 4;
 

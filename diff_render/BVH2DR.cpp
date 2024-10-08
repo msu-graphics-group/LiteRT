@@ -1014,8 +1014,8 @@ namespace dr
 
           if (t_min >= 0 && t_min <= qFar && sdf_min < 0.f && -sdf_min*d < relax_pt->missed_hit.sdf) // Found relaxation point
           {
-            printf("t_min = %f in (%f, %f)\n", t_min, qNear, qFar);
-            assert(false);
+            //printf("t_min = %f in (%f, %f)\n", t_min, qNear, qFar);
+            //assert(false);
             relax_pt->missed_hit.t = t_min;
             relax_pt->missed_hit.sdf = -sdf_min*d;
           }
@@ -1239,8 +1239,8 @@ static float3 dp_to_nmq(float3 dp, float beta)
             float3 dSDF_dpos = eval_dist_trilinear_diff(values, q_ast)*(1/d); // grad
             //dSDF_dpos.z = 0;
             //printf("dSDF_dpos: %f %f %f\n", dSDF_dpos.x, dSDF_dpos.y, dSDF_dpos.z);
-            if (std::abs(q_ast.z - 1.0f) > 1e-6f)
-              printf("d = %f q_ast = %f %f %f\n", d, q_ast.x, q_ast.y, q_ast.z);
+            //if (std::abs(q_ast.z - 1.0f) > 1e-6f)
+            //  printf("d = %f q_ast = %f %f %f\n", d, q_ast.x, q_ast.y, q_ast.z);
             dSDF_dpos.z = 0.0f;
             //float l = length(dSDF_dpos);
             //dSDF_dy.z = 0;

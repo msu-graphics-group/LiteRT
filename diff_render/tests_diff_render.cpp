@@ -1010,8 +1010,8 @@ void test_position_derivatives(const SdfSBS &SBS, unsigned render_node, unsigned
   dr_preset.dr_input_type = diff_render_mode == DR_RENDER_MODE_LINEAR_DEPTH ? DR_INPUT_TYPE_LINEAR_DEPTH : DR_INPUT_TYPE_COLOR;
   dr_preset.opt_iterations = 1;
   dr_preset.opt_lr = 0.0f;
-  dr_preset.spp = 256;
-  dr_preset.border_spp = 4*1024;
+  dr_preset.spp = 64;
+  dr_preset.border_spp = 1024;
   dr_preset.debug_pd_brightness = 0.001f;
   dr_preset.border_relax_eps = 0.01f;
   dr_preset.finite_diff_delta = 0.005f;
@@ -1043,9 +1043,9 @@ void test_position_derivatives(const SdfSBS &SBS, unsigned render_node, unsigned
       MultiRendererDR dr_render;
       dr_preset.dr_diff_mode = T == 1 ? DR_DIFF_MODE_FINITE_DIFF : DR_DIFF_MODE_DEFAULT;
       dr_preset.dr_border_sampling = T == 2 ? DR_BORDER_SAMPLING_ANALYTIC : DR_BORDER_SAMPLING_RANDOM;
-      dr_preset.debug_pd_images = i == 0;
-      dr_preset.debug_border_samples_mega_image = T == 0 && i == 0;
-      dr_preset.debug_border_samples = T == 0 && i == 0;
+      //dr_preset.debug_pd_images = i == 0;
+      //dr_preset.debug_border_samples_mega_image = T == 0 && i == 0;
+      //dr_preset.debug_border_samples = T == 0 && i == 0;
 
       //if (T == 0)
       //  indexed_SBS.values_f[13] += 0.01f;
