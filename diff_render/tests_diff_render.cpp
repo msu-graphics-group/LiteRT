@@ -963,17 +963,13 @@ void test_position_derivatives(const SdfSBS &SBS, unsigned render_node, unsigned
   preset.spp = 256;
 
   float4x4 base_proj = LiteMath::perspectiveMatrix(close_view ? 20 : 60, 1.0f, 0.01f, 100.0f);
-  //base_proj = ortho(-0.8f, 0.8f, -0.8f, 0.8f, 1.0f, 10.0f);
-  //base_proj = LiteMath::perspectiveMatrix(20, 1.0f, 0.01f, 100.0f);
-  //base_proj = LiteMath::ort
 
   std::vector<float4x4> view; 
   if (close_view)
     view = std::vector<float4x4>{LiteMath::lookAt(float3(0.2, 0, 2.0), float3(0.2, 0, 0), float3(0, 1, 0))};
   else
     view = std::vector<float4x4>{LiteMath::lookAt(float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0))};
-  //else
-  //  view = get_cameras_uniform_sphere(1, float3(0, 0, 0), 5.0f);
+
   std::vector<float4x4> proj(view.size(), base_proj);
 
   std::vector<LiteImage::Image2D<float4>> images_ref(view.size(), LiteImage::Image2D<float4>(W, H));
@@ -1023,9 +1019,6 @@ void test_position_derivatives(const SdfSBS &SBS, unsigned render_node, unsigned
   //std::vector<float> deltas = {0.04f, 0.02f, 0.01f, 0.005f, 0.0025f, 0.001f, 0.0005f, 0.00025f, 0.0001f};
   //for (float delta : deltas)
   {
-    //printf("delta = %f\n", delta);
-    //__delta = delta;
-
     std::array<std::vector<double>, 3> grad_mean;
     std::array<std::vector<double>, 3> grad_conf;
 
@@ -1035,21 +1028,13 @@ void test_position_derivatives(const SdfSBS &SBS, unsigned render_node, unsigned
     std::vector<std::vector<float>> grads(samples);
     for (unsigned i = 0; i < samples; i++)
     {
-          srand(time(nullptr) + i);
+      srand(time(nullptr) + i);
       MultiRendererDR dr_render;
       dr_preset.dr_diff_mode = T == 1 ? DR_DIFF_MODE_FINITE_DIFF : DR_DIFF_MODE_DEFAULT;
-      dr_preset.dr_border_sampling = T == 2 ? DR_BORDER_SAMPLING_ANALYTIC : DR_BORDER_SAMPLING_RANDOM;
+      dr_preset.dr_border_sampling = border_sampling;
       dr_preset.debug_pd_images = i == 0;
-      //dr_preset.debug_border_samples_mega_image = T == 0 && i == 0;
-      //dr_preset.debug_border_samples = T == 0 && i == 0;
-
-      //if (T == 0)
-      //  indexed_SBS.values_f[13] += 0.01f;
-
-      //indexed_SBS.values_f[0] = 0.0f;
-      //indexed_SBS.values_f[1] = 0.0f;
-      //indexed_SBS.values_f[2] = 0.0f;
-      //indexed_SBS.values_f[3] = 0.2f;
+      dr_preset.debug_border_samples_mega_image = T == 0 && i == 0;
+      dr_preset.debug_border_samples = T == 0 && i == 0;
 
       dr_render.SetReference(images_ref, view, proj);
       dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS);
@@ -1059,8 +1044,6 @@ void test_position_derivatives(const SdfSBS &SBS, unsigned render_node, unsigned
       //printf("border_rays hit chance = %f\n", dr_render.border_rays_hit/(dr_preset.border_spp*W*H + 1e-6f));
       image_res = dr_render.getLastImage(0);
       LiteImage::SaveImage<float4>(("saves/test_dr_9_"+std::to_string(off)+"_res.bmp").c_str(), image_res); 
-      //if (T == 0)
-      //  indexed_SBS.values_f[13] -= 0.01f;
     }
 
     grad_mean[T] = stat::mean<float>(grads);

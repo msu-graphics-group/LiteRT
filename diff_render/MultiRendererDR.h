@@ -93,12 +93,12 @@ namespace dr
     void OptimizeStepAdam(unsigned iter, const float* dX, float *X, float *tmp, unsigned size, MultiRendererDRPreset preset);
     float CastRayWithGrad(uint32_t tidX, const float4 *image_ref, LiteMath::float4* out_image, float* out_dLoss_dS,
                           LiteMath::float4* out_image_depth, LiteMath::float4* out_image_debug, PDFinalColor *out_pd_tmp);
+    float CalculateBorderRayDerivatives(float sampling_pdf, const RayDiffPayload &payload, const CRT_HitDR &hit, float4 rayPosAndNear,
+                                        float4 rayDirAndFar, const float4 *image_ref, LiteMath::float4 *out_image, float *out_dLoss_dS);
     void CastBorderRay(uint32_t tidX, const float4 *image_ref, LiteMath::float4* out_image, float* out_dLoss_dS,
                        LiteMath::float4* out_image_debug);
     void CastBorderRaySVM(uint32_t tidX, const float4 *image_ref, LiteMath::float4* out_image, float* out_dLoss_dS,
                           LiteMath::float4* out_image_debug);
-    void EstimateBorderIntegralAnalytic(const float4 *image_ref, LiteMath::float4* out_image, float* out_dLoss_dS,
-                                        LiteMath::float4* out_image_debug);
     float3 CalculateColor(const CRT_HitDR &hit);
     float3 CalculateColorWithGrad(const CRT_HitDR &hit, LiteMath::float3x3 &dColor_dDiffuse,
                                   LiteMath::float3x3 &dColor_dNorm);

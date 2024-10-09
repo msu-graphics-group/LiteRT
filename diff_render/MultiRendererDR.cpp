@@ -691,10 +691,6 @@ namespace dr
             CastBorderRaySVM(m_borderPixels[i], image_ref, out_image, out_dLoss_dS + (params_count * thread_id), out_image_debug);
         }        
       }
-      else if (m_preset_dr.dr_border_sampling == DR_BORDER_SAMPLING_ANALYTIC)
-      {
-        EstimateBorderIntegralAnalytic(image_ref, out_image, out_dLoss_dS, out_image_debug);
-      }
     }
     if (m_preset_dr.debug_border_samples_mega_image)
     {
@@ -1252,6 +1248,60 @@ namespace dr
     return diff;
   }
 
+  float MultiRendererDR::CalculateBorderRayDerivatives(float sampling_pdf, const RayDiffPayload &payload, const CRT_HitDR &hit, float4 rayPosAndNear,
+                                                       float4 rayDirAndFar, const float4 *image_ref, LiteMath::float4 *out_image, float *out_dLoss_dS)
+  {
+    const float relax_eps = m_preset_dr.border_relax_eps;
+    const float3 background_color = float3(0.0f, 0.0f, 0.0f);
+    const float background_depth = 0.0f;
+    const unsigned border_spp = m_preset_dr.border_spp;
+    float ray_diff = 0.0f;
+    float4 color_delta = float4(0, 0, 0, 0);
+    if (m_preset_dr.dr_input_type == DR_INPUT_TYPE_COLOR)
+    {
+      float3 f_in = CalculateColor(payload.missed_hit);
+      float3 f_out = hit.primId == 0xFFFFFFFF ? background_color : CalculateColor(hit);
+      color_delta = to_float4(f_in - f_out, hit.primId == 0xFFFFFFFF ? 1.0f : 0.0f);
+    }
+    else if (m_preset_dr.dr_input_type == DR_INPUT_TYPE_LINEAR_DEPTH)
+    {
+      float d_in = payload.missed_hit.t;
+      float d_out = hit.primId == 0xFFFFFFFF ? background_depth : hit.t;
+      color_delta = float4(d_in - d_out, d_in - d_out, d_in - d_out, hit.primId == 0xFFFFFFFF ? 1.0f : 0.0f);
+    }
+
+    for (int j = 0; j < 8; j++)
+    {
+      if (payload.missed_indices[j] == INVALID_INDEX)
+        continue;
+
+      float border_dist = std::max(0.0f, payload.missed_hit.sdf);
+      float3 y_star = to_float3(rayPosAndNear) + payload.missed_hit.t * to_float3(rayDirAndFar);
+      float3 x_star = y_star - border_dist * payload.missed_hit.normal;
+
+      float2 x_star_2 = TransformWorldToScreenSpace(to_float4(x_star, 1.0f));
+      float2 y_star_2 = TransformWorldToScreenSpace(to_float4(y_star, 1.0f));
+      unsigned x_pixel = x_star_2.x * m_width;
+      unsigned y_pixel = x_star_2.y * m_height;
+
+      float4 dLoss_dColor = LossGrad(m_preset_dr.dr_loss_function, out_image[y_pixel * m_width + x_pixel], image_ref[y_pixel * m_width + x_pixel]);
+
+      // we need dot(dtrans_dpos * dp_dsdf, normalize(dir)) for Reynolds theorem, but dtrans_dpos
+      // is set to be aligned with normal, so we can store dot(n, dp_dsdf) in payload.missed_dSDF_dtheta
+      // and the dot(dtrans_dpos * dp_dsdf, normalize(dir)) = (length(dir)/relax_eps) * payload.missed_dSDF_dtheta
+      // and length(dir) (i.e. how the projection changes length of normal vector) disappears
+      // is was verified in all cases in test 9
+      float diff = sampling_pdf * (1.0f / relax_eps) * dot(dLoss_dColor, color_delta) * payload.missed_dSDF_dtheta[j];
+
+      out_dLoss_dS[payload.missed_indices[j]] += diff;
+
+      ray_diff += abs(diff);
+      if (m_preset_dr.debug_pd_images)
+        m_imagesDebugPD[payload.missed_indices[j]].data()[y_pixel * m_width + x_pixel] += diff * float4(1, 1, 1, 0);
+    }
+    return ray_diff;
+  }
+
   void MultiRendererDR::CastBorderRay(uint32_t tidX, const float4 *image_ref, LiteMath::float4* out_image, float* out_dLoss_dS,
                                       LiteMath::float4* out_image_debug)
   {
@@ -1263,9 +1313,6 @@ namespace dr
     const uint y  = (XY & 0xFFFF0000) >> 16;
 
     const unsigned border_ray_flags = DR_RAY_FLAG_BORDER;
-    const float relax_eps = m_preset_dr.border_relax_eps;
-    const float3 background_color = float3(0.0f, 0.0f, 0.0f);
-    const float  background_depth = 0.0f;
 
     const unsigned border_spp = m_preset_dr.border_spp;
     const uint32_t spp_sqrt = uint32_t(sqrt(border_spp));
@@ -1289,60 +1336,14 @@ namespace dr
       RayDiffPayload payload;
       CRT_HitDR hit = ((BVHDR *)m_pAccelStruct.get())->RayQuery_NearestHitWithGrad(border_ray_flags, rayPosAndNear, rayDirAndFar, &payload);
 
-      bool is_border_ray = payload.missed_hit.sdf < relax_eps;
+      bool is_border_ray = payload.missed_hit.sdf < m_preset_dr.border_relax_eps;
 
       if (is_border_ray)
       {
         border_points++;
-        
-        float4 color_delta = float4(0,0,0,0);
-        if (m_preset_dr.dr_input_type == DR_INPUT_TYPE_COLOR)
-        {
-          float3 f_in = CalculateColor(payload.missed_hit);
-          float3 f_out = hit.primId == 0xFFFFFFFF ? background_color : CalculateColor(hit);
-          color_delta = to_float4(f_in - f_out, hit.primId == 0xFFFFFFFF ? 1.0f : 0.0f);
-        }
-        else if (m_preset_dr.dr_input_type == DR_INPUT_TYPE_LINEAR_DEPTH)
-        {
-          float d_in = payload.missed_hit.t;
-          float d_out = hit.primId == 0xFFFFFFFF ? background_depth : hit.t;
-          color_delta = float4(d_in - d_out, d_in - d_out, d_in - d_out, hit.primId == 0xFFFFFFFF ? 1.0f : 0.0f);
-        }
-
-        for (int j = 0; j < 8; j++)
-        {
-          if (payload.missed_indices[j] == INVALID_INDEX)
-            continue;
-
-          //new estimate
-
-            float border_dist = std::max(0.0f, payload.missed_hit.sdf);
-            float3 y_star = to_float3(rayPosAndNear) + payload.missed_hit.t * to_float3(rayDirAndFar);
-            float3 x_star = y_star - border_dist*payload.missed_hit.normal;
-
-            float2 x_star_2 = TransformWorldToScreenSpace(to_float4(x_star, 1.0f));
-            float2 y_star_2 = TransformWorldToScreenSpace(to_float4(y_star, 1.0f));
-            unsigned x_pixel = x_star_2.x*m_width;
-            unsigned y_pixel = x_star_2.y*m_height;
-
-            float4 dLoss_dColor = LossGrad(m_preset_dr.dr_loss_function, out_image[y_pixel * m_width + x_pixel], image_ref[y_pixel * m_width + x_pixel]);
-
-            //we need dot(dtrans_dpos * dp_dsdf, normalize(dir)) for Reynolds theorem, but dtrans_dpos
-            //is set to be aligned with normal, so we can store dot(n, dp_dsdf) in payload.missed_dSDF_dtheta
-            //and the dot(dtrans_dpos * dp_dsdf, normalize(dir)) = (length(dir)/relax_eps) * payload.missed_dSDF_dtheta
-            //and length(dir) (i.e. how the projection changes length of normal vector) disappears
-            //is was verified in all cases in test 9
-            float diff = (1.0f/border_spp) * (1.0f/relax_eps) * dot(dLoss_dColor, color_delta) * payload.missed_dSDF_dtheta[j];
-
-
-          out_dLoss_dS[payload.missed_indices[j]] += diff;
-
-          total_diff += abs(diff);
-          pixel_diff += abs(diff);
-          if (m_preset_dr.debug_pd_images)
-            m_imagesDebugPD[payload.missed_indices[j]].data()[y * m_width + x] += diff * float4(1, 1, 1, 0);
-        }
+        pixel_diff = CalculateBorderRayDerivatives(1.0f/border_spp, payload, hit, rayPosAndNear, rayDirAndFar, image_ref, out_image, out_dLoss_dS);
       }
+      total_diff += pixel_diff;
 
 
       if (m_preset_dr.debug_border_samples || m_preset_dr.debug_border_samples_mega_image)
@@ -1631,7 +1632,6 @@ namespace dr
           samples_debug_color[sample_id] = float4(t_samples[sample_id] <= t_threshold ? 0 : 1, t_samples[sample_id] <= t_threshold ? 1 : 0, 0, 1);
       }
     }
-
     //if all samples are of one type, return
     if (type_0_samples_count == svm_spp || type_0_samples_count == 0)
       return;
@@ -1640,6 +1640,9 @@ namespace dr
     //printf("x, y = %u %u\n", x, y);
     float4 W = SVM_fit(X_mod);
     float error_rate = W.w;
+
+    //printf("threshold: %f count of samples of type 0: %u/%u\n", t_threshold, type_0_samples_count, svm_spp);
+    //printf("error rate = %f\n", error_rate);
 
     float2 p0, p1, r, n;
     float sample_radius, stripe_area;
@@ -1739,32 +1742,9 @@ namespace dr
       if (is_border_ray)
       {
         border_points++;
-
-        float4 color_delta = float4(0,0,0,0);
-        if (m_preset_dr.dr_input_type == DR_INPUT_TYPE_COLOR)
-        {
-          float3 f_in = CalculateColor(payload.missed_hit);
-          float3 f_out = hit.primId == 0xFFFFFFFF ? background_color : CalculateColor(hit);
-          color_delta = to_float4(f_in - f_out, hit.primId == 0xFFFFFFFF ? 1.0f : 0.0f);
-        }
-        else if (m_preset_dr.dr_input_type == DR_INPUT_TYPE_LINEAR_DEPTH)
-        {
-          float d_in = payload.missed_hit.t;
-          float d_out = hit.primId == 0xFFFFFFFF ? background_depth : hit.t;
-          color_delta = float4(d_in - d_out, d_in - d_out, d_in - d_out, hit.primId == 0xFFFFFFFF ? 1.0f : 0.0f);
-        }
-
-        for (int j = 0; j < 8; j++)
-        {
-          float diff = m_preset_dr.border_integral_mult * sampling_pdf * dot(dLoss_dColor, (1.0f / relax_eps) * payload.missed_dSDF_dtheta[j] * color_delta);
-          out_dLoss_dS[payload.missed_indices[j]] += diff;
-
-          total_diff += abs(diff);
-          pixel_diff += length((1.0f / relax_eps) * payload.missed_dSDF_dtheta[j] * color_delta);
-          if (m_preset_dr.debug_pd_images)
-            m_imagesDebugPD[payload.missed_indices[j]].data()[y * m_width + x] += diff * float4(1, 1, 1, 0);
-        }
+        pixel_diff = CalculateBorderRayDerivatives(sampling_pdf, payload, hit, rayPosAndNear, rayDirAndFar, image_ref, out_image, out_dLoss_dS);
       }
+      total_diff += pixel_diff;
 
       if (m_preset_dr.debug_border_samples || m_preset_dr.debug_border_samples_mega_image)
       {
@@ -1791,6 +1771,7 @@ namespace dr
       LiteImage::Image2D<float4> debug_image(wmult, hmult, float4(0,0,0,1));
       draw_points(samples_debug_pos_size, samples_debug_color, debug_image);
 
+      //printf("line = %f %f %f %f\n", p0.x, p0.y, p1.x, p1.y);
       draw_line(p0, p1, 1.0f/MEGA_PIXEL_SIZE, float4(1,1,1,1), debug_image);
       //if (tidX % 10 == 0)
         LiteImage::SaveImage(("saves/debug_border"+std::to_string(x)+"_"+std::to_string(y)+".png").c_str(), debug_image);
@@ -2254,79 +2235,5 @@ namespace dr
     delete[] dist_bord[1];
     delete[] dist_bord[0];
     // fclose(FOUT);
-  }
-
-  void MultiRendererDR::EstimateBorderIntegralAnalytic(const float4 *image_ref, LiteMath::float4* out_image, float* out_dLoss_dS,
-                                                       LiteMath::float4* out_image_debug)
-  {
-    //our model is sphere
-    //it's silhouette is a circle with z = 0
-    float *params = ((BVHDR*)m_pAccelStruct.get())->m_SdfSBSDataF.data();
-    float3 center = float3(params[0], params[1], params[2]);
-    float radius = params[3];
-
-    int samples = 100000;
-    for (int i = 0; i < samples; ++i)
-    {
-      float phi = 2.0f * LiteMath::M_PI * urand(0, 1);
-      float3 pos_world = center + float3(sin(phi), cos(phi), 0) * radius;
-      float3 norm_world = normalize(pos_world - center);
-      float3 tang_world = normalize(cross(norm_world, float3(0, 0, 1)));
-
-      float viewproj_scale = 1.0f;
-      {
-        float eps = 1e-4f;
-        float3 p1 = pos_world;
-        float3 p2 = pos_world + eps*tang_world;
-
-        float2 sp2 = TransformWorldToScreenSpace(to_float4(p2, 1.0f));
-        float2 sp1 = TransformWorldToScreenSpace(to_float4(p1, 1.0f));
-        viewproj_scale = length(sp2 - sp1) / eps;
-      }
-
-      float2 pos_screen = TransformWorldToScreenSpace(to_float4(pos_world, 1.0f));
-      float2 norm_screen = normalize(TransformWorldToScreenSpace(to_float4(pos_world + 0.0001f*norm_world, 1)) - pos_screen);
-      uint x = uint(pos_screen.x*m_width);
-      uint y = uint(pos_screen.y*m_height);
-      const float4 dLoss_dColor = LossGrad(m_preset_dr.dr_loss_function, out_image[y * m_width + x], image_ref[y * m_width + x]);
-      const float4 color_delta = float4(1,1,1,1);
-
-      //printf("pos = %f, %f, norm = %f, %f\n", pos_screen.x, pos_screen.y, norm_screen.x, norm_screen.y);
-      //dp_dpj = dtransform_dpos_world * dpos_world_dpj
-      auto dtransform_dpos_world = TransformWorldToScreenSpaceDiff(to_float4(pos_world, 1.0f));
-      std::array<float4, 4> dpos_world_dpj;
-      dpos_world_dpj[0] = float4(1, 0, 0, 0);
-      dpos_world_dpj[1] = float4(0, 1, 0, 0);
-      dpos_world_dpj[2] = float4(0, 0, 1, 0);
-      dpos_world_dpj[3] = float4(sin(phi), cos(phi), 0, 0);
-
-      //sdf = length(p - c) - r;
-      //sdf = sqrt((p.x - c.x)*(p.x - c.x) + (p.y - c.y)*(p.y - c.y) + (p.z - c.z)*(p.z - c.z)) - r;
-      float3 dSDF_dp = (1/length(pos_world - center)) * (pos_world - center);
-      //normal = dSDF_dp /length(dSDF_dp) = (pos_world - center) / length(pos_world - center)
-      std::array<float, 4> dSDF_dpj;
-      dSDF_dpj[0] = (1/length(pos_world - center)) * (center.x - pos_world.x);
-      dSDF_dpj[1] = (1/length(pos_world - center)) * (center.y - pos_world.y);
-      dSDF_dpj[2] = (1/length(pos_world - center)) * (center.z - pos_world.z);
-      dSDF_dpj[3] = -1;
-
-      for (int j=0; j < 4; j++)
-      {
-        float2 dpos_dpj = float2(dot(dtransform_dpos_world[0], dpos_world_dpj[j]), dot(dtransform_dpos_world[1], dpos_world_dpj[j]));
-        float length_mult = 2*LiteMath::M_PI * radius * viewproj_scale;
-
-        float u1 = dot(norm_screen, dpos_dpj);
-        float u2 = (-1.0f/length(dSDF_dp))*dSDF_dpj[j]*dot(norm_screen, float2(dot(dtransform_dpos_world[0],to_float4(norm_world, 0)), dot(dtransform_dpos_world[1], to_float4(norm_world, 0))));
-        //printf("u1, u2 = %f, %f\n", u1, u2);
-        //u2 is a wrong estimate, only normal component
-
-        //loss will be divided by m_width*m_height later
-        float diff = m_width*m_height * length_mult * dot(dLoss_dColor, color_delta) * u1 / samples;
-        out_dLoss_dS[j] += diff;
-        
-        if (m_preset_dr.debug_pd_images)
-          m_imagesDebugPD[j].data()[y * m_width + x] += diff * float4(1, 1, 1, 0);
-      }
-    }
   }
 }
