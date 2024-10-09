@@ -968,7 +968,7 @@ void test_position_derivatives(const SdfSBS &SBS, unsigned render_node, unsigned
   if (close_view)
     view = std::vector<float4x4>{LiteMath::lookAt(float3(0.2, 0, 2.0), float3(0.2, 0, 0), float3(0, 1, 0))};
   else
-    view = std::vector<float4x4>{LiteMath::lookAt(float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0))};
+    view = std::vector<float4x4>{LiteMath::lookAt(float3(0.3, 0, 2.5), float3(0, 0, 0), float3(0, 1, 0))};
 
   std::vector<float4x4> proj(view.size(), base_proj);
 

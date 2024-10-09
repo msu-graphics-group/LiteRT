@@ -1612,6 +1612,8 @@ namespace dr
 
     std::vector<float3> X_mod(svm_spp);
     std::vector<float> t_samples(svm_spp);
+    float3 closest_hit = float3(1e6f, 1e6f, 1e6f);
+    float closest_t = 1e6f;
     for (int sample_id = 0; sample_id < svm_spp; sample_id++)
     {
       float2 d = rand2(x, y, sample_id);
@@ -1623,6 +1625,12 @@ namespace dr
 
       X_mod[sample_id] = float3(d.x, d.y, 1);
       t_samples[sample_id] = hit.t;
+      
+      if (hit.t < closest_t)
+      {
+        closest_t = hit.t;
+        closest_hit = to_float3(rayPosAndNear) + to_float3(rayDirAndFar) * hit.t;
+      }
     }
 
     const float t_threshold = t_samples_to_threshold(t_samples.data(), svm_spp, 0, 0);
@@ -1666,7 +1674,8 @@ namespace dr
     }
     else
     {
-      if (abs(W.y) > 1e-6f && abs(W.x) > 1e-6f)
+      //printf("W = %f %f %f %f\n", W.x, W.y, W.z, W.w);
+      if (std::abs(W.y) > 1e-6f && std::abs(W.x) > 1e-6f)
       {
         p0 = float2(0, -W.z / W.y);
         p1 = float2(1, (-W.z - W.x) / W.y);
@@ -1677,7 +1686,7 @@ namespace dr
         {
           float k1 = -p0.y/ry;
           float k2 = (1-p0.y)/ry;
-          float k = (abs(k1) < abs(k2)) ? k1 : k2;
+          float k = (std::abs(k1) < std::abs(k2)) ? k1 : k2;
           p0 = p0 + k*float2(1, ry);
         }
 
@@ -1685,11 +1694,11 @@ namespace dr
         {
           float k1 = -p1.y/ry;
           float k2 = (1-p1.y)/ry;
-          float k = (abs(k1) < abs(k2)) ? k1 : k2;
+          float k = (std::abs(k1) < std::abs(k2)) ? k1 : k2;
           p1 = p1 + k*float2(1, ry);
         }
       }
-      else if (abs(W.x) > 1e-6f)
+      else if (std::abs(W.x) > 1e-6f)
       {
         p0 = float2(-W.z / W.x, 0);
         p1 = float2(-W.z / W.x, 1);
@@ -1707,9 +1716,22 @@ namespace dr
       if (!line_clipped)
         return;
 
+      float max_border_thickness = 0.0f;
+      {
+        float3 up = to_float3(m_worldView.get_row(1));
+        float2 p_0 = TransformWorldToScreenSpace(to_float4(closest_hit               , 1.0f));
+        float2 p_1 = TransformWorldToScreenSpace(to_float4(closest_hit + up*relax_eps, 1.0f));
+        max_border_thickness = length(p_1 - p_0) * std::max(m_width, m_height);
+      }
+
+      sample_radius = std::max(min_sample_radius, max_border_thickness) + sample_radius_mult*error_rate;
+
       r = p1 - p0;
-      n = float2(-r.y, r.x);
-      sample_radius = min_sample_radius + sample_radius_mult*error_rate;
+      p0 -= sample_radius*normalize(r);
+      p1 += sample_radius*normalize(r);
+      r = p1 - p0;
+      n = normalize(float2(-r.y, r.x));
+
       stripe_area = std::min(1.0f, 2*sample_radius*length(r));
 
       //if stripe area is too small, there is no actual border here
@@ -1719,7 +1741,7 @@ namespace dr
     
     //number of border samples is proportional to stripe area
     float area_mult = std::min(1.0f, 0.05f + 2.0f*stripe_area);
-    const unsigned border_spp = std::max(1u, (unsigned)(area_mult*(m_preset_dr.border_spp - svm_spp)));
+    unsigned border_spp = std::max(1u, (unsigned)(area_mult*(m_preset_dr.border_spp - svm_spp)));
 
     //step 3: cast rays alongside border
     for (int sample_id = svm_spp; sample_id < svm_spp + border_spp; sample_id++)
@@ -1761,13 +1783,17 @@ namespace dr
       {
         samples_debug_pos_size[sample_id] = float4(d.x, d.y, 0, 1.0f / MEGA_PIXEL_SIZE);
         if (is_border_ray) //border
-          samples_debug_color[sample_id] = float4(0, 0, 0.1 * abs(pixel_diff), 1);
+          samples_debug_color[sample_id] = float4(0, 0, 1, 1);
         else if (hit.primId == 0xFFFFFFFF) // background
           samples_debug_color[sample_id] = float4(0.05, 0.05, 0.05, 1);
         else // hit
           samples_debug_color[sample_id] = float4(hit.t <= t_threshold ? 0 : 1, hit.t <= t_threshold ? 1 : 0, 0, 1);
       }
     }
+
+    border_rays_total += border_spp;
+    border_rays_hit   += border_points;
+
 
     //debug stuff
     if (m_preset_dr.debug_border_samples || m_preset_dr.debug_border_samples_mega_image)
