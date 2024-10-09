@@ -998,9 +998,7 @@ uint32_t BVHRT::AddGeom_NURBS(const RawNURBS &nurbs, ISceneObject *fake_this, Bu
   //create list of bboxes for BLAS
   std::vector<BVHNode> orig_nodes(2);
   orig_nodes[0].boxMin = to_float3(mn);
-  orig_nodes[0].boxMax = float3{ mx.x, mx.y, (mn.z+mx.z)/2.0f };
-  orig_nodes[1].boxMin = float3{ mn.x, mn.y, (mn.z+mx.z)/2.0f };
-  orig_nodes[1].boxMax = to_float3(mx);
+  orig_nodes[0].boxMax = to_float3(mx);
   
   return fake_this->AddGeom_AABB(AbstractObject::TAG_NURBS, (const CRT_AABB*)orig_nodes.data(), orig_nodes.size());
 }

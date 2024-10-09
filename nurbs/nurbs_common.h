@@ -101,4 +101,31 @@ std::optional<LiteMath::float2> ray_nurbs_newton_intersection(
     const LiteMath::float3 &ray,
     const DecomposedNURBS &surf);
 
+
+enum class SurfaceParameter { U, V };
+
+std::vector<std::vector<LiteMath::float4> >
+decompose_curve(
+    int n, int p,
+    const float *U,
+    const LiteMath::float4 *Pw);
+
+std::vector<Vector2D<LiteMath::float4> >
+decompose_surface(
+    int n, int p,
+    const float *U,
+    int m,int q,
+    const float *V,
+    const Vector2D<LiteMath::float4> &Pw,
+    SurfaceParameter dir);
+
+struct RBezier
+{
+public:
+  Vector2D<LiteMath::float4> weighted_points;
+};
+
+Vector2D<RBezier>
+nurbs2rbezier(RawNURBS nurbs);
+
 #endif
