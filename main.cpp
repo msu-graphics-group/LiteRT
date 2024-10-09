@@ -53,7 +53,7 @@ int main(int argc, const char** argv)
     }
     else if (std::string(argv[1]) == "-tests_dr")
     {
-      perform_tests_diff_render({9});
+      perform_tests_diff_render({});
       return 0;
     }
     else if (std::string(argv[1]) == "-benchmark_dr")
