@@ -608,14 +608,17 @@ namespace dr
         float max_diff = 0.0f;
         float  max_depth_thr = 0.0f;
 
-        for (int dx = -search_radius; dx <= search_radius; dx++)
+        if (x >= search_radius && x < m_width - search_radius && y >= search_radius && y < m_height - search_radius)
         {
-          for (int dy = -search_radius; dy <= search_radius; dy++)
+          for (int dx = -search_radius; dx <= search_radius; dx++)
           {
-            float d = out_image[(y + dy) * m_width + x + dx].w;
+            for (int dy = -search_radius; dy <= search_radius; dy++)
+            {
+              float d = out_image[(y + dy) * m_width + x + dx].w;
 
-            max_diff      = std::max(max_diff,      std::abs(d0 - out_image[(y + dy) * m_width + x + dx].w));
-            max_depth_thr = std::max(max_depth_thr, out_image_depth[(y + dy) * m_width + x + dx].w);
+              max_diff      = std::max(max_diff,      std::abs(d0 - out_image[(y + dy) * m_width + x + dx].w));
+              max_depth_thr = std::max(max_depth_thr, out_image_depth[(y + dy) * m_width + x + dx].w);
+            }
           }
         }
 
