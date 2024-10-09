@@ -255,7 +255,18 @@ void BVHRT::LocalSurfaceIntersection(uint32_t type, const float3 ray_dir, uint32
   bool hit = false;
   unsigned iter = 0;
 
-  float start_dist = eval_dist_trilinear(values, start_q + t * ray_dir);
+  float start_dist = 10000;
+
+  if (m_preset.interpolation_type == TRILINEAR_INTERPOLATION_MODE)
+  {
+    start_dist = eval_dist_trilinear(values, start_q + t * ray_dir);
+  }
+  else if (m_preset.interpolation_type == TRICUBIC_INTERPOLATION_MODE)
+  {
+    // TODO
+    start_dist = 10000;
+  }
+
   if (start_dist <= EPS || m_preset.sdf_node_intersect == SDF_OCTREE_NODE_INTERSECT_BBOX)
   {
     hit = true;
@@ -276,7 +287,8 @@ void BVHRT::LocalSurfaceIntersection(uint32_t type, const float3 ray_dir, uint32
       else if (m_preset.interpolation_type == TRICUBIC_INTERPOLATION_MODE)
       {
         // TODO
-        dist += 0;
+        dist = 10000;
+        // printf("22222\n");
       }
       
       float3 pp = start_q + t * ray_dir;

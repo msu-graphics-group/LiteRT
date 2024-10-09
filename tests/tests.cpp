@@ -2623,6 +2623,7 @@ litert_test_34_tricubic_sbs()
   unsigned W = 512, H = 512;
   MultiRenderPreset preset = getDefaultPreset();
   preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
+  preset.interpolation_type = TRILINEAR_INTERPOLATION_MODE;
 
   LiteImage::Image2D<uint32_t> img(W, H);
   SdfSBSHeader header;
