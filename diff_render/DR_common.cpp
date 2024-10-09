@@ -175,6 +175,13 @@ namespace dr
                           gradient_color);    
   }
 
+  SdfSBS circle_smallest_scene_colored_2()
+  {
+    return create_grid_sbs(1, 4, 
+                          [&](float3 p){return circle_sdf(float3(0,0,0), 0.8f, p);}, 
+                          gradient_color);    
+  }
+
    SdfSBS two_circles_scene()
   {
     return create_grid_sbs(1, 32, 

@@ -94,6 +94,8 @@ namespace dr
     void OptimizeStepAdam(unsigned iter, const float* dX, float *X, float *tmp, unsigned size, MultiRendererDRPreset preset);
     float CastRayWithGrad(uint32_t tidX, const float4 *image_ref, LiteMath::float4* out_image, float* out_dLoss_dS,
                           LiteMath::float4* out_image_depth, LiteMath::float4* out_image_debug, PDFinalColor *out_pd_tmp);
+    float CalculateBorderRayDerivatives(float sampling_pdf, const RayDiffPayload &payload, const CRT_HitDR &hit, float4 rayPosAndNear,
+                                        float4 rayDirAndFar, const float4 *image_ref, LiteMath::float4 *out_image, float *out_dLoss_dS);
     void CastBorderRay(uint32_t tidX, const float4 *image_ref, LiteMath::float4* out_image, float* out_dLoss_dS,
                        LiteMath::float4* out_image_debug);
     void CastBorderRaySVM(uint32_t tidX, const float4 *image_ref, LiteMath::float4* out_image, float* out_dLoss_dS,
@@ -107,7 +109,12 @@ namespace dr
     void Regularization(float *out_dLoss_dS, unsigned params_count);
 
     float SolveEikonal(float3 axes_mins, float grid_spacing);
-    void Redistance(float *dist_in, uint3 size_in, float grid_spacing, uint32_t num_iters);
+
+    float2 TransformWorldToScreenSpace(float4 pos);
+    std::array<float4, 2> TransformWorldToScreenSpaceDiff(float4 pos);
+
+    //prevents average gradient from being too big or too small for different image and scene sizes
+    float getBaseGradientMult();
 
     std::vector<LiteImage::Image2D<float4>> m_imagesRefOriginal;
     std::vector<LiteImage::Image2D<float4>> m_imagesRefMask;
@@ -137,7 +144,12 @@ namespace dr
     std::vector<float4> samples_debug_color;
     std::vector<float4> samples_debug_pos_size;
   public:
-    static constexpr unsigned MEGA_PIXEL_SIZE = 64;
+
+    void Redistance(float *dist_in, uint3 size_in, float grid_spacing, uint32_t num_iters);
+    std::atomic<uint32_t> border_rays_total{0};
+    std::atomic<uint32_t> border_rays_hit{0};
+
+    static constexpr unsigned MEGA_PIXEL_SIZE = 128;
     LiteImage::Image2D<float4> samples_mega_image;
   };
 }
