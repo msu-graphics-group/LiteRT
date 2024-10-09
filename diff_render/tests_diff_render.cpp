@@ -2518,15 +2518,26 @@ diff_render_test_25_tricubic_enzyme_derrivative()
   };
 
   float x[3] = {0.5, 0.5, 0.5};
-  uint vox_u[3] = {1, 1, 1};
-  uint off = 0;
-  uint size[3] = {4, 4, 4}; 
+  float d_x[3] = {0}, d_grid[64] = {0};
 
-  float interpolated_value = tricubicInterpolation(grid, vox_u, x, off, size);
+  float interpolated_value = tricubicInterpolation(grid, x);
   std::cout << "INTERPOLATED VALUE IS: " << interpolated_value << std::endl;
 
-  auto dp_x = tricubicInterpolationDerrivative(grid, vox_u, x, off, size);
-  printf("%f %f %f\n", dp_x.x, dp_x.y, dp_x.z);
+  tricubicInterpolationDerrivative(grid, x, d_x, d_grid);
+  printf("D_X: %f %f %f\n", d_x[0], d_x[1], d_x[2]);
+  printf("D_GRID[:, :, z]: \n");
+
+  int z = 3;
+
+  for (int x = 0; x < 4; ++x)
+  {
+    for (int y = 0; y < 4; ++y)
+    {
+      printf("%f ", d_grid[4 * 4 * z + 4 * y + x]);
+    }
+
+    printf("\n");
+  }
 }
 
 void perform_tests_diff_render(const std::vector<int> &test_ids)

@@ -30,8 +30,8 @@ using LiteMath::Box4f;
 #include "cbvh.h"
 #include "nurbs/nurbs_common.h"
 
-float3 tricubicInterpolationDerrivative(const float *m_SdfGridData, const uint vox_u[3], const float dp[3], const uint32_t off, const uint size[3]);
-float tricubicInterpolation(const float *m_SdfGridData, const uint vox_u[3], const float dp[3], const uint32_t off, const uint size[3]);
+void tricubicInterpolationDerrivative(const float *grid, const float dp[3], float* d_pos, float* d_grid);
+float tricubicInterpolation(const float *grid, const float dp[3]);
 
 struct BVHRT;
 struct GeomData
