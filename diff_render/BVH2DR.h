@@ -25,9 +25,6 @@ namespace dr
     void dIntersect_dValues(uint32_t ray_flags, const float3 ray_dir, float values[8], float d,
                             float qNear, float qFar, float3 start_q, float out_dValues[8]);
 
-    void dBorderIntersect_dValues(uint32_t ray_flags, const float3 ray_dir, float values[8], float d,
-                                  float qNear, float qFar, float3 start_q, float min_sdf, float out_dValues[8]);
-
     void OctreeBrickIntersectWithGrad(uint32_t type, uint32_t ray_flags, const float3 ray_pos, const float3 ray_dir,
                                       float tNear, uint32_t instId, uint32_t geomId,
                                       uint32_t a_start, uint32_t a_count,

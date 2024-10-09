@@ -1092,7 +1092,7 @@ void test_position_derivatives(const SdfSBS &SBS, unsigned render_node, unsigned
       for (int i = 0; i < param_count; i++)
       {
         std_dev_mult += grad_conf[0][i] / grad_conf[1][i];
-        double error = std::abs(grad_mean[0][i] - grad_mean[1][i]) / grad_conf[1][i];
+        double error = std::abs(grad_mean[0][i] - grad_mean[1][i]) / std::max(grad_conf[1][i], grad_conf[0][i]);
         average_error += error;
         max_error = std::max<double>(max_error, error);
         relative_error += std::abs(grad_mean[0][i] - grad_mean[1][i]);

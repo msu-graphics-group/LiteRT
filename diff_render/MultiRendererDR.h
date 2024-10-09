@@ -112,6 +112,9 @@ namespace dr
     float2 TransformWorldToScreenSpace(float4 pos);
     std::array<float4, 2> TransformWorldToScreenSpaceDiff(float4 pos);
 
+    //prevents average gradient from being too big or too small for different image and scene sizes
+    float getBaseGradientMult();
+
     std::vector<LiteImage::Image2D<float4>> m_imagesRefOriginal;
     std::vector<LiteImage::Image2D<float4>> m_imagesRefMask;
     std::vector<LiteImage::Image2D<float4>> m_imagesRef;

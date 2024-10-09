@@ -144,6 +144,13 @@ namespace dr
     this->add_border = thickness;
   }
 
+  float MultiRendererDR::getBaseGradientMult()
+  {
+    unsigned params_count = dynamic_cast<BVHDR*>(GetAccelStruct()->UnderlyingImpl(0))->m_SdfSBSDataF.size();
+    float mult = std::pow(params_count + 1.0, 2.0/3.0) / (m_width*m_height);
+    return mult;
+  }
+
   void MultiRendererDR::SetReference(const std::vector<LiteImage::Image2D<float4>> &images,
                                      const std::vector<LiteMath::float4x4> &worldView,
                                      const std::vector<LiteMath::float4x4> &proj)
@@ -696,9 +703,9 @@ namespace dr
       LiteImage::SaveImage<float4>("saves/debug_mega_image.png", samples_mega_image);
     }
 
-    float i_size = 1.0f/(m_width*m_height);
+    float g_mult = getBaseGradientMult();
     for (int i=0;i<max_threads*params_count;i++)
-      out_dLoss_dS[i] *= i_size;
+      out_dLoss_dS[i] *= g_mult;
 
     //IV - calculate loss
     double loss = 0.0f;
@@ -750,8 +757,8 @@ namespace dr
       params[i] = p0;
 
       //it is the same way as loss is accumulated in RenderDR
-      loss_plus /= m_width * m_height;
-      loss_minus /= m_width * m_height;
+      loss_plus *= getBaseGradientMult();
+      loss_minus *= getBaseGradientMult();
       //printf("loss_plus = %f, loss_minus = %f\n", loss_plus, loss_minus);
 
       if (m_preset_dr.debug_pd_images)
@@ -1072,8 +1079,7 @@ namespace dr
     float total_diff = 0;
     for (uint32_t i = 0; i < m_preset.spp; i++)
     {
-      float2 rnd = rand2(x, y, i);
-      float2 d = i_spp_sqrt * float2(i / spp_sqrt + rnd.x, i % spp_sqrt + rnd.y);
+      float2 d = m_preset.ray_gen_mode == RAY_GEN_MODE_RANDOM ? rand2(x, y, i) : i_spp_sqrt*float2(i/spp_sqrt+0.5, i%spp_sqrt+0.5);
       float4 rayPosAndNear, rayDirAndFar;
       kernel_InitEyeRay(tidX, d, &rayPosAndNear, &rayDirAndFar);
       
@@ -1264,12 +1270,9 @@ namespace dr
     const unsigned border_spp = m_preset_dr.border_spp;
     const uint32_t spp_sqrt = uint32_t(sqrt(border_spp));
     const float i_spp_sqrt = 1.0f / spp_sqrt;
-    float4 dLoss_dColor = LossGrad(m_preset_dr.dr_loss_function, out_image[y * m_width + x], image_ref[y * m_width + x]);
     
     unsigned border_points = 0;
     float total_diff = 0.0f;
-    std::vector<float2> lines(2*border_spp);
-
     if (m_preset_dr.debug_border_samples || m_preset_dr.debug_border_samples_mega_image)
     {
       samples_debug_color.resize(border_spp, float4(0,0,0,0));
@@ -1279,9 +1282,7 @@ namespace dr
     for (int sample_id = 0; sample_id < border_spp; sample_id++)
     {
       float pixel_diff = 0.0f;
-      float2 rnd = rand2(x, y, sample_id);
-      float2 d = i_spp_sqrt * float2(sample_id / spp_sqrt + rnd.x, sample_id % spp_sqrt + rnd.y);
-      d = rnd;
+      float2 d = m_preset.ray_gen_mode == RAY_GEN_MODE_RANDOM ? rand2(x, y, sample_id) : i_spp_sqrt * float2(sample_id / spp_sqrt + 0.5, sample_id % spp_sqrt + 0.5);
       float4 rayPosAndNear, rayDirAndFar;
       kernel_InitEyeRay(tidX, d, &rayPosAndNear, &rayDirAndFar);
 
@@ -1292,6 +1293,8 @@ namespace dr
 
       if (is_border_ray)
       {
+        border_points++;
+        
         float4 color_delta = float4(0,0,0,0);
         if (m_preset_dr.dr_input_type == DR_INPUT_TYPE_COLOR)
         {
@@ -1306,117 +1309,36 @@ namespace dr
           color_delta = float4(d_in - d_out, d_in - d_out, d_in - d_out, hit.primId == 0xFFFFFFFF ? 1.0f : 0.0f);
         }
 
-        float border_dist = std::max(0.0f, payload.missed_hit.sdf);
-        float3 hit_pos = to_float3(rayPosAndNear) + payload.missed_hit.t * to_float3(rayDirAndFar);
-        float3 area_pos_1 = hit_pos - border_dist*payload.missed_hit.normal;
-        float3 area_pos_2 = hit_pos + (relax_eps - border_dist)*payload.missed_hit.normal;
-
-        float2 ppos_1 = TransformWorldToScreenSpace(to_float4(area_pos_1, 1.0f));
-        float2 ppos_2 = TransformWorldToScreenSpace(to_float4(area_pos_2, 1.0f));
-        //printf("t = %f\n", payload.missed_hit.t);
-        //printf("%f %f %f %f - %f %f %f %f\n", ppos_1.x, ppos_1.y, ppos_1.z, ppos_1.w, ppos_2.x, ppos_2.y, ppos_2.z,  ppos_2.w);
-        //ppos_1 = 0.5f*(ppos_1/ppos_1.w + 1.0f);
-        //ppos_2 = 0.5f*(ppos_2/ppos_2.w + 1.0f);
-        //int2 pixel = int2(m_width*ppos_1.x, m_height*(1.0f - ppos_1.y));
-
-        //printf("pixel %f %f\n", m_width*ppos_1.x, m_height*(1.0f - ppos_1.y));
-        //printf("real pixel %u %u\n", x, y);
-        //assert(pixel.x == x && pixel.y == y);
-
-        float2 dir = float2(ppos_2.x - ppos_1.x, ppos_2.y - ppos_1.y);
-        float dir_mult = relax_eps/length(dir);
-        //printf("dir_mult = %f\n", dir_mult);
-        float2 pp1 = float2(m_width*ppos_1.x - x, m_height*ppos_1.y - y);
-        float2 pp2 = float2(m_height*ppos_2.x - x, m_height*ppos_2.y - y);
-        lines[2*border_points + 0] = pp1;
-        lines[2*border_points + 1] = pp2;
-        border_points++;
-
-        //printf("border size %f\n", length(dir)*m_width);
-        //printf("dir = %f %f\n", dir.x, dir.y);//0.0001f;
-        //float aa = abs(dot(payload.missed_hit.normal, normalize(to_float3(rayDirAndFar))));
-        //printf("aa = %f\n", aa);
-        //printf("diff %f\n", relax_eps/(length(dir)));
-        float mult = relax_eps/dot(dir, dir);
-        mult = 1.0f/length(dir);
-
         for (int j = 0; j < 8; j++)
         {
           if (payload.missed_indices[j] == INVALID_INDEX)
             continue;
 
-          float v1 = payload.missed_dSDF_dtheta[j];
-          float2 n_s = TransformWorldToScreenSpace(to_float4(payload.missed_hit.normal, 0.0f));
-          float4 dmmul_dsdf = LiteMath::transpose(m_proj*m_worldView) * to_float4(payload.missed_dp_dsdf[j], 0);
-          float4 ps = m_proj*m_worldView*to_float4(hit_pos, 1.0f);
-          float4 d_ps_x = float4(0.5/ps.w,0,0,-0.5*ps.x/(ps.w*ps.w));
-          float4 d_ps_y = float4(0,-0.5/ps.w,0,0.5*ps.y/(ps.w*ps.w));
-          float2 d_ps = float2(dot(d_ps_x, dmmul_dsdf), dot(d_ps_y, dmmul_dsdf));
-          float v2 = dot(d_ps, n_s);
-          float v3 = -dot(normalize(dir), float2(payload.missed_dp_dsdf[j].x, payload.missed_dp_dsdf[j].y));
-          //printf("v1 = %f v3 = %f v1/v3 = %f\n", v1, v3, v1/v3);
-          //printf("v1 = %f v2 = %f diff = %f\n", v1, v2, v1/v2);
-          //printf("color_delta = %f %f %f %f\n", color_delta.x, color_delta.y, color_delta.z, color_delta.w);
-
-          float4 old_estimate = (1.0f / relax_eps) * v3 * color_delta;
-          float4 new_estimate = mult * v2 * color_delta;
-
-          float diff = m_preset_dr.border_integral_mult * (1.0f / border_spp) *dot(dLoss_dColor, old_estimate);
-
           //new estimate
-          {
-            float3 f_in = CalculateColor(payload.missed_hit);
-            float3 f_out = hit.primId == 0xFFFFFFFF ? background_color : CalculateColor(hit);
-            color_delta = to_float4(f_in - f_out, hit.primId == 0xFFFFFFFF ? 1.0f : 0.0f);
 
             float border_dist = std::max(0.0f, payload.missed_hit.sdf);
             float3 y_star = to_float3(rayPosAndNear) + payload.missed_hit.t * to_float3(rayDirAndFar);
-            float3 x_star = hit_pos - border_dist*payload.missed_hit.normal;
-            float3 x_border = hit_pos + (relax_eps - border_dist)*payload.missed_hit.normal;
-
-            float2 ppos_1 = TransformWorldToScreenSpace(to_float4(x_star, 1.0f));
-            float2 ppos_2 = TransformWorldToScreenSpace(to_float4(x_border, 1.0f));
-            float2 dir = float2(ppos_2.x - ppos_1.x, ppos_2.y - ppos_1.y);
-            float dir_mult = relax_eps/length(dir);
-            //printf("dir_mult = %f\n", dir_mult);
+            float3 x_star = y_star - border_dist*payload.missed_hit.normal;
 
             float2 x_star_2 = TransformWorldToScreenSpace(to_float4(x_star, 1.0f));
             float2 y_star_2 = TransformWorldToScreenSpace(to_float4(y_star, 1.0f));
-            //printf("x_star_2 = %f %f y_star_2 = %f %f\n", x_star_2.x, x_star_2.y, y_star_2.x, y_star_2.y);
             unsigned x_pixel = x_star_2.x*m_width;
             unsigned y_pixel = x_star_2.y*m_height;
-            //x_pixel = x;
-            //y_pixel = y;
-            dLoss_dColor = LossGrad(m_preset_dr.dr_loss_function, out_image[y_pixel * m_width + x_pixel], image_ref[y_pixel * m_width + x_pixel]);
 
-            auto dtrans_dpos = TransformWorldToScreenSpaceDiff(to_float4(y_star, 1.0f));
-            float2 dp2_dsdf  = float2(dot(dtrans_dpos[0], to_float4(payload.missed_dp_dsdf[j], 0.0f)), 
-                                      dot(dtrans_dpos[1], to_float4(payload.missed_dp_dsdf[j], 0.0f)));
-          
-            diff = (1.0f/border_spp) * (1.0f/length(dir)) * dot(dLoss_dColor, color_delta) * dot(dp2_dsdf, normalize(dir));
-          
-            /*float3 on_sphere_pos = (x_star - float3(0,0,0)) / 0.2f;
-            //printf("on sphere pos = %f %f %f\n", on_sphere_pos.x, on_sphere_pos.y, on_sphere_pos.z);
-            if (j == 0 && std::abs(on_sphere_pos.z) < 0.1f && std::abs(on_sphere_pos.y) < 0.1f && std::abs(on_sphere_pos.x) > 1.99f)
-            {
-              printf("y_star = %f %f %f\n", y_star.x, y_star.y, y_star.z);
-              printf("x_star = %f %f %f\n", x_star.x, x_star.y, x_star.z);
-              printf("dist %f %f\n", length(y_star), length(x_star));
-              for (int k=0;k<4;k++)
-              printf("payload.missed_dp_dsdf[k] = %f %f %f\n", payload.missed_dp_dsdf[k].x, payload.missed_dp_dsdf[k].y, payload.missed_dp_dsdf[k].z);
-              printf("%f %f %f diff = %f\n", on_sphere_pos.x, on_sphere_pos.y, on_sphere_pos.z, diff);
-              printf("%f %f %f -- %f %f -- %f %f\n", (1.0f/length(dir)), dot(dLoss_dColor, color_delta), dot(dp2_dsdf, normalize(dir)),
-                     dp2_dsdf.x, dp2_dsdf.y, dir.x, dir.y);
-              printf("%f %f %f %f\n %f %f %f %f\n\n", dtrans_dpos[0].x, dtrans_dpos[0].y, dtrans_dpos[0].z, dtrans_dpos[0].w,
-                     dtrans_dpos[1].x, dtrans_dpos[1].y, dtrans_dpos[1].z, dtrans_dpos[1].w);
-              //printf("%f %f %f %f\n\n", )
-            }*/
-          }
+            float4 dLoss_dColor = LossGrad(m_preset_dr.dr_loss_function, out_image[y_pixel * m_width + x_pixel], image_ref[y_pixel * m_width + x_pixel]);
+
+            //we need dot(dtrans_dpos * dp_dsdf, normalize(dir)) for Reynolds theorem, but dtrans_dpos
+            //is set to be aligned with normal, so we can store dot(n, dp_dsdf) in payload.missed_dSDF_dtheta
+            //and the dot(dtrans_dpos * dp_dsdf, normalize(dir)) = (length(dir)/relax_eps) * payload.missed_dSDF_dtheta
+            //and length(dir) (i.e. how the projection changes length of normal vector) disappears
+            //is was verified in all cases in test 9
+            float diff = (1.0f/border_spp) * (1.0f/relax_eps) * dot(dLoss_dColor, color_delta) * payload.missed_dSDF_dtheta[j];
+
 
           out_dLoss_dS[payload.missed_indices[j]] += diff;
 
           total_diff += abs(diff);
-          pixel_diff += length(old_estimate);
+          pixel_diff += abs(diff);
           if (m_preset_dr.debug_pd_images)
             m_imagesDebugPD[payload.missed_indices[j]].data()[y * m_width + x] += diff * float4(1, 1, 1, 0);
         }
@@ -1468,8 +1390,7 @@ namespace dr
       unsigned sw = m_width * wmult, sh = m_height * hmult;
       LiteImage::Image2D<float4> debug_image(wmult, hmult);
       draw_points(samples_debug_pos_size, samples_debug_color, debug_image);
-      //for (int i=0;i<border_points;i++)
-      //  draw_line(lines[i*2], lines[i*2+1], 1.0/MEGA_PIXEL_SIZE, float4(0,1,0,1), debug_image);
+
       if (tidX % 10 == 0)
         LiteImage::SaveImage(("saves/debug_border"+std::to_string(x)+"_"+std::to_string(y)+".png").c_str(), debug_image);
       
