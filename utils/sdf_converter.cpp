@@ -347,6 +347,223 @@ namespace sdf_converter
     return metric;
   }
 
+  uint32_t metrica_f(uint8_t x_size, uint8_t y_size, uint8_t z_size)
+  {
+    return (x_size + 1) * (y_size + 1) * (z_size + 1) * (sizeof(float) + sizeof(uint32_t)) + sizeof(SdfSBSAdaptNode);
+  }
+
+  void div_block(SdfSBSAdapt &sbs, 
+                 std::map<std::pair<std::pair<uint16_t, uint16_t>, uint16_t>, uint32_t> &pos_to_idx, 
+                 std::map<std::pair<std::pair<uint16_t, uint16_t>, uint16_t>, float> &pos_to_val,
+                 uint16_t x_b, uint16_t y_b, uint16_t z_b,
+                 uint16_t x_st, uint16_t y_st, uint16_t z_st,
+                 uint8_t x_sz, uint8_t y_sz, uint8_t z_sz)
+  {
+    uint8_t x_min = x_sz, x_max = 0, y_min = y_sz, y_max = 0, z_min = z_sz, z_max = 0, cnt = 0;
+    std::vector<uint8_t> x_imps(x_sz), y_imps(y_sz), z_imps(z_sz);
+    std::fill(x_imps.begin(), x_imps.end(), 0);
+    std::fill(y_imps.begin(), y_imps.end(), 0);
+    std::fill(z_imps.begin(), z_imps.end(), 0);
+    for (uint8_t x = 0; x < x_sz; ++x)
+    {
+      for (uint8_t y = 0; y < y_sz; ++y)
+      {
+        for (uint8_t z = 0; z < z_sz; ++z)
+        {
+          bool is_first = true, is_vox_imp = false;
+          float sgn;
+
+          for (uint16_t x_neigh = 0; x_neigh <= 1; ++x_neigh)
+          {
+            for (uint16_t y_neigh = 0; y_neigh <= 1; ++y_neigh)
+            {
+              for (uint16_t z_neigh = 0; z_neigh <= 1; ++z_neigh)
+              {
+                auto key = std::pair(std::pair(x_b + (x + x_neigh) * x_st, 
+                                               y_b + (y + y_neigh) * y_st), 
+                                               z_b + (z + z_neigh) * z_st);
+                if (is_first)
+                {
+                  sgn = pos_to_val[key];
+                  is_first = false;
+                }
+                else if (sgn * pos_to_val[key] <= 0)
+                {
+                  is_vox_imp = true;
+                  break;
+                }
+              }
+              if (is_vox_imp) break;
+            }
+            if (is_vox_imp) break;
+          }
+          if (is_vox_imp)
+          {
+            if (x_min > x) x_min = x;
+            if (x_max < x) x_max = x;
+            if (y_min > y) y_min = y;
+            if (y_max < y) y_max = y;
+            if (z_min > z) z_min = z;
+            if (z_max < z) z_max = z;
+            ++x_imps[x];
+            ++y_imps[y];
+            ++z_imps[z];
+            ++cnt;
+          }
+
+        }
+      }
+    }
+    if (cnt == 0) return;
+
+    uint32_t metric_min = metrica_f(x_max - x_min + 1, y_max - y_min + 1, z_max - z_min + 1);
+    bool is_div = false;
+    struct brick_data
+    {
+      uint16_t x_b, y_b, z_b;
+      uint8_t x_sz, y_sz, z_sz;
+    };
+    brick_data b1, b2;
+
+    for (uint8_t idx = x_min + 1; idx < x_max + 1; ++idx)
+    {
+      uint8_t idx2 = idx;
+      if (x_imps[idx - 1] != 0)
+      {
+        while (idx2 < x_imps.size() && x_imps[idx2] == 0)
+        {
+          ++idx2;
+        }
+        uint32_t new_m = metrica_f(x_max - idx2 + 1, y_max - y_min + 1, z_max - z_min + 1) + 
+                         metrica_f(idx - x_min, y_max - y_min + 1, z_max - z_min + 1);
+        if (new_m < metric_min)
+        {
+          metric_min = new_m;
+          is_div = true;
+          b1.x_b = x_min;
+          b1.y_b = y_min;
+          b1.z_b = z_min;
+          b1.x_sz = idx - x_min;
+          b1.y_sz = y_max - y_min + 1;
+          b1.z_sz = z_max - z_min + 1;
+
+          b2.x_b = idx2;
+          b2.y_b = y_min;
+          b2.z_b = z_min;
+          b2.x_sz = x_max - idx2 + 1;
+          b2.y_sz = y_max - y_min + 1;
+          b2.z_sz = z_max - z_min + 1;
+        }
+      }
+    }
+
+    for (uint8_t idx = y_min + 1; idx < y_max + 1; ++idx)
+    {
+      uint8_t idx2 = idx;
+      if (y_imps[idx - 1] != 0)
+      {
+        while (idx2 < y_imps.size() && y_imps[idx2] == 0)
+        {
+          ++idx2;
+        }
+        uint32_t new_m = metrica_f(x_max - x_min + 1, y_max - idx2 + 1, z_max - z_min + 1) + 
+                         metrica_f(x_max - x_min + 1, idx - y_min, z_max - z_min + 1);
+        if (new_m < metric_min)
+        {
+          metric_min = new_m;
+          is_div = true;
+          b1.x_b = x_min;
+          b1.y_b = y_min;
+          b1.z_b = z_min;
+          b1.x_sz = x_max - x_min + 1;
+          b1.y_sz = idx - y_min;
+          b1.z_sz = z_max - z_min + 1;
+
+          b2.x_b = x_min;
+          b2.y_b = idx2;
+          b2.z_b = z_min;
+          b2.x_sz = x_max - x_min + 1;
+          b2.y_sz = y_max - idx2 + 1;
+          b2.z_sz = z_max - z_min + 1;
+        }
+      }
+    }
+
+    for (uint8_t idx = z_min + 1; idx < z_max + 1; ++idx)
+    {
+      uint8_t idx2 = idx;
+      if (z_imps[idx - 1] != 0)
+      {
+        while (idx2 < z_imps.size() && z_imps[idx2] == 0)
+        {
+          ++idx2;
+        }
+        uint32_t new_m = metrica_f(x_max - x_min + 1, y_max - y_min + 1, z_max - idx2 + 1) + 
+                         metrica_f(x_max - x_min + 1, y_max - y_min + 1, idx - z_min);
+        if (new_m < metric_min)
+        {
+          metric_min = new_m;
+          is_div = true;
+          b1.x_b = x_min;
+          b1.y_b = y_min;
+          b1.z_b = z_min;
+          b1.x_sz = x_max - x_min + 1;
+          b1.y_sz = y_max - y_min + 1;
+          b1.z_sz = idx - z_min;
+
+          b2.x_b = x_min;
+          b2.y_b = y_min;
+          b2.z_b = idx2;
+          b2.x_sz = x_max - x_min + 1;
+          b2.y_sz = y_max - y_min + 1;
+          b2.z_sz = z_max - idx2 + 1;
+        }
+      }
+    }
+
+    if (is_div)
+    {
+      div_block(sbs, pos_to_idx, pos_to_val, 
+                x_b + b1.x_b * x_st, y_b + b1.y_b * y_st, z_b + b1.z_b * z_st, 
+                x_st, y_st, z_st, b1.x_sz, b1.y_sz, b1.z_sz);
+      div_block(sbs, pos_to_idx, pos_to_val, 
+                x_b + b2.x_b * x_st, y_b + b2.y_b * y_st, z_b + b2.z_b * z_st, 
+                x_st, y_st, z_st, b2.x_sz, b2.y_sz, b2.z_sz);
+      return;
+    }
+    SdfSBSAdaptNode node;
+    node.data_offset = sbs.values.size();
+    node.pos_xy = ((uint32_t)(x_b + x_min * x_st) << 16) | (uint32_t)(y_b + y_min * y_st);
+    node.pos_z_vox_size = ((uint32_t)(z_b + z_min * z_st) << 16) | x_st;
+    node.vox_count_xyz_pad = ((uint32_t)(x_max - x_min + 1) << 24) | 
+                              ((uint32_t)(y_max - y_min + 1) << 16) | 
+                              ((uint32_t)(z_max - z_min + 1) << 8);
+    for (uint16_t x_off = x_min; x_off <= x_max; ++x_off)
+    {
+      for (uint16_t y_off = y_min; y_off <= y_max; ++y_off)
+      {
+        for (uint16_t z_off = z_min; z_off <= z_max; ++z_off)
+        {
+          auto key = std::pair(std::pair(x_b + (x_off) * x_st, 
+                                          y_b + (y_off) * y_st), 
+                                          z_b + (z_off) * z_st);
+          if (pos_to_idx.find(key) == pos_to_idx.end())
+          {
+            sbs.values.push_back(sbs.values_f.size());
+            pos_to_idx[key] = sbs.values_f.size();
+            sbs.values_f.push_back(pos_to_val[key]);
+          }
+          else
+          {
+            sbs.values.push_back(pos_to_idx[key]);
+          }
+        }
+      }
+    }
+    sbs.nodes.push_back(node);
+    return;
+  }
+
   SdfSBSAdapt greed_sbs_adapt(MultithreadedDistanceFunction sdf)//TODO
   {
     SdfSBSAdapt sbs;
@@ -362,7 +579,6 @@ namespace sdf_converter
     std::map<std::pair<std::pair<uint16_t, uint16_t>, uint16_t>, float> pos_to_val;
     std::map<std::pair<std::pair<uint16_t, uint16_t>, uint16_t>, uint32_t> pos_to_idx;
     std::pair<std::pair<uint16_t, uint16_t>, uint16_t> key;
-    std::vector<uint8_t> x_imps(8), y_imps(8), z_imps(8);
 
 
     if ((sbs.header.aux_data & SDF_SBS_NODE_LAYOUT_MASK) == SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F)
@@ -374,10 +590,7 @@ namespace sdf_converter
           for (uint16_t z = 0; z < 0x8000; z += 8)
           {
 
-            std::fill(x_imps.begin(), x_imps.end(), 0);
-            std::fill(y_imps.begin(), y_imps.end(), 0);
-            std::fill(z_imps.begin(), z_imps.end(), 0);
-            uint32_t imp_vox_cnt = 0;
+            /*uint32_t imp_vox_cnt = 0;
             for (uint16_t x_off = 0; x_off < 8; ++x_off)
             {
               for (uint16_t y_off = 0; y_off < 8; ++y_off)
@@ -421,13 +634,7 @@ namespace sdf_converter
                     if (is_vox_imp) break;
                   }
 
-                  if (is_vox_imp) 
-                  {
-                    ++imp_vox_cnt;
-                    ++x_imps[x_off];
-                    ++y_imps[y_off];
-                    ++z_imps[z_off];
-                  }
+
                 }
               }
             }
@@ -436,22 +643,7 @@ namespace sdf_converter
             {
               bool is_div = false;
 
-              std::vector<uint8_t> x_idx_seq(0), y_idx_seq(0), z_idx_seq(0);
-              for (uint8_t idx = 0; idx < 8; ++idx)
-              {
-                if ((x_idx_seq.size() % 2 == 0 && x_imps[idx] == 0) || (x_idx_seq.size() % 2 != 0 && x_imps[idx] != 0))
-                {
-                  x_idx_seq.push_back(idx);
-                }
-                if ((y_idx_seq.size() % 2 == 0 && y_imps[idx] == 0) || (y_idx_seq.size() % 2 != 0 && y_imps[idx] != 0))
-                {
-                  y_idx_seq.push_back(idx);
-                }
-                if ((z_idx_seq.size() % 2 == 0 && z_imps[idx] == 0) || (z_idx_seq.size() % 2 != 0 && z_imps[idx] != 0))
-                {
-                  z_idx_seq.push_back(idx);
-                }
-              }//maybe need recursive function for checking better divs for block array
+              //
 
               //using seq vectors
 
@@ -484,12 +676,12 @@ namespace sdf_converter
                 }
                 sbs.nodes.push_back(node);
               }
-            }
-
+            }*/
             //check all slices and find empties
             //if empty slice near border or have another one empty slice -> divide
             //if empty slice lonely -> check if we have better dividing after that dividing -> divide
             //we should delete this node and create different smaller nodes
+            div_block(sbs, pos_to_idx, pos_to_val, x, y, z, 1, 1, 1, 8, 8, 8);
 
           }
         }
