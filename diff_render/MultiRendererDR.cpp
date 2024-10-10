@@ -1783,6 +1783,15 @@ namespace dr
           border_points++;
           pixel_diff = CalculateBorderRayDerivatives(sampling_pdf, payload, hit, rayPosAndNear, rayDirAndFar, image_ref, out_image, out_dLoss_dS);
         }
+
+        if (m_preset_dr.debug_border_save_normals && payload.missed_hit.t > 0.f && payload.missed_hit.t < rayDirAndFar.w)
+        {
+          BVHDR* bvh_as = static_cast<BVHDR*>(m_pAccelStruct.get());
+          float3 intersect_pos = to_float3(rayPosAndNear + payload.missed_hit.t * rayDirAndFar);
+          bvh_as->m_GraphicsPrimPoints.push_back(float4(intersect_pos.x, intersect_pos.y, intersect_pos.z, 0.005f));
+          bvh_as->m_GraphicsPrimPoints.push_back(to_float4(intersect_pos + normalize(payload.missed_hit.normal) * 0.1f, 0.f));
+          bvh_as->m_GraphicsPrimPoints.push_back(float4(255.f, 0.f, 0.f, 0.f));
+        }
       }
       else
       {
