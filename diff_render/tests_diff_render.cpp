@@ -1139,31 +1139,38 @@ void diff_render_test_9_check_position_derivatives()
   test_position_derivatives(circle_smallest_scene_colored(), 
                             MULTI_RENDER_MODE_MASK, DR_RENDER_MODE_MASK, DR_BORDER_SAMPLING_RANDOM,
                             false, true);
-  printf("9.2 Mask, random border sampling, larger model\n");
+  printf("9.2 Mask, SVM border sampling, empty reference\n");
+  test_position_derivatives(circle_smallest_scene_colored(), 
+                            MULTI_RENDER_MODE_MASK, DR_RENDER_MODE_MASK, DR_BORDER_SAMPLING_SVM,
+                            false, true);
+  printf("9.3 Mask, random border sampling, larger model\n");
   test_position_derivatives(circle_smallest_scene_colored_2(), 
                             MULTI_RENDER_MODE_MASK, DR_RENDER_MODE_MASK, DR_BORDER_SAMPLING_RANDOM,
                             false, true);
-  printf("9.3 Mask, random border sampling\n");
+  printf("9.4 Mask, random border sampling\n");
   test_position_derivatives(circle_smallest_scene_colored(), 
                             MULTI_RENDER_MODE_MASK, DR_RENDER_MODE_MASK, DR_BORDER_SAMPLING_RANDOM,
                             false, false);
-  printf("9.4 Diffuse, random border sampling\n");
+  printf("9.5 Diffuse, random border sampling\n");
   test_position_derivatives(circle_smallest_scene_colored(), 
                             MULTI_RENDER_MODE_DIFFUSE, DR_RENDER_MODE_DIFFUSE, DR_BORDER_SAMPLING_RANDOM,
                             false, true);
-  printf("9.5 Lambert, random border sampling, close view\n");
+  printf("9.6 Lambert, random border sampling, close view\n");
   test_position_derivatives(circle_smallest_scene_colored(), 
                             MULTI_RENDER_MODE_LAMBERT, DR_RENDER_MODE_LAMBERT, DR_BORDER_SAMPLING_RANDOM,
                             true, true);
-  printf("9.6 Lambert, random border sampling, empty reference\n");
+  printf("9.7 Lambert, random border sampling, empty reference\n");
   test_position_derivatives(circle_smallest_scene_colored(), 
                             MULTI_RENDER_MODE_LAMBERT, DR_RENDER_MODE_LAMBERT, DR_BORDER_SAMPLING_RANDOM,
                             false, true);
-  printf("9.7 Lambert, random border sampling\n");
+  printf("9.8 Lambert, random border sampling\n");
   test_position_derivatives(circle_smallest_scene_colored(), 
                             MULTI_RENDER_MODE_LAMBERT, DR_RENDER_MODE_LAMBERT, DR_BORDER_SAMPLING_RANDOM,
                             false, false);
-  
+  printf("9.9 Lambert, SVM border sampling\n");
+  test_position_derivatives(circle_smallest_scene_colored(), 
+                            MULTI_RENDER_MODE_LAMBERT, DR_RENDER_MODE_LAMBERT, DR_BORDER_SAMPLING_SVM,
+                            false, false); 
   //Depth-related tests are temporary disabled
   //printf("9.7 Depth, random border sampling\n");
   //test_position_derivatives(circle_smallest_scene_colored(), MULTI_RENDER_MODE_LINEAR_DEPTH, DR_RENDER_MODE_LINEAR_DEPTH, false, true);

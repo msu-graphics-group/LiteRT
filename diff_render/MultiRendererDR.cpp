@@ -1578,9 +1578,9 @@ namespace dr
   void MultiRendererDR::CastBorderRaySVM(uint32_t tidX, const float4 *image_ref, LiteMath::float4* out_image, float* out_dLoss_dS,
                                          LiteMath::float4* out_image_debug)
   {
-    const float min_sample_radius = 0.1f;
+    const float min_sample_radius = 0.01f;
     const float sample_radius_mult = 2.0f;
-    const float max_error_rate = 0.1f;
+    const float max_error_rate = 0.05f;
     const float min_stripe_area = 0.005f;
     const float svm_samples_budget = 0.25f;
 
@@ -1596,7 +1596,10 @@ namespace dr
     const float3 background_color = float3(0.0f, 0.0f, 0.0f);
     const float  background_depth = 0.0f;
 
-    const unsigned svm_spp = std::max(1u, (unsigned)(svm_samples_budget*m_preset_dr.border_spp));
+    unsigned svm_spp = std::max(1u, (unsigned)(svm_samples_budget*m_preset_dr.border_spp));
+    const uint32_t spp_sqrt = uint32_t(sqrt(svm_spp));
+    const float i_spp_sqrt = 1.0f / spp_sqrt;
+    svm_spp = spp_sqrt*spp_sqrt;
     const float4 dLoss_dColor = LossGrad(m_preset_dr.dr_loss_function, out_image[y * m_width + x], image_ref[y * m_width + x]);
     
     float total_diff = 0.0f;
@@ -1616,7 +1619,8 @@ namespace dr
     float closest_t = 1e6f;
     for (int sample_id = 0; sample_id < svm_spp; sample_id++)
     {
-      float2 d = rand2(x, y, sample_id);
+      float2 rnd = rand2(x, y, sample_id);
+      float2 d = i_spp_sqrt * float2(sample_id / spp_sqrt + rnd.x, sample_id % spp_sqrt + rnd.y);
       float4 rayPosAndNear, rayDirAndFar;
       kernel_InitEyeRay(tidX, d, &rayPosAndNear, &rayDirAndFar);
 
@@ -1660,6 +1664,7 @@ namespace dr
     float4 W = SVM_fit(X_mod);
     float error_rate = W.w;
 
+    float rare_samples_count = std::min((float)(type_0_samples_count)/svm_spp, 1.0f - (float)(type_0_samples_count)/svm_spp);
     //printf("threshold: %f count of samples of type 0: %u/%u\n", t_threshold, type_0_samples_count, svm_spp);
     //printf("error rate = %f\n", error_rate);
 
@@ -1667,7 +1672,7 @@ namespace dr
     float sample_radius, stripe_area;
     bool force_random_ray_cast = false;
     //if error rate is too high, force random ray cast
-    if (error_rate > max_error_rate)
+    if (error_rate > max_error_rate || 2*error_rate > rare_samples_count)
     {
       force_random_ray_cast = true;
       stripe_area = 1.0f;
@@ -1732,7 +1737,8 @@ namespace dr
       r = p1 - p0;
       n = normalize(float2(-r.y, r.x));
 
-      stripe_area = std::min(1.0f, 2*sample_radius*length(r));
+      stripe_area = 2*sample_radius*length(r);
+      //printf("stripe area = %f\n", stripe_area);
 
       //if stripe area is too small, there is no actual border here
       if (!force_random_ray_cast && stripe_area < min_stripe_area)
@@ -1756,27 +1762,34 @@ namespace dr
       }
       else
       {
-        while (d.x < 0 || d.x > 1 || d.y < 0 || d.y > 1)
-        {
-          d = p0 + urand(0, 1) * r + urand(-1, 1) * sample_radius * n;
-          //printf("p0 = %f %f, p1 = %f %f,r = %f %f, n = %f %f, d = %f %f\n", p0.x, p0.y, p1.x, p1.x, r.x, r.y, n.x, n.y, d.x, d.y);
-        }
+        d = p0 + urand(0, 1) * r + urand(-1, 1) * sample_radius * n;
         sampling_pdf = stripe_area / border_spp;
       }
 
+      bool is_border_ray = false;
+
       float4 rayPosAndNear, rayDirAndFar;
-      kernel_InitEyeRay(tidX, d, &rayPosAndNear, &rayDirAndFar);
-
       RayDiffPayload payload;
-      CRT_HitDR hit = ((BVHDR *)m_pAccelStruct.get())->RayQuery_NearestHitWithGrad(border_ray_flags, rayPosAndNear, rayDirAndFar, &payload);
-
-      bool is_border_ray = payload.missed_hit.sdf < relax_eps;
-
-      if (is_border_ray)
+      CRT_HitDR hit;
+      
+      if (d.x > 0 && d.x < 1 && d.y > 0 && d.y < 1)
       {
-        border_points++;
-        pixel_diff = CalculateBorderRayDerivatives(sampling_pdf, payload, hit, rayPosAndNear, rayDirAndFar, image_ref, out_image, out_dLoss_dS);
+        kernel_InitEyeRay(tidX, d, &rayPosAndNear, &rayDirAndFar);
+        hit = ((BVHDR *)m_pAccelStruct.get())->RayQuery_NearestHitWithGrad(border_ray_flags, rayPosAndNear, rayDirAndFar, &payload);
+
+        is_border_ray = payload.missed_hit.sdf < relax_eps;
+        if (is_border_ray)
+        {
+          border_points++;
+          pixel_diff = CalculateBorderRayDerivatives(sampling_pdf, payload, hit, rayPosAndNear, rayDirAndFar, image_ref, out_image, out_dLoss_dS);
+        }
       }
+      else
+      {
+        hit.primId = 0xFFFFFFFF;
+        d = float2(0,0);
+      }
+
       total_diff += pixel_diff;
 
       if (m_preset_dr.debug_border_samples || m_preset_dr.debug_border_samples_mega_image)
