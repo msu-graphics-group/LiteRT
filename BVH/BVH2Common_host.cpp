@@ -80,6 +80,9 @@ void BVHRT::ClearGeom()
   m_allNodePairs.reserve(std::max<std::size_t>(100000, m_allNodePairs.capacity()));
   m_allNodePairs.resize(0);
 
+  m_abstractObjects.reserve(reserveSize);
+  m_abstractObjects.resize(0);
+
   ClearScene();
 }
 
