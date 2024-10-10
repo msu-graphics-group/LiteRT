@@ -1553,7 +1553,7 @@ void BVHRT::IntersectGraphicPrims(const float3& ray_pos, const float3& ray_dir,
           if(dot(tmp1, tmp1) < (ra*ra*m2*m2))
           {
             t = -m1/m2;
-            norm = normalize(-ba);
+            norm = normalize(-1.0f*ba);
           }
         }
         
