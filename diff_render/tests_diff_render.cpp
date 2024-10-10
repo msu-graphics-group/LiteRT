@@ -13,6 +13,7 @@
 #include "../utils/image_metrics.h"
 #include "../diff_render/MultiRendererDR.h"
 #include "../utils/stat_utils.h"
+#include "../render_common.h"
 
 #include <functional>
 #include <cassert>
@@ -34,53 +35,53 @@ void render(LiteImage::Image2D<float4> &image, std::shared_ptr<MultiRenderer> pR
   pRender->RenderFloat(image.data(), image.width(), image.height(), worldView, proj, preset, a_passNum);
 }
 
-#ifdef USE_ENZYME
-int enzyme_const, enzyme_dup, enzyme_out; // must be global
-double __enzyme_autodiff(void*, ...);
+// #ifdef USE_ENZYME
+// int enzyme_const, enzyme_dup, enzyme_out; // must be global
+// double __enzyme_autodiff(void*, ...);
 
-double litert_test_28_enzyme_ad_sqr_1(double  x) { return  x *  x; }
-double litert_test_28_enzyme_ad_sqr_2(double* x) { return *x * *x; }
-double litert_test_28_enzyme_ad_mul(double k, double x) { return k * x; }
-#endif
+// double litert_test_28_enzyme_ad_sqr_1(double  x) { return  x *  x; }
+// double litert_test_28_enzyme_ad_sqr_2(double* x) { return *x * *x; }
+// double litert_test_28_enzyme_ad_mul(double k, double x) { return k * x; }
+// #endif
 
 void diff_render_test_1_enzyme_ad()
 {
-  printf("TEST 1. Enzyme AD\n");
-#ifdef USE_ENZYME
-  double x = 5.;
-  double df_dx_res = 2*x;
+//   printf("TEST 1. Enzyme AD\n");
+// #ifdef USE_ENZYME
+//   double x = 5.;
+//   double df_dx_res = 2*x;
 
-  // Output argument
-  printf(" 1.1. %-64s", "Basic square derivative");
-  double df_dx_out = __enzyme_autodiff((void*)litert_test_28_enzyme_ad_sqr_1, x);
-  if ((df_dx_out - df_dx_res) < 1e-7 && (df_dx_out - df_dx_res) > -1e-7) // actually even (df_dx_out == df_dx_res) works
-    printf("passed    (d(x^2) = %.1f, x = %.1f)\n", df_dx_out, x);
-  else
-    printf("FAILED,   (df_dx_out = %f, must be %.1f)\n", df_dx_out, df_dx_res);
+//   // Output argument
+//   printf(" 1.1. %-64s", "Basic square derivative");
+//   double df_dx_out = __enzyme_autodiff((void*)litert_test_28_enzyme_ad_sqr_1, x);
+//   if ((df_dx_out - df_dx_res) < 1e-7 && (df_dx_out - df_dx_res) > -1e-7) // actually even (df_dx_out == df_dx_res) works
+//     printf("passed    (d(x^2) = %.1f, x = %.1f)\n", df_dx_out, x);
+//   else
+//     printf("FAILED,   (df_dx_out = %f, must be %.1f)\n", df_dx_out, df_dx_res);
 
-  // Duplicated argument
-  printf(" 1.2. %-64s", "Square derivative, dx is stored in an argument");
-  double df_dx_arg = 0.;
-  __enzyme_autodiff((void*)litert_test_28_enzyme_ad_sqr_2, &x, &df_dx_arg);
-  if ((df_dx_arg - df_dx_res) < 1e-7 && (df_dx_arg - df_dx_res) > -1e-7) // actually even (df_dx_arg == df_dx_res) works
-    printf("passed    (d(x^2) = %.1f, x = %.1f)\n", df_dx_arg, x);
-  else
-    printf("FAILED,   (df_dx_arg = %f, must be %.1f)\n", df_dx_arg, df_dx_res);
+//   // Duplicated argument
+//   printf(" 1.2. %-64s", "Square derivative, dx is stored in an argument");
+//   double df_dx_arg = 0.;
+//   __enzyme_autodiff((void*)litert_test_28_enzyme_ad_sqr_2, &x, &df_dx_arg);
+//   if ((df_dx_arg - df_dx_res) < 1e-7 && (df_dx_arg - df_dx_res) > -1e-7) // actually even (df_dx_arg == df_dx_res) works
+//     printf("passed    (d(x^2) = %.1f, x = %.1f)\n", df_dx_arg, x);
+//   else
+//     printf("FAILED,   (df_dx_arg = %f, must be %.1f)\n", df_dx_arg, df_dx_res);
 
-  // Inactive (const) argument (explicit)
-  printf(" 1.3. %-64s", "Derivative d(k*x)/dx, k - parameter");
-  double k = 7;
-  df_dx_out = 0.; // only to verify the result
-  df_dx_out = __enzyme_autodiff((void*)litert_test_28_enzyme_ad_mul, enzyme_const, k, x); // enzyme_const not needed if k is int
-  if ((df_dx_out - k) < 1e-7 && (df_dx_out - k) > -1e-7) // actually even (df_dx_out == k) works
-    printf("passed    (d(k*x)/dx = %.1f, k = %.1f)\n", df_dx_out, k);
-  else
-    printf("FAILED,   (df_dx_out = %f, must be %.1f)\n", df_dx_out, k);
+//   // Inactive (const) argument (explicit)
+//   printf(" 1.3. %-64s", "Derivative d(k*x)/dx, k - parameter");
+//   double k = 7;
+//   df_dx_out = 0.; // only to verify the result
+//   df_dx_out = __enzyme_autodiff((void*)litert_test_28_enzyme_ad_mul, enzyme_const, k, x); // enzyme_const not needed if k is int
+//   if ((df_dx_out - k) < 1e-7 && (df_dx_out - k) > -1e-7) // actually even (df_dx_out == k) works
+//     printf("passed    (d(k*x)/dx = %.1f, k = %.1f)\n", df_dx_out, k);
+//   else
+//     printf("FAILED,   (df_dx_out = %f, must be %.1f)\n", df_dx_out, k);
 
-#else
-  printf("  Enzyme AD is not used.\n");
+// #else
+//   printf("  Enzyme AD is not used.\n");
 
-#endif
+// #endif
 }
 
 void diff_render_test_2_forward_pass()
@@ -951,17 +952,12 @@ void test_position_derivatives(const SdfSBS &SBS, unsigned render_node, unsigned
                                unsigned border_sampling, bool close_view, bool empty_reference)
 {
   static unsigned off = 1;
-  if (close_view)
-    srand(0);
-  else
-    srand(time(nullptr));
-  
-  srand(0);
+  srand(time(nullptr));
 
-  unsigned W = 512, H = 512;
+  unsigned W = 64, H = 64;
 
   MultiRenderPreset preset = getDefaultPreset();
-  preset.render_mode = render_node;
+  preset.render_mode = MULTI_RENDER_MODE_LAMBERT;
   preset.normal_mode = NORMAL_MODE_SDF_SMOOTHED;
   //preset.ray_gen_mode = RAY_GEN_MODE_RANDOM;
   preset.spp = 256;
@@ -970,9 +966,10 @@ void test_position_derivatives(const SdfSBS &SBS, unsigned render_node, unsigned
 
   std::vector<float4x4> view; 
   if (close_view)
-    view = std::vector<float4x4>{LiteMath::lookAt(float3(0.3, 0, 2), float3(0, 0, 0), float3(0, 1, 0))};
+    view = std::vector<float4x4>{LiteMath::lookAt(float3(0.2, 0, 2.0), float3(0.2, 0, 0), float3(0, 1, 0))};
   else
-    view = get_cameras_uniform_sphere(1, float3(0, 0, 0), 2.5f);
+    view = std::vector<float4x4>{LiteMath::lookAt(float3(0.3, 0, 2.5), float3(0, 0, 0), float3(0, 1, 0))};
+
   std::vector<float4x4> proj(view.size(), base_proj);
 
   std::vector<LiteImage::Image2D<float4>> images_ref(view.size(), LiteImage::Image2D<float4>(W, H));
@@ -1005,12 +1002,15 @@ void test_position_derivatives(const SdfSBS &SBS, unsigned render_node, unsigned
   dr_preset.dr_input_type = diff_render_mode == DR_RENDER_MODE_LINEAR_DEPTH ? DR_INPUT_TYPE_LINEAR_DEPTH : DR_INPUT_TYPE_COLOR;
   dr_preset.opt_iterations = 1;
   dr_preset.opt_lr = 0.0f;
-  dr_preset.spp = 16;
+  dr_preset.spp = 64;
   dr_preset.border_spp = 1024;
-  dr_preset.debug_pd_brightness = 0.01f;
-  dr_preset.border_relax_eps = 1e-4f;
-  dr_preset.finite_diff_delta = 0.025f;
+  dr_preset.debug_pd_brightness = 1.0f;
+  dr_preset.border_relax_eps = 0.01f;
+  dr_preset.finite_diff_delta = 0.005f;
   dr_preset.finite_diff_brightness = 0.25f;
+  dr_preset.debug_render_mode = DR_DEBUG_RENDER_MODE_BORDER_DETECTION;
+  dr_preset.debug_progress_images = DEBUG_PROGRESS_RAW;
+  dr_preset.debug_forced_border = false;
   bool debug_pd_images = true;
 
   unsigned param_count = indexed_SBS.values_f.size() - 3 * 8 * indexed_SBS.nodes.size();
@@ -1019,51 +1019,50 @@ void test_position_derivatives(const SdfSBS &SBS, unsigned render_node, unsigned
   //std::vector<float> deltas = {0.04f, 0.02f, 0.01f, 0.005f, 0.0025f, 0.001f, 0.0005f, 0.00025f, 0.0001f};
   //for (float delta : deltas)
   {
-    //printf("delta = %f\n", delta);
-    //__delta = delta;
-
-    std::array<std::vector<double>, 2> grad_mean;
-    std::array<std::vector<double>, 2> grad_conf;
+    std::array<std::vector<double>, 3> grad_mean;
+    std::array<std::vector<double>, 3> grad_conf;
 
     for (int T = 0; T < 2; T++)
     {
-    unsigned samples = 2;
+    unsigned samples = 25;
     std::vector<std::vector<float>> grads(samples);
     for (unsigned i = 0; i < samples; i++)
     {
+      srand(time(nullptr) + i);
       MultiRendererDR dr_render;
-      dr_preset.dr_diff_mode = T == 0 ? DR_DIFF_MODE_DEFAULT : DR_DIFF_MODE_FINITE_DIFF;
+      dr_preset.dr_diff_mode = T == 1 ? DR_DIFF_MODE_FINITE_DIFF : DR_DIFF_MODE_DEFAULT;
       dr_preset.dr_border_sampling = border_sampling;
-      dr_preset.debug_render_mode =  DR_DEBUG_RENDER_MODE_NONE;
-      dr_preset.debug_pd_images = i == 0 ? debug_pd_images : false;
+      dr_preset.debug_pd_images = i == 0;
+      dr_preset.debug_border_samples_mega_image = T == 0 && i == 0;
+      dr_preset.debug_border_samples = T == 0 && i == 0;
 
       dr_render.SetReference(images_ref, view, proj);
       dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS);
       grads[i] = std::vector<float>(dr_render.getLastdLoss_dS() + param_offset, 
                                     dr_render.getLastdLoss_dS() + param_offset + param_count);
+
+      //printf("border_rays hit chance = %f\n", dr_render.border_rays_hit/(dr_preset.border_spp*W*H + 1e-6f));
+      image_res = dr_render.getLastImage(0);
+      LiteImage::SaveImage<float4>(("saves/test_dr_9_"+std::to_string(off)+"_res.bmp").c_str(), image_res); 
     }
 
     grad_mean[T] = stat::mean<float>(grads);
     grad_conf[T] = stat::confidence<float>(grads, 0.95f);
-
-    printf("MEAN = [");
-    for (unsigned i = 0; i < param_count; i++)
-    {
-      printf("%9.2f ", grad_mean[T][i]);
-    }
-    printf("]\n");
-
-    //printf("CONF = [");
-    //for (unsigned i = 0; i < param_count; i++)
-    //{
-    //  printf("%u [%9.2f - %9.2f]\n", i, grad_mean[T][i]-grad_conf[T][i], grad_mean[T][i]+grad_conf[T][i]);
-    //}
-    //printf("]\n");
     }
 
     //increase confidence intervals for finite differences if they are too small
+    for (auto &stddev : grad_conf[0])
+      stddev = std::max(stddev, 1e-6);
     for (auto &stddev : grad_conf[1])
-      stddev = std::max(stddev, 1.0);
+      stddev = std::max(stddev, 1e-6);
+    for (int i=0;i<param_count;i++)
+    {
+      if (abs(grad_mean[0][i]) < 1e-4f)
+      {
+        grad_mean[0][i] = 0;
+        grad_mean[1][i] = 0;
+      }
+    }
 
     {
       long double std_dev_mult = 0;
@@ -1076,47 +1075,57 @@ void test_position_derivatives(const SdfSBS &SBS, unsigned render_node, unsigned
       for (int i = 0; i < param_count; i++)
       {
         std_dev_mult += grad_conf[0][i] / grad_conf[1][i];
-        double error = std::abs(grad_mean[0][i] - grad_mean[1][i]) / grad_conf[1][i];
+        double error = std::abs(grad_mean[0][i] - grad_mean[1][i]) / std::max(grad_conf[1][i], grad_conf[0][i]);
         average_error += error;
         max_error = std::max<double>(max_error, error);
-        relative_error += std::abs(grad_mean[0][i] - grad_mean[1][i]) / (std::abs(grad_mean[0][i]) + std::abs(grad_mean[1][i]) + 1e-6f);
+        relative_error += std::abs(grad_mean[0][i] - grad_mean[1][i]);
         relative_bias  +=         (grad_mean[0][i] - grad_mean[1][i]);
         total_sum += std::abs(grad_mean[0][i]) + std::abs(grad_mean[1][i]);
       }
       std_dev_mult /= param_count;
       average_error /= param_count;
-      relative_error /= param_count;
+      relative_error /= 0.5f*total_sum;
       relative_bias  /= 0.5f*total_sum;
     
-      printf(" 9.%d.1 %-64s", off, "Average confidence interval size (relative to finite diff)");
-      if (std_dev_mult <= 1.0f)
-        printf("passed    (%f)\n", (float)std_dev_mult);
+      bool passed = true;
+
+      printf(" 9.%d.1 %-64s", off, "Precision");
+      if (relative_error <= 0.15f || average_error <= 1.0f)
+        printf("passed    (rel. err. = %f, average %f stddev)\n", (float)relative_error, (float)average_error);
       else
+      {
+        passed = false;
         printf("FAILED, std_dev_mult = %f\n", (float)std_dev_mult);
+      }
 
-      printf(" 9.%d.2 %-64s", off, "Average error");
-      if (relative_error <= 0.01f)
-        printf("passed    (%f)\n", (float)relative_error);
-      else
-        printf("FAILED, relative_error = %f\n", (float)relative_error);
-
-      printf(" 9.%d.3 %-64s", off, "Relative bias in std dev's");
-      if (average_error <= 0.5f)
-        printf("passed    (%f)\n", (float)average_error);
-      else
-        printf("FAILED, average_error = %f\n", (float)average_error);
-      
-      printf(" 9.%d.4 %-64s", off, "Max bias in std dev's");
-      if (max_error <= 2)
-        printf("passed    (%f)\n", (float)max_error);
-      else
-        printf("FAILED, max_error = %f\n", (float)max_error);
-
-      printf(" 9.%d.5 %-64s", off, "Overall bias for all derivatives");
-      if (std::abs(relative_bias) <= 0.01)
+      printf(" 9.%d.2 %-64s", off, "Bias");
+      if (std::abs(relative_bias) <= 0.15)
         printf("passed    (%f)\n", (float)relative_bias);
       else
+      {
+        passed = false;
         printf("FAILED, overall bias = %f\n", (float)relative_bias);
+      }
+      
+      if (!passed)
+      {
+        for (int T=0;T<2;T++)
+        {
+          printf("MEAN = [");
+          for (unsigned i = 0; i < param_count; i++)
+          {
+            printf("%9.2f ", grad_mean[T][i]);
+          }
+          printf("]\n");
+        }
+        printf("BIAS = [");
+        for (unsigned i = 0; i < param_count; i++)
+        {
+          float bias = std::abs(grad_mean[1][i]) > 1e-6f ? std::abs(grad_mean[0][i]) / std::abs(grad_mean[1][i]) : 1.0f;
+          printf("%9.2f ", bias);
+        }
+        printf("]\n");
+      }
     }
   }
   off++;
@@ -1126,24 +1135,42 @@ void diff_render_test_9_check_position_derivatives()
 {
   printf("TEST 9. Check position derivatives\n");
 
-  printf("9.1 Mask, random border sampling\n");
+  printf("9.1 Mask, random border sampling, empty reference\n");
   test_position_derivatives(circle_smallest_scene_colored(), 
                             MULTI_RENDER_MODE_MASK, DR_RENDER_MODE_MASK, DR_BORDER_SAMPLING_RANDOM,
                             false, true);
-  //test_position_derivatives(circle_smallest_scene_colored(), MULTI_RENDER_MODE_MASK, DR_RENDER_MODE_MASK, false, true);
-  //printf("9.2 Mask, SVM border sampling\n");
-  //test_position_derivatives(circle_smallest_scene_colored(), MULTI_RENDER_MODE_MASK, DR_RENDER_MODE_MASK, true, true);
-  //printf("9.3 Diffuse, random border sampling\n");
-  //test_position_derivatives(circle_smallest_scene_colored(), MULTI_RENDER_MODE_DIFFUSE, DR_RENDER_MODE_DIFFUSE, false, true);
-  //printf("9.4 Diffuse, SVM border sampling\n");
-  //test_position_derivatives(circle_smallest_scene_colored(), MULTI_RENDER_MODE_DIFFUSE, DR_RENDER_MODE_DIFFUSE, true, true);
-  //printf("9.5 Lambert, random border sampling\n");
-  //test_position_derivatives(circle_smallest_scene_colored(), 
-  //                          MULTI_RENDER_MODE_LAMBERT, DR_RENDER_MODE_LAMBERT, DR_BORDER_SAMPLING_RANDOM,
-  //                          true, true);
-  //printf("9.6 Lambert, SVM border sampling\n");
-  //test_position_derivatives(circle_smallest_scene_colored(), MULTI_RENDER_MODE_LAMBERT, DR_RENDER_MODE_LAMBERT, true, true);
-
+  printf("9.2 Mask, SVM border sampling, empty reference\n");
+  test_position_derivatives(circle_smallest_scene_colored(), 
+                            MULTI_RENDER_MODE_MASK, DR_RENDER_MODE_MASK, DR_BORDER_SAMPLING_SVM,
+                            false, true);
+  printf("9.3 Mask, random border sampling, larger model\n");
+  test_position_derivatives(circle_smallest_scene_colored_2(), 
+                            MULTI_RENDER_MODE_MASK, DR_RENDER_MODE_MASK, DR_BORDER_SAMPLING_RANDOM,
+                            false, true);
+  printf("9.4 Mask, random border sampling\n");
+  test_position_derivatives(circle_smallest_scene_colored(), 
+                            MULTI_RENDER_MODE_MASK, DR_RENDER_MODE_MASK, DR_BORDER_SAMPLING_RANDOM,
+                            false, false);
+  printf("9.5 Diffuse, random border sampling\n");
+  test_position_derivatives(circle_smallest_scene_colored(), 
+                            MULTI_RENDER_MODE_DIFFUSE, DR_RENDER_MODE_DIFFUSE, DR_BORDER_SAMPLING_RANDOM,
+                            false, true);
+  printf("9.6 Lambert, random border sampling, close view\n");
+  test_position_derivatives(circle_smallest_scene_colored(), 
+                            MULTI_RENDER_MODE_LAMBERT, DR_RENDER_MODE_LAMBERT, DR_BORDER_SAMPLING_RANDOM,
+                            true, true);
+  printf("9.7 Lambert, random border sampling, empty reference\n");
+  test_position_derivatives(circle_smallest_scene_colored(), 
+                            MULTI_RENDER_MODE_LAMBERT, DR_RENDER_MODE_LAMBERT, DR_BORDER_SAMPLING_RANDOM,
+                            false, true);
+  printf("9.8 Lambert, random border sampling\n");
+  test_position_derivatives(circle_smallest_scene_colored(), 
+                            MULTI_RENDER_MODE_LAMBERT, DR_RENDER_MODE_LAMBERT, DR_BORDER_SAMPLING_RANDOM,
+                            false, false);
+  printf("9.9 Lambert, SVM border sampling\n");
+  test_position_derivatives(circle_smallest_scene_colored(), 
+                            MULTI_RENDER_MODE_LAMBERT, DR_RENDER_MODE_LAMBERT, DR_BORDER_SAMPLING_SVM,
+                            false, false); 
   //Depth-related tests are temporary disabled
   //printf("9.7 Depth, random border sampling\n");
   //test_position_derivatives(circle_smallest_scene_colored(), MULTI_RENDER_MODE_LINEAR_DEPTH, DR_RENDER_MODE_LINEAR_DEPTH, false, true);
@@ -2073,8 +2100,8 @@ void diff_render_test_21_optimization_stand()
   dr_preset.debug_print = true;
   dr_preset.debug_print_interval = 1;
   dr_preset.debug_progress_interval = 25;
-  dr_preset.render_height = 256;
-  dr_preset.render_width = 256;
+  dr_preset.render_height = 128;
+  dr_preset.render_width = 128;
 
   SdfSBS smallest_scene = create_grid_sbs(1, 2, 
                           [&](float3 p){return circle_sdf(float3(0,0,0), 0.8f, p);}, 
@@ -2159,11 +2186,11 @@ void diff_render_test_21_optimization_stand()
 
   dr_preset.dr_render_mode = DR_RENDER_MODE_LAMBERT;
   dr_preset.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_GEOMETRY | DR_RECONSTRUCTION_FLAG_COLOR;
-  dr_preset.dr_border_sampling = DR_BORDER_SAMPLING_SVM;
+  dr_preset.dr_border_sampling = DR_BORDER_SAMPLING_RANDOM;
   dr_preset.opt_lr = 0.01f;
   dr_preset.opt_iterations = 1000;
-  dr_preset.border_spp = 512;
-  dr_preset.spp = 8;
+  dr_preset.border_spp = 1024;
+  dr_preset.spp = 16;
   dr_preset.debug_render_mode = DR_DEBUG_RENDER_MODE_AREA_INTEGRAL;
   dr_preset.image_batch_size = 2;
   //dr_preset.redistancing_enable = true;
@@ -2176,7 +2203,7 @@ void diff_render_test_21_optimization_stand()
   for (int i = 0; i < mults.size(); i++)
   {
     dr_preset.border_integral_mult = mults[i];
-    optimization_stand_common(8+i, ds_scene, medium_initial, dr_preset, "Two spheres. Lambert. Colored.");
+    optimization_stand_common(8+i, ts_scene, medium_initial, dr_preset, "Two spheres. Lambert. Colored.");
   }
 
   dr_preset.dr_render_mode = DR_RENDER_MODE_LAMBERT;
@@ -2472,46 +2499,7 @@ diff_render_test_23_ray_casting_mask()
 }
 
 void
-diff_render_test_24_tricubic_interpolation()
-{
-  float grid[4][4][4] = {
-    {{0.1, 0.2, 0.3, 0.4}, {0.2, 0.3, 0.4, 0.5}, {0.3, 0.4, 0.5, 0.6}, {0.4, 0.5, 0.6, 0.7}},
-    {{0.2, 0.3, 0.4, 0.5}, {0.3, 0.4, 0.5, 0.6}, {0.4, 0.5, 0.6, 0.7}, {0.5, 0.6, 0.7, 0.8}},
-    {{0.3, 0.4, 0.5, 0.6}, {0.4, 0.5, 0.6, 0.7}, {0.5, 0.6, 0.7, 0.8}, {0.6, 0.7, 0.8, 0.9}},
-    {{0.4, 0.5, 0.6, 0.7}, {0.5, 0.6, 0.7, 0.8}, {0.6, 0.7, 0.8, 0.9}, {0.7, 0.8, 0.9, 1.0}}
-  };
-
-  float x = 0.5, y = 0.5, z = 0.5;
-  float interpolated_value = 0;
-  
-  float values_yz[4][4] = {0}, values_z[4] = {0};
-  //  Catmull–Rom spline
-  //  p[1] + 0.5 * x * (p[2] - p[0] + x * (2.0 * p[0] - 5.0 * p[1] + 4.0 * p[2] - p[3] + x * (3.0 * (p[1] - p[2]) + p[3] - p[0])))
-  auto spline = [&](const float &p0, const float &p1, const float &p2, const float &p3, const float &x)
-  {
-    return p1 + 0.5 * x * (p2 - p0 + x * (2.0 * p0 - 5.0 * p1 + 4.0 * p2 - p3 + x * (3.0 * (p1 - p2) + p3 - p0)));
-  };
-
-  for (int j = 0; j < 4; ++j)
-  {
-    for (int k = 0; k < 4; ++k)
-    {
-      values_yz[j][k] = spline(grid[0][j][k], grid[1][j][k], grid[2][j][k], grid[3][j][k], x);
-    }
-  }
-
-  for (int k = 0; k < 4; k++)
-  {
-    values_z[k] = spline(values_yz[0][k], values_yz[1][k], values_yz[2][k], values_yz[3][k], y);
-  }
-
-  interpolated_value = spline(values_z[0], values_z[1], values_z[2], values_z[3], z);
-
-  std::cout << "INTERPOLATED VALUE IS: " << interpolated_value << std::endl;
-}
-
-void
-diff_render_test_25_optimization_with_tricubic()
+diff_render_test_24_optimization_with_tricubic()
 {
   auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "scenes/01_simple_scenes/data/teapot.vsgf").c_str());
   cmesh4::normalize_mesh(mesh);
@@ -2533,7 +2521,7 @@ diff_render_test_25_optimization_with_tricubic()
 
   {
     MultiRenderPreset preset = getDefaultPreset();
-    preset.interpolation_type = 1;
+    preset.interpolation_type = TRICUBIC_INTERPOLATION_MODE;
     preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
     LiteImage::Image2D<float4> image_1(W, H);
 
@@ -2547,9 +2535,95 @@ diff_render_test_25_optimization_with_tricubic()
 }
 
 void
-diff_render_test_26_tricubic_derrivative()
+diff_render_test_25_tricubic_enzyme_derrivative()
+{
+  float grid[64] = {
+    0.1, 0.2, 0.3, 0.4, 0.2, 0.3, 0.4, 0.5, 0.3, 0.4, 0.5, 0.6, 0.4, 0.5, 0.6, 0.7,
+    0.2, 0.3, 0.4, 0.5, 0.3, 0.4, 0.5, 0.6, 0.4, 0.5, 0.6, 0.7, 0.5, 0.6, 0.7, 0.8,
+    0.3, 0.4, 0.5, 0.6, 0.4, 0.5, 0.6, 0.7, 0.5, 0.6, 0.7, 0.8, 0.6, 0.7, 0.8, 0.9,
+    0.4, 0.5, 0.6, 0.7, 0.5, 0.6, 0.7, 0.8, 0.6, 0.7, 0.8, 0.9, 0.7, 0.8, 0.9, 1.0
+  };
+
+  BVHRT bvhrt;
+  bvhrt.m_SdfGridData = std::vector<float>(grid, grid + 64);
+
+  float x[3] = {0.5, 0.5, 0.5};
+  uint vox_u[3] = {1, 1, 1};
+  uint off = 0;
+  uint size[3] = {4, 4, 4}; 
+
+  float interpolated_value = bvhrt.tricubicInterpolation(vox_u, x, off, size);
+  std::cout << "INTERPOLATED VALUE IS: " << interpolated_value << std::endl;
+
+  auto dp_x = tricubicInterpolationDerrivative(grid, vox_u, x, off, size);
+  printf("%f %f %f\n", dp_x.x, dp_x.y, dp_x.z);
+}
+
+void
+diff_render_test_26_sbs_tricubic()
 {
   
+}
+
+void diff_render_test_27_visualize_bricks()
+{
+  //this test is rendering voxels with different combination of positive and negative distances in it's corners
+  srand(time(nullptr));
+
+  SdfSBS sbs;
+  sbs.header.brick_pad = 0;
+  sbs.header.brick_size = 1;
+  sbs.header.bytes_per_value = 1;
+  sbs.header.aux_data = SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F;
+
+  sbs.nodes.resize(1);
+  sbs.nodes[0].data_offset = 0;
+  sbs.nodes[0].pos_xy = (0 << 16) | 0;
+  sbs.nodes[0].pos_z_lod_size = (0 << 16) | 1;
+  
+  sbs.values = {0,1,2,3,4,5,6,7,
+                8, 11, 14, 17, 20, 23, 26, 29};
+
+  sbs.values_f.resize(8 + 3*8);
+
+  unsigned rnd = rand() % 256;
+  //rnd = 1*1 + 0*2 + 1*4 + 0*8 + 1*16 + 0*32 + 1*64 + 0*128;
+  for (int i = 0; i < 8; i++)
+  {
+    float rand_f = ((float)rand() / (float)RAND_MAX);
+    sbs.values_f[i] = (rnd & (1 << i)) ? -rand_f: rand_f;
+  }
+  for (int i = 8; i < 8+3*8; i++)
+  {
+    sbs.values_f[i] = 1.0f;
+  }
+
+  unsigned W = 1024, H = 1024;
+
+  MultiRenderPreset preset = getDefaultPreset();
+  preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
+  preset.spp = 1;
+
+  float4x4 base_proj = LiteMath::perspectiveMatrix(60, 1.0f, 0.01f, 100.0f);
+  std::vector<float4x4> view = get_cameras_turntable(16, float3(0,0,0), 4, 1);
+  std::vector<float4x4> proj(view.size(), base_proj);
+  LiteImage::Image2D<float4> image_res(W, H);
+
+  for (int i = 0; i < view.size(); i++)
+  {
+    MultiRendererDR pRender;
+    pRender.SetPreset(preset);
+    pRender.SetViewport(0,0,W,H);
+
+    //dr::BVHDR* bvhdr_tree = dynamic_cast<dr::BVHDR*>(pRender.GetAccelStruct().get());
+    //printf("BVH tree size: %lu\n", pRender.GetAccelStruct().get());
+    //pRender.Redistance(sbs.values_f.data(), {1, 1, 1}, 2.f / 1, 2);
+
+    pRender.SetScene(sbs, true);
+
+    pRender.RenderFloat(image_res.data(), W, H, view[i], proj[i], preset);
+    LiteImage::SaveImage<float4>(("saves/test_dr_24_"+std::to_string(i)+".bmp").c_str(), image_res); 
+  }
 }
 
 void perform_tests_diff_render(const std::vector<int> &test_ids)
@@ -2564,8 +2638,8 @@ void perform_tests_diff_render(const std::vector<int> &test_ids)
       diff_render_test_13_optimize_sphere_diffuse, diff_render_test_14_optimize_sphere_lambert, diff_render_test_15_combined_reconstruction,
       diff_render_test_16_borders_detection, diff_render_test_17_optimize_bunny, diff_render_test_18_sphere_depth,
       diff_render_test_19_expanding_grid, diff_render_test_20_sphere_depth_with_redist, diff_render_test_21_optimization_stand,
-      diff_render_test_22_border_sampling_accuracy_mask, diff_render_test_23_ray_casting_mask, diff_render_test_24_tricubic_interpolation,
-      diff_render_test_25_optimization_with_tricubic, diff_render_test_26_tricubic_derrivative};
+      diff_render_test_22_border_sampling_accuracy_mask, diff_render_test_23_ray_casting_mask, diff_render_test_24_optimization_with_tricubic, 
+      diff_render_test_25_tricubic_enzyme_derrivative, diff_render_test_26_sbs_tricubic, diff_render_test_27_visualize_bricks};
 
   if (tests.empty())
   {

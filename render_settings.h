@@ -63,6 +63,10 @@ static constexpr unsigned NORMAL_MODE_SDF_SMOOTHED = 2; //smoothed SDF normal, a
 static constexpr unsigned RAY_GEN_MODE_REGULAR = 0;
 static constexpr unsigned RAY_GEN_MODE_RANDOM  = 1;
 
+//enum interpolationMode
+static constexpr unsigned TRILINEAR_INTERPOLATION_MODE = 0;
+static constexpr unsigned TRICUBIC_INTERPOLATION_MODE = 1;
+
 struct MultiRenderPreset
 {
   unsigned render_mode;        //enum MultiRenderMode
@@ -83,7 +87,7 @@ static MultiRenderPreset getDefaultPreset()
   p.normal_mode = NORMAL_MODE_GEOMETRY;
   p.ray_gen_mode = RAY_GEN_MODE_REGULAR;
   p.spp = 1;
-  p.interpolation_type = 0;
+  p.interpolation_type = TRILINEAR_INTERPOLATION_MODE;
 
   return p;
 }

@@ -270,7 +270,6 @@ void save_sdf_scene_hydra(const SdfScene &scene, const std::string &folder, cons
   fs.close();
 }
 
-
 SdfSBSAdaptView convert_sbs_to_adapt(SdfSBSAdapt &adapt_scene, const SdfSBSView &scene)
 {
   assert(scene.header.brick_size > 0u && scene.header.brick_size < 256u);

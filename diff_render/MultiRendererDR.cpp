@@ -4,6 +4,7 @@
 
 #include <omp.h>
 #include <chrono>
+#include <atomic>
 
 using LiteMath::float2;
 using LiteMath::float3;
@@ -141,6 +142,13 @@ namespace dr
   MultiRendererDR::setBorderThickness(uint32_t thickness)
   {
     this->add_border = thickness;
+  }
+
+  float MultiRendererDR::getBaseGradientMult()
+  {
+    unsigned params_count = dynamic_cast<BVHDR*>(GetAccelStruct()->UnderlyingImpl(0))->m_SdfSBSDataF.size();
+    float mult = std::pow(params_count + 1.0, 2.0/3.0) / (m_width*m_height);
+    return mult;
   }
 
   void MultiRendererDR::SetReference(const std::vector<LiteImage::Image2D<float4>> &images,
@@ -593,9 +601,6 @@ namespace dr
         const uint XY = m_packedXY[i];
         const uint x  = (XY & 0x0000FFFF);
         const uint y  = (XY & 0xFFFF0000) >> 16;
-
-        if (x < search_radius || x >= m_width - search_radius || y <= search_radius || y >= m_height - search_radius)
-          continue;
         
         //finding external borders nearby (borders with background)
         //TODO: find internal borders
@@ -603,14 +608,17 @@ namespace dr
         float max_diff = 0.0f;
         float  max_depth_thr = 0.0f;
 
-        for (int dx = -search_radius; dx <= search_radius; dx++)
+        if (x >= search_radius && x < m_width - search_radius && y >= search_radius && y < m_height - search_radius)
         {
-          for (int dy = -search_radius; dy <= search_radius; dy++)
+          for (int dx = -search_radius; dx <= search_radius; dx++)
           {
-            float d = out_image[(y + dy) * m_width + x + dx].w;
+            for (int dy = -search_radius; dy <= search_radius; dy++)
+            {
+              float d = out_image[(y + dy) * m_width + x + dx].w;
 
-            max_diff      = std::max(max_diff,      std::abs(d0 - out_image[(y + dy) * m_width + x + dx].w));
-            max_depth_thr = std::max(max_depth_thr, out_image_depth[(y + dy) * m_width + x + dx].w);
+              max_diff      = std::max(max_diff,      std::abs(d0 - out_image[(y + dy) * m_width + x + dx].w));
+              max_depth_thr = std::max(max_depth_thr, out_image_depth[(y + dy) * m_width + x + dx].w);
+            }
           }
         }
 
@@ -702,6 +710,10 @@ namespace dr
       LiteImage::SaveImage<float4>("saves/debug_mega_image.png", samples_mega_image);
     }
 
+    float g_mult = getBaseGradientMult();
+    for (int i=0;i<max_threads*params_count;i++)
+      out_dLoss_dS[i] *= g_mult;
+
     //IV - calculate loss
     double loss = 0.0f;
     for (auto &l : loss_v)
@@ -752,8 +764,8 @@ namespace dr
       params[i] = p0;
 
       //it is the same way as loss is accumulated in RenderDR
-      //loss_plus /= m_width * m_height;
-      //loss_minus /= m_width * m_height;
+      loss_plus *= getBaseGradientMult();
+      loss_minus *= getBaseGradientMult();
       //printf("loss_plus = %f, loss_minus = %f\n", loss_plus, loss_minus);
 
       if (m_preset_dr.debug_pd_images)
@@ -1224,6 +1236,83 @@ namespace dr
     return res_loss;
   }
 
+  float2 MultiRendererDR::TransformWorldToScreenSpace(float4 pos)
+  {
+    float4 res = m_proj*m_worldView*pos;
+    res = 0.5f*(res/res.w + 1.0f);
+    return float2(res.x, 1.0 - res.y);
+  }
+
+  std::array<float4, 2> MultiRendererDR::TransformWorldToScreenSpaceDiff(float4 pos)
+  {
+    //res = proj(mul(pos))
+    //dres_dpos = dproj * dmul = (dmul^T * dproj^T)^T
+    //verified via finite differences
+    float4x4 dmmul_dpos = LiteMath::transpose(m_proj*m_worldView);
+          float4 ps = m_proj*m_worldView*pos;
+          float4 d_ps_x = float4(0.5/ps.w,0,0,-0.5*ps.x/(ps.w*ps.w));
+          float4 d_ps_y = float4(0,-0.5/ps.w,0,0.5*ps.y/(ps.w*ps.w));
+    std::array<float4, 2> diff;
+    diff[0] = dmmul_dpos*d_ps_x;
+    diff[1] = dmmul_dpos*d_ps_y;
+
+    return diff;
+  }
+
+  float MultiRendererDR::CalculateBorderRayDerivatives(float sampling_pdf, const RayDiffPayload &payload, const CRT_HitDR &hit, float4 rayPosAndNear,
+                                                       float4 rayDirAndFar, const float4 *image_ref, LiteMath::float4 *out_image, float *out_dLoss_dS)
+  {
+    const float relax_eps = m_preset_dr.border_relax_eps;
+    const float3 background_color = float3(0.0f, 0.0f, 0.0f);
+    const float background_depth = 0.0f;
+    const unsigned border_spp = m_preset_dr.border_spp;
+    float ray_diff = 0.0f;
+    float4 color_delta = float4(0, 0, 0, 0);
+    if (m_preset_dr.dr_input_type == DR_INPUT_TYPE_COLOR)
+    {
+      float3 f_in = CalculateColor(payload.missed_hit);
+      float3 f_out = hit.primId == 0xFFFFFFFF ? background_color : CalculateColor(hit);
+      color_delta = to_float4(f_in - f_out, hit.primId == 0xFFFFFFFF ? 1.0f : 0.0f);
+    }
+    else if (m_preset_dr.dr_input_type == DR_INPUT_TYPE_LINEAR_DEPTH)
+    {
+      float d_in = payload.missed_hit.t;
+      float d_out = hit.primId == 0xFFFFFFFF ? background_depth : hit.t;
+      color_delta = float4(d_in - d_out, d_in - d_out, d_in - d_out, hit.primId == 0xFFFFFFFF ? 1.0f : 0.0f);
+    }
+
+    for (int j = 0; j < 8; j++)
+    {
+      if (payload.missed_indices[j] == INVALID_INDEX)
+        continue;
+
+      float border_dist = std::max(0.0f, payload.missed_hit.sdf);
+      float3 y_star = to_float3(rayPosAndNear) + payload.missed_hit.t * to_float3(rayDirAndFar);
+      float3 x_star = y_star - border_dist * payload.missed_hit.normal;
+
+      float2 x_star_2 = TransformWorldToScreenSpace(to_float4(x_star, 1.0f));
+      float2 y_star_2 = TransformWorldToScreenSpace(to_float4(y_star, 1.0f));
+      unsigned x_pixel = x_star_2.x * m_width;
+      unsigned y_pixel = x_star_2.y * m_height;
+
+      float4 dLoss_dColor = LossGrad(m_preset_dr.dr_loss_function, out_image[y_pixel * m_width + x_pixel], image_ref[y_pixel * m_width + x_pixel]);
+
+      // we need dot(dtrans_dpos * dp_dsdf, normalize(dir)) for Reynolds theorem, but dtrans_dpos
+      // is set to be aligned with normal, so we can store dot(n, dp_dsdf) in payload.missed_dSDF_dtheta
+      // and the dot(dtrans_dpos * dp_dsdf, normalize(dir)) = (length(dir)/relax_eps) * payload.missed_dSDF_dtheta
+      // and length(dir) (i.e. how the projection changes length of normal vector) disappears
+      // is was verified in all cases in test 9
+      float diff = sampling_pdf * (1.0f / relax_eps) * dot(dLoss_dColor, color_delta) * payload.missed_dSDF_dtheta[j];
+
+      out_dLoss_dS[payload.missed_indices[j]] += diff;
+
+      ray_diff += abs(diff);
+      if (m_preset_dr.debug_pd_images)
+        m_imagesDebugPD[payload.missed_indices[j]].data()[y_pixel * m_width + x_pixel] += diff * float4(1, 1, 1, 0);
+    }
+    return ray_diff;
+  }
+
   void MultiRendererDR::CastBorderRay(uint32_t tidX, const float4 *image_ref, LiteMath::float4* out_image, float* out_dLoss_dS,
                                       LiteMath::float4* out_image_debug)
   {
@@ -1235,18 +1324,13 @@ namespace dr
     const uint y  = (XY & 0xFFFF0000) >> 16;
 
     const unsigned border_ray_flags = DR_RAY_FLAG_BORDER;
-    const float relax_eps = m_preset_dr.border_relax_eps;
-    const float3 background_color = float3(0.0f, 0.0f, 0.0f);
-    const float  background_depth = 0.0f;
 
     const unsigned border_spp = m_preset_dr.border_spp;
     const uint32_t spp_sqrt = uint32_t(sqrt(border_spp));
     const float i_spp_sqrt = 1.0f / spp_sqrt;
-    const float4 dLoss_dColor = LossGrad(m_preset_dr.dr_loss_function, out_image[y * m_width + x], image_ref[y * m_width + x]);
     
     unsigned border_points = 0;
     float total_diff = 0.0f;
-
     if (m_preset_dr.debug_border_samples || m_preset_dr.debug_border_samples_mega_image)
     {
       samples_debug_color.resize(border_spp, float4(0,0,0,0));
@@ -1263,39 +1347,14 @@ namespace dr
       RayDiffPayload payload;
       CRT_HitDR hit = ((BVHDR *)m_pAccelStruct.get())->RayQuery_NearestHitWithGrad(border_ray_flags, rayPosAndNear, rayDirAndFar, &payload);
 
-      bool is_border_ray = payload.missed_hit.sdf < relax_eps;
+      bool is_border_ray = payload.missed_hit.sdf < m_preset_dr.border_relax_eps;
 
       if (is_border_ray)
       {
         border_points++;
-
-        float4 color_delta = float4(0,0,0,0);
-        if (m_preset_dr.dr_input_type == DR_INPUT_TYPE_COLOR)
-        {
-          float3 f_in = CalculateColor(payload.missed_hit);
-          float3 f_out = hit.primId == 0xFFFFFFFF ? background_color : CalculateColor(hit);
-          color_delta = to_float4(f_in - f_out, hit.primId == 0xFFFFFFFF ? 1.0f : 0.0f);
-        }
-        else if (m_preset_dr.dr_input_type == DR_INPUT_TYPE_LINEAR_DEPTH)
-        {
-          float d_in = payload.missed_hit.t;
-          float d_out = hit.primId == 0xFFFFFFFF ? background_depth : hit.t;
-          color_delta = float4(d_in - d_out, d_in - d_out, d_in - d_out, hit.primId == 0xFFFFFFFF ? 1.0f : 0.0f);
-        }
-
-        for (int j = 0; j < 8; j++)
-        {
-          if (payload.missed_indices[j] == INVALID_INDEX)
-            continue;
-          float diff = m_preset_dr.border_integral_mult * (1.0f / border_spp) *dot(dLoss_dColor, (1.0f / relax_eps) * payload.missed_dSDF_dtheta[j] * color_delta);
-          out_dLoss_dS[payload.missed_indices[j]] += diff;
-
-          total_diff += abs(diff);
-          pixel_diff += length((1.0f / relax_eps) * payload.missed_dSDF_dtheta[j] * color_delta);
-          if (m_preset_dr.debug_pd_images)
-            m_imagesDebugPD[payload.missed_indices[j]].data()[y * m_width + x] += diff * float4(1, 1, 1, 0);
-        }
+        pixel_diff = CalculateBorderRayDerivatives(1.0f/border_spp, payload, hit, rayPosAndNear, rayDirAndFar, image_ref, out_image, out_dLoss_dS);
       }
+      total_diff += pixel_diff;
 
 
       if (m_preset_dr.debug_border_samples || m_preset_dr.debug_border_samples_mega_image)
@@ -1332,12 +1391,18 @@ namespace dr
       }
     }
 
+    //if (x == 10 && y == 8)
+    //printf("[%u %u] border_points %u\n", x, y, border_points);
+    border_rays_total += border_spp;
+    border_rays_hit   += border_points;
+
     if (m_preset_dr.debug_border_samples || m_preset_dr.debug_border_samples_mega_image)
     {
       unsigned wmult = MEGA_PIXEL_SIZE, hmult = MEGA_PIXEL_SIZE;
       unsigned sw = m_width * wmult, sh = m_height * hmult;
       LiteImage::Image2D<float4> debug_image(wmult, hmult);
       draw_points(samples_debug_pos_size, samples_debug_color, debug_image);
+
       if (tidX % 10 == 0)
         LiteImage::SaveImage(("saves/debug_border"+std::to_string(x)+"_"+std::to_string(y)+".png").c_str(), debug_image);
       
@@ -1513,9 +1578,9 @@ namespace dr
   void MultiRendererDR::CastBorderRaySVM(uint32_t tidX, const float4 *image_ref, LiteMath::float4* out_image, float* out_dLoss_dS,
                                          LiteMath::float4* out_image_debug)
   {
-    const float min_sample_radius = 0.1f;
+    const float min_sample_radius = 0.01f;
     const float sample_radius_mult = 2.0f;
-    const float max_error_rate = 0.1f;
+    const float max_error_rate = 0.05f;
     const float min_stripe_area = 0.005f;
     const float svm_samples_budget = 0.25f;
 
@@ -1531,7 +1596,10 @@ namespace dr
     const float3 background_color = float3(0.0f, 0.0f, 0.0f);
     const float  background_depth = 0.0f;
 
-    const unsigned svm_spp = std::max(1u, (unsigned)(svm_samples_budget*m_preset_dr.border_spp));
+    unsigned svm_spp = std::max(1u, (unsigned)(svm_samples_budget*m_preset_dr.border_spp));
+    const uint32_t spp_sqrt = uint32_t(sqrt(svm_spp));
+    const float i_spp_sqrt = 1.0f / spp_sqrt;
+    svm_spp = spp_sqrt*spp_sqrt;
     const float4 dLoss_dColor = LossGrad(m_preset_dr.dr_loss_function, out_image[y * m_width + x], image_ref[y * m_width + x]);
     
     float total_diff = 0.0f;
@@ -1547,9 +1615,12 @@ namespace dr
 
     std::vector<float3> X_mod(svm_spp);
     std::vector<float> t_samples(svm_spp);
+    float3 closest_hit = float3(1e6f, 1e6f, 1e6f);
+    float closest_t = 1e6f;
     for (int sample_id = 0; sample_id < svm_spp; sample_id++)
     {
-      float2 d = rand2(x, y, sample_id);
+      float2 rnd = rand2(x, y, sample_id);
+      float2 d = i_spp_sqrt * float2(sample_id / spp_sqrt + rnd.x, sample_id % spp_sqrt + rnd.y);
       float4 rayPosAndNear, rayDirAndFar;
       kernel_InitEyeRay(tidX, d, &rayPosAndNear, &rayDirAndFar);
 
@@ -1558,6 +1629,12 @@ namespace dr
 
       X_mod[sample_id] = float3(d.x, d.y, 1);
       t_samples[sample_id] = hit.t;
+      
+      if (hit.t < closest_t)
+      {
+        closest_t = hit.t;
+        closest_hit = to_float3(rayPosAndNear) + to_float3(rayDirAndFar) * hit.t;
+      }
     }
 
     const float t_threshold = t_samples_to_threshold(t_samples.data(), svm_spp, 0, 0);
@@ -1578,7 +1655,6 @@ namespace dr
           samples_debug_color[sample_id] = float4(t_samples[sample_id] <= t_threshold ? 0 : 1, t_samples[sample_id] <= t_threshold ? 1 : 0, 0, 1);
       }
     }
-
     //if all samples are of one type, return
     if (type_0_samples_count == svm_spp || type_0_samples_count == 0)
       return;
@@ -1588,18 +1664,23 @@ namespace dr
     float4 W = SVM_fit(X_mod);
     float error_rate = W.w;
 
+    float rare_samples_count = std::min((float)(type_0_samples_count)/svm_spp, 1.0f - (float)(type_0_samples_count)/svm_spp);
+    //printf("threshold: %f count of samples of type 0: %u/%u\n", t_threshold, type_0_samples_count, svm_spp);
+    //printf("error rate = %f\n", error_rate);
+
     float2 p0, p1, r, n;
     float sample_radius, stripe_area;
     bool force_random_ray_cast = false;
     //if error rate is too high, force random ray cast
-    if (error_rate > max_error_rate)
+    if (error_rate > max_error_rate || 2*error_rate > rare_samples_count)
     {
       force_random_ray_cast = true;
       stripe_area = 1.0f;
     }
     else
     {
-      if (abs(W.y) > 1e-6f && abs(W.x) > 1e-6f)
+      //printf("W = %f %f %f %f\n", W.x, W.y, W.z, W.w);
+      if (std::abs(W.y) > 1e-6f && std::abs(W.x) > 1e-6f)
       {
         p0 = float2(0, -W.z / W.y);
         p1 = float2(1, (-W.z - W.x) / W.y);
@@ -1610,7 +1691,7 @@ namespace dr
         {
           float k1 = -p0.y/ry;
           float k2 = (1-p0.y)/ry;
-          float k = (abs(k1) < abs(k2)) ? k1 : k2;
+          float k = (std::abs(k1) < std::abs(k2)) ? k1 : k2;
           p0 = p0 + k*float2(1, ry);
         }
 
@@ -1618,11 +1699,11 @@ namespace dr
         {
           float k1 = -p1.y/ry;
           float k2 = (1-p1.y)/ry;
-          float k = (abs(k1) < abs(k2)) ? k1 : k2;
+          float k = (std::abs(k1) < std::abs(k2)) ? k1 : k2;
           p1 = p1 + k*float2(1, ry);
         }
       }
-      else if (abs(W.x) > 1e-6f)
+      else if (std::abs(W.x) > 1e-6f)
       {
         p0 = float2(-W.z / W.x, 0);
         p1 = float2(-W.z / W.x, 1);
@@ -1640,10 +1721,24 @@ namespace dr
       if (!line_clipped)
         return;
 
+      float max_border_thickness = 0.0f;
+      {
+        float3 up = to_float3(m_worldView.get_row(1));
+        float2 p_0 = TransformWorldToScreenSpace(to_float4(closest_hit               , 1.0f));
+        float2 p_1 = TransformWorldToScreenSpace(to_float4(closest_hit + up*relax_eps, 1.0f));
+        max_border_thickness = length(p_1 - p_0) * std::max(m_width, m_height);
+      }
+
+      sample_radius = std::max(min_sample_radius, max_border_thickness) + sample_radius_mult*error_rate;
+
       r = p1 - p0;
-      n = float2(-r.y, r.x);
-      sample_radius = min_sample_radius + sample_radius_mult*error_rate;
-      stripe_area = std::min(1.0f, 2*sample_radius*length(r));
+      p0 -= sample_radius*normalize(r);
+      p1 += sample_radius*normalize(r);
+      r = p1 - p0;
+      n = normalize(float2(-r.y, r.x));
+
+      stripe_area = 2*sample_radius*length(r);
+      //printf("stripe area = %f\n", stripe_area);
 
       //if stripe area is too small, there is no actual border here
       if (!force_random_ray_cast && stripe_area < min_stripe_area)
@@ -1652,7 +1747,7 @@ namespace dr
     
     //number of border samples is proportional to stripe area
     float area_mult = std::min(1.0f, 0.05f + 2.0f*stripe_area);
-    const unsigned border_spp = std::max(1u, (unsigned)(area_mult*(m_preset_dr.border_spp - svm_spp)));
+    unsigned border_spp = std::max(1u, (unsigned)(area_mult*(m_preset_dr.border_spp - svm_spp)));
 
     //step 3: cast rays alongside border
     for (int sample_id = svm_spp; sample_id < svm_spp + border_spp; sample_id++)
@@ -1667,63 +1762,51 @@ namespace dr
       }
       else
       {
-        while (d.x < 0 || d.x > 1 || d.y < 0 || d.y > 1)
-        {
-          d = p0 + urand(0, 1) * r + urand(-1, 1) * sample_radius * n;
-          //printf("p0 = %f %f, p1 = %f %f,r = %f %f, n = %f %f, d = %f %f\n", p0.x, p0.y, p1.x, p1.x, r.x, r.y, n.x, n.y, d.x, d.y);
-        }
+        d = p0 + urand(0, 1) * r + urand(-1, 1) * sample_radius * n;
         sampling_pdf = stripe_area / border_spp;
       }
 
+      bool is_border_ray = false;
+
       float4 rayPosAndNear, rayDirAndFar;
-      kernel_InitEyeRay(tidX, d, &rayPosAndNear, &rayDirAndFar);
-
       RayDiffPayload payload;
-      CRT_HitDR hit = ((BVHDR *)m_pAccelStruct.get())->RayQuery_NearestHitWithGrad(border_ray_flags, rayPosAndNear, rayDirAndFar, &payload);
-
-      bool is_border_ray = payload.missed_hit.sdf < relax_eps;
-
-      if (is_border_ray)
+      CRT_HitDR hit;
+      
+      if (d.x > 0 && d.x < 1 && d.y > 0 && d.y < 1)
       {
-        border_points++;
+        kernel_InitEyeRay(tidX, d, &rayPosAndNear, &rayDirAndFar);
+        hit = ((BVHDR *)m_pAccelStruct.get())->RayQuery_NearestHitWithGrad(border_ray_flags, rayPosAndNear, rayDirAndFar, &payload);
 
-        float4 color_delta = float4(0,0,0,0);
-        if (m_preset_dr.dr_input_type == DR_INPUT_TYPE_COLOR)
+        is_border_ray = payload.missed_hit.sdf < relax_eps;
+        if (is_border_ray)
         {
-          float3 f_in = CalculateColor(payload.missed_hit);
-          float3 f_out = hit.primId == 0xFFFFFFFF ? background_color : CalculateColor(hit);
-          color_delta = to_float4(f_in - f_out, hit.primId == 0xFFFFFFFF ? 1.0f : 0.0f);
-        }
-        else if (m_preset_dr.dr_input_type == DR_INPUT_TYPE_LINEAR_DEPTH)
-        {
-          float d_in = payload.missed_hit.t;
-          float d_out = hit.primId == 0xFFFFFFFF ? background_depth : hit.t;
-          color_delta = float4(d_in - d_out, d_in - d_out, d_in - d_out, hit.primId == 0xFFFFFFFF ? 1.0f : 0.0f);
-        }
-
-        for (int j = 0; j < 8; j++)
-        {
-          float diff = m_preset_dr.border_integral_mult * sampling_pdf * dot(dLoss_dColor, (1.0f / relax_eps) * payload.missed_dSDF_dtheta[j] * color_delta);
-          out_dLoss_dS[payload.missed_indices[j]] += diff;
-
-          total_diff += abs(diff);
-          pixel_diff += length((1.0f / relax_eps) * payload.missed_dSDF_dtheta[j] * color_delta);
-          if (m_preset_dr.debug_pd_images)
-            m_imagesDebugPD[payload.missed_indices[j]].data()[y * m_width + x] += diff * float4(1, 1, 1, 0);
+          border_points++;
+          pixel_diff = CalculateBorderRayDerivatives(sampling_pdf, payload, hit, rayPosAndNear, rayDirAndFar, image_ref, out_image, out_dLoss_dS);
         }
       }
+      else
+      {
+        hit.primId = 0xFFFFFFFF;
+        d = float2(0,0);
+      }
+
+      total_diff += pixel_diff;
 
       if (m_preset_dr.debug_border_samples || m_preset_dr.debug_border_samples_mega_image)
       {
         samples_debug_pos_size[sample_id] = float4(d.x, d.y, 0, 1.0f / MEGA_PIXEL_SIZE);
         if (is_border_ray) //border
-          samples_debug_color[sample_id] = float4(0, 0, 0.1 * abs(pixel_diff), 1);
+          samples_debug_color[sample_id] = float4(0, 0, 1, 1);
         else if (hit.primId == 0xFFFFFFFF) // background
           samples_debug_color[sample_id] = float4(0.05, 0.05, 0.05, 1);
         else // hit
           samples_debug_color[sample_id] = float4(hit.t <= t_threshold ? 0 : 1, hit.t <= t_threshold ? 1 : 0, 0, 1);
       }
     }
+
+    border_rays_total += border_spp;
+    border_rays_hit   += border_points;
+
 
     //debug stuff
     if (m_preset_dr.debug_border_samples || m_preset_dr.debug_border_samples_mega_image)
@@ -1738,6 +1821,7 @@ namespace dr
       LiteImage::Image2D<float4> debug_image(wmult, hmult, float4(0,0,0,1));
       draw_points(samples_debug_pos_size, samples_debug_color, debug_image);
 
+      //printf("line = %f %f %f %f\n", p0.x, p0.y, p1.x, p1.y);
       draw_line(p0, p1, 1.0f/MEGA_PIXEL_SIZE, float4(1,1,1,1), debug_image);
       //if (tidX % 10 == 0)
         LiteImage::SaveImage(("saves/debug_border"+std::to_string(x)+"_"+std::to_string(y)+".png").c_str(), debug_image);
