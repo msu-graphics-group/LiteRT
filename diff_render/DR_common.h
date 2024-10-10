@@ -187,6 +187,7 @@ namespace dr
     
     bool debug_border_samples;
     bool debug_border_samples_mega_image;
+    bool debug_border_save_normals;
   };
 
   void randomize_color(SdfSBS &sbs);

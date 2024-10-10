@@ -422,6 +422,23 @@ void MultiRenderer::SetScene(const RawNURBS &nurbs)
   m_pAccelStruct->CommitScene();
 }
 
+void MultiRenderer::SetScene(GraphicsPrimView scene)
+{
+  BVHRT *bvhrt = dynamic_cast<BVHRT*>(m_pAccelStruct->UnderlyingImpl(0));
+  if (!bvhrt)
+  {
+    printf("only BVHRT supports Graphics primitives\n");
+    return;
+  }
+
+  SetPreset(m_preset);
+  m_pAccelStruct->ClearGeom();
+  auto geomId = bvhrt->AddGeom_GraphicsPrim(scene, m_pAccelStruct.get());
+  m_pAccelStruct->ClearScene();
+  AddInstance(geomId, LiteMath::float4x4());
+  m_pAccelStruct->CommitScene();
+}
+
 void MultiRenderer::SetPreset(const MultiRenderPreset& a_preset)
 {
   m_preset = a_preset;

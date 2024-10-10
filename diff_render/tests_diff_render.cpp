@@ -2626,6 +2626,130 @@ void diff_render_test_27_visualize_bricks()
   }
 }
 
+void diff_render_test_28_border_sampling_normals_vis()
+{
+  // srand(0);
+  unsigned W = 512, H = 512;
+
+  LiteImage::Image2D<float4> texture = LiteImage::LoadImage<float4>("scenes/porcelain.png");
+  auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "scenes/01_simple_scenes/data/bunny.vsgf").c_str());
+  cmesh4::rescale_mesh(mesh, float3(-0.95, -0.95, -0.95), float3(0.95, 0.95, 0.95));
+
+  MultiRenderPreset preset = getDefaultPreset();
+  preset.render_mode = MULTI_RENDER_MODE_MASK;
+  preset.spp = 4;
+
+  float4x4 base_proj = LiteMath::perspectiveMatrix(60, 1.0f, 0.01f, 100.0f);
+
+  std::vector<float4x4> view = get_cameras_uniform_sphere(1, float3(0, 0, 0), 3.0f);
+  std::vector<float4x4> proj(view.size(), base_proj);
+
+  LiteImage::Image2D<float4> image_ref(W, H);
+  LiteImage::Image2D<float4> image_res(W, H);
+  SdfSBS indexed_SBS;
+
+  {
+    auto pRender = CreateMultiRenderer("CPU");
+    pRender->SetPreset(preset);
+    pRender->SetViewport(0,0,W,H);
+
+    uint32_t texId = pRender->AddTexture(texture);
+    MultiRendererMaterial mat;
+    mat.type = MULTI_RENDER_MATERIAL_TYPE_TEXTURED;
+    mat.texId = texId;
+    uint32_t matId = pRender->AddMaterial(mat);
+    pRender->SetMaterial(matId, 0);  
+
+    pRender->SetScene(mesh);
+    pRender->RenderFloat(image_ref.data(), image_ref.width(), image_ref.height(), view[0], proj[0], preset);
+    LiteImage::SaveImage<float4>("saves/test_dr_27_ref.bmp", image_ref); 
+
+    SparseOctreeSettings settings(SparseOctreeBuildType::MESH_TLO, 2);
+
+    SdfSBSHeader header;
+    header.brick_size = 16;
+    header.brick_pad = 0;
+    header.bytes_per_value = 4;
+    
+    MeshBVH mesh_bvh;
+    mesh_bvh.init(mesh);
+
+    indexed_SBS = create_grid_sbs(1, 16, [&](float3 p) -> float { return mesh_bvh.get_signed_distance(p);},
+                                  single_color);
+  }
+
+  MultiRendererDRPreset dr_preset = getDefaultPresetDR();
+
+  dr_preset.dr_render_mode = DR_RENDER_MODE_MASK;
+  dr_preset.dr_diff_mode = DR_DIFF_MODE_DEFAULT;
+  dr_preset.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_GEOMETRY;
+  dr_preset.dr_input_type = DR_INPUT_TYPE_COLOR;
+  dr_preset.opt_iterations = 1;
+  dr_preset.opt_lr = 0.0f;
+  dr_preset.spp = 64;
+  dr_preset.debug_render_mode =  DR_DEBUG_RENDER_MODE_BORDER_INTEGRAL;
+  dr_preset.debug_print = true;
+  dr_preset.debug_progress_interval = 1;
+  dr_preset.render_height = 128;
+  dr_preset.render_width  = 128;
+
+  unsigned param_count = indexed_SBS.values_f.size() - 3 * 8 * indexed_SBS.nodes.size();
+  unsigned param_offset = 0;
+
+  std::vector<float> grad_ref(param_count, 0);
+  std::vector<float> grad_rnd(param_count, 0);
+  std::vector<float> grad_svm(param_count, 0);
+
+  LiteImage::Image2D<float4> image_norm(W, H);
+  GraphicsPrim normals;
+  normals.header.prim_type = GRAPH_PRIM_LINE_SEGMENT_DIR_COLOR;
+
+  preset.render_mode = MULTI_RENDER_MODE_LAMBERT;
+  preset.sdf_node_intersect = SDF_OCTREE_NODE_INTERSECT_ST;
+
+  unsigned samples = 50;
+  {
+    MultiRendererDR dr_render;
+    dr_preset.dr_border_sampling = DR_BORDER_SAMPLING_RANDOM;
+    dr_preset.debug_border_save_normals = true;
+    dr_preset.border_spp = samples;
+    dr_render.SetReference({image_ref}, view, proj);
+    dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS);
+    grad_svm = std::vector<float>(dr_render.getLastdLoss_dS() + param_offset, 
+                                  dr_render.getLastdLoss_dS() + param_offset + param_count);
+    BVHDR* bvh_dr = static_cast<BVHDR*>(dr_render.GetAccelStruct().get());
+    normals.points = bvh_dr->m_GraphicsPrimPoints;
+  }
+  printf("Normals count: %d\n", (int)normals.points.size());
+  {
+    auto pRender = CreateMultiRenderer("GPU");
+    pRender->SetPreset(preset);
+    pRender->GetAccelStruct()->ClearGeom();
+    pRender->GetAccelStruct()->ClearScene();
+    BVHRT *bvhrt = dynamic_cast<BVHRT*>(pRender->GetAccelStruct()->UnderlyingImpl(0));
+
+    unsigned norm_geomId = bvhrt->AddGeom_GraphicsPrim(normals, pRender->GetAccelStruct().get());
+    //unsigned sdf_geomId = bvhrt->AddGeom_SdfSBS(indexed_SBS, pRender->GetAccelStruct().get(), true);
+
+    unsigned model_geomId = pRender->GetAccelStruct()->AddGeom_Triangles3f(
+                           (const float*)mesh.vPos4f.data(), mesh.vPos4f.size(), 
+                            mesh.indices.data(), mesh.indices.size(), BUILD_HIGH, sizeof(float)*4);                                                          
+    pRender->add_mesh_internal(mesh, model_geomId);
+    
+
+    pRender->AddInstance(norm_geomId, LiteMath::float4x4());
+    pRender->AddInstance(model_geomId, LiteMath::float4x4());
+
+    pRender->GetAccelStruct()->CommitScene();
+
+    pRender->RenderFloat(image_norm.data(), image_norm.width(), image_norm.height(), view[0], proj[0], preset, 1);
+    std::string norm_img_name = "saves/test_dr_28_normals_";
+    norm_img_name += std::to_string(0) + ".bmp";
+    LiteImage::SaveImage<float4>(norm_img_name.c_str(), image_norm);
+  }
+  printf("DONE\n");
+}
+
 void perform_tests_diff_render(const std::vector<int> &test_ids)
 {
   std::vector<int> tests = test_ids;
@@ -2639,7 +2763,7 @@ void perform_tests_diff_render(const std::vector<int> &test_ids)
       diff_render_test_16_borders_detection, diff_render_test_17_optimize_bunny, diff_render_test_18_sphere_depth,
       diff_render_test_19_expanding_grid, diff_render_test_20_sphere_depth_with_redist, diff_render_test_21_optimization_stand,
       diff_render_test_22_border_sampling_accuracy_mask, diff_render_test_23_ray_casting_mask, diff_render_test_24_optimization_with_tricubic, 
-      diff_render_test_25_tricubic_enzyme_derrivative, diff_render_test_26_sbs_tricubic, diff_render_test_27_visualize_bricks};
+      diff_render_test_25_tricubic_enzyme_derrivative, diff_render_test_26_sbs_tricubic, diff_render_test_27_visualize_bricks, diff_render_test_28_border_sampling_normals_vis};
 
   if (tests.empty())
   {

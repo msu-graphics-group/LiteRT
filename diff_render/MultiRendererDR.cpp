@@ -563,7 +563,8 @@ namespace dr
   {
     bool use_multithreading = !(m_preset_dr.debug_border_samples || 
                                 m_preset_dr.debug_pd_images ||
-                                m_preset_dr.debug_border_samples_mega_image);
+                                m_preset_dr.debug_border_samples_mega_image ||
+                                m_preset_dr.debug_border_save_normals);
 
     unsigned max_threads = use_multithreading ? omp_get_max_threads() : 1;
     unsigned steps = (m_width * m_height + max_threads - 1)/max_threads;
@@ -1355,8 +1356,15 @@ namespace dr
         pixel_diff = CalculateBorderRayDerivatives(1.0f/border_spp, payload, hit, rayPosAndNear, rayDirAndFar, image_ref, out_image, out_dLoss_dS);
       }
       total_diff += pixel_diff;
-
-
+      
+      if (m_preset_dr.debug_border_save_normals && is_border_ray)
+      {
+        BVHDR* bvh_as = static_cast<BVHDR*>(m_pAccelStruct.get());
+        float3 intersect_pos = to_float3(rayPosAndNear + payload.missed_hit.t * rayDirAndFar);
+        bvh_as->m_GraphicsPrimPoints.push_back(float4(intersect_pos.x, intersect_pos.y, intersect_pos.z, 0.005f));
+        bvh_as->m_GraphicsPrimPoints.push_back(to_float4(intersect_pos + normalize(payload.missed_hit.normal) * 0.1f, 0.f));
+        bvh_as->m_GraphicsPrimPoints.push_back(float4(255.f, 0.f, 0.f, 0.f));
+      }
       if (m_preset_dr.debug_border_samples || m_preset_dr.debug_border_samples_mega_image)
       {
         samples_debug_pos_size[sample_id] = float4(d.x, d.y, 0, 1.0f/MEGA_PIXEL_SIZE);
@@ -1783,6 +1791,15 @@ namespace dr
           border_points++;
           pixel_diff = CalculateBorderRayDerivatives(sampling_pdf, payload, hit, rayPosAndNear, rayDirAndFar, image_ref, out_image, out_dLoss_dS);
         }
+
+        if (m_preset_dr.debug_border_save_normals && is_border_ray)
+        {
+          BVHDR* bvh_as = static_cast<BVHDR*>(m_pAccelStruct.get());
+          float3 intersect_pos = to_float3(rayPosAndNear + payload.missed_hit.t * rayDirAndFar);
+          bvh_as->m_GraphicsPrimPoints.push_back(float4(intersect_pos.x, intersect_pos.y, intersect_pos.z, 0.005f));
+          bvh_as->m_GraphicsPrimPoints.push_back(to_float4(intersect_pos + normalize(payload.missed_hit.normal) * 0.1f, 0.f));
+          bvh_as->m_GraphicsPrimPoints.push_back(float4(255.f, 0.f, 0.f, 0.f));
+        }
       }
       else
       {
@@ -1858,7 +1875,8 @@ namespace dr
 
     bool use_multithreading = !(m_preset_dr.debug_border_samples || 
                                 m_preset_dr.debug_pd_images ||
-                                m_preset_dr.debug_border_samples_mega_image);
+                                m_preset_dr.debug_border_samples_mega_image||
+                                m_preset_dr.debug_border_save_normals);
 
     unsigned max_threads = use_multithreading ? omp_get_max_threads() : 1;
     unsigned steps = (node_count + max_threads - 1)/max_threads;

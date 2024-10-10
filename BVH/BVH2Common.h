@@ -29,6 +29,7 @@ using LiteMath::Box4f;
 #include "../raytrace_common.h"
 #include "cbvh.h"
 #include "nurbs/nurbs_common.h"
+#include "graphics_primitive/graphics_primitive_common.h"
 
 float3 tricubicInterpolationDerrivative(const float *m_SdfGridData, const uint vox_u[3], const float dp[3], const uint32_t off, const uint size[3]);
 float tricubicInterpolation(const float *m_SdfGridData, const uint vox_u[3], const float dp[3], const uint32_t off, const uint size[3]);
@@ -55,6 +56,7 @@ struct AbstractObject
   static constexpr uint32_t TAG_GS         = 6;
   static constexpr uint32_t TAG_SDF_ADAPT_BRICK  = 7;
   static constexpr uint32_t TAG_NURBS      = 8; 
+  static constexpr uint32_t TAG_GRAPHICS_PRIM = 9;
 
   AbstractObject(){}  // Dispatching on GPU hierarchy must not have destructors, especially virtual   
   virtual uint32_t GetTag()   const  { return TAG_NONE; }; // !!! #REQUIRED by kernel slicer
@@ -121,6 +123,7 @@ struct BVHRT : public ISceneObject
   uint32_t AddGeom_SdfSBSAdapt(SdfSBSAdaptView octree, ISceneObject *fake_this, bool single_bvh_node = false, BuildOptions a_qualityLevel = BUILD_HIGH);
   uint32_t AddGeom_SdfFrameOctreeTex(SdfFrameOctreeTexView octree, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
   uint32_t AddGeom_NURBS(const RawNURBS &nurbs, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
+  uint32_t AddGeom_GraphicsPrim(const GraphicsPrimView &nurbs, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
 
   void set_debug_mode(bool enable);
 #endif
@@ -188,6 +191,10 @@ struct BVHRT : public ISceneObject
   void IntersectNURBS(const float3& ray_pos, const float3& ray_dir,
                       float tNear, uint32_t instId,
                       uint32_t geomId, CRT_Hit* pHit);
+
+  void IntersectGraphicPrims(const float3& ray_pos, const float3& ray_dir,
+                             float tNear, uint32_t instId,
+                             uint32_t geomId, uint32_t a_start, uint32_t a_count, CRT_Hit* pHit);
 
   void RayGridIntersection(float3 ray_dir, uint gridSize, float3 p, float3 lastP, uint4 ptrs, uint4 ptrs2, float &throughput, float3 &colour);
   void lerpCell(const uint idx0, const uint idx1, const float t, float memory[28]);
@@ -344,6 +351,13 @@ struct BVHRT : public ISceneObject
   //NURBS data
   std::vector<float> m_NURBSData;
   std::vector<NURBSHeader> m_NURBSHeaders;
+
+  // Graphic primitives data
+#ifndef DISABLE_GRAPHICS_PRIM
+  std::vector<float4> m_GraphicsPrimPoints;
+  std::vector<uint32_t> m_GraphicsPrimRoots;
+  std::vector<GraphicsPrimHeader> m_GraphicsPrimHeaders;
+#endif
 
   //meshes data
   std::vector<float4>   m_vertPos;
@@ -582,5 +596,27 @@ struct GeomDataNURBS : public AbstractObject
 
     bvhrt->IntersectNURBS(ray_pos, ray_dir, tNear, info.instId, geometryId, pHit);
     return pHit->primId == 0xFFFFFFFF ? TAG_NONE : TAG_GS;
+  }
+};
+
+struct GeomDataGraphicsPrim : public AbstractObject
+{
+  GeomDataGraphicsPrim() {m_tag = GetTag();} 
+
+  uint32_t GetTag() const override { return TAG_GRAPHICS_PRIM; }  
+  uint32_t Intersect(float4 rayPosAndNear, float4 rayDirAndFar, CRT_LeafInfo info, 
+                     CRT_Hit* pHit, BVHRT* bvhrt)   const override
+  {
+    float3 ray_pos = to_float3(rayPosAndNear);
+    float3 ray_dir = to_float3(rayDirAndFar);
+    float tNear    = rayPosAndNear.w;
+    uint32_t geometryId = geomId;
+    uint32_t globalAABBId = bvhrt->startEnd[geometryId].x + info.aabbId;
+    uint32_t start_count_packed = bvhrt->m_primIdCount[globalAABBId];
+    uint32_t a_start = EXTRACT_START(start_count_packed);
+    uint32_t a_count = EXTRACT_COUNT(start_count_packed);
+
+    bvhrt->IntersectGraphicPrims(ray_pos, ray_dir, tNear, info.instId, geometryId, a_start, a_count, pHit);
+    return pHit->primId == 0xFFFFFFFF ? TAG_NONE : TAG_GRAPHICS_PRIM;
   }
 };

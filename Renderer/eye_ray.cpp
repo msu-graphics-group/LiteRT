@@ -348,7 +348,7 @@ float4 MultiRenderer::kernel_RayTrace(uint32_t tidX, const float4* rayPosAndNear
     float3 color = float3(0,0,1);
     if (m_preset.render_mode == MULTI_RENDER_MODE_LAMBERT_NO_TEX)
       color = float3(1,1,1);
-    else if (type == TYPE_SDF_SBS_COL || type == TYPE_SDF_SBS_ADAPT_COL)
+    else if (type == TYPE_SDF_SBS_COL || type == TYPE_SDF_SBS_ADAPT_COL || type == TYPE_GRAPHICS_PRIM)
     {
       color.x = std::round(hit.coords[0])/255.0f;
       color.y = fract(hit.coords[0]);

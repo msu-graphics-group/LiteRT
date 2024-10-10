@@ -1414,6 +1414,187 @@ void BVHRT::IntersectNURBS(const float3& ray_pos, const float3& ray_dir,
 #endif  
 }
 
+void BVHRT::IntersectGraphicPrims(const float3& ray_pos, const float3& ray_dir,
+                                  float tNear, uint32_t instId,
+                                  uint32_t geomId, uint32_t a_start,
+                                  uint32_t a_count, CRT_Hit* pHit)
+{
+#ifndef DISABLE_GRAPHICS_PRIM
+
+  const float EPS = 1e-5f, T_MAX = 1e15f;
+  uint32_t primId     = m_geomData[geomId].offset.x;
+  uint32_t nextPrimId = m_geomData[geomId].offset.y;
+  GraphicsPrimHeader header = m_GraphicsPrimHeaders[primId];
+  float3 color = header.color;
+
+  bool has_custom_color = header.prim_type >= GRAPH_PRIM_POINT_COLOR;
+
+  if (header.prim_type == GRAPH_PRIM_POINT ||
+      header.prim_type == GRAPH_PRIM_POINT_COLOR)
+  {
+    for (uint32_t i = primId; i < nextPrimId; i += 1 + has_custom_color)
+    {
+      float4 point = m_GraphicsPrimPoints[i];
+      if (has_custom_color)
+        color = to_float3(m_GraphicsPrimPoints[i+1]);
+
+      float3 point3 = float3(point.x, point.y, point.z);
+      float pt_radius = point.w;
+      float3 pos_minus_point3 = ray_pos - point3;
+
+      float b = 2.f * dot(ray_dir, pos_minus_point3);
+      float c = dot(pos_minus_point3, pos_minus_point3) - pt_radius * pt_radius;
+      float D = b*b - 4*c;
+      if (D >= EPS)
+      {
+        D = std::sqrt(D);
+        float t = -(b + D) * 0.5f;
+        if (t < EPS)
+          t = (-b + D) * 0.5f;
+
+        if (t > tNear && t < pHit->t)
+        {
+          float3 norm = normalize((ray_pos + t*ray_dir - point3) * 100.f);
+          float2 encoded_norm = encode_normal(norm);
+
+          pHit->t         = t;
+          pHit->primId    = primId;
+          pHit->instId    = instId;
+          pHit->geomId    = geomId | (TYPE_GRAPHICS_PRIM << SH_TYPE);
+          pHit->coords[0] = color.x + color.y/256.0f;
+          pHit->coords[1] = color.z;
+          pHit->coords[2] = encoded_norm.x;
+          pHit->coords[3] = encoded_norm.y;
+        }
+      }
+    }
+  }
+  else
+  {
+    for (uint32_t i = primId; i < nextPrimId; i += 2 + has_custom_color)
+    {
+      float4 point1 = m_GraphicsPrimPoints[i  ];
+      float4 point2 = m_GraphicsPrimPoints[i+1];
+      if (has_custom_color)
+        color = to_float3(m_GraphicsPrimPoints[i+2]);
+
+      float3 point1_3 = float3(point1.x, point1.y, point1.z);
+      float3 point2_3 = float3(point2.x, point2.y, point2.z);
+      if (header.prim_type == GRAPH_PRIM_LINE_SEGMENT_DIR)
+        point2_3 = point2_3 * 0.8f + point1_3 * 0.2f; // so that the line segment doesn't clip through the cone
+      float ra = point1.w; // line (cylinder) radius
+
+      //assert(ra > EPS);
+
+      float t = T_MAX;
+      float3 norm = float3(0.f, 0.f, 0.f);
+
+      if (header.prim_type == GRAPH_PRIM_LINE ||
+          header.prim_type == GRAPH_PRIM_LINE_SEGMENT ||
+          header.prim_type == GRAPH_PRIM_LINE_SEGMENT_DIR ||
+          header.prim_type == GRAPH_PRIM_LINE_COLOR ||
+          header.prim_type == GRAPH_PRIM_LINE_SEGMENT_COLOR ||
+          header.prim_type == GRAPH_PRIM_LINE_SEGMENT_DIR_COLOR)
+      {
+        float3 oc =  ray_pos - point1_3;
+        float3 ba = point2_3 - point1_3;
+
+        float baba = dot(ba, ba);
+        float bard = dot(ba, ray_dir);
+        float baoc = dot(ba, oc);
+
+        float k2 = baba - (bard * bard);
+        float k1 = baba*dot(oc, ray_dir) - baoc*bard;
+        float k0 = baba*dot(oc, oc) - baoc*baoc - ra*ra*baba;
+
+        float D = k1*k1 - k2*k0;
+
+        if (D > 0.f)
+        {
+          float dist = -(k1 + std::sqrt(D)) / k2;
+          float y = baoc + dist*bard;
+
+          if (header.prim_type == GRAPH_PRIM_LINE || (y > 0.f && y < baba))
+          {
+            t = dist;
+            norm = normalize(oc+t*ray_dir - ba*y/baba);
+          }
+          else
+          {
+            dist = ((y < 0.f ? 0.f : baba) - baoc)/bard;
+            if (std::abs(k1+k2*dist)<std::sqrt(D))
+            {
+              t = dist;
+              norm = normalize(ba*sign(y));
+            }
+          }
+        }
+      }
+      if (header.prim_type == GRAPH_PRIM_LINE_SEGMENT_DIR ||
+          header.prim_type == GRAPH_PRIM_LINE_SEGMENT_DIR_COLOR)
+      {
+        ra = length(point2_3 - point1_3) * 0.15f;
+        point2_3 = float3(point2.x, point2.y, point2.z);
+        float3 pa = point2_3 * 0.7f + point1_3 * 0.3f; // cone length along line segment is 0.3*length(b - a) for now
+        float3 ba = point2_3 - pa;
+        float3 oa = ray_pos - pa;
+        float3 ob = ray_pos - point2_3;
+        float  m0 = dot(ba,ba);
+        float  m1 = dot(oa,ba);
+        float  m2 = dot(ray_dir,ba);
+        float  m3 = dot(ray_dir,oa);
+        float  m5 = dot(oa,oa);
+        float  m9 = dot(ob,ba);
+
+        // cap - only one
+        if(m1 < 0.f)
+        {
+          float3 tmp1 = oa * m2 - ray_dir * m1;
+          if(dot(tmp1, tmp1) < (ra*ra*m2*m2))
+          {
+            t = -m1/m2;
+            norm = normalize(-1.0f*ba);
+          }
+        }
+        
+        // body
+        float rr = ra;
+        float hy = m0 + rr*rr;
+        float k2 = m0*m0    - m2*m2*hy;
+        float k1 = m0*m0*m3 - m1*m2*hy + m0*ra*(rr*m2);
+        float k0 = m0*m0*m5 - m1*m1*hy + m0*ra*(rr*m1*2.0 - m0*ra);
+
+        float D = k1*k1 - k2*k0;
+        if(D > 0.f)
+        {
+          float dist = -(k1 + std::sqrt(D)) / k2;
+          float y = m1 + dist * m2;
+          if(y >= 0.f && y <= m0)
+          {
+            t = dist;
+            norm = normalize(m0*(m0*(oa+t*ray_dir)+rr*ba*ra)-ba*hy*y);
+          }
+        }
+      }
+
+      if (t > tNear && t < pHit->t)
+      {
+        float2 encoded_norm = encode_normal(norm);
+
+        pHit->t         = t;
+        pHit->primId    = primId;
+        pHit->instId    = instId;
+        pHit->geomId    = geomId | (TYPE_GRAPHICS_PRIM << SH_TYPE);
+        pHit->coords[0] = color.x + color.y/256.0f;
+        pHit->coords[1] = color.z;
+        pHit->coords[2] = encoded_norm.x;
+        pHit->coords[3] = encoded_norm.y;
+      }
+    }
+  }
+#endif // DISABLE_GRAPHICS_PRIM
+}
+
 SdfHit BVHRT::sdf_sphere_tracing(uint32_t type, uint32_t sdf_id, const float3 &min_pos, const float3 &max_pos,
                                  float tNear, const float3 &pos, const float3 &dir, bool need_norm)
 {
