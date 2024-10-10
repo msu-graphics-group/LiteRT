@@ -60,7 +60,7 @@ struct AbstractObject
 
   AbstractObject(){}  // Dispatching on GPU hierarchy must not have destructors, especially virtual   
   virtual uint32_t GetTag()   const  { return TAG_NONE; }; // !!! #REQUIRED by kernel slicer
-  virtual uint32_t Intersect(float4 rayPosAndNear, float4 rayDirAndFar, CRT_LeafInfo info, CRT_Hit* pHit, BVHRT* pData)   const  { printf("FUCK!\n"); return 0; }; // !!! #REQUIRED by kernel slicer
+  virtual uint32_t Intersect(float4 rayPosAndNear, float4 rayDirAndFar, CRT_LeafInfo info, CRT_Hit* pHit, BVHRT* pData)   const  { return 0; }; // !!! #REQUIRED by kernel slicer
   //uint64_t vtable is here!
   uint32_t m_tag;  // !!! #REQUIRED by kernel slicer with this specific name!
   uint32_t geomId; //geometry Id (index in the list of all objects on scene, regardless of the type)

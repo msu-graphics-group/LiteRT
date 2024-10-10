@@ -2707,10 +2707,10 @@ void diff_render_test_28_border_sampling_normals_vis()
   preset.render_mode = MULTI_RENDER_MODE_LAMBERT;
   preset.sdf_node_intersect = SDF_OCTREE_NODE_INTERSECT_ST;
 
-  unsigned samples = 100;
+  unsigned samples = 10;
   {
     MultiRendererDR dr_render;
-    dr_preset.dr_border_sampling = DR_BORDER_SAMPLING_SVM;
+    dr_preset.dr_border_sampling = DR_BORDER_SAMPLING_RANDOM;
     dr_preset.debug_border_save_normals = true;
     dr_preset.border_spp = samples;
     dr_render.SetReference({image_ref}, view, proj);
@@ -2720,7 +2720,7 @@ void diff_render_test_28_border_sampling_normals_vis()
     BVHDR* bvh_dr = static_cast<BVHDR*>(dr_render.GetAccelStruct().get());
     normals.points = bvh_dr->m_GraphicsPrimPoints;
   }
-  printf("Normals count: %lld\n", normals.points.size());
+  printf("Normals count: %d\n", (int)normals.points.size());
   {
     auto pRender = CreateMultiRenderer("CPU");
     pRender->SetPreset(preset);
