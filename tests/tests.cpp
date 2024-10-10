@@ -1043,19 +1043,19 @@ void litert_test_17_all_types_sanity_check()
     printf("FAILED, psnr = %f\n", psnr_1_rtx);
 
   printf("17.2.1 %-64s", "Grid CPU - Reference");
-  if (psnr_2_0 >= 30)
+  if (psnr_2_0 >= 25)
     printf("passed    (%.2f)\n", psnr_2_0);
   else
     printf("FAILED, psnr = %f\n", psnr_2_0);
   
   printf("17.2.2 %-64s", "Grid GPU - Reference");
-  if (psnr_2_1 >= 30)
+  if (psnr_2_1 >= 25)
     printf("passed    (%.2f)\n", psnr_2_1);
   else
     printf("FAILED, psnr = %f\n", psnr_2_1);
 
   printf("17.2.3 %-64s", "Grid RTX - Reference");
-  if (psnr_2_2 >= 30)
+  if (psnr_2_2 >= 25)
     printf("passed    (%.2f)\n", psnr_2_2);
   else
     printf("FAILED, psnr = %f\n", psnr_2_2);

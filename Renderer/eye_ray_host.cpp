@@ -38,6 +38,8 @@ MultiRenderer::MultiRenderer(uint32_t maxPrimitives)
   m_matIdbyPrimId.push_back(DEFAULT_MATERIAL);
 
   m_seed = rand();
+
+  m_lights = {create_direct_light(float3(1,1,1), float3(1,1,1)), create_ambient_light(float3(0.25, 0.25, 0.25))};
 }
 
 void MultiRenderer::SetViewport(int a_xStart, int a_yStart, int a_width, int a_height)
@@ -534,6 +536,11 @@ void MultiRenderer::SetMaterial(uint32_t matId, uint32_t geomId)
   if (geomId >= m_matIdOffsets.size())
     m_matIdOffsets.resize(geomId + 1, uint2(0,1));
   m_matIdOffsets[geomId] = uint2(m_matIdbyPrimId.size()-1, 1);
+}
+
+void MultiRenderer::SetLights(const std::vector<Light>& lights)
+{
+  m_lights = lights;
 }
 
 uint32_t MultiRenderer::AddInstance(uint32_t a_geomId, const LiteMath::float4x4& a_matrix)
