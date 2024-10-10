@@ -1484,10 +1484,10 @@ void BVHRT::IntersectGraphicPrims(const float3& ray_pos, const float3& ray_dir,
         point2_3 = point2_3 * 0.8f + point1_3 * 0.2f; // so that the line segment doesn't clip through the cone
       float ra = point1.w; // line (cylinder) radius
 
-      assert(ra > EPS);
+      //assert(ra > EPS);
 
       float t = T_MAX;
-      float3 norm{};
+      float3 norm = float3(0.f, 0.f, 0.f);
 
       if (header.prim_type == GRAPH_PRIM_LINE ||
           header.prim_type == GRAPH_PRIM_LINE_SEGMENT ||

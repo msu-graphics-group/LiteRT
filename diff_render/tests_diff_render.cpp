@@ -2707,7 +2707,7 @@ void diff_render_test_28_border_sampling_normals_vis()
   preset.render_mode = MULTI_RENDER_MODE_LAMBERT;
   preset.sdf_node_intersect = SDF_OCTREE_NODE_INTERSECT_ST;
 
-  unsigned samples = 10;
+  unsigned samples = 50;
   {
     MultiRendererDR dr_render;
     dr_preset.dr_border_sampling = DR_BORDER_SAMPLING_RANDOM;
@@ -2722,7 +2722,7 @@ void diff_render_test_28_border_sampling_normals_vis()
   }
   printf("Normals count: %d\n", (int)normals.points.size());
   {
-    auto pRender = CreateMultiRenderer("CPU");
+    auto pRender = CreateMultiRenderer("GPU");
     pRender->SetPreset(preset);
     pRender->GetAccelStruct()->ClearGeom();
     pRender->GetAccelStruct()->ClearScene();
