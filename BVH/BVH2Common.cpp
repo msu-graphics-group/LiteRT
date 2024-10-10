@@ -694,7 +694,7 @@ float BVHRT::load_distance_values(uint32_t nodeId, float3 voxelPos, uint32_t v_s
     for (int i = 0; i < 8; i++)
     {
       uint3 vPos = uint3(voxelPos) + uint3((i & 4) >> 2, (i & 2) >> 1, i & 1);
-      uint32_t vId = vPos.x * v_size * v_size + vPos.y * v_size + vPos.z;
+      uint32_t vId = SBS_v_to_i(vPos.x, vPos.y, vPos.z, v_size, header.brick_pad);
       values[i] = m_SdfSBSDataF[m_SdfSBSData[v_off + vId]];
       // printf("%f\n", values[i]);
       vmin = std::min(vmin, values[i]);
@@ -711,7 +711,7 @@ float BVHRT::load_distance_values(uint32_t nodeId, float3 voxelPos, uint32_t v_s
     for (int i = 0; i < 8; i++)
     {
       uint3 vPos = uint3(voxelPos) + uint3((i & 4) >> 2, (i & 2) >> 1, i & 1);
-      uint32_t vId = vPos.x * v_size * v_size + vPos.y * v_size + vPos.z;
+      uint32_t vId = SBS_v_to_i(vPos.x, vPos.y, vPos.z, v_size, header.brick_pad);
       values[i] = -d_max + mult * ((m_SdfSBSData[v_off + vId / vals_per_int] >> (bits * (vId % vals_per_int))) & max_val);
       vmin = std::min(vmin, values[i]);
     }

@@ -828,7 +828,7 @@ void frame_octree_to_SBS_rec(std::function<SparseOctreeBuilder::T(const float3 &
         {
           float3 p = p0 + dp*float3(i,j,k);
           float val = sdf(p);
-          values[i*v_size*v_size + j*v_size + k] = val;
+          values[SBS_v_to_i(i,j,k,v_size,header.brick_pad)] = val;
         }
       }      
     }
