@@ -88,4 +88,6 @@ namespace sdf_converter
   SdfSBS create_sdf_SBS_indexed_with_neighbors(SparseOctreeSettings settings, SdfSBSHeader header, const cmesh4::SimpleMesh &mesh, unsigned mat_id,
                                                const std::vector<MultiRendererMaterial> &materials_lib, 
                                                const std::vector<std::shared_ptr<ICombinedImageSampler>> &textures_lib);
+
+  SdfSBSAdapt greed_sbs_adapt(MultithreadedDistanceFunction sdf, uint8_t depth);
 }
