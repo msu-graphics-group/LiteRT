@@ -247,6 +247,7 @@ struct BVHRT : public ISceneObject
   virtual bool need_normal();
   virtual float2 encode_normal(float3 n);
   float load_distance_values(uint32_t nodeId, float3 voxelPos, uint32_t v_size, float sz_inv, const SdfSBSHeader &header, float values[8]);
+  float tricubicInterpolation(const uint32_t vox_u[3], const float dp[3], const uint32_t off, const uint32_t size[3]);
 
 #ifndef DISABLE_SDF_OCTREE
   virtual float sdf_octree_sample_mipskip_3x3(unsigned octree_id, float3 p, unsigned max_level);

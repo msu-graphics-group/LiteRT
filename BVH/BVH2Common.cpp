@@ -1129,7 +1129,7 @@ void lerpCellf(const float v0[28], const float v1[28], const float t, float memo
     memory[i] = LiteMath::lerp(v0[i], v1[i], t);
 }
 
-void BVHRT::lerpCell(const uint idx0, const uint idx1, const float t, float memory[28]) {
+void BVHRT::lerpCell(const uint32_t idx0, const uint32_t idx1, const float t, float memory[28]) {
   for (int i = 0; i < 28; i++)
     memory[i] = LiteMath::lerp(m_RFGridData[28 * idx0 + i], m_RFGridData[28 * idx1 + i], t);
 }
@@ -1176,7 +1176,7 @@ static float sigmoid(float x) {
   return 1 / (1 + exp(-x));
 }
 
-void BVHRT::RayGridIntersection(float3 ray_dir, uint gridSize, float3 p, float3 lastP, uint4 ptrs, uint4 ptrs2, float &throughput, float3 &colour)
+void BVHRT::RayGridIntersection(float3 ray_dir, uint32_t gridSize, float3 p, float3 lastP, uint4 ptrs, uint4 ptrs2, float &throughput, float3 &colour)
 {
   float3 coords = p * (float)(gridSize);
 
@@ -1504,11 +1504,11 @@ float BVHRT::eval_distance_sdf_grid(uint32_t grid_id, float3 pos)
   {
     if (vox_u.x < size.x-1 && vox_u.y < size.y-1 && vox_u.z < size.z-1)
     {
-      for (int i=0;i<2;i++)
+      for (uint32_t i=0;i<2;i++)
       {
-        for (int j=0;j<2;j++)
+        for (uint32_t j=0;j<2;j++)
         {
-          for (int k=0;k<2;k++)
+          for (uint32_t k=0;k<2;k++)
           {
             float qx = (1 - dp.x + i*(2*dp.x-1));
             float qy = (1 - dp.y + j*(2*dp.y-1));
@@ -1527,17 +1527,17 @@ float BVHRT::eval_distance_sdf_grid(uint32_t grid_id, float3 pos)
   {
     if (vox_u.x < size.x-2 && vox_u.y < size.y-2 && vox_u.z < size.z-2 && vox_u.x > 0 && vox_u.y > 0 && vox_u.z > 0)
     {
-      uint v_u[3] = {vox_u.x, vox_u.y, vox_u.z}, s_u[3] = {size.x, size.y, size.z};
+      uint32_t v_u[3] = {vox_u.x, vox_u.y, vox_u.z}, s_u[3] = {size.x, size.y, size.z};
       float f_dp[3] = {dp.x, dp.y, dp.z};
-      res = tricubicInterpolation(m_SdfGridData.data(), v_u, f_dp, off, s_u);
+      res = tricubicInterpolation(v_u, f_dp, off, s_u);
     }
     else if (vox_u.x < size.x-1 && vox_u.y < size.y-1 && vox_u.z < size.z-1)
     {
-      for (int i=0;i<2;i++)
+      for (uint32_t i=0;i<2;i++)
       {
-        for (int j=0;j<2;j++)
+        for (uint32_t j=0;j<2;j++)
         {
-          for (int k=0;k<2;k++)
+          for (uint32_t k=0;k<2;k++)
           {
             float qx = (1 - dp.x + i*(2*dp.x-1));
             float qy = (1 - dp.y + j*(2*dp.y-1));
@@ -1582,24 +1582,25 @@ float BVHRT::eval_distance_sdf_octree(uint32_t octree_id, float3 position, uint3
   }
 }
 
-float
-tricubicInterpolation(const float *m_SdfGridData, const uint vox_u[3], const float dp[3], const uint32_t off, const uint size[3])
+float tricubic_spline(float p0, float p1, float p2, float p3, float x)
+{
+  return p1 + 0.5 * x * (p2 - p0 + x * (2.0 * p0 - 5.0 * p1 + 4.0 * p2 - p3 + x * (3.0 * (p1 - p2) + p3 - p0)));
+}
+
+float BVHRT::tricubicInterpolation(const uint32_t vox_u[3], const float dp[3], const uint32_t off, const uint32_t size[3])
 {
   float res = 0;
-  int x0 = vox_u[0] - 1, y0 = vox_u[1] - 1, z0 = vox_u[2] - 1;
-  auto spline = [&](const float &p0, const float &p1, const float &p2, const float &p3, const float &x)
-  {
-    return p1 + 0.5 * x * (p2 - p0 + x * (2.0 * p0 - 5.0 * p1 + 4.0 * p2 - p3 + x * (3.0 * (p1 - p2) + p3 - p0)));
-  };
+  uint32_t x0 = vox_u[0] - 1, y0 = vox_u[1] - 1, z0 = vox_u[2] - 1;
 
-  float values_yz[4][4] = {0}, values_z[4] = {0};
+  float values_yz[16];
+  float values_z[4];
 
-  for (int j = 0; j < 4; ++j)
+  for (uint32_t j = 0; j < 4; ++j)
   {
-    for (int k = 0; k < 4; ++k)
+    for (uint32_t k = 0; k < 4; ++k)
     {
       //m_SdfGridData[off + (vox_u.z)*size.x*size.y + (vox_u.y)*size.x + (vox_u.x)]
-      values_yz[j][k] = spline(m_SdfGridData[off + (z0 + k)*size[0]*size[1] + (y0 + j)*size[0] + (x0 + 0)],
+      values_yz[4*j + k] = tricubic_spline(m_SdfGridData[off + (z0 + k)*size[0]*size[1] + (y0 + j)*size[0] + (x0 + 0)],
                                 m_SdfGridData[off + (z0 + k)*size[0]*size[1] + (y0 + j)*size[0] + (x0 + 1)],
                                 m_SdfGridData[off + (z0 + k)*size[0]*size[1] + (y0 + j)*size[0] + (x0 + 2)],
                                 m_SdfGridData[off + (z0 + k)*size[0]*size[1] + (y0 + j)*size[0] + (x0 + 3)], 
@@ -1608,17 +1609,17 @@ tricubicInterpolation(const float *m_SdfGridData, const uint vox_u[3], const flo
     }
   }
 
-  for (int k = 0; k < 4; ++k)
+  for (uint32_t k = 0; k < 4; ++k)
   {
-    values_z[k] = spline(values_yz[0][k], 
-                          values_yz[1][k], 
-                          values_yz[2][k], 
-                          values_yz[3][k], 
+    values_z[k] = tricubic_spline(values_yz[4*0 + k], 
+                          values_yz[4*1 + k], 
+                          values_yz[4*2 + k], 
+                          values_yz[4*3 + k], 
                           dp[1]
     );
   }
 
-  res = spline(values_z[0], values_z[1], values_z[2], values_z[3], dp[2]);
+  res = tricubic_spline(values_z[0], values_z[1], values_z[2], values_z[3], dp[2]);
   return res;
 }
 
@@ -1631,7 +1632,7 @@ int enzyme_const;
 #endif
 
 float3 
-tricubicInterpolationDerrivative(const float *m_SdfGridData, const uint vox_u[3], const float dp[3], const uint32_t off, const uint size[3])
+tricubicInterpolationDerrivative(const float *m_SdfGridData, const uint32_t vox_u[3], const float dp[3], const uint32_t off, const uint32_t size[3])
 {
   float d_pos[3] = {0};
   float3 d_dist(0, 0, 0);

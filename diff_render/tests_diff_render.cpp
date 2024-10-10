@@ -2544,12 +2544,15 @@ diff_render_test_25_tricubic_enzyme_derrivative()
     0.4, 0.5, 0.6, 0.7, 0.5, 0.6, 0.7, 0.8, 0.6, 0.7, 0.8, 0.9, 0.7, 0.8, 0.9, 1.0
   };
 
+  BVHRT bvhrt;
+  bvhrt.m_SdfGridData = std::vector<float>(grid, grid + 64);
+
   float x[3] = {0.5, 0.5, 0.5};
   uint vox_u[3] = {1, 1, 1};
   uint off = 0;
   uint size[3] = {4, 4, 4}; 
 
-  float interpolated_value = tricubicInterpolation(grid, vox_u, x, off, size);
+  float interpolated_value = bvhrt.tricubicInterpolation(vox_u, x, off, size);
   std::cout << "INTERPOLATED VALUE IS: " << interpolated_value << std::endl;
 
   auto dp_x = tricubicInterpolationDerrivative(grid, vox_u, x, off, size);
