@@ -180,3 +180,11 @@ static inline float2 mulRows2x4(const float4 row0, const float4 row1, float2 v)
 }
 
 static inline float clamp1f(float u, float a, float b) { return std::min(std::max(a, u), b); }
+
+static inline float3x3& operator += (float3x3& a, const float3x3 b) 
+{ 
+  a.row[0] += b.row[0];
+  a.row[1] += b.row[1];
+  a.row[2] += b.row[2]; 
+  return a; 
+}

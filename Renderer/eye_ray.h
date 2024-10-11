@@ -195,9 +195,6 @@ protected:
   std::shared_ptr<ISceneObject>  m_pAccelStruct;
   std::vector<uint32_t>          m_packedXY;
 
-  float4 m_mainLightDir; //direction to main light, normalized
-  float4 m_mainLightColor; //color of main light, also intensity
-
   //duplicating data for meshes if we want to visualize them with textures
 #ifndef DISABLE_MESH_TEX
   std::vector<float4> m_vertices; //.w is tc.x

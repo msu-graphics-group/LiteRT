@@ -24,8 +24,6 @@ MultiRenderer::MultiRenderer(uint32_t maxPrimitives)
   m_maxPrimitives = maxPrimitives;
   SetAccelStruct(CreateSceneRT("BVH2Common", "cbvh_embree2", "SuperTreeletAlignedMerged4"));
   m_preset = getDefaultPreset();
-  m_mainLightDir = normalize3(float4(1,0.5,0.5,1));
-  m_mainLightColor = 1.0f*normalize3(float4(1,1,0.98,1));
 
   m_textures.resize(MULTI_RENDER_MAX_TEXTURES);
 
@@ -39,7 +37,7 @@ MultiRenderer::MultiRenderer(uint32_t maxPrimitives)
 
   m_seed = rand();
 
-  m_lights = {create_direct_light(float3(1,1,1), float3(1,1,1)), create_ambient_light(float3(0.25, 0.25, 0.25))};
+  m_lights = {create_direct_light((1.0/255)*float3(238,221,130), float3(1,1,1)), create_ambient_light(float3(0.25, 0.25, 0.25))};
 }
 
 void MultiRenderer::SetViewport(int a_xStart, int a_yStart, int a_width, int a_height)

@@ -290,8 +290,8 @@ float4 MultiRenderer::kernel_RayTrace(uint32_t tidX, const float4* rayPosAndNear
     const float BIAS = 1e-6f;
 
     float3 diffuse = float3(1, 1, 1);
-    float3 light_dir = -1.0f * to_float3(m_mainLightDir);
-    float3 light_color = to_float3(m_mainLightColor);
+    float3 light_dir = -1.0f * float3(1, 1, 1);
+    float3 light_color = float3(1, 1, 1);
 
     float3 surf_pos = to_float3(rayPos) + (hit.t - BIAS) * to_float3(rayDir);
     CRT_Hit shadowHit = m_pAccelStruct->RayQuery_NearestHit(to_float4(surf_pos, rayPos.w), to_float4(-1.0f * light_dir, rayDir.w));
@@ -410,8 +410,8 @@ float4 MultiRenderer::kernel_RayTrace(uint32_t tidX, const float4* rayPosAndNear
     }
 
     float3 diffuse = to_float3(color);
-    float3 light_dir = -1.0f * to_float3(m_mainLightDir);
-    float3 light_color = to_float3(m_mainLightColor);
+    float3 light_dir = -1.0f * float3(1, 1, 1);
+    float3 light_color = float3(1, 1, 1);
 
     float3 surf_pos = to_float3(rayPos) + (hit.t - BIAS) * to_float3(rayDir);
     CRT_Hit shadowHit = m_pAccelStruct->RayQuery_NearestHit(to_float4(surf_pos, rayPos.w), to_float4(-1.0f * light_dir, rayDir.w));
