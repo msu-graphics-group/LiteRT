@@ -635,7 +635,7 @@ namespace dr
           case DR_RENDER_MODE_DIFFUSE:
           case DR_RENDER_MODE_LAMBERT:
           case DR_RENDER_MODE_NORMAL:
-            is_border = max_diff > 0 || max_depth_thr > 4;
+            is_border = max_diff > 0 || max_depth_thr > 0;
           break;
           default:
             is_border = false;
@@ -892,24 +892,7 @@ namespace dr
       dColor_dNorm = LiteMath::make_float3x3(float3(0, 0, 0), float3(0, 0, 0), float3(0, 0, 0));
       break;
     case DR_RENDER_MODE_LAMBERT:
-    {
-      float3 light_dir = normalize(float3(1, 1, 1));
-      float3 norm = hit.normal;
-      float q0 = dot(norm, light_dir); // = norm.x*light_dir.x + norm.y*light_dir.y + norm.z*light_dir.z
-      float q = max(0.1f, q0);
-      final_color = q * hit.color;
-
-      dColor_dDiffuse = LiteMath::make_float3x3(float3(q, 0, 0), float3(0, q, 0), float3(0, 0, q));
-      if (q0 > 0.1f)
-      {
-        float3 dq_dnorm = light_dir;
-        dColor_dNorm = LiteMath::make_float3x3(hit.color.x * light_dir,
-                                               hit.color.y * light_dir,
-                                               hit.color.z * light_dir);
-      }
-      else
-        dColor_dNorm = LiteMath::make_float3x3(float3(0, 0, 0), float3(0, 0, 0), float3(0, 0, 0));
-      
+    {      
       final_color = float3(0,0,0);
       dColor_dDiffuse = LiteMath::make_float3x3(float3(0, 0, 0), float3(0, 0, 0), float3(0, 0, 0));
       dColor_dNorm    = LiteMath::make_float3x3(float3(0, 0, 0), float3(0, 0, 0), float3(0, 0, 0));
@@ -924,9 +907,9 @@ namespace dr
           dColor_dDiffuse += LiteMath::make_float3x3(float3(m_lights[i].color.x*q, 0, 0), 
                                                      float3(0, m_lights[i].color.y*q, 0), 
                                                      float3(0, 0, m_lights[i].color.z*q));
-          dColor_dNorm    += LiteMath::make_float3x3(m_lights[i].color.x*hit.color.x * light_dir,
-                                                     m_lights[i].color.y*hit.color.y * light_dir,
-                                                     m_lights[i].color.z*hit.color.z * light_dir);
+          dColor_dNorm    += LiteMath::make_float3x3(m_lights[i].color.x*hit.color.x * m_lights[i].space,
+                                                     m_lights[i].color.y*hit.color.y * m_lights[i].space,
+                                                     m_lights[i].color.z*hit.color.z * m_lights[i].space);
         }
         else if (m_lights[i].type == LIGHT_TYPE_POINT)
         {

@@ -1032,9 +1032,9 @@ void test_position_derivatives(const SdfSBS &SBS, unsigned render_node, unsigned
       MultiRendererDR dr_render;
       dr_preset.dr_diff_mode = T == 1 ? DR_DIFF_MODE_FINITE_DIFF : DR_DIFF_MODE_DEFAULT;
       dr_preset.dr_border_sampling = border_sampling;
-      dr_preset.debug_pd_images = i == 0;
-      dr_preset.debug_border_samples_mega_image = T == 0 && i == 0;
-      dr_preset.debug_border_samples = T == 0 && i == 0;
+      //dr_preset.debug_pd_images = i == 0;
+      //dr_preset.debug_border_samples_mega_image = T == 0 && i == 0;
+      //dr_preset.debug_border_samples = T == 0 && i == 0;
 
       dr_render.SetReference(images_ref, view, proj);
       dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS);
@@ -1710,17 +1710,17 @@ void diff_render_test_17_optimize_bunny()
   auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "scenes/01_simple_scenes/data/bunny.vsgf").c_str());
   cmesh4::rescale_mesh(mesh, float3(-0.95, -0.95, -0.95), float3(0.95, 0.95, 0.95));
 
-  unsigned W = 1024, H = 1024;
+  unsigned W = 2048, H = 2048;
 
   MultiRenderPreset preset = getDefaultPreset();
-  preset.render_mode = MULTI_RENDER_MODE_LAMBERT;
+  preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
   //preset.ray_gen_mode = RAY_GEN_MODE_RANDOM;
   preset.spp = 16;
 
   float4x4 base_proj = LiteMath::perspectiveMatrix(60, 1.0f, 0.01f, 100.0f);
   LiteImage::Image2D<float4> texture = LiteImage::LoadImage<float4>("scenes/porcelain.png");
 
-  std::vector<float4x4> view = get_cameras_uniform_sphere(16, float3(0, 0, 0), 4.0f);
+  std::vector<float4x4> view = get_cameras_uniform_sphere(8, float3(0, 0, 0), 4.0f);
   std::vector<float4x4> proj(view.size(), base_proj);
 
   std::vector<LiteImage::Image2D<float4>> images_ref(view.size(), LiteImage::Image2D<float4>(W, H));
@@ -1744,9 +1744,9 @@ void diff_render_test_17_optimize_bunny()
   }
 
   {
-    auto indexed_SBS =  create_grid_sbs(32, 1, 
+    auto indexed_SBS =  create_grid_sbs(4, 4, 
                                         [&](float3 p){return circle_sdf(float3(0,-0.15f,0), 0.7f, p);}, 
-                                        [](float3 p){return float3(0.5,0.5,0.5);});
+                                        [](float3 p){return float3(0.95,0.95,0.95);});
 
     MultiRendererDRPreset dr_preset = getDefaultPresetDR();
 
@@ -1754,16 +1754,18 @@ void diff_render_test_17_optimize_bunny()
     dr_preset.dr_render_mode = DR_RENDER_MODE_LAMBERT;
     dr_preset.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_GEOMETRY | DR_RECONSTRUCTION_FLAG_COLOR;
     dr_preset.opt_iterations = 1001;
-    dr_preset.opt_lr = 0.01f;
-    dr_preset.spp = 4;
+    dr_preset.opt_lr = 0.02f;
+    dr_preset.spp = 16;
     dr_preset.border_spp = 1024;
-    dr_preset.image_batch_size = 4;
-    dr_preset.dr_border_sampling = DR_BORDER_SAMPLING_SVM;
+    dr_preset.image_batch_size = 6;
+    dr_preset.dr_border_sampling = DR_BORDER_SAMPLING_RANDOM;
     dr_preset.debug_print = true;
     dr_preset.debug_print_interval = 1;
-    dr_preset.debug_progress_interval = 100;
-    dr_preset.render_height = 512;
-    dr_preset.render_width = 512;
+    dr_preset.debug_progress_interval = 10;
+    dr_preset.render_height = 256;
+    dr_preset.render_width = 256;
+    dr_preset.border_relax_eps = 0.005f;
+    dr_preset.debug_render_mode = DR_DEBUG_RENDER_MODE_BORDER_INTEGRAL;
 
     // dr_preset.dr_raycasting_mask = DR_RAYCASTING_MASK_ON;
 
