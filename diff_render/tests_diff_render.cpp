@@ -1754,10 +1754,10 @@ void diff_render_test_17_optimize_bunny()
     dr_preset.dr_render_mode = DR_RENDER_MODE_LAMBERT;
     dr_preset.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_GEOMETRY | DR_RECONSTRUCTION_FLAG_COLOR;
     dr_preset.opt_iterations = 1001;
-    dr_preset.opt_lr = 0.02f;
-    dr_preset.spp = 16;
+    dr_preset.opt_lr = 0.01f;
+    dr_preset.spp = 24;
     dr_preset.border_spp = 1024;
-    dr_preset.image_batch_size = 6;
+    dr_preset.image_batch_size = 2;
     dr_preset.dr_border_sampling = DR_BORDER_SAMPLING_RANDOM;
     dr_preset.debug_print = true;
     dr_preset.debug_print_interval = 1;
@@ -1854,21 +1854,21 @@ void diff_render_test_18_sphere_depth()
 
 void diff_render_test_19_expanding_grid()
 {
-  //create renderers for SDF scene and mesh scene
-  auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "scenes/01_simple_scenes/data/bunny.vsgf").c_str());
-  cmesh4::rescale_mesh(mesh, float3(-0.95, -0.95, -0.95), float3(0.95, 0.95, 0.95));
+  SdfSBS ds_scene = create_grid_sbs(16, 4, 
+                                    [&](float3 p){return std::max(circle_sdf(float3(0,0,0), 0.8f, p), -circle_sdf(float3(0.6,0,0), 0.4f, p));},
+                                    [&](float3 p){ return length(p) < 0.65f ? float3(1,0,0) : float3(0,1,0);});
 
   unsigned W = 1024, H = 1024;
 
   MultiRenderPreset preset = getDefaultPreset();
-  preset.render_mode = MULTI_RENDER_MODE_MASK;
+  preset.render_mode = MULTI_RENDER_MODE_LAMBERT;
   //preset.ray_gen_mode = RAY_GEN_MODE_RANDOM;
   preset.spp = 16;
 
   float4x4 base_proj = LiteMath::perspectiveMatrix(60, 1.0f, 0.01f, 100.0f);
   LiteImage::Image2D<float4> texture = LiteImage::LoadImage<float4>("scenes/porcelain.png");
 
-  std::vector<float4x4> view = get_cameras_turntable(16, float3(0, 0, 0), 4.0f, 1.0f);
+  std::vector<float4x4> view = get_cameras_turntable(8, float3(0, 0, 0), 3.0f, 1.0f);
   std::vector<float4x4> proj(view.size(), base_proj);
 
   std::vector<LiteImage::Image2D<float4>> images_ref(view.size(), LiteImage::Image2D<float4>(W, H));
@@ -1878,68 +1878,48 @@ void diff_render_test_19_expanding_grid()
     auto pRender = CreateMultiRenderer("GPU");
     pRender->SetPreset(preset);
     pRender->SetViewport(0,0,W,H);
-
-    uint32_t texId = pRender->AddTexture(texture);
-    MultiRendererMaterial mat;
-    mat.type = MULTI_RENDER_MATERIAL_TYPE_TEXTURED;
-    mat.texId = texId;
-    uint32_t matId = pRender->AddMaterial(mat);
-    pRender->SetMaterial(matId, 0);
-
-    pRender->SetScene(mesh);
+    pRender->SetScene(ds_scene, true);
     pRender->RenderFloat(images_ref[i].data(), images_ref[i].width(), images_ref[i].height(), view[i], proj[i], preset);
     LiteImage::SaveImage<float4>(("saves/test_dr_19_ref_"+std::to_string(i)+".bmp").c_str(), images_ref[i]); 
   }
 
   {
     MultiRendererDRPreset dr_preset = getDefaultPresetDR();
-
-    dr_preset.dr_diff_mode = DR_DIFF_MODE_DEFAULT;
-    dr_preset.dr_render_mode = DR_RENDER_MODE_MASK;
-    dr_preset.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_GEOMETRY;
-    dr_preset.dr_border_sampling = DR_BORDER_SAMPLING_SVM;
-    dr_preset.reg_function = DR_REG_FUNCTION_NONE;
-    dr_preset.reg_lambda = 2.0f;
-    dr_preset.border_relax_eps = 1e-3f;
-    dr_preset.opt_iterations = 201;
-    dr_preset.opt_lr = 0.01f;
-    dr_preset.spp = 4;
-    dr_preset.border_spp = 3000;
-    dr_preset.image_batch_size = 4;
-    dr_preset.render_width = 300;
-    dr_preset.render_height = 300;
+    dr_preset.dr_render_mode = DR_RENDER_MODE_LAMBERT;
+    dr_preset.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_GEOMETRY | DR_RECONSTRUCTION_FLAG_COLOR;
+    dr_preset.border_relax_eps = 0.005f;
+    dr_preset.opt_iterations = 501;
+    dr_preset.opt_lr = 0.03f;
+    dr_preset.spp = 16;
+    dr_preset.border_spp = 1024;
+    dr_preset.image_batch_size = 2;
+    dr_preset.render_width = 128;
+    dr_preset.render_height = 128;
 
     dr_preset.debug_print = true;
     dr_preset.debug_print_interval = 10;
-    dr_preset.debug_progress_images = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
-    dr_preset.debug_progress_interval = 100;
+    dr_preset.debug_progress_images = MULTI_RENDER_MODE_LAMBERT;
+    dr_preset.debug_progress_interval = 10;
 
     MultiRendererDRPreset dr_preset_2 = dr_preset;
-    dr_preset_2.render_width = 400;
-    dr_preset_2.render_height = 400;
-    dr_preset_2.opt_lr = 0.005f;
-    dr_preset_2.reg_lambda = 20.0f;
-    dr_preset_2.opt_iterations = 101;
+    dr_preset_2.dr_render_mode = DR_RENDER_MODE_LAMBERT;
+    dr_preset_2.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_GEOMETRY | DR_RECONSTRUCTION_FLAG_COLOR;
+    dr_preset_2.render_width = 2*128;
+    dr_preset_2.render_height = 2*128;
+    dr_preset_2.opt_lr = 0.01f;
+    dr_preset_2.opt_iterations = 201;
+    dr_preset_2.spp = 16;
 
     MultiRendererDRPreset dr_preset_3 = dr_preset;
-    dr_preset_3.render_width = 600;
-    dr_preset_3.render_height = 600;
+    dr_preset_3.render_width = 3*128;
+    dr_preset_3.render_height = 3*128;
     dr_preset_3.opt_lr = 0.005f;
-    dr_preset_3.reg_lambda = 100.0f;
     dr_preset_3.opt_iterations = 101;
-    //dr_preset_2.dr_render_mode = DR_RENDER_MODE_LAMBERT;
-    //dr_preset_2.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_GEOMETRY | DR_RECONSTRUCTION_FLAG_COLOR;
-
-    MultiRendererDRPreset dr_preset_c = dr_preset;
-    dr_preset_c.dr_render_mode = DR_RENDER_MODE_DIFFUSE;
-    dr_preset_c.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_COLOR;
-    dr_preset_c.opt_iterations = 501;
-    dr_preset_c.spp = 16;
-    dr_preset_c.debug_progress_images = MULTI_RENDER_MODE_LAMBERT;
+    dr_preset_3.spp = 16;
 
     MultiRendererDR dr_render;
     dr_render.SetReference(images_ref, view, proj);
-    dr_render.OptimizeGrid(16, false, {dr_preset, dr_preset_2, dr_preset_3});
+    dr_render.OptimizeGrid(8, false, {dr_preset, dr_preset_2, dr_preset_3});
     dr_render.SetViewport(0, 0, W, H);
     dr_render.UpdateCamera(view[0], proj[0]);
     dr_render.Clear(W, H, "color");
@@ -1947,7 +1927,7 @@ void diff_render_test_19_expanding_grid()
     LiteImage::SaveImage<float4>("saves/test_dr_19_res.bmp", image_res);
   }
 
-  printf("TEST 19. Optimize bunny scene\n");
+  printf("TEST 19. Optimize with expanding grid\n");
   
   float psnr = image_metrics::PSNR(image_res, images_ref[0]);
 
