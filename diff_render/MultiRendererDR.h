@@ -62,6 +62,7 @@ namespace dr
     
     preset.debug_border_samples = false;
     preset.debug_border_samples_mega_image = false;
+    preset.debug_border_save_normals = false;
 
     return preset;
   }
