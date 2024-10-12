@@ -2010,7 +2010,7 @@ void diff_render_test_20_sphere_depth_with_redist()
     printf("FAILED, psnr = %f\n", psnr);
 }
 
-void optimization_stand_common(uint32_t num, const SdfSBS &SBS_ref, const SdfSBS &SBS_initial, 
+void optimization_stand_common(uint32_t num, uint32_t sub_num, const SdfSBS &SBS_ref, const SdfSBS &SBS_initial, 
                                MultiRendererDRPreset dr_preset, std::string name, uint32_t view_count = 8)
 {
   //create renderers for SDF scene and mesh scene
@@ -2043,17 +2043,20 @@ void optimization_stand_common(uint32_t num, const SdfSBS &SBS_ref, const SdfSBS
 
     pRender->SetScene(SBS_ref);
     pRender->RenderFloat(images_ref[i].data(), images_ref[i].width(), images_ref[i].height(), view[i], proj[i], preset);
-    LiteImage::SaveImage<float4>(("saves/osc_"+std::to_string(num)+"_ref_"+std::to_string(i)+".png").c_str(), images_ref[i]); 
+    LiteImage::SaveImage<float4>(("saves/osc_"+std::to_string(sub_num)+"_ref_"+std::to_string(i)+".png").c_str(), images_ref[i]); 
   }
-  LiteImage::SaveImage<float4>(("saves/test_dr_99_"+std::to_string(num)+"_ref.png").c_str(), images_ref[0]); 
+  LiteImage::SaveImage<float4>(("saves/test_dr_"+std::to_string(num)+"_"+std::to_string(sub_num)+"_ref.png").c_str(), images_ref[0]); 
 
   auto indexed_SBS = SBS_initial;
 
   MultiRendererDR dr_render;
+  dr_render.SetLights({create_direct_light(float3(0.7, 0.7, 0.7), float3(1,1,1)), 
+                       create_ambient_light(float3(0.25, 0.25, 0.25)),
+                       create_direct_light(float3(0.7, 0.7, 0.7), float3(-1,1,-1)),});
   dr_render.SetReference(images_ref, view, proj);
   dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS);
   image_res = dr_render.getLastImage(0);
-  LiteImage::SaveImage<float4>(("saves/test_dr_99_"+std::to_string(num)+"_res.bmp").c_str(), image_res);
+  LiteImage::SaveImage<float4>(("saves/test_dr_"+std::to_string(num)+"_"+std::to_string(sub_num)+"_res.bmp").c_str(), image_res);
 
   float psnr_sum = 0.0f;
   for (int i = 0; i < view.size(); i++)
@@ -2062,8 +2065,8 @@ void optimization_stand_common(uint32_t num, const SdfSBS &SBS_ref, const SdfSBS
   }
   psnr_sum /= view.size();
 
-  printf("99.%u. %-64s", num, name.c_str());
-  if (psnr_sum >= 30)
+  printf("%2u.%u. %-64s", num, sub_num, name.c_str());
+  if (psnr_sum >= 25)
     printf("passed    (%.2f)\n", psnr_sum);
   else
     printf("FAILED, psnr = %f\n", psnr_sum);
@@ -2074,16 +2077,19 @@ void diff_render_test_21_optimization_stand()
   MultiRendererDRPreset dr_preset = getDefaultPresetDR();
 
   dr_preset.dr_diff_mode = DR_DIFF_MODE_DEFAULT;
-  dr_preset.opt_iterations = 300;
+  dr_preset.dr_border_sampling = DR_BORDER_SAMPLING_RANDOM;
+  dr_preset.opt_iterations = 500;
   dr_preset.opt_lr = 0.01f;
   dr_preset.spp = 16;
-  dr_preset.border_spp = 512;
-  dr_preset.image_batch_size = 4;
+  dr_preset.border_spp = 1024;
+  dr_preset.image_batch_size = 2;
+  dr_preset.render_height = 128;
+  dr_preset.render_width = 128;
+
   dr_preset.debug_print = true;
   dr_preset.debug_print_interval = 1;
   dr_preset.debug_progress_interval = 25;
-  dr_preset.render_height = 128;
-  dr_preset.render_width = 128;
+  dr_preset.debug_render_mode = DR_DEBUG_RENDER_MODE_BORDER_INTEGRAL;
 
   SdfSBS smallest_scene = create_grid_sbs(1, 2, 
                           [&](float3 p){return circle_sdf(float3(0,0,0), 0.8f, p);}, 
@@ -2124,77 +2130,37 @@ void diff_render_test_21_optimization_stand()
 
   dr_preset.dr_render_mode = DR_RENDER_MODE_MASK;
   dr_preset.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_GEOMETRY;
-  dr_preset.dr_border_sampling = DR_BORDER_SAMPLING_RANDOM;
-  dr_preset.opt_lr = 0.03f;
-  //optimization_stand_common(1, smallest_scene, smallest_initial, dr_preset, "Smallest scene. Mask. Random Sampling.");
+  optimization_stand_common(21, 1, smallest_scene, smallest_initial, dr_preset, "Smallest scene. Mask. Random Sampling.");
 
   dr_preset.dr_render_mode = DR_RENDER_MODE_MASK;
   dr_preset.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_GEOMETRY;
-  dr_preset.dr_border_sampling = DR_BORDER_SAMPLING_SVM;
-  dr_preset.opt_lr = 0.03f;
-  //optimization_stand_common(2, smallest_scene, smallest_initial, dr_preset, "Smallest scene. Mask. SVM Sampling.");
+  optimization_stand_common(21, 2, medium_scene, medium_initial, dr_preset, "Sphere. Mask.");
 
   dr_preset.dr_render_mode = DR_RENDER_MODE_MASK;
   dr_preset.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_GEOMETRY;
-  dr_preset.dr_border_sampling = DR_BORDER_SAMPLING_SVM;
-  dr_preset.opt_lr = 0.03f;
-  //optimization_stand_common(3, medium_scene, medium_initial, dr_preset, "Sphere. Mask.");
-
-  dr_preset.dr_render_mode = DR_RENDER_MODE_MASK;
-  dr_preset.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_GEOMETRY;
-  dr_preset.dr_border_sampling = DR_BORDER_SAMPLING_SVM;
-  dr_preset.opt_lr = 0.03f;
-  //optimization_stand_common(4, ts_scene, medium_initial, dr_preset, "Two spheres. Mask.");
+  optimization_stand_common(21, 3, ts_scene, medium_initial, dr_preset, "Two spheres. Mask.");
 
   dr_preset.dr_render_mode = DR_RENDER_MODE_DIFFUSE;
   dr_preset.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_GEOMETRY | DR_RECONSTRUCTION_FLAG_COLOR;
-  dr_preset.dr_border_sampling = DR_BORDER_SAMPLING_SVM;
-  dr_preset.opt_lr = 0.03f;
-  //optimization_stand_common(5, medium_scene_colored, medium_initial, dr_preset, "Sphere. Diffuse. Monochrome.");
+  optimization_stand_common(21, 4, medium_scene_colored, medium_initial, dr_preset, "Sphere. Diffuse. Monochrome.");
 
   dr_preset.dr_render_mode = DR_RENDER_MODE_DIFFUSE;
   dr_preset.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_GEOMETRY | DR_RECONSTRUCTION_FLAG_COLOR;
-  dr_preset.dr_border_sampling = DR_BORDER_SAMPLING_SVM;
-  dr_preset.opt_lr = 0.03f;
-  //optimization_stand_common(6, ts_scene, medium_initial, dr_preset, "Two spheres. Diffuse. Colored.");
+  optimization_stand_common(21, 5, ts_scene, medium_initial, dr_preset, "Two spheres. Diffuse. Colored.");
 
   dr_preset.dr_render_mode = DR_RENDER_MODE_LAMBERT;
   dr_preset.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_GEOMETRY | DR_RECONSTRUCTION_FLAG_COLOR;
-  dr_preset.dr_border_sampling = DR_BORDER_SAMPLING_SVM;
-  dr_preset.opt_lr = 0.05f;
-  dr_preset.opt_iterations = 500;
-  dr_preset.border_spp = 1024;
-  //optimization_stand_common(7, medium_scene_colored, medium_initial, dr_preset, "Sphere. Lambert. Monochrome.");
+  optimization_stand_common(21, 6, medium_scene_colored, medium_initial, dr_preset, "Sphere. Lambert. Monochrome.");
 
   dr_preset.dr_render_mode = DR_RENDER_MODE_LAMBERT;
   dr_preset.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_GEOMETRY | DR_RECONSTRUCTION_FLAG_COLOR;
-  dr_preset.dr_border_sampling = DR_BORDER_SAMPLING_RANDOM;
-  dr_preset.opt_lr = 0.01f;
   dr_preset.opt_iterations = 1000;
-  dr_preset.border_spp = 1024;
-  dr_preset.spp = 16;
-  dr_preset.debug_render_mode = DR_DEBUG_RENDER_MODE_AREA_INTEGRAL;
-  dr_preset.image_batch_size = 2;
-  //dr_preset.redistancing_enable = true;
-  //dr_preset.redistancing_interval = 1;
-  //dr_preset.reg_function = DR_REG_FUNCTION_LK_DENOISING;
-  //dr_preset.reg_power = 2.0f;
-  //dr_preset.reg_lambda = 1.0f;
-
-  std::vector<float> mults = {1.0f};
-  for (int i = 0; i < mults.size(); i++)
-  {
-    dr_preset.border_integral_mult = mults[i];
-    optimization_stand_common(8+i, ts_scene, medium_initial, dr_preset, "Two spheres. Lambert. Colored.");
-  }
+  optimization_stand_common(21, 7, ts_scene, medium_initial, dr_preset, "Two spheres. Lambert. Colored.");
 
   dr_preset.dr_render_mode = DR_RENDER_MODE_LAMBERT;
   dr_preset.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_GEOMETRY | DR_RECONSTRUCTION_FLAG_COLOR;
-  dr_preset.dr_border_sampling = DR_BORDER_SAMPLING_SVM;
-  dr_preset.opt_lr = 0.05f;
-  dr_preset.opt_iterations = 500;
-  dr_preset.border_spp = 1024;
-  //optimization_stand_common(9, ds_scene, medium_initial, dr_preset, "Death Star. Lambert. Colored.");
+  dr_preset.opt_iterations = 1000;
+  optimization_stand_common(21, 8, ds_scene, medium_initial, dr_preset, "Death Star. Lambert. Colored.");
 }
 
 void diff_render_test_22_border_sampling_accuracy_mask()

@@ -480,6 +480,11 @@ namespace dr
       for (int j = 0; j < params_count; j++)
         m_dLoss_dS_tmp[j] /= preset.image_batch_size;
 
+      //printf("dLoss_dS = [");
+      //for (int j = 0; j < params_count; j++)
+      //  printf("%f ", m_dLoss_dS_tmp[j]);
+      //printf("]\n");
+
       auto t5 = std::chrono::high_resolution_clock::now();
 
       OptimizeStepAdam(iter, m_dLoss_dS_tmp.data(), params, m_Opt_tmp.data(), params_count, preset);
