@@ -390,12 +390,10 @@ namespace dr
 
     float timeAvg = 0.0f;
 
+    std::vector<float> losses(images_count, -1.0f);
+
     for (int iter = 0; iter < preset.opt_iterations; iter++)
     {
-      float loss_sum = 0;
-      float loss_max = -1e6;
-      float loss_min = 1e6;
-
       auto t1 = std::chrono::high_resolution_clock::now();
 
       //render (with multithreading)
@@ -443,9 +441,7 @@ namespace dr
                                     active_params_start, active_params_end, m_preset_dr.finite_diff_delta);
         }
 
-        loss_sum += loss;
-        loss_max = std::max(loss_max, loss);
-        loss_min = std::min(loss_min, loss);
+        losses[image_id] = loss;
 
         m_preset_dr.debug_pd_images = base_debug_pd_images;
 
@@ -502,8 +498,22 @@ namespace dr
 
       if (preset.debug_print && iter % preset.debug_print_interval == 0)
       {
+        int loss_count = 0;
+        float loss_sum = 0;
+        float loss_max = -1e6;
+        float loss_min = 1e6;
+        for (int l_i = 0; l_i < images_count; l_i++)
+        {
+          if (losses[l_i] >= 0)
+          {
+            loss_count++;
+            loss_sum += losses[l_i];
+            loss_max = std::max(loss_max, losses[l_i]);
+            loss_min = std::min(loss_min, losses[l_i]);
+          }
+        }
         printf("\r");
-        printf("Iter:%4d, loss: %f (%f-%f) ", iter, loss_sum/preset.image_batch_size, loss_min, loss_max);
+        printf("Iter:%4d, loss: %f (%f-%f) ", iter, loss_sum/loss_count, loss_min, loss_max);
         printf("%7.1f ms/iter (%7.1f + %.1f + %.1f + %.1f + %.1f) ", time, time_1, time_2, time_3, time_4, time_5);
         printf("ETA %.1f s", (timeAvg * (preset.opt_iterations - iter - 1)) / 1000.0f);
         printf("                  ");
@@ -1913,6 +1923,11 @@ namespace dr
                                 m_preset_dr.debug_border_save_normals);
 
     unsigned max_threads = use_multithreading ? omp_get_max_threads() : 1;
+    //max_threads = 1;
+    //    printf("before = {");
+    //for (int i = 0; i < params_count; i+=100)
+    //  printf("%f \n", out_dLoss_dS[i]);
+    //printf("}\n");
     unsigned steps = (node_count + max_threads - 1)/max_threads;
     //std::vector<float> out_dLoss_dS(((BVHDR *)m_pAccelStruct.get())->m_SdfSBSDataF.size(), 0.0f);
     double total_reg_loss = 0.0;
@@ -2006,7 +2021,10 @@ namespace dr
     }
 
     //for (int i = 0; i < out_dLoss_dS.size(); i++)
+    //printf("after = {");
+    //for (int i = 0; i < params_count; i+=100)
     //  printf("%f \n", out_dLoss_dS[i]);
+    //printf("}\n");
     //printf("\n total reg loss = %f\n", total_reg_loss);
 
     omp_set_num_threads(omp_get_max_threads());
