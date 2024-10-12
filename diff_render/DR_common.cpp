@@ -83,7 +83,7 @@ namespace dr
         {
           unsigned idx = x*c_count*c_count + y*c_count + z;
           float3 dp = float3(x, y, z) / float3(brick_count);
-          float3 color = color_func(dp);
+          float3 color = color_func(2.0f*dp - 1.0f);
           scene.values_f[c_offset + 3*idx + 0] = color.x;
           scene.values_f[c_offset + 3*idx + 1] = color.y;
           scene.values_f[c_offset + 3*idx + 2] = color.z;
@@ -184,10 +184,10 @@ namespace dr
 
    SdfSBS two_circles_scene()
   {
-    return create_grid_sbs(1, 32, 
+    return create_grid_sbs(8, 4, 
                            [&](float3 p){return std::min(circle_sdf(float3(0,0.3,0.5), 0.5f, p),
                                                          circle_sdf(float3(0,-0.3,-0.5), 0.5f, p));}, 
-                           [](float3 p){return p.z > 0 ? float3(1,0,0) : float3(0,0,1);});
+                           [](float3 p){return circle_sdf(float3(0,0.3,0.5), 0.5f, p) > circle_sdf(float3(0,-0.3,-0.5), 0.5f, p) ? float3(1,0,0) : float3(0,0,1);});
   }
 
   std::vector<float4x4> get_cameras_uniform_sphere(int count, float3 center, float radius)
