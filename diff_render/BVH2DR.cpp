@@ -1277,7 +1277,7 @@ static float3 dp_to_nmq(float3 dp, float beta)
               uint32_t vId = vPos.x * v_size * v_size + vPos.y * v_size + vPos.z;
 
               relax_pt->dDiffuseNormal_dSd[dvalues_offset+i].index = m_SdfSBSData[v_off + vId];
-              relax_pt->dDiffuseNormal_dSd[dvalues_offset+i].dDist = 2.0f * d * dt_dvalues[i]; //d(tReal)/dS
+              relax_pt->dDiffuseNormal_dSd[dvalues_offset+i].dDist = d * dt_dvalues[i]; //d(tReal)/dS
             }
           }
 

@@ -1323,8 +1323,8 @@ namespace dr
     }
     else if (m_preset_dr.dr_input_type == DR_INPUT_TYPE_LINEAR_DEPTH)
     {
-      float d_in = payload.missed_hit.t;
-      float d_out = hit.primId == 0xFFFFFFFF ? background_depth : hit.t;
+      float d_in = absolute_to_linear_depth(payload.missed_hit.t);
+      float d_out = hit.primId == 0xFFFFFFFF ? background_depth : absolute_to_linear_depth(hit.t);
       color_delta = float4(d_in - d_out, d_in - d_out, d_in - d_out, hit.primId == 0xFFFFFFFF ? 1.0f : 0.0f);
     }
 

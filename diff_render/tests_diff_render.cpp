@@ -675,11 +675,14 @@ void diff_render_test_4_check_position_derivatives()
   test_position_derivatives(circle_smallest_scene_colored(), 
                             MULTI_RENDER_MODE_LAMBERT, DR_RENDER_MODE_LAMBERT, DR_BORDER_SAMPLING_SVM,
                             false, false); 
-  //Depth-related tests are temporary disabled
-  //printf("9.7 Depth, random border sampling\n");
-  //test_position_derivatives(circle_smallest_scene_colored(), MULTI_RENDER_MODE_LINEAR_DEPTH, DR_RENDER_MODE_LINEAR_DEPTH, false, true);
-  //printf("9.8 Depth, SVM border sampling\n");
-  //test_position_derivatives(circle_smallest_scene_colored(), MULTI_RENDER_MODE_LINEAR_DEPTH, DR_RENDER_MODE_LINEAR_DEPTH, true, true);
+  printf("4.10 Depth, random border sampling, close view\n");
+  test_position_derivatives(circle_smallest_scene_colored(),
+                            MULTI_RENDER_MODE_LINEAR_DEPTH, DR_RENDER_MODE_LINEAR_DEPTH, DR_BORDER_SAMPLING_RANDOM,
+                            true, true);
+  printf("4.11 Depth, random border sampling\n");
+  test_position_derivatives(circle_smallest_scene_colored(),
+                            MULTI_RENDER_MODE_LINEAR_DEPTH, DR_RENDER_MODE_LINEAR_DEPTH, DR_BORDER_SAMPLING_RANDOM,
+                            false, true);
 }
 
 void optimization_stand_common(uint32_t num, uint32_t sub_num, const SdfSBS &SBS_ref, const SdfSBS &SBS_initial, 
@@ -697,6 +700,8 @@ void optimization_stand_common(uint32_t num, uint32_t sub_num, const SdfSBS &SBS
     preset.render_mode = MULTI_RENDER_MODE_DIFFUSE;
   else if (dr_preset.dr_render_mode == DR_RENDER_MODE_LAMBERT)
     preset.render_mode = MULTI_RENDER_MODE_LAMBERT;
+  else if (dr_preset.dr_render_mode == DR_RENDER_MODE_LINEAR_DEPTH)
+    preset.render_mode = MULTI_RENDER_MODE_LINEAR_DEPTH;
   preset.spp = 64;
   preset.normal_mode = NORMAL_MODE_SDF_SMOOTHED;
 
@@ -1033,6 +1038,24 @@ void diff_render_test_11_expanding_grid()
     printf("passed    (%.2f)\n", psnr);
   else
     printf("FAILED, psnr = %f\n", psnr);
+}
+
+void diff_render_test_12_depth()
+{
+  SdfSBS medium_initial = create_grid_sbs(4, 4, 
+                         [&](float3 p){return circle_sdf(float3(-0.2,0,-0.2), 0.6f, p);}, 
+                         single_color);
+  SdfSBS ts_scene = two_circles_scene();
+
+  printf("TEST 12. Optimization using depth reference images\n");
+
+  MultiRendererDRPreset dr_preset = optimization_stand_common_preset();
+  dr_preset.dr_render_mode = DR_RENDER_MODE_LINEAR_DEPTH;
+  dr_preset.dr_input_type = DR_INPUT_TYPE_LINEAR_DEPTH;
+  dr_preset.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_GEOMETRY;
+  dr_preset.opt_iterations = 1000;
+  dr_preset.dr_raycasting_mask = DR_RAYCASTING_MASK_ON;
+  optimization_stand_common(12, 1, ts_scene, medium_initial, dr_preset, "Two spheres. Depth.");
 }
 
 // #ifdef USE_ENZYME
@@ -2761,8 +2784,8 @@ void perform_tests_diff_render(const std::vector<int> &test_ids)
       /*09*/diff_render_test_9_regularization,
       /*10*/diff_render_test_10_ray_casting_mask,
       /*11*/diff_render_test_11_expanding_grid,
+      /*12*/diff_render_test_12_depth,
 
-      /*12*/diff_render_test_8_optimize_with_lambert,
       /*13*/diff_render_test_11_optimize_smallest_scene, 
       /*14*/diff_render_test_12_optimize_sphere_mask,
       /*15*/diff_render_test_13_optimize_sphere_diffuse, 
@@ -2784,7 +2807,7 @@ void perform_tests_diff_render(const std::vector<int> &test_ids)
       /*31*/diff_render_test_3_optimize_color,
       /*32*/diff_render_test_4_render_simple_scenes, 
       /*33*/diff_render_test_5_optimize_color_simpliest,
-      /*34*/
+      /*34*/diff_render_test_8_optimize_with_lambert,
       /*35*/
       /*36*/
       /*37*/
