@@ -30,8 +30,8 @@ using LiteMath::Box4f;
 #include "cbvh.h"
 #include "nurbs/nurbs_common.h"
 
-void tricubicInterpolationDerrivative(const float *grid, const float dp[3], float* d_pos, float* d_grid);
-float tricubicInterpolation(const float *grid, const float dp[3]);
+void tricubicInterpolationDerrivative(const float grid[64], const float dp[3], float d_pos[3], float d_grid[64]);
+float tricubicInterpolation(const float grid[64], const float dp[3]);
 
 struct BVHRT;
 struct GeomData
@@ -246,7 +246,13 @@ struct BVHRT : public ISceneObject
   virtual float eval_dist_trilinear(const float values[8], float3 dp);
   virtual bool need_normal();
   virtual float2 encode_normal(float3 n);
-  float load_distance_values(uint32_t nodeId, float3 voxelPos, uint32_t v_size, float sz_inv, const SdfSBSHeader &header, float values[8]);
+  float load_distance_values(uint32_t nodeId, float3 voxelPos, uint32_t v_size, float sz_inv, const SdfSBSHeader &header,
+                            #ifndef USE_TRICUBIC
+                                float values[64]
+                            #else
+                                float values[8]
+                            #endif
+                            );
 
 #ifndef DISABLE_SDF_OCTREE
   virtual float sdf_octree_sample_mipskip_3x3(unsigned octree_id, float3 p, unsigned max_level);
