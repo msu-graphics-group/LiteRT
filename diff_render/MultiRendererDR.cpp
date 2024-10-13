@@ -919,12 +919,15 @@ namespace dr
           float q = max(0.0f, dot(hit.normal, m_lights[i].space));
           final_color += m_lights[i].color * hit.color * q;
 
-          dColor_dDiffuse += LiteMath::make_float3x3(float3(m_lights[i].color.x*q, 0, 0), 
-                                                     float3(0, m_lights[i].color.y*q, 0), 
-                                                     float3(0, 0, m_lights[i].color.z*q));
-          dColor_dNorm    += LiteMath::make_float3x3(m_lights[i].color.x*hit.color.x * m_lights[i].space,
-                                                     m_lights[i].color.y*hit.color.y * m_lights[i].space,
-                                                     m_lights[i].color.z*hit.color.z * m_lights[i].space);
+          if (q > 0.0f)
+          {
+            dColor_dDiffuse += LiteMath::make_float3x3(float3(m_lights[i].color.x*q, 0, 0), 
+                                                      float3(0, m_lights[i].color.y*q, 0), 
+                                                      float3(0, 0, m_lights[i].color.z*q));
+            dColor_dNorm    += LiteMath::make_float3x3(m_lights[i].color.x*hit.color.x * m_lights[i].space,
+                                                      m_lights[i].color.y*hit.color.y * m_lights[i].space,
+                                                      m_lights[i].color.z*hit.color.z * m_lights[i].space);
+          }
         }
         else if (m_lights[i].type == LIGHT_TYPE_POINT)
         {

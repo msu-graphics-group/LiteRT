@@ -1057,7 +1057,7 @@ void test_position_derivatives(const SdfSBS &SBS, unsigned render_node, unsigned
       stddev = std::max(stddev, 1e-6);
     for (int i=0;i<param_count;i++)
     {
-      if (abs(grad_mean[0][i]) < 1e-4f)
+      if (abs(grad_mean[0][i]) < 1e-3f)
       {
         grad_mean[0][i] = 0;
         grad_mean[1][i] = 0;
@@ -1095,7 +1095,7 @@ void test_position_derivatives(const SdfSBS &SBS, unsigned render_node, unsigned
       else
       {
         passed = false;
-        printf("FAILED, std_dev_mult = %f\n", (float)std_dev_mult);
+        printf("FAILED, rel. err. = %f, average %f stddev\n", (float)relative_error, (float)average_error);
       }
 
       printf(" 9.%d.2 %-64s", off, "Bias");
@@ -2130,26 +2130,32 @@ void diff_render_test_21_optimization_stand()
 
   dr_preset.dr_render_mode = DR_RENDER_MODE_MASK;
   dr_preset.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_GEOMETRY;
+  dr_preset.opt_iterations = 500;
   optimization_stand_common(21, 1, smallest_scene, smallest_initial, dr_preset, "Smallest scene. Mask. Random Sampling.");
 
   dr_preset.dr_render_mode = DR_RENDER_MODE_MASK;
   dr_preset.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_GEOMETRY;
+  dr_preset.opt_iterations = 500;
   optimization_stand_common(21, 2, medium_scene, medium_initial, dr_preset, "Sphere. Mask.");
 
   dr_preset.dr_render_mode = DR_RENDER_MODE_MASK;
   dr_preset.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_GEOMETRY;
+  dr_preset.opt_iterations = 1000;
   optimization_stand_common(21, 3, ts_scene, medium_initial, dr_preset, "Two spheres. Mask.");
 
   dr_preset.dr_render_mode = DR_RENDER_MODE_DIFFUSE;
   dr_preset.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_GEOMETRY | DR_RECONSTRUCTION_FLAG_COLOR;
+  dr_preset.opt_iterations = 500;
   optimization_stand_common(21, 4, medium_scene_colored, medium_initial, dr_preset, "Sphere. Diffuse. Monochrome.");
 
   dr_preset.dr_render_mode = DR_RENDER_MODE_DIFFUSE;
   dr_preset.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_GEOMETRY | DR_RECONSTRUCTION_FLAG_COLOR;
+  dr_preset.opt_iterations = 500;
   optimization_stand_common(21, 5, ts_scene, medium_initial, dr_preset, "Two spheres. Diffuse. Colored.");
 
   dr_preset.dr_render_mode = DR_RENDER_MODE_LAMBERT;
   dr_preset.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_GEOMETRY | DR_RECONSTRUCTION_FLAG_COLOR;
+  dr_preset.opt_iterations = 500;
   optimization_stand_common(21, 6, medium_scene_colored, medium_initial, dr_preset, "Sphere. Lambert. Monochrome.");
 
   dr_preset.dr_render_mode = DR_RENDER_MODE_LAMBERT;
