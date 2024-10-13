@@ -64,7 +64,7 @@ int main(int argc, const char** argv)
     }
     else if (std::string(argv[1]) == "-benchmark_dr")
     {
-      benchmark_iteration_time();
+      benchmark_dr_optimization();
     }
     else if (std::string(argv[1]) == "-rtx_benchmark" && argc > 2)
     {
