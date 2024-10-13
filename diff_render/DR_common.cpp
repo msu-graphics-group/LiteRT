@@ -184,7 +184,7 @@ namespace dr
 
    SdfSBS two_circles_scene()
   {
-    return create_grid_sbs(8, 4, 
+    return create_grid_sbs(4, 4, 
                            [&](float3 p){return std::min(circle_sdf(float3(0,0.3,0.5), 0.5f, p),
                                                          circle_sdf(float3(0,-0.3,-0.5), 0.5f, p));}, 
                            [](float3 p){return circle_sdf(float3(0,0.3,0.5), 0.5f, p) > circle_sdf(float3(0,-0.3,-0.5), 0.5f, p) ? float3(1,0,0) : float3(0,0,1);});
