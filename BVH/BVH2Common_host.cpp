@@ -53,6 +53,9 @@ uint32_t type_to_tag(uint32_t type)
   case TYPE_NURBS:
     return AbstractObject::TAG_NURBS;
 
+  case TYPE_GRAPHICS_PRIM:
+    return AbstractObject::TAG_GRAPHICS_PRIM;
+
   default:
     return AbstractObject::TAG_NONE;
   }
@@ -79,6 +82,9 @@ void BVHRT::ClearGeom()
 
   m_allNodePairs.reserve(std::max<std::size_t>(100000, m_allNodePairs.capacity()));
   m_allNodePairs.resize(0);
+
+  m_abstractObjects.reserve(reserveSize);
+  m_abstractObjects.resize(0);
 
   ClearScene();
 }
@@ -720,7 +726,7 @@ uint32_t BVHRT::AddGeom_SdfSBS(SdfSBSView octree, ISceneObject *fake_this, bool 
   if (orig_nodes.size() == 1)
   {
     orig_nodes.resize(2);
-    orig_nodes[1].boxMin = orig_nodes[0].boxMin - 0.001f*float3(-1,-1,-1);
+    orig_nodes[1].boxMin = orig_nodes[0].boxMin - 0.001f*float3(1,1,1);
     orig_nodes[1].boxMax = orig_nodes[0].boxMin;
   }
   
@@ -976,6 +982,43 @@ uint32_t BVHRT::AddGeom_NURBS(const RawNURBS &nurbs, ISceneObject *fake_this, Bu
   std::vector<BVHNode> orig_nodes = GetBoxes_NURBS(nurbs);
   
   return fake_this->AddGeom_AABB(AbstractObject::TAG_NURBS, (const CRT_AABB*)orig_nodes.data(), orig_nodes.size());
+}
+
+uint32_t BVHRT::AddGeom_GraphicsPrim(const GraphicsPrimView &prim_view, ISceneObject *fake_this, BuildOptions a_qualityLevel)
+{
+  float4 mn = float4( 1, 1, 1,1);
+  float4 mx = float4(-1,-1,-1,1);
+
+  std::vector<BVHNode> orig_nodes;
+
+  m_abstractObjects.resize(m_abstractObjects.size() + 1); 
+  new (m_abstractObjects.data() + m_abstractObjects.size() - 1) GeomDataGraphicsPrim();
+  m_abstractObjects.back().geomId = m_abstractObjects.size() - 1;
+  m_abstractObjects.back().m_tag = AbstractObject::TAG_GRAPHICS_PRIM;
+
+  m_geomData.emplace_back();
+  m_geomData.back().boxMin = mn;
+  m_geomData.back().boxMax = mx;
+  m_geomData.back().offset = uint2(m_GraphicsPrimRoots.size(), m_GraphicsPrimRoots.size() + prim_view.size);
+  m_geomData.back().bvhOffset = m_allNodePairs.size();
+  m_geomData.back().type = TYPE_GRAPHICS_PRIM;
+
+  m_GraphicsPrimHeaders.push_back(prim_view.header);
+  m_GraphicsPrimRoots.push_back(m_GraphicsPrimPoints.size());
+  m_GraphicsPrimPoints.insert(m_GraphicsPrimPoints.end(), prim_view.points, prim_view.points + prim_view.size);
+
+  orig_nodes.emplace_back();
+  orig_nodes[0].boxMin = float3(mn.x, mn.y, mn.z);
+  orig_nodes[0].boxMax = float3(mx.x, mx.y, mx.z);
+
+  if (orig_nodes.size() == 1)
+  {
+    orig_nodes.resize(2);
+    orig_nodes[1].boxMin = orig_nodes[0].boxMin - 0.001f*float3(-1,-1,-1);
+    orig_nodes[1].boxMax = orig_nodes[0].boxMin;
+  }
+
+  return fake_this->AddGeom_AABB(AbstractObject::TAG_GRAPHICS_PRIM, (const CRT_AABB*)orig_nodes.data(), orig_nodes.size(), nullptr, 1);
 }
 
 void BVHRT::set_debug_mode(bool enable)

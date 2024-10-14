@@ -204,13 +204,6 @@ float4 MultiRenderer::kernel_RayTrace(uint32_t tidX, const float4* rayPosAndNear
     res_color = float4(1, 1, 1, 1);
     break;
 
-  case MULTI_RENDER_MODE_LAMBERT_NO_TEX:
-  {
-    float q = max(0.1f, dot(norm, normalize(float3(1, 1, 1))));
-    res_color = float4(q, q, q, 1);
-  }
-  break;
-
   case MULTI_RENDER_MODE_DEPTH:
   {
     float d = (1 / z - 1 / z_near) / (1 / z_far - 1 / z_near);
@@ -297,8 +290,8 @@ float4 MultiRenderer::kernel_RayTrace(uint32_t tidX, const float4* rayPosAndNear
     const float BIAS = 1e-6f;
 
     float3 diffuse = float3(1, 1, 1);
-    float3 light_dir = -1.0f * to_float3(m_mainLightDir);
-    float3 light_color = to_float3(m_mainLightColor);
+    float3 light_dir = -1.0f * float3(1, 1, 1);
+    float3 light_color = float3(1, 1, 1);
 
     float3 surf_pos = to_float3(rayPos) + (hit.t - BIAS) * to_float3(rayDir);
     CRT_Hit shadowHit = m_pAccelStruct->RayQuery_NearestHit(to_float4(surf_pos, rayPos.w), to_float4(-1.0f * light_dir, rayDir.w));
@@ -350,9 +343,12 @@ float4 MultiRenderer::kernel_RayTrace(uint32_t tidX, const float4* rayPosAndNear
   break;
 
   case MULTI_RENDER_MODE_LAMBERT:
+  case MULTI_RENDER_MODE_LAMBERT_NO_TEX:
   {
-    float4 color = float4(0,0,1,1);
-    if (type == TYPE_SDF_SBS_COL || type == TYPE_SDF_SBS_ADAPT_COL)
+    float3 color = float3(0,0,1);
+    if (m_preset.render_mode == MULTI_RENDER_MODE_LAMBERT_NO_TEX)
+      color = float3(1,1,1);
+    else if (type == TYPE_SDF_SBS_COL || type == TYPE_SDF_SBS_ADAPT_COL || type == TYPE_GRAPHICS_PRIM)
     {
       color.x = std::round(hit.coords[0])/255.0f;
       color.y = fract(hit.coords[0]);
@@ -361,12 +357,32 @@ float4 MultiRenderer::kernel_RayTrace(uint32_t tidX, const float4* rayPosAndNear
     else
     {
       unsigned matId = m_matIdbyPrimId[m_matIdOffsets[geomId].x + hit.primId % m_matIdOffsets[geomId].y];
-      color = m_materials[matId].type == MULTI_RENDER_MATERIAL_TYPE_COLORED ? m_materials[matId].base_color : m_textures[m_materials[matId].texId]->sample(tc);
-      //color = float4(1,0,1,0);
+      color = to_float3(m_materials[matId].type == MULTI_RENDER_MATERIAL_TYPE_COLORED ? 
+                        m_materials[matId].base_color : m_textures[m_materials[matId].texId]->sample(tc));
     }
 
-    float q = max(0.1f, dot(norm, normalize(float3(1, 1, 1))));
-    res_color = to_float4(q * to_float3(color), 1);
+    float3 final_color = float3(0,0,0);
+    for (int i=0;i<m_lights.size();i++)
+    {
+      if (m_lights[i].type == LIGHT_TYPE_DIRECT)
+      {
+        float q = max(0.0f, dot(norm, m_lights[i].space));
+        final_color += m_lights[i].color * color * q;
+      }
+      else if (m_lights[i].type == LIGHT_TYPE_POINT)
+      {
+        float3 surf_pos = to_float3(rayPos) + hit.t * to_float3(rayDir);
+        float3 dir = m_lights[i].space - surf_pos;
+        float l = length(dir);
+        dir /= l;
+        float q = max(0.0f, dot(norm, dir));
+        final_color += m_lights[i].color * color * q / (l*l);
+      }
+      else
+        final_color += m_lights[i].color * color;
+    }
+
+    res_color = to_float4(final_color, 1);
   }
   break;
 
@@ -394,8 +410,8 @@ float4 MultiRenderer::kernel_RayTrace(uint32_t tidX, const float4* rayPosAndNear
     }
 
     float3 diffuse = to_float3(color);
-    float3 light_dir = -1.0f * to_float3(m_mainLightDir);
-    float3 light_color = to_float3(m_mainLightColor);
+    float3 light_dir = -1.0f * float3(1, 1, 1);
+    float3 light_color = float3(1, 1, 1);
 
     float3 surf_pos = to_float3(rayPos) + (hit.t - BIAS) * to_float3(rayDir);
     CRT_Hit shadowHit = m_pAccelStruct->RayQuery_NearestHit(to_float4(surf_pos, rayPos.w), to_float4(-1.0f * light_dir, rayDir.w));

@@ -50,4 +50,7 @@ namespace sdf_converter
   SdfSBS SBS_col_to_SBS_ind(const SdfSBS &sbs);
 
   SdfSBS SBS_ind_to_SBS_ind_with_neighbors(const SdfSBS &sbs);
+
+  std::vector<SdfFrameOctreeNode> construct_sdf_frame_octree(SparseOctreeSettings settings, MultithreadedDistanceFunction sdf, 
+                                                             unsigned max_threads);
 }

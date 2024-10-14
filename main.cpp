@@ -22,7 +22,10 @@ int main(int argc, const char** argv)
   {
     if (std::string(argv[1]) == "-tests_litert")
     {
-      perform_tests_litert({34});
+      std::vector<int> test_ids = {};
+      for (int i=2; i<argc; i++)
+        test_ids.push_back(std::stoi(argv[i]));
+      perform_tests_litert(test_ids);
       return 0;
     }
     else if (std::string(argv[1]) == "-intersection_benchmark")
@@ -53,12 +56,15 @@ int main(int argc, const char** argv)
     }
     else if (std::string(argv[1]) == "-tests_dr")
     {
-      perform_tests_diff_render({24});
+      std::vector<int> test_ids = {};
+      for (int i=2; i<argc; i++)
+        test_ids.push_back(std::stoi(argv[i]));
+      perform_tests_diff_render(test_ids);
       return 0;
     }
     else if (std::string(argv[1]) == "-benchmark_dr")
     {
-      benchmark_iteration_time();
+      benchmark_dr_optimization();
     }
     else if (std::string(argv[1]) == "-rtx_benchmark" && argc > 2)
     {

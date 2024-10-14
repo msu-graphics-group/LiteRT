@@ -1195,7 +1195,7 @@ void lerpCellf(const float v0[28], const float v1[28], const float t, float memo
     memory[i] = LiteMath::lerp(v0[i], v1[i], t);
 }
 
-void BVHRT::lerpCell(const uint idx0, const uint idx1, const float t, float memory[28]) {
+void BVHRT::lerpCell(const uint32_t idx0, const uint32_t idx1, const float t, float memory[28]) {
   for (int i = 0; i < 28; i++)
     memory[i] = LiteMath::lerp(m_RFGridData[28 * idx0 + i], m_RFGridData[28 * idx1 + i], t);
 }
@@ -1242,7 +1242,7 @@ static float sigmoid(float x) {
   return 1 / (1 + exp(-x));
 }
 
-void BVHRT::RayGridIntersection(float3 ray_dir, uint gridSize, float3 p, float3 lastP, uint4 ptrs, uint4 ptrs2, float &throughput, float3 &colour)
+void BVHRT::RayGridIntersection(float3 ray_dir, uint32_t gridSize, float3 p, float3 lastP, uint4 ptrs, uint4 ptrs2, float &throughput, float3 &colour)
 {
   float3 coords = p * (float)(gridSize);
 
@@ -1480,6 +1480,187 @@ void BVHRT::IntersectNURBS(const float3& ray_pos, const float3& ray_dir,
 #endif  
 }
 
+void BVHRT::IntersectGraphicPrims(const float3& ray_pos, const float3& ray_dir,
+                                  float tNear, uint32_t instId,
+                                  uint32_t geomId, uint32_t a_start,
+                                  uint32_t a_count, CRT_Hit* pHit)
+{
+#ifndef DISABLE_GRAPHICS_PRIM
+
+  const float EPS = 1e-5f, T_MAX = 1e15f;
+  uint32_t primId     = m_geomData[geomId].offset.x;
+  uint32_t nextPrimId = m_geomData[geomId].offset.y;
+  GraphicsPrimHeader header = m_GraphicsPrimHeaders[primId];
+  float3 color = header.color;
+
+  bool has_custom_color = header.prim_type >= GRAPH_PRIM_POINT_COLOR;
+
+  if (header.prim_type == GRAPH_PRIM_POINT ||
+      header.prim_type == GRAPH_PRIM_POINT_COLOR)
+  {
+    for (uint32_t i = primId; i < nextPrimId; i += 1 + has_custom_color)
+    {
+      float4 point = m_GraphicsPrimPoints[i];
+      if (has_custom_color)
+        color = to_float3(m_GraphicsPrimPoints[i+1]);
+
+      float3 point3 = float3(point.x, point.y, point.z);
+      float pt_radius = point.w;
+      float3 pos_minus_point3 = ray_pos - point3;
+
+      float b = 2.f * dot(ray_dir, pos_minus_point3);
+      float c = dot(pos_minus_point3, pos_minus_point3) - pt_radius * pt_radius;
+      float D = b*b - 4*c;
+      if (D >= EPS)
+      {
+        D = std::sqrt(D);
+        float t = -(b + D) * 0.5f;
+        if (t < EPS)
+          t = (-b + D) * 0.5f;
+
+        if (t > tNear && t < pHit->t)
+        {
+          float3 norm = normalize((ray_pos + t*ray_dir - point3) * 100.f);
+          float2 encoded_norm = encode_normal(norm);
+
+          pHit->t         = t;
+          pHit->primId    = primId;
+          pHit->instId    = instId;
+          pHit->geomId    = geomId | (TYPE_GRAPHICS_PRIM << SH_TYPE);
+          pHit->coords[0] = color.x + color.y/256.0f;
+          pHit->coords[1] = color.z;
+          pHit->coords[2] = encoded_norm.x;
+          pHit->coords[3] = encoded_norm.y;
+        }
+      }
+    }
+  }
+  else
+  {
+    for (uint32_t i = primId; i < nextPrimId; i += 2 + has_custom_color)
+    {
+      float4 point1 = m_GraphicsPrimPoints[i  ];
+      float4 point2 = m_GraphicsPrimPoints[i+1];
+      if (has_custom_color)
+        color = to_float3(m_GraphicsPrimPoints[i+2]);
+
+      float3 point1_3 = float3(point1.x, point1.y, point1.z);
+      float3 point2_3 = float3(point2.x, point2.y, point2.z);
+      if (header.prim_type == GRAPH_PRIM_LINE_SEGMENT_DIR)
+        point2_3 = point2_3 * 0.8f + point1_3 * 0.2f; // so that the line segment doesn't clip through the cone
+      float ra = point1.w; // line (cylinder) radius
+
+      //assert(ra > EPS);
+
+      float t = T_MAX;
+      float3 norm = float3(0.f, 0.f, 0.f);
+
+      if (header.prim_type == GRAPH_PRIM_LINE ||
+          header.prim_type == GRAPH_PRIM_LINE_SEGMENT ||
+          header.prim_type == GRAPH_PRIM_LINE_SEGMENT_DIR ||
+          header.prim_type == GRAPH_PRIM_LINE_COLOR ||
+          header.prim_type == GRAPH_PRIM_LINE_SEGMENT_COLOR ||
+          header.prim_type == GRAPH_PRIM_LINE_SEGMENT_DIR_COLOR)
+      {
+        float3 oc =  ray_pos - point1_3;
+        float3 ba = point2_3 - point1_3;
+
+        float baba = dot(ba, ba);
+        float bard = dot(ba, ray_dir);
+        float baoc = dot(ba, oc);
+
+        float k2 = baba - (bard * bard);
+        float k1 = baba*dot(oc, ray_dir) - baoc*bard;
+        float k0 = baba*dot(oc, oc) - baoc*baoc - ra*ra*baba;
+
+        float D = k1*k1 - k2*k0;
+
+        if (D > 0.f)
+        {
+          float dist = -(k1 + std::sqrt(D)) / k2;
+          float y = baoc + dist*bard;
+
+          if (header.prim_type == GRAPH_PRIM_LINE || (y > 0.f && y < baba))
+          {
+            t = dist;
+            norm = normalize(oc+t*ray_dir - ba*y/baba);
+          }
+          else
+          {
+            dist = ((y < 0.f ? 0.f : baba) - baoc)/bard;
+            if (std::abs(k1+k2*dist)<std::sqrt(D))
+            {
+              t = dist;
+              norm = normalize(ba*sign(y));
+            }
+          }
+        }
+      }
+      if (header.prim_type == GRAPH_PRIM_LINE_SEGMENT_DIR ||
+          header.prim_type == GRAPH_PRIM_LINE_SEGMENT_DIR_COLOR)
+      {
+        ra = length(point2_3 - point1_3) * 0.15f;
+        point2_3 = float3(point2.x, point2.y, point2.z);
+        float3 pa = point2_3 * 0.7f + point1_3 * 0.3f; // cone length along line segment is 0.3*length(b - a) for now
+        float3 ba = point2_3 - pa;
+        float3 oa = ray_pos - pa;
+        float3 ob = ray_pos - point2_3;
+        float  m0 = dot(ba,ba);
+        float  m1 = dot(oa,ba);
+        float  m2 = dot(ray_dir,ba);
+        float  m3 = dot(ray_dir,oa);
+        float  m5 = dot(oa,oa);
+        float  m9 = dot(ob,ba);
+
+        // cap - only one
+        if(m1 < 0.f)
+        {
+          float3 tmp1 = oa * m2 - ray_dir * m1;
+          if(dot(tmp1, tmp1) < (ra*ra*m2*m2))
+          {
+            t = -m1/m2;
+            norm = normalize(-1.0f*ba);
+          }
+        }
+        
+        // body
+        float rr = ra;
+        float hy = m0 + rr*rr;
+        float k2 = m0*m0    - m2*m2*hy;
+        float k1 = m0*m0*m3 - m1*m2*hy + m0*ra*(rr*m2);
+        float k0 = m0*m0*m5 - m1*m1*hy + m0*ra*(rr*m1*2.0 - m0*ra);
+
+        float D = k1*k1 - k2*k0;
+        if(D > 0.f)
+        {
+          float dist = -(k1 + std::sqrt(D)) / k2;
+          float y = m1 + dist * m2;
+          if(y >= 0.f && y <= m0)
+          {
+            t = dist;
+            norm = normalize(m0*(m0*(oa+t*ray_dir)+rr*ba*ra)-ba*hy*y);
+          }
+        }
+      }
+
+      if (t > tNear && t < pHit->t)
+      {
+        float2 encoded_norm = encode_normal(norm);
+
+        pHit->t         = t;
+        pHit->primId    = primId;
+        pHit->instId    = instId;
+        pHit->geomId    = geomId | (TYPE_GRAPHICS_PRIM << SH_TYPE);
+        pHit->coords[0] = color.x + color.y/256.0f;
+        pHit->coords[1] = color.z;
+        pHit->coords[2] = encoded_norm.x;
+        pHit->coords[3] = encoded_norm.y;
+      }
+    }
+  }
+#endif // DISABLE_GRAPHICS_PRIM
+}
+
 SdfHit BVHRT::sdf_sphere_tracing(uint32_t type, uint32_t sdf_id, const float3 &min_pos, const float3 &max_pos,
                                  float tNear, const float3 &pos, const float3 &dir, bool need_norm)
 {
@@ -1570,11 +1751,11 @@ float BVHRT::eval_distance_sdf_grid(uint32_t grid_id, float3 pos)
   {
     if (vox_u.x < size.x-1 && vox_u.y < size.y-1 && vox_u.z < size.z-1)
     {
-      for (int i=0;i<2;i++)
+      for (uint32_t i=0;i<2;i++)
       {
-        for (int j=0;j<2;j++)
+        for (uint32_t j=0;j<2;j++)
         {
-          for (int k=0;k<2;k++)
+          for (uint32_t k=0;k<2;k++)
           {
             float qx = (1 - dp.x + i*(2*dp.x-1));
             float qy = (1 - dp.y + j*(2*dp.y-1));
@@ -1593,29 +1774,17 @@ float BVHRT::eval_distance_sdf_grid(uint32_t grid_id, float3 pos)
   {
     if (vox_u.x < size.x-2 && vox_u.y < size.y-2 && vox_u.z < size.z-2 && vox_u.x > 0 && vox_u.y > 0 && vox_u.z > 0)
     {
-      int x0 = vox_u.x - 1, y0 = vox_u.y - 1, z0 = vox_u.z - 1;
-      float f_dp[3] = {dp.x, dp.y, dp.z}, grid_part[64] = {0};
-
-      for (int x = 0; x < 4; ++x)
-      {
-        for (int y = 0; y < 4; ++y)
-        {
-          for (int z = 0; z < 4; ++z)
-          {
-            grid_part[z * 4 * 4 + y * 4 + x] = m_SdfGridData[off + (z0 + z)*size.x*size.y + (y0 + y)*size.x + (x0 + x)];
-          }
-        }
-      }
-
-      res = tricubicInterpolation(grid_part, f_dp);
+      uint32_t v_u[3] = {vox_u.x, vox_u.y, vox_u.z}, s_u[3] = {size.x, size.y, size.z};
+      float f_dp[3] = {dp.x, dp.y, dp.z};
+      res = tricubicInterpolation(v_u, f_dp, off, s_u);
     }
     else if (vox_u.x < size.x-1 && vox_u.y < size.y-1 && vox_u.z < size.z-1)
     {
-      for (int i=0;i<2;i++)
+      for (uint32_t i=0;i<2;i++)
       {
-        for (int j=0;j<2;j++)
+        for (uint32_t j=0;j<2;j++)
         {
-          for (int k=0;k<2;k++)
+          for (uint32_t k=0;k<2;k++)
           {
             float qx = (1 - dp.x + i*(2*dp.x-1));
             float qy = (1 - dp.y + j*(2*dp.y-1));
@@ -1660,47 +1829,44 @@ float BVHRT::eval_distance_sdf_octree(uint32_t octree_id, float3 position, uint3
   }
 }
 
-float
-tricubicInterpolation(const float grid[64], const float dp[3])
+float tricubic_spline(float p0, float p1, float p2, float p3, float x)
+{
+  return p1 + 0.5 * x * (p2 - p0 + x * (2.0 * p0 - 5.0 * p1 + 4.0 * p2 - p3 + x * (3.0 * (p1 - p2) + p3 - p0)));
+}
+
+float BVHRT::tricubicInterpolation(const uint32_t vox_u[3], const float dp[3], const uint32_t off, const uint32_t size[3])
 {
   float res = 0;
-  auto spline = [&](const float &p0, const float &p1, const float &p2, const float &p3, const float &x)
-  {
-    return p1 + 0.5 * x * (p2 - p0 + x * (2.0 * p0 - 5.0 * p1 + 4.0 * p2 - p3 + x * (3.0 * (p1 - p2) + p3 - p0)));
-  };
+  uint32_t x0 = vox_u[0] - 1, y0 = vox_u[1] - 1, z0 = vox_u[2] - 1;
 
-  float values_yz[4][4] = {}, values_z[4] = {};
+  float values_yz[16];
+  float values_z[4];
 
-  for (int j = 0; j < 4; ++j)
+  for (uint32_t j = 0; j < 4; ++j)
   {
-    for (int k = 0; k < 4; ++k)
+    for (uint32_t k = 0; k < 4; ++k)
     {
       //m_SdfGridData[off + (vox_u.z)*size.x*size.y + (vox_u.y)*size.x + (vox_u.x)]
-      values_yz[j][k] = 
-        spline(
-            grid[k*4*4 + (j)*4 + (0)],
-            grid[k*4*4 + (j)*4 + (1)],
-            grid[k*4*4 + (j)*4 + (2)],
-            grid[k*4*4 + (j)*4 + (3)], 
-            dp[0]
+      values_yz[4*j + k] = tricubic_spline(m_SdfGridData[off + (z0 + k)*size[0]*size[1] + (y0 + j)*size[0] + (x0 + 0)],
+                                m_SdfGridData[off + (z0 + k)*size[0]*size[1] + (y0 + j)*size[0] + (x0 + 1)],
+                                m_SdfGridData[off + (z0 + k)*size[0]*size[1] + (y0 + j)*size[0] + (x0 + 2)],
+                                m_SdfGridData[off + (z0 + k)*size[0]*size[1] + (y0 + j)*size[0] + (x0 + 3)], 
+                                dp[0]
       );
     }
   }
 
-  for (int k = 0; k < 4; ++k)
+  for (uint32_t k = 0; k < 4; ++k)
   {
-    values_z[k] = 
-      spline(
-          values_yz[0][k], 
-          values_yz[1][k], 
-          values_yz[2][k], 
-          values_yz[3][k], 
-          dp[1]
+    values_z[k] = tricubic_spline(values_yz[4*0 + k], 
+                          values_yz[4*1 + k], 
+                          values_yz[4*2 + k], 
+                          values_yz[4*3 + k], 
+                          dp[1]
     );
   }
 
-  res = spline(values_z[0], values_z[1], values_z[2], values_z[3], dp[2]);
-
+  res = tricubic_spline(values_z[0], values_z[1], values_z[2], values_z[3], dp[2]);
   return res;
 }
 
@@ -1712,8 +1878,8 @@ int enzyme_out;
 int enzyme_const;
 #endif
 
-void 
-tricubicInterpolationDerrivative(const float grid[64], const float dp[3], float d_pos[3], float d_grid[64])
+float3 
+tricubicInterpolationDerrivative(const float *m_SdfGridData, const uint32_t vox_u[3], const float dp[3], const uint32_t off, const uint32_t size[3])
 {
   #ifdef USE_ENZYME
   __enzyme_autodiff((void*)(tricubicInterpolation), 

@@ -119,8 +119,8 @@ namespace dr
   static constexpr unsigned DR_RAY_FLAG_DDIST_DPOS      = 1 << 4;
 
   //enum DRBorderSampling
-  static constexpr unsigned DR_BORDER_SAMPLING_RANDOM = 0;
-  static constexpr unsigned DR_BORDER_SAMPLING_SVM    = 1;
+  static constexpr unsigned DR_BORDER_SAMPLING_RANDOM   = 0;
+  static constexpr unsigned DR_BORDER_SAMPLING_SVM      = 1;
 
   //enum DRRegFunction
   static constexpr unsigned DR_REG_FUNCTION_NONE         = 0;
@@ -187,6 +187,7 @@ namespace dr
     
     bool debug_border_samples;
     bool debug_border_samples_mega_image;
+    bool debug_border_save_normals;
   };
 
   void randomize_color(SdfSBS &sbs);
@@ -195,6 +196,9 @@ namespace dr
   std::vector<float4x4> get_cameras_uniform_sphere(int count, float3 center, float radius);
   SdfSBS circle_smallest_scene();
   SdfSBS circle_smallest_scene_colored();
+  SdfSBS box_smallest_scene_colored();
+  SdfSBS box_small_scene_colored();
+  SdfSBS circle_smallest_scene_colored_2();
   SdfSBS circle_medium_scene();
   SdfSBS circle_small_scene();
   SdfSBS circle_one_brick_scene();

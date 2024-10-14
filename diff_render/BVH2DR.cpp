@@ -637,7 +637,7 @@ namespace dr
       // Borders for bisection and SDF min point
       float2 t_dsdf_l { (qFar + 2), 0.f },
              t_dsdf_r { (qFar + 1), 0.f },
-             t_sdf_res{ (qFar + 1), relax_pt->missed_hit.sdf };
+             t_sdf_res{ (qFar + 1), relax_pt ? relax_pt->missed_hit.sdf : 0.0f };
 
       // SDF values in t0, tFar
       const float t0 = 0.f;
@@ -1060,7 +1060,7 @@ namespace dr
                                  float qNear, float qFar, float3 start_q, float out_dValues[8])
   {
     //use finite differences to calculate dValues
-    float delta = 0.0001f;
+    float delta = 0.001f;
 
     for (int i = 0; i < 8; i++)
     {
@@ -1201,15 +1201,27 @@ static float3 dp_to_nmq(float3 dp, float beta)
             float3 q_ast = start_q + missed_t * ray_dir;
             float3 y_ast = ray_pos + (fNearFar.x + (d * missed_t)) * ray_dir;
             float3 dp_ast = (y_ast - brick_min_pos) * (0.5f * sz);
-            float3 dSDF_dy = eval_dist_trilinear_diff(values, q_ast); // grad
-            //printf("dSDF_dy: %f %f %f\n", dSDF_dy.x, dSDF_dy.y, dSDF_dy.z);
+            float3 dSDF_dpos = eval_dist_trilinear_diff(values, q_ast)*(1/d); // grad
 
-            float dSDF_dy_norm = length(dSDF_dy);
-            if (dSDF_dy_norm > 1e-9f) 
+            //eval_dist_trilinear_diff calculates normal by the values in given voxel
+            //however, the minimum point is often on the voxel's border and normal on the
+            //border is not the same, bu we should calculate the smoothed normal because
+            //we need exactly the geomentry normal, i.e. dSDF_dpos.
+            //and this multiplier is a small hack how estimate this value
+            float3 border_normal_mult = float3(std::abs(q_ast.x - 0.5f) > 0.5f - 1e-5f ? 0.0f : 1.0f,
+                                               std::abs(q_ast.y - 0.5f) > 0.5f - 1e-5f ? 0.0f : 1.0f,
+                                               std::abs(q_ast.z - 0.5f) > 0.5f - 1e-5f ? 0.0f : 1.0f);
+            dSDF_dpos *= border_normal_mult;
+            float dSDF_dpos_len = length(dSDF_dpos);
+            
+            if (dSDF_dpos_len > 1e-9f) 
             { 
-              eval_dist_trilinear_d_dtheta(relax_pt->missed_dSDF_dtheta, q_ast); // dSDF/dTheta
+              float dSDF_dvalues[8];
+              eval_dist_trilinear_d_dtheta(dSDF_dvalues, q_ast); // dSDF/dTheta
               for (int i=0; i<8; ++i)
-                relax_pt->missed_dSDF_dtheta[i] /= -1.0f*dSDF_dy_norm;
+              {
+                relax_pt->missed_dSDF_dtheta[i] = -dSDF_dvalues[i]/dSDF_dpos_len;
+              }
 
               uint32_t t_off = m_SdfSBSNodes[nodeId].data_offset + v_size * v_size * v_size;
               float3 colors[8];
@@ -1219,7 +1231,7 @@ static float3 dp_to_nmq(float3 dp, float beta)
                                    m_SdfSBSDataF[m_SdfSBSData[t_off + i] + 2]);
               
               relax_pt->missed_hit.color = eval_color_trilinear(colors, dp_ast);
-              relax_pt->missed_hit.normal = dSDF_dy / dSDF_dy_norm;
+              relax_pt->missed_hit.normal = dSDF_dpos / dSDF_dpos_len;
 
               for (int i = 0; i < 8; i++)
                 relax_pt->missed_indices[i] = missed_indices_tmp[i];
@@ -1265,7 +1277,7 @@ static float3 dp_to_nmq(float3 dp, float beta)
               uint32_t vId = vPos.x * v_size * v_size + vPos.y * v_size + vPos.z;
 
               relax_pt->dDiffuseNormal_dSd[dvalues_offset+i].index = m_SdfSBSData[v_off + vId];
-              relax_pt->dDiffuseNormal_dSd[dvalues_offset+i].dDist = 2.0f * d * dt_dvalues[i]; //d(tReal)/dS
+              relax_pt->dDiffuseNormal_dSd[dvalues_offset+i].dDist = d * dt_dvalues[i]; //d(tReal)/dS
             }
           }
 

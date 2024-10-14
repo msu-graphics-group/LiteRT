@@ -39,6 +39,35 @@ struct MultiRendererMaterial
   float4 base_color; // valid if type == MULTI_RENDER_MATERIAL_TYPE_COLORED
 };
 
+//enum LightType
+static constexpr unsigned LIGHT_TYPE_DIRECT   = 0;
+static constexpr unsigned LIGHT_TYPE_POINT    = 1;
+static constexpr unsigned LIGHT_TYPE_AMBIENT  = 2;
+
+struct Light
+{
+  float3 space; //position or direction
+  unsigned type;
+  float3 color; //intensity included
+  unsigned _pad;
+};
+
+static Light create_direct_light(float3 dir, float3 color)
+{
+  return {normalize(dir), LIGHT_TYPE_DIRECT, color, 0};
+}
+
+static Light create_point_light(float3 pos, float3 color)
+{
+  return {pos, LIGHT_TYPE_POINT, color, 0};
+}
+
+static Light create_ambient_light(float3 color)
+{
+  return {float3(0,0,0), LIGHT_TYPE_AMBIENT, color, 0};
+}
+
+
 class MultiRenderer : public IRenderer
 {
 public:
@@ -55,6 +84,8 @@ public:
 
   void SetScene(SdfFrameOctreeTexView scene);
   void SetScene(const RawNURBS &nurbs);
+  void SetScene(GraphicsPrimView scene);
+
 #endif
   void Render(uint32_t* imageData, uint32_t a_width, uint32_t a_height, 
               const LiteMath::float4x4& a_worldView, const LiteMath::float4x4& a_proj,
@@ -111,6 +142,8 @@ public:
   uint32_t AddTexture(const Image2D<float4> &image);
   uint32_t AddMaterial(const MultiRendererMaterial &material);
   void     SetMaterial(uint32_t matId, uint32_t geomId);
+
+  void SetLights(const std::vector<Light>& lights);
   
   uint32_t AddInstance(uint32_t a_geomId, const LiteMath::float4x4& a_matrix);
   
@@ -162,9 +195,6 @@ protected:
   std::shared_ptr<ISceneObject>  m_pAccelStruct;
   std::vector<uint32_t>          m_packedXY;
 
-  float4 m_mainLightDir; //direction to main light, normalized
-  float4 m_mainLightColor; //color of main light, also intensity
-
   //duplicating data for meshes if we want to visualize them with textures
 #ifndef DISABLE_MESH_TEX
   std::vector<float4> m_vertices; //.w is tc.x
@@ -180,6 +210,8 @@ protected:
   std::vector<uint32_t> m_matIdbyPrimId;
   std::vector<uint2> m_matIdOffsets; //for every geometry, start and size of it's part of m_matIdbyPrimId
   unsigned active_textures_count = 0;
+
+  std::vector<Light> m_lights;
 //#endif
   std::vector<LiteMath::float4x4> m_instanceTransformInvTransposed;
 
