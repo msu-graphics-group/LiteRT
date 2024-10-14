@@ -6,7 +6,7 @@
 #include "LiteScene/hydraxml.h"
 #include "LiteMath/Image2d.h"
 #include "../utils/sdf_converter.h"
-#include "../utils/sparse_octree_2.h"
+#include "../utils/sparse_octree_builder.h"
 #include "../utils/marching_cubes.h"
 #include "../utils/sdf_smoother.h"
 #include "../utils/demo_meshes.h"
@@ -980,7 +980,7 @@ void diff_render_test_11_expanding_grid()
     auto pRender = CreateMultiRenderer("GPU");
     pRender->SetPreset(preset);
     pRender->SetViewport(0,0,W,H);
-    pRender->SetScene(ds_scene, true);
+    pRender->SetScene(ds_scene);
     pRender->RenderFloat(images_ref[i].data(), images_ref[i].width(), images_ref[i].height(), view[i], proj[i], preset);
     LiteImage::SaveImage<float4>(("saves/test_dr_11_ref_"+std::to_string(i)+".bmp").c_str(), images_ref[i]); 
   }
@@ -2637,7 +2637,7 @@ void diff_render_test_27_visualize_bricks()
     //printf("BVH tree size: %lu\n", pRender.GetAccelStruct().get());
     //pRender.Redistance(sbs.values_f.data(), {1, 1, 1}, 2.f / 1, 2);
 
-    pRender.SetScene(sbs, true);
+    pRender.SetScene(sbs);
 
     pRender.RenderFloat(image_res.data(), W, H, view[i], proj[i], preset);
     LiteImage::SaveImage<float4>(("saves/test_dr_24_"+std::to_string(i)+".bmp").c_str(), image_res); 

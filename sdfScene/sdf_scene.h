@@ -104,17 +104,6 @@ struct SdfHit
   float4 hit_norm; // hit_norm.w can store different types of things for debug/visualization purposes
 };
 
-struct SdfOctreeNode
-{
-  float value;
-  unsigned offset; // offset for children (they are stored together). 0 offset means it's a leaf
-};
-struct SDONeighbor
-{
-  SdfOctreeNode node;
-  uint32_t overshoot;
-};
-
 struct SdfFrameOctreeNode
 {
   float values[8];
@@ -225,18 +214,6 @@ struct SdfGridView
   }
   uint3 size;
   const float *data; //size.x*size.y*size.z values 
-};
-
-struct SdfOctreeView
-{
-  SdfOctreeView() = default;
-  SdfOctreeView(const std::vector<SdfOctreeNode> &a_nodes)
-  {
-    size = a_nodes.size();
-    nodes = a_nodes.data();
-  }
-  unsigned size;
-  const SdfOctreeNode *nodes;
 };
 
 struct SdfFrameOctreeView
@@ -411,19 +388,6 @@ struct SdfFrameOctreeTexView
   const SdfFrameOctreeTexNode *nodes;
 };
 
-// interface to evaluate SdfOctree out of context of rendering
-class ISdfOctreeFunction
-{
-public:
-  //copies data from octree
-  virtual void init(SdfOctreeView octree) = 0; 
-  virtual float eval_distance(float3 pos) = 0;
-  virtual float eval_distance_level(float3 pos, unsigned max_level) = 0;
-  virtual std::vector<SdfOctreeNode> &get_nodes() = 0;
-  virtual const std::vector<SdfOctreeNode> &get_nodes() const = 0;
-};
-std::shared_ptr<ISdfOctreeFunction> get_SdfOctreeFunction(SdfOctreeView scene);
-
 // interface to evaluate SdfGrid out of context of rendering
 class ISdfGridFunction
 {
@@ -440,9 +404,6 @@ void load_sdf_scene(SdfScene &scene, const std::string &path);
 
 void save_sdf_grid(const SdfGridView &scene, const std::string &path);
 void load_sdf_grid(SdfGrid &scene, const std::string &path);
-
-void save_sdf_octree(const SdfOctreeView &scene, const std::string &path);
-void load_sdf_octree(std::vector<SdfOctreeNode> &scene, const std::string &path);
 
 void save_sdf_frame_octree(const SdfFrameOctreeView &scene, const std::string &path);
 void load_sdf_frame_octree(std::vector<SdfFrameOctreeNode> &scene, const std::string &path);

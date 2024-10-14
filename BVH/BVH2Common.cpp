@@ -70,7 +70,7 @@ float BVHRT::eval_dist_trilinear(const float values[8], float3 dp)
 
 //intersects ray with the particular leaf node of SDF strcuture
 //it reqires a 1-to-1 mapping between leaf nodes of SDF and BVH
-//like in frame octree, SVS and SBS with multiple BVH nodes per brick
+//like in frame octree or SVS
 void BVHRT::RayNodeIntersection(uint32_t type, const float3 ray_pos, const float3 ray_dir, 
                                 float tNear, uint32_t geomId, uint32_t bvhNodeId, 
                                 float values[8], uint32_t &primId, uint32_t &nodeId, float &d, 
@@ -139,100 +139,6 @@ void BVHRT::RayNodeIntersection(uint32_t type, const float3 ray_pos, const float
 
     for (int i=0;i<8;i++)
       values[i] = -d_max + 2*d_max*(1.0/255.0f)*((m_SdfSVSNodes[nodeId].values[i/4] >> (8*(i%4))) & 0xFF);
-
-    fNearFar = RayBoxIntersection2(ray_pos, SafeInverse(ray_dir), min_pos, max_pos);
-    float3 start_pos = ray_pos + fNearFar.x*ray_dir;
-    d = std::max(size.x, std::max(size.y, size.z));
-    start_q = (start_pos - min_pos) / d;
-    qFar = (fNearFar.y - fNearFar.x) / d;
-    qNear = tNear > fNearFar.x ? (tNear - fNearFar.x) / d : 0.0f;
-#endif
-  }
-  else if (type == TYPE_SDF_SBS_ADAPT)
-  {
-#ifndef DISABLE_SDF_SBS_ADAPT
-    uint32_t sdfId =  m_geomData[geomId].offset.x;
-    primId = bvhNodeId; //id of bbox in BLAS
-    nodeId = m_SdfSBSAdaptRemap[primId + m_geomData[geomId].offset.y].x; //id of node (brick) in SBS
-    uint3 voxelPos = uint3(m_SdfSBSAdaptRemap[primId + m_geomData[geomId].offset.y].y);
-    SdfSBSAdaptHeader header = m_SdfSBSAdaptHeaders[sdfId];
-
-    float px = m_SdfSBSAdaptNodes[nodeId].pos_xy >> 16;
-    float py = m_SdfSBSAdaptNodes[nodeId].pos_xy & 0x0000FFFF;
-    float pz = m_SdfSBSAdaptNodes[nodeId].pos_z_vox_size >> 16;
-    float vs = m_SdfSBSAdaptNodes[nodeId].pos_z_vox_size & 0x0000FFFF;
-
-    // voxel count
-    uint3 brick_size{(m_SdfSBSAdaptNodes[nodeId].vox_count_xyz_pad >> 16) & 0x000000FF,
-                     (m_SdfSBSAdaptNodes[nodeId].vox_count_xyz_pad >>  8) & 0x000000FF,
-                     (m_SdfSBSAdaptNodes[nodeId].vox_count_xyz_pad      ) & 0x000000FF};
-    float3 brick_size_inv = 1.f / float3(brick_size);
-    uint3 v_size = brick_size + 2*header.brick_pad + 1;
-
-    voxelPos.x /= v_size.y*v_size.z;
-    voxelPos.y  = voxelPos.y/v_size.z%v_size.y;
-    voxelPos.z %= v_size.z;
-
-    const float brick_abs_size = (2.0f/SDF_SBS_ADAPT_MAX_UNITS)*vs; // num_units / voxel_size == lod_size (from SdfSBSNode)
-    float3 size = brick_abs_size*brick_size_inv; // voxel abs size, same as 2.0f*float3(1,1,1)/(sz*header.brick_size); (from SdfSBSNode)
-    min_pos = float3(-1,-1,-1) + (2.0f/SDF_SBS_ADAPT_MAX_UNITS)*(float3(px,py,pz) + float3(voxelPos)*vs*brick_size_inv);
-    max_pos = min_pos + size;
-
-    uint32_t v_off = m_SdfSBSAdaptNodes[nodeId].data_offset;
-    uint32_t vals_per_int = 4/header.bytes_per_value; 
-    uint32_t bits = 8*header.bytes_per_value;
-    uint32_t max_val = header.bytes_per_value == 4 ? 0xFFFFFFFF : ((1 << bits) - 1);
-
-    float d_max = 1.73205081f*brick_abs_size;
-    float mult = 2*d_max/max_val;
-    for (int i=0;i<8;i++)
-    {
-      uint3 vPos = voxelPos + uint3((i & 4) >> 2, (i & 2) >> 1, i & 1);
-      uint32_t vId = vPos.x*v_size.y*v_size.z + vPos.y*v_size.z + vPos.z;
-      values[i] = -d_max + mult*((m_SdfSBSAdaptData[v_off + vId/vals_per_int] >> (bits*(vId%vals_per_int))) & max_val);
-    }
-
-    fNearFar = RayBoxIntersection2(ray_pos, SafeInverse(ray_dir), min_pos, max_pos);
-    float3 start_pos = ray_pos + fNearFar.x*ray_dir;
-    d = std::max(size.x, std::max(size.y, size.z));
-    start_q = (start_pos - min_pos) / d;
-    qFar = (fNearFar.y - fNearFar.x) / d;
-    qNear = tNear > fNearFar.x ? (tNear - fNearFar.x) / d : 0.0f;
-#endif
-  }
-  else //if (type == TYPE_SDF_SBS)
-  {
-#ifndef DISABLE_SDF_SBS
-    uint32_t sdfId =  m_geomData[geomId].offset.x;
-    primId = bvhNodeId; //id of bbox in BLAS
-    nodeId = m_SdfSBSRemap[primId + m_geomData[geomId].offset.y].x; //id of node (brick) in SBS
-    uint32_t voxelId = m_SdfSBSRemap[primId + m_geomData[geomId].offset.y].y;
-    SdfSBSHeader header = m_SdfSBSHeaders[sdfId];
-    uint32_t v_size = header.brick_size + 2*header.brick_pad + 1;
-    uint3 voxelPos = uint3(voxelId/(v_size*v_size), voxelId/v_size%v_size, voxelId%v_size);
-
-    float px = m_SdfSBSNodes[nodeId].pos_xy >> 16;
-    float py = m_SdfSBSNodes[nodeId].pos_xy & 0x0000FFFF;
-    float pz = m_SdfSBSNodes[nodeId].pos_z_lod_size >> 16;
-    float sz = m_SdfSBSNodes[nodeId].pos_z_lod_size & 0x0000FFFF;
-
-    min_pos = float3(-1,-1,-1) + 2.0f*(float3(px,py,pz)/sz + float3(voxelPos)/(sz*header.brick_size));
-    max_pos = min_pos + 2.0f*float3(1,1,1)/(sz*header.brick_size);
-    float3 size = max_pos - min_pos;
-
-    //TODO: make it works with brick_size > 1
-    uint32_t v_off = m_SdfSBSNodes[nodeId].data_offset;
-    uint32_t vals_per_int = 4/header.bytes_per_value; 
-    uint32_t bits = 8*header.bytes_per_value;
-    uint32_t max_val = header.bytes_per_value == 4 ? 0xFFFFFFFF : ((1 << bits) - 1);
-    float d_max = 2*1.73205081f/sz;
-    float mult = 2*d_max/max_val;
-    for (int i=0;i<8;i++)
-    {
-      uint3 vPos = voxelPos + uint3((i & 4) >> 2, (i & 2) >> 1, i & 1);
-      uint32_t vId = vPos.x*v_size*v_size + vPos.y*v_size + vPos.z;
-      values[i] = -d_max + mult*((m_SdfSBSData[v_off + vId/vals_per_int] >> (bits*(vId%vals_per_int))) & max_val);
-    }
 
     fNearFar = RayBoxIntersection2(ray_pos, SafeInverse(ray_dir), min_pos, max_pos);
     float3 start_pos = ray_pos + fNearFar.x*ray_dir;
@@ -1080,14 +986,6 @@ void BVHRT::IntersectAllSdfsInLeaf(const float3 ray_pos, const float3 ray_dir,
     max_pos = float3( 1, 1, 1);
     break;
 #endif
-#ifndef DISABLE_SDF_OCTREE
-  case TYPE_SDF_OCTREE:
-    sdfId = m_geomData[geomId].offset.x;
-    primId = 0;
-    min_pos = float3(-1,-1,-1);
-    max_pos = float3( 1, 1, 1);
-    break;
-#endif
   default:
     break;
   }
@@ -1655,11 +1553,6 @@ float BVHRT::eval_distance_sdf(uint32_t type, uint32_t sdf_id, float3 pos)
     val = eval_distance_sdf_grid(sdf_id, pos);
     break;
 #endif
-#ifndef DISABLE_SDF_OCTREE
-  case TYPE_SDF_OCTREE:
-    val = eval_distance_sdf_octree(sdf_id, pos, 1000);
-    break;
-#endif
   default:
     break;
   }
@@ -1738,31 +1631,6 @@ float BVHRT::eval_distance_sdf_grid(uint32_t grid_id, float3 pos)
 }
 #endif
 
-#ifndef DISABLE_SDF_OCTREE
-bool BVHRT::is_leaf(uint32_t offset)
-{
-  return (offset == 0) || ((offset & (1u<<31u)) > 0);
-}
-
-float BVHRT::eval_distance_sdf_octree(uint32_t octree_id, float3 position, uint32_t max_level)
-{
-  switch (m_preset.sdf_octree_sampler)
-  {
-  case SDF_OCTREE_SAMPLER_MIPSKIP_3X3:
-    return sdf_octree_sample_mipskip_3x3(octree_id, position, max_level);
-    break;
-  case SDF_OCTREE_SAMPLER_MIPSKIP_CLOSEST:
-    return sdf_octree_sample_mipskip_closest(octree_id, position, max_level);
-    break;
-    case SDF_OCTREE_SAMPLER_CLOSEST:
-    return sdf_octree_sample_closest(octree_id, position, max_level);
-    break;
-  default:
-    return 1e6;
-    break;
-  }
-}
-
 float tricubic_spline(float p0, float p1, float p2, float p3, float x)
 {
   return p1 + 0.5 * x * (p2 - p0 + x * (2.0 * p0 - 5.0 * p1 + 4.0 * p2 - p3 + x * (3.0 * (p1 - p2) + p3 - p0)));
@@ -1833,238 +1701,6 @@ tricubicInterpolationDerrivative(const float *m_SdfGridData, const uint32_t vox_
 
   return d_dist;
 }
-
-float BVHRT::sdf_octree_sample_mipskip_closest(uint32_t octree_id, float3 position, uint32_t max_level)
-{
-  float3 n_pos = clamp(0.5f*(position + 1.0f), 0.0f, 1.0f);//position in current neighborhood
-  float d = 1;//size of current neighborhood
-  float n_distances[8];
-  uint32_t n_indices[8]; //0 index means that it is "virtual" node
-  uint32_t non_leaf_nodes = 0; //how many nodes in neighborhood have children
-
-  float prev_n_distances[8];
-  uint32_t prev_n_indices[8]; //0 index means that it is "virtual" node
-
-  //start with root's childer as a neighborhood
-  uint32_t root_id = m_SdfOctreeRoots[octree_id];
-  uint32_t r_idx = m_SdfOctreeNodes[root_id].offset;
-  for (int i=0;i<8;i++)
-  {
-    n_distances[i] = m_SdfOctreeNodes[r_idx+i].value;
-    n_indices[i] = r_idx+i;
-    non_leaf_nodes += uint32_t(!is_leaf(m_SdfOctreeNodes[r_idx+i].offset));
-  }
-
-  int level = 1;
-  while (non_leaf_nodes > 0 && level <= max_level)
-  {
-    for (int i=0;i<8;i++)
-    {
-      prev_n_distances[i] = n_distances[i];
-      prev_n_indices[i] = n_indices[i];
-    }
-    //go 1 level deeper every iteration
-    non_leaf_nodes = 0;
-
-    uint3 idx8 = uint3(8.0f*fract(n_pos));
-    uvec3 pidx[2], chidx[2];
-    float3 n_pos_sh;
-    for (int i=0;i<3;i++)
-    {
-      if (idx8[i] == 0)
-        { pidx[0][i] = 0; chidx[0][i] = 0; pidx[1][i] = 0; chidx[1][i] = 0; n_pos_sh[i] = 0;}
-      else if (idx8[i] <= 2)
-        { pidx[0][i] = 0; chidx[0][i] = 0; pidx[1][i] = 0; chidx[1][i] = 1; n_pos_sh[i] = 0;}
-      else if (idx8[i] <= 4)
-        { pidx[0][i] = 0; chidx[0][i] = 1; pidx[1][i] = 1; chidx[1][i] = 0; n_pos_sh[i] = 0.25;}
-      else if (idx8[i] <= 6)
-        { pidx[0][i] = 1; chidx[0][i] = 0; pidx[1][i] = 1; chidx[1][i] = 1; n_pos_sh[i] = 0.5;}
-      else //if (idx8[i] == 7)
-        { pidx[0][i] = 1; chidx[0][i] = 1; pidx[1][i] = 1; chidx[1][i] = 1; n_pos_sh[i] = 0.5;}
-    }
-    
-    //create new neighborhood
-    for (uint32_t i=0;i<8;i++)
-    {
-      uint3 n_idx((i & 4) >> 2, (i & 2) >> 1, i & 1);
-      uint3 cur_pidx = uint3(pidx[n_idx[0]][0], pidx[n_idx[1]][1], pidx[n_idx[2]][2]);
-      uint3 cur_chidx = uint3(chidx[n_idx[0]][0], chidx[n_idx[1]][1], chidx[n_idx[2]][2]);
-
-      uint32_t p_index = 4*cur_pidx.x + 2*cur_pidx.y + cur_pidx.z;
-      if (prev_n_indices[p_index] > 0 &&                //p_index is a real node
-          !is_leaf(m_SdfOctreeNodes[prev_n_indices[p_index]].offset))    //p_index has children
-      {
-        uint32_t ch_index = m_SdfOctreeNodes[prev_n_indices[p_index]].offset + 4*cur_chidx.x + 2*cur_chidx.y + cur_chidx.z;
-        n_distances[i] = m_SdfOctreeNodes[ch_index].value;
-        n_indices[i] = ch_index;      
-        non_leaf_nodes += uint32_t(!is_leaf(m_SdfOctreeNodes[ch_index].offset));
-      }
-      else                                              //p_index is a leaf node
-      {
-        n_distances[i] = prev_n_distances[p_index];
-        n_indices[i] = 0;   
-      }
-    }
-
-    n_pos = fract(2.0f*(n_pos - n_pos_sh));
-    d /= 2;
-
-    level++;
-  }
-
-  //bilinear sampling
-  float3 dp = clamp(2.0f*n_pos - float3(0.5, 0.5, 0.5), 0.0f, 1.0f);
-  return (1-dp.x)*(1-dp.y)*(1-dp.z)*n_distances[0] + 
-         (1-dp.x)*(1-dp.y)*(  dp.z)*n_distances[1] + 
-         (1-dp.x)*(  dp.y)*(1-dp.z)*n_distances[2] + 
-         (1-dp.x)*(  dp.y)*(  dp.z)*n_distances[3] + 
-         (  dp.x)*(1-dp.y)*(1-dp.z)*n_distances[4] + 
-         (  dp.x)*(1-dp.y)*(  dp.z)*n_distances[5] + 
-         (  dp.x)*(  dp.y)*(1-dp.z)*n_distances[6] + 
-         (  dp.x)*(  dp.y)*(  dp.z)*n_distances[7];
-}
-
-float BVHRT::sdf_octree_sample_closest(uint32_t octree_id, float3 position, uint32_t max_level)
-{
-  float3 pos = clamp(0.5f*(position + 1.0f), 0.0f, 1.0f);
-  uint32_t idx = m_SdfOctreeRoots[octree_id];
-  float d = 1;
-  uint32_t level = 0;
-  float3 p = float3(0,0,0);
-  while (m_SdfOctreeNodes[idx].offset != 0 && level <= max_level)
-  {
-    float3 pindf = pos/d - p;
-    uint32_t ch_index = 4*uint32_t(pindf.x >= 0.5) + 2*uint32_t(pindf.y >= 0.5) + uint32_t(pindf.z >= 0.5);
-    //printf("%u pindf %f %f %f %u\n",idx, pindf.x, pindf.y, pindf.z, ch_index);
-    idx = m_SdfOctreeNodes[idx].offset + ch_index;
-    d = d/2;
-    p = 2*p + float3((ch_index & 4) >> 2, (ch_index & 2) >> 1, ch_index & 1);
-    level++;
-  }
-  //printf("\n");
-  //printf("%u last pindf \n",idx);
-
-  return m_SdfOctreeNodes[idx].value;
-}
-
-float BVHRT::sdf_octree_sample_mipskip_3x3(uint32_t octree_id, float3 position, uint32_t max_level)
-{
-  const uint32_t X_L = 1<<0;
-  const uint32_t X_H = 1<<1;
-  const uint32_t Y_L = 1<<2;
-  const uint32_t Y_H = 1<<3;
-  const uint32_t Z_L = 1<<4;
-  const uint32_t Z_H = 1<<5;
-
-  uint32_t CENTER = 9 + 3 + 1;
-  float EPS = 1e-6;
-  SDONeighbor neighbors[27];
-  SDONeighbor new_neighbors[27];
-
-
-  float3 n_pos = clamp(0.5f*(position + 1.0f), EPS, 1.0f-EPS);//position in current neighborhood
-  float d = 1;//size of current neighborhood
-  uint32_t level = 0;
-  uint32_t root_id = m_SdfOctreeRoots[octree_id];
-  for (int i=0;i<27;i++)
-  {
-    neighbors[i].node = m_SdfOctreeNodes[root_id];
-    neighbors[i].overshoot = 0;
-    if (i/9 == 0) neighbors[i].overshoot |= X_L;
-    else if (i/9 == 2) neighbors[i].overshoot |= X_H;
-    if (i/3%3 == 0) neighbors[i].overshoot |= Y_L;
-    else if (i/3%3 == 2) neighbors[i].overshoot |= Y_H;
-    if (i%3 == 0) neighbors[i].overshoot |= Z_L;
-    else if (i%3 == 2) neighbors[i].overshoot |= Z_H;
-  }
-  neighbors[CENTER].overshoot = 0;
-
-  while (!is_leaf(neighbors[CENTER].node.offset) && level < max_level)
-  {
-    int3 ch_shift = int3(n_pos.x >= 0.5, n_pos.y >= 0.5, n_pos.z >= 0.5);
-
-    for (int i=0;i<27;i++)
-    {
-      int3 n_offset = int3(i/9, i/3%3, i%3); //[0,2]^3
-      int3 p_idx = (n_offset + ch_shift + 1) / 2;
-      int3 ch_idx = (n_offset + ch_shift + 1) - 2*p_idx;
-      uint32_t p_offset = 9*p_idx.x + 3*p_idx.y + p_idx.z;
-    
-      if (is_leaf(neighbors[p_offset].node.offset)) //resample
-      {
-        float3 rs_pos = 0.5f*float3(2*p_idx + ch_idx) - 1.0f + 0.25f;//in [-1,2]^3
-
-        //sample neighborhood
-        float3 qx = clamp(float3(0.5-rs_pos.x,std::min(0.5f + rs_pos.x, 1.5f - rs_pos.x),-0.5+rs_pos.x),0.0f,1.0f);
-        float3 qy = clamp(float3(0.5-rs_pos.y,std::min(0.5f + rs_pos.y, 1.5f - rs_pos.y),-0.5+rs_pos.y),0.0f,1.0f);
-        float3 qz = clamp(float3(0.5-rs_pos.z,std::min(0.5f + rs_pos.z, 1.5f - rs_pos.z),-0.5+rs_pos.z),0.0f,1.0f);
-
-        float res = 0.0;
-        for (int i=0;i<3;i++)
-          for (int j=0;j<3;j++)
-            for (int k=0;k<3;k++)
-              res += qx[i]*qy[j]*qz[k]*neighbors[9*i + 3*j + k].node.value;
-        //sample neighborhood end
-
-        new_neighbors[i].node.value = res;
-        new_neighbors[i].node.offset = 0;
-        new_neighbors[i].overshoot = 0;
-      }
-      else if (neighbors[p_offset].overshoot == 0) //pick child node
-      {
-        uint32_t ch_offset = 4*ch_idx.x + 2*ch_idx.y + ch_idx.z;
-        uint32_t off = neighbors[p_offset].node.offset;
-        new_neighbors[i].node = m_SdfOctreeNodes[off + ch_offset];
-        new_neighbors[i].overshoot = 0;
-      }
-      else //pick child node, but mind the overshoot
-      {
-        /**/
-        int3 ch_idx_overshoot = ch_idx;
-        uint32_t osh = neighbors[p_offset].overshoot;
-        uint32_t new_osh = 0;
-        if (((osh&X_L) > 0) && p_idx.x == 0) 
-          {ch_idx_overshoot.x = 0; new_osh |= X_L; }
-        else if (((osh&X_H) > 0) && p_idx.x == 2) 
-          {ch_idx_overshoot.x = 1; new_osh |= X_H; }
-        if (((osh&Y_L) > 0) && p_idx.y == 0) 
-          {ch_idx_overshoot.y = 0; new_osh |= Y_L; }
-        else if (((osh&Y_H) > 0) && p_idx.y == 2) 
-          {ch_idx_overshoot.y = 1; new_osh |= Y_H; }
-        if (((osh&Z_L) > 0) && p_idx.z == 0) 
-          {ch_idx_overshoot.z = 0; new_osh |= Z_L; }
-        else if (((osh&Z_H) > 0) && p_idx.z == 2) 
-          {ch_idx_overshoot.z = 1; new_osh |= Z_H; }
-
-        uint32_t ch_offset = 4*ch_idx_overshoot.x + 2*ch_idx_overshoot.y + ch_idx_overshoot.z;
-        uint32_t off = neighbors[p_offset].node.offset;
-        new_neighbors[i].node = m_SdfOctreeNodes[off + ch_offset];
-        new_neighbors[i].overshoot = new_osh;
-      }
-    }
-
-    for (int i=0;i<27;i++)
-      neighbors[i] = new_neighbors[i];
-
-    n_pos = fract(2.0f*(n_pos - 0.5f*float3(ch_shift)));
-    d /= 2;
-    level++;
-  }
-
-  //sample neighborhood
-  float3 qx = clamp(float3(0.5-n_pos.x,std::min(0.5f + n_pos.x, 1.5f - n_pos.x),-0.5+n_pos.x),0.0f,1.0f);
-  float3 qy = clamp(float3(0.5-n_pos.y,std::min(0.5f + n_pos.y, 1.5f - n_pos.y),-0.5+n_pos.y),0.0f,1.0f);
-  float3 qz = clamp(float3(0.5-n_pos.z,std::min(0.5f + n_pos.z, 1.5f - n_pos.z),-0.5+n_pos.z),0.0f,1.0f);
-
-  float res = 0.0;
-  for (int i=0;i<3;i++)
-    for (int j=0;j<3;j++)
-      for (int k=0;k<3;k++)
-        res += qx[i]*qy[j]*qz[k]*neighbors[9*i + 3*j + k].node.value;
-  return res;
-  //sample neighborhood end
-}
-#endif
 
 #ifndef DISABLE_SDF_FRAME_OCTREE
 float BVHRT::eval_distance_sdf_frame_octree(uint32_t octree_id, float3 position)

@@ -62,25 +62,6 @@ void load_sdf_grid(SdfGrid &scene, const std::string &path)
   fs.close();
 }
 
-void save_sdf_octree(const SdfOctreeView &scene, const std::string &path)
-{
-  std::ofstream fs(path, std::ios::binary);
-  fs.write((const char *)&scene.size, sizeof(unsigned));
-  fs.write((const char *)scene.nodes, scene.size * sizeof(SdfOctreeNode));
-  fs.flush();
-  fs.close();
-}
-
-void load_sdf_octree(std::vector<SdfOctreeNode> &scene, const std::string &path)
-{
-  std::ifstream fs(path, std::ios::binary);
-  unsigned sz = 0;
-  fs.read((char *)&sz, sizeof(unsigned));
-  scene.resize(sz);
-  fs.read((char *)scene.data(), scene.size() * sizeof(SdfOctreeNode));
-  fs.close();
-}
-
 void save_sdf_frame_octree(const SdfFrameOctreeView &scene, const std::string &path)
 {
   std::ofstream fs(path, std::ios::binary);

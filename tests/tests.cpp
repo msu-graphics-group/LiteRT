@@ -6,7 +6,7 @@
 #include "LiteScene/hydraxml.h"
 #include "LiteMath/Image2d.h"
 #include "../utils/sdf_converter.h"
-#include "../utils/sparse_octree_2.h"
+#include "../utils/sparse_octree_builder.h"
 #include "../utils/marching_cubes.h"
 #include "../utils/sdf_smoother.h"
 #include "../utils/demo_meshes.h"
@@ -559,26 +559,10 @@ void litert_test_10_save_load()
   MeshBVH mesh_bvh;
   mesh_bvh.init(mesh);
 
-  {
-    SparseOctreeSettings settings(SparseOctreeBuildType::DEFAULT, 7);
-
-    std::vector<SdfOctreeNode> octree_nodes = sdf_converter::create_sdf_octree(settings, mesh);
-    std::vector<SdfFrameOctreeNode> frame_nodes = sdf_converter::create_sdf_frame_octree(settings, mesh);
-    std::vector<SdfSVSNode> svs_nodes = sdf_converter::create_sdf_SVS(settings, mesh);
-    SdfSBS sbs = sdf_converter::create_sdf_SBS(settings, SdfSBSHeader{1, 0, 1, SDF_SBS_NODE_LAYOUT_DX}, mesh);
-
-    save_sdf_octree(octree_nodes, "saves/test_10_octree.bin");
-    save_sdf_frame_octree(frame_nodes, "saves/test_10_frame_octree.bin");
-    save_sdf_SVS(svs_nodes, "saves/test_10_svs.bin");
-    save_sdf_SBS(sbs, "saves/test_10_sbs.bin");
-  }
-
-  std::vector<SdfOctreeNode> octree_nodes;
   std::vector<SdfFrameOctreeNode> frame_nodes;
   std::vector<SdfSVSNode> svs_nodes;
   SdfSBS sbs;
 
-  load_sdf_octree(octree_nodes, "saves/test_10_octree.bin");
   load_sdf_frame_octree(frame_nodes, "saves/test_10_frame_octree.bin");
   load_sdf_SVS(svs_nodes, "saves/test_10_svs.bin");
   load_sdf_SBS(sbs, "saves/test_10_sbs.bin");
@@ -586,7 +570,6 @@ void litert_test_10_save_load()
   unsigned W = 1024, H = 1024;
   MultiRenderPreset preset = getDefaultPreset();
   preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
-  preset.sdf_octree_sampler = SDF_OCTREE_SAMPLER_MIPSKIP_3X3;
 
   LiteImage::Image2D<uint32_t> image_ref(W, H);
   auto pRender_ref = CreateMultiRenderer("GPU");
@@ -594,13 +577,6 @@ void litert_test_10_save_load()
   pRender_ref->SetScene(mesh);
   render(image_ref, pRender_ref, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
   LiteImage::SaveImage<uint32_t>("saves/test_10_ref.bmp", image_ref);
-
-  LiteImage::Image2D<uint32_t> image_1(W, H);
-  auto pRender_1 = CreateMultiRenderer("GPU");
-  pRender_1->SetPreset(preset);
-  pRender_1->SetScene(octree_nodes);
-  render(image_1, pRender_1, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
-  LiteImage::SaveImage<uint32_t>("saves/test_10_octree.bmp", image_1);
 
   LiteImage::Image2D<uint32_t> image_2(W, H);
   auto pRender_2 = CreateMultiRenderer("GPU");
@@ -630,17 +606,10 @@ void litert_test_10_save_load()
   render(image_5, pRender_5, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
   LiteImage::SaveImage<uint32_t>("saves/test_10_hydra_scene.bmp", image_5);
 
-  float psnr_1 = image_metrics::PSNR(image_ref, image_1);
   float psnr_2 = image_metrics::PSNR(image_ref, image_2);
   float psnr_3 = image_metrics::PSNR(image_ref, image_3);
   float psnr_4 = image_metrics::PSNR(image_ref, image_4);
   float psnr_5 = image_metrics::PSNR(image_ref, image_5);
-
-  printf(" 10.1. %-64s", "SDF Octree ");
-  if (psnr_1 >= 25)
-    printf("passed    (%.2f)\n", psnr_1);
-  else
-    printf("FAILED, psnr = %f\n", psnr_1);
 
   printf(" 10.2. %-64s", "SDF Framed Octree ");
   if (psnr_2 >= 25)
@@ -689,84 +658,7 @@ void litert_test_13_stub()
 
 void litert_test_14_octree_nodes_removal()
 {
-  auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "scenes/01_simple_scenes/data/teapot.vsgf").c_str());
-  cmesh4::normalize_mesh(mesh);
 
-  std::vector<SdfOctreeNode> octree_nodes_ref;
-  std::vector<SdfOctreeNode> octree_nodes_7;
-  std::vector<SdfOctreeNode> octree_nodes_8;
-  const unsigned level_6_nodes = 21603;
-
-  {
-    SparseOctreeSettings settings(SparseOctreeBuildType::DEFAULT, 6);
-    octree_nodes_ref = sdf_converter::create_sdf_octree(settings, mesh);
-    sdf_converter::octree_limit_nodes(octree_nodes_ref, level_6_nodes);
-  }
-
-  {
-    SparseOctreeSettings settings(SparseOctreeBuildType::DEFAULT, 7);
-    octree_nodes_7 = sdf_converter::create_sdf_octree(settings, mesh);
-    sdf_converter::octree_limit_nodes(octree_nodes_7, level_6_nodes);
-  }
-
-  {
-    SparseOctreeSettings settings(SparseOctreeBuildType::DEFAULT, 8);
-    octree_nodes_8 = sdf_converter::create_sdf_octree(settings, mesh);
-    sdf_converter::octree_limit_nodes(octree_nodes_8, level_6_nodes);
-  }
-
-  unsigned W = 1024, H = 1024;
-  MultiRenderPreset preset = getDefaultPreset();
-  preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
-  preset.sdf_octree_sampler = SDF_OCTREE_SAMPLER_MIPSKIP_3X3;
-  LiteImage::Image2D<uint32_t> image_1(W, H);
-  LiteImage::Image2D<uint32_t> image_2(W, H);
-  LiteImage::Image2D<uint32_t> image_3(W, H);
-
-  {
-    auto pRender_1 = CreateMultiRenderer("GPU");
-    pRender_1->SetPreset(preset);
-    pRender_1->SetScene(octree_nodes_ref);
-    render(image_1, pRender_1, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
-    LiteImage::SaveImage<uint32_t>("saves/test_14_ref.bmp", image_1);
-  }
-
-  {
-    auto pRender_2 = CreateMultiRenderer("GPU");
-    pRender_2->SetPreset(preset);
-    pRender_2->SetScene(octree_nodes_7);
-    render(image_2, pRender_2, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
-    LiteImage::SaveImage<uint32_t>("saves/test_14_trimmed_7.bmp", image_2);
-  }
-
-  {
-    auto pRender_3 = CreateMultiRenderer("GPU");
-    pRender_3->SetPreset(preset);
-    pRender_3->SetScene(octree_nodes_8);
-    render(image_3, pRender_3, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
-    LiteImage::SaveImage<uint32_t>("saves/test_14_trimmed_8.bmp", image_3);
-  }
-
-  float psnr_1 = image_metrics::PSNR(image_1, image_2);
-  float psnr_2 = image_metrics::PSNR(image_1, image_3);
-
-  printf("TEST 14. Octree nodes removal\n");
-  printf(" 14.1. %-64s", "octrees have the same node count ");
-  if (octree_nodes_ref.size() == octree_nodes_7.size() && octree_nodes_ref.size() == octree_nodes_8.size())
-    printf("passed\n");
-  else
-    printf("FAILED, %d, %d, %d\n", (int)octree_nodes_ref.size(), (int)octree_nodes_7.size(), (int)octree_nodes_8.size());
-  printf(" 14.2. %-64s", "clear level 7 ");
-  if (psnr_1 >= 45)
-    printf("passed    (%.2f)\n", psnr_1);
-  else
-    printf("FAILED, psnr = %f\n", psnr_1);
-
-  printf(" 14.3. %-64s", "clear levels 7 and 8 ");
-  if (psnr_2 >= 45)
-    printf("passed    (%.2f)\n", psnr_2);
-  else
-    printf("FAILED, psnr = %f\n", psnr_2);
 }
 
 void litert_test_15_frame_octree_nodes_removal()
@@ -802,7 +694,6 @@ void litert_test_15_frame_octree_nodes_removal()
   unsigned W = 1024, H = 1024;
   MultiRenderPreset preset = getDefaultPreset();
   preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
-  preset.sdf_octree_sampler = SDF_OCTREE_SAMPLER_MIPSKIP_3X3;
   LiteImage::Image2D<uint32_t> image_1(W, H);
   LiteImage::Image2D<uint32_t> image_2(W, H);
   LiteImage::Image2D<uint32_t> image_3(W, H);
@@ -889,7 +780,6 @@ void litert_test_16_SVS_nodes_removal()
   unsigned W = 1024, H = 1024;
   MultiRenderPreset preset = getDefaultPreset();
   preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
-  preset.sdf_octree_sampler = SDF_OCTREE_SAMPLER_MIPSKIP_3X3;
   LiteImage::Image2D<uint32_t> image_1(W, H);
   LiteImage::Image2D<uint32_t> image_2(W, H);
   LiteImage::Image2D<uint32_t> image_3(W, H);
@@ -976,15 +866,6 @@ void litert_test_17_all_types_sanity_check()
       render(image_1[m], pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
       LiteImage::SaveImage<uint32_t>("saves/test_17_grid.bmp", image_1[m]);    
     }
-    
-    {
-      auto octree = sdf_converter::create_sdf_octree(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 8, 64*64*64), mesh);
-      auto pRender = CreateMultiRenderer(modes[m].c_str());
-      pRender->SetPreset(preset);
-      pRender->SetScene(octree);
-      render(image_2[m], pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
-      LiteImage::SaveImage<uint32_t>("saves/test_17_octree.bmp", image_2[m]);
-    }
 
     {
       auto octree = sdf_converter::create_sdf_frame_octree(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 8, 64*64*64), mesh);
@@ -1028,12 +909,6 @@ void litert_test_17_all_types_sanity_check()
   float psnr_2_2   = image_metrics::PSNR(image_1[2], image_ref[0]);
   float psnr_2_gpu = image_metrics::PSNR(image_1[1], image_1[0]);
   float psnr_2_rtx = image_metrics::PSNR(image_1[2], image_1[0]);
-
-  float psnr_3_0   = image_metrics::PSNR(image_2[0], image_ref[0]);
-  float psnr_3_1   = image_metrics::PSNR(image_2[1], image_ref[0]);
-  float psnr_3_2   = image_metrics::PSNR(image_2[2], image_ref[0]);
-  float psnr_3_gpu = image_metrics::PSNR(image_2[1], image_2[0]);
-  float psnr_3_rtx = image_metrics::PSNR(image_2[2], image_2[0]);
 
   float psnr_4_0   = image_metrics::PSNR(image_3[0], image_ref[0]);
   float psnr_4_1   = image_metrics::PSNR(image_3[1], image_ref[0]);
@@ -1096,36 +971,6 @@ void litert_test_17_all_types_sanity_check()
     printf("passed    (%.2f)\n", psnr_2_rtx);
   else
     printf("FAILED, psnr = %f\n", psnr_2_rtx);
-
-  printf("17.3.1 %-64s", "Octree CPU - Reference");
-  if (psnr_3_0 >= 30)
-    printf("passed    (%.2f)\n", psnr_3_0);
-  else
-    printf("FAILED, psnr = %f\n", psnr_3_0);
-  
-  printf("17.3.2 %-64s", "Octree GPU - Reference");
-  if (psnr_3_1 >= 30)
-    printf("passed    (%.2f)\n", psnr_3_1);
-  else
-    printf("FAILED, psnr = %f\n", psnr_3_1);
-
-  printf("17.3.3 %-64s", "Octree RTX - Reference");
-  if (psnr_3_2 >= 30)
-    printf("passed    (%.2f)\n", psnr_3_2);
-  else
-    printf("FAILED, psnr = %f\n", psnr_3_2);
-  
-  printf("17.3.4 %-64s", "Octree CPU - GPU");
-  if (psnr_3_gpu >= 50)
-    printf("passed    (%.2f)\n", psnr_3_gpu);
-  else
-    printf("FAILED, psnr = %f\n", psnr_3_gpu);
-  
-  printf("17.3.5 %-64s", "Octree CPU - RTX");
-  if (psnr_3_rtx >= 50)
-    printf("passed    (%.2f)\n", psnr_3_rtx);
-  else
-    printf("FAILED, psnr = %f\n", psnr_3_rtx);
   
   printf("17.4.1 %-64s", "Frame Octree CPU - Reference");
   if (psnr_4_0 >= 30)
@@ -1959,67 +1804,7 @@ void litert_test_25_float_images()
 
 void litert_test_26_sbs_shallow_bvh()
 {
-  auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "scenes/01_simple_scenes/data/bunny.vsgf").c_str());
-  cmesh4::normalize_mesh(mesh);
-  unsigned W = 512, H = 512;
 
-  MultiRenderPreset preset = getDefaultPreset();
-  LiteImage::Image2D<uint32_t> image_1(W, H);
-  LiteImage::Image2D<uint32_t> image_2(W, H);
-  LiteImage::Image2D<uint32_t> ref_image(W, H);
-
-  {
-    auto pRender = CreateMultiRenderer("GPU");
-    pRender->SetPreset(preset);
-    pRender->SetViewport(0,0,W,H);
-    pRender->SetScene(mesh);
-    render(ref_image, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
-    LiteImage::SaveImage<uint32_t>("saves/test_26_ref.bmp", ref_image);
-  }
-
-  printf("TEST 26. SBS with single BVH node per brick\n");
-
-  for (int brick_size = 1; brick_size < 8; brick_size++)
-  {
-    SdfSBSHeader header;
-    header.brick_size = brick_size;
-    header.brick_pad = 0;
-    header.bytes_per_value = 2;
-    header.aux_data = SDF_SBS_NODE_LAYOUT_DX;
-
-    auto sbs = sdf_converter::create_sdf_SBS(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 5), header, mesh);
-
-    for (int single_bvh_node=0;single_bvh_node<=1;single_bvh_node++)
-    {
-      std::string sb_name = single_bvh_node ? "sb" : "mb";
-
-      auto pRender = CreateMultiRenderer("GPU");
-      pRender->SetPreset(preset);
-      pRender->SetViewport(0,0,W,H);
-      pRender->SetScene(sbs, single_bvh_node);
-      if (single_bvh_node == 0)
-      {
-        render(image_1, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
-        LiteImage::SaveImage<uint32_t>(("saves/test_26_sbs_"+std::to_string(brick_size)+"_"+sb_name+".bmp").c_str(), image_1); 
-      }
-
-      else 
-      {
-        render(image_2, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
-        LiteImage::SaveImage<uint32_t>(("saves/test_26_sbs_"+std::to_string(brick_size)+"_"+sb_name+".bmp").c_str(), image_2); 
-        float psnr_1 = image_metrics::PSNR(ref_image, image_2);
-        float psnr_2 = image_metrics::PSNR(image_1, image_2);
-
-        printf(" 26.%d. %-64s", brick_size, "Identical with old SBS implementation");
-        if (psnr_2 >= 45)
-          printf("passed    (%.2f, %.2f)\n", psnr_2, psnr_1);
-        else
-          printf("FAILED, psnr = %f\n", psnr_2);
-        
-        //printf("SBS testing: brick size = %dx%dx%d, psnr = %f %f (%s)\n", brick_size+1, brick_size+1, brick_size+1, psnr_1, psnr_2, sb_name.c_str());
-      }
-    }
-  }
 }
 
 void litert_test_27_textured_colored_SBS()

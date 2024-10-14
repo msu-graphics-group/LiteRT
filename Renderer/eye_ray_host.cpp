@@ -299,23 +299,6 @@ void MultiRenderer::SetScene(SdfGridView scene)
   m_pAccelStruct->CommitScene();
 }
 
-void MultiRenderer::SetScene(SdfOctreeView scene)
-{ 
-  BVHRT *bvhrt = dynamic_cast<BVHRT*>(m_pAccelStruct->UnderlyingImpl(0));
-  if (!bvhrt)
-  {
-    printf("only BVHRT supports SdfOctree\n");
-    return;
-  }
-
-  SetPreset(m_preset);
-  m_pAccelStruct->ClearGeom();
-  auto geomId = bvhrt->AddGeom_SdfOctree(scene, m_pAccelStruct.get());
-  m_pAccelStruct->ClearScene();
-  AddInstance(geomId, LiteMath::float4x4());
-  m_pAccelStruct->CommitScene();
-}
-
 void MultiRenderer::SetScene(SdfFrameOctreeView scene)
 { 
   BVHRT *bvhrt = dynamic_cast<BVHRT*>(m_pAccelStruct->UnderlyingImpl(0));
@@ -351,7 +334,7 @@ void MultiRenderer::SetScene(SdfSVSView scene)
 }
 
 
-void MultiRenderer::SetScene(SdfSBSView scene, bool single_bvh_node)
+void MultiRenderer::SetScene(SdfSBSView scene)
 {
   BVHRT *bvhrt = dynamic_cast<BVHRT*>(m_pAccelStruct->UnderlyingImpl(0));
   if (!bvhrt)
@@ -362,13 +345,13 @@ void MultiRenderer::SetScene(SdfSBSView scene, bool single_bvh_node)
 
   SetPreset(m_preset);
   m_pAccelStruct->ClearGeom();
-  auto geomId = bvhrt->AddGeom_SdfSBS(scene, m_pAccelStruct.get(), single_bvh_node);
+  auto geomId = bvhrt->AddGeom_SdfSBS(scene, m_pAccelStruct.get());
   m_pAccelStruct->ClearScene();
   AddInstance(geomId, LiteMath::float4x4());
   m_pAccelStruct->CommitScene();
 }
 
-void MultiRenderer::SetScene(SdfSBSAdaptView scene, bool single_bvh_node)
+void MultiRenderer::SetScene(SdfSBSAdaptView scene)
 {
   BVHRT *bvhrt = dynamic_cast<BVHRT*>(m_pAccelStruct->UnderlyingImpl(0));
   if (!bvhrt)
@@ -379,7 +362,7 @@ void MultiRenderer::SetScene(SdfSBSAdaptView scene, bool single_bvh_node)
 
   SetPreset(m_preset);
   m_pAccelStruct->ClearGeom();
-  auto geomId = bvhrt->AddGeom_SdfSBSAdapt(scene, m_pAccelStruct.get(), single_bvh_node);
+  auto geomId = bvhrt->AddGeom_SdfSBSAdapt(scene, m_pAccelStruct.get());
   m_pAccelStruct->ClearScene();
   AddInstance(geomId, LiteMath::float4x4());
   m_pAccelStruct->CommitScene();
