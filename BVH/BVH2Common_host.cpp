@@ -25,7 +25,6 @@ uint32_t type_to_tag(uint32_t type)
     return AbstractObject::TAG_TRIANGLE;
 
   case TYPE_SDF_GRID:
-  case TYPE_SDF_OCTREE:
     return AbstractObject::TAG_SDF_GRID;
   
   case TYPE_RF_GRID:
@@ -105,10 +104,7 @@ uint32_t BVHRT::AddCustomGeom_FromFile(const char *geom_type_name, const char *f
   }
   else if (name == "sdf_octree")
   {
-    std::cout << "[LoadScene]: sdf octree = " << filename << std::endl;
-    std::vector<SdfOctreeNode> scene;
-    load_sdf_octree(scene, filename);
-    return AddGeom_SdfOctree(scene, fake_this);
+    std::cout << "[LoadScene]: sdf octree was removed from LiteRT. Search for legacy version to load it. " << std::endl;
   }
   else if (name == "sdf_frame_octree")
   {
@@ -440,39 +436,6 @@ uint32_t BVHRT::AddGeom_SdfGrid(SdfGridView grid, ISceneObject *fake_this, Build
   std::vector<BVHNode> orig_nodes = GetBoxes_SdfGrid(grid);
   
   return fake_this->AddGeom_AABB(AbstractObject::TAG_SDF_GRID, (const CRT_AABB*)orig_nodes.data(), orig_nodes.size(), nullptr, 1); // &pPointer, 1);
-}
-
-uint32_t BVHRT::AddGeom_SdfOctree(SdfOctreeView octree, ISceneObject *fake_this, BuildOptions a_qualityLevel)
-{
-  assert(octree.size > 0);
-  assert(octree.size < (1u<<28)); //huge grids shouldn't be here
-  //SDF octree is always a unit cube
-  float4 mn = float4(-1,-1,-1,1);
-  float4 mx = float4( 1, 1, 1,1);
-
-  //fill geom data array
-  m_abstractObjects.resize(m_abstractObjects.size() + 1); 
-  new (m_abstractObjects.data() + m_abstractObjects.size() - 1) GeomDataSdfGrid();
-  m_abstractObjects.back().geomId = m_abstractObjects.size() - 1;
-  m_abstractObjects.back().m_tag = type_to_tag(TYPE_SDF_OCTREE);
-
-  m_geomData.emplace_back();
-  m_geomData.back().boxMin = mn;
-  m_geomData.back().boxMax = mx;
-  m_geomData.back().offset = uint2(m_SdfOctreeRoots.size(), 0);
-  m_geomData.back().bvhOffset = m_allNodePairs.size();
-  m_geomData.back().type = TYPE_SDF_OCTREE;
-
-  //fill octree-specific data arrays
-  m_SdfOctreeRoots.push_back(m_SdfOctreeNodes.size());
-  m_SdfOctreeNodes.insert(m_SdfOctreeNodes.end(), octree.nodes, octree.nodes + octree.size);
-  for (int i=m_SdfOctreeRoots.back();i<m_SdfOctreeNodes.size();i++)
-    m_SdfOctreeNodes[i].offset += m_SdfOctreeRoots.back();
-
-  //create list of bboxes for BLAS
-  std::vector<BVHNode> orig_nodes = GetBoxes_SdfOctree(octree);
-  
-  return fake_this->AddGeom_AABB(AbstractObject::TAG_SDF_GRID, (const CRT_AABB*)orig_nodes.data(), orig_nodes.size(), nullptr, 1);
 }
 
 uint32_t BVHRT::AddGeom_SdfFrameOctree(SdfFrameOctreeView octree, ISceneObject *fake_this, BuildOptions a_qualityLevel)
@@ -1326,17 +1289,6 @@ std::vector<BVHNode> BVHRT::GetBoxes_GSGrid(const GSScene& grid) {
   return nodes;
 }
 
-std::vector<BVHNode> BVHRT::GetBoxes_SdfOctree(SdfOctreeView octree)
-{
-  std::vector<BVHNode> nodes;
-  nodes.resize(2);
-  nodes[0].boxMin = float3(-1,-1,-1);
-  nodes[0].boxMax = float3(1,1,0);
-  nodes[1].boxMin = float3(-1,-1,0);
-  nodes[1].boxMax = float3(1,1,1);
-  return nodes;
-}
-
 void add_border_nodes_rec(const SdfFrameOctreeView &octree, std::vector<BVHNode> &nodes,
                           unsigned idx, float3 p, float d)
 {
@@ -1428,34 +1380,10 @@ std::vector<BVHNode> BVHRT::GetBoxes_SdfFrameOctreeTex(SdfFrameOctreeTexView oct
   
 float BVHRT::eval_distance(float3 pos)
 {
-  if (!m_SdfOctreeNodes.empty())
-    return eval_distance_sdf_octree(0, pos, 1000);
-  else if (!m_SdfGridData.empty())
+  if (!m_SdfGridData.empty())
     return eval_distance_sdf_grid(0, pos);
 
   return 1e6; 
-}
-
-//SdfOctreeFunction interface implementation
-void BVHRT::init(SdfOctreeView octree)
-{
-  m_SdfOctreeRoots.push_back(m_SdfOctreeNodes.size());
-  m_SdfOctreeNodes.insert(m_SdfOctreeNodes.end(), octree.nodes, octree.nodes + octree.size);  
-}
-
-float BVHRT::eval_distance_level(float3 pos, unsigned max_level)
-{
-  return eval_distance_sdf_octree(0, pos, max_level);
-}
-
-std::vector<SdfOctreeNode> &BVHRT::get_nodes()
-{
-  return m_SdfOctreeNodes;
-}
-
-const std::vector<SdfOctreeNode> &BVHRT::get_nodes() const
-{
-  return m_SdfOctreeNodes;
 }
 
 //SdfGridFunction interface implementation
@@ -1465,13 +1393,6 @@ void BVHRT::init(SdfGridView grid)
   m_SdfGridSizes.push_back(grid.size);
   m_SdfGridData.insert(m_SdfGridData.end(), grid.data, grid.data + grid.size.x*grid.size.y*grid.size.z);
 } 
-
-std::shared_ptr<ISdfOctreeFunction> get_SdfOctreeFunction(SdfOctreeView scene)
-{
-  std::shared_ptr<ISdfOctreeFunction> rt(new BVHRT("", "")); 
-  rt->init(scene);
-  return rt;  
-}
 
 std::shared_ptr<ISdfGridFunction> get_SdfGridFunction(SdfGridView scene)
 {

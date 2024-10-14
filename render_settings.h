@@ -3,7 +3,7 @@
 //enum GeomType
 static constexpr unsigned TYPE_MESH_TRIANGLE              =  0;
 static constexpr unsigned TYPE_SDF_GRID                   =  1;
-static constexpr unsigned TYPE_SDF_OCTREE                 =  2;
+
 static constexpr unsigned TYPE_SDF_FRAME_OCTREE           =  3;
 static constexpr unsigned TYPE_RF_GRID                    =  4;
 static constexpr unsigned TYPE_SDF_SVS                    =  5;
@@ -21,11 +21,6 @@ static constexpr unsigned TYPE_NURBS                      = 16;
 static constexpr unsigned TYPE_GRAPHICS_PRIM              = 17;
 
 static constexpr unsigned SH_TYPE = 27; //5 bits for type
-
-//enum SdfOctreeSampler
-static constexpr unsigned SDF_OCTREE_SAMPLER_MIPSKIP_3X3     = 0; //go to the deepest level possible, resampling larger nodes
-static constexpr unsigned SDF_OCTREE_SAMPLER_MIPSKIP_CLOSEST = 1; //go deeper while resampling is not needed, then sample
-static constexpr unsigned SDF_OCTREE_SAMPLER_CLOSEST         = 2;
 
 //enum SdfNodeIntersect
 static constexpr unsigned SDF_OCTREE_NODE_INTERSECT_ST       = 0;// Sphere tracing inside node
@@ -71,7 +66,6 @@ static constexpr unsigned TRICUBIC_INTERPOLATION_MODE = 1;
 struct MultiRenderPreset
 {
   unsigned render_mode;        //enum MultiRenderMode
-  unsigned sdf_octree_sampler; //enum SdfOctreeSampler
   unsigned sdf_node_intersect; //enum SdfNodeIntersect
   unsigned normal_mode;        //enum NormalMode
   unsigned ray_gen_mode;       //enum RayGenMode
@@ -83,7 +77,6 @@ static MultiRenderPreset getDefaultPreset()
 {
   MultiRenderPreset p;
   p.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
-  p.sdf_octree_sampler = SDF_OCTREE_SAMPLER_MIPSKIP_3X3;
   p.sdf_node_intersect = SDF_OCTREE_NODE_INTERSECT_ST;
   p.normal_mode = NORMAL_MODE_GEOMETRY;
   p.ray_gen_mode = RAY_GEN_MODE_REGULAR;

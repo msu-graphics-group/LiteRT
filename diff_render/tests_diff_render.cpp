@@ -6,7 +6,7 @@
 #include "LiteScene/hydraxml.h"
 #include "LiteMath/Image2d.h"
 #include "../utils/sdf_converter.h"
-#include "../utils/sparse_octree_2.h"
+#include "../utils/sparse_octree_builder.h"
 #include "../utils/marching_cubes.h"
 #include "../utils/sdf_smoother.h"
 #include "../utils/demo_meshes.h"

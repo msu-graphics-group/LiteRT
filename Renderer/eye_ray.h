@@ -76,7 +76,6 @@ public:
 #ifndef KERNEL_SLICER 
   void SetScene(const cmesh4::SimpleMesh &scene);
   void SetScene(SdfGridView scene);
-  void SetScene(SdfOctreeView scene);
   void SetScene(SdfFrameOctreeView scene);
   void SetScene(SdfSVSView scene);
   void SetScene(SdfSBSView scene, bool single_bvh_node = false);

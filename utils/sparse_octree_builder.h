@@ -16,9 +16,6 @@ Octree always represents unit cube [-1,1]^3
 
 namespace sdf_converter
 {
-  std::vector<SdfOctreeNode> construct_sdf_octree(SparseOctreeSettings settings, MultithreadedDistanceFunction sdf, unsigned max_threads);
-  std::vector<SdfFrameOctreeNode> convert_to_frame_octree(SparseOctreeSettings settings, MultithreadedDistanceFunction sdf, unsigned max_threads,
-                                                          const std::vector<SdfOctreeNode> &nodes);
   SdfSBS frame_octree_to_SBS(MultithreadedDistanceFunction sdf, 
                              unsigned max_threads,
                              const std::vector<SdfFrameOctreeNode> &nodes,
@@ -35,7 +32,6 @@ namespace sdf_converter
                                            const cmesh4::TriangleListOctree &tl_octree, 
                                            std::vector<SdfFrameOctreeTexNode> &out_frame);
 
-  void octree_limit_nodes(std::vector<SdfOctreeNode> &frame, unsigned nodes_limit);
   void frame_octree_limit_nodes(std::vector<SdfFrameOctreeNode> &frame, unsigned nodes_limit,
                                 bool count_only_border_nodes);
   void frame_octree_to_SVS_rec(const std::vector<SdfFrameOctreeNode> &frame,
