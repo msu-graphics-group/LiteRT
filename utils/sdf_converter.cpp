@@ -101,8 +101,7 @@ namespace sdf_converter
 
   std::vector<SdfFrameOctreeNode> create_sdf_frame_octree(SparseOctreeSettings settings, MultithreadedDistanceFunction sdf, unsigned max_threads)
   {
-    auto raw_nodes = construct_sdf_octree(settings, sdf, max_threads);
-    auto nodes = convert_to_frame_octree(settings, sdf, max_threads, raw_nodes);
+    auto nodes = construct_sdf_frame_octree(settings, sdf, max_threads);
     frame_octree_limit_nodes(nodes, settings.nodes_limit, false);
     return nodes;
   }
@@ -141,8 +140,7 @@ namespace sdf_converter
   
   std::vector<SdfSVSNode> create_sdf_SVS(SparseOctreeSettings settings, MultithreadedDistanceFunction sdf, unsigned max_threads)
   {
-    auto raw_nodes = construct_sdf_octree(settings, sdf, max_threads);
-    auto frame = convert_to_frame_octree(settings, sdf, max_threads, raw_nodes);
+    auto frame = construct_sdf_frame_octree(settings, sdf, max_threads);
     frame_octree_limit_nodes(frame, settings.nodes_limit, true);
     std::vector<SdfSVSNode> nodes;
     frame_octree_to_SVS_rec(frame, nodes, 0, uint3(0,0,0), 1);
@@ -189,8 +187,7 @@ namespace sdf_converter
     assert(header.brick_pad == 0 || header.brick_pad == 1);
     assert(header.bytes_per_value == 1 || header.bytes_per_value == 2 || header.bytes_per_value == 4);
 
-    auto raw_nodes = construct_sdf_octree(settings, sdf, max_threads);
-    auto frame = convert_to_frame_octree(settings, sdf, max_threads, raw_nodes);
+    auto frame = construct_sdf_frame_octree(settings, sdf, max_threads);
     frame_octree_limit_nodes(frame, settings.nodes_limit, true);
     auto sbs = frame_octree_to_SBS(sdf, max_threads, frame, header);
     return sbs;

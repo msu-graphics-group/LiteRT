@@ -387,7 +387,7 @@ void litert_test_6_faster_bvh_build()
 {
   //create renderers for SDF scene and mesh scene
   //const char *scene_name = "large_scenes/02_casual_effects/dragon/change_00000.xml";
-  const char *scene_name = "scenes/01_simple_scenes/bunny.xml";
+  const char *scene_name = "scenes/01_simple_scenes/teapot.xml";
   //const char *scene_name = "large_scenes/02_casual_effects/dragon/change_00000.xml";
   //const char *scene_name = "scenes/01_simple_scenes/bunny_cornell.xml";
   unsigned W = 2048, H = 2048;
@@ -2285,7 +2285,7 @@ void litert_test_29_smoothed_frame_octree()
   LiteImage::SaveImage<uint32_t>("saves/test_29_mesh.bmp", image);
 
   unsigned num_of_test = 1;
-  for (float eps = 1e-2; eps > 1e-5; eps /= std::sqrt(10), ++num_of_test)
+  for (float eps = 1e-3; eps > 1e-5; eps /= std::sqrt(10), ++num_of_test)
   {
 
     std::vector<SdfFrameOctreeNode> frame_nodes = sdf_converter::create_sdf_frame_octree(settings, real_sdf, eps, true, false);
@@ -2298,7 +2298,7 @@ void litert_test_29_smoothed_frame_octree()
 
       float psnr = image_metrics::PSNR(image, image_1);
 
-      printf("  29.1.%u %-64s", num_of_test, "mesh and new frame octree PSNR > 30");
+      printf("  29.%u.1 %-64s", num_of_test, "mesh and new frame octree PSNR > 30");
       if (psnr >= 30)
         printf("passed    (%.2f), eps = %f\n", psnr, eps);
       else
@@ -2306,7 +2306,7 @@ void litert_test_29_smoothed_frame_octree()
 
       float iou = IoU::IoU_frame_octree(frame_nodes, real_sdf, 1000000);
 
-      printf("  29.2.%u %-64s", num_of_test, "sdf and new frame octree IoU > 0.9");
+      printf("  29.%u.2 %-64s", num_of_test, "sdf and new frame octree IoU > 0.9");
       if (iou >= 0.9)
         printf("passed    (%.5f), eps = %f\n", iou, eps);
       else
@@ -2336,7 +2336,7 @@ void litert_test_29_smoothed_frame_octree()
 
       float psnr = image_metrics::PSNR(image, image_2);
 
-      printf("  29.3.%u %-64s", num_of_test, "mesh and old frame octree PSNR > 30 (with same nodes count) ");
+      printf("  29.%u.3 %-64s", num_of_test, "mesh and old frame octree PSNR > 30 (with same nodes count) ");
       if (psnr >= 30)
         printf("passed    (%.2f), eps = %f\n", psnr, eps);
       else
@@ -2344,7 +2344,7 @@ void litert_test_29_smoothed_frame_octree()
 
       float iou = IoU::IoU_frame_octree(frame_nodes, real_sdf, 1000000);
 
-      printf("  29.4.%u %-64s", num_of_test, "sdf and old frame octree IoU > 0.9 (with same nodes count) ");
+      printf("  29.%u.4 %-64s", num_of_test, "sdf and old frame octree IoU > 0.9 (with same nodes count) ");
       if (iou >= 0.9)
         printf("passed    (%.5f), eps = %f\n", iou, eps);
       else
