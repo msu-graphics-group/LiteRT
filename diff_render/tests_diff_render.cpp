@@ -2768,6 +2768,107 @@ void diff_render_test_28_border_sampling_normals_vis()
   printf("DONE\n");
 }
 
+
+void check_border_rays(const SdfSBS &SBS, unsigned render_node, unsigned diff_render_mode,
+                       unsigned border_sampling, bool close_view)
+{
+  srand(time(nullptr));
+
+  unsigned W = 64, H = 64;
+
+  MultiRenderPreset preset = getDefaultPreset();
+  preset.render_mode = MULTI_RENDER_MODE_LAMBERT;
+  preset.normal_mode = NORMAL_MODE_SDF_SMOOTHED;
+  preset.spp = 256;
+
+  float4x4 base_proj = LiteMath::perspectiveMatrix(close_view ? 20 : 60, 1.0f, 0.01f, 100.0f);
+
+  std::vector<float4x4> view; 
+  if (close_view)
+    view = std::vector<float4x4>{LiteMath::lookAt(float3(0.2, 0, 2.0), float3(0.2, 0, 0), float3(0, 1, 0))};
+  else
+    view = std::vector<float4x4>{LiteMath::lookAt(float3(0, 0, 2.5), float3(0, 0, 0), float3(0, 1, 0))};
+
+  std::vector<float4x4> proj(view.size(), base_proj);
+
+  std::vector<LiteImage::Image2D<float4>> images_ref(view.size(), LiteImage::Image2D<float4>(W, H));
+  LiteImage::Image2D<float4> image_res(W, H);
+  for (int i = 0; i < view.size(); i++)
+  {
+    auto pRender = CreateMultiRenderer("CPU");
+    pRender->SetPreset(preset);
+    pRender->SetViewport(0,0,W,H);
+
+    pRender->SetScene(SBS);
+    pRender->RenderFloat(images_ref[i].data(), images_ref[i].width(), images_ref[i].height(), view[i], proj[i], preset);
+    LiteImage::SaveImage<float4>("saves/test_dr_9_0_ref.bmp", images_ref[i]); 
+  }
+
+  auto indexed_SBS = SBS;
+
+  MultiRendererDRPreset dr_preset = getDefaultPresetDR();
+
+  dr_preset.dr_render_mode = diff_render_mode;
+  dr_preset.dr_diff_mode = DR_DIFF_MODE_DEFAULT;
+  dr_preset.dr_border_sampling = border_sampling;
+  dr_preset.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_GEOMETRY;
+  dr_preset.dr_input_type = diff_render_mode == DR_RENDER_MODE_LINEAR_DEPTH ? DR_INPUT_TYPE_LINEAR_DEPTH : DR_INPUT_TYPE_COLOR;
+  dr_preset.opt_iterations = 1;
+  dr_preset.opt_lr = 0.0f;
+  dr_preset.spp = 512;
+  dr_preset.border_spp = 512;
+  dr_preset.debug_pd_brightness = 1.0f;
+  dr_preset.border_relax_eps = 0.04f;
+  dr_preset.finite_diff_delta = 0.005f;
+  dr_preset.finite_diff_brightness = 0.25f;
+  dr_preset.debug_render_mode = DR_DEBUG_RENDER_MODE_BORDER_DETECTION;
+  dr_preset.debug_progress_images = DEBUG_PROGRESS_RAW;
+  dr_preset.debug_forced_border = false;
+  dr_preset.debug_border_samples_mega_image = true;
+  dr_preset.debug_border_save_normals = true;
+
+
+  std::ofstream hist_data_txt("saves_border_rays/hist_data.txt");
+  bool fprint_hist_data = dr_preset.debug_border_save_normals; // hist - must enable normals (t is stored with the normals)
+
+  if (fprint_hist_data)
+    hist_data_txt << "Hist " << dr_preset.border_relax_eps << "\n";
+
+  const unsigned samples = 16;
+  for (unsigned i = 0; i < samples; i++)
+  {
+    srand(time(nullptr) + i);
+    MultiRendererDR dr_render;
+
+    dr_render.SetReference(images_ref, view, proj);
+    dr_render.OptimizeFixedStructure(dr_preset, indexed_SBS);
+
+    BVHDR* bvh_as = dynamic_cast<BVHDR*>(dr_render.GetAccelStruct().get());
+
+    if (fprint_hist_data)
+    {
+      assert((bvh_as->m_GraphicsPrimPoints.size() % 3) == 0);
+      for (uint32_t b = 0u; b < bvh_as->m_GraphicsPrimPoints.size(); b += 3)
+        hist_data_txt << bvh_as->m_GraphicsPrimPoints[b + 1].w << ", ";
+      hist_data_txt << "\n";
+    }
+
+    image_res = dr_render.getLastImage(0);
+    LiteImage::SaveImage<float4>("saves/test_dr_9_0_res.bmp", image_res); 
+  }
+  if (fprint_hist_data)
+    hist_data_txt << "\n";
+
+  hist_data_txt.close();
+}
+
+void diff_render_test_35_border_sampling_rays_hist()
+{
+  check_border_rays(box_small_scene_colored(), 
+                    MULTI_RENDER_MODE_MASK, DR_RENDER_MODE_MASK, DR_BORDER_SAMPLING_RANDOM,
+                    false);
+}
+
 void perform_tests_diff_render(const std::vector<int> &test_ids)
 {
   std::vector<int> tests = test_ids;
@@ -2808,7 +2909,7 @@ void perform_tests_diff_render(const std::vector<int> &test_ids)
       /*32*/diff_render_test_4_render_simple_scenes, 
       /*33*/diff_render_test_5_optimize_color_simpliest,
       /*34*/diff_render_test_8_optimize_with_lambert,
-      /*35*/
+      /*35*/diff_render_test_35_border_sampling_rays_hist,
       /*36*/
       /*37*/
       /*38*/

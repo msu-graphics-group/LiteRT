@@ -700,7 +700,7 @@ namespace dr
 
       if (m_preset_dr.dr_border_sampling == DR_BORDER_SAMPLING_RANDOM)
       {
-        #pragma omp parallel for
+        // #pragma omp parallel for
         for (int thread_id = 0; thread_id < max_threads; thread_id++)
         {
           unsigned start = thread_id * border_steps;
@@ -1411,8 +1411,8 @@ namespace dr
       {
         BVHDR* bvh_as = static_cast<BVHDR*>(m_pAccelStruct.get());
         float3 intersect_pos = to_float3(rayPosAndNear + payload.missed_hit.t * rayDirAndFar);
-        bvh_as->m_GraphicsPrimPoints.push_back(float4(intersect_pos.x, intersect_pos.y, intersect_pos.z, 0.005f));
-        bvh_as->m_GraphicsPrimPoints.push_back(to_float4(intersect_pos + normalize(payload.missed_hit.normal) * 0.1f, 0.f));
+        bvh_as->m_GraphicsPrimPoints.push_back(float4(intersect_pos.x, intersect_pos.y, intersect_pos.z, 0.005f)); // .w - arrow radius
+        bvh_as->m_GraphicsPrimPoints.push_back(to_float4(intersect_pos + normalize(payload.missed_hit.normal) * 0.1f, payload.missed_hit.sdf)); // .w - not used by GraphicsPrim, stores t
         bvh_as->m_GraphicsPrimPoints.push_back(float4(255.f, 0.f, 0.f, 0.f));
       }
       if (m_preset_dr.debug_border_samples || m_preset_dr.debug_border_samples_mega_image)
