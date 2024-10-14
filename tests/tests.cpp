@@ -2472,12 +2472,13 @@ void litert_test_35_SBSAdapt_greed_creating()
 
   unsigned W = 1024, H = 1024;
   LiteImage::Image2D<uint32_t> image(W, H);
+  LiteImage::Image2D<uint32_t> image_sbs(W, H);
   LiteImage::Image2D<uint32_t> image_sbs_adapt(W, H);
   //LiteImage::Image2D<uint32_t> sbs_image(W, H);
 
   printf("TEST 35. SBSAdapt greed creating\n");
   {
-    auto pRender = CreateMultiRenderer("CPU");
+    auto pRender = CreateMultiRenderer("GPU");
     pRender->SetPreset(preset);
     pRender->SetScene(mesh);
     render(image, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset);
@@ -2494,22 +2495,39 @@ void litert_test_35_SBSAdapt_greed_creating()
   SdfSBSAdapt sbs_adapt = sdf_converter::greed_sbs_adapt(real_sdf, 4);
 
   {
-    auto pRender = CreateMultiRenderer("CPU");
+    auto pRender = CreateMultiRenderer("GPU");
     pRender->SetPreset(preset);
     pRender->SetScene(sbs_1_1);
 
-    render(image_sbs_adapt, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset);
-    LiteImage::SaveImage<uint32_t>("saves/test_35_sbs_adapt.bmp", image_sbs_adapt);
+    render(image_sbs, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset);
+    LiteImage::SaveImage<uint32_t>("saves/test_35_sbs_adapt.bmp", image_sbs);
   }
 
   {
-    auto pRender = CreateMultiRenderer("CPU");
+    auto pRender = CreateMultiRenderer("GPU");
     pRender->SetPreset(preset);
     pRender->SetScene(sbs_adapt);
 
     render(image_sbs_adapt, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset);
     LiteImage::SaveImage<uint32_t>("saves/test_35_sbs_greed.bmp", image_sbs_adapt);
   }
+
+  printf("TEST 35. Greedy SBS adapt builder\n");
+
+  float psnr_1 = image_metrics::PSNR(image_sbs_adapt, image);
+  float psnr_2 = image_metrics::PSNR(image_sbs, image_sbs_adapt);
+
+  printf(" 35.1. %-64s", "Adapt SBS is correct");
+  if (psnr_1 > 30)
+    printf("passed    (%.2f)\n", psnr_1);
+  else
+    printf("FAILED    (%.2f)\n", psnr_1);
+
+  printf(" 35.2. %-64s", "Adapt SBS exactly match original SBS");
+  if (psnr_2 > 50)
+    printf("passed    (%.2f)\n", psnr_2);
+  else
+    printf("FAILED    (%.2f)\n", psnr_2);  
 }
 
 void litert_test_36_primitive_visualization()

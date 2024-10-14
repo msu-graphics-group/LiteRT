@@ -363,17 +363,19 @@ std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
                 }
 
                 values[i*v_size*v_size + j*v_size + k] = val;
+                min_val = std::min(min_val, val);
+                max_val = std::max(max_val, val);
               }
             }      
           }
 
           //fix for inconsistent distances
-          if (max_val - min_val > 2 * sqrt(3) * d)
-          {
+          //if (max_val - min_val > 2 * sqrt(3) * d)
+          //{
             //printf("inconsistent distance %f - %f with d=%f\n", max_val, min_val, d);
-            for (int i = 0; i < values.size(); i++)
-              values[i] = LiteMath::sign(max_val) * std::abs(values[i]);
-          }
+          //  for (int i = 0; i < values.size(); i++)
+          //    values[i] = LiteMath::sign(max_val) * std::abs(values[i]);
+          //}
 
           //add not only if there is really a border
           if (is_border_node(min_val, max_val, 1/d))
