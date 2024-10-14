@@ -687,7 +687,7 @@ static float step(float edge0, float edge1, float x)
 
 
 float BVHRT::load_distance_values(uint32_t nodeId, float3 voxelPos, uint32_t v_size, float sz_inv, const SdfSBSHeader &header, 
-      #ifndef USE_TRICUBIC
+      #if USE_TRICUBIC
           float values[64]
       #else
           float values[8]
@@ -757,7 +757,7 @@ void BVHRT::OctreeBrickIntersect(uint32_t type, const float3 ray_pos, const floa
                                  uint32_t bvhNodeId, uint32_t a_count,
                                  CRT_Hit *pHit)
 {
-  #ifndef USE_TRICUBIC
+  #if USE_TRICUBIC
   float values[64];
   #else
   float values[8];
