@@ -70,7 +70,7 @@ float BVHRT::eval_dist_trilinear(const float values[8], float3 dp)
 
 //intersects ray with the particular leaf node of SDF strcuture
 //it reqires a 1-to-1 mapping between leaf nodes of SDF and BVH
-//like in frame octree, SVS and SBS with multiple BVH nodes per brick
+//like in frame octree or SVS
 void BVHRT::RayNodeIntersection(uint32_t type, const float3 ray_pos, const float3 ray_dir, 
                                 float tNear, uint32_t geomId, uint32_t bvhNodeId, 
                                 float values[8], uint32_t &primId, uint32_t &nodeId, float &d, 
@@ -139,100 +139,6 @@ void BVHRT::RayNodeIntersection(uint32_t type, const float3 ray_pos, const float
 
     for (int i=0;i<8;i++)
       values[i] = -d_max + 2*d_max*(1.0/255.0f)*((m_SdfSVSNodes[nodeId].values[i/4] >> (8*(i%4))) & 0xFF);
-
-    fNearFar = RayBoxIntersection2(ray_pos, SafeInverse(ray_dir), min_pos, max_pos);
-    float3 start_pos = ray_pos + fNearFar.x*ray_dir;
-    d = std::max(size.x, std::max(size.y, size.z));
-    start_q = (start_pos - min_pos) / d;
-    qFar = (fNearFar.y - fNearFar.x) / d;
-    qNear = tNear > fNearFar.x ? (tNear - fNearFar.x) / d : 0.0f;
-#endif
-  }
-  else if (type == TYPE_SDF_SBS_ADAPT)
-  {
-#ifndef DISABLE_SDF_SBS_ADAPT
-    uint32_t sdfId =  m_geomData[geomId].offset.x;
-    primId = bvhNodeId; //id of bbox in BLAS
-    nodeId = m_SdfSBSAdaptRemap[primId + m_geomData[geomId].offset.y].x; //id of node (brick) in SBS
-    uint3 voxelPos = uint3(m_SdfSBSAdaptRemap[primId + m_geomData[geomId].offset.y].y);
-    SdfSBSAdaptHeader header = m_SdfSBSAdaptHeaders[sdfId];
-
-    float px = m_SdfSBSAdaptNodes[nodeId].pos_xy >> 16;
-    float py = m_SdfSBSAdaptNodes[nodeId].pos_xy & 0x0000FFFF;
-    float pz = m_SdfSBSAdaptNodes[nodeId].pos_z_vox_size >> 16;
-    float vs = m_SdfSBSAdaptNodes[nodeId].pos_z_vox_size & 0x0000FFFF;
-
-    // voxel count
-    uint3 brick_size{(m_SdfSBSAdaptNodes[nodeId].vox_count_xyz_pad >> 16) & 0x000000FF,
-                     (m_SdfSBSAdaptNodes[nodeId].vox_count_xyz_pad >>  8) & 0x000000FF,
-                     (m_SdfSBSAdaptNodes[nodeId].vox_count_xyz_pad      ) & 0x000000FF};
-    float3 brick_size_inv = 1.f / float3(brick_size);
-    uint3 v_size = brick_size + 2*header.brick_pad + 1;
-
-    voxelPos.x /= v_size.y*v_size.z;
-    voxelPos.y  = voxelPos.y/v_size.z%v_size.y;
-    voxelPos.z %= v_size.z;
-
-    const float brick_abs_size = (2.0f/SDF_SBS_ADAPT_MAX_UNITS)*vs; // num_units / voxel_size == lod_size (from SdfSBSNode)
-    float3 size = brick_abs_size*brick_size_inv; // voxel abs size, same as 2.0f*float3(1,1,1)/(sz*header.brick_size); (from SdfSBSNode)
-    min_pos = float3(-1,-1,-1) + (2.0f/SDF_SBS_ADAPT_MAX_UNITS)*(float3(px,py,pz) + float3(voxelPos)*vs*brick_size_inv);
-    max_pos = min_pos + size;
-
-    uint32_t v_off = m_SdfSBSAdaptNodes[nodeId].data_offset;
-    uint32_t vals_per_int = 4/header.bytes_per_value; 
-    uint32_t bits = 8*header.bytes_per_value;
-    uint32_t max_val = header.bytes_per_value == 4 ? 0xFFFFFFFF : ((1 << bits) - 1);
-
-    float d_max = 1.73205081f*brick_abs_size;
-    float mult = 2*d_max/max_val;
-    for (int i=0;i<8;i++)
-    {
-      uint3 vPos = voxelPos + uint3((i & 4) >> 2, (i & 2) >> 1, i & 1);
-      uint32_t vId = vPos.x*v_size.y*v_size.z + vPos.y*v_size.z + vPos.z;
-      values[i] = -d_max + mult*((m_SdfSBSAdaptData[v_off + vId/vals_per_int] >> (bits*(vId%vals_per_int))) & max_val);
-    }
-
-    fNearFar = RayBoxIntersection2(ray_pos, SafeInverse(ray_dir), min_pos, max_pos);
-    float3 start_pos = ray_pos + fNearFar.x*ray_dir;
-    d = std::max(size.x, std::max(size.y, size.z));
-    start_q = (start_pos - min_pos) / d;
-    qFar = (fNearFar.y - fNearFar.x) / d;
-    qNear = tNear > fNearFar.x ? (tNear - fNearFar.x) / d : 0.0f;
-#endif
-  }
-  else //if (type == TYPE_SDF_SBS)
-  {
-#ifndef DISABLE_SDF_SBS
-    uint32_t sdfId =  m_geomData[geomId].offset.x;
-    primId = bvhNodeId; //id of bbox in BLAS
-    nodeId = m_SdfSBSRemap[primId + m_geomData[geomId].offset.y].x; //id of node (brick) in SBS
-    uint32_t voxelId = m_SdfSBSRemap[primId + m_geomData[geomId].offset.y].y;
-    SdfSBSHeader header = m_SdfSBSHeaders[sdfId];
-    uint32_t v_size = header.brick_size + 2*header.brick_pad + 1;
-    uint3 voxelPos = uint3(voxelId/(v_size*v_size), voxelId/v_size%v_size, voxelId%v_size);
-
-    float px = m_SdfSBSNodes[nodeId].pos_xy >> 16;
-    float py = m_SdfSBSNodes[nodeId].pos_xy & 0x0000FFFF;
-    float pz = m_SdfSBSNodes[nodeId].pos_z_lod_size >> 16;
-    float sz = m_SdfSBSNodes[nodeId].pos_z_lod_size & 0x0000FFFF;
-
-    min_pos = float3(-1,-1,-1) + 2.0f*(float3(px,py,pz)/sz + float3(voxelPos)/(sz*header.brick_size));
-    max_pos = min_pos + 2.0f*float3(1,1,1)/(sz*header.brick_size);
-    float3 size = max_pos - min_pos;
-
-    //TODO: make it works with brick_size > 1
-    uint32_t v_off = m_SdfSBSNodes[nodeId].data_offset;
-    uint32_t vals_per_int = 4/header.bytes_per_value; 
-    uint32_t bits = 8*header.bytes_per_value;
-    uint32_t max_val = header.bytes_per_value == 4 ? 0xFFFFFFFF : ((1 << bits) - 1);
-    float d_max = 2*1.73205081f/sz;
-    float mult = 2*d_max/max_val;
-    for (int i=0;i<8;i++)
-    {
-      uint3 vPos = voxelPos + uint3((i & 4) >> 2, (i & 2) >> 1, i & 1);
-      uint32_t vId = vPos.x*v_size*v_size + vPos.y*v_size + vPos.z;
-      values[i] = -d_max + mult*((m_SdfSBSData[v_off + vId/vals_per_int] >> (bits*(vId%vals_per_int))) & max_val);
-    }
 
     fNearFar = RayBoxIntersection2(ray_pos, SafeInverse(ray_dir), min_pos, max_pos);
     float3 start_pos = ray_pos + fNearFar.x*ray_dir;

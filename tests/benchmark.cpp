@@ -572,7 +572,7 @@ void main_benchmark(const std::string &path, const std::string &mesh_name, unsig
 
                   pRender = CreateMultiRenderer(render_device.c_str(), sbs.nodes.size() + 1);
                   pRender->SetPreset(preset);                  
-                  pRender->SetScene(sbs, true);                  
+                  pRender->SetScene(sbs);                  
                 }
 
                 render(image, pRender, pos, float3(0,0,0), float3(0,1,0), preset, 1);

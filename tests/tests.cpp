@@ -1804,67 +1804,7 @@ void litert_test_25_float_images()
 
 void litert_test_26_sbs_shallow_bvh()
 {
-  auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "scenes/01_simple_scenes/data/bunny.vsgf").c_str());
-  cmesh4::normalize_mesh(mesh);
-  unsigned W = 512, H = 512;
 
-  MultiRenderPreset preset = getDefaultPreset();
-  LiteImage::Image2D<uint32_t> image_1(W, H);
-  LiteImage::Image2D<uint32_t> image_2(W, H);
-  LiteImage::Image2D<uint32_t> ref_image(W, H);
-
-  {
-    auto pRender = CreateMultiRenderer("GPU");
-    pRender->SetPreset(preset);
-    pRender->SetViewport(0,0,W,H);
-    pRender->SetScene(mesh);
-    render(ref_image, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
-    LiteImage::SaveImage<uint32_t>("saves/test_26_ref.bmp", ref_image);
-  }
-
-  printf("TEST 26. SBS with single BVH node per brick\n");
-
-  for (int brick_size = 1; brick_size < 8; brick_size++)
-  {
-    SdfSBSHeader header;
-    header.brick_size = brick_size;
-    header.brick_pad = 0;
-    header.bytes_per_value = 2;
-    header.aux_data = SDF_SBS_NODE_LAYOUT_DX;
-
-    auto sbs = sdf_converter::create_sdf_SBS(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 5), header, mesh);
-
-    for (int single_bvh_node=0;single_bvh_node<=1;single_bvh_node++)
-    {
-      std::string sb_name = single_bvh_node ? "sb" : "mb";
-
-      auto pRender = CreateMultiRenderer("GPU");
-      pRender->SetPreset(preset);
-      pRender->SetViewport(0,0,W,H);
-      pRender->SetScene(sbs, single_bvh_node);
-      if (single_bvh_node == 0)
-      {
-        render(image_1, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
-        LiteImage::SaveImage<uint32_t>(("saves/test_26_sbs_"+std::to_string(brick_size)+"_"+sb_name+".bmp").c_str(), image_1); 
-      }
-
-      else 
-      {
-        render(image_2, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
-        LiteImage::SaveImage<uint32_t>(("saves/test_26_sbs_"+std::to_string(brick_size)+"_"+sb_name+".bmp").c_str(), image_2); 
-        float psnr_1 = image_metrics::PSNR(ref_image, image_2);
-        float psnr_2 = image_metrics::PSNR(image_1, image_2);
-
-        printf(" 26.%d. %-64s", brick_size, "Identical with old SBS implementation");
-        if (psnr_2 >= 45)
-          printf("passed    (%.2f, %.2f)\n", psnr_2, psnr_1);
-        else
-          printf("FAILED, psnr = %f\n", psnr_2);
-        
-        //printf("SBS testing: brick size = %dx%dx%d, psnr = %f %f (%s)\n", brick_size+1, brick_size+1, brick_size+1, psnr_1, psnr_2, sb_name.c_str());
-      }
-    }
-  }
 }
 
 void litert_test_27_textured_colored_SBS()

@@ -47,16 +47,16 @@ struct GeomData
 
 struct AbstractObject
 {
-  static constexpr uint32_t TAG_NONE       = 0;    // !!! #REQUIRED by kernel slicer: Empty/Default impl must have zero both m_tag and offset
-  static constexpr uint32_t TAG_TRIANGLE   = 1; 
-  static constexpr uint32_t TAG_SDF_GRID   = 2; 
-  static constexpr uint32_t TAG_SDF_NODE   = 3; 
-  static constexpr uint32_t TAG_SDF_BRICK  = 4;
-  static constexpr uint32_t TAG_RF         = 5;
-  static constexpr uint32_t TAG_GS         = 6;
+  static constexpr uint32_t TAG_NONE             = 0;    // !!! #REQUIRED by kernel slicer: Empty/Default impl must have zero both m_tag and offset
+  static constexpr uint32_t TAG_TRIANGLE         = 1; 
+  static constexpr uint32_t TAG_SDF_GRID         = 2; 
+  static constexpr uint32_t TAG_SDF_NODE         = 3; 
+  static constexpr uint32_t TAG_SDF_BRICK        = 4;
+  static constexpr uint32_t TAG_RF               = 5;
+  static constexpr uint32_t TAG_GS               = 6;
   static constexpr uint32_t TAG_SDF_ADAPT_BRICK  = 7;
-  static constexpr uint32_t TAG_NURBS      = 8; 
-  static constexpr uint32_t TAG_GRAPHICS_PRIM = 9;
+  static constexpr uint32_t TAG_NURBS            = 8; 
+  static constexpr uint32_t TAG_GRAPHICS_PRIM    = 9;
 
   AbstractObject(){}  // Dispatching on GPU hierarchy must not have destructors, especially virtual   
   virtual uint32_t GetTag()   const  { return TAG_NONE; }; // !!! #REQUIRED by kernel slicer
@@ -117,8 +117,8 @@ struct BVHRT : public ISceneObject
   uint32_t AddGeom_GSScene(GSScene grid, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
   uint32_t AddGeom_SdfFrameOctree(SdfFrameOctreeView octree, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
   uint32_t AddGeom_SdfSVS(SdfSVSView octree, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
-  uint32_t AddGeom_SdfSBS(SdfSBSView octree, ISceneObject *fake_this, bool single_bvh_node = false, BuildOptions a_qualityLevel = BUILD_HIGH);
-  uint32_t AddGeom_SdfSBSAdapt(SdfSBSAdaptView octree, ISceneObject *fake_this, bool single_bvh_node = false, BuildOptions a_qualityLevel = BUILD_HIGH);
+  uint32_t AddGeom_SdfSBS(SdfSBSView octree, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
+  uint32_t AddGeom_SdfSBSAdapt(SdfSBSAdaptView octree, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
   uint32_t AddGeom_SdfFrameOctreeTex(SdfFrameOctreeTexView octree, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
   uint32_t AddGeom_NURBS(const RawNURBS &nurbs, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
   uint32_t AddGeom_GraphicsPrim(const GraphicsPrimView &nurbs, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
@@ -300,7 +300,6 @@ struct BVHRT : public ISceneObject
   std::vector<float>        m_SdfSBSDataF;    //raw float data for all indexed Sparse Brick Sets
   std::vector<uint32_t>     m_SdfSBSRoots;   //root node ids for each SDF Sparse Voxel Set
   std::vector<SdfSBSHeader> m_SdfSBSHeaders; //header for each SDF Sparse Voxel Set
-  std::vector<uint2>        m_SdfSBSRemap;   //primId->nodeId, required as each SBS node can have >1 bbox in BLAS
 #endif
 
   //SDF Adaptive Sparse Brick Sets
@@ -310,7 +309,6 @@ struct BVHRT : public ISceneObject
   std::vector<float>             m_SdfSBSAdaptDataF;   //raw float data for all indexed Sparse Brick Sets
   std::vector<uint32_t>          m_SdfSBSAdaptRoots;   //root node ids for each SDF Sparse Voxel Set
   std::vector<SdfSBSAdaptHeader> m_SdfSBSAdaptHeaders; //header for each SDF Sparse Voxel Set
-  std::vector<uint2>             m_SdfSBSAdaptRemap;   //primId->nodeId, required as each SBS node can have >1 bbox in BLAS
 #endif
 
   //SDF textured frame octree data

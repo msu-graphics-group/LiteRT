@@ -10,11 +10,11 @@ static constexpr unsigned TYPE_SDF_SVS                    =  5;
 static constexpr unsigned TYPE_SDF_SBS                    =  6;
 static constexpr unsigned TYPE_GS_PRIMITIVE               =  7;
 static constexpr unsigned TYPE_SDF_FRAME_OCTREE_TEX       =  8;
-static constexpr unsigned TYPE_SDF_SBS_SINGLE_NODE        =  9;
+
 static constexpr unsigned TYPE_SDF_SBS_TEX                = 10;
 static constexpr unsigned TYPE_SDF_SBS_COL                = 11;
 static constexpr unsigned TYPE_SDF_SBS_ADAPT              = 12;
-static constexpr unsigned TYPE_SDF_SBS_ADAPT_SINGLE_NODE  = 13;
+
 static constexpr unsigned TYPE_SDF_SBS_ADAPT_TEX          = 14;
 static constexpr unsigned TYPE_SDF_SBS_ADAPT_COL          = 15;
 static constexpr unsigned TYPE_NURBS                      = 16;
