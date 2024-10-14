@@ -2660,7 +2660,7 @@ litert_test_34_tricubic_sbs()
     header.brick_pad = 0;
     header.bytes_per_value = 1;
     header.aux_data = SDF_SBS_NODE_LAYOUT_DX;
-
+    
     auto sbs = sdf_converter::create_sdf_SBS(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 5), header, mesh);
     auto pRender = CreateMultiRenderer("CPU");
     pRender->SetPreset(preset);
@@ -2669,6 +2669,7 @@ litert_test_34_tricubic_sbs()
     LiteImage::SaveImage<uint32_t>("saves/test_34_sbs_trilinear.bmp", img);
   }
 
+  #if USE_TRICUBIC
   {
     MultiRenderPreset preset = getDefaultPreset();
     preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
@@ -2688,6 +2689,7 @@ litert_test_34_tricubic_sbs()
     render(img, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
     LiteImage::SaveImage<uint32_t>("saves/test_34_sbs_tricubic.bmp", img);
   }
+  #endif
 }
 
 void litert_test_35_SBSAdapt_greed_creating()

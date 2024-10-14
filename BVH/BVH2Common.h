@@ -31,9 +31,6 @@ using LiteMath::Box4f;
 #include "nurbs/nurbs_common.h"
 #include "graphics_primitive/graphics_primitive_common.h"
 
-void tricubicInterpolationDerrivative(const float grid[64], const float dp[3], float d_pos[3], float d_grid[64]);
-float tricubicInterpolation(const float grid[64], const float dp[3]);
-
 struct BVHRT;
 struct GeomData
 {
@@ -211,11 +208,16 @@ struct BVHRT : public ISceneObject
 
   void RayNodeIntersection(uint32_t type, const float3 ray_pos, const float3 ray_dir, 
                            float tNear, uint32_t geomId, uint32_t bvhNodeId, 
-                           float* values, uint32_t &primId, uint32_t &nodeId, float &d, 
+                           float values[8], uint32_t &primId, uint32_t &nodeId, float &d, 
                            float &qNear, float &qFar, float2 &fNearFar, float3 &start_q);
 
   void LocalSurfaceIntersection(uint32_t type, const float3 ray_dir, uint32_t instId, uint32_t geomId,
-                                float* values, uint32_t nodeId, uint32_t primId, float d, float qNear, 
+                                #if USE_TRICUBIC
+                                  float values[64]
+                                #else
+                                  float values[8]
+                                #endif
+                                , uint32_t nodeId, uint32_t primId, float d, float qNear, 
                                 float qFar, float2 fNearFar, float3 start_q,
                                 CRT_Hit *pHit);
   
@@ -254,9 +256,10 @@ struct BVHRT : public ISceneObject
   virtual bool need_normal();
   virtual float2 encode_normal(float3 n);
 
-  float tricubicInterpolation(const uint32_t vox_u[3], const float dp[3], const uint32_t off, const uint32_t size[3]);
+  void tricubicInterpolationDerrivative(const float grid[64], const float dp[3], float d_pos[3], float d_grid[64]);
+  float tricubicInterpolation(const float grid[64], const float dp[3]);
   float load_distance_values(uint32_t nodeId, float3 voxelPos, uint32_t v_size, float sz_inv, const SdfSBSHeader &header,
-                            #ifndef USE_TRICUBIC
+                            #if USE_TRICUBIC
                                 float values[64]
                             #else
                                 float values[8]

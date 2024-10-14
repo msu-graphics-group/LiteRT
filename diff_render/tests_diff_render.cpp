@@ -2555,37 +2555,39 @@ diff_render_test_24_optimization_with_tricubic()
 void
 diff_render_test_25_tricubic_enzyme_derrivative()
 {
-  float grid[64] = {
-    0.1, 0.2, 0.3, 0.4, 0.2, 0.3, 0.4, 0.5, 0.3, 0.4, 0.5, 0.6, 0.4, 0.5, 0.6, 0.7,
-    0.2, 0.3, 0.4, 0.5, 0.3, 0.4, 0.5, 0.6, 0.4, 0.5, 0.6, 0.7, 0.5, 0.6, 0.7, 0.8,
-    0.3, 0.4, 0.5, 0.6, 0.4, 0.5, 0.6, 0.7, 0.5, 0.6, 0.7, 0.8, 0.6, 0.7, 0.8, 0.9,
-    0.4, 0.5, 0.6, 0.7, 0.5, 0.6, 0.7, 0.8, 0.6, 0.7, 0.8, 0.9, 0.7, 0.8, 0.9, 1.0
-  };
+  // float grid[64] = {
+  //   0.1, 0.2, 0.3, 0.4, 0.2, 0.3, 0.4, 0.5, 0.3, 0.4, 0.5, 0.6, 0.4, 0.5, 0.6, 0.7,
+  //   0.2, 0.3, 0.4, 0.5, 0.3, 0.4, 0.5, 0.6, 0.4, 0.5, 0.6, 0.7, 0.5, 0.6, 0.7, 0.8,
+  //   0.3, 0.4, 0.5, 0.6, 0.4, 0.5, 0.6, 0.7, 0.5, 0.6, 0.7, 0.8, 0.6, 0.7, 0.8, 0.9,
+  //   0.4, 0.5, 0.6, 0.7, 0.5, 0.6, 0.7, 0.8, 0.6, 0.7, 0.8, 0.9, 0.7, 0.8, 0.9, 1.0
+  // };
 
-  BVHRT bvhrt;
-  bvhrt.m_SdfGridData = std::vector<float>(grid, grid + 64);
+  // float x[3] = {0.5, 0.5, 0.5};
+  // float d_x[3] = {0}, d_grid[64] = {0};
 
-  float x[3] = {0.5, 0.5, 0.5};
-  float d_x[3] = {0}, d_grid[64] = {0};
+  // float interpolated_value = tricubicInterpolation(grid, x);
+  // std::cout << "INTERPOLATED VALUE IS: " << interpolated_value << std::endl;
 
-  float interpolated_value = bvhrt.tricubicInterpolation(vox_u, x, off, size);
-  std::cout << "INTERPOLATED VALUE IS: " << interpolated_value << std::endl;
+  // tricubicInterpolationDerrivative(grid, x, d_x, d_grid);
+  // printf("D_X: %f %f %f\n", d_x[0], d_x[1], d_x[2]);
+  // printf("D_GRID[:, :, z]: \n");
 
-  tricubicInterpolationDerrivative(grid, x, d_x, d_grid);
-  printf("D_X: %f %f %f\n", d_x[0], d_x[1], d_x[2]);
-  printf("D_GRID[:, :, z]: \n");
+  // int z = 3;
 
-  int z = 3;
+  // for (int x = 0; x < 4; ++x)
+  // {
+  //   for (int y = 0; y < 4; ++y)
+  //   {
+  //     printf("%f ", d_grid[4 * 4 * z + 4 * y + x]);
+  //   }
 
-  for (int x = 0; x < 4; ++x)
-  {
-    for (int y = 0; y < 4; ++y)
-    {
-      printf("%f ", d_grid[4 * 4 * z + 4 * y + x]);
-    }
+  //   printf("\n");
+  // }
+}
 
-    printf("\n");
-  }
+void diff_render_test_26_sbs_tricubic()
+{
+
 }
 
 void diff_render_test_27_visualize_bricks()
