@@ -96,6 +96,16 @@ if(USE_STB_IMAGE)
   add_definitions(-DUSE_STB_IMAGE)
 endif()
 
+# Turn on/off tricubic interpolation
+option(USE_TRICUBIC "Enable tricubic interpolation" OFF)
+if(USE_TRICUBIC)
+  message("-- Tricubic interpolation is ON")
+  add_definitions(-DUSE_TRICUBIC=1)
+else()
+  message("-- Tricubic interpolation is OFF")
+  add_definitions(-DUSE_TRICUBIC=0)
+endif()
+
 option(USE_ENZYME "Enable Enzyme" OFF)
 if(USE_ENZYME)
   message("Enzyme is ON")

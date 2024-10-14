@@ -2648,22 +2648,46 @@ litert_test_34_tricubic_sbs()
   cmesh4::normalize_mesh(mesh);
 
   unsigned W = 512, H = 512;
-  MultiRenderPreset preset = getDefaultPreset();
-  preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
 
-  LiteImage::Image2D<uint32_t> img(W, H);
-  SdfSBSHeader header;
-  header.brick_size = 2;
-  header.brick_pad = 0;
-  header.bytes_per_value = 1;
-  header.aux_data = SDF_SBS_NODE_LAYOUT_DX;
+  {
+    MultiRenderPreset preset = getDefaultPreset();
+    preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
+    preset.interpolation_type = TRILINEAR_INTERPOLATION_MODE;
 
-  auto sbs = sdf_converter::create_sdf_SBS(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 8, 64*64*64), header, mesh);
-  auto pRender = CreateMultiRenderer("CPU");
-  pRender->SetPreset(preset);
-  pRender->SetScene(sbs);
-  render(img, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
-  LiteImage::SaveImage<uint32_t>("saves/test_34_sbs_tricubic.bmp", img);
+    LiteImage::Image2D<uint32_t> img(W, H);
+    SdfSBSHeader header;
+    header.brick_size = 2;
+    header.brick_pad = 0;
+    header.bytes_per_value = 1;
+    header.aux_data = SDF_SBS_NODE_LAYOUT_DX;
+
+    auto sbs = sdf_converter::create_sdf_SBS(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 5), header, mesh);
+    auto pRender = CreateMultiRenderer("CPU");
+    pRender->SetPreset(preset);
+    pRender->SetScene(sbs, true);
+    render(img, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+    LiteImage::SaveImage<uint32_t>("saves/test_34_sbs_trilinear.bmp", img);
+  }
+
+  {
+    MultiRenderPreset preset = getDefaultPreset();
+    preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
+    preset.interpolation_type = TRICUBIC_INTERPOLATION_MODE;
+
+    LiteImage::Image2D<uint32_t> img(W, H);
+    SdfSBSHeader header;
+    header.brick_size = 2;
+    header.brick_pad = 1;
+    header.bytes_per_value = 1;
+    header.aux_data = SDF_SBS_NODE_LAYOUT_DX;
+
+    auto sbs = sdf_converter::create_sdf_SBS(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 5), header, mesh);
+    auto pRender = CreateMultiRenderer("CPU");
+    pRender->SetPreset(preset);
+    pRender->SetScene(sbs, true);
+    render(img, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+    LiteImage::SaveImage<uint32_t>("saves/test_34_sbs_tricubic.bmp", img);
+  }
 }
 
 void litert_test_35_SBSAdapt_greed_creating()

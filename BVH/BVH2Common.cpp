@@ -73,7 +73,7 @@ float BVHRT::eval_dist_trilinear(const float values[8], float3 dp)
 //like in frame octree, SVS and SBS with multiple BVH nodes per brick
 void BVHRT::RayNodeIntersection(uint32_t type, const float3 ray_pos, const float3 ray_dir, 
                                 float tNear, uint32_t geomId, uint32_t bvhNodeId, 
-                                float values[8], uint32_t &primId, uint32_t &nodeId, float &d, 
+                                float* values, uint32_t &primId, uint32_t &nodeId, float &d, 
                                 float &qNear, float &qFar, float2 &fNearFar, float3 &start_q)
 {
   float3 min_pos, max_pos;
@@ -245,7 +245,7 @@ void BVHRT::RayNodeIntersection(uint32_t type, const float3 ray_pos, const float
 }
 
 void BVHRT::LocalSurfaceIntersection(uint32_t type, const float3 ray_dir, uint32_t instId, uint32_t geomId,
-                                     float values[8], uint32_t nodeId, uint32_t primId, float d, float qNear, 
+                                     float *values, uint32_t nodeId, uint32_t primId, float d, float qNear, 
                                      float qFar, float2 fNearFar, float3 start_q,
                                      CRT_Hit *pHit)
 {
@@ -255,7 +255,25 @@ void BVHRT::LocalSurfaceIntersection(uint32_t type, const float3 ray_dir, uint32
   bool hit = false;
   unsigned iter = 0;
 
-  float start_dist = eval_dist_trilinear(values, start_q + t * ray_dir);
+  float start_dist = 10000;
+  float pos[3] = {};
+
+  auto cur_point = start_q + t * ray_dir;
+
+  if (m_preset.interpolation_type == TRILINEAR_INTERPOLATION_MODE)
+  {
+    start_dist = eval_dist_trilinear(values, start_q + t * ray_dir);
+  }
+  else if (m_preset.interpolation_type == TRICUBIC_INTERPOLATION_MODE)
+  {
+    pos[0] = cur_point.x;
+    pos[1] = cur_point.y;
+    pos[2] = cur_point.z;
+
+    // start_dist = 10000;
+    start_dist = tricubicInterpolation(values, pos);
+  }
+
   if (start_dist <= EPS || m_preset.sdf_node_intersect == SDF_OCTREE_NODE_INTERSECT_BBOX)
   {
     hit = true;
@@ -269,7 +287,21 @@ void BVHRT::LocalSurfaceIntersection(uint32_t type, const float3 ray_dir, uint32
     while (t < qFar && dist > EPS && iter < ST_max_iters)
     {
       t += dist * d_inv;
-      dist = eval_dist_trilinear(values, start_q + t * ray_dir);
+      if (m_preset.interpolation_type == TRILINEAR_INTERPOLATION_MODE)
+      {
+        dist = eval_dist_trilinear(values, start_q + t * ray_dir);
+      }
+      else if (m_preset.interpolation_type == TRICUBIC_INTERPOLATION_MODE)
+      {
+        // dist = 10000;
+        cur_point = start_q + t * ray_dir;
+        pos[0] = cur_point.x;
+        pos[1] = cur_point.y;
+        pos[2] = cur_point.z;
+
+        dist = tricubicInterpolation(values, pos);
+      }
+      
       float3 pp = start_q + t * ray_dir;
       iter++;
     }
@@ -655,17 +687,23 @@ static float step(float edge0, float edge1, float x)
 
 
 float BVHRT::load_distance_values(uint32_t nodeId, float3 voxelPos, uint32_t v_size, float sz_inv, const SdfSBSHeader &header, 
-                                  float values[8])
+      #if USE_TRICUBIC
+          float values[64]
+      #else
+          float values[8]
+      #endif
+)
 {
   float vmin = 1e6f;
   if (header.aux_data == SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F ||
       header.aux_data == SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F_IN)
   {
     uint32_t v_off = m_SdfSBSNodes[nodeId].data_offset;
+
     for (int i = 0; i < 8; i++)
     {
       uint3 vPos = uint3(voxelPos) + uint3((i & 4) >> 2, (i & 2) >> 1, i & 1);
-      uint32_t vId = vPos.x * v_size * v_size + vPos.y * v_size + vPos.z;
+      uint32_t vId = SBS_v_to_i(vPos.x, vPos.y, vPos.z, v_size, header.brick_pad);
       values[i] = m_SdfSBSDataF[m_SdfSBSData[v_off + vId]];
       // printf("%f\n", values[i]);
       vmin = std::min(vmin, values[i]);
@@ -679,12 +717,35 @@ float BVHRT::load_distance_values(uint32_t nodeId, float3 voxelPos, uint32_t v_s
     uint32_t max_val = header.bytes_per_value == 4 ? 0xFFFFFFFF : ((1 << bits) - 1);
     float d_max = 1.73205081f * sz_inv;
     float mult = 2 * d_max / max_val;
-    for (int i = 0; i < 8; i++)
+    
+    if (m_preset.interpolation_type == TRICUBIC_INTERPOLATION_MODE)
     {
-      uint3 vPos = uint3(voxelPos) + uint3((i & 4) >> 2, (i & 2) >> 1, i & 1);
-      uint32_t vId = vPos.x * v_size * v_size + vPos.y * v_size + vPos.z;
-      values[i] = -d_max + mult * ((m_SdfSBSData[v_off + vId / vals_per_int] >> (bits * (vId % vals_per_int))) & max_val);
-      vmin = std::min(vmin, values[i]);
+      uint3 p0 = uint3(voxelPos - 1);
+
+      for (int x = 0; x < 4; ++x)
+      {
+        for (int y = 0; y < 4; ++y)
+        {
+          for (int z = 0; z < 4; ++z)
+          {
+            uint3 vPos = p0 + uint3(x, y, z);
+            uint32_t vId = SBS_v_to_i(vPos.x, vPos.y, vPos.z, v_size, header.brick_pad);
+
+            values[z * 16 + y * 4 + x] = -d_max + mult * ((m_SdfSBSData[v_off + vId / vals_per_int] >> (bits * (vId % vals_per_int))) & max_val);
+            vmin = std::min(vmin, values[z * 16 + y * 4 + x]);
+          }
+        }
+      }
+    }
+    else
+    {
+      for (int i = 0; i < 8; i++)
+      {
+        uint3 vPos = uint3(voxelPos) + uint3((i & 4) >> 2, (i & 2) >> 1, i & 1);
+        uint32_t vId = SBS_v_to_i(vPos.x, vPos.y, vPos.z, v_size, header.brick_pad);
+        values[i] = -d_max + mult * ((m_SdfSBSData[v_off + vId / vals_per_int] >> (bits * (vId % vals_per_int))) & max_val);
+        vmin = std::min(vmin, values[i]);
+      }
     }
   }
 
@@ -696,7 +757,12 @@ void BVHRT::OctreeBrickIntersect(uint32_t type, const float3 ray_pos, const floa
                                  uint32_t bvhNodeId, uint32_t a_count,
                                  CRT_Hit *pHit)
 {
+  #if USE_TRICUBIC
+  float values[64];
+  #else
   float values[8];
+  #endif
+
   uint32_t nodeId, primId;
   float d, qNear, qFar;
   float2 fNearFar;
@@ -746,7 +812,7 @@ void BVHRT::OctreeBrickIntersect(uint32_t type, const float3 ray_pos, const floa
       LocalSurfaceIntersection(type, ray_dir, instId, geomId, values, nodeId, primId, d, 0.0f, qFar, fNearFar, start_q, /*in */
                                pHit); /*out*/
     
-      if (header.aux_data == SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F_IN &&
+      if (m_preset.interpolation_type == TRILINEAR_INTERPOLATION_MODE && header.aux_data == SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F_IN &&
           m_preset.normal_mode == NORMAL_MODE_SDF_SMOOTHED && 
           need_normal() && pHit->t != old_t)
       {
@@ -1815,23 +1881,12 @@ int enzyme_const;
 float3 
 tricubicInterpolationDerrivative(const float *m_SdfGridData, const uint32_t vox_u[3], const float dp[3], const uint32_t off, const uint32_t size[3])
 {
-  float d_pos[3] = {0};
-  float3 d_dist(0, 0, 0);
-
   #ifdef USE_ENZYME
   __enzyme_autodiff((void*)(tricubicInterpolation), 
-                    enzyme_const, m_SdfGridData, 
-                    enzyme_const, vox_u, 
-                    enzyme_dup, dp, d_pos, 
-                    enzyme_const, off, 
-                    enzyme_const, size);
+                    enzyme_dup, grid, d_grid, 
+                    enzyme_dup, dp, d_pos);
 
-  d_dist.x = d_pos[0];
-  d_dist.y = d_pos[1];
-  d_dist.z = d_pos[2];
   #endif
-
-  return d_dist;
 }
 
 float BVHRT::sdf_octree_sample_mipskip_closest(uint32_t octree_id, float3 position, uint32_t max_level)
