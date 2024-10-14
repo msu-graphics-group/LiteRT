@@ -2670,7 +2670,7 @@ void litert_test_35_SBSAdapt_greed_creating()
 {
   MultiRenderPreset preset = getDefaultPreset();
   preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
-  preset.sdf_node_intersect = SDF_OCTREE_NODE_INTERSECT_BBOX;
+  //preset.sdf_node_intersect = SDF_OCTREE_NODE_INTERSECT_BBOX;
 
   auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path+"scenes/01_simple_scenes/data/teapot.vsgf").c_str());
   cmesh4::rescale_mesh(mesh, float3(-0.9, -0.9, -0.9), float3(0.9, 0.9, 0.9));
@@ -2699,39 +2699,32 @@ void litert_test_35_SBSAdapt_greed_creating()
     LiteImage::SaveImage<uint32_t>("saves/test_35_mesh.bmp", image);
   }
 
-  SdfSBSAdapt sbs_adapt = sdf_converter::greed_sbs_adapt(real_sdf, 3);
-  SdfSBSAdapt sbs_adapt_test;
-  sbs_adapt_test.header.aux_data = SDF_SBS_NODE_LAYOUT_DX;
-  sbs_adapt_test.header.brick_pad = 0;
-  sbs_adapt_test.header.bytes_per_value = 4;
-  SdfSBSAdaptNode node;
-  node.data_offset = 0;
-  node.pos_xy = 0;
-  node.pos_z_vox_size = SDF_SBS_ADAPT_MAX_UNITS / 2;
-  node.vox_count_xyz_pad = (2 << 16) | (2 << 8) | 2;
-  for (int i = 0; i < 3; ++i)
-  {
-    for (int j = 0; j < 3; ++j)
-    {
-      for (int k = 0; k < 3; ++k)
-      {
-        if (j == 1 && i == 1 && k == 1) sbs_adapt_test.values.push_back(UINT32_MAX / 4);
-        else if (j == 1 || i == 1 || k == 1) sbs_adapt_test.values.push_back(UINT32_MAX * 3 / 5);
-        else sbs_adapt_test.values.push_back(UINT32_MAX * 3 / 4);
-      }
-    }
-  }
-  sbs_adapt_test.nodes.push_back(node);
-  SdfSBSAdaptView sbs_a(sbs_adapt_test);
+  SparseOctreeSettings settings(SparseOctreeBuildType::DEFAULT, 4);
+  SdfSBSHeader header_1_1{8,0,4,SDF_SBS_NODE_LAYOUT_DX};
+
+  SdfSBS sbs_1_1 = sdf_converter::create_sdf_SBS(settings, header_1_1, mesh);
+  SdfSBSAdapt sbsa_scene;
+  SdfSBSAdaptView sbsa_view = convert_sbs_to_adapt(sbsa_scene, sbs_1_1);
+
+  SdfSBSAdapt sbs_adapt = sdf_converter::greed_sbs_adapt(real_sdf, 4);
 
   {
     auto pRender = CreateMultiRenderer("CPU");
     pRender->SetPreset(preset);
-    pRender->SetScene(sbs_a);
+    pRender->SetScene(sbs_1_1);
 
-    render(image, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset);
+    render(image_sbs_adapt, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset);
     LiteImage::SaveImage<uint32_t>("saves/test_35_sbs_adapt.bmp", image_sbs_adapt);
-    }
+  }
+
+  {
+    auto pRender = CreateMultiRenderer("CPU");
+    pRender->SetPreset(preset);
+    pRender->SetScene(sbs_adapt);
+
+    render(image_sbs_adapt, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset);
+    LiteImage::SaveImage<uint32_t>("saves/test_35_sbs_greed.bmp", image_sbs_adapt);
+  }
 }
 
 void litert_test_36_primitive_visualization()
