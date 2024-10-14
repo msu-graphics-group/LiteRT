@@ -144,11 +144,13 @@ void litert_test_3_SBS_verify()
   SdfSBSHeader header_1_2{1,0,2,SDF_SBS_NODE_LAYOUT_DX};
   SdfSBSHeader header_2_1{2,0,1,SDF_SBS_NODE_LAYOUT_DX};
   SdfSBSHeader header_2_2{2,0,2,SDF_SBS_NODE_LAYOUT_DX};
+  SdfSBSHeader header_2_4{2,0,4,SDF_SBS_NODE_LAYOUT_DX};
 
   SdfSBS sbs_1_1 = sdf_converter::create_sdf_SBS(settings, header_1_1, mesh);
   SdfSBS sbs_1_2 = sdf_converter::create_sdf_SBS(settings, header_1_2, mesh);
   SdfSBS sbs_2_1 = sdf_converter::create_sdf_SBS(settings, header_2_1, mesh);
   SdfSBS sbs_2_2 = sdf_converter::create_sdf_SBS(settings, header_2_2, mesh);
+  SdfSBS sbs_2_4 = sdf_converter::create_sdf_SBS(settings, header_2_4, mesh);
 
   std::vector<SdfSVSNode> svs_nodes = sdf_converter::create_sdf_SVS(settings, mesh);
 
@@ -268,6 +270,21 @@ void litert_test_3_SBS_verify()
 
     float psnr = image_metrics::PSNR(ref_image, image);
     printf("  3.8. %-64s", "8-voxel,2-byte SBS and mesh image_metrics::PSNR > 40 ");
+    if (psnr >= 40)
+      printf("passed    (%.2f)\n", psnr);
+    else
+      printf("FAILED, psnr = %f\n", psnr);
+  }
+  {
+    auto pRender = CreateMultiRenderer("GPU");
+    pRender->SetPreset(preset);
+    pRender->SetScene(sbs_2_4);
+
+    render(image, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset);
+    LiteImage::SaveImage<uint32_t>("saves/test_3_SBS_2_4.bmp", image); 
+
+    float psnr = image_metrics::PSNR(ref_image, image);
+    printf("  3.9. %-64s", "8-voxel,4-byte SBS and mesh image_metrics::PSNR > 40 ");
     if (psnr >= 40)
       printf("passed    (%.2f)\n", psnr);
     else

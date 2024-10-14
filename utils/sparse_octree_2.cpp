@@ -656,7 +656,7 @@ std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
             unsigned lod_size = 1.0f/d;
             float d_max = 2*sqrt(3)/lod_size;
             unsigned bits = 8*header.bytes_per_value;
-            unsigned max_val = (1 << bits) - 1;
+            unsigned max_val = header.bytes_per_value == 4 ? 0xFFFFFFFF : ((1 << bits) - 1);
             unsigned vals_per_int = 4/header.bytes_per_value;
 
             #pragma omp critical
@@ -2264,7 +2264,7 @@ std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
             unsigned lod_size = 1.0f/d;
             float d_max = 2*sqrt(3)/lod_size;
             unsigned bits = 8*header.bytes_per_value;
-            unsigned max_val = (1 << bits) - 1;
+            unsigned max_val = sbs.header.bytes_per_value == 4 ? 0xFFFFFFFF : ((1 << bits) - 1);
             unsigned vals_per_int = 4/header.bytes_per_value;
             unsigned dist_size = (v_size*v_size*v_size+vals_per_int-1)/vals_per_int;
             unsigned tex_size = 8;
