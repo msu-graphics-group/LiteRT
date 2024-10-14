@@ -17,6 +17,11 @@ namespace dr
   {
     return length(p - center) - radius;
   }
+  float box_sdf(float3 center, float3 size, float3 p)
+  {
+    float3 d = abs(p-center) - size;
+    return std::min(std::max(d.x, std::max(d.y, d.z)), 0.f) + length(max(d, float3(0.f)));
+  }
   float3 gradient_color(float3 p)
   {
     return  (1-p.x)*(1-p.y)*(1-p.z)*float3(1,0,0) + 
@@ -172,6 +177,20 @@ namespace dr
   {
     return create_grid_sbs(1, 2, 
                           [&](float3 p){return circle_sdf(float3(0,0,0), 0.8f, p);}, 
+                          gradient_color);    
+  }
+
+  SdfSBS box_smallest_scene_colored()
+  {
+    return create_grid_sbs(1, 2, 
+                          [&](float3 p){return box_sdf(float3(0.f), float3(0.6f), p);}, 
+                          gradient_color);    
+  }
+
+  SdfSBS box_small_scene_colored()
+  {
+    return create_grid_sbs(1, 4, 
+                          [&](float3 p){return box_sdf(float3(0.f), float3(0.5f), p);}, 
                           gradient_color);    
   }
 
