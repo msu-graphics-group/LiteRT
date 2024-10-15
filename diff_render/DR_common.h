@@ -203,6 +203,7 @@ namespace dr
   SdfSBS circle_small_scene();
   SdfSBS circle_one_brick_scene();
   SdfSBS two_circles_scene();
+  SdfSBS torus_scene();
   float circle_sdf(float3 center, float radius, float3 p);
   float3 gradient_color(float3 p);
   float3 single_color(float3 p);

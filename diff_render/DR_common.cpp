@@ -209,6 +209,18 @@ namespace dr
                            [](float3 p){return circle_sdf(float3(0,0.3,0.5), 0.5f, p) > circle_sdf(float3(0,-0.3,-0.5), 0.5f, p) ? float3(1,0,0) : float3(0,0,1);});
   }
 
+  SdfSBS torus_scene()
+  {
+    return create_grid_sbs(2, 16, 
+                           [&](float3 p)
+                           {
+                            float2 t = float2(0.6, 0.3);
+                            float2 q = float2(length(float2(p.x, p.y))-t.x,p.z);
+                            return length(q)-t.y;
+                           }, 
+                           [](float3 p){return float3(1,0.44,0.0);});
+  }
+
   std::vector<float4x4> get_cameras_uniform_sphere(int count, float3 center, float radius)
   {
     std::vector<float4x4> cameras;
