@@ -37,7 +37,7 @@ MultiRenderer::MultiRenderer(uint32_t maxPrimitives)
 
   m_seed = rand();
 
-  m_lights = {create_direct_light((1.0/255)*float3(238,221,130), float3(1,1,1)), create_ambient_light(float3(0.25, 0.25, 0.25))};
+  m_lights = {create_direct_light(float3(1,1,1), float3(2.0f/3.0f)), create_ambient_light(float3(0.25, 0.25, 0.25))};
 }
 
 void MultiRenderer::SetViewport(int a_xStart, int a_yStart, int a_width, int a_height)

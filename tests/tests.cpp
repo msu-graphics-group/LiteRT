@@ -110,10 +110,10 @@ void litert_test_2_SVS()
     for (int i=0; i<presets_oi.size(); i++)
     {
       MultiRenderPreset preset = getDefaultPreset();
-      preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
+      preset.render_mode = MULTI_RENDER_MODE_PHONG_NO_TEX;
       preset.sdf_node_intersect = presets_oi[i];
 
-      auto pRender = CreateMultiRenderer("CPU");
+      auto pRender = CreateMultiRenderer("GPU");
       pRender->SetPreset(preset);
       pRender->SetScene(frame_nodes);
 

@@ -280,32 +280,6 @@ float4 MultiRenderer::kernel_RayTrace(uint32_t tidX, const float4* rayPosAndNear
   }
   break;
 
-  case MULTI_RENDER_MODE_PHONG_NO_TEX:
-  {
-    const float3 ambient_light_color = float3(1, 1, 1);
-    const float Ka = 0.1;
-    const float Kd = 1;
-    const float Ks = 1;
-    const int spec_pow = 32;
-    const float BIAS = 1e-6f;
-
-    float3 diffuse = float3(1, 1, 1);
-    float3 light_dir = -1.0f * float3(1, 1, 1);
-    float3 light_color = float3(1, 1, 1);
-
-    float3 surf_pos = to_float3(rayPos) + (hit.t - BIAS) * to_float3(rayDir);
-    CRT_Hit shadowHit = m_pAccelStruct->RayQuery_NearestHit(to_float4(surf_pos, rayPos.w), to_float4(-1.0f * light_dir, rayDir.w));
-    float shade = (shadowHit.primId == 0xFFFFFFFF) ? 1 : 0;
-    float3 view_dir = to_float3(rayDir);
-    float3 reflect = light_dir - 2.0f * dot(norm, light_dir) * norm;
-    float3 f_col = (shade * light_color * (Kd * std::max(0.0f, dot(norm, -1.0f * light_dir)) + Ks * pow(std::max(0.0f, dot(norm, reflect)), spec_pow)) +
-                    ambient_light_color * Ka) *
-                   diffuse;
-
-    res_color = to_float4(clamp(f_col, 0.0f, 1.0f), 1);
-  }
-  break;
-
   case MULTI_RENDER_MODE_GS:
   {
     res_color = clamp(float4(hit.coords[1], hit.coords[2], hit.coords[3], 1.0f), 0.0f, 1.0f);
@@ -387,16 +361,17 @@ float4 MultiRenderer::kernel_RayTrace(uint32_t tidX, const float4* rayPosAndNear
   break;
 
   case MULTI_RENDER_MODE_PHONG:
+  case MULTI_RENDER_MODE_PHONG_NO_TEX:
   {
-    const float3 ambient_light_color = float3(1, 1, 1);
-    const float Ka = 0.1;
-    const float Kd = 1;
-    const float Ks = 1;
+    const float Kd = 0.25;
+    const float Ks = 0.25;
     const int spec_pow = 32;
     const float BIAS = 1e-6f;
 
-    float4 color = float4(0,0,1,1);
-    if (type == TYPE_SDF_SBS_COL || type == TYPE_SDF_SBS_ADAPT_COL)
+    float3 color = float3(0,0,1);
+    if (m_preset.render_mode == MULTI_RENDER_MODE_PHONG_NO_TEX)
+      color = float3(1,1,1);
+    else if (type == TYPE_SDF_SBS_COL || type == TYPE_SDF_SBS_ADAPT_COL || type == TYPE_GRAPHICS_PRIM)
     {
       color.x = std::round(hit.coords[0])/255.0f;
       color.y = fract(hit.coords[0]);
@@ -405,24 +380,48 @@ float4 MultiRenderer::kernel_RayTrace(uint32_t tidX, const float4* rayPosAndNear
     else
     {
       unsigned matId = m_matIdbyPrimId[m_matIdOffsets[geomId].x + hit.primId % m_matIdOffsets[geomId].y];
-      color = m_materials[matId].type == MULTI_RENDER_MATERIAL_TYPE_COLORED ? m_materials[matId].base_color : m_textures[m_materials[matId].texId]->sample(tc);
-      //color = float4(1,0,1,0);
+      color = to_float3(m_materials[matId].type == MULTI_RENDER_MATERIAL_TYPE_COLORED ? 
+                        m_materials[matId].base_color : m_textures[m_materials[matId].texId]->sample(tc));
     }
 
-    float3 diffuse = to_float3(color);
-    float3 light_dir = -1.0f * float3(1, 1, 1);
-    float3 light_color = float3(1, 1, 1);
+    float3 final_color = float3(0,0,0);
+    for (int i=0;i<m_lights.size();i++)
+    {
+      if (m_lights[i].type == LIGHT_TYPE_AMBIENT)
+      {
+        final_color += m_lights[i].color * color;
+      }
+      else
+      {
+        float3 surf_pos = to_float3(rayPos) + (hit.t - BIAS) * to_float3(rayDir);
+        float3 light_dir = float3(1,1,1);
+        float light_dist = 1.0f;
+        if (m_lights[i].type == LIGHT_TYPE_DIRECT)
+        {
+          light_dir = m_lights[i].space;
+          light_dist = 1.0f;
+          float q = max(0.0f, dot(norm, m_lights[i].space));
+          final_color += m_lights[i].color * color * q;
+        }
+        else if (m_lights[i].type == LIGHT_TYPE_POINT)
+        {
+          float3 dir = m_lights[i].space - surf_pos;
+          float l = length(dir);
+          
+          light_dir  = dir / l;
+          light_dist = l;
+        }
 
-    float3 surf_pos = to_float3(rayPos) + (hit.t - BIAS) * to_float3(rayDir);
-    CRT_Hit shadowHit = m_pAccelStruct->RayQuery_NearestHit(to_float4(surf_pos, rayPos.w), to_float4(-1.0f * light_dir, rayDir.w));
-    float shade = (shadowHit.primId == 0xFFFFFFFF) ? 1 : 0;
-    float3 view_dir = to_float3(rayDir);
-    float3 reflect = light_dir - 2.0f * dot(norm, light_dir) * norm;
-    float3 f_col = (shade * light_color * (Kd * std::max(0.0f, dot(norm, -1.0f * light_dir)) + Ks * pow(std::max(0.0f, dot(norm, reflect)), spec_pow)) +
-                    ambient_light_color * Ka) *
-                   diffuse;
+        CRT_Hit shadowHit = m_pAccelStruct->RayQuery_NearestHit(to_float4(surf_pos, rayPos.w), to_float4(light_dir, rayDir.w));
+        float shade = (shadowHit.primId == 0xFFFFFFFF) ? 1 : 0;
+        float3 view_dir = to_float3(rayDir);
+        float3 reflect = -1.0f*light_dir + 2.0f * dot(norm, light_dir) * norm;
+        float3 f_col = (shade * m_lights[i].color * (Kd * std::max(0.0f, dot(norm, light_dir)) + Ks * pow(std::max(0.0f, dot(norm, reflect)), spec_pow))) * color;
+        final_color += f_col;
+      }
+    }
 
-    res_color = to_float4(f_col, 1);
+    res_color = to_float4(final_color, 1);    
   }
   break;
 
