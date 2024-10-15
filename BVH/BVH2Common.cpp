@@ -1268,32 +1268,289 @@ void BVHRT::IntersectGSInLeaf(const float3& ray_pos, const float3& ray_dir,
 #endif
 
 //////////////////// NURBS SECTION /////////////////////////////////////////////////////
+float4 
+BVHRT::control_point(uint i, uint j, NURBSHeader h)
+{
+  return LiteMath::float4 { 
+      m_NURBSData[h.offset+(i*(h.m+1)+j)*4], 
+      m_NURBSData[h.offset+(i*(h.m+1)+j)*4+1],
+      m_NURBSData[h.offset+(i*(h.m+1)+j)*4+2],
+      m_NURBSData[h.offset+(i*(h.m+1)+j)*4+3] 
+  };
+} 
+float 
+BVHRT::weight(uint i, uint j, NURBSHeader h)
+{
+  return m_NURBSData[weights_offset(h)+i*h.m+j];
+}
+float 
+BVHRT::uknot(uint i, NURBSHeader h)
+{
+  return m_NURBSData[u_knots_offset(h)+i];
+}
+float 
+BVHRT::vknot(uint i, NURBSHeader h)
+{
+  return m_NURBSData[v_knots_offset(h)+i];
+}
+int 
+BVHRT::find_uspan(float u, NURBSHeader h) {
+  int n = h.n;
+  int p = h.p;
+
+  if (u == uknot(n+1, h))
+    return n;
+
+  int l = p-1;
+  int r = n+2;
+  while(r-l > 1) {
+    int m = (l+r)/2;
+    if (u < uknot(m, h))
+      r = m;
+    else 
+      l = m;
+  }
+  //assert(uknot(l, h) <= u && u < uknot(l+1, h));
+  return l;
+}
+int 
+BVHRT::find_vspan(float v, NURBSHeader h) {
+  int n = h.m;
+  int p = h.q;
+
+  if (v == vknot(n+1, h))
+    return n;
+
+  int l = p-1;
+  int r = n+2;
+  while(r-l > 1) {
+    int m = (l+r)/2;
+    if (v < vknot(m, h))
+      r = m;
+    else 
+      l = m;
+  }
+  //assert(vknot(l, h) <= v && v < vknot(l+1, h));
+  return l;
+}
+
+void 
+BVHRT::ubasis_funs(int i, float u, NURBSHeader h, float N[NURBS_MAX_DEGREE+1]) {
+  int n = h.n;
+  int p = h.p;
+
+  N[0] = 1.0f;
+  float left[NURBS_MAX_DEGREE+1];
+  float right[NURBS_MAX_DEGREE+1];
+  for (int i = 0; i < p+1; ++i)
+    left[i] = right[i] = 0;
+
+  for (int j = 1; j <= p; ++j) {
+    left[j] = u - uknot(i+1-j, h);
+    right[j] = uknot(i+j, h)-u;
+    float saved = 0.0f;
+    for (int r = 0; r < j; ++r) {
+      float temp = N[r] / (right[r+1]+left[j-r]);
+      N[r] = saved + right[r+1] * temp;
+      saved = left[j-r] * temp;
+    }
+    N[j] = saved;
+  }
+}
+void 
+BVHRT::vbasis_funs(int i, float v, NURBSHeader h, float N[NURBS_MAX_DEGREE+1]) {
+  int n = h.m;
+  int p = h.q;
+  N[0] = 1.0f;
+  float left[NURBS_MAX_DEGREE+1];
+  float right[NURBS_MAX_DEGREE+1];
+  for (int i = 0; i < p+1; ++i)
+    left[i] = right[i] = 0;
+
+  for (int j = 1; j <= p; ++j) {
+    left[j] = v - vknot(i+1-j, h);
+    right[j] = vknot(i+j, h)-v;
+    float saved = 0.0f;
+    for (int r = 0; r < j; ++r) {
+      float temp = N[r] / (right[r+1]+left[j-r]);
+      N[r] = saved + right[r+1] * temp;
+      saved = left[j-r] * temp;
+    }
+    N[j] = saved;
+  }
+}
+
+float4 
+BVHRT::nurbs_point(float u, float v, NURBSHeader h) {
+  int n = h.n;
+  int m = h.m;
+  int p = h.p;
+  int q = h.q;
+  //assert(p <= NURBS_MAX_DEGREE);
+  //assert(q <= NURBS_MAX_DEGREE);
+
+  int uspan = find_uspan(u, h);
+  float Nu[NURBS_MAX_DEGREE+1];
+  for (int i = 0; i < p+1; ++i)
+    Nu[i] = 0;
+  ubasis_funs(uspan, u, h, Nu);
+  
+  int vspan = find_vspan(v, h);
+  float Nv[NURBS_MAX_DEGREE+1];
+  for (int i = 0; i < q+1; ++i)
+    Nv[i] = 0;
+  vbasis_funs(vspan, v, h, Nv);
+
+  float4 temp[NURBS_MAX_DEGREE+1];
+  for (int i = 0; i < q+1; ++i)
+    temp[i] = float4{ 0.0f, 0.0f, 0.0f, 0.0f };
+
+  for (int l = 0; l <= q; ++l) 
+  for (int k = 0; k <= p; ++k) 
+  {
+    temp[l] += Nu[k] 
+             * control_point(uspan-p+k, vspan-q+l, h) 
+             * weight(uspan-p+k, vspan-q+l, h);
+  }
+
+  float4 res = { 0.0f, 0.0f, 0.0f, 0.0f };
+  for (int l = 0; l <= q; ++l)
+    res += Nv[l] * temp[l];
+  
+  return res/res.w;
+}
+
+float4 
+BVHRT::uder(float u, float v, NURBSHeader h) {
+  const float EPS = 1e-2f;
+  LiteMath::float4 res = { 0.0f, 0.0f, 0.0f, 0.0f };
+  res += (u+EPS > 1.0f) ? nurbs_point(u, v, h) : nurbs_point(u+EPS, v, h);
+  res -= (u-EPS < 0.0f) ? nurbs_point(u, v, h) : nurbs_point(u-EPS, v, h);
+
+  return res / (EPS * (1 + (int)((u+EPS <= 1.0f) && (u-EPS >= 0.0f))));
+}
+
+float4 
+BVHRT::vder(float u, float v, NURBSHeader h) {
+  const float EPS = 1e-2f;
+  LiteMath::float4 res = { 0.0f, 0.0f, 0.0f, 0.0f };
+  res += (v+EPS > 1.0f) ? nurbs_point(u, v, h) : nurbs_point(u, v+EPS, h);
+  res -= (v-EPS < 0.0f) ? nurbs_point(u, v, h) : nurbs_point(u, v-EPS, h);
+
+  return res / (EPS * (1 + (int)((v+EPS <= 1.0f) && (v-EPS >= 0.0f))));
+}
+
+bool 
+BVHRT::uclosed(NURBSHeader h) {
+  const float EPS = 1e-2f;
+  for (int j = 0; j <= h.m; ++j) 
+    if (length(control_point(0, j, h) - control_point(h.n, j, h)) > EPS)
+      return false;
+  return true;
+}
+
+bool 
+BVHRT::vclosed(NURBSHeader h) {
+  const float EPS = 1e-2f;
+  for (int i = 0; i <= h.n; ++i) 
+    if (length(control_point(i, 0, h) - control_point(i, h.m, h)) > EPS)
+      return false;
+  return true;
+}
+
+float closed_clamp(float val) {
+  val -= int(val);
+  if (val < 0.0f)
+    return 1.0f+val;
+  if (val > 1.0f)
+    return val-1.0f;
+  return val;
+}
+
+NURBS_HitInfo 
+BVHRT::ray_nurbs_newton_intersection(
+    const LiteMath::float3 &pos,
+    const LiteMath::float3 &ray,
+    NURBSHeader h) {
+  const int max_steps = 16;
+  const float EPS = 0.001f;
+
+  bool u_closed = uclosed(h);
+  bool v_closed = vclosed(h);
+
+  float3 ortho_dir1 = (bool(ray.x) || bool(ray.z)) ? float3{ 0, 1, 0 } : float3{ 1, 0, 0 };
+  float3 ortho_dir2 = normalize(cross(ortho_dir1, ray));
+  ortho_dir1 = normalize(cross(ray, ortho_dir2));
+  // assert(dot(ortho_dir1, ortho_dir2) < EPS);
+  // assert(dot(ortho_dir1, ray) < EPS);
+  // assert(dot(ortho_dir2, ray) < EPS);
+
+  float4 P1 = to_float4(ortho_dir1, -dot(ortho_dir1, pos));
+  float4 P2 = to_float4(ortho_dir2, -dot(ortho_dir2, pos));
+  // assert(dot(P1, to_float4(pos, 1.0f)) < EPS);
+  // assert(dot(P2, to_float4(pos, 1.0f)) < EPS);
+
+  float2 uv = { 0.5f, 0.5f };
+  float2 D = { dot(P1, nurbs_point(uv.x, uv.y, h)), dot(P2, nurbs_point(uv.x, uv.y, h)) };
+  NURBS_HitInfo hit_info = { false, uv };
+
+  int steps_left = max_steps-1;
+  while(length(D) > EPS && (steps_left!=0)) {
+    steps_left--;
+    float2 J[2] = 
+    { 
+      { dot(P1, uder(uv.x, uv.y, h)), dot(P2, uder(uv.x, uv.y, h)) }, //col1
+      { dot(P1, vder(uv.x, uv.y, h)), dot(P2, vder(uv.x, uv.y, h)) } //col2
+    };
+
+    float det = J[0][0]*J[1][1] - J[0][1] * J[1][0];
+
+    float2 J_inversed[2] = 
+    {
+      { J[1][1]/det, -J[0][1]/det },
+      { -J[1][0]/det, J[0][0]/det }
+    };
+
+    uv = uv - (J_inversed[0]*D[0]+J_inversed[1]*D[1]);
+    uv.x = u_closed ? closed_clamp(uv.x) : clamp(uv.x, 0.0f, 1.0f);
+    uv.y = v_closed ? closed_clamp(uv.y) : clamp(uv.y, 0.0f, 1.0f);
+    // assert(0 <= uv.x && uv.x <= 1);
+    // assert(0 <= uv.y && uv.y <= 1);
+
+    float2 new_D = { dot(P1, nurbs_point(uv.x, uv.y, h)), dot(P2, nurbs_point(uv.x, uv.y, h)) };
+    
+    if (length(new_D) > length(D))
+      return hit_info;
+    
+    D = new_D;
+  }
+
+  if (length(D) > EPS)
+    return hit_info;
+  
+  hit_info.hitten = true;
+  hit_info.uv = uv;
+  return hit_info;
+}
+
 void BVHRT::IntersectNURBS(const float3& ray_pos, const float3& ray_dir,
                            float tNear, uint32_t instId,
-                           uint32_t geomId, CRT_Hit* pHit)
-{
-#ifndef DISABLE_NURBS
+                           uint32_t geomId, CRT_Hit* pHit) {
   uint nurbsId = m_geomData[geomId].offset.x;
   NURBSHeader header  = m_NURBSHeaders[nurbsId];
   uint type = m_geomData[geomId].type;
-  const float *nurbs_data = m_NURBSData.data() + header.offset;
-  DecomposedNURBS nurbs(nurbs_data, header);
 
   float3 min_pos = to_float3(m_geomData[geomId].boxMin);
   float3 max_pos = to_float3(m_geomData[geomId].boxMax);
   float2 tNear_tFar = box_intersects(min_pos, max_pos, ray_pos, ray_dir);
 
-  auto hit_pos = ray_nurbs_newton_intersection(ray_pos, ray_dir, nurbs);
-  if (hit_pos) {
-    float2 uv = hit_pos.value();
-    float3 point = to_float3(nurbs.surface_point(uv.x, uv.y));
-    float3 uder = to_float3(nurbs.uder(uv.x, uv.y));
-    float3 vder = to_float3(nurbs.vder(uv.x, uv.y));
+  NURBS_HitInfo hit_pos = ray_nurbs_newton_intersection(ray_pos, ray_dir, header);
+  if (hit_pos.hitten) {
+    float2 uv = hit_pos.uv;
+    float3 point = to_float3(nurbs_point(uv.x, uv.y, header));
     float t = dot(normalize(ray_dir), point-ray_pos);
     if (t < tNear_tFar.x || t > tNear_tFar.y)
       return;
-    float3 norm = normalize(cross(uder, vder));
-    float2 encoded_norm = encode_normal(norm);
     pHit->geomId = geomId | (type << SH_TYPE);
     pHit->t = t;
     pHit->primId = 0;
@@ -1301,10 +1558,7 @@ void BVHRT::IntersectNURBS(const float3& ray_pos, const float3& ray_dir,
 
     pHit->coords[0] = uv.x;
     pHit->coords[1] = uv.y;
-    pHit->coords[2] = encoded_norm.x;
-    pHit->coords[3] = encoded_norm.y;
-  }
-#endif  
+  } 
 }
 //////////////////////// END NURBS SECTION ///////////////////////////////////////////////
 

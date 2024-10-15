@@ -2436,50 +2436,50 @@ void litert_test_31_fake_nurbs_render()
   preset.spp = 1;
   LiteImage::Image2D<uint32_t> ref_image(W, H);
 
-  auto exec_path = std::filesystem::canonical("/proc/self/exe");
-  auto proj_path = exec_path.parent_path();
+  auto proj_path = std::filesystem::current_path();
   auto nurbs_path = proj_path / "scenes" / "04_nurbs_scenes";
   RawNURBS vase = test_nurbs_loader(nurbs_path / "vase.nurbss");
   RawNURBS square = test_nurbs_loader(nurbs_path / "square.nurbss");
   RawNURBS cylinder = test_nurbs_loader(nurbs_path / "cylinder.nurbss");
 
-  auto pRenderRef1 = CreateMultiRenderer("CPU");
+  auto pRenderRef1 = CreateMultiRenderer("GPU");
   pRenderRef1->SetPreset(preset);
   pRenderRef1->SetViewport(0,0,W,H);
-  auto pRenderRef2 = CreateMultiRenderer("CPU");
-  pRenderRef2->SetPreset(preset);
-  pRenderRef2->SetViewport(0,0,W,H);
-  auto pRenderRef3 = CreateMultiRenderer("CPU");
-  pRenderRef3->SetPreset(preset);
-  pRenderRef3->SetViewport(0,0,W,H);
+  // auto pRenderRef2 = CreateMultiRenderer("GPU");
+  // pRenderRef2->SetPreset(preset);
+  // pRenderRef2->SetViewport(0,0,W,H);
+  // auto pRenderRef3 = CreateMultiRenderer("GPU");
+  // pRenderRef3->SetPreset(preset);
+  // pRenderRef3->SetViewport(0,0,W,H);
 
   float3 camera_pos = { 0, 1.276, 25.557 };
   float3 camera_target = { 0.0f, 1.276f, 0.0f };
   float3 camera_up = { 0.0f, 1.0f, 0.0f };
   pRenderRef1->SetScene(vase);
+  std::cout << "Rendering started" << std::endl;
   pRenderRef1->Render(
       ref_image.data(), W, H, 
       lookAt(camera_pos, camera_target,camera_up),
       perspectiveMatrix(45.0f, W*1.0f/H, 0.001f, 100.0f), preset);
   LiteImage::SaveImage<uint32_t>("saves/test_31_vase.bmp", ref_image);
 
-  camera_pos = { -0.52f, 1.991f, 3.049f };
-  camera_target = { 0.0f, 0.0f, 0.0f };
-  pRenderRef2->SetScene(square);
-  pRenderRef2->Render(
-      ref_image.data(), W, H, 
-      lookAt(camera_pos, camera_target,camera_up),
-      perspectiveMatrix(45.0f, W*1.0f/H, 0.001f, 100.0f), preset);
-  LiteImage::SaveImage<uint32_t>("saves/test_31_square.bmp", ref_image);
+  // camera_pos = { -0.52f, 1.991f, 3.049f };
+  // camera_target = { 0.0f, 0.0f, 0.0f };
+  // pRenderRef2->SetScene(square);
+  // pRenderRef2->Render(
+  //     ref_image.data(), W, H, 
+  //     lookAt(camera_pos, camera_target,camera_up),
+  //     perspectiveMatrix(45.0f, W*1.0f/H, 0.001f, 100.0f), preset);
+  // LiteImage::SaveImage<uint32_t>("saves/test_31_square.bmp", ref_image);
 
-  camera_pos = { 2.997f, 4.071f, 2.574f };
-  camera_target = { 0.0f, 1.506f, 0.0f };
-  pRenderRef3->SetScene(cylinder);
-  pRenderRef3->Render(
-      ref_image.data(), W, H, 
-      lookAt(camera_pos, camera_target,camera_up),
-      perspectiveMatrix(45.0f, W*1.0f/H, 0.001f, 100.0f), preset);
-  LiteImage::SaveImage<uint32_t>("saves/test_31_cylinder.bmp", ref_image);
+  // camera_pos = { 2.997f, 4.071f, 2.574f };
+  // camera_target = { 0.0f, 1.506f, 0.0f };
+  // pRenderRef3->SetScene(cylinder);
+  // pRenderRef3->Render(
+  //     ref_image.data(), W, H, 
+  //     lookAt(camera_pos, camera_target,camera_up),
+  //     perspectiveMatrix(45.0f, W*1.0f/H, 0.001f, 100.0f), preset);
+  // LiteImage::SaveImage<uint32_t>("saves/test_31_cylinder.bmp", ref_image);
 }
 /////////////////////////// END NURBS //////////////////////////////////////////////////
 
