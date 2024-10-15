@@ -31,6 +31,12 @@
 *.out
 *.app
 
+# Formatters
+.clang-format
+
+# LSPs configs
+.clangd
+
 CMakeCache.txt
 CMakeFiles/*
 Makefile
