@@ -880,7 +880,7 @@ void diff_render_test_6_optimization_stand()
   dr_preset.dr_render_mode = DR_RENDER_MODE_LAMBERT;
   dr_preset.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_GEOMETRY | DR_RECONSTRUCTION_FLAG_COLOR;
   dr_preset.opt_iterations = 1000;
-  optimization_stand_common(6, 7, ts_scene, medium_initial, dr_preset, "Two spheres. Lambert. Colored.");
+  optimization_stand_common(6, 9, ts_scene, medium_initial, dr_preset, "Two spheres. Lambert. Colored.");
 }
 
 void diff_render_test_7_SVM_sampling()

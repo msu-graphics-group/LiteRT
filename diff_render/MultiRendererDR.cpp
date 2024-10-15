@@ -700,7 +700,7 @@ namespace dr
 
       if (m_preset_dr.dr_border_sampling == DR_BORDER_SAMPLING_RANDOM)
       {
-        // #pragma omp parallel for
+        #pragma omp parallel for
         for (int thread_id = 0; thread_id < max_threads; thread_id++)
         {
           unsigned start = thread_id * border_steps;
@@ -711,7 +711,7 @@ namespace dr
       }
       else if (m_preset_dr.dr_border_sampling == DR_BORDER_SAMPLING_SVM)
       {
-        //#pragma omp parallel for
+        #pragma omp parallel for
         for (int thread_id = 0; thread_id < max_threads; thread_id++)
         {
           unsigned start = thread_id * border_steps;
