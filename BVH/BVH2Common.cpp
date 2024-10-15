@@ -1,13 +1,13 @@
-#include <iostream>
-#include <fstream>
-#include <sstream>
-#include <vector>
+#include "BVH2Common.h"
+
 #include <algorithm>
 #include <cassert>
 #include <cfloat>
 #include <chrono>
-
-#include "BVH2Common.h"
+#include <fstream>
+#include <iostream>
+#include <sstream>
+#include <vector>
 
 using uvec3 = uint3;
 using LiteMath::M_PI;
@@ -1493,47 +1493,46 @@ void BVHRT::IntersectGraphicPrims(const float3& ray_pos, const float3& ray_dir,
 #endif // DISABLE_GRAPHICS_PRIM
 }
 
-void BVHRT::IntersectAnyPolygon(const float3 &ray_pos, const float3 &ray_dir,
-                                float ray_near, uint32_t inst_id,
-                                uint32_t geom_id,
-                                [[maybe_unused]] uint32_t a_start,
-                                [[maybe_unused]] uint32_t a_count,
-                                CRT_Hit *pHit) {
+void BVHRT::IntersectAnyPolygon(
+    const float3 &ray_pos, const float3 &ray_dir, float ray_near,
+    uint32_t inst_id, uint32_t geom_id, [[maybe_unused]] uint32_t a_start,
+    [[maybe_unused]] uint32_t a_count, CRT_Hit *pHit
+) {
 #ifndef DISABLE_ANY_POLYGON
-  namespace lm = LiteMath;
+    namespace lm = LiteMath;
 
-  // auto nurbsId = m_geomData[geomId].offset.x;
-  // auto header = m_NURBSHeaders[nurbsId];
-  // auto type = m_geomData[geomId].type;
-  // const float* nurbs_data = m_NURBSData.data() + header.offset;
-  // // TODO:
-  // float3 min_pos = to_float3(m_geomData[geomId].boxMin);
-  // float3 max_pos = to_float3(m_geomData[geomId].boxMax);
-  // float2 tNear_tFar = box_intersects(min_pos, max_pos, ray_pos, ray_dir);
+    // auto nurbsId = m_geomData[geomId].offset.x;
+    // auto header = m_NURBSHeaders[nurbsId];
+    // auto type = m_geomData[geomId].type;
+    // const float* nurbs_data = m_NURBSData.data() + header.offset;
+    // // TODO:
+    // float3 min_pos = to_float3(m_geomData[geomId].boxMin);
+    // float3 max_pos = to_float3(m_geomData[geomId].boxMax);
+    // float2 tNear_tFar = box_intersects(min_pos, max_pos, ray_pos, ray_dir);
 
-  // float3 norm = normalize(ray_pos + tNear_tFar.x * ray_dir);
-  // float2 encoded_norm = encode_normal(norm);
+    // float3 norm = normalize(ray_pos + tNear_tFar.x * ray_dir);
+    // float2 encoded_norm = encode_normal(norm);
 
-  // pHit->t = tNear_tFar.x;
-  // pHit->primId = 0;
-  // pHit->geomId = geomId | (type << SH_TYPE);
-  // pHit->instId = instId;
+    // pHit->t = tNear_tFar.x;
+    // pHit->primId = 0;
+    // pHit->geomId = geomId | (type << SH_TYPE);
+    // pHit->instId = instId;
 
-  // pHit->coords[0] = 0;
-  // pHit->coords[1] = 0;
-  // pHit->coords[2] = encoded_norm.x;
-  // pHit->coords[3] = encoded_norm.y;
+    // pHit->coords[0] = 0;
+    // pHit->coords[1] = 0;
+    // pHit->coords[2] = encoded_norm.x;
+    // pHit->coords[3] = encoded_norm.y;
 
-  auto const poly_id = m_geomData[geom_id].offset.x;
-  auto const header = m_AnyPolygonHeaders[poly_id];
+    auto const poly_id = m_geomData[geom_id].offset.x;
+    auto const header = m_AnyPolygonHeaders[poly_id];
 
-  auto const min_pos = to_float3(m_geomData[geom_id].boxMin);
-  auto const max_pos = to_float3(m_geomData[geom_id].boxMax);
-  auto const t_bounds = box_intersects(min_pos, max_pos, ray_pos, ray_dir);
-  auto const t_near = lm::max(t_bounds.x, ray_near);
-  auto const t_far = t_bounds.y;
+    auto const min_pos = to_float3(m_geomData[geom_id].boxMin);
+    auto const max_pos = to_float3(m_geomData[geom_id].boxMax);
+    auto const t_bounds = box_intersects(min_pos, max_pos, ray_pos, ray_dir);
+    auto const t_near = lm::max(t_bounds.x, ray_near);
+    auto const t_far = t_bounds.y;
 
-#endif // !defined(DISABLE_ANY_POLYGON)
+#endif  // !defined(DISABLE_ANY_POLYGON)
 }
 
 SdfHit BVHRT::sdf_sphere_tracing(uint32_t type, uint32_t sdf_id, const float3 &min_pos, const float3 &max_pos,

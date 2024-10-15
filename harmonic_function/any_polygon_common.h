@@ -23,6 +23,14 @@ struct AnyPolygonDataHeader {
     uint size;
 };
 
+/**
+* \brief Calculates a signed solid angle of a triangle
+* \param p1 first triangle point
+* \param p2 seconst triangle point
+* \param p3 third triangle point
+* \param point_of_view point of view to calculate solid angle from
+* \return signed solid angle value
+*/
 inline float triangle_solid_angle(
     float3 p1, float3 p2, float3 p3, float3 point_of_view
 ) {
@@ -77,6 +85,13 @@ inline float any_polygon_solid_angle(
     return result;
 }
 
+/**
+* \brief Calculates a distance between segment and point in 3D
+* \param segment_start first segment point
+* \param segment_end second segment point
+* \param point given point
+* \return the distance
+*/
 inline float point_segment_distance(
     float3 segment_start, float3 segment_end, float3 point
 ) {
