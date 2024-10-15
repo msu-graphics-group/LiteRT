@@ -19,6 +19,7 @@ static constexpr unsigned TYPE_SDF_SBS_ADAPT_TEX          = 14;
 static constexpr unsigned TYPE_SDF_SBS_ADAPT_COL          = 15;
 static constexpr unsigned TYPE_NURBS                      = 16;
 static constexpr unsigned TYPE_GRAPHICS_PRIM              = 17;
+static constexpr unsigned TYPE_ANY_POLYGON                = 18;
 
 static constexpr unsigned SH_TYPE = 27; //5 bits for type
 

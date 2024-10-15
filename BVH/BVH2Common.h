@@ -6,6 +6,7 @@
 #include <string>
 #include <memory>
 
+#include "CrossRT.h"
 #include "LiteMath.h"
 
 using LiteMath::cross;
@@ -29,6 +30,7 @@ using LiteMath::Box4f;
 #include "../raytrace_common.h"
 #include "cbvh.h"
 #include "nurbs/nurbs_common.h"
+#include "harmonic_function/any_polygon_common.h"
 #include "graphics_primitive/graphics_primitive_common.h"
 
 float3 tricubicInterpolationDerrivative(const float *m_SdfGridData, const uint vox_u[3], const float dp[3], const uint32_t off, const uint size[3]);
@@ -57,6 +59,7 @@ struct AbstractObject
   static constexpr uint32_t TAG_SDF_ADAPT_BRICK  = 7;
   static constexpr uint32_t TAG_NURBS            = 8; 
   static constexpr uint32_t TAG_GRAPHICS_PRIM    = 9;
+  static constexpr uint32_t TAG_ANY_POLYGON      = 10;
 
   AbstractObject(){}  // Dispatching on GPU hierarchy must not have destructors, especially virtual   
   virtual uint32_t GetTag()   const  { return TAG_NONE; }; // !!! #REQUIRED by kernel slicer
@@ -122,6 +125,7 @@ struct BVHRT : public ISceneObject
   uint32_t AddGeom_SdfFrameOctreeTex(SdfFrameOctreeTexView octree, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
   uint32_t AddGeom_NURBS(const RawNURBS &nurbs, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
   uint32_t AddGeom_GraphicsPrim(const GraphicsPrimView &nurbs, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
+  uint32_t AddGeom_AnyPolygon(const AnyPolygon &poly, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
 
   void set_debug_mode(bool enable);
 #endif
@@ -185,6 +189,10 @@ struct BVHRT : public ISceneObject
   void IntersectGraphicPrims(const float3& ray_pos, const float3& ray_dir,
                              float tNear, uint32_t instId,
                              uint32_t geomId, uint32_t a_start, uint32_t a_count, CRT_Hit* pHit);
+
+  void IntersectAnyPolygon(const float3& ray_pos, const float3& ray_dir,
+                           float tNear, uint32_t instId,
+                           uint32_t geomId, uint32_t a_start, uint32_t a_count, CRT_Hit* pHit);
 
   void RayGridIntersection(float3 ray_dir, uint gridSize, float3 p, float3 lastP, uint4 ptrs, uint4 ptrs2, float &throughput, float3 &colour);
   void lerpCell(const uint idx0, const uint idx1, const float t, float memory[28]);
@@ -332,6 +340,13 @@ struct BVHRT : public ISceneObject
   std::vector<uint32_t> m_GraphicsPrimRoots;
   std::vector<GraphicsPrimHeader> m_GraphicsPrimHeaders;
 #endif
+
+  // Non-planar polygons data
+#ifndef DISABLE_ANY_POLYGON
+  std::vector<float3> m_AnyPolygonPoints;
+  std::vector<float3> m_AnyPolygonTriangles;
+  std::vector<AnyPolygonDataHeader> m_AnyPolygonHeaders;
+#endif // !defined(DISABLE_ANY_POLYGON)
 
   //meshes data
   std::vector<float4>   m_vertPos;
@@ -593,4 +608,27 @@ struct GeomDataGraphicsPrim : public AbstractObject
     bvhrt->IntersectGraphicPrims(ray_pos, ray_dir, tNear, info.instId, geometryId, a_start, a_count, pHit);
     return pHit->primId == 0xFFFFFFFF ? TAG_NONE : TAG_GRAPHICS_PRIM;
   }
+};
+
+struct GeomDataAnyPolygon : public AbstractObject {
+    GeomDataAnyPolygon() { m_tag = this->GetTag(); }
+
+    uint32_t GetTag() const override { return TAG_ANY_POLYGON; }
+
+    uint32_t Intersect(float4 rayPosAndNear, float4 rayDirAndFar, CRT_LeafInfo info, CRT_Hit* pHit,
+                       BVHRT* bvhrt) const override
+    {
+        auto const ray_pos = to_float3(rayPosAndNear);
+        auto const ray_dir = to_float3(rayDirAndFar);
+        auto const t_near = rayPosAndNear.w;
+        auto const geometry_id = geomId;
+        auto const globalAABBId = bvhrt->startEnd[geometry_id].x + info.aabbId;
+        auto const start_count_packed = bvhrt->m_primIdCount[globalAABBId];
+        auto const a_start = EXTRACT_START(start_count_packed);
+        auto const a_count = EXTRACT_COUNT(start_count_packed);
+
+        bvhrt->IntersectAnyPolygon(ray_pos, ray_dir, t_near, info.instId, geometry_id, a_start, a_count, pHit);
+
+        return pHit->primId == 0xFFFFFFFF ? TAG_NONE : TAG_ANY_POLYGON;
+    }
 };
