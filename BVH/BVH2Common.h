@@ -31,8 +31,6 @@ using LiteMath::Box4f;
 #include "nurbs/nurbs_common.h"
 #include "graphics_primitive/graphics_primitive_common.h"
 
-float3 tricubicInterpolationDerrivative(const float *m_SdfGridData, const uint vox_u[3], const float dp[3], const uint32_t off, const uint size[3]);
-float tricubicInterpolation(const float *m_SdfGridData, const uint vox_u[3], const float dp[3], const uint32_t off, const uint size[3]);
 
 struct BVHRT;
 struct GeomData
@@ -242,7 +240,8 @@ struct BVHRT : public ISceneObject
   virtual bool need_normal();
   virtual float2 encode_normal(float3 n);
   float load_distance_values(uint32_t nodeId, float3 voxelPos, uint32_t v_size, float sz_inv, const SdfSBSHeader &header, float values[8]);
-  float tricubicInterpolation(const uint32_t vox_u[3], const float dp[3], const uint32_t off, const uint32_t size[3]);
+  void tricubicInterpolationDerrivative(const float grid[64], const float dp[3], float d_pos[3], float d_grid[64]);
+  float tricubicInterpolation(const float grid[64], const float dp[3]);
 
 #ifndef DISABLE_SDF_GRID
   virtual float eval_distance_sdf_grid(unsigned grid_id, float3 p);
