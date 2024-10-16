@@ -8,6 +8,7 @@
 #include <iostream>
 #include <sstream>
 #include <vector>
+#include "harmonic_function/any_polygon_common.h"
 
 using uvec3 = uint3;
 using LiteMath::M_PI;
@@ -1494,7 +1495,7 @@ void BVHRT::IntersectGraphicPrims(const float3& ray_pos, const float3& ray_dir,
 }
 
 void BVHRT::IntersectAnyPolygon(
-    const float3 &ray_pos, const float3 &ray_dir, float ray_near,
+    float3 const &ray_origin, float3 const &ray_direction, float t_start,
     uint32_t inst_id, uint32_t geom_id, [[maybe_unused]] uint32_t a_start,
     [[maybe_unused]] uint32_t a_count, CRT_Hit *pHit
 ) {
@@ -1523,14 +1524,65 @@ void BVHRT::IntersectAnyPolygon(
     // pHit->coords[2] = encoded_norm.x;
     // pHit->coords[3] = encoded_norm.y;
 
+    auto constexpr MAX_N_STEPS = uint{10'000};
+    auto constexpr ANGULAR_FREQUENCY = 1.0f;
+    auto constexpr MODULO = 2.0f * lm::M_PI * ANGULAR_FREQUENCY;
+    auto constexpr PHASE_SHIFT = 0.0f;
+    auto constexpr EPSILON = 0.000'1f;
+    auto constexpr LOWER_BOUND = -4.0f * lm::M_PI;
+
     auto const poly_id = m_geomData[geom_id].offset.x;
     auto const header = m_AnyPolygonHeaders[poly_id];
 
     auto const min_pos = to_float3(m_geomData[geom_id].boxMin);
     auto const max_pos = to_float3(m_geomData[geom_id].boxMax);
-    auto const t_bounds = box_intersects(min_pos, max_pos, ray_pos, ray_dir);
-    auto const t_near = lm::max(t_bounds.x, ray_near);
+    auto const t_bounds = box_intersects(min_pos, max_pos, ray_origin, ray_direction);
+    auto const t_near = lm::max(t_bounds.x, t_start);
     auto const t_far = t_bounds.y;
+
+    auto distance = 0.0f;
+    auto n_steps = uint{0};
+
+    while (distance < t_far) {
+        if (n_steps >= MAX_N_STEPS) {
+            // TODO: return Some(distance)
+        }
+
+        auto const pos = ray_origin + distance * ray_direction;
+        auto const value =
+            (any_polygon_solid_angle(m_AnyPolygonTriangles, header, pos) -
+             PHASE_SHIFT) /
+            MODULO;
+
+        auto const value_lo = MODULO * std::floor(value) + PHASE_SHIFT;
+        auto const value_hi = MODULO * std::ceil(value) + PHASE_SHIFT;
+        auto const gradient =
+            any_polygon_solid_angle_gradient(m_AnyPolygonPoints, header, pos);
+
+        if (lm::min(value - value_lo, value_hi - value) <=
+            EPSILON * lm::length(gradient)) {
+            // TODO: return Some(distance)
+        }
+
+        auto const radius =
+            any_polygon_boundary_distance(m_AnyPolygonPoints, header, pos);
+        
+        auto const a_lo = (value - LOWER_BOUND) / (value_lo - LOWER_BOUND);
+        auto const a_hi = (value - LOWER_BOUND) / (value_hi - LOWER_BOUND);
+
+        auto const step_size_lo =
+            0.5f * radius *
+            lm::abs(a_lo + 2.0f - lm::sqrt(a_lo * a_lo + 8.0f * a_lo));
+
+        auto const step_size_hi =
+            0.5f * radius *
+            lm::abs(a_hi + 2.0f - lm::sqrt(a_hi * a_hi + 8.0f * a_hi));
+
+        auto const step_size = lm::min(step_size_lo, step_size_hi);
+
+        distance += step_size;
+        n_steps += 1;
+    }
 
 #endif  // !defined(DISABLE_ANY_POLYGON)
 }
