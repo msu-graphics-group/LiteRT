@@ -312,11 +312,11 @@ std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
           float3 p0 = 2.0f*(d*float3(p)) - 1.0f;
           float dp = 2.0f*d/header.brick_size;
 
-          for (int i=-header.brick_pad; i<=header.brick_size + header.brick_pad; i++)
+          for (int i=-(int)header.brick_pad; i<=(int)(header.brick_size + header.brick_pad); i++)
           {
-            for (int j=-header.brick_pad; j<=header.brick_size + header.brick_pad; j++)
+            for (int j=-(int)header.brick_pad; j<=(int)(header.brick_size + header.brick_pad); j++)
             {
-              for (int k=-header.brick_pad; k<=header.brick_size + header.brick_pad; k++)
+              for (int k=-(int)header.brick_pad; k<=(int)(header.brick_size + header.brick_pad); k++)
               {
                 float val = 2e6f;
                 // corners, reuse values
@@ -362,7 +362,7 @@ std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
                   val = sdf(pos, thread_id);
                 }
 
-                values[i*v_size*v_size + j*v_size + k] = val;
+                values[SBS_v_to_i(i,j,k,v_size,header.brick_pad)] = val;
                 min_val = std::min(min_val, val);
                 max_val = std::max(max_val, val);
               }
@@ -1787,11 +1787,11 @@ std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
           float3 p0 = 2.0f*(d*float3(p)) - 1.0f;
           float dp = 2.0f*d/header.brick_size;
 
-          for (int i=-header.brick_pad; i<=header.brick_size + header.brick_pad; i++)
+          for (int i=-(int)header.brick_pad; i<=(int)(header.brick_size + header.brick_pad); i++)
           {
-            for (int j=-header.brick_pad; j<=header.brick_size + header.brick_pad; j++)
+            for (int j=-(int)header.brick_pad; j<=(int)(header.brick_size + header.brick_pad); j++)
             {
-              for (int k=-header.brick_pad; k<=header.brick_size + header.brick_pad; k++)
+              for (int k=-(int)header.brick_pad; k<=(int)(header.brick_size + header.brick_pad); k++)
               {
                 float val = 2e6f;
                 // corners, reuse values
@@ -1837,7 +1837,7 @@ std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
                   val = sdf(pos, thread_id);
                 }
 
-                values[i*v_size*v_size + j*v_size + k] = val;
+                values[SBS_v_to_i(i,j,k,v_size,header.brick_pad)] = val;
               }
             }      
           }

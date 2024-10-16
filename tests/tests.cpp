@@ -2439,11 +2439,11 @@ litert_test_34_tricubic_sbs()
   LiteImage::Image2D<uint32_t> img(W, H);
   SdfSBSHeader header;
   header.brick_size = 2;
-  header.brick_pad = 0;
+  header.brick_pad = 1;
   header.bytes_per_value = 1;
   header.aux_data = SDF_SBS_NODE_LAYOUT_DX;
 
-  auto sbs = sdf_converter::create_sdf_SBS(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 8, 64*64*64), header, mesh);
+  auto sbs = sdf_converter::create_sdf_SBS(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 5), header, mesh);
   auto pRender = CreateMultiRenderer("CPU");
   pRender->SetPreset(preset);
   pRender->SetScene(sbs);
