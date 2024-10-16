@@ -2577,6 +2577,10 @@ void litert_test_36_primitive_visualization()
 
 }
 
+void litert_test_37_any_polygon() {
+    printf("litert_test_37_any_polygon not yet implemented\n");
+}
+
 void perform_tests_litert(const std::vector<int> &test_ids)
 {
   std::vector<int> tests = test_ids;
@@ -2593,7 +2597,8 @@ void perform_tests_litert(const std::vector<int> &test_ids)
       litert_test_25_float_images, litert_test_26_sbs_shallow_bvh, litert_test_27_textured_colored_SBS,
       litert_test_28_sbs_reg, litert_test_29_smoothed_frame_octree, litert_test_30_verify_SBS_SBSAdapt,
       litert_test_31_fake_nurbs_render, litert_test_32_smooth_sbs_normals, litert_test_33_verify_SBS_SBSAdapt_split, 
-      litert_test_34_tricubic_sbs, litert_test_35_SBSAdapt_greed_creating, litert_test_36_primitive_visualization};
+      litert_test_34_tricubic_sbs, litert_test_35_SBSAdapt_greed_creating, litert_test_36_primitive_visualization,
+      litert_test_37_any_polygon};
 
   if (tests.empty())
   {

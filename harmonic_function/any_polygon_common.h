@@ -17,6 +17,7 @@ static float constexpr SIGNED_SOLID_ANGLE_MIN_VALUE = -4.0 * lm::M_PI;
 
 struct AnyPolygon {
     std::vector<float3> points;
+    std::vector<float3> triangles;
 };
 
 #endif  // !defined(KERNEL_SLICER)
