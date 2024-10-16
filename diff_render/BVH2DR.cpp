@@ -617,7 +617,7 @@ namespace dr
   float BVHDR::Intersect(uint32_t ray_flags, const float3 ray_dir, float values[8], float d, 
                          float qNear, float qFar, float3 start_q, RayDiffPayload *relax_pt)
   {
-    const float EPS = 5e-5f;
+    const float EPS = 1e-7f;
     float d_inv = 1.0f / d;
     float t = qNear;
     bool hit = false;
