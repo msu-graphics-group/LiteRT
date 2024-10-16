@@ -554,86 +554,86 @@ void litert_test_9_mesh()
 // save and load octrees of all types
 void litert_test_10_save_load()
 {
-  // auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "scenes/01_simple_scenes/data/teapot.vsgf").c_str());
-  // cmesh4::normalize_mesh(mesh);
-  // MeshBVH mesh_bvh;
-  // mesh_bvh.init(mesh);
+  auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "scenes/01_simple_scenes/data/teapot.vsgf").c_str());
+  cmesh4::normalize_mesh(mesh);
+  MeshBVH mesh_bvh;
+  mesh_bvh.init(mesh);
 
-  // std::vector<SdfFrameOctreeNode> frame_nodes;
-  // std::vector<SdfSVSNode> svs_nodes;
-  // SdfSBS sbs;
+  std::vector<SdfFrameOctreeNode> frame_nodes;
+  std::vector<SdfSVSNode> svs_nodes;
+  SdfSBS sbs;
 
-  // load_sdf_frame_octree(frame_nodes, "saves/test_10_frame_octree.bin");
-  // load_sdf_SVS(svs_nodes, "saves/test_10_svs.bin");
-  // load_sdf_SBS(sbs, "saves/test_10_sbs.bin");
+  load_sdf_frame_octree(frame_nodes, "saves/test_10_frame_octree.bin");
+  load_sdf_SVS(svs_nodes, "saves/test_10_svs.bin");
+  load_sdf_SBS(sbs, "saves/test_10_sbs.bin");
 
-  // unsigned W = 1024, H = 1024;
-  // MultiRenderPreset preset = getDefaultPreset();
-  // preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
+  unsigned W = 1024, H = 1024;
+  MultiRenderPreset preset = getDefaultPreset();
+  preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
 
-  // LiteImage::Image2D<uint32_t> image_ref(W, H);
-  // auto pRender_ref = CreateMultiRenderer("GPU");
-  // pRender_ref->SetPreset(preset);
-  // pRender_ref->SetScene(mesh);
-  // render(image_ref, pRender_ref, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
-  // LiteImage::SaveImage<uint32_t>("saves/test_10_ref.bmp", image_ref);
+  LiteImage::Image2D<uint32_t> image_ref(W, H);
+  auto pRender_ref = CreateMultiRenderer("GPU");
+  pRender_ref->SetPreset(preset);
+  pRender_ref->SetScene(mesh);
+  render(image_ref, pRender_ref, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+  LiteImage::SaveImage<uint32_t>("saves/test_10_ref.bmp", image_ref);
 
-  // LiteImage::Image2D<uint32_t> image_2(W, H);
-  // auto pRender_2 = CreateMultiRenderer("GPU");
-  // pRender_2->SetPreset(preset);
-  // pRender_2->SetScene(frame_nodes);
-  // render(image_2, pRender_2, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
-  // LiteImage::SaveImage<uint32_t>("saves/test_10_frame_octree.bmp", image_2);
+  LiteImage::Image2D<uint32_t> image_2(W, H);
+  auto pRender_2 = CreateMultiRenderer("GPU");
+  pRender_2->SetPreset(preset);
+  pRender_2->SetScene(frame_nodes);
+  render(image_2, pRender_2, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+  LiteImage::SaveImage<uint32_t>("saves/test_10_frame_octree.bmp", image_2);
 
-  // LiteImage::Image2D<uint32_t> image_3(W, H);
-  // auto pRender_3 = CreateMultiRenderer("GPU");
-  // pRender_3->SetPreset(preset);
-  // pRender_3->SetScene(svs_nodes);
-  // render(image_3, pRender_3, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
-  // LiteImage::SaveImage<uint32_t>("saves/test_10_svs.bmp", image_3);
+  LiteImage::Image2D<uint32_t> image_3(W, H);
+  auto pRender_3 = CreateMultiRenderer("GPU");
+  pRender_3->SetPreset(preset);
+  pRender_3->SetScene(svs_nodes);
+  render(image_3, pRender_3, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+  LiteImage::SaveImage<uint32_t>("saves/test_10_svs.bmp", image_3);
 
-  // LiteImage::Image2D<uint32_t> image_4(W, H);
-  // auto pRender_4 = CreateMultiRenderer("GPU");
-  // pRender_4->SetPreset(preset);
-  // pRender_4->SetScene(sbs);
-  // render(image_4, pRender_4, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
-  // LiteImage::SaveImage<uint32_t>("saves/test_10_sbs.bmp", image_4);
+  LiteImage::Image2D<uint32_t> image_4(W, H);
+  auto pRender_4 = CreateMultiRenderer("GPU");
+  pRender_4->SetPreset(preset);
+  pRender_4->SetScene(sbs);
+  render(image_4, pRender_4, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+  LiteImage::SaveImage<uint32_t>("saves/test_10_sbs.bmp", image_4);
 
-  // LiteImage::Image2D<uint32_t> image_5(W, H);
-  // auto pRender_5 = CreateMultiRenderer("GPU");
-  // pRender_5->SetPreset(preset);
-  // pRender_5->LoadSceneHydra("scenes/02_sdf_scenes/test_10.xml");
-  // render(image_5, pRender_5, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
-  // LiteImage::SaveImage<uint32_t>("saves/test_10_hydra_scene.bmp", image_5);
+  LiteImage::Image2D<uint32_t> image_5(W, H);
+  auto pRender_5 = CreateMultiRenderer("GPU");
+  pRender_5->SetPreset(preset);
+  pRender_5->LoadSceneHydra("scenes/02_sdf_scenes/test_10.xml");
+  render(image_5, pRender_5, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+  LiteImage::SaveImage<uint32_t>("saves/test_10_hydra_scene.bmp", image_5);
 
-  // float psnr_2 = image_metrics::PSNR(image_ref, image_2);
-  // float psnr_3 = image_metrics::PSNR(image_ref, image_3);
-  // float psnr_4 = image_metrics::PSNR(image_ref, image_4);
-  // float psnr_5 = image_metrics::PSNR(image_ref, image_5);
+  float psnr_2 = image_metrics::PSNR(image_ref, image_2);
+  float psnr_3 = image_metrics::PSNR(image_ref, image_3);
+  float psnr_4 = image_metrics::PSNR(image_ref, image_4);
+  float psnr_5 = image_metrics::PSNR(image_ref, image_5);
 
-  // printf(" 10.2. %-64s", "SDF Framed Octree ");
-  // if (psnr_2 >= 25)
-  //   printf("passed    (%.2f)\n", psnr_2);
-  // else
-  //   printf("FAILED, psnr = %f\n", psnr_2);
+  printf(" 10.2. %-64s", "SDF Framed Octree ");
+  if (psnr_2 >= 25)
+    printf("passed    (%.2f)\n", psnr_2);
+  else
+    printf("FAILED, psnr = %f\n", psnr_2);
 
-  // printf(" 10.3. %-64s", "SDF Sparse Voxel Set ");
-  // if (psnr_3 >= 25)
-  //   printf("passed    (%.2f)\n", psnr_3);
-  // else
-  //   printf("FAILED, psnr = %f\n", psnr_3);
+  printf(" 10.3. %-64s", "SDF Sparse Voxel Set ");
+  if (psnr_3 >= 25)
+    printf("passed    (%.2f)\n", psnr_3);
+  else
+    printf("FAILED, psnr = %f\n", psnr_3);
 
-  // printf(" 10.4. %-64s", "SDF Sparse Brick Set ");
-  // if (psnr_4 >= 25)
-  //   printf("passed    (%.2f)\n", psnr_4);
-  // else
-  //   printf("FAILED, psnr = %f\n", psnr_4);
+  printf(" 10.4. %-64s", "SDF Sparse Brick Set ");
+  if (psnr_4 >= 25)
+    printf("passed    (%.2f)\n", psnr_4);
+  else
+    printf("FAILED, psnr = %f\n", psnr_4);
   
-  // printf(" 10.5. %-64s", "SDF Scene loaded from Hydra scene");
-  // if (psnr_5 >= 25)
-  //   printf("passed    (%.2f)\n", psnr_5);
-  // else
-  //   printf("FAILED, psnr = %f\n", psnr_5);
+  printf(" 10.5. %-64s", "SDF Scene loaded from Hydra scene");
+  if (psnr_5 >= 25)
+    printf("passed    (%.2f)\n", psnr_5);
+  else
+    printf("FAILED, psnr = %f\n", psnr_5);
 }
 
 static double urand(double from=0, double to=1)
