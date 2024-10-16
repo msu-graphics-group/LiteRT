@@ -1497,32 +1497,10 @@ void BVHRT::IntersectGraphicPrims(const float3& ray_pos, const float3& ray_dir,
 void BVHRT::IntersectAnyPolygon(
     float3 const &ray_origin, float3 const &ray_direction, float t_start,
     uint32_t inst_id, uint32_t geom_id, [[maybe_unused]] uint32_t a_start,
-    [[maybe_unused]] uint32_t a_count, CRT_Hit *pHit
+    [[maybe_unused]] uint32_t a_count, CRT_Hit *hit_ptr
 ) {
 #ifndef DISABLE_ANY_POLYGON
     namespace lm = LiteMath;
-
-    // auto nurbsId = m_geomData[geomId].offset.x;
-    // auto header = m_NURBSHeaders[nurbsId];
-    // auto type = m_geomData[geomId].type;
-    // const float* nurbs_data = m_NURBSData.data() + header.offset;
-    // // TODO:
-    // float3 min_pos = to_float3(m_geomData[geomId].boxMin);
-    // float3 max_pos = to_float3(m_geomData[geomId].boxMax);
-    // float2 tNear_tFar = box_intersects(min_pos, max_pos, ray_pos, ray_dir);
-
-    // float3 norm = normalize(ray_pos + tNear_tFar.x * ray_dir);
-    // float2 encoded_norm = encode_normal(norm);
-
-    // pHit->t = tNear_tFar.x;
-    // pHit->primId = 0;
-    // pHit->geomId = geomId | (type << SH_TYPE);
-    // pHit->instId = instId;
-
-    // pHit->coords[0] = 0;
-    // pHit->coords[1] = 0;
-    // pHit->coords[2] = encoded_norm.x;
-    // pHit->coords[3] = encoded_norm.y;
 
     auto constexpr MAX_N_STEPS = uint{10'000};
     auto constexpr ANGULAR_FREQUENCY = 1.0f;
@@ -1544,10 +1522,6 @@ void BVHRT::IntersectAnyPolygon(
     auto n_steps = uint{0};
 
     while (distance < t_far) {
-        if (n_steps >= MAX_N_STEPS) {
-            // TODO: return Some(distance)
-        }
-
         auto const pos = ray_origin + distance * ray_direction;
         auto const value =
             (any_polygon_solid_angle(m_AnyPolygonTriangles, header, pos) -
@@ -1559,9 +1533,15 @@ void BVHRT::IntersectAnyPolygon(
         auto const gradient =
             any_polygon_solid_angle_gradient(m_AnyPolygonPoints, header, pos);
 
-        if (lm::min(value - value_lo, value_hi - value) <=
-            EPSILON * lm::length(gradient)) {
-            // TODO: return Some(distance)
+        auto const should_stop = lm::min(value - value_lo, value_hi - value) <=
+                                 EPSILON * lm::length(gradient);
+
+        if (t_near <= distance && (n_steps >= MAX_N_STEPS || should_stop)) {
+            auto const normal = -lm::normalize(gradient);
+            auto const encoded_normal = encode_normal(normal);
+            any_polygon_fill_crt_hit(
+                hit_ptr, distance, encoded_normal, poly_id, inst_id, geom_id
+            );
         }
 
         auto const radius =

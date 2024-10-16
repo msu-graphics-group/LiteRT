@@ -7,8 +7,8 @@
 #include "render_settings.h"
 
 namespace lm = LiteMath;
-using LiteMath::float3;
 using LiteMath::float2;
+using LiteMath::float3;
 using LiteMath::uint;
 
 static float constexpr SIGNED_SOLID_ANGLE_MIN_VALUE = -4.0 * lm::M_PI;
@@ -125,7 +125,7 @@ inline float any_polygon_boundary_distance(
 ) {
     auto result = lm::INF_POSITIVE;
 
-    for (lm::uint i = 0; i < header.size + 1; ++i) {
+    for (uint i = 0; i < header.size + 1; ++i) {
         auto const start = points[header.offset + i];
         auto const end = points[header.offset + (i + 1) % header.size];
 
