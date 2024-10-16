@@ -43,6 +43,8 @@ struct GeomData
   uint2 offset;
 };
 
+constexpr uint32_t NURBS_MAX_DEGREE = 10;
+
 struct AbstractObject
 {
   static constexpr uint32_t TAG_NONE             = 0;    // !!! #REQUIRED by kernel slicer: Empty/Default impl must have zero both m_tag and offset
@@ -324,6 +326,25 @@ struct BVHRT : public ISceneObject
   //NURBS data
   std::vector<float> m_NURBSData;
   std::vector<NURBSHeader> m_NURBSHeaders;
+  //NURBS functions
+  virtual float4 control_point(uint i, uint j, NURBSHeader h);
+  virtual float weight(uint i, uint j, NURBSHeader h);
+  virtual float uknot(uint i, NURBSHeader h);
+  virtual float vknot(uint i, NURBSHeader h);
+  virtual int find_uspan(float u, NURBSHeader h);
+  virtual int find_vspan(float v, NURBSHeader h);
+  virtual void ubasis_funs(int i, float u, NURBSHeader h, float N[NURBS_MAX_DEGREE+1]);
+  virtual void vbasis_funs(int i, float v, NURBSHeader h, float N[NURBS_MAX_DEGREE+1]);
+  virtual float4 nurbs_point(float u, float v, NURBSHeader h);
+  virtual float4 uder(float u, float v, NURBSHeader h);
+  virtual float4 vder(float u, float v, NURBSHeader h);
+  virtual bool uclosed(NURBSHeader h);
+  virtual bool vclosed(NURBSHeader h);
+  virtual NURBS_HitInfo ray_nurbs_newton_intersection(
+    const LiteMath::float3 &pos,
+    const LiteMath::float3 &ray,
+    NURBSHeader h);
+  //end NURBS functions
 
   // Graphic primitives data
 #ifndef DISABLE_GRAPHICS_PRIM

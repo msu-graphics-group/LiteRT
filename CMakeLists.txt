@@ -179,7 +179,8 @@ target_sources(render_app PRIVATE main.cpp
                ${MODULES_SRC}
                ${SCENE_LOADER_SRC}
                ${CORE_SRC}
-               ${BUILDERS_SRC})
+               ${BUILDERS_SRC}
+              )
 
 set_property(TARGET render_app PROPERTY CXX_STANDARD 17)
 target_link_libraries(render_app PRIVATE Threads::Threads dl ${RAYTRACING_EMBREE_LIBS} ${MODULES_LIBRARIES})
