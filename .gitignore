@@ -45,6 +45,7 @@ sdf_auto.*
 math_tests
 saves/*
 saves_border_rays/hist_data.txt
+saves_border_rays/checking_sample_depend/*
 scenes/02_sdf_scenes/model*.dat
 large_scenes/*
 

@@ -25,6 +25,5 @@ $2 $start_dir/Renderer/eye_ray.cpp $start_dir/BVH/BVH2Common.cpp \
 -DDISABLE_RF_GRID \
 -DDISABLE_NURBS \
 -DDISABLE_GS_PRIMITIVE \
--DUSE_TRICUBIC
 
 cd $start_dir

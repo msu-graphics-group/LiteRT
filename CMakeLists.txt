@@ -99,10 +99,7 @@ endif()
 option(USE_TRICUBIC "Enable tricubic interpolation" OFF)
 if(USE_TRICUBIC)
   message("-- Tricubic interpolation is ON")
-  add_definitions(-DUSE_TRICUBIC=1)
-else()
-  message("-- Tricubic interpolation is OFF")
-  add_definitions(-DUSE_TRICUBIC=0)
+  add_definitions(-DUSE_TRICUBIC)
 endif()
 
 option(USE_ENZYME "Enable Enzyme" OFF)
@@ -189,7 +186,8 @@ target_sources(render_app PRIVATE main.cpp
                ${MODULES_SRC}
                ${SCENE_LOADER_SRC}
                ${CORE_SRC}
-               ${BUILDERS_SRC})
+               ${BUILDERS_SRC}
+              )
 
 set_property(TARGET render_app PROPERTY CXX_STANDARD 17)
 target_link_libraries(render_app PRIVATE Threads::Threads dl ${RAYTRACING_EMBREE_LIBS} ${MODULES_LIBRARIES})

@@ -17,6 +17,7 @@
 #include <functional>
 #include <cassert>
 #include <chrono>
+#include <filesystem>
 
 std::string scenes_folder_path = "./";
 
@@ -554,86 +555,97 @@ void litert_test_9_mesh()
 // save and load octrees of all types
 void litert_test_10_save_load()
 {
-  // auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "scenes/01_simple_scenes/data/teapot.vsgf").c_str());
-  // cmesh4::normalize_mesh(mesh);
-  // MeshBVH mesh_bvh;
-  // mesh_bvh.init(mesh);
+  auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "scenes/01_simple_scenes/data/teapot.vsgf").c_str());
+  cmesh4::normalize_mesh(mesh);
+  MeshBVH mesh_bvh;
+  mesh_bvh.init(mesh);
 
-  // std::vector<SdfFrameOctreeNode> frame_nodes;
-  // std::vector<SdfSVSNode> svs_nodes;
-  // SdfSBS sbs;
+  std::vector<SdfFrameOctreeNode> frame_nodes;
+  std::vector<SdfSVSNode> svs_nodes;
+  SdfSBS sbs;
 
-  // load_sdf_frame_octree(frame_nodes, "saves/test_10_frame_octree.bin");
-  // load_sdf_SVS(svs_nodes, "saves/test_10_svs.bin");
-  // load_sdf_SBS(sbs, "saves/test_10_sbs.bin");
+  load_sdf_frame_octree(frame_nodes, "saves/test_10_frame_octree.bin");
+  load_sdf_SVS(svs_nodes, "saves/test_10_svs.bin");
+  load_sdf_SBS(sbs, "saves/test_10_sbs.bin");
 
-  // unsigned W = 1024, H = 1024;
-  // MultiRenderPreset preset = getDefaultPreset();
-  // preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
+  unsigned W = 1024, H = 1024;
+  MultiRenderPreset preset = getDefaultPreset();
+  preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
 
-  // LiteImage::Image2D<uint32_t> image_ref(W, H);
-  // auto pRender_ref = CreateMultiRenderer("GPU");
-  // pRender_ref->SetPreset(preset);
-  // pRender_ref->SetScene(mesh);
-  // render(image_ref, pRender_ref, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
-  // LiteImage::SaveImage<uint32_t>("saves/test_10_ref.bmp", image_ref);
+  LiteImage::Image2D<uint32_t> image_ref(W, H);
+  LiteImage::Image2D<uint32_t> image_2(W, H);
+  LiteImage::Image2D<uint32_t> image_3(W, H);
+  LiteImage::Image2D<uint32_t> image_4(W, H);
+  LiteImage::Image2D<uint32_t> image_5(W, H);
 
-  // LiteImage::Image2D<uint32_t> image_2(W, H);
-  // auto pRender_2 = CreateMultiRenderer("GPU");
-  // pRender_2->SetPreset(preset);
-  // pRender_2->SetScene(frame_nodes);
-  // render(image_2, pRender_2, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
-  // LiteImage::SaveImage<uint32_t>("saves/test_10_frame_octree.bmp", image_2);
+{
+  auto pRender_ref = CreateMultiRenderer("GPU");
+  pRender_ref->SetPreset(preset);
+  pRender_ref->SetScene(mesh);
+  render(image_ref, pRender_ref, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+  LiteImage::SaveImage<uint32_t>("saves/test_10_ref.bmp", image_ref);
+}
 
-  // LiteImage::Image2D<uint32_t> image_3(W, H);
-  // auto pRender_3 = CreateMultiRenderer("GPU");
-  // pRender_3->SetPreset(preset);
-  // pRender_3->SetScene(svs_nodes);
-  // render(image_3, pRender_3, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
-  // LiteImage::SaveImage<uint32_t>("saves/test_10_svs.bmp", image_3);
+{
+  auto pRender_2 = CreateMultiRenderer("GPU");
+  pRender_2->SetPreset(preset);
+  pRender_2->SetScene(frame_nodes);
+  render(image_2, pRender_2, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+  LiteImage::SaveImage<uint32_t>("saves/test_10_frame_octree.bmp", image_2);
+}
 
-  // LiteImage::Image2D<uint32_t> image_4(W, H);
-  // auto pRender_4 = CreateMultiRenderer("GPU");
-  // pRender_4->SetPreset(preset);
-  // pRender_4->SetScene(sbs);
-  // render(image_4, pRender_4, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
-  // LiteImage::SaveImage<uint32_t>("saves/test_10_sbs.bmp", image_4);
+{
+  auto pRender_3 = CreateMultiRenderer("GPU");
+  pRender_3->SetPreset(preset);
+  pRender_3->SetScene(svs_nodes);
+  render(image_3, pRender_3, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+  LiteImage::SaveImage<uint32_t>("saves/test_10_svs.bmp", image_3);
+}
 
-  // LiteImage::Image2D<uint32_t> image_5(W, H);
-  // auto pRender_5 = CreateMultiRenderer("GPU");
-  // pRender_5->SetPreset(preset);
-  // pRender_5->LoadSceneHydra("scenes/02_sdf_scenes/test_10.xml");
-  // render(image_5, pRender_5, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
-  // LiteImage::SaveImage<uint32_t>("saves/test_10_hydra_scene.bmp", image_5);
+{
+  auto pRender_4 = CreateMultiRenderer("GPU");
+  pRender_4->SetPreset(preset);
+  pRender_4->SetScene(sbs);
+  render(image_4, pRender_4, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+  LiteImage::SaveImage<uint32_t>("saves/test_10_sbs.bmp", image_4);
+}
 
-  // float psnr_2 = image_metrics::PSNR(image_ref, image_2);
-  // float psnr_3 = image_metrics::PSNR(image_ref, image_3);
-  // float psnr_4 = image_metrics::PSNR(image_ref, image_4);
-  // float psnr_5 = image_metrics::PSNR(image_ref, image_5);
+{
+  auto pRender_5 = CreateMultiRenderer("CPU");
+  pRender_5->SetPreset(preset);
+  pRender_5->LoadSceneHydra("scenes/02_sdf_scenes/test_10.xml");
+  render(image_5, pRender_5, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+  LiteImage::SaveImage<uint32_t>("saves/test_10_hydra_scene.bmp", image_5);
+}
 
-  // printf(" 10.2. %-64s", "SDF Framed Octree ");
-  // if (psnr_2 >= 25)
-  //   printf("passed    (%.2f)\n", psnr_2);
-  // else
-  //   printf("FAILED, psnr = %f\n", psnr_2);
+  float psnr_2 = image_metrics::PSNR(image_ref, image_2);
+  float psnr_3 = image_metrics::PSNR(image_ref, image_3);
+  float psnr_4 = image_metrics::PSNR(image_ref, image_4);
+  float psnr_5 = image_metrics::PSNR(image_ref, image_5);
 
-  // printf(" 10.3. %-64s", "SDF Sparse Voxel Set ");
-  // if (psnr_3 >= 25)
-  //   printf("passed    (%.2f)\n", psnr_3);
-  // else
-  //   printf("FAILED, psnr = %f\n", psnr_3);
+  printf(" 10.2. %-64s", "SDF Framed Octree ");
+  if (psnr_2 >= 25)
+    printf("passed    (%.2f)\n", psnr_2);
+  else
+    printf("FAILED, psnr = %f\n", psnr_2);
 
-  // printf(" 10.4. %-64s", "SDF Sparse Brick Set ");
-  // if (psnr_4 >= 25)
-  //   printf("passed    (%.2f)\n", psnr_4);
-  // else
-  //   printf("FAILED, psnr = %f\n", psnr_4);
+  printf(" 10.3. %-64s", "SDF Sparse Voxel Set ");
+  if (psnr_3 >= 25)
+    printf("passed    (%.2f)\n", psnr_3);
+  else
+    printf("FAILED, psnr = %f\n", psnr_3);
+
+  printf(" 10.4. %-64s", "SDF Sparse Brick Set ");
+  if (psnr_4 >= 25)
+    printf("passed    (%.2f)\n", psnr_4);
+  else
+    printf("FAILED, psnr = %f\n", psnr_4);
   
-  // printf(" 10.5. %-64s", "SDF Scene loaded from Hydra scene");
-  // if (psnr_5 >= 25)
-  //   printf("passed    (%.2f)\n", psnr_5);
-  // else
-  //   printf("FAILED, psnr = %f\n", psnr_5);
+  printf(" 10.5. %-64s", "SDF Scene loaded from Hydra scene");
+  if (psnr_5 >= 25)
+    printf("passed    (%.2f)\n", psnr_5);
+  else
+    printf("FAILED, psnr = %f\n", psnr_5);
 }
 
 static double urand(double from=0, double to=1)
@@ -2236,41 +2248,125 @@ void litert_test_30_verify_SBS_SBSAdapt()
       printf("FAILED, psnr = %f\n", sbsa_psnr);
   }
 }
+
+
+////////////////////////// NURBS SECTION ////////////////////////////////
+RawNURBS test_nurbs_loader(const std::filesystem::path &path) {
+  std::fstream fin(path);
+  fin.exceptions(std::ifstream::badbit|std::ifstream::failbit);
+  std::string tmp_str;
+  char tmp_chr;
+
+  RawNURBS surf;
+
+  int n, m, p, q;
+  fin >> tmp_chr >> tmp_chr >> n; // n = ...
+  fin >> tmp_chr >> tmp_chr >> m; // m = ...
+
+  surf.points = Vector2D<LiteMath::float4>(n+1, m+1, { 0, 0, 0, 1.0f });
+  surf.weights = Vector2D<float>(n+1, m+1, 1.0f);
+
+  fin >> tmp_str; // "points:"
+  for (int i = 0; i <= n; ++i)
+  for (int j = 0; j <= m; ++j)
+  {
+    auto &point = surf.points[{i, j}];
+    fin >> tmp_chr >> point.x >> tmp_chr >> point.y >> tmp_chr >> point.z >> tmp_chr; // { ..., ..., ... }
+  }
+
+  fin >> tmp_str; // "weights:"
+  for (int i = 0; i <= n; ++i)
+  for (int j = 0; j <= m; ++j)
+  {
+    fin >> surf.weights[{i, j}];
+  }
+
+  fin >> tmp_str; // "u_degree:"
+  fin >> p; 
+
+  fin >> tmp_str; // "v_degree:"
+  fin >> q;
+
+  surf.u_knots.resize(n+p+2);
+  fin >> tmp_str; // "u_knots:"
+  for (size_t i = 0; i < surf.u_knots.size(); ++i) {
+    fin >> surf.u_knots[i];
+  }
+  float u_min = surf.u_knots.front();
+  float u_max = surf.u_knots.back();
+  for (auto &elem: surf.u_knots)
+    elem = (elem-u_min)/u_max; // map to [0, 1]
+
+  surf.v_knots.resize(m+q+2);
+  fin >> tmp_str; // "v_knots:"
+  for (size_t i = 0; i < surf.v_knots.size(); ++i) {
+    fin >> surf.v_knots[i];
+  }
+  float v_min = surf.v_knots.front();
+  float v_max = surf.v_knots.back();
+  for (auto &elem: surf.v_knots)
+    elem = (elem-v_min)/v_max; // map to [0, 1]
+
+  return surf;
+}
+
 void litert_test_31_fake_nurbs_render()
 {
-  unsigned W = 1024, H = 1024;
+  std::cout << "TEST 31" << std::endl;
+  unsigned W = 800, H = 600;
 
   MultiRenderPreset preset = getDefaultPreset();
-  LiteImage::Image2D<uint32_t> image(W, H);
+  preset.render_mode = MULTI_RENDER_MODE_TEX_COORDS;
+  preset.ray_gen_mode = RAY_GEN_MODE_REGULAR;
+  preset.spp = 1;
   LiteImage::Image2D<uint32_t> ref_image(W, H);
 
-  RawNURBS nurbs;
-  //TODO: nurbs = load_nurbs("my_nurbs.txt");
+  auto proj_path = std::filesystem::current_path();
+  auto nurbs_path = proj_path / "scenes" / "04_nurbs_scenes";
+  RawNURBS vase = test_nurbs_loader(nurbs_path / "vase.nurbss");
+  RawNURBS square = test_nurbs_loader(nurbs_path / "square.nurbss");
+  RawNURBS cylinder = test_nurbs_loader(nurbs_path / "cylinder.nurbss");
 
-  auto pRenderRef = CreateMultiRenderer("CPU");
-  pRenderRef->SetPreset(preset);
-  pRenderRef->SetViewport(0,0,W,H);
-  pRenderRef->SetScene(nurbs);
+  // auto pRenderRef1 = CreateMultiRenderer("GPU");
+  // pRenderRef1->SetPreset(preset);
+  // pRenderRef1->SetViewport(0,0,W,H);
+  auto pRenderRef2 = CreateMultiRenderer("GPU");
+  pRenderRef2->SetPreset(preset);
+  pRenderRef2->SetViewport(0,0,W,H);
+  // auto pRenderRef3 = CreateMultiRenderer("GPU");
+  // pRenderRef3->SetPreset(preset);
+  // pRenderRef3->SetViewport(0,0,W,H);
 
-  auto pRender = CreateMultiRenderer("GPU");
-  pRender->SetPreset(preset);
-  pRender->SetViewport(0,0,W,H);
-  pRender->SetScene(nurbs);
+  float3 camera_pos = { 0, 1.276, 25.557 };
+  float3 camera_target = { 0.0f, 1.276f, 0.0f };
+  float3 camera_up = { 0.0f, 1.0f, 0.0f };
+  // pRenderRef1->SetScene(vase);
+  // std::cout << "Rendering started" << std::endl;
+  // pRenderRef1->Render(
+  //     ref_image.data(), W, H, 
+  //     lookAt(camera_pos, camera_target,camera_up),
+  //     perspectiveMatrix(45.0f, W*1.0f/H, 0.001f, 100.0f), preset);
+  // LiteImage::SaveImage<uint32_t>("saves/test_31_vase.bmp", ref_image);
 
-  render(image, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
-  render(ref_image, pRenderRef, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+  camera_pos = { -0.52f, 1.991f, 3.049f };
+  camera_target = { 0.0f, 0.0f, 0.0f };
+  pRenderRef2->SetScene(square);
+  pRenderRef2->Render(
+      ref_image.data(), W, H, 
+      lookAt(camera_pos, camera_target,camera_up),
+      perspectiveMatrix(45.0f, W*1.0f/H, 0.001f, 100.0f), preset);
+  LiteImage::SaveImage<uint32_t>("saves/test_31_square.bmp", ref_image);
 
-  LiteImage::SaveImage<uint32_t>("saves/test_31_res.bmp", image); 
-  LiteImage::SaveImage<uint32_t>("saves/test_31_ref.bmp", ref_image);
-
-  float psnr = image_metrics::PSNR(ref_image, image);
-  printf("TEST 31. Rendering fake NURBS\n");
-  printf(" 31.1. %-64s", "CPU and GPU render image_metrics::PSNR > 45 ");
-  if (psnr <= 45)
-    printf("passed    (%.2f)\n", psnr);
-  else
-    printf("FAILED, psnr = %f\n", psnr);
+  // camera_pos = { 2.997f, 4.071f, 2.574f };
+  // camera_target = { 0.0f, 1.506f, 0.0f };
+  // pRenderRef3->SetScene(cylinder);
+  // pRenderRef3->Render(
+  //     ref_image.data(), W, H, 
+  //     lookAt(camera_pos, camera_target,camera_up),
+  //     perspectiveMatrix(45.0f, W*1.0f/H, 0.001f, 100.0f), preset);
+  // LiteImage::SaveImage<uint32_t>("saves/test_31_cylinder.bmp", ref_image);
 }
+/////////////////////////// END NURBS //////////////////////////////////////////////////
 
 void litert_test_32_smooth_sbs_normals()
 {
@@ -2429,7 +2525,7 @@ void
 litert_test_34_tricubic_sbs()
 {
   printf("TEST 34 DRAW SBS STRUCTURE WITH TRICUBIC INTERPOLATION\n");
-  #if USE_TRICUBIC
+  #ifdef USE_TRICUBIC
     auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "scenes/01_simple_scenes/data/bunny.vsgf").c_str());
     cmesh4::rescale_mesh(mesh, float3(-0.95, -0.95, -0.95), float3(0.95, 0.95, 0.95));
 
@@ -2472,52 +2568,52 @@ litert_test_34_tricubic_sbs()
       //auto t2 = std::chrono::high_resolution_clock::now();
       LiteImage::SaveImage<uint32_t>("saves/test_34_tricubic.bmp", image_SBS);
     }
+  #else
+    {
+      auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "scenes/01_simple_scenes/data/bunny.vsgf").c_str());
+      cmesh4::rescale_mesh(mesh, float3(-0.95, -0.95, -0.95), float3(0.95, 0.95, 0.95));
+
+      unsigned W = 540, H = 540;
+
+      MultiRenderPreset preset = getDefaultPreset();
+      preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
+      preset.interpolation_type = TRILINEAR_INTERPOLATION_MODE;
+      SparseOctreeSettings settings(SparseOctreeBuildType::MESH_TLO, 5);
+
+      SdfSBSHeader header;
+      header.brick_size = 10;
+      header.brick_pad = 0;
+      header.bytes_per_value = 1;
+
+      LiteImage::Image2D<uint32_t> image_mesh(W, H);
+      LiteImage::Image2D<uint32_t> image_SBS(W, H);
+      LiteImage::Image2D<uint32_t> image_SBS_n(W, H);
+
+      {
+        auto pRender = CreateMultiRenderer("GPU");
+        preset.normal_mode = NORMAL_MODE_VERTEX;
+        pRender->SetPreset(preset);
+        pRender->SetViewport(0,0,W,H);
+        pRender->SetScene(mesh);
+        render(image_mesh, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+        LiteImage::SaveImage<uint32_t>("saves/test_34_mesh_ref.bmp", image_mesh);
+      }
+
+      {
+        auto pRender = CreateMultiRenderer("GPU");
+        pRender->SetPreset(preset);
+        pRender->SetViewport(0,0,W,H);
+        auto indexed_SBS = sdf_converter::create_sdf_SBS_indexed_with_neighbors(settings, header, mesh, 0, pRender->getMaterials(), pRender->getTextures());
+        pRender->SetScene(indexed_SBS);
+
+        preset.normal_mode = NORMAL_MODE_GEOMETRY;
+        //auto t1 = std::chrono::high_resolution_clock::now();
+        render(image_SBS, pRender, float3(0, 1, 2), float3(0, 0, 0), float3(0, 1, 0), preset);    
+        //auto t2 = std::chrono::high_resolution_clock::now();
+        LiteImage::SaveImage<uint32_t>("saves/test_34_trilinear.bmp", image_SBS);
+      }
+    }
   #endif
-  
-  {
-    auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "scenes/01_simple_scenes/data/bunny.vsgf").c_str());
-    cmesh4::rescale_mesh(mesh, float3(-0.95, -0.95, -0.95), float3(0.95, 0.95, 0.95));
-
-    unsigned W = 540, H = 540;
-
-    MultiRenderPreset preset = getDefaultPreset();
-    preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
-    preset.interpolation_type = TRILINEAR_INTERPOLATION_MODE;
-    SparseOctreeSettings settings(SparseOctreeBuildType::MESH_TLO, 5);
-
-    SdfSBSHeader header;
-    header.brick_size = 10;
-    header.brick_pad = 0;
-    header.bytes_per_value = 1;
-
-    LiteImage::Image2D<uint32_t> image_mesh(W, H);
-    LiteImage::Image2D<uint32_t> image_SBS(W, H);
-    LiteImage::Image2D<uint32_t> image_SBS_n(W, H);
-
-    {
-      auto pRender = CreateMultiRenderer("GPU");
-      preset.normal_mode = NORMAL_MODE_VERTEX;
-      pRender->SetPreset(preset);
-      pRender->SetViewport(0,0,W,H);
-      pRender->SetScene(mesh);
-      render(image_mesh, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
-      LiteImage::SaveImage<uint32_t>("saves/test_34_mesh_ref.bmp", image_mesh);
-    }
-
-    {
-      auto pRender = CreateMultiRenderer("GPU");
-      pRender->SetPreset(preset);
-      pRender->SetViewport(0,0,W,H);
-      auto indexed_SBS = sdf_converter::create_sdf_SBS_indexed_with_neighbors(settings, header, mesh, 0, pRender->getMaterials(), pRender->getTextures());
-      pRender->SetScene(indexed_SBS);
-
-      preset.normal_mode = NORMAL_MODE_GEOMETRY;
-      //auto t1 = std::chrono::high_resolution_clock::now();
-      render(image_SBS, pRender, float3(0, 1, 2), float3(0, 0, 0), float3(0, 1, 0), preset);    
-      //auto t2 = std::chrono::high_resolution_clock::now();
-      LiteImage::SaveImage<uint32_t>("saves/test_34_trilinear.bmp", image_SBS);
-    }
-  }
 }
 
 void litert_test_35_SBSAdapt_greed_creating()
