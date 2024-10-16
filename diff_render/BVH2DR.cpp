@@ -37,13 +37,20 @@ namespace dr
     {
       relax_pt->missed_indices[i] = INVALID_INDEX;
       relax_pt->missed_dSDF_dtheta[i] = 0.0f;
+    }
 
+    for (int i=0;i<MAX_PD_COUNT_COLOR;i++)
+    {
       relax_pt->dDiffuse_dSc[i].index = INVALID_INDEX;
       relax_pt->dDiffuse_dSc[i].value = 0.0f;
-
+    }
+    
+    for (int i=0;i<MAX_PD_COUNT_DIST;i++)
+    {
       relax_pt->dDiffuseNormal_dSd[i].index = INVALID_INDEX;
       relax_pt->dDiffuseNormal_dSd[i].dDiffuse = float3(0.0f, 0.0f, 0.0f);
       relax_pt->dDiffuseNormal_dSd[i].dNorm    = float3(0.0f, 0.0f, 0.0f);
+      relax_pt->dDiffuseNormal_dSd[i].dDist    = 0.0f;
     }
 
     {
@@ -240,7 +247,7 @@ namespace dr
            (  dp.x)*(  dp.y)*(  dp.z)*values[7];
   }
 
-  static float3x3 eval_color_trilinear_diff(const float3 values[8], float3 dp)
+  static float3x3 eval_color_trilinear_ddp(const float3 values[8], float3 dp)
   {
     float3 dcolor_dx = -(1-dp.y)*(1-dp.z)*values[0] + 
                        -(1-dp.y)*(  dp.z)*values[1] + 
@@ -317,7 +324,7 @@ namespace dr
       printf("%f %f %f\n", deriv_2.row[2][0], deriv_2.row[2][1], deriv_2.row[2][2]);
     }
     if (count % 1000000 == 0)
-      printf("eval_color_trilinear_diff: %u errors out of %uM tries\n", e_count, count/1000000u);
+      printf("eval_color_trilinear_ddp: %u errors out of %uM tries\n", e_count, count/1000000u);
     }
 #endif
     return LiteMath::make_float3x3_by_columns(dcolor_dx, dcolor_dy, dcolor_dz);
@@ -597,6 +604,13 @@ namespace dr
 
   }
 
+  //transition from 0 (x=edge0) to 1 (x=edge1)
+  static float step(float edge0, float edge1, float x)
+  {
+    float t = clamp((x - edge0) / (edge1 - edge0), 0.0, 1.0);
+    return t;
+  }
+
   //Currently it is and exact copy of BVHRT::LocalSurfaceIntersection, but it will change later
   //because differential rendering of SDF requires collection additional data during intersection search
 
@@ -623,7 +637,7 @@ namespace dr
       // Borders for bisection and SDF min point
       float2 t_dsdf_l { (qFar + 2), 0.f },
              t_dsdf_r { (qFar + 1), 0.f },
-             t_sdf_res{ (qFar + 1), relax_pt->missed_hit.sdf };
+             t_sdf_res{ (qFar + 1), relax_pt ? relax_pt->missed_hit.sdf : 0.0f };
 
       // SDF values in t0, tFar
       const float t0 = 0.f;
@@ -1046,7 +1060,7 @@ namespace dr
                                  float qNear, float qFar, float3 start_q, float out_dValues[8])
   {
     //use finite differences to calculate dValues
-    float delta = 0.0001f;
+    float delta = 0.001f;
 
     for (int i = 0; i < 8; i++)
     {
@@ -1058,6 +1072,42 @@ namespace dr
       out_dValues[i] = (d1 - d2) / (2 * delta);
     }
   }
+
+float BVHDR::load_distance_values_with_indices(uint32_t nodeId, float3 voxelPos, uint32_t v_size, float sz_inv, const SdfSBSHeader &header, 
+                                               float values[8], uint32_t indices[8])
+{
+  float vmin = 1e6f;
+  if (header.aux_data == SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F ||
+      header.aux_data == SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F_IN)
+  {
+    uint32_t v_off = m_SdfSBSNodes[nodeId].data_offset;
+    for (int i = 0; i < 8; i++)
+    {
+      uint3 vPos = uint3(voxelPos) + uint3((i & 4) >> 2, (i & 2) >> 1, i & 1);
+      uint32_t vId = vPos.x * v_size * v_size + vPos.y * v_size + vPos.z;
+      uint32_t idx = m_SdfSBSData[v_off + vId];
+      values[i] = m_SdfSBSDataF[idx];
+      indices[i] = idx;
+      // printf("%f\n", values[i]);
+      vmin = std::min(vmin, values[i]);
+    }
+  }
+  else
+  {
+    assert(false);
+  }
+
+  return vmin;
+}
+
+static float3 dp_to_nmq(float3 dp, float beta)
+{
+  float3 nmq = float3(0.5f, 0.5f, 0.5f);
+  nmq.x = dp.x < 0.5f ? step(-beta, beta, dp.x) : step(-beta, beta, dp.x - 1.0f);
+  nmq.y = dp.y < 0.5f ? step(-beta, beta, dp.y) : step(-beta, beta, dp.y - 1.0f);
+  nmq.z = dp.z < 0.5f ? step(-beta, beta, dp.z) : step(-beta, beta, dp.z - 1.0f);
+  return nmq;
+}
 
   //It is basically a copy of BVHRT::OctreeBrickIntersect, but with additional calculation
   //of gradients. And also it supports only indexed SBS (e.g. SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F layout)
@@ -1108,7 +1158,8 @@ namespace dr
 
       float vmin = 1.0f;
 
-      if (header.aux_data == SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F)
+      if (header.aux_data == SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F ||
+          header.aux_data == SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F_IN)
       {
         uint32_t v_off = m_SdfSBSNodes[nodeId].data_offset;
         for (int i = 0; i < 8; i++)
@@ -1150,15 +1201,27 @@ namespace dr
             float3 q_ast = start_q + missed_t * ray_dir;
             float3 y_ast = ray_pos + (fNearFar.x + (d * missed_t)) * ray_dir;
             float3 dp_ast = (y_ast - brick_min_pos) * (0.5f * sz);
-            float3 dSDF_dy = eval_dist_trilinear_diff(values, q_ast); // grad
-            //printf("dSDF_dy: %f %f %f\n", dSDF_dy.x, dSDF_dy.y, dSDF_dy.z);
+            float3 dSDF_dpos = eval_dist_trilinear_diff(values, q_ast)*(1/d); // grad
 
-            float dSDF_dy_norm = length(dSDF_dy);
-            if (dSDF_dy_norm > 1e-9f) 
+            //eval_dist_trilinear_diff calculates normal by the values in given voxel
+            //however, the minimum point is often on the voxel's border and normal on the
+            //border is not the same, bu we should calculate the smoothed normal because
+            //we need exactly the geomentry normal, i.e. dSDF_dpos.
+            //and this multiplier is a small hack how estimate this value
+            float3 border_normal_mult = float3(std::abs(q_ast.x - 0.5f) > 0.5f - 1e-5f ? 0.0f : 1.0f,
+                                               std::abs(q_ast.y - 0.5f) > 0.5f - 1e-5f ? 0.0f : 1.0f,
+                                               std::abs(q_ast.z - 0.5f) > 0.5f - 1e-5f ? 0.0f : 1.0f);
+            dSDF_dpos *= border_normal_mult;
+            float dSDF_dpos_len = length(dSDF_dpos);
+            
+            if (dSDF_dpos_len > 1e-9f) 
             { 
-              eval_dist_trilinear_d_dtheta(relax_pt->missed_dSDF_dtheta, q_ast); // dSDF/dTheta
+              float dSDF_dvalues[8];
+              eval_dist_trilinear_d_dtheta(dSDF_dvalues, q_ast); // dSDF/dTheta
               for (int i=0; i<8; ++i)
-                relax_pt->missed_dSDF_dtheta[i] /= -1.0f*dSDF_dy_norm;
+              {
+                relax_pt->missed_dSDF_dtheta[i] = -dSDF_dvalues[i]/dSDF_dpos_len;
+              }
 
               uint32_t t_off = m_SdfSBSNodes[nodeId].data_offset + v_size * v_size * v_size;
               float3 colors[8];
@@ -1168,7 +1231,7 @@ namespace dr
                                    m_SdfSBSDataF[m_SdfSBSData[t_off + i] + 2]);
               
               relax_pt->missed_hit.color = eval_color_trilinear(colors, dp_ast);
-              relax_pt->missed_hit.normal = dSDF_dy / dSDF_dy_norm;
+              relax_pt->missed_hit.normal = dSDF_dpos / dSDF_dpos_len;
 
               for (int i = 0; i < 8; i++)
                 relax_pt->missed_indices[i] = missed_indices_tmp[i];
@@ -1179,13 +1242,27 @@ namespace dr
 
         if (t <= qFar && tReal < pHit->t)
         {
-          //assume 1) header.aux_data == SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F
+          //assume 1) header.aux_data == SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F(_IN)
           //       2) no instances
 
           pHit->t = tReal;
           pHit->primId = primId;
           pHit->instId = instId;
           pHit->geomId = geomId | (type << SH_TYPE);
+
+          //with normal smoothing normal can depend on up to 64 SDF values
+          //while actual intersection position depends only on 8 main values
+          //as they are stored in the same structure, we should find out where
+          //to store these main values
+          unsigned dvalues_offset = 0;
+          if (header.aux_data == SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F_IN)
+          {
+            float3 p0 = start_q + t * ray_dir;
+            dvalues_offset += p0.x < 0.5f ? 4 : 0;
+            dvalues_offset += p0.y < 0.5f ? 2 : 0;
+            dvalues_offset += p0.z < 0.5f ? 1 : 0;
+            dvalues_offset *= 8;
+          }
 
           //calculate dt_dvalues
           float dt_dvalues[8];
@@ -1198,41 +1275,198 @@ namespace dr
             {
               uint3 vPos = uint3(voxelPos) + uint3((i & 4) >> 2, (i & 2) >> 1, i & 1);
               uint32_t vId = vPos.x * v_size * v_size + vPos.y * v_size + vPos.z;
-              //values[i] = m_SdfSBSDataF[m_SdfSBSData[v_off + vId]];
-              relax_pt->dDiffuseNormal_dSd[i].index = m_SdfSBSData[v_off + vId];
-              relax_pt->dDiffuseNormal_dSd[i].dDist = 2.0f * d * dt_dvalues[i]; //d(tReal)/dS
+
+              relax_pt->dDiffuseNormal_dSd[dvalues_offset+i].index = m_SdfSBSData[v_off + vId];
+              relax_pt->dDiffuseNormal_dSd[dvalues_offset+i].dDist = d * dt_dvalues[i]; //d(tReal)/dS
             }
           }
 
           //calculate hit normal and dNormal_dSd
           if (need_normal())
           {
-            //Normal
-            float3 p0 = start_q + t * ray_dir;
-            float3 dSDF_dp0 = eval_dist_trilinear_diff(values, p0);
-            pHit->normal = normalize(dSDF_dp0);
-
-            //dNormal_dSd
-            if (ray_flags & DR_RAY_FLAG_DNORM_DPOS)
+            if (header.aux_data == SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F_IN)
             {
-              float3x3 dNormalize_dD = normalize_diff(dSDF_dp0);
-              float dD_d1[24];         eval_dist_trilinear_ddp_dvalues(values, p0, dD_d1);
-              float3x3 dD_d2         = eval_dist_trilinear_ddp_ddp(values, p0);
+              /*
+              variables used in comments:
+              v_i - 8 values from i-th neighbor voxel
+              k   - main voxel (so variable "values" is v_k)
+              n_i - normal from i-th neighbor voxel
+              trilinear3 - trilinear interpolation for normals
+              other variables have the same names as in code
 
-              //normal = normalize(eval_dist_trilinear_diff(values, start_q + t(values) * ray_dir))
-              //dnormal_dvalues[3x8] = dnormalize_dD[3x3] * (dD_d1[3x8] + (dD_d2[3x3] * ray_dir[3x1])[3x1] * dt_dvalues[1x8])
+              During normals calculation relax_pt->dDiffuseNormal_dSd[dvalues_offset+i].index
+              will be overwritten, but it's ok, if code is correct, index will remain the same
+              */
+              const float beta = 0.5f;
+              float3 dp = start_q + t * ray_dir; //linear interpolation coefficients in voxels
+              
+              float3 normals[8];
+              float values_n[8];
+              uint32_t indices_n[8];
 
-              float3 t1 = dD_d2*ray_dir;
+              float dD_d1[24];
+              float dtrilinear3_di[8]; //it should be 8 3x3 matrices, but they are diagonal, so it's actually scalar
+              float3 dnmq_ddp = float3(1,1,1);
+              
+              float3 nmq = dp_to_nmq(dp, beta);
+              uint32_t k = dvalues_offset / 8;
 
-              for (int i = 0; i < 8; i++) //dD_d1 = dD_d1 + (dD_d2 * ray_dir) * dt_dvalues
-              {
-                dD_d1[8*0 + i] += t1.x*dt_dvalues[i];
-                dD_d1[8*1 + i] += t1.y*dt_dvalues[i];
-                dD_d1[8*2 + i] += t1.z*dt_dvalues[i];
+              for (int i=0;i<8;i++)
+                normals[i] = float3(0,0,0);
+
+              if (ray_flags & DR_RAY_FLAG_DNORM_DPOS)
+              {   
+                eval_dist_trilinear_d_dtheta(dtrilinear3_di, nmq);
               }
 
-              for (int i = 0; i < 8; i++)
-                relax_pt->dDiffuseNormal_dSd[i].dNorm = dNormalize_dD * float3(dD_d1[8*0 + i], dD_d1[8*1 + i], dD_d1[8*2 + i]);
+              int3 voxelPos0 = int3(dp.x < 0.5f ? voxelPos.x - 1 : voxelPos.x, dp.y < 0.5f ? voxelPos.y - 1 : voxelPos.y, dp.z < 0.5f ? voxelPos.z - 1 : voxelPos.z);
+              for (int i=0;i<8;i++)
+              {
+                int3 VoxelPosI = voxelPos0 + int3((i & 4) >> 2, (i & 2) >> 1, i & 1);
+                int3 BrickPosI = int3((VoxelPosI.x >= 0 ? (VoxelPosI.x < header.brick_size ? 0 : 1) : -1),
+                                      (VoxelPosI.y >= 0 ? (VoxelPosI.y < header.brick_size ? 0 : 1) : -1),
+                                      (VoxelPosI.z >= 0 ? (VoxelPosI.z < header.brick_size ? 0 : 1) : -1));
+
+                uint32_t neighborId = 0;
+                neighborId += 3*3 * (BrickPosI.x + 1);
+                neighborId +=   3 * (BrickPosI.y + 1);
+                neighborId +=       (BrickPosI.z + 1);
+                
+                float3 dVoxelPos = float3(VoxelPosI) - voxelPos;
+                uint32_t neighbor_nodeId;
+                float3   neighbor_voxelPos;
+
+                if (neighborId == 9+3+1)//we have our neighbor voxel in the same brick
+                {
+                  neighbor_nodeId = nodeId;
+                  neighbor_voxelPos = float3(VoxelPosI);
+                }
+                else //we have our neighbor voxel in a different brick, read it from neigbors data
+                {
+                  uint32_t v_off = m_SdfSBSNodes[nodeId].data_offset;
+                  uint32_t neighbors_data_offset = v_size*v_size*v_size + 8;
+
+                  neighbor_nodeId = m_SdfSBSData[v_off + neighbors_data_offset + neighborId];
+                  neighbor_voxelPos = float3(VoxelPosI) - header.brick_size*float3(BrickPosI);
+                }
+
+                if (neighbor_nodeId != INVALID_IDX)
+                {
+                  load_distance_values_with_indices(neighbor_nodeId, neighbor_voxelPos, v_size, sz_inv, header, values_n, indices_n);
+                  float3 dSDF_ddp = eval_dist_trilinear_diff(values_n, dp - dVoxelPos);
+                  normals[i] = normalize(dSDF_ddp);
+                
+                  if (ray_flags & DR_RAY_FLAG_DNORM_DPOS)
+                  {
+                    //set indices for values_n
+                    for (int j=0;j<8;j++)
+                    {
+                      relax_pt->dDiffuseNormal_dSd[8*i+j].index = indices_n[j];
+                    }
+                    //here we load dtrilinear3_di * d(n_i)_d(v_i) into dDiffuseNormal_dSd[8*i+j].dNorm
+                    //and  dtrilinear3_di * d(n_i)_d(v_k) into dDiffuseNormal_dSd[8*k+j].dNorm
+
+                    //if i != k
+                    //  d(n_i)_d(v_i)[3x8] = dnormalize_dD[3x3] * dD_d1[3x8]
+                    //  d(n_i)_d(v_k)[3x8] = dnormalize_dD[3x3] * ((dD_d2[3x3] * ray_dir[3x1])[3x1] * dt_dvalues[1x8])
+                    //if i == k
+                    //  d(n_k)_d(v_k)[3x8] = dnormalize_dD[3x3] * (dD_d1[3x8] + (dD_d2[3x3] * ray_dir[3x1])[3x1] * dt_dvalues[1x8])
+
+                    float3x3 dNormalize_dD = normalize_diff(dSDF_ddp);
+                    eval_dist_trilinear_ddp_dvalues(values_n, dp - dVoxelPos, dD_d1);
+                    float3x3 dD_d2         = eval_dist_trilinear_ddp_ddp(values_n, dp - dVoxelPos);
+
+                    //  d(n_i)_d(v_i)
+                    for (int j = 0; j < 8; j++)
+                    {
+                      float3 dD_dv_ij = float3(dD_d1[8*0 + j], dD_d1[8*1 + j], dD_d1[8*2 + j]);
+                      relax_pt->dDiffuseNormal_dSd[8*i+j].dNorm += dtrilinear3_di[i] * (dNormalize_dD * dD_dv_ij);
+                    }
+
+                    //  d(n_i)_d(v_k)
+                    float3 t1 = dD_d2*ray_dir;
+                    for (int j = 0; j < 8; j++) //dD_d1 = (dD_d2 * ray_dir) * dt_dvalues
+                    {
+                      dD_d1[8*0 + j] = t1.x*dt_dvalues[j];
+                      dD_d1[8*1 + j] = t1.y*dt_dvalues[j];
+                      dD_d1[8*2 + j] = t1.z*dt_dvalues[j];
+                    }
+                    for (int j = 0; j < 8; j++)
+                    {
+                      float3 dD_dv_ij = float3(dD_d1[8*0 + j], dD_d1[8*1 + j], dD_d1[8*2 + j]);
+                      relax_pt->dDiffuseNormal_dSd[8*k+j].dNorm += dtrilinear3_di[i] * (dNormalize_dD * dD_dv_ij);
+                    }
+                  }
+                }
+              }
+
+              float3 trilinear3 = eval_color_trilinear(normals, nmq);
+              float3 smoothed_norm = normalize(trilinear3);
+              pHit->normal = smoothed_norm;
+
+              if (ray_flags & DR_RAY_FLAG_DNORM_DPOS)
+              {
+                //if i != k
+                //dnormal_dv_i = dNormalize_dD * (dtrilinear3_di * d(n_i)_d(v_i))
+                //             = dNormalize_dD * dDiffuseNormal_dSd[8*i+0 - 8*i+7].dNorm
+                //dnormal_dv_k = dNormalize_dD * (sum{from 0 to 7}{dtrilinear3_di * d(n_i)_d(v_k)} + dtrilinear3_dnmq * dnmq_ddp * ddp_dv_k)
+                
+                //dDiffuseNormal_dSd[8*i+0 - 8*i+7].dNorm += dtrilinear3_dnmq * dnmq_ddp * ddp_dv_k
+                //dnmq_ddp is a diagonal matrix, so it can be represented as vector
+                float3x3 dNormalize_dD = normalize_diff(trilinear3);
+                float3x3 dtrilinear3_dnmq = eval_color_trilinear_ddp(normals, nmq);
+                for (int j=0;j<8;j++)
+                {
+                  float3 ddp_dv_kj = ray_dir * dt_dvalues[j];
+                  relax_pt->dDiffuseNormal_dSd[8*k+j].dNorm += dtrilinear3_dnmq * (dnmq_ddp * ddp_dv_kj);
+                }
+
+                for (int i=0;i<8;i++)
+                {
+                  if (length(normals[i]) > 0.5) //normal is valid
+                  {
+                    //dnormal_dv_i
+                    for (int j=0;j<8;j++)
+                    {
+                      relax_pt->dDiffuseNormal_dSd[8*i+j].dNorm = dNormalize_dD * relax_pt->dDiffuseNormal_dSd[8*i+j].dNorm;
+                    }
+                  }
+                }
+
+              }
+            }
+            else
+            {
+              //WARNING: NORMAL FIELD IS NOT CONTINUOUS HERE
+              //use SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F_IN for normal smmothing
+              //or tricubic sampling for C1 surface and continuous normal field
+            
+              //Normal
+              float3 p0 = start_q + t * ray_dir;
+              float3 dSDF_dp0 = eval_dist_trilinear_diff(values, p0);
+              pHit->normal = normalize(dSDF_dp0);
+
+              //dNormal_dSd
+              if (ray_flags & DR_RAY_FLAG_DNORM_DPOS)
+              {
+                float3x3 dNormalize_dD = normalize_diff(dSDF_dp0);
+                float dD_d1[24];         eval_dist_trilinear_ddp_dvalues(values, p0, dD_d1);
+                float3x3 dD_d2         = eval_dist_trilinear_ddp_ddp(values, p0);
+
+                //normal = normalize(eval_dist_trilinear_diff(values, start_q + t(values) * ray_dir))
+                //dnormal_dvalues[3x8] = dnormalize_dD[3x3] * (dD_d1[3x8] + (dD_d2[3x3] * ray_dir[3x1])[3x1] * dt_dvalues[1x8])
+                float3 t1 = dD_d2*ray_dir;
+
+                for (int i = 0; i < 8; i++) //dD_d1 = dD_d1 + (dD_d2 * ray_dir) * dt_dvalues
+                {
+                  dD_d1[8*0 + i] += t1.x*dt_dvalues[i];
+                  dD_d1[8*1 + i] += t1.y*dt_dvalues[i];
+                  dD_d1[8*2 + i] += t1.z*dt_dvalues[i];
+                }
+
+                for (int i = 0; i < 8; i++)
+                  relax_pt->dDiffuseNormal_dSd[dvalues_offset+i].dNorm = dNormalize_dD * float3(dD_d1[8*0 + i], dD_d1[8*1 + i], dD_d1[8*2 + i]);
+              }
             }
           }
 
@@ -1265,10 +1499,10 @@ namespace dr
             //dDiffuse_dValues = dLerp_d1[3x3] * 0.5f*sz*ray_dir[3x1] * dt_dvalues[1x8]
             if (ray_flags & DR_RAY_FLAG_DDIFFUSE_DPOS)
             {
-              float3x3 dLerp_d1 = eval_color_trilinear_diff(colors, dp);
+              float3x3 dLerp_d1 = eval_color_trilinear_ddp(colors, dp);
               for (int i = 0; i < 8; i++)
               {
-                relax_pt->dDiffuseNormal_dSd[i].dDiffuse = dLerp_d1 * float3(0.5f*sz*ray_dir.x*dt_dvalues[i], 0.5f*sz*ray_dir.y*dt_dvalues[i], 0.5f*sz*ray_dir.z*dt_dvalues[i]);
+                relax_pt->dDiffuseNormal_dSd[dvalues_offset+i].dDiffuse = dLerp_d1 * float3(0.5f*sz*ray_dir.x*dt_dvalues[i], 0.5f*sz*ray_dir.y*dt_dvalues[i], 0.5f*sz*ray_dir.z*dt_dvalues[i]);
               }
             }
           }

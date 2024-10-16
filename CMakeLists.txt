@@ -38,8 +38,7 @@ set(SCENE_LOADER_SRC
     ${CMAKE_SOURCE_DIR}/sdfScene/sdf_scene.cpp
     ${CMAKE_SOURCE_DIR}/utils/mesh_bvh.cpp
     ${CMAKE_SOURCE_DIR}/utils/mesh.cpp
-    ${CMAKE_SOURCE_DIR}/utils/sparse_octree.cpp
-    ${CMAKE_SOURCE_DIR}/utils/sparse_octree_2.cpp
+    ${CMAKE_SOURCE_DIR}/utils/sparse_octree_builder.cpp
     ${CMAKE_SOURCE_DIR}/utils/radiance_field.cpp
     ${CMAKE_SOURCE_DIR}/utils/gaussian_field.cpp
     ${CMAKE_SOURCE_DIR}/utils/watertight_mesh.cpp
@@ -49,6 +48,7 @@ set(SCENE_LOADER_SRC
     ${CMAKE_SOURCE_DIR}/utils/sdf_smoother.cpp
     ${CMAKE_SOURCE_DIR}/utils/demo_meshes.cpp
     ${CMAKE_SOURCE_DIR}/utils/image_metrics.cpp
+    ${CMAKE_SOURCE_DIR}/utils/iou.cpp
     ${CMAKE_SOURCE_DIR}/utils/points_visualizer.cpp
     ${CMAKE_SOURCE_DIR}/tests/tests.cpp
     ${CMAKE_SOURCE_DIR}/tests/benchmark.cpp

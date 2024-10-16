@@ -29,6 +29,10 @@ using LiteMath::Box4f;
 #include "../raytrace_common.h"
 #include "cbvh.h"
 #include "nurbs/nurbs_common.h"
+#include "graphics_primitive/graphics_primitive_common.h"
+
+float3 tricubicInterpolationDerrivative(const float *m_SdfGridData, const uint vox_u[3], const float dp[3], const uint32_t off, const uint size[3]);
+float tricubicInterpolation(const float *m_SdfGridData, const uint vox_u[3], const float dp[3], const uint32_t off, const uint size[3]);
 
 struct BVHRT;
 struct GeomData
@@ -45,15 +49,16 @@ constexpr uint32_t NURBS_MAX_DEGREE = 10;
 
 struct AbstractObject
 {
-  static constexpr uint32_t TAG_NONE       = 0;    // !!! #REQUIRED by kernel slicer: Empty/Default impl must have zero both m_tag and offset
-  static constexpr uint32_t TAG_TRIANGLE   = 1; 
-  static constexpr uint32_t TAG_SDF_GRID   = 2; 
-  static constexpr uint32_t TAG_SDF_NODE   = 3; 
-  static constexpr uint32_t TAG_SDF_BRICK  = 4;
-  static constexpr uint32_t TAG_RF         = 5;
-  static constexpr uint32_t TAG_GS         = 6;
+  static constexpr uint32_t TAG_NONE             = 0;    // !!! #REQUIRED by kernel slicer: Empty/Default impl must have zero both m_tag and offset
+  static constexpr uint32_t TAG_TRIANGLE         = 1; 
+  static constexpr uint32_t TAG_SDF_GRID         = 2; 
+  static constexpr uint32_t TAG_SDF_NODE         = 3; 
+  static constexpr uint32_t TAG_SDF_BRICK        = 4;
+  static constexpr uint32_t TAG_RF               = 5;
+  static constexpr uint32_t TAG_GS               = 6;
   static constexpr uint32_t TAG_SDF_ADAPT_BRICK  = 7;
-  static constexpr uint32_t TAG_NURBS      = 8; 
+  static constexpr uint32_t TAG_NURBS            = 8; 
+  static constexpr uint32_t TAG_GRAPHICS_PRIM    = 9;
 
   AbstractObject(){}  // Dispatching on GPU hierarchy must not have destructors, especially virtual   
   virtual uint32_t GetTag()   const  { return TAG_NONE; }; // !!! #REQUIRED by kernel slicer
@@ -81,7 +86,6 @@ struct InstanceData
 //
 struct BVHRT : public ISceneObject
 #ifndef KERNEL_SLICER  
-, public ISdfOctreeFunction
 , public ISdfGridFunction
 #endif
 {
@@ -113,13 +117,13 @@ struct BVHRT : public ISceneObject
   uint32_t AddGeom_SdfGrid(SdfGridView grid, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
   uint32_t AddGeom_RFScene(RFScene grid, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
   uint32_t AddGeom_GSScene(GSScene grid, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
-  uint32_t AddGeom_SdfOctree(SdfOctreeView octree, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
   uint32_t AddGeom_SdfFrameOctree(SdfFrameOctreeView octree, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
   uint32_t AddGeom_SdfSVS(SdfSVSView octree, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
-  uint32_t AddGeom_SdfSBS(SdfSBSView octree, ISceneObject *fake_this, bool single_bvh_node = false, BuildOptions a_qualityLevel = BUILD_HIGH);
-  uint32_t AddGeom_SdfSBSAdapt(SdfSBSAdaptView octree, ISceneObject *fake_this, bool single_bvh_node = false, BuildOptions a_qualityLevel = BUILD_HIGH);
+  uint32_t AddGeom_SdfSBS(SdfSBSView octree, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
+  uint32_t AddGeom_SdfSBSAdapt(SdfSBSAdaptView octree, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
   uint32_t AddGeom_SdfFrameOctreeTex(SdfFrameOctreeTexView octree, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
   uint32_t AddGeom_NURBS(const RawNURBS &nurbs, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
+  uint32_t AddGeom_GraphicsPrim(const GraphicsPrimView &nurbs, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
 
   void set_debug_mode(bool enable);
 #endif
@@ -130,14 +134,6 @@ struct BVHRT : public ISceneObject
   //common functions for a few Sdf...Function interfaces
 #ifndef KERNEL_SLICER 
   float eval_distance(float3 pos) override;
-#endif
-
-  //overiding SdfOctreeFunction interface
-#ifndef KERNEL_SLICER
-  void init(SdfOctreeView octree) override; 
-  float eval_distance_level(float3 pos, unsigned max_level) override;
-  std::vector<SdfOctreeNode> &get_nodes() override;
-  const std::vector<SdfOctreeNode> &get_nodes() const override;
 #endif
 
   //overiding SdfGridFunction interface
@@ -188,6 +184,10 @@ struct BVHRT : public ISceneObject
                       float tNear, uint32_t instId,
                       uint32_t geomId, CRT_Hit* pHit);
 
+  void IntersectGraphicPrims(const float3& ray_pos, const float3& ray_dir,
+                             float tNear, uint32_t instId,
+                             uint32_t geomId, uint32_t a_start, uint32_t a_count, CRT_Hit* pHit);
+
   void RayGridIntersection(float3 ray_dir, uint gridSize, float3 p, float3 lastP, uint4 ptrs, uint4 ptrs2, float &throughput, float3 &colour);
   void lerpCell(const uint idx0, const uint idx1, const float t, float memory[28]);
 
@@ -232,7 +232,6 @@ struct BVHRT : public ISceneObject
   std::vector<BVHNode> GetBoxes_RFGrid(RFScene grid, std::vector<float>& sparseGrid, std::vector<uint4>& sparsePtrs);
   std::vector<BVHNode> GetBoxes_GSGrid(const GSScene& grid);
   std::vector<BVHNode> GetBoxes_SdfGrid(SdfGridView grid);
-  std::vector<BVHNode> GetBoxes_SdfOctree(SdfOctreeView octree);
   std::vector<BVHNode> GetBoxes_SdfFrameOctree(SdfFrameOctreeView octree);
   std::vector<BVHNode> GetBoxes_SdfFrameOctreeTex(SdfFrameOctreeTexView octree);
 #endif
@@ -241,17 +240,12 @@ struct BVHRT : public ISceneObject
   //It is a copy-past of sdfScene functions with the same names
   //Slicer is weak and can't handle calling external functions  ¯\_(ツ)_/¯
   virtual float2 box_intersects(const float3 &min_pos, const float3 &max_pos, const float3 &origin, const float3 &dir);
-  virtual bool is_leaf(unsigned offset);
   virtual float eval_dist_trilinear(const float values[8], float3 dp);
   virtual bool need_normal();
   virtual float2 encode_normal(float3 n);
+  float load_distance_values(uint32_t nodeId, float3 voxelPos, uint32_t v_size, float sz_inv, const SdfSBSHeader &header, float values[8]);
+  float tricubicInterpolation(const uint32_t vox_u[3], const float dp[3], const uint32_t off, const uint32_t size[3]);
 
-#ifndef DISABLE_SDF_OCTREE
-  virtual float sdf_octree_sample_mipskip_3x3(unsigned octree_id, float3 p, unsigned max_level);
-  virtual float sdf_octree_sample_mipskip_closest(unsigned octree_id, float3 p, unsigned max_level);
-  virtual float sdf_octree_sample_closest(unsigned octree_id, float3 p, unsigned max_level);
-  virtual float eval_distance_sdf_octree(unsigned octree_id, float3 p, unsigned max_level);
-#endif
 #ifndef DISABLE_SDF_GRID
   virtual float eval_distance_sdf_grid(unsigned grid_id, float3 p);
 #endif 
@@ -288,12 +282,6 @@ struct BVHRT : public ISceneObject
   std::vector<float4x4> m_gs_conic{};
 #endif
 
-  //SDF octree data
-#ifndef DISABLE_SDF_OCTREE
-  std::vector<SdfOctreeNode> m_SdfOctreeNodes;//nodes for all SDF octrees
-  std::vector<uint32_t> m_SdfOctreeRoots;     //root node ids for each SDF octree
-#endif
-
   //SDF frame octree data
 #ifndef DISABLE_SDF_FRAME_OCTREE
   std::vector<SdfFrameOctreeNode> m_SdfFrameOctreeNodes;//nodes for all SDF octrees
@@ -314,7 +302,6 @@ struct BVHRT : public ISceneObject
   std::vector<float>        m_SdfSBSDataF;    //raw float data for all indexed Sparse Brick Sets
   std::vector<uint32_t>     m_SdfSBSRoots;   //root node ids for each SDF Sparse Voxel Set
   std::vector<SdfSBSHeader> m_SdfSBSHeaders; //header for each SDF Sparse Voxel Set
-  std::vector<uint2>        m_SdfSBSRemap;   //primId->nodeId, required as each SBS node can have >1 bbox in BLAS
 #endif
 
   //SDF Adaptive Sparse Brick Sets
@@ -324,7 +311,6 @@ struct BVHRT : public ISceneObject
   std::vector<float>             m_SdfSBSAdaptDataF;   //raw float data for all indexed Sparse Brick Sets
   std::vector<uint32_t>          m_SdfSBSAdaptRoots;   //root node ids for each SDF Sparse Voxel Set
   std::vector<SdfSBSAdaptHeader> m_SdfSBSAdaptHeaders; //header for each SDF Sparse Voxel Set
-  std::vector<uint2>             m_SdfSBSAdaptRemap;   //primId->nodeId, required as each SBS node can have >1 bbox in BLAS
 #endif
 
   //SDF textured frame octree data
@@ -360,6 +346,13 @@ struct BVHRT : public ISceneObject
     const LiteMath::float3 &ray,
     NURBSHeader h);
   //end NURBS functions
+
+  // Graphic primitives data
+#ifndef DISABLE_GRAPHICS_PRIM
+  std::vector<float4> m_GraphicsPrimPoints;
+  std::vector<uint32_t> m_GraphicsPrimRoots;
+  std::vector<GraphicsPrimHeader> m_GraphicsPrimHeaders;
+#endif
 
   //meshes data
   std::vector<float4>   m_vertPos;
@@ -598,5 +591,27 @@ struct GeomDataNURBS : public AbstractObject
 
     bvhrt->IntersectNURBS(ray_pos, ray_dir, tNear, info.instId, geometryId, pHit);
     return pHit->primId == 0xFFFFFFFF ? TAG_NONE : TAG_GS;
+  }
+};
+
+struct GeomDataGraphicsPrim : public AbstractObject
+{
+  GeomDataGraphicsPrim() {m_tag = GetTag();} 
+
+  uint32_t GetTag() const override { return TAG_GRAPHICS_PRIM; }  
+  uint32_t Intersect(float4 rayPosAndNear, float4 rayDirAndFar, CRT_LeafInfo info, 
+                     CRT_Hit* pHit, BVHRT* bvhrt)   const override
+  {
+    float3 ray_pos = to_float3(rayPosAndNear);
+    float3 ray_dir = to_float3(rayDirAndFar);
+    float tNear    = rayPosAndNear.w;
+    uint32_t geometryId = geomId;
+    uint32_t globalAABBId = bvhrt->startEnd[geometryId].x + info.aabbId;
+    uint32_t start_count_packed = bvhrt->m_primIdCount[globalAABBId];
+    uint32_t a_start = EXTRACT_START(start_count_packed);
+    uint32_t a_count = EXTRACT_COUNT(start_count_packed);
+
+    bvhrt->IntersectGraphicPrims(ray_pos, ray_dir, tNear, info.instId, geometryId, a_start, a_count, pHit);
+    return pHit->primId == 0xFFFFFFFF ? TAG_NONE : TAG_GRAPHICS_PRIM;
   }
 };

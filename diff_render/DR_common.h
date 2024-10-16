@@ -21,7 +21,9 @@ namespace dr
   using LiteMath::to_float3;
   using LiteMath::uint2;
   
-  static constexpr uint32_t INVALID_INDEX = 0xFFFFFFFF;
+  static constexpr uint32_t INVALID_INDEX        = 0xFFFFFFFF;
+  static constexpr uint32_t MAX_PD_COUNT_DIST    = 64;
+    static constexpr uint32_t MAX_PD_COUNT_COLOR = 8;
   struct PDColor
   {
     uint32_t index;
@@ -64,8 +66,8 @@ namespace dr
     std::vector<float> sdf_i;
 #endif
 
-    PDColor dDiffuse_dSc[8]; //8 color points, PDs for diffuse (PDs for R,G,B are the same)
-    PDDist  dDiffuseNormal_dSd[8]; //8 distance points, PDs for diffuse and normal
+    PDColor dDiffuse_dSc[MAX_PD_COUNT_COLOR]; //8 color points, PDs for diffuse (PDs for R,G,B are the same)
+    PDDist  dDiffuseNormal_dSd[MAX_PD_COUNT_DIST]; //up to 64 distance points, PDs for diffuse and normal
   };
 
   //enum DRLossFunction
@@ -77,9 +79,14 @@ namespace dr
   static constexpr unsigned DR_RENDER_MODE_LAMBERT          = 1;
   static constexpr unsigned DR_RENDER_MODE_MASK             = 2;
   static constexpr unsigned DR_RENDER_MODE_LINEAR_DEPTH     = 3;
+  static constexpr unsigned DR_RENDER_MODE_NORMAL           = 4;
 
-  //enum optimizeRayCastingFrame
-  static constexpr unsigned DR_RENDER_MASK_CAST_OPT = 0;
+  //enum DRRayCastingMask
+  static constexpr unsigned DR_RAYCASTING_MASK_OFF = 0;
+  static constexpr unsigned DR_RAYCASTING_MASK_ON  = 1;
+
+  //enum DRAtomicDerrivatives
+  static constexpr unsigned DR_ATOMIC_DERRIVATIVES = 0;
 
   //enum DRDebugRenderMode
   static constexpr unsigned DR_DEBUG_RENDER_MODE_NONE             = 0;
@@ -112,8 +119,8 @@ namespace dr
   static constexpr unsigned DR_RAY_FLAG_DDIST_DPOS      = 1 << 4;
 
   //enum DRBorderSampling
-  static constexpr unsigned DR_BORDER_SAMPLING_RANDOM = 0;
-  static constexpr unsigned DR_BORDER_SAMPLING_SVM    = 1;
+  static constexpr unsigned DR_BORDER_SAMPLING_RANDOM   = 0;
+  static constexpr unsigned DR_BORDER_SAMPLING_SVM      = 1;
 
   //enum DRRegFunction
   static constexpr unsigned DR_REG_FUNCTION_NONE         = 0;
@@ -131,7 +138,8 @@ namespace dr
     unsigned dr_reconstruction_flags; //enum DRReconstructionFlag
     unsigned dr_input_type;           //enum DRInputType
     unsigned dr_border_sampling;      //enum DRBorderSampling
-    unsigned dr_raycasting_mask;      //enum optimizeRayCastingFrame
+    unsigned dr_raycasting_mask;      //enum DRRayCastingMask
+    unsigned dr_atomic_ders;          //enum DRAtomicDerrivatives
 
     // main parameters
     unsigned spp;
@@ -162,16 +170,24 @@ namespace dr
 
     //debug settings
     bool debug_print;                //wether to print loss and ETA during optimization or not
-    unsigned debug_render_mode;      //enum DRDebugRenderMode
     unsigned debug_print_interval;   //how often to print
+
     unsigned debug_progress_images;  //render mode to progress images,either DEBUG_PROGRESS_NONE, DEBUG_PROGRESS_RAW or any MultiRenderMode
     unsigned debug_progress_interval;//how often to save progress images
+
+    unsigned debug_render_mode;      //enum DRDebugRenderMode
+    float finite_diff_delta;         //for DR_DIFF_MODE_FINITE_DIFF
+    float finite_diff_brightness;    //brightness of difference debug image
+
     bool     debug_forced_border;    //disable border detection, force border integral estimation in every pixel
     
     //very heavy and specific debug modes. You probably shouldn't use them on a regular scene
     bool debug_pd_images;
+    float debug_pd_brightness; //how bright the PD debug images should be
+    
     bool debug_border_samples;
     bool debug_border_samples_mega_image;
+    bool debug_border_save_normals;
   };
 
   void randomize_color(SdfSBS &sbs);
@@ -180,10 +196,14 @@ namespace dr
   std::vector<float4x4> get_cameras_uniform_sphere(int count, float3 center, float radius);
   SdfSBS circle_smallest_scene();
   SdfSBS circle_smallest_scene_colored();
+  SdfSBS box_smallest_scene_colored();
+  SdfSBS box_small_scene_colored();
+  SdfSBS circle_smallest_scene_colored_2();
   SdfSBS circle_medium_scene();
   SdfSBS circle_small_scene();
   SdfSBS circle_one_brick_scene();
   SdfSBS two_circles_scene();
+  SdfSBS torus_scene();
   float circle_sdf(float3 center, float radius, float3 p);
   float3 gradient_color(float3 p);
   float3 single_color(float3 p);

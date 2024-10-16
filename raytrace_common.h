@@ -16,6 +16,7 @@ using LiteMath::normalize;
 using LiteMath::sign;
 using LiteMath::to_float3;
 using LiteMath::uint2;
+using LiteMath::smoothstep;
 
 struct BoxHit
 {

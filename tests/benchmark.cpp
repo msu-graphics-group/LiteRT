@@ -203,7 +203,6 @@ void quality_check(const char *path)
   unsigned W = 1024, H = 1024;
   MultiRenderPreset preset = getDefaultPreset();
   preset.render_mode = MULTI_RENDER_MODE_PHONG_NO_TEX;
-  preset.sdf_octree_sampler = SDF_OCTREE_SAMPLER_MIPSKIP_3X3;
 
   LiteImage::Image2D<uint32_t> image_ref(W, H);
   auto pRender_ref = CreateMultiRenderer("GPU");
@@ -338,21 +337,6 @@ void main_benchmark(const std::string &path, const std::string &mesh_name, unsig
           res.valid = true;
 
           save_sdf_grid(grid, filename);
-        }
-        else if (structure == "sdf_octree")
-        {
-          unsigned all_nodes_limit = 8*nodes_limit/9;
-          t1 = std::chrono::steady_clock::now();
-          auto scene = sdf_converter::create_sdf_octree(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, max_depth, all_nodes_limit), mesh);
-          t2 = std::chrono::steady_clock::now();
-          float build_time = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
-
-          res.build_time_ms = build_time + mesh_bvh_build_time;
-          res.nodes = scene.size();
-          res.memory = sizeof(SdfOctreeNode) * res.nodes;
-          res.valid = true;
-
-          save_sdf_octree(scene, filename);
         }
         else if (structure == "sdf_frame_octree")
         {
@@ -554,15 +538,6 @@ void main_benchmark(const std::string &path, const std::string &mesh_name, unsig
                   pRender->SetPreset(preset);
                   pRender->SetScene(grid);
                 }
-                else if (structure == "sdf_octree")
-                {
-                  std::vector<SdfOctreeNode> octree;
-                  load_sdf_octree(octree, filename);
-
-                  pRender = CreateMultiRenderer(render_device.c_str(), octree.size() + 1);
-                  pRender->SetPreset(preset);
-                  pRender->SetScene(octree);
-                }
                 else if (structure == "sdf_frame_octree")
                 {
                   std::vector<SdfFrameOctreeNode> frame_nodes;
@@ -597,7 +572,7 @@ void main_benchmark(const std::string &path, const std::string &mesh_name, unsig
 
                   pRender = CreateMultiRenderer(render_device.c_str(), sbs.nodes.size() + 1);
                   pRender->SetPreset(preset);                  
-                  pRender->SetScene(sbs, true);                  
+                  pRender->SetScene(sbs);                  
                 }
 
                 render(image, pRender, pos, float3(0,0,0), float3(0,1,0), preset, 1);

@@ -89,7 +89,9 @@
         "ranges": "cpp",
         "__functional_base": "cpp",
         "span": "cpp",
-        "format": "cpp"
+        "format": "cpp",
+        "execution": "cpp",
+        "*.ipp": "cpp"
     },
     "C_Cpp.default.compilerPath": "/usr/bin/g++-11"
 }

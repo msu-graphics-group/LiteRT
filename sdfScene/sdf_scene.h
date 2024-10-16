@@ -39,12 +39,25 @@ static constexpr unsigned NEURAL_SDF_MAX_LAYER_SIZE = 1024;
 static constexpr float SIREN_W0 = 30;
 static constexpr unsigned SDF_SBS_ADAPT_MAX_UNITS = 1 << 15u;
 
+static constexpr unsigned INVALID_IDX = 1u<<31u;
+
+// enum SBSInSide
+static constexpr unsigned SBS_IN_SIDE_X_NEG = 0u;
+static constexpr unsigned SBS_IN_SIDE_X_POS = 1u;
+static constexpr unsigned SBS_IN_SIDE_Y_NEG = 2u;
+static constexpr unsigned SBS_IN_SIDE_Y_POS = 3u;
+static constexpr unsigned SBS_IN_SIDE_Z_NEG = 4u;
+static constexpr unsigned SBS_IN_SIDE_Z_POS = 5u;
+
 // enum SdfSBSNodeLayout
-static constexpr unsigned SDF_SBS_NODE_LAYOUT_UNDEFINED     = 0 << 24u; //should be interpreted as SDF_SBS_NODE_LAYOUT_D for legacy reasons
-static constexpr unsigned SDF_SBS_NODE_LAYOUT_DX            = 1 << 24u; //v_size*3 distance values (<bytes_per_value> bytes each)
-static constexpr unsigned SDF_SBS_NODE_LAYOUT_DX_UV16       = 2 << 24u; //v_size*3 distance values (<bytes_per_value> bytes each), 8 tex coords (2*2 bytes each)
-static constexpr unsigned SDF_SBS_NODE_LAYOUT_DX_RGB8       = 3 << 24u; //v_size*3 distance values (<bytes_per_value> bytes each), 8 RBG colors (4 bytes, with padding)
-static constexpr unsigned SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F = 4 << 24u; //v_size*3 indices to distance values (1 float each), 8 indices to RBG colors (3 float)
+static constexpr unsigned SDF_SBS_NODE_LAYOUT_UNDEFINED        = 0 << 24u; //should be interpreted as SDF_SBS_NODE_LAYOUT_D for legacy reasons
+static constexpr unsigned SDF_SBS_NODE_LAYOUT_DX               = 1 << 24u; //v_size^3 distance values (<bytes_per_value> bytes each)
+static constexpr unsigned SDF_SBS_NODE_LAYOUT_DX_UV16          = 2 << 24u; //v_size^3 distance values (<bytes_per_value> bytes each), 8 tex coords (2*2 bytes each)
+static constexpr unsigned SDF_SBS_NODE_LAYOUT_DX_RGB8          = 3 << 24u; //v_size^3 distance values (<bytes_per_value> bytes each), 8 RBG colors (4 bytes, with padding)
+static constexpr unsigned SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F    = 4 << 24u; //v_size^3 indices to distance values (1 float each), 8 indices to RBG colors (3 float)
+static constexpr unsigned SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F_IN = 5 << 24u; //v_size^3 indices to distance values (1 float each), 8 indices to RBG colors (3 float),
+                                                                           //27 indices to adjacent bricks, INVALID_IDX indicates that the is no adjacent 
+                                                                           //voxel on this side, otherwise it is an index of this brick in nodes array
 static constexpr unsigned SDF_SBS_NODE_LAYOUT_MASK          = 0xFF000000;
 
 struct SdfObject
@@ -89,17 +102,6 @@ struct SdfHit
 {
   float4 hit_pos;  // hit_pos.w < 0 if no hit, hit_pos.w > 0 otherwise
   float4 hit_norm; // hit_norm.w can store different types of things for debug/visualization purposes
-};
-
-struct SdfOctreeNode
-{
-  float value;
-  unsigned offset; // offset for children (they are stored together). 0 offset means it's a leaf
-};
-struct SDONeighbor
-{
-  SdfOctreeNode node;
-  uint32_t overshoot;
 };
 
 struct SdfFrameOctreeNode
@@ -212,18 +214,6 @@ struct SdfGridView
   }
   uint3 size;
   const float *data; //size.x*size.y*size.z values 
-};
-
-struct SdfOctreeView
-{
-  SdfOctreeView() = default;
-  SdfOctreeView(const std::vector<SdfOctreeNode> &a_nodes)
-  {
-    size = a_nodes.size();
-    nodes = a_nodes.data();
-  }
-  unsigned size;
-  const SdfOctreeNode *nodes;
 };
 
 struct SdfFrameOctreeView
@@ -398,19 +388,6 @@ struct SdfFrameOctreeTexView
   const SdfFrameOctreeTexNode *nodes;
 };
 
-// interface to evaluate SdfOctree out of context of rendering
-class ISdfOctreeFunction
-{
-public:
-  //copies data from octree
-  virtual void init(SdfOctreeView octree) = 0; 
-  virtual float eval_distance(float3 pos) = 0;
-  virtual float eval_distance_level(float3 pos, unsigned max_level) = 0;
-  virtual std::vector<SdfOctreeNode> &get_nodes() = 0;
-  virtual const std::vector<SdfOctreeNode> &get_nodes() const = 0;
-};
-std::shared_ptr<ISdfOctreeFunction> get_SdfOctreeFunction(SdfOctreeView scene);
-
 // interface to evaluate SdfGrid out of context of rendering
 class ISdfGridFunction
 {
@@ -428,9 +405,6 @@ void load_sdf_scene(SdfScene &scene, const std::string &path);
 void save_sdf_grid(const SdfGridView &scene, const std::string &path);
 void load_sdf_grid(SdfGrid &scene, const std::string &path);
 
-void save_sdf_octree(const SdfOctreeView &scene, const std::string &path);
-void load_sdf_octree(std::vector<SdfOctreeNode> &scene, const std::string &path);
-
 void save_sdf_frame_octree(const SdfFrameOctreeView &scene, const std::string &path);
 void load_sdf_frame_octree(std::vector<SdfFrameOctreeNode> &scene, const std::string &path);
 
@@ -445,6 +419,6 @@ void load_sdf_frame_octree_tex(std::vector<SdfFrameOctreeTexNode> &scene, const 
 
 void load_neural_sdf_scene_SIREN(SdfScene &scene, const std::string &path); // loads scene from raw SIREN weights file
 
-SdfSBSAdaptNode convert_sbs_node_to_adapt(const SdfSBSNode &sbs_node, uint32_t sbs_header_brick_size);
 SdfSBSAdaptView convert_sbs_to_adapt(SdfSBSAdapt &adapt_scene, const SdfSBSView &scene);
+SdfSBSAdaptView convert_sbs_to_adapt_with_split(SdfSBSAdapt &adapt_scene, const SdfSBSView &scene);
 #endif

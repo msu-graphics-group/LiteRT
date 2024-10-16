@@ -54,14 +54,10 @@ namespace sdf_converter
   SdfGrid create_sdf_grid(GridSettings settings, MultithreadedDistanceFunction sdf, unsigned max_threads);
   SdfGrid create_sdf_grid(GridSettings settings, const cmesh4::SimpleMesh &mesh);
 
-  std::vector<SdfOctreeNode> create_sdf_octree(SparseOctreeSettings settings, DistanceFunction sdf);
-  std::vector<SdfOctreeNode> create_sdf_octree(SparseOctreeSettings settings, MultithreadedDistanceFunction sdf, unsigned max_threads);
-  std::vector<SdfOctreeNode> create_sdf_octree(SparseOctreeSettings settings, const cmesh4::SimpleMesh &mesh);
-
   std::vector<SdfFrameOctreeNode> create_sdf_frame_octree(SparseOctreeSettings settings, DistanceFunction sdf);
   std::vector<SdfFrameOctreeNode> create_sdf_frame_octree(SparseOctreeSettings settings, MultithreadedDistanceFunction sdf, unsigned max_threads);
   std::vector<SdfFrameOctreeNode> create_sdf_frame_octree(SparseOctreeSettings settings, const cmesh4::SimpleMesh &mesh);
-  std::vector<SdfFrameOctreeNode> create_sdf_frame_octree(SparseOctreeSettings settings, MultithreadedDistanceFunction sdf, float eps, bool is_smooth);
+  std::vector<SdfFrameOctreeNode> create_sdf_frame_octree(SparseOctreeSettings settings, MultithreadedDistanceFunction sdf, float eps, bool is_smooth, bool fix_artefacts);
 
   std::vector<SdfSVSNode> create_sdf_SVS(SparseOctreeSettings settings, DistanceFunction sdf);
   std::vector<SdfSVSNode> create_sdf_SVS(SparseOctreeSettings settings, MultithreadedDistanceFunction sdf, unsigned max_threads);
@@ -79,7 +75,15 @@ namespace sdf_converter
                             const std::vector<MultiRendererMaterial> &materials_lib, 
                             const std::vector<std::shared_ptr<ICombinedImageSampler>> &textures_lib, bool noisy = false);
 
+  //creates SBS with layout SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F
   SdfSBS create_sdf_SBS_indexed(SparseOctreeSettings settings, SdfSBSHeader header, const cmesh4::SimpleMesh &mesh, unsigned mat_id,
                                 const std::vector<MultiRendererMaterial> &materials_lib, 
                                 const std::vector<std::shared_ptr<ICombinedImageSampler>> &textures_lib, bool noisy = false);
+
+  //creates SBS with layout SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F_IN
+  SdfSBS create_sdf_SBS_indexed_with_neighbors(SparseOctreeSettings settings, SdfSBSHeader header, const cmesh4::SimpleMesh &mesh, unsigned mat_id,
+                                               const std::vector<MultiRendererMaterial> &materials_lib, 
+                                               const std::vector<std::shared_ptr<ICombinedImageSampler>> &textures_lib);
+
+  SdfSBSAdapt greed_sbs_adapt(MultithreadedDistanceFunction sdf, uint8_t depth);
 }

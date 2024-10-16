@@ -16,16 +16,13 @@ Octree always represents unit cube [-1,1]^3
 
 namespace sdf_converter
 {
-  std::vector<SdfOctreeNode> construct_sdf_octree(SparseOctreeSettings settings, MultithreadedDistanceFunction sdf, unsigned max_threads);
-  std::vector<SdfFrameOctreeNode> convert_to_frame_octree(SparseOctreeSettings settings, MultithreadedDistanceFunction sdf, unsigned max_threads,
-                                                          const std::vector<SdfOctreeNode> &nodes);
   SdfSBS frame_octree_to_SBS(MultithreadedDistanceFunction sdf, 
                              unsigned max_threads,
                              const std::vector<SdfFrameOctreeNode> &nodes,
                              const SdfSBSHeader &header);
 
   std::vector<SdfFrameOctreeNode> construct_sdf_frame_octree(SparseOctreeSettings settings, MultithreadedDistanceFunction sdf, float eps, 
-                                                             unsigned max_threads, bool is_smooth);
+                                                             unsigned max_threads, bool is_smooth, bool fix_artefacts);
 
   void mesh_octree_to_sdf_frame_octree(const cmesh4::SimpleMesh &mesh,
                                        const cmesh4::TriangleListOctree &tl_octree, 
@@ -35,7 +32,6 @@ namespace sdf_converter
                                            const cmesh4::TriangleListOctree &tl_octree, 
                                            std::vector<SdfFrameOctreeTexNode> &out_frame);
 
-  void octree_limit_nodes(std::vector<SdfOctreeNode> &frame, unsigned nodes_limit);
   void frame_octree_limit_nodes(std::vector<SdfFrameOctreeNode> &frame, unsigned nodes_limit,
                                 bool count_only_border_nodes);
   void frame_octree_to_SVS_rec(const std::vector<SdfFrameOctreeNode> &frame,
@@ -48,4 +44,9 @@ namespace sdf_converter
                                  const SdfSBSHeader &header);
 
   SdfSBS SBS_col_to_SBS_ind(const SdfSBS &sbs);
+
+  SdfSBS SBS_ind_to_SBS_ind_with_neighbors(const SdfSBS &sbs);
+
+  std::vector<SdfFrameOctreeNode> construct_sdf_frame_octree(SparseOctreeSettings settings, MultithreadedDistanceFunction sdf, 
+                                                             unsigned max_threads);
 }

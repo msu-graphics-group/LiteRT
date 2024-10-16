@@ -62,25 +62,6 @@ void load_sdf_grid(SdfGrid &scene, const std::string &path)
   fs.close();
 }
 
-void save_sdf_octree(const SdfOctreeView &scene, const std::string &path)
-{
-  std::ofstream fs(path, std::ios::binary);
-  fs.write((const char *)&scene.size, sizeof(unsigned));
-  fs.write((const char *)scene.nodes, scene.size * sizeof(SdfOctreeNode));
-  fs.flush();
-  fs.close();
-}
-
-void load_sdf_octree(std::vector<SdfOctreeNode> &scene, const std::string &path)
-{
-  std::ifstream fs(path, std::ios::binary);
-  unsigned sz = 0;
-  fs.read((char *)&sz, sizeof(unsigned));
-  scene.resize(sz);
-  fs.read((char *)scene.data(), scene.size() * sizeof(SdfOctreeNode));
-  fs.close();
-}
-
 void save_sdf_frame_octree(const SdfFrameOctreeView &scene, const std::string &path)
 {
   std::ofstream fs(path, std::ios::binary);
@@ -270,47 +251,9 @@ void save_sdf_scene_hydra(const SdfScene &scene, const std::string &folder, cons
   fs.close();
 }
 
-SdfSBSAdaptNode convert_sbs_node_to_adapt(const SdfSBSNode &sbs_node, uint32_t sbs_header_brick_size)
-{
-  assert(sbs_header_brick_size < 256u);
-
-  uint32_t vox_count_xyz_pad = (sbs_header_brick_size << 16) + (sbs_header_brick_size << 8) + sbs_header_brick_size;
-  uint32_t pos_x =    (sbs_node.pos_xy >> 16) & 0x0000FFFF;
-  uint32_t pos_y =    (sbs_node.pos_xy      ) & 0x0000FFFF;
-  uint32_t pos_z =    (sbs_node.pos_z_lod_size >> 16) & 0x0000FFFF;
-  uint32_t lod_size = (sbs_node.pos_z_lod_size      ) & 0x0000FFFF;
-  uint32_t d_off =     sbs_node.data_offset;
-
-  {
-    int bit_count = 0;
-    for (int j = 0; j < 16; ++j)
-      bit_count += (lod_size >> j) & 1u;
-    assert(bit_count == 1);
-      // throw std::runtime_error("Error: convert SBS to adapt - lod size is not a power of two");
-  }
-  uint32_t voxel_size_in_units = SDF_SBS_ADAPT_MAX_UNITS / lod_size;
-
-  pos_x *= voxel_size_in_units;
-  pos_y *= voxel_size_in_units;
-  pos_z *= voxel_size_in_units;
-
-  assert(pos_x < SDF_SBS_ADAPT_MAX_UNITS);
-  assert(pos_y < SDF_SBS_ADAPT_MAX_UNITS);
-  assert(pos_z < SDF_SBS_ADAPT_MAX_UNITS);
-
-  SdfSBSAdaptNode res_node;
-  res_node.pos_xy = (pos_x << 16) + pos_y;
-  res_node.pos_z_vox_size = (pos_z << 16) + voxel_size_in_units;
-  res_node.data_offset = d_off;
-  res_node.vox_count_xyz_pad = vox_count_xyz_pad;
-
-  return res_node;
-}
-
 SdfSBSAdaptView convert_sbs_to_adapt(SdfSBSAdapt &adapt_scene, const SdfSBSView &scene)
 {
-  assert(scene.header.brick_size < 256u);
-  const uint32_t vox_count_xyz_pad = (scene.header.brick_size << 16) + (scene.header.brick_size << 8) + scene.header.brick_size;
+  assert(scene.header.brick_size > 0u && scene.header.brick_size < 256u);
 
   adapt_scene.header.brick_pad = scene.header.brick_pad;
   adapt_scene.header.bytes_per_value = scene.header.bytes_per_value;
@@ -320,11 +263,13 @@ SdfSBSAdaptView convert_sbs_to_adapt(SdfSBSAdapt &adapt_scene, const SdfSBSView 
 
   for (uint32_t i = 0u; i < scene.size; ++i)
   {
-    uint32_t pos_x =    (scene.nodes[i].pos_xy >> 16) & 0x0000FFFF;
-    uint32_t pos_y =    (scene.nodes[i].pos_xy      ) & 0x0000FFFF;
-    uint32_t pos_z =    (scene.nodes[i].pos_z_lod_size >> 16) & 0x0000FFFF;
-    uint32_t lod_size = (scene.nodes[i].pos_z_lod_size      ) & 0x0000FFFF;
-    uint32_t d_off =     scene.nodes[i].data_offset;
+    uint3 pos;
+    pos.x = (scene.nodes[i].pos_xy >> 16) & 0x0000FFFF;
+    pos.y = (scene.nodes[i].pos_xy      ) & 0x0000FFFF;
+    pos.z = (scene.nodes[i].pos_z_lod_size >> 16) & 0x0000FFFF;
+
+    uint32_t lod_size = (scene.nodes[i].pos_z_lod_size) & 0x0000FFFF;
+    uint32_t d_off    =  scene.nodes[i].data_offset;
 
     {
       int bit_count = 0;
@@ -333,19 +278,152 @@ SdfSBSAdaptView convert_sbs_to_adapt(SdfSBSAdapt &adapt_scene, const SdfSBSView 
       assert(bit_count == 1);
         // throw std::runtime_error("Error: convert SBS to adapt - lod size is not a power of two");
     }
-    uint32_t voxel_size_in_units = SDF_SBS_ADAPT_MAX_UNITS / lod_size;
+    uint32_t brick_size_in_units = SDF_SBS_ADAPT_MAX_UNITS / lod_size;
 
-    pos_x *= voxel_size_in_units;
-    pos_y *= voxel_size_in_units;
-    pos_z *= voxel_size_in_units;
+    pos.x *= brick_size_in_units;
+    pos.y *= brick_size_in_units;
+    pos.z *= brick_size_in_units;
 
-    assert(pos_x < SDF_SBS_ADAPT_MAX_UNITS);
-    assert(pos_y < SDF_SBS_ADAPT_MAX_UNITS);
-    assert(pos_z < SDF_SBS_ADAPT_MAX_UNITS);
+    assert(pos.x < SDF_SBS_ADAPT_MAX_UNITS);
+    assert(pos.y < SDF_SBS_ADAPT_MAX_UNITS);
+    assert(pos.z < SDF_SBS_ADAPT_MAX_UNITS);
 
+    uint16_t voxel_size_in_units = float(brick_size_in_units) / scene.header.brick_size;
+
+      uint32_t vox_count_xyz_pad = (scene.header.brick_size << 16) + (scene.header.brick_size << 8) + scene.header.brick_size;
+
+      SdfSBSAdaptNode new_node;
+      new_node.pos_xy = (pos.x << 16) + pos.y;
+      new_node.pos_z_vox_size = (pos.z << 16) + voxel_size_in_units;
+      new_node.data_offset = d_off;
+      new_node.vox_count_xyz_pad = vox_count_xyz_pad;
+
+      adapt_scene.nodes.push_back(new_node);
+  }
+  return adapt_scene;
+}
+
+SdfSBSAdaptView convert_sbs_to_adapt_with_split(SdfSBSAdapt &adapt_scene, const SdfSBSView &scene)
+{
+  assert(scene.header.brick_size > 1u && scene.header.brick_size < 256u);
+  assert(scene.header.brick_pad == 0u);
+
+  adapt_scene.header.brick_pad = scene.header.brick_pad;
+  adapt_scene.header.bytes_per_value = scene.header.bytes_per_value;
+  adapt_scene.header.aux_data = scene.header.aux_data;
+
+  for (uint32_t i = 0u; i < scene.size; ++i)
+  {
+    uint3 pos;
+    pos.x = (scene.nodes[i].pos_xy >> 16) & 0x0000FFFF;
+    pos.y = (scene.nodes[i].pos_xy      ) & 0x0000FFFF;
+    pos.z = (scene.nodes[i].pos_z_lod_size >> 16) & 0x0000FFFF;
+
+    uint32_t lod_size = (scene.nodes[i].pos_z_lod_size) & 0x0000FFFF;
+    uint32_t d_off    =  scene.nodes[i].data_offset;
+
+    {
+      int bit_count = 0;
+      for (int j = 0; j < 16; ++j)
+        bit_count += (lod_size >> j) & 1u;
+      assert(bit_count == 1);
+        // throw std::runtime_error("Error: convert SBS to adapt - lod size is not a power of two");
+    }
+    uint32_t brick_size_in_units = SDF_SBS_ADAPT_MAX_UNITS / lod_size;
+
+    pos.x *= brick_size_in_units;
+    pos.y *= brick_size_in_units;
+    pos.z *= brick_size_in_units;
+
+    assert(pos.x < SDF_SBS_ADAPT_MAX_UNITS);
+    assert(pos.y < SDF_SBS_ADAPT_MAX_UNITS);
+    assert(pos.z < SDF_SBS_ADAPT_MAX_UNITS);
+
+    uint16_t voxel_size_in_units = float(brick_size_in_units) / scene.header.brick_size;
+
+    // choose split axis: {0, 1, 2}
+    uint split_axis = 0;
+    {
+      double axis_rand = double(std::rand()) / (RAND_MAX + 1.);
+      split_axis = 3u * axis_rand;
+      // printf("Split Axis: %d\n", split_axis);
+    }
+
+    // choose split size (brick_size of first brick along split axis): [1, header.brick_size - 1]
+    uint3 brick_size{scene.header.brick_size};
+    {
+      double split_size_rand = double(std::rand()) / (RAND_MAX + 1.);
+      brick_size[split_axis] = 1u + split_size_rand * (scene.header.brick_size - 1u);
+      // printf("Split Size: %d\n", brick_size[split_axis]);
+    }
+    uint32_t vox_count_xyz_pad = (brick_size.x << 16) + (brick_size.y << 8) + brick_size.z;
+
+    // set brick 1
     SdfSBSAdaptNode new_node;
-    new_node.pos_xy = (pos_x << 16) + pos_y;
-    new_node.pos_z_vox_size = (pos_z << 16) + voxel_size_in_units;
+    new_node.pos_xy = (pos.x << 16) + pos.y;
+    new_node.pos_z_vox_size = (pos.z << 16) + voxel_size_in_units;
+    new_node.data_offset = adapt_scene.values.size();
+    new_node.vox_count_xyz_pad = vox_count_xyz_pad;
+
+    adapt_scene.nodes.push_back(new_node);
+
+
+    // update data for brick 2
+    if (scene.header.aux_data != SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F)
+    {
+      uint32_t v_size = scene.header.brick_size + 1;
+      uint3 v_size_adapt{brick_size + 1};
+      uint32_t vals_per_int = 4 / scene.header.bytes_per_value; 
+      uint32_t bits         = 8 * scene.header.bytes_per_value;
+      uint32_t max_val = scene.header.bytes_per_value == 4 ? 0xFFFFFFFF : ((1 << bits) - 1);
+      uint32_t adapt_d_off = adapt_scene.values.size();
+
+      // brick 1 values
+      for (uint32_t v_id = 0u; v_id < v_size*v_size*v_size; ++v_id)
+      {
+        uint3 v_pos{v_id/(v_size*v_size), v_id/v_size%v_size, v_id%v_size};
+
+        if (v_pos[split_axis] <= brick_size[split_axis])
+        {
+          uint32_t single_value = (scene.values[d_off + v_id/vals_per_int] >> (bits*(v_id%vals_per_int))) & max_val;
+          uint32_t v_id_adapt = v_pos.x*v_size_adapt.y*v_size_adapt.z + v_pos.y*v_size_adapt.z + v_pos.z;
+          uint32_t adapt_val_ind = adapt_d_off + v_id_adapt/vals_per_int;
+          while (adapt_val_ind >= adapt_scene.values.size())
+            adapt_scene.values.push_back(0u);
+          adapt_scene.values[adapt_val_ind] += single_value << (bits*(v_id_adapt%vals_per_int));
+        }
+      }
+      adapt_d_off = adapt_scene.values.size();
+      v_size_adapt[split_axis] = scene.header.brick_size - brick_size[split_axis] + 1;
+
+      for (uint32_t v_id = 0u; v_id < v_size*v_size*v_size; ++v_id)
+      {
+        uint3 v_pos{v_id/(v_size*v_size), v_id/v_size%v_size, v_id%v_size};
+
+        if (v_pos[split_axis] >= brick_size[split_axis])
+        {
+          v_pos[split_axis] -= brick_size[split_axis];
+          uint32_t single_value = (scene.values[d_off + v_id/vals_per_int] >> (bits*(v_id%vals_per_int))) & max_val;
+          uint32_t v_id_adapt = v_pos.x*v_size_adapt.y*v_size_adapt.z + v_pos.y*v_size_adapt.z + v_pos.z;
+          uint32_t adapt_val_ind = adapt_d_off + v_id_adapt/vals_per_int;
+          while (adapt_val_ind >= adapt_scene.values.size())
+            adapt_scene.values.push_back(0u);
+          adapt_scene.values[adapt_val_ind] += single_value << (bits*(v_id_adapt%vals_per_int));
+        }
+      }
+      d_off = adapt_d_off;
+    } // else not implemented
+
+    pos[split_axis] += brick_size[split_axis] * voxel_size_in_units;
+    assert(pos[split_axis] < SDF_SBS_ADAPT_MAX_UNITS);
+
+    brick_size[split_axis] = scene.header.brick_size - brick_size[split_axis];
+    vox_count_xyz_pad = (brick_size.x << 16) + (brick_size.y << 8) + brick_size.z;
+
+
+    // set brick 2
+    new_node.pos_xy = (pos.x << 16) + pos.y;
+    new_node.pos_z_vox_size = (pos.z << 16) + voxel_size_in_units;
     new_node.data_offset = d_off;
     new_node.vox_count_xyz_pad = vox_count_xyz_pad;
 

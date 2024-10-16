@@ -35,5 +35,9 @@ namespace dr
                                  uint32_t instId, uint32_t geomId, bool stopOnFirstHit,
                                  RayDiffPayload *relax_pt,
                                  CRT_HitDR *pHit);
+  
+    float load_distance_values_with_indices(uint32_t nodeId, float3 voxelPos, uint32_t v_size, float sz_inv, const SdfSBSHeader &header, 
+                                            /*out*/ float values[8], /*out*/ uint32_t indices[8]);
+
   };
 }

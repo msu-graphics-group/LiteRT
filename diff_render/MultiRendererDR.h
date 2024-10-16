@@ -4,6 +4,8 @@
 #include "BVH2DR.h"
 #include "../Renderer/eye_ray.h"
 #include <set>
+#include <atomic>
+
 
 namespace dr
 {
@@ -22,7 +24,8 @@ namespace dr
     preset.dr_input_type = DR_INPUT_TYPE_COLOR;
     preset.dr_border_sampling = DR_BORDER_SAMPLING_RANDOM;
 
-    preset.dr_raycasting_mask = -1;
+    preset.dr_raycasting_mask = DR_RAYCASTING_MASK_OFF;
+    preset.dr_atomic_ders = -1;
 
     preset.border_spp = 256;
     preset.border_relax_eps = 1e-3f;
@@ -43,15 +46,23 @@ namespace dr
     preset.redistancing_interval = 1;
 
     preset.debug_print = false;
-    preset.debug_render_mode = DR_DEBUG_RENDER_MODE_NONE;
     preset.debug_print_interval = 10;
+
     preset.debug_progress_images = DEBUG_PROGRESS_RAW;
     preset.debug_progress_interval = 100;
+
     preset.debug_forced_border = false;
 
+    preset.debug_render_mode = DR_DEBUG_RENDER_MODE_NONE;
+    preset.finite_diff_delta = 0.001f;
+    preset.finite_diff_brightness = 100.0f;
+
     preset.debug_pd_images = false;
+    preset.debug_pd_brightness = 0.1f;
+    
     preset.debug_border_samples = false;
     preset.debug_border_samples_mega_image = false;
+    preset.debug_border_save_normals = false;
 
     return preset;
   }
@@ -84,6 +95,8 @@ namespace dr
     void OptimizeStepAdam(unsigned iter, const float* dX, float *X, float *tmp, unsigned size, MultiRendererDRPreset preset);
     float CastRayWithGrad(uint32_t tidX, const float4 *image_ref, LiteMath::float4* out_image, float* out_dLoss_dS,
                           LiteMath::float4* out_image_depth, LiteMath::float4* out_image_debug, PDFinalColor *out_pd_tmp);
+    float CalculateBorderRayDerivatives(float sampling_pdf, const RayDiffPayload &payload, const CRT_HitDR &hit, float4 rayPosAndNear,
+                                        float4 rayDirAndFar, const float4 *image_ref, LiteMath::float4 *out_image, float *out_dLoss_dS);
     void CastBorderRay(uint32_t tidX, const float4 *image_ref, LiteMath::float4* out_image, float* out_dLoss_dS,
                        LiteMath::float4* out_image_debug);
     void CastBorderRaySVM(uint32_t tidX, const float4 *image_ref, LiteMath::float4* out_image, float* out_dLoss_dS,
@@ -97,7 +110,12 @@ namespace dr
     void Regularization(float *out_dLoss_dS, unsigned params_count);
 
     float SolveEikonal(float3 axes_mins, float grid_spacing);
-    void Redistance(float *dist_in, uint3 size_in, float grid_spacing, uint32_t num_iters);
+
+    float2 TransformWorldToScreenSpace(float4 pos);
+    std::array<float4, 2> TransformWorldToScreenSpaceDiff(float4 pos);
+
+    //prevents average gradient from being too big or too small for different image and scene sizes
+    float getBaseGradientMult();
 
     std::vector<LiteImage::Image2D<float4>> m_imagesRefOriginal;
     std::vector<LiteImage::Image2D<float4>> m_imagesRefMask;
@@ -116,6 +134,7 @@ namespace dr
     std::vector<LiteMath::float4x4> m_worldViewRef;
     std::vector<LiteMath::float4x4> m_projRef;
     std::vector<float> m_dLoss_dS_tmp;
+    std::vector<std::atomic<uint32_t>> m_dLoss_dS_tmp_atomic_pos, m_dLoss_dS_tmp_atomic_neg;
     std::vector<float> m_Opt_tmp;
     std::vector<PDFinalColor> m_PD_tmp;
     std::vector<uint32_t> m_borderPixels;
@@ -126,7 +145,12 @@ namespace dr
     std::vector<float4> samples_debug_color;
     std::vector<float4> samples_debug_pos_size;
   public:
-    static constexpr unsigned MEGA_PIXEL_SIZE = 64;
+
+    void Redistance(float *dist_in, uint3 size_in, float grid_spacing, uint32_t num_iters);
+    std::atomic<uint32_t> border_rays_total{0};
+    std::atomic<uint32_t> border_rays_hit{0};
+
+    static constexpr unsigned MEGA_PIXEL_SIZE = 128;
     LiteImage::Image2D<float4> samples_mega_image;
   };
 }

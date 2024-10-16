@@ -24,8 +24,6 @@ MultiRenderer::MultiRenderer(uint32_t maxPrimitives)
   m_maxPrimitives = maxPrimitives;
   SetAccelStruct(CreateSceneRT("BVH2Common", "cbvh_embree2", "SuperTreeletAlignedMerged4"));
   m_preset = getDefaultPreset();
-  m_mainLightDir = normalize3(float4(1,0.5,0.5,1));
-  m_mainLightColor = 1.0f*normalize3(float4(1,1,0.98,1));
 
   m_textures.resize(MULTI_RENDER_MAX_TEXTURES);
 
@@ -38,6 +36,8 @@ MultiRenderer::MultiRenderer(uint32_t maxPrimitives)
   m_matIdbyPrimId.push_back(DEFAULT_MATERIAL);
 
   m_seed = rand();
+
+  m_lights = {create_direct_light(float3(1,1,1), float3(2.0f/3.0f)), create_ambient_light(float3(0.25, 0.25, 0.25))};
 }
 
 void MultiRenderer::SetViewport(int a_xStart, int a_yStart, int a_width, int a_height)
@@ -299,23 +299,6 @@ void MultiRenderer::SetScene(SdfGridView scene)
   m_pAccelStruct->CommitScene();
 }
 
-void MultiRenderer::SetScene(SdfOctreeView scene)
-{ 
-  BVHRT *bvhrt = dynamic_cast<BVHRT*>(m_pAccelStruct->UnderlyingImpl(0));
-  if (!bvhrt)
-  {
-    printf("only BVHRT supports SdfOctree\n");
-    return;
-  }
-
-  SetPreset(m_preset);
-  m_pAccelStruct->ClearGeom();
-  auto geomId = bvhrt->AddGeom_SdfOctree(scene, m_pAccelStruct.get());
-  m_pAccelStruct->ClearScene();
-  AddInstance(geomId, LiteMath::float4x4());
-  m_pAccelStruct->CommitScene();
-}
-
 void MultiRenderer::SetScene(SdfFrameOctreeView scene)
 { 
   BVHRT *bvhrt = dynamic_cast<BVHRT*>(m_pAccelStruct->UnderlyingImpl(0));
@@ -351,7 +334,7 @@ void MultiRenderer::SetScene(SdfSVSView scene)
 }
 
 
-void MultiRenderer::SetScene(SdfSBSView scene, bool single_bvh_node)
+void MultiRenderer::SetScene(SdfSBSView scene)
 {
   BVHRT *bvhrt = dynamic_cast<BVHRT*>(m_pAccelStruct->UnderlyingImpl(0));
   if (!bvhrt)
@@ -362,13 +345,13 @@ void MultiRenderer::SetScene(SdfSBSView scene, bool single_bvh_node)
 
   SetPreset(m_preset);
   m_pAccelStruct->ClearGeom();
-  auto geomId = bvhrt->AddGeom_SdfSBS(scene, m_pAccelStruct.get(), single_bvh_node);
+  auto geomId = bvhrt->AddGeom_SdfSBS(scene, m_pAccelStruct.get());
   m_pAccelStruct->ClearScene();
   AddInstance(geomId, LiteMath::float4x4());
   m_pAccelStruct->CommitScene();
 }
 
-void MultiRenderer::SetScene(SdfSBSAdaptView scene, bool single_bvh_node)
+void MultiRenderer::SetScene(SdfSBSAdaptView scene)
 {
   BVHRT *bvhrt = dynamic_cast<BVHRT*>(m_pAccelStruct->UnderlyingImpl(0));
   if (!bvhrt)
@@ -379,7 +362,7 @@ void MultiRenderer::SetScene(SdfSBSAdaptView scene, bool single_bvh_node)
 
   SetPreset(m_preset);
   m_pAccelStruct->ClearGeom();
-  auto geomId = bvhrt->AddGeom_SdfSBSAdapt(scene, m_pAccelStruct.get(), single_bvh_node);
+  auto geomId = bvhrt->AddGeom_SdfSBSAdapt(scene, m_pAccelStruct.get());
   m_pAccelStruct->ClearScene();
   AddInstance(geomId, LiteMath::float4x4());
   m_pAccelStruct->CommitScene();
@@ -415,6 +398,23 @@ void MultiRenderer::SetScene(const RawNURBS &nurbs)
   SetPreset(m_preset);
   m_pAccelStruct->ClearGeom();
   auto geomId = bvhrt->AddGeom_NURBS(nurbs, m_pAccelStruct.get());
+  m_pAccelStruct->ClearScene();
+  AddInstance(geomId, LiteMath::float4x4());
+  m_pAccelStruct->CommitScene();
+}
+
+void MultiRenderer::SetScene(GraphicsPrimView scene)
+{
+  BVHRT *bvhrt = dynamic_cast<BVHRT*>(m_pAccelStruct->UnderlyingImpl(0));
+  if (!bvhrt)
+  {
+    printf("only BVHRT supports Graphics primitives\n");
+    return;
+  }
+
+  SetPreset(m_preset);
+  m_pAccelStruct->ClearGeom();
+  auto geomId = bvhrt->AddGeom_GraphicsPrim(scene, m_pAccelStruct.get());
   m_pAccelStruct->ClearScene();
   AddInstance(geomId, LiteMath::float4x4());
   m_pAccelStruct->CommitScene();
@@ -534,6 +534,11 @@ void MultiRenderer::SetMaterial(uint32_t matId, uint32_t geomId)
   if (geomId >= m_matIdOffsets.size())
     m_matIdOffsets.resize(geomId + 1, uint2(0,1));
   m_matIdOffsets[geomId] = uint2(m_matIdbyPrimId.size()-1, 1);
+}
+
+void MultiRenderer::SetLights(const std::vector<Light>& lights)
+{
+  m_lights = lights;
 }
 
 uint32_t MultiRenderer::AddInstance(uint32_t a_geomId, const LiteMath::float4x4& a_matrix)
