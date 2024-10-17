@@ -13,10 +13,12 @@
 #include "../utils/image_metrics.h"
 #include "../diff_render/MultiRendererDR.h"
 #include "../utils/iou.h"
+#include "harmonic_function/any_polygon_common.h"
 
 #include <functional>
 #include <cassert>
 #include <chrono>
+#include <optional>
 
 std::string scenes_folder_path = "./";
 
@@ -2577,13 +2579,49 @@ void litert_test_36_primitive_visualization()
 
 }
 
+std::optional<std::vector<float3>> read_polygon_from_file(char const *file_name) {
+    static size_t constexpr BUF_SIZE = (1'024 + 2) / sizeof(float3);
+
+    auto const file = std::fopen(file_name, "rb");
+
+    if (nullptr == file) {
+        fprintf(
+            stderr, "failed to open file '%s': %s\n", file_name, strerror(errno)
+        );
+        return std::nullopt;
+    }
+
+    auto result = std::vector<float3>{};
+    auto buf = std::array<float3, BUF_SIZE>{};
+    auto n_read = size_t{0};
+
+    while (0 != (n_read = std::fread(buf.data(), sizeof(buf[0]), buf.size(), file))) {
+        result.insert(result.begin(), buf.begin(), buf.begin() + n_read);
+    }
+
+    std::fclose(file);
+
+    return result;
+}
+
 void litert_test_37_any_polygon() {
     namespace img = LiteImage;
 
-    static uint constexpr WIDTH = 1024;
-    static uint constexpr HEIGHT = 1024;
+    static uint constexpr WIDTH = 1'024;
+    static uint constexpr HEIGHT = 1'024;
+    static char constexpr POLYGON_BIN_FILE_NAME[] =
+        "scenes/01_simple_scenes/data/polygon.bin";
 
-    printf("litert_test_37_any_polygon not yet implemented\n");
+    auto const vertices = read_polygon_from_file(POLYGON_BIN_FILE_NAME);
+
+    if (!vertices.has_value()) {
+        fprintf(stderr, "failed to read polygon data, skipping test 37\n");
+        return;
+    }
+
+    auto const polygon = AnyPolygon{std::move(vertices.value())};
+
+    fprintf(stderr, "litert_test_37_any_polygon not yet implemented\n");
 }
 
 void perform_tests_litert(const std::vector<int> &test_ids)
