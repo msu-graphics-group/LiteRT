@@ -14,6 +14,7 @@
 #include "../diff_render/MultiRendererDR.h"
 #include "../utils/iou.h"
 #include "harmonic_function/any_polygon_common.h"
+#include "render_settings.h"
 
 #include <functional>
 #include <cassert>
@@ -2611,17 +2612,50 @@ void litert_test_37_any_polygon() {
     static uint constexpr HEIGHT = 1'024;
     static char constexpr POLYGON_BIN_FILE_NAME[] =
         "scenes/01_simple_scenes/data/polygon.bin";
+    static float3 const CAMERA_POSITION = float3{0.0f, 0.0f, 2.5f};
+    static float3 const CAMERA_TARGET = float3{0.0f};
+    static float3 const CAMERA_UP = float3{0.0f, 1.0f, 0.0f};
+    static char constexpr RENDERER_NAME_HOST[] = "CPU";
+    static char constexpr RENDERER_NAME_DEVICE[] = "GPU";
 
-    auto const vertices = read_polygon_from_file(POLYGON_BIN_FILE_NAME);
+    auto vertices = read_polygon_from_file(POLYGON_BIN_FILE_NAME);
 
     if (!vertices.has_value()) {
         fprintf(stderr, "failed to read polygon data, skipping test 37\n");
         return;
     }
 
+    fprintf(stderr, "TEST 37. Rendering non-planar polygon\n");
+
     auto const polygon = AnyPolygon{std::move(vertices.value())};
 
-    fprintf(stderr, "litert_test_37_any_polygon not yet implemented\n");
+    auto render_preset = getDefaultPreset();
+    render_preset.render_mode = MULTI_RENDER_MODE_LAMBERT;
+
+    auto render_custom = [&](char const *renderer_name) -> img::Image2D<uint32_t> {
+        auto image = img::Image2D<uint32_t>{WIDTH, HEIGHT};
+
+        auto renderer = CreateMultiRenderer(renderer_name);
+        renderer->SetPreset(render_preset);
+        renderer->SetViewport(0, 0, WIDTH, HEIGHT);
+        renderer->SetScene(polygon);
+
+        render(image, renderer, CAMERA_POSITION, CAMERA_TARGET, CAMERA_UP, render_preset);
+
+        return image;
+    };
+
+    auto const host_image = render_custom(RENDERER_NAME_HOST);
+    auto const device_image = render_custom(RENDERER_NAME_DEVICE);
+
+    auto const psnr = image_metrics::PSNR(host_image, device_image);
+
+    printf(" 31.1. %-64s", "CPU and GPU render image_metrics::PSNR > 45 ");
+    if (psnr <= 45) {
+        printf("passed    (%.2f)\n", psnr);
+    } else {
+        printf("FAILED, psnr = %f\n", psnr);
+    }
 }
 
 void perform_tests_litert(const std::vector<int> &test_ids)
