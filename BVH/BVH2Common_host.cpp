@@ -1,3 +1,4 @@
+#include <cstdlib>
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -10,6 +11,10 @@
 #include <map>
 
 #include "BVH2Common.h"
+#include "CrossRT.h"
+#include "LiteMath.h"
+#include "harmonic_function/any_polygon_common.h"
+#include "render_settings.h"
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -855,6 +860,63 @@ uint32_t BVHRT::AddGeom_GraphicsPrim(const GraphicsPrimView &prim_view, ISceneOb
   }
 
   return fake_this->AddGeom_AABB(AbstractObject::TAG_GRAPHICS_PRIM, (const CRT_AABB*)orig_nodes.data(), orig_nodes.size(), nullptr, 1);
+}
+
+uint32_t BVHRT::AddGeom_AnyPolygon(
+    AnyPolygon const& poly, ISceneObject* fake_this,
+    [[maybe_unused]] BuildOptions opts
+) {
+    namespace lm = LiteMath;
+
+    m_abstractObjects.resize(m_abstractObjects.size() + 1);
+    new (m_abstractObjects.data() + m_abstractObjects.size() - 1)
+        GeomDataAnyPolygon{};
+    m_abstractObjects.back().geomId = m_abstractObjects.size() - 1;
+    m_abstractObjects.back().m_tag = AbstractObject::TAG_ANY_POLYGON;
+
+    auto const vertices = poly.vertices();
+
+    auto lo = float3{lm::INF_POSITIVE};
+    auto hi = float3{lm::INF_NEGATIVE};
+
+    for (auto const point : vertices) {
+        lo = lm::min(lo, point);
+        hi = lm::max(hi, point);
+    }
+
+    m_geomData.emplace_back(GeomData{
+        .boxMin = to_float4(lo, 1.0f),
+        .boxMax = to_float4(hi, 1.0f),
+        .bvhOffset = m_allNodePairs.size(),
+        .type = TYPE_ANY_POLYGON,
+        .offset = uint2{m_AnyPolygonHeaders.size(), 0},
+    });
+
+    m_AnyPolygonHeaders.emplace_back(AnyPolygonDataHeader{
+        .offset = (uint) m_AnyPolygonVertices.size(),
+        .size = (uint) vertices.size(),
+    });
+
+    m_AnyPolygonVertices.insert(
+        m_AnyPolygonVertices.end(), vertices.begin(), vertices.end()
+    );
+
+    m_AnyPolygonTriangles.reserve(3 * vertices.size());
+
+    for (size_t i = 0; i < vertices.size() + 1; ++i) {
+        m_AnyPolygonTriangles.emplace_back(vertices[i]);
+        m_AnyPolygonTriangles.emplace_back(vertices[(i + 1) % vertices.size()]);
+        m_AnyPolygonTriangles.emplace_back(poly.middle());
+    }
+
+    // TODO: calculate BVH nodes
+    auto const nodes = std::array<BVHNode, 1>{
+        BVHNode{.boxMin = lo, .leftOffset = 0, .boxMax = hi, .escapeIndex = 0},
+    };
+
+    return fake_this->AddGeom_AABB(
+        TYPE_ANY_POLYGON, (CRT_AABB const*) nodes.data(), nodes.size(), nullptr
+    );
 }
 
 void BVHRT::set_debug_mode(bool enable)

@@ -15,9 +15,34 @@ static float constexpr SIGNED_SOLID_ANGLE_MIN_VALUE = -4.0 * lm::M_PI;
 
 #ifndef KERNEL_SLICER
 
-struct AnyPolygon {
-    std::vector<float3> points;
-    std::vector<float3> triangles;
+class AnyPolygon {
+public:
+    AnyPolygon() = default;
+    ~AnyPolygon() = default;
+    AnyPolygon(AnyPolygon const&) = default;
+    AnyPolygon(AnyPolygon&&) noexcept = default;
+    AnyPolygon& operator=(AnyPolygon const&) = default;
+    AnyPolygon& operator=(AnyPolygon&&) noexcept = default;
+
+    inline explicit AnyPolygon(std::vector<float3> points)
+        : m_vertices{std::move(points)}
+        , m_middle_point{} {
+        for (auto const point : m_vertices) {
+            m_middle_point += point;
+        }
+
+        m_middle_point /= (float) m_vertices.size();
+    }
+
+    bool is_empty() const noexcept { return m_vertices.empty(); }
+
+    std::vector<float3> const& vertices() const noexcept { return m_vertices; }
+
+    float3 middle() const noexcept { return m_middle_point; }
+
+private:
+    std::vector<float3> m_vertices{};
+    float3 m_middle_point{};
 };
 
 #endif  // !defined(KERNEL_SLICER)

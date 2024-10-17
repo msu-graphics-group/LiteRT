@@ -14,6 +14,7 @@
 #include "LiteScene/cmesh4.h"
 #include "Image2d.h"
 #include "BVH/BVH2Common.h"
+#include "harmonic_function/any_polygon_common.h"
 
 using LiteMath::uint;
 using LiteImage::Image2D;
@@ -84,8 +85,9 @@ public:
   void SetScene(SdfFrameOctreeTexView scene);
   void SetScene(const RawNURBS &nurbs);
   void SetScene(GraphicsPrimView scene);
+  void SetScene(AnyPolygon const& poly);
+#endif // !defined(KERNEL_SLICER)
 
-#endif
   void Render(uint32_t* imageData, uint32_t a_width, uint32_t a_height, 
               const LiteMath::float4x4& a_worldView, const LiteMath::float4x4& a_proj,
               MultiRenderPreset preset = getDefaultPreset(), int a_passNum = 1);

@@ -10,6 +10,7 @@
 #include "../utils/mesh.h"
 #include "../utils/mesh_bvh.h"
 #include "../utils/sdf_converter.h"
+#include "harmonic_function/any_polygon_common.h"
 
 using LiteMath::float2;
 using LiteMath::float3;
@@ -418,6 +419,26 @@ void MultiRenderer::SetScene(GraphicsPrimView scene)
   m_pAccelStruct->ClearScene();
   AddInstance(geomId, LiteMath::float4x4());
   m_pAccelStruct->CommitScene();
+}
+
+void MultiRenderer::SetScene(AnyPolygon const& poly) {
+    namespace lm = LiteMath;
+
+    auto const bvhrt = dynamic_cast<BVHRT*>(m_pAccelStruct->UnderlyingImpl(0));
+
+    if (nullptr == bvhrt) {
+        fprintf(stderr, "only BVHRT supports AnyPolygons");
+        return;
+    }
+
+    SetPreset(m_preset);
+    m_pAccelStruct->ClearGeom();
+
+    auto const geom_id = bvhrt->AddGeom_AnyPolygon(poly, m_pAccelStruct.get());
+
+    m_pAccelStruct->ClearScene();
+    AddInstance(geom_id, lm::float4x4{});
+    m_pAccelStruct->CommitScene();
 }
 
 void MultiRenderer::SetPreset(const MultiRenderPreset& a_preset)

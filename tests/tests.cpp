@@ -2578,6 +2578,11 @@ void litert_test_36_primitive_visualization()
 }
 
 void litert_test_37_any_polygon() {
+    namespace img = LiteImage;
+
+    static uint constexpr WIDTH = 1024;
+    static uint constexpr HEIGHT = 1024;
+
     printf("litert_test_37_any_polygon not yet implemented\n");
 }
 

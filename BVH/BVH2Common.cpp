@@ -1514,7 +1514,8 @@ void BVHRT::IntersectAnyPolygon(
 
     auto const min_pos = to_float3(m_geomData[geom_id].boxMin);
     auto const max_pos = to_float3(m_geomData[geom_id].boxMax);
-    auto const t_bounds = box_intersects(min_pos, max_pos, ray_origin, ray_direction);
+    auto const t_bounds =
+        box_intersects(min_pos, max_pos, ray_origin, ray_direction);
     auto const t_near = lm::max(t_bounds.x, t_start);
     auto const t_far = t_bounds.y;
 
@@ -1531,7 +1532,7 @@ void BVHRT::IntersectAnyPolygon(
         auto const value_lo = MODULO * std::floor(value) + PHASE_SHIFT;
         auto const value_hi = MODULO * std::ceil(value) + PHASE_SHIFT;
         auto const gradient =
-            any_polygon_solid_angle_gradient(m_AnyPolygonPoints, header, pos);
+            any_polygon_solid_angle_gradient(m_AnyPolygonVertices, header, pos);
 
         auto const should_stop = lm::min(value - value_lo, value_hi - value) <=
                                  EPSILON * lm::length(gradient);
@@ -1545,8 +1546,8 @@ void BVHRT::IntersectAnyPolygon(
         }
 
         auto const radius =
-            any_polygon_boundary_distance(m_AnyPolygonPoints, header, pos);
-        
+            any_polygon_boundary_distance(m_AnyPolygonVertices, header, pos);
+
         auto const a_lo = (value - LOWER_BOUND) / (value_lo - LOWER_BOUND);
         auto const a_hi = (value - LOWER_BOUND) / (value_hi - LOWER_BOUND);
 

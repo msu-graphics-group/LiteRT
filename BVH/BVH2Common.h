@@ -343,7 +343,7 @@ struct BVHRT : public ISceneObject
 
   // Non-planar polygons data
 #ifndef DISABLE_ANY_POLYGON
-  std::vector<float3> m_AnyPolygonPoints;
+  std::vector<float3> m_AnyPolygonVertices;
   std::vector<float3> m_AnyPolygonTriangles;
   std::vector<AnyPolygonDataHeader> m_AnyPolygonHeaders;
 #endif // !defined(DISABLE_ANY_POLYGON)
