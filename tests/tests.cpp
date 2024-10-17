@@ -419,11 +419,10 @@ void litert_test_6_faster_bvh_build()
   LiteImage::Image2D<uint32_t> image_2(W, H);
   LiteImage::Image2D<uint32_t> ref_image(W, H);
 
-  auto pRenderRef = CreateMultiRenderer("GPU");
-  pRenderRef->SetPreset(preset_ref);
-  pRenderRef->SetViewport(0,0,W,H);
-  pRenderRef->LoadSceneHydra((scenes_folder_path+scene_name).c_str());
+  float4x4 m1, m2;
+  float time_1, time_2;
 
+{
   auto pRender_1 = CreateMultiRenderer("GPU");
   pRender_1->SetPreset(preset_1);
   pRender_1->SetViewport(0,0,W,H);
@@ -431,8 +430,22 @@ auto t1 = std::chrono::steady_clock::now();
   pRender_1->CreateSceneFromHydra((scenes_folder_path+scene_name).c_str(), TYPE_SDF_SVS,
                                   SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 9));
 auto t2 = std::chrono::steady_clock::now();
-  float time_1 = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+  time_1 = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
 
+  m1 = pRender_1->getWorldView();
+  m2 = pRender_1->getProj();
+  pRender_1->Render(image_1.data(), image_1.width(), image_1.height(), m1, m2, preset_1);
+}
+
+{
+  auto pRenderRef = CreateMultiRenderer("GPU");
+  pRenderRef->SetPreset(preset_ref);
+  pRenderRef->SetViewport(0,0,W,H);
+  pRenderRef->LoadSceneHydra((scenes_folder_path+scene_name).c_str());
+  pRenderRef->Render(ref_image.data(), ref_image.width(), ref_image.height(), m1, m2, preset_ref);
+}
+
+{
   auto pRender_2 = CreateMultiRenderer("GPU");
   pRender_2->SetPreset(preset_2);
   pRender_2->SetViewport(0,0,W,H);
@@ -440,14 +453,9 @@ auto t3 = std::chrono::steady_clock::now();
   pRender_2->CreateSceneFromHydra((scenes_folder_path+scene_name).c_str(), TYPE_SDF_SVS,
                                   SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, 9));
 auto t4 = std::chrono::steady_clock::now();
-  float time_2 = std::chrono::duration_cast<std::chrono::milliseconds>(t4 - t3).count();
-
-  auto m1 = pRender_1->getWorldView();
-  auto m2 = pRender_1->getProj();
-
-  pRender_1->Render(image_1.data(), image_1.width(), image_1.height(), m1, m2, preset_1);
+  time_2 = std::chrono::duration_cast<std::chrono::milliseconds>(t4 - t3).count();
   pRender_2->Render(image_2.data(), image_2.width(), image_2.height(), m1, m2, preset_2);
-  pRenderRef->Render(ref_image.data(), ref_image.width(), ref_image.height(), m1, m2, preset_ref);
+}
 
   LiteImage::SaveImage<uint32_t>("saves/test_6_default.bmp", image_1); 
   LiteImage::SaveImage<uint32_t>("saves/test_6_mesh_tlo.bmp", image_2); 
