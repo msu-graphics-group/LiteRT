@@ -8,6 +8,7 @@
 #include <iostream>
 #include <sstream>
 #include <vector>
+#include "LiteMath.h"
 #include "harmonic_function/any_polygon_common.h"
 
 using uvec3 = uint3;
@@ -1506,7 +1507,7 @@ void BVHRT::IntersectAnyPolygon(
     auto constexpr ANGULAR_FREQUENCY = 1.0f;
     auto constexpr MODULO = 2.0f * lm::M_PI * ANGULAR_FREQUENCY;
     auto constexpr PHASE_SHIFT = 0.0f;
-    auto constexpr EPSILON = 0.000'1f;
+    auto constexpr EPSILON = 0.001f;
     auto constexpr LOWER_BOUND = -4.0f * lm::M_PI;
 
     auto const poly_id = m_geomData[geom_id].offset.x;
@@ -1520,9 +1521,10 @@ void BVHRT::IntersectAnyPolygon(
     auto const t_far = t_bounds.y;
 
     auto distance = 0.0f;
+    auto normal = float3{};
     auto n_steps = uint{0};
 
-    while (distance < t_far) {
+    while (distance < t_far && n_steps < MAX_N_STEPS) {
         auto const pos = ray_origin + distance * ray_direction;
         auto const value =
             (any_polygon_solid_angle(m_AnyPolygonTriangles, header, pos) -
@@ -1534,11 +1536,12 @@ void BVHRT::IntersectAnyPolygon(
         auto const gradient =
             any_polygon_solid_angle_gradient(m_AnyPolygonVertices, header, pos);
 
+        normal = -normalize(gradient);
+
         auto const should_stop = lm::min(value - value_lo, value_hi - value) <=
                                  EPSILON * lm::length(gradient);
 
-        if (t_near <= distance && (n_steps >= MAX_N_STEPS || should_stop)) {
-            auto const normal = -lm::normalize(gradient);
+        if (t_near <= distance && should_stop) {
             auto const encoded_normal = encode_normal(normal);
             any_polygon_fill_crt_hit(
                 hit_ptr, distance, encoded_normal, poly_id, inst_id, geom_id
@@ -1564,6 +1567,15 @@ void BVHRT::IntersectAnyPolygon(
         distance += step_size;
         n_steps += 1;
     }
+
+    if (distance <= t_near || t_far <= distance) {
+        return;
+    }
+
+    auto const encoded_normal = encode_normal(normal);
+    any_polygon_fill_crt_hit(
+        hit_ptr, distance, encoded_normal, poly_id, inst_id, geom_id
+    );
 
 #endif  // !defined(DISABLE_ANY_POLYGON)
 }

@@ -83,7 +83,7 @@ inline float3 any_polygon_solid_angle_gradient(
 ) {
     auto result = float3(0.0);
 
-    for (uint i = 0; i < header.size + 1; ++i) {
+    for (uint i = 0; i < header.size; ++i) {
         auto const left = points[header.offset + i] - point_of_view;
         auto const right =
             points[header.offset + (i + 1) % header.size] - point_of_view;
@@ -151,7 +151,7 @@ inline float any_polygon_boundary_distance(
 ) {
     auto result = lm::INF_POSITIVE;
 
-    for (uint i = 0; i < header.size + 1; ++i) {
+    for (uint i = 0; i < header.size; ++i) {
         auto const start = points[header.offset + i];
         auto const end = points[header.offset + (i + 1) % header.size];
 
@@ -166,6 +166,10 @@ inline void any_polygon_fill_crt_hit(
     CRT_Hit* hit_ptr, float distance, float2 encoded_normal, uint32_t prim_id,
     uint32_t inst_id, uint32_t geom_id
 ) {
+    if (nullptr == hit_ptr) {
+        return;
+    }
+
     hit_ptr->t = distance;
     hit_ptr->primId = prim_id;
     hit_ptr->instId = inst_id;

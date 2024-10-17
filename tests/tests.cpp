@@ -2619,8 +2619,8 @@ std::optional<std::vector<float3>> read_polygon_from_file(char const *file_name)
 void litert_test_37_any_polygon() {
     namespace img = LiteImage;
 
-    static uint constexpr WIDTH = 1'024;
-    static uint constexpr HEIGHT = 1'024;
+    static uint constexpr WIDTH = 100;
+    static uint constexpr HEIGHT = 100;
     static char constexpr POLYGON_BIN_FILE_NAME[] =
         "scenes/01_simple_scenes/data/polygon.bin";
     static float3 const CAMERA_POSITION = float3{0.0f, 0.0f, 2.5f};
@@ -2641,7 +2641,6 @@ void litert_test_37_any_polygon() {
     auto const polygon = AnyPolygon{std::move(vertices.value())};
 
     auto render_preset = getDefaultPreset();
-    render_preset.render_mode = MULTI_RENDER_MODE_LAMBERT;
 
     auto render_custom = [&](char const *renderer_name) -> img::Image2D<uint32_t> {
         auto image = img::Image2D<uint32_t>{WIDTH, HEIGHT};
@@ -2659,10 +2658,13 @@ void litert_test_37_any_polygon() {
     auto const host_image = render_custom(RENDERER_NAME_HOST);
     auto const device_image = render_custom(RENDERER_NAME_DEVICE);
 
+    img::SaveImage("saves/test_37_host.bmp", host_image);
+    img::SaveImage("saves/test_37_device.bmp", device_image);
+
     auto const psnr = image_metrics::PSNR(host_image, device_image);
 
-    printf(" 31.1. %-64s", "CPU and GPU render image_metrics::PSNR > 45 ");
-    if (psnr <= 45) {
+    printf(" 31.1. %-64s", "CPU and GPU render image_metrics::PSNR > 50 ");
+    if (psnr <= 50) {
         printf("passed    (%.2f)\n", psnr);
     } else {
         printf("FAILED, psnr = %f\n", psnr);

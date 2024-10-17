@@ -59,6 +59,9 @@ uint32_t type_to_tag(uint32_t type)
   case TYPE_GRAPHICS_PRIM:
     return AbstractObject::TAG_GRAPHICS_PRIM;
 
+  case TYPE_ANY_POLYGON:
+    return AbstractObject::TAG_ANY_POLYGON;
+
   default:
     return AbstractObject::TAG_NONE;
   }
@@ -870,11 +873,11 @@ uint32_t BVHRT::AddGeom_AnyPolygon(
 
     m_abstractObjects.resize(m_abstractObjects.size() + 1);
     new (m_abstractObjects.data() + m_abstractObjects.size() - 1)
-        GeomDataAnyPolygon{};
+        GeomDataAnyPolygon();
     m_abstractObjects.back().geomId = m_abstractObjects.size() - 1;
     m_abstractObjects.back().m_tag = AbstractObject::TAG_ANY_POLYGON;
 
-    auto const vertices = poly.vertices();
+    auto const& vertices = poly.vertices();
 
     auto lo = float3{lm::INF_POSITIVE};
     auto hi = float3{lm::INF_NEGATIVE};
@@ -903,19 +906,20 @@ uint32_t BVHRT::AddGeom_AnyPolygon(
 
     m_AnyPolygonTriangles.reserve(3 * vertices.size());
 
-    for (size_t i = 0; i < vertices.size() + 1; ++i) {
-        m_AnyPolygonTriangles.emplace_back(vertices[i]);
-        m_AnyPolygonTriangles.emplace_back(vertices[(i + 1) % vertices.size()]);
-        m_AnyPolygonTriangles.emplace_back(poly.middle());
+    for (size_t i = 0; i < vertices.size(); ++i) {
+        m_AnyPolygonTriangles.push_back(vertices[i]);
+        m_AnyPolygonTriangles.push_back(vertices[(i + 1) % vertices.size()]);
+        m_AnyPolygonTriangles.push_back(poly.middle());
     }
 
-    // TODO: calculate BVH nodes
-    auto const nodes = std::array<BVHNode, 1>{
+    auto const nodes = std::array<BVHNode, 2>{
         BVHNode{.boxMin = lo, .leftOffset = 0, .boxMax = hi, .escapeIndex = 0},
+        BVHNode{},
     };
 
     return fake_this->AddGeom_AABB(
-        TYPE_ANY_POLYGON, (CRT_AABB const*) nodes.data(), nodes.size(), nullptr
+        AbstractObject::TAG_ANY_POLYGON, (CRT_AABB const*) nodes.data(),
+        nodes.size()
     );
 }
 
