@@ -334,6 +334,7 @@ struct BVHRT : public ISceneObject
   #endif
 #endif
 
+#ifndef DISABLE_NURBS
   //NURBS data
   std::vector<float> m_NURBSData;
   std::vector<NURBSHeader> m_NURBSHeaders;
@@ -356,6 +357,7 @@ struct BVHRT : public ISceneObject
     const LiteMath::float3 &ray,
     NURBSHeader h);
   //end NURBS functions
+#endif
 
   // Graphic primitives data
 #ifndef DISABLE_GRAPHICS_PRIM
@@ -599,7 +601,10 @@ struct GeomDataNURBS : public AbstractObject
     //uint32_t a_start = EXTRACT_START(start_count_packed);
     //uint32_t a_count = EXTRACT_COUNT(start_count_packed);
 
+    pHit->primId = 0xFFFFFFFF;
+#ifndef DISABLE_NURBS
     bvhrt->IntersectNURBS(ray_pos, ray_dir, tNear, info.instId, geometryId, pHit);
+#endif
     return pHit->primId == 0xFFFFFFFF ? TAG_NONE : TAG_GS;
   }
 };

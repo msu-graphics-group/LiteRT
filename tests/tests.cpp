@@ -2338,7 +2338,7 @@ void litert_test_31_fake_nurbs_render()
   // auto pRenderRef1 = CreateMultiRenderer("GPU");
   // pRenderRef1->SetPreset(preset);
   // pRenderRef1->SetViewport(0,0,W,H);
-  auto pRenderRef2 = CreateMultiRenderer("GPU");
+  auto pRenderRef2 = CreateMultiRenderer("CPU");
   pRenderRef2->SetPreset(preset);
   pRenderRef2->SetViewport(0,0,W,H);
   // auto pRenderRef3 = CreateMultiRenderer("GPU");

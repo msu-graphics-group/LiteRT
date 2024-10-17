@@ -9,15 +9,15 @@ struct NURBSHeader
   uint32_t n, m, p, q;
 };
 
-inline
+static inline
 uint32_t weights_offset(NURBSHeader h) { 
   return h.offset+(h.n + 1)*(h.m + 1)*4; 
 }
-inline
+static inline
 uint32_t u_knots_offset(NURBSHeader h) { 
   return h.offset+(h.n + 1)*(h.m + 1)*5; 
 }
-inline
+static inline
 uint32_t v_knots_offset(NURBSHeader h) {
   return h.offset+(h.n + 1)*(h.m + 1)*5 + (h.n + h.p + 2);
 }

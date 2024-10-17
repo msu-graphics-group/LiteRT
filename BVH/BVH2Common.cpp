@@ -1330,6 +1330,7 @@ void BVHRT::IntersectGSInLeaf(const float3& ray_pos, const float3& ray_dir,
 }
 #endif
 
+#ifndef DISABLE_NURBS
 //////////////////// NURBS SECTION /////////////////////////////////////////////////////
 float4 
 BVHRT::control_point(uint i, uint j, NURBSHeader h)
@@ -1624,6 +1625,7 @@ void BVHRT::IntersectNURBS(const float3& ray_pos, const float3& ray_dir,
   } 
 }
 //////////////////////// END NURBS SECTION ///////////////////////////////////////////////
+#endif
 
 void BVHRT::IntersectGraphicPrims(const float3& ray_pos, const float3& ray_dir,
                                   float tNear, uint32_t instId,
