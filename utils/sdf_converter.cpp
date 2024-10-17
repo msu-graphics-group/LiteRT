@@ -341,6 +341,54 @@ namespace sdf_converter
     }
   };
 
+  struct SizeCmp
+{
+  bool operator()(int3 lhs, int3 rhs) const
+  {
+    int f_l = lhs.x, s_l = lhs.y, t_l = lhs.z, f_r = rhs.x, s_r = rhs.y, t_r = rhs.z;
+    if (f_l < s_l)
+    {
+      f_l = f_l ^ s_l;
+      s_l = f_l ^ s_l;
+      f_l = f_l ^ s_l;
+    }
+    if (f_l < t_l)
+    {
+      f_l = f_l ^ t_l;
+      t_l = f_l ^ t_l;
+      f_l = f_l ^ t_l;
+    }
+    if (s_l < t_l)
+    {
+      t_l = t_l ^ s_l;
+      s_l = t_l ^ s_l;
+      t_l = t_l ^ s_l;
+    }
+
+    if (f_r < s_r)
+    {
+      f_r = f_r ^ s_r;
+      s_r = f_r ^ s_r;
+      f_r = f_r ^ s_r;
+    }
+    if (f_r < t_r)
+    {
+      f_r = f_r ^ t_r;
+      t_r = f_r ^ t_r;
+      f_r = f_r ^ t_r;
+    }
+    if (s_r < t_r)
+    {
+      t_r = t_r ^ s_r;
+      s_r = t_r ^ s_r;
+      t_r = t_r ^ s_r;
+    }
+    if (f_l != f_r) return f_l < f_r;
+    if (s_l != s_r) return s_l < s_r;
+    return t_l < t_r;
+  }
+};
+
   void div_block(SdfSBSAdapt &sbs, MultithreadedDistanceFunction sdf, 
                  std::unordered_map<float3, float, PositionHasher, PositionEqual> &pos_to_val,
                  uint16_t x_b, uint16_t y_b, uint16_t z_b,
@@ -418,7 +466,27 @@ namespace sdf_converter
     x_max = 7;
     y_max = 7;
     z_max = 7;*/
-    if (cnt == 0) return;
+    if (cnt == 0) 
+    {
+      /*printf("-----------------\n");
+      for (uint8_t x = 0; x <= x_sz; ++x)
+      {
+        for (uint8_t y = 0; y <= y_sz; ++y)
+        {
+          for (uint8_t z = 0; z <= z_sz; ++z)
+          {
+            auto key = 2.0 * float3{(x_b + (x) * x_st) / (float)SDF_SBS_ADAPT_MAX_UNITS, 
+                                   (y_b + (y) * y_st) / (float)SDF_SBS_ADAPT_MAX_UNITS, 
+                                   (z_b + (z) * z_st) / (float)SDF_SBS_ADAPT_MAX_UNITS} - 1.0;
+            printf("%f ", pos_to_val[key]);
+          }
+          printf("\n");
+        }
+        printf("\n");
+      }
+      printf("-----------------\n");*/
+      return;
+    }
 
     uint32_t metric_min = metrica_f(x_max - x_min + 1, y_max - y_min + 1, z_max - z_min + 1);
     bool is_div = false;
@@ -586,15 +654,15 @@ namespace sdf_converter
     //std::map<std::pair<std::pair<uint16_t, uint16_t>, uint16_t>, float> pos_to_val;
     std::unordered_map<float3, float, PositionHasher, PositionEqual> pos_to_val;
     //std::map<std::pair<std::pair<uint16_t, uint16_t>, uint16_t>, uint32_t> pos_to_idx;
-    std::pair<std::pair<uint16_t, uint16_t>, uint16_t> key;
+    std::map<int3, unsigned, SizeCmp> different_nodes;
     if (depth > 12) depth = 12;
     uint16_t vox_size = (1u << (12 - depth));
 
-    for (uint16_t x = 0; x < SDF_SBS_ADAPT_MAX_UNITS; x += 8 * vox_size)
+    for (uint16_t x = 0; x < SDF_SBS_ADAPT_MAX_UNITS; x += 16 * vox_size)
     {
-      for (uint16_t y = 0; y < SDF_SBS_ADAPT_MAX_UNITS; y += 8 * vox_size)
+      for (uint16_t y = 0; y < SDF_SBS_ADAPT_MAX_UNITS; y += 16 * vox_size)
       {
-        for (uint16_t z = 0; z < SDF_SBS_ADAPT_MAX_UNITS; z += 8 * vox_size)
+        for (uint16_t z = 0; z < SDF_SBS_ADAPT_MAX_UNITS; z += 16 * vox_size)
         {
           /*uint32_t imp_vox_cnt = 0;
           for (uint16_t x_off = 0; x_off < 8; ++x_off)
@@ -687,14 +755,23 @@ namespace sdf_converter
           //if empty slice near border or have another one empty slice -> divide
           //if empty slice lonely -> check if we have better dividing after that dividing -> divide
           //we should delete this node and create different smaller nodes
-          div_block(sbs, sdf, pos_to_val, x, y, z, vox_size, vox_size, vox_size, 8, 8, 8);
-
+          unsigned last_sz = sbs.nodes.size();
+          div_block(sbs, sdf, pos_to_val, x, y, z, vox_size, vox_size, vox_size, 16, 16, 16);
+          for (unsigned d = last_sz; d < sbs.nodes.size(); ++d)
+          {
+            int3 sz = int3{((sbs.nodes[d].vox_count_xyz_pad >> 16) & 0xFF), ((sbs.nodes[d].vox_count_xyz_pad >> 8) & 0xFF), (sbs.nodes[d].vox_count_xyz_pad & 0xFF)};
+            if (different_nodes.find(sz) != different_nodes.end()) different_nodes[sz] += 1;
+            else different_nodes[sz] = 1;
+          }
         }
       }
     }
 
 
-    
+    for (auto i : different_nodes)
+    {
+      printf("NODE: x - %u, y - %u, z - %u, c - %u\n", i.first.x, i.first.y, i.first.z, i.second);
+    }
 
     return sbs;
   }
