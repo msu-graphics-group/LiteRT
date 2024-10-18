@@ -49,4 +49,9 @@ void draw_points(
     LiteImage::Image2D<uint32_t> &image, 
     float col[4]);
 
+void draw_points(
+    const RBezierGrid &surface,
+    const Camera &camera,
+    LiteImage::Image2D<uint32_t> &image, 
+    float col[4]);
 #endif

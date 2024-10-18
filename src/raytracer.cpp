@@ -344,6 +344,50 @@ void draw_points(
   }
 }
 
+void draw_points(
+    const RBezierGrid &surface,
+    const Camera &camera,
+    Image2D<uint32_t> &image, 
+    float col[4]) {
+  image.clear(LiteMath::uchar4{ 153, 153, 153, 255 }.u32);
+  if (surface.grid.get_n() == 0)
+    return;
+  float3 forward = normalize(camera.target - camera.position);
+  float4x4 view = lookAt(camera.position, camera.target, camera.up);
+  float4x4 proj = perspectiveMatrix(camera.fov*180*M_1_PI, camera.aspect, 0.01f, 150.0f);
+  int count = 250;
+  for (int ui = 0; ui < count; ++ui)
+  for (int vi = 0; vi < count; ++vi)
+  {
+    float u = ui * 1.0f/count;
+    float v = vi * 1.0f/count;
+    float4 point = surface.get_point(u, v);
+    auto spans = surface.get_spans(u, v);
+    int n = surface.grid.get_n()-1;
+    int m = surface.grid.get_m()-1;
+    float colr = 0.2f + 0.8f * (spans[0]+1)/n;
+    float colg = 0.2f + 0.8f * (spans[1]+1)/m;
+    point = proj * view * point;
+    float w = point.w;
+    if (!(-w <= point.x && point.x <= w) ||
+        !(-w <= point.y && point.y <= w) ||
+        !(-w <= point.z && point.z <= w)) {
+      continue;
+    }
+
+    point /= point.w;
+    uint32_t x = clamp(static_cast<uint32_t>((point.x+1.0f)/2 * image.width()), 0u, image.width()-1);
+    uint32_t y = static_cast<uint32_t>((point.y+1.0f)/2 * image.height());
+    y = clamp(image.height() - y, 0u, image.height()-1);
+
+    image[uint2{x, y}] = uchar4{ 
+        static_cast<u_char>(colr*255.0f),
+        static_cast<u_char>(colg*255.0f),
+        static_cast<u_char>(0*255.0f),
+        static_cast<u_char>(1*255.0f) }.u32;
+  }
+}
+
 void draw_newton(
     const Surface &surface,
     const Camera &camera,

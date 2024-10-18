@@ -66,6 +66,7 @@ int main(int, char** argv)
   std::copy(default_path_to_surf.begin(), default_path_to_surf.end(), path_to_surf);
 
   Surface surf;
+  RBezierGrid rbezier;
   float surf_color[4] = { 1.0f, 1.0f, 0.0f, 1.0f };
 
   LiteImage::Image2D<uint32_t> framebuffer(WIDTH, HEIGHT);
@@ -133,7 +134,7 @@ int main(int, char** argv)
     auto b = std::chrono::high_resolution_clock::now();
     switch(cur_renderer)
     {
-      case 0: draw_points(surf, camera, framebuffer, surf_color); break;
+      case 0: draw_points(rbezier, camera, framebuffer, surf_color); break;
       case 1: draw_newton(surf, camera, framebuffer, surf_color); break;
       case 2: draw_bezier(surf, camera, framebuffer, surf_color); break;
     }
@@ -177,6 +178,7 @@ int main(int, char** argv)
       if (ImGui::Button("OK")) {
         to_load_surface = false;
         surf = load_surface(path_to_surf);
+        rbezier = nurbs2rbezier(surf);
         LiteMath::float3 target = get_center_of_mass(surf);
         float radius = get_sphere_bound(surf, target);
         float distance = radius / std::sin(M_PI/8);

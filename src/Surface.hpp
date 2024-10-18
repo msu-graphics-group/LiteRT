@@ -119,4 +119,43 @@ public:
 
 Surface load_surface(const std::filesystem::path &path);
 
+
+enum class SurfaceParameter { U, V };
+std::vector<std::vector<LiteMath::float4> >
+decompose_curve(
+    int n, int p,
+    const float *U,
+    const LiteMath::float4 *Pw);
+
+std::vector<Matrix2D<LiteMath::float4> >
+decompose_surface(
+    int n, int p,
+    const float *U,
+    int m,int q,
+    const float *V,
+    const Matrix2D<LiteMath::float4> &Pw,
+    SurfaceParameter dir);
+
+struct RBezier
+{
+public:
+  Matrix2D<LiteMath::float4> weighted_points;
+public:
+  LiteMath::float4 get_point(float u, float v) const;
+};
+
+struct RBezierGrid
+{
+public:
+  std::vector<float> uniq_uknots;
+  std::vector<float> uniq_vknots;
+  Matrix2D<RBezier> grid;
+public:
+  LiteMath::float4 get_point(float u, float v) const;
+  LiteMath::int2 get_spans(float u, float v) const;
+};
+
+RBezierGrid
+nurbs2rbezier(Surface nurbs);
+
 #endif
