@@ -2672,7 +2672,7 @@ void litert_test_37_any_polygon() {
 
     printf(" 31.1. %-64s", "CPU and GPU render image_metrics::PSNR > 50 ");
 
-    if (psnr <= 50) {
+    if (psnr > 50) {
         printf("passed    (%.2f)\n", psnr);
     } else {
         printf("FAILED, psnr = %f\n", psnr);
