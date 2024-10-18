@@ -1002,14 +1002,93 @@ std::vector<BVHNode> BVHRT::GetBoxes_GSGrid(GSScene& grid) {
   nodes.reserve(grid.data.size());
 
   for (std::size_t i = 0; i < grid.data.size(); ++i) {
+    const auto scale = float3(
+      exp(grid.data[i][2][0]),
+      exp(grid.data[i][2][1]),
+      exp(grid.data[i][2][2])) * 3.0f;
+
+    const auto rotation = normalize(float4(
+      grid.data[i][1][0],
+      grid.data[i][1][1], 
+      grid.data[i][1][2],
+      grid.data[i][1][3]));
+
+    float4x4 S;
+
+    for (int i = 0; i < 4; ++i) {
+      for (int j = 0; j < 4; ++j) {
+        S[i][j] = 0.0f;
+      }
+    }
+
+    S[0][0] = scale.x;
+    S[1][1] = scale.y;
+    S[2][2] = scale.z;
+    S[3][3] = 1.0f;
+
+    const auto r = rotation.x;
+    const auto x = rotation.y;
+    const auto y = rotation.z;
+    const auto z = rotation.w;
+
+    float4x4 R;
+
+    R[0][0] = 1.0f - 2.0f * (y * y + z * z);
+    R[0][1] = 2.0f * (x * y - r * z);
+    R[0][2] = 2.0f * (x * z + r * y);
+    R[0][3] = 0.0f;
+    R[1][0] = 2.0f * (x * y + r * z);
+    R[1][1] = 1.0f - 2.0f * (x * x + z * z);
+    R[1][2] = 2.0f * (y * z - r * x);
+    R[1][3] = 0.0f;
+    R[2][0] = 2.0f * (x * z - r * y);
+    R[2][1] = 2.0f * (y * z + r * x);
+    R[2][2] = 1.0f - 2.0f * (x * x + y * y);
+    R[2][3] = 0.0f;
+    R[3][0] = 0.0f;
+    R[3][1] = 0.0f;
+    R[3][2] = 0.0f;
+    R[3][3] = 1.0f;
+
+    const float4 points[] = {
+      R * S * float4(1.0f, 0.0f, 0.0f, 0.0f) + float4(grid.data[i][0][0], grid.data[i][0][1], grid.data[i][0][2], 0.0f),
+      R * S * float4(-1.0f, 0.0f, 0.0f, 0.0f) + float4(grid.data[i][0][0], grid.data[i][0][1], grid.data[i][0][2], 0.0f),
+      R * S * float4(0.0f, 1.0f, 0.0f, 0.0f) + float4(grid.data[i][0][0], grid.data[i][0][1], grid.data[i][0][2], 0.0f),
+      R * S * float4(0.0f, -1.0f, 0.0f, 0.0f) + float4(grid.data[i][0][0], grid.data[i][0][1], grid.data[i][0][2], 0.0f),
+      R * S * float4(0.0f, 0.0f, 1.0f, 0.0f) + float4(grid.data[i][0][0], grid.data[i][0][1], grid.data[i][0][2], 0.0f),
+      R * S * float4(0.0f, 0.0f, -1.0f, 0.0f) + float4(grid.data[i][0][0], grid.data[i][0][1], grid.data[i][0][2], 0.0f),
+    };
+
     BVHNode node;
 
-    node.boxMin = float3(grid.data[i][0][0], grid.data[i][0][1], grid.data[i][0][2]);
-    node.boxMax = float3(grid.data[i][0][0], grid.data[i][0][1], grid.data[i][0][2]);
+    node.boxMin = float3(std::numeric_limits<float>().max());
+    node.boxMax = float3(std::numeric_limits<float>().min());
 
-    // the bounding box must contain 99.73% of the Gaussian according to the 68–95–99.7 rule
-    node.boxMin -= exp(max(max(m_gs_data[i][2][0], m_gs_data[i][2][1]), m_gs_data[i][2][2])) * 3.0f;
-    node.boxMax += exp(max(max(m_gs_data[i][2][0], m_gs_data[i][2][1]), m_gs_data[i][2][2])) * 3.0f;
+    for (std::size_t j = 0; j < 6; ++j) {
+      if (points[j].x < node.boxMin.x) {
+        node.boxMin.x = points[j].x;
+      }
+
+      if (points[j].y < node.boxMin.y) {
+        node.boxMin.y = points[j].y;
+      }
+
+      if (points[j].z < node.boxMin.z) {
+        node.boxMin.z = points[j].z;
+      }
+
+      if (points[j].x > node.boxMax.x) {
+        node.boxMax.x = points[j].x;
+      }
+
+      if (points[j].y > node.boxMax.y) {
+        node.boxMax.y = points[j].y;
+      }
+
+      if (points[j].z > node.boxMax.z) {
+        node.boxMax.z = points[j].z;
+      }
+    }
 
     nodes.push_back(std::move(node));
   }
