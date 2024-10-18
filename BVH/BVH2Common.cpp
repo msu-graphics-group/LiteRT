@@ -2119,7 +2119,7 @@ void BVHRT::IntersectAllTrianglesInLeaf(const float3 ray_pos, const float3 ray_d
 
 int first_node(float tx0, float ty0, float tz0, float txm, float tym, float tzm)
 {
-unsigned char answer = 0;   // initialize to 00000000
+uint32_t answer = 0;   // initialize to 00000000
 // select the entry plane and set bits
 if(tx0 > ty0){
     if(tx0 > tz0){ // PLANE YZ
@@ -2143,147 +2143,145 @@ return (int) answer;
 
 int new_node(float txm, int x, float tym, int y, float tzm, int z)
 {
-if(txm < tym){
-    if(txm < tzm){return x;}  // YZ plane
-}
-else{
-    if(tym < tzm){return y;} // XZ plane
-}
-return z; // XY plane;
+  return (txm < tym) ? (txm < tzm ? x : z) : (tym < tzm ? y : z);
 }
 
-void BVHRT::proc_subtree(float tx0, float ty0, float tz0, float tx1,  float ty1,  float tz1, unsigned node_id,
-                         uint3 p, unsigned level, unsigned a,  CRT_Hit *pHit, float3 ray_pos, float3 ray_dir)
-{
-float txm, tym, tzm;
-int currNode;
-
-if(tx1 < 0 || ty1 < 0 || tz1 < 0) 
-  return;
-
-if(m_SdfFrameOctreeNodes[node_id].offset == 0) //leaf node
-{
-  //float tmin = std::max(std::max(std::min(tx0, tx1), std::min(ty0, ty1)), std::min(tz0, tz1));
-  //float tmax = std::min(std::min(std::max(tx0, tx1), std::max(ty0, ty1)), std::max(tz0, tz1));
-
-  float tmin = std::max(tx0, std::max(ty0, tz0));
-  float tmax = std::min(tx1, std::min(ty1, tz1));
-
-  uint32_t nodeId, primId;
-  float d, qNear, qFar;
-  float2 fNearFar;
-  float3 start_q;
-
-  qNear = 1.0f;
-
-  {
-    primId = node_id;
-    nodeId = node_id;
-    float sz = 0.5f*float(1 << level);
-    d = 1.0f/sz;
-    float3 min_pos = float3(-1,-1,-1) + d*float3(p.x,p.y,p.z);
-
-    fNearFar = float2(tmin, tmax);
-    float3 start_pos = ray_pos + fNearFar.x*ray_dir;
-    start_q = sz*(start_pos - min_pos);
-    qFar = sz*(fNearFar.y - fNearFar.x);
-    qNear = 0.0f;
-  }
-  
-  LocalSurfaceIntersection(TYPE_SDF_FRAME_OCTREE, ray_dir, 0, 0, m_SdfFrameOctreeNodes[nodeId].values, nodeId, primId, d, qNear, qFar, fNearFar, start_q, /*in */
-                           pHit); /*out*/
-
-  return;
-}
-
-txm = 0.5f*(tx0 + tx1);
-tym = 0.5f*(ty0 + ty1);
-tzm = 0.5f*(tz0 + tz1);
-
-currNode = first_node(tx0,ty0,tz0,txm,tym,tzm);
-do{
-    uint3 ch_p = 2*p + uint3(((currNode^a) & 4) >> 2, ((currNode^a) & 2) >> 1, (currNode^a) & 1);
-    uint off = m_SdfFrameOctreeNodes[node_id].offset;
-    switch (currNode)
-    {
-    case 0: { 
-        proc_subtree(tx0,ty0,tz0,txm,tym,tzm,off+(a), ch_p,level+1,a,pHit,ray_pos,ray_dir);
-        currNode = new_node(txm,4,tym,2,tzm,1);
-        break;}
-    case 1: { 
-        proc_subtree(tx0,ty0,tzm,txm,tym,tz1,off+(1^a),  ch_p,level+1,a,pHit,ray_pos,ray_dir);
-        currNode = new_node(txm,5,tym,3,tz1,8);
-        break;}
-    case 2: { 
-        proc_subtree(tx0,tym,tz0,txm,ty1,tzm,off+(2^a),  ch_p,level+1,a,pHit,ray_pos,ray_dir);
-        currNode = new_node(txm,6,ty1,8,tzm,3);
-        break;}
-    case 3: { 
-        proc_subtree(tx0,tym,tzm,txm,ty1,tz1,off+(3^a),  ch_p,level+1,a,pHit,ray_pos,ray_dir);
-        currNode = new_node(txm,7,ty1,8,tz1,8);
-        break;}
-    case 4: { 
-        proc_subtree(txm,ty0,tz0,tx1,tym,tzm,off+(4^a),  ch_p,level+1,a,pHit,ray_pos,ray_dir);
-        currNode = new_node(tx1,8,tym,6,tzm,5);
-        break;}
-    case 5: { 
-        proc_subtree(txm,ty0,tzm,tx1,tym,tz1,off+(5^a),  ch_p,level+1,a,pHit,ray_pos,ray_dir);
-        currNode = new_node(tx1,8,tym,7,tz1,8);
-        break;}
-    case 6: { 
-        proc_subtree(txm,tym,tz0,tx1,ty1,tzm,off+(6^a),  ch_p,level+1,a,pHit,ray_pos,ray_dir);
-        currNode = new_node(tx1,8,ty1,8,tzm,7);
-        break;}
-    case 7: { 
-        proc_subtree(txm,tym,tzm,tx1,ty1,tz1,off+(7^a),  ch_p,level+1,a,pHit,ray_pos,ray_dir);
-        currNode = 8;
-        break;}
-    }
-} while (currNode<8);
-}
-
-void BVHRT::OctreeIntersect(float3 ray_pos, float3 ray_dir,
-                            float tNear, uint32_t instId, uint32_t geomId,
+void BVHRT::OctreeIntersect(const float3 ray_pos, const float3 ray_dir, float tNear, 
+                            uint32_t instId, uint32_t geomId, bool stopOnFirstHit,
                             CRT_Hit *pHit)
 {
-  float3 org_ray_pos = ray_pos;
-  float3 org_ray_dir = ray_dir;
+  float3 pos_ray_pos = ray_pos;
+  float3 pos_ray_dir = ray_dir;
   //assume octree is box [-1,1]^3
-  unsigned char a = 0;
+  uint32_t a = 0;
   if (ray_dir.x < 0)
   {
-    ray_pos.x *= -1;
-    ray_dir.x *= -1;
+    pos_ray_pos.x *= -1;
+    pos_ray_dir.x *= -1;
     a |= 4;
   }
 
   if (ray_dir.y < 0)
   {
-    ray_pos.y *= -1;
-    ray_dir.y *= -1;
+    pos_ray_pos.y *= -1;
+    pos_ray_dir.y *= -1;
     a |= 2;
   }
 
   if (ray_dir.z < 0)
   {
-    ray_pos.z *= -1;
-    ray_dir.z *= -1;
+    pos_ray_pos.z *= -1;
+    pos_ray_dir.z *= -1;
     a |= 1;
   }
 
-  const float3 rayDirInv = SafeInverse(ray_dir);
-  float tx0 = (-1.0f - ray_pos.x) * rayDirInv.x;
-  float tx1 = (1.0f - ray_pos.x) * rayDirInv.x;
-  float ty0 = (-1.0f - ray_pos.y) * rayDirInv.y;
-  float ty1 = (1.0f - ray_pos.y) * rayDirInv.y;
-  float tz0 = (-1.0f - ray_pos.z) * rayDirInv.z;
-  float tz1 = (1.0f - ray_pos.z) * rayDirInv.z;
+  const float3 pos_ray_dir_inv = SafeInverse(pos_ray_dir);
+  float _tx0 = (-1.0f - pos_ray_pos.x) * pos_ray_dir_inv.x;
+  float _tx1 = ( 1.0f - pos_ray_pos.x) * pos_ray_dir_inv.x;
+  float _ty0 = (-1.0f - pos_ray_pos.y) * pos_ray_dir_inv.y;
+  float _ty1 = ( 1.0f - pos_ray_pos.y) * pos_ray_dir_inv.y;
+  float _tz0 = (-1.0f - pos_ray_pos.z) * pos_ray_dir_inv.z;
+  float _tz1 = ( 1.0f - pos_ray_pos.z) * pos_ray_dir_inv.z;
 
-  //printf("tx0=%f, tx1=%f, ty0=%f, ty1=%f, tz0=%f, tz1=%f\n", tx0, tx1, ty0, ty1, tz0, tz1);
+  const uint3 nn_indices[8] = {uint3(4, 2, 1), uint3(5, 3, 8), uint3(6, 8, 3), uint3(7, 8, 8),
+                               uint3(8, 6, 5), uint3(8, 7, 8), uint3(8, 8, 7), uint3(8, 8, 8)};
 
-  if (std::max(tx0, std::max(ty0, tz0)) < std::min(tx1, std::min(ty1, tz1)))
+  OTStackElement stack[32];
+  OTStackElement tmp_buf[4];
+
+  int top = 0;
+  int buf_top = 0;
+  float tx0 = 0, ty0 = 0, tz0 = 0, tx1 = 0, ty1 = 0, tz1 = 0;
+  float txm = 0, tym = 0, tzm = 0;
+  int currNode;
+  
+  stack[top].nodeId = 0;
+  stack[top].level = 0;
+  stack[top].p = uint3(0,0,0);
+
+  if (std::max(_tx0, std::max(_ty0, _tz0)) < std::min(_tx1, std::min(_ty1, _tz1)))
   {
-    proc_subtree(tx0,ty0,tz0,tx1,ty1,tz1, 0, uint3(0,0,0), 0, a, pHit,org_ray_pos,org_ray_dir);
+    while (top >= 0)
+    {
+      float d = 1.0f/float(1 << stack[top].level);
+      tx0 = _tx0 + stack[top].p.x * d * (_tx1 - _tx0);
+      ty0 = _ty0 + stack[top].p.y * d * (_ty1 - _ty0);
+      tz0 = _tz0 + stack[top].p.z * d * (_tz1 - _tz0);
+
+      tx1 = _tx0 + (stack[top].p.x+1) * d * (_tx1 - _tx0);
+      ty1 = _ty0 + (stack[top].p.y+1) * d * (_ty1 - _ty0);
+      tz1 = _tz0 + (stack[top].p.z+1) * d * (_tz1 - _tz0);
+
+      if(m_SdfFrameOctreeNodes[stack[top].nodeId].offset == 0) //leaf node
+      {
+        float tmin = std::max(tx0, std::max(ty0, tz0));
+        float tmax = std::min(tx1, std::min(ty1, tz1));
+
+        uint32_t nodeId, primId;
+        float d, qNear, qFar;
+        float2 fNearFar;
+        float3 start_q;
+
+        qNear = 1.0f;
+
+        {
+          uint32_t p_mask = (1 << stack[top].level) - 1;
+          uint3 real_p = uint3(((a & 4) > 0) ? (~stack[top].p.x & p_mask) : stack[top].p.x, 
+                               ((a & 2) > 0) ? (~stack[top].p.y & p_mask) : stack[top].p.y, 
+                               ((a & 1) > 0) ? (~stack[top].p.z & p_mask) : stack[top].p.z);
+
+          primId = stack[top].nodeId;
+          nodeId = stack[top].nodeId;
+          float sz = 0.5f*float(1 << stack[top].level);
+          d = 1.0f/sz;
+          float3 min_pos = float3(-1,-1,-1) + d*float3(real_p.x,real_p.y,real_p.z);
+
+          fNearFar = float2(tmin, tmax);
+          float3 start_pos = ray_pos + fNearFar.x*ray_dir;
+          start_q = sz*(start_pos - min_pos);
+          qFar = sz*(fNearFar.y - fNearFar.x);
+          qNear = 0.0f;
+        }
+        
+        LocalSurfaceIntersection(TYPE_SDF_FRAME_OCTREE, ray_dir, 0, 0, m_SdfFrameOctreeNodes[nodeId].values, nodeId, primId, d, qNear, qFar, fNearFar, start_q, /*in */
+                                pHit); /*out*/
+
+        if (pHit->primId != 0xFFFFFFFF)
+          top = -1;
+        else
+          top--;
+      }
+      else
+      { 
+        buf_top = 0;
+        txm = 0.5f*(tx0 + tx1);
+        tym = 0.5f*(ty0 + ty1);
+        tzm = 0.5f*(tz0 + tz1);
+
+        currNode = first_node(tx0,ty0,tz0,txm,tym,tzm);
+        do
+        {
+          uint3 ch_p = 2 * stack[top].p + uint3((currNode & 4) >> 2, (currNode & 2) >> 1, currNode & 1);
+          uint32_t currNodeOff = m_SdfFrameOctreeNodes[stack[top].nodeId].offset + (currNode ^ a);
+
+          // assert(buf_top < 4);
+          // assert(top+buf_top <= 32);
+          tmp_buf[buf_top].nodeId = currNodeOff;
+          tmp_buf[buf_top].level = stack[top].level + 1;
+          tmp_buf[buf_top].p = ch_p;
+          buf_top++;
+          currNode = new_node(((currNode & 4) > 0) ? tx1 : txm, nn_indices[currNode].x,
+                              ((currNode & 2) > 0) ? ty1 : tym, nn_indices[currNode].y,
+                              ((currNode & 1) > 0) ? tz1 : tzm, nn_indices[currNode].z);
+        } while (currNode<8);
+
+        for (int i = 0; i < buf_top; i++)
+        {
+          stack[top+i] = tmp_buf[buf_top-i-1];
+        }
+        top += buf_top - 1;
+      }
+    }
   }
 }
 
@@ -2291,11 +2289,6 @@ void BVHRT::BVH2TraverseF32(const float3 ray_pos, const float3 ray_dir, float tN
                                 uint32_t instId, uint32_t geomId, bool stopOnFirstHit,
                                 CRT_Hit* pHit)
 {
-  if (m_geomData[geomId].type == TYPE_SDF_FRAME_OCTREE)
-  {
-    OctreeIntersect(ray_pos, ray_dir, tNear, instId, geomId, pHit);
-    return;
-  }
   const uint32_t bvhOffset = m_geomData[geomId].bvhOffset;
 
   uint32_t stack[STACK_SIZE];
@@ -2418,7 +2411,10 @@ CRT_Hit BVHRT::RayQuery_NearestHit(float4 posAndNear, float4 dirAndFar)
         const float3 ray_pos = matmul4x3(m_instanceData[instId].transformInv, to_float3(posAndNear));
         const float3 ray_dir = matmul3x3(m_instanceData[instId].transformInv, to_float3(dirAndFar)); // DON'float NORMALIZE IT !!!! When we transform to local space of node, ray_dir must be unnormalized!!!
     
-        BVH2TraverseF32(ray_pos, ray_dir, posAndNear.w, instId, geomId, stopOnFirstHit, &hit);
+        if (m_geomData[geomId].type == TYPE_SDF_FRAME_OCTREE && m_preset.octree_intersect == OCTREE_INTERSECT_TRAVERSE)
+          OctreeIntersect(ray_pos, ray_dir, posAndNear.w, instId, geomId, stopOnFirstHit, &hit);
+        else
+          BVH2TraverseF32(ray_pos, ray_dir, posAndNear.w, instId, geomId, stopOnFirstHit, &hit);
       }
     } while (nodeIdx < 0xFFFFFFFE && !(stopOnFirstHit && hit.primId != uint32_t(-1))); //
   }

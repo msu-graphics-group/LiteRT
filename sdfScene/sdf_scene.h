@@ -163,6 +163,13 @@ struct SdfFrameOctreeTexNode
   unsigned material_id;
 };
 
+struct OTStackElement
+{
+  uint32_t nodeId;
+  uint32_t level;
+  uint3 p;
+};
+
 //voxel position (i,j,k) to linear index
 static unsigned SBS_v_to_i(unsigned i, unsigned j, unsigned k, unsigned v_size, unsigned pad)
 {

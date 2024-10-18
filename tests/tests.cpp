@@ -2846,6 +2846,81 @@ void litert_test_37_sbs_adapt_comparison()
   }
 }
 
+void litert_test_38_direct_octree_traversal()
+{
+  printf("TEST 38. BVH vs. DIRECT OCTREE TRAVERSAL\n");
+
+  auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "scenes/01_simple_scenes/data/teapot.vsgf").c_str());
+  cmesh4::normalize_mesh(mesh);
+  auto octree = sdf_converter::create_sdf_frame_octree(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 9), mesh);
+
+  unsigned W = 2048, H = 2048;
+  MultiRenderPreset preset = getDefaultPreset();
+  preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
+
+  LiteImage::Image2D<uint32_t> image_ref(W, H);
+  LiteImage::Image2D<uint32_t> image_BVH(W, H);
+  LiteImage::Image2D<uint32_t> image_direct(W, H);
+
+  float timings[4] = {0,0,0,0};
+
+  {
+    auto SVS = sdf_converter::create_sdf_SVS(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 9), mesh);
+    auto pRender = CreateMultiRenderer("GPU");
+    pRender->SetPreset(preset);
+    pRender->SetScene(SVS);
+
+    auto t1 = std::chrono::steady_clock::now();
+    render(image_direct, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset, 10);
+    pRender->GetExecutionTime("CastRaySingleBlock", timings);
+    auto t2 = std::chrono::steady_clock::now();
+
+    float time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+    printf("SVS %.1f ms\n", timings[0]/10);
+    //LiteImage::SaveImage<uint32_t>("saves/test_38_traverse.bmp", image_direct);
+  }
+
+  {
+    auto pRender = CreateMultiRenderer("GPU");
+    preset.octree_intersect = OCTREE_INTERSECT_BVH;
+    pRender->SetPreset(preset);
+    pRender->SetScene(octree);
+
+    auto t1 = std::chrono::steady_clock::now();
+    render(image_BVH, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset, 10);
+    pRender->GetExecutionTime("CastRaySingleBlock", timings);
+    auto t2 = std::chrono::steady_clock::now();
+
+    float time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+    printf("framed octree - BVH %.1f ms\n", timings[0]/10);
+    LiteImage::SaveImage<uint32_t>("saves/test_38_BVH.bmp", image_BVH);
+  }
+
+  {
+    auto pRender = CreateMultiRenderer("GPU");
+    preset.octree_intersect = OCTREE_INTERSECT_TRAVERSE;
+    pRender->SetPreset(preset);
+    pRender->SetScene(octree);
+
+    auto t1 = std::chrono::steady_clock::now();
+    render(image_direct, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset, 10);
+    pRender->GetExecutionTime("CastRaySingleBlock", timings);
+    auto t2 = std::chrono::steady_clock::now();
+
+    float time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+    printf("framed octree - direct %.1f ms\n", timings[0]/10);
+    LiteImage::SaveImage<uint32_t>("saves/test_38_traverse.bmp", image_direct);
+  }
+
+      float psnr = image_metrics::PSNR(image_BVH, image_direct);
+
+      printf("  38.1 %-64s", "Direct traversal matches BVH");
+      if (psnr >= 50)
+        printf("passed    (%.2f)\n", psnr);
+      else
+        printf("FAILED, psnr = %f\n", psnr);
+}
+
 void perform_tests_litert(const std::vector<int> &test_ids)
 {
   std::vector<int> tests = test_ids;
@@ -2863,7 +2938,7 @@ void perform_tests_litert(const std::vector<int> &test_ids)
       litert_test_28_sbs_reg, litert_test_29_smoothed_frame_octree, litert_test_30_verify_SBS_SBSAdapt,
       litert_test_31_fake_nurbs_render, litert_test_32_smooth_sbs_normals, litert_test_33_verify_SBS_SBSAdapt_split, 
       litert_test_34_tricubic_sbs, litert_test_35_SBSAdapt_greed_creating, litert_test_36_primitive_visualization,
-      litert_test_37_sbs_adapt_comparison};
+      litert_test_37_sbs_adapt_comparison, litert_test_38_direct_octree_traversal};
 
   if (tests.empty())
   {
