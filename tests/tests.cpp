@@ -875,7 +875,7 @@ void litert_test_17_all_types_sanity_check()
       pRender->SetPreset(preset);
       pRender->SetScene(mesh);
       render(image_ref[m], pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
-      LiteImage::SaveImage<uint32_t>("saves/test_17_ref.bmp", image_ref[m]);
+      LiteImage::SaveImage<uint32_t>(("saves/test_17_ref_"+modes[m]+".bmp").c_str(), image_ref[m]);
     }
 
     {
@@ -884,7 +884,7 @@ void litert_test_17_all_types_sanity_check()
       pRender->SetPreset(preset);
       pRender->SetScene(grid);
       render(image_1[m], pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
-      LiteImage::SaveImage<uint32_t>("saves/test_17_grid.bmp", image_1[m]);    
+      LiteImage::SaveImage<uint32_t>(("saves/test_17_grid_"+modes[m]+".bmp").c_str(), image_1[m]);    
     }
 
     {
@@ -893,7 +893,7 @@ void litert_test_17_all_types_sanity_check()
       pRender->SetPreset(preset);
       pRender->SetScene(octree);
       render(image_3[m], pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
-      LiteImage::SaveImage<uint32_t>("saves/test_17_frame_octree.bmp", image_3[m]);
+      LiteImage::SaveImage<uint32_t>(("saves/test_17_frame_octree_"+modes[m]+".bmp").c_str(), image_3[m]);
     }
 
     {
@@ -902,7 +902,7 @@ void litert_test_17_all_types_sanity_check()
       pRender->SetPreset(preset);
       pRender->SetScene(octree);
       render(image_4[m], pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
-      LiteImage::SaveImage<uint32_t>("saves/test_17_SVS.bmp", image_4[m]);
+      LiteImage::SaveImage<uint32_t>(("saves/test_17_SVS_"+modes[m]+".bmp").c_str(), image_4[m]);
     }
 
     {
@@ -2545,7 +2545,7 @@ litert_test_34_tricubic_sbs()
     SparseOctreeSettings settings(SparseOctreeBuildType::MESH_TLO, 5);
 
     SdfSBSHeader header;
-    header.brick_size = 10;
+    header.brick_size = 2;
     header.brick_pad = 1;
     header.bytes_per_value = 1;
 
@@ -2559,12 +2559,13 @@ litert_test_34_tricubic_sbs()
       pRender->SetPreset(preset);
       pRender->SetViewport(0,0,W,H);
       pRender->SetScene(mesh);
-      render(image_mesh, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+      render(image_mesh, pRender, float3(0, 1, 2), float3(0, 0, 0), float3(0, 1, 0), preset);
       LiteImage::SaveImage<uint32_t>("saves/test_34_mesh_ref.bmp", image_mesh);
     }
 
     {
-      auto pRender = CreateMultiRenderer("GPU");
+      preset.interpolation_type = TRICUBIC_INTERPOLATION_MODE;
+      auto pRender = CreateMultiRenderer("CPU");
       pRender->SetPreset(preset);
       pRender->SetViewport(0,0,W,H);
       auto indexed_SBS = sdf_converter::create_sdf_SBS_indexed_with_neighbors(settings, header, mesh, 0, pRender->getMaterials(), pRender->getTextures());
@@ -2575,6 +2576,20 @@ litert_test_34_tricubic_sbs()
       render(image_SBS, pRender, float3(0, 1, 2), float3(0, 0, 0), float3(0, 1, 0), preset);    
       //auto t2 = std::chrono::high_resolution_clock::now();
       LiteImage::SaveImage<uint32_t>("saves/test_34_tricubic.bmp", image_SBS);
+    }
+    {
+      preset.interpolation_type = TRILINEAR_INTERPOLATION_MODE;
+      auto pRender = CreateMultiRenderer("GPU");
+      pRender->SetPreset(preset);
+      pRender->SetViewport(0,0,W,H);
+      auto indexed_SBS = sdf_converter::create_sdf_SBS_indexed_with_neighbors(settings, header, mesh, 0, pRender->getMaterials(), pRender->getTextures());
+      pRender->SetScene(indexed_SBS);
+
+      preset.normal_mode = NORMAL_MODE_GEOMETRY;
+      //auto t1 = std::chrono::high_resolution_clock::now();
+      render(image_SBS, pRender, float3(0, 1, 2), float3(0, 0, 0), float3(0, 1, 0), preset);    
+      //auto t2 = std::chrono::high_resolution_clock::now();
+      LiteImage::SaveImage<uint32_t>("saves/test_34_trilinear.bmp", image_SBS);
     }
   #else
     {
