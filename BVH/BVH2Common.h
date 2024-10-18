@@ -194,6 +194,12 @@ struct BVHRT : public ISceneObject
                                    uint32_t a_start, uint32_t a_count,
                                    CRT_Hit *pHit);
                                    
+  void OctreeIntersect(float3 ray_pos, float3 ray_dir,
+                       float tNear, uint32_t instId, uint32_t geomId,
+                       CRT_Hit *pHit);
+  void proc_subtree(float tx0, float ty0, float tz0, float tx1,  float ty1,  float tz1, unsigned node_id,
+                    uint3 p, unsigned level, unsigned a, CRT_Hit *pHit, float3 ray_pos, float3 ray_dir);
+
   void OctreeNodeIntersect(uint32_t type, const float3 ray_pos, const float3 ray_dir,
                            float tNear, uint32_t instId, uint32_t geomId,
                            uint32_t a_start, uint32_t a_count,

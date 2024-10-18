@@ -2117,10 +2117,185 @@ void BVHRT::IntersectAllTrianglesInLeaf(const float3 ray_pos, const float3 ray_d
   }
 }
 
+int first_node(float tx0, float ty0, float tz0, float txm, float tym, float tzm)
+{
+unsigned char answer = 0;   // initialize to 00000000
+// select the entry plane and set bits
+if(tx0 > ty0){
+    if(tx0 > tz0){ // PLANE YZ
+        if(tym < tx0) answer|=2;    // set bit at position 1
+        if(tzm < tx0) answer|=1;    // set bit at position 0
+        return (int) answer;
+    }
+}
+else {
+    if(ty0 > tz0){ // PLANE XZ
+        if(txm < ty0) answer|=4;    // set bit at position 2
+        if(tzm < ty0) answer|=1;    // set bit at position 0
+        return (int) answer;
+    }
+}
+// PLANE XY
+if(txm < tz0) answer|=4;    // set bit at position 2
+if(tym < tz0) answer|=2;    // set bit at position 1
+return (int) answer;
+}
+
+int new_node(float txm, int x, float tym, int y, float tzm, int z)
+{
+if(txm < tym){
+    if(txm < tzm){return x;}  // YZ plane
+}
+else{
+    if(tym < tzm){return y;} // XZ plane
+}
+return z; // XY plane;
+}
+
+void BVHRT::proc_subtree(float tx0, float ty0, float tz0, float tx1,  float ty1,  float tz1, unsigned node_id,
+                         uint3 p, unsigned level, unsigned a,  CRT_Hit *pHit, float3 ray_pos, float3 ray_dir)
+{
+float txm, tym, tzm;
+int currNode;
+
+if(tx1 < 0 || ty1 < 0 || tz1 < 0) 
+  return;
+
+if(m_SdfFrameOctreeNodes[node_id].offset == 0) //leaf node
+{
+  //float tmin = std::max(std::max(std::min(tx0, tx1), std::min(ty0, ty1)), std::min(tz0, tz1));
+  //float tmax = std::min(std::min(std::max(tx0, tx1), std::max(ty0, ty1)), std::max(tz0, tz1));
+
+  float tmin = std::max(tx0, std::max(ty0, tz0));
+  float tmax = std::min(tx1, std::min(ty1, tz1));
+
+  uint32_t nodeId, primId;
+  float d, qNear, qFar;
+  float2 fNearFar;
+  float3 start_q;
+
+  qNear = 1.0f;
+
+  {
+    primId = node_id;
+    nodeId = node_id;
+    float sz = 0.5f*float(1 << level);
+    d = 1.0f/sz;
+    float3 min_pos = float3(-1,-1,-1) + d*float3(p.x,p.y,p.z);
+
+    fNearFar = float2(tmin, tmax);
+    float3 start_pos = ray_pos + fNearFar.x*ray_dir;
+    start_q = sz*(start_pos - min_pos);
+    qFar = sz*(fNearFar.y - fNearFar.x);
+    qNear = 0.0f;
+  }
+  
+  LocalSurfaceIntersection(TYPE_SDF_FRAME_OCTREE, ray_dir, 0, 0, m_SdfFrameOctreeNodes[nodeId].values, nodeId, primId, d, qNear, qFar, fNearFar, start_q, /*in */
+                           pHit); /*out*/
+
+  return;
+}
+
+txm = 0.5f*(tx0 + tx1);
+tym = 0.5f*(ty0 + ty1);
+tzm = 0.5f*(tz0 + tz1);
+
+currNode = first_node(tx0,ty0,tz0,txm,tym,tzm);
+do{
+    uint3 ch_p = 2*p + uint3(((currNode^a) & 4) >> 2, ((currNode^a) & 2) >> 1, (currNode^a) & 1);
+    uint off = m_SdfFrameOctreeNodes[node_id].offset;
+    switch (currNode)
+    {
+    case 0: { 
+        proc_subtree(tx0,ty0,tz0,txm,tym,tzm,off+(a), ch_p,level+1,a,pHit,ray_pos,ray_dir);
+        currNode = new_node(txm,4,tym,2,tzm,1);
+        break;}
+    case 1: { 
+        proc_subtree(tx0,ty0,tzm,txm,tym,tz1,off+(1^a),  ch_p,level+1,a,pHit,ray_pos,ray_dir);
+        currNode = new_node(txm,5,tym,3,tz1,8);
+        break;}
+    case 2: { 
+        proc_subtree(tx0,tym,tz0,txm,ty1,tzm,off+(2^a),  ch_p,level+1,a,pHit,ray_pos,ray_dir);
+        currNode = new_node(txm,6,ty1,8,tzm,3);
+        break;}
+    case 3: { 
+        proc_subtree(tx0,tym,tzm,txm,ty1,tz1,off+(3^a),  ch_p,level+1,a,pHit,ray_pos,ray_dir);
+        currNode = new_node(txm,7,ty1,8,tz1,8);
+        break;}
+    case 4: { 
+        proc_subtree(txm,ty0,tz0,tx1,tym,tzm,off+(4^a),  ch_p,level+1,a,pHit,ray_pos,ray_dir);
+        currNode = new_node(tx1,8,tym,6,tzm,5);
+        break;}
+    case 5: { 
+        proc_subtree(txm,ty0,tzm,tx1,tym,tz1,off+(5^a),  ch_p,level+1,a,pHit,ray_pos,ray_dir);
+        currNode = new_node(tx1,8,tym,7,tz1,8);
+        break;}
+    case 6: { 
+        proc_subtree(txm,tym,tz0,tx1,ty1,tzm,off+(6^a),  ch_p,level+1,a,pHit,ray_pos,ray_dir);
+        currNode = new_node(tx1,8,ty1,8,tzm,7);
+        break;}
+    case 7: { 
+        proc_subtree(txm,tym,tzm,tx1,ty1,tz1,off+(7^a),  ch_p,level+1,a,pHit,ray_pos,ray_dir);
+        currNode = 8;
+        break;}
+    }
+} while (currNode<8);
+}
+
+void BVHRT::OctreeIntersect(float3 ray_pos, float3 ray_dir,
+                            float tNear, uint32_t instId, uint32_t geomId,
+                            CRT_Hit *pHit)
+{
+  float3 org_ray_pos = ray_pos;
+  float3 org_ray_dir = ray_dir;
+  //assume octree is box [-1,1]^3
+  unsigned char a = 0;
+  if (ray_dir.x < 0)
+  {
+    ray_pos.x *= -1;
+    ray_dir.x *= -1;
+    a |= 4;
+  }
+
+  if (ray_dir.y < 0)
+  {
+    ray_pos.y *= -1;
+    ray_dir.y *= -1;
+    a |= 2;
+  }
+
+  if (ray_dir.z < 0)
+  {
+    ray_pos.z *= -1;
+    ray_dir.z *= -1;
+    a |= 1;
+  }
+
+  const float3 rayDirInv = SafeInverse(ray_dir);
+  float tx0 = (-1.0f - ray_pos.x) * rayDirInv.x;
+  float tx1 = (1.0f - ray_pos.x) * rayDirInv.x;
+  float ty0 = (-1.0f - ray_pos.y) * rayDirInv.y;
+  float ty1 = (1.0f - ray_pos.y) * rayDirInv.y;
+  float tz0 = (-1.0f - ray_pos.z) * rayDirInv.z;
+  float tz1 = (1.0f - ray_pos.z) * rayDirInv.z;
+
+  //printf("tx0=%f, tx1=%f, ty0=%f, ty1=%f, tz0=%f, tz1=%f\n", tx0, tx1, ty0, ty1, tz0, tz1);
+
+  if (std::max(tx0, std::max(ty0, tz0)) < std::min(tx1, std::min(ty1, tz1)))
+  {
+    proc_subtree(tx0,ty0,tz0,tx1,ty1,tz1, 0, uint3(0,0,0), 0, a, pHit,org_ray_pos,org_ray_dir);
+  }
+}
+
 void BVHRT::BVH2TraverseF32(const float3 ray_pos, const float3 ray_dir, float tNear,
                                 uint32_t instId, uint32_t geomId, bool stopOnFirstHit,
                                 CRT_Hit* pHit)
 {
+  if (m_geomData[geomId].type == TYPE_SDF_FRAME_OCTREE)
+  {
+    OctreeIntersect(ray_pos, ray_dir, tNear, instId, geomId, pHit);
+    return;
+  }
   const uint32_t bvhOffset = m_geomData[geomId].bvhOffset;
 
   uint32_t stack[STACK_SIZE];
