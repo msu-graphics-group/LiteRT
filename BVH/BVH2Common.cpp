@@ -1523,11 +1523,12 @@ void BVHRT::IntersectAnyPolygon(
     auto const t_far = t_bounds.y;
 
     auto distance = 0.0f;
+    auto overstep = 0.0f;
     auto normal = float3{};
     auto n_steps = uint{0};
 
     while (distance < t_far && n_steps < MAX_N_STEPS) {
-        auto const pos = ray_origin + distance * ray_direction;
+        auto const pos = ray_origin + (distance + overstep) * ray_direction;
         auto const solid_angle =
             any_polygon_solid_angle(m_AnyPolygonTriangles, header, pos);
         auto const value = lm::mod(solid_angle - LEVEL_SET, MODULO);
@@ -1560,8 +1561,10 @@ void BVHRT::IntersectAnyPolygon(
         auto const step_size_hi =
             0.5f * radius * (a_hi + 2.0f - lm::sqrt(a_hi * a_hi + 8.0f * a_hi));
 
-        auto const step_size = lm::min(step_size_lo, step_size_hi);
+        auto const max_step = lm::min(step_size_lo, step_size_hi);
+        auto const step_size = (max_step >= overstep) ? overstep + max_step : 0.0f;
 
+        overstep = (max_step >= overstep) ? 0.75f * max_step : 0.0f;
         distance += step_size;
         n_steps += 1;
     }
