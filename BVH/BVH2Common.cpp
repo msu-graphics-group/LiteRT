@@ -1503,12 +1503,12 @@ void BVHRT::IntersectAnyPolygon(
 #ifndef DISABLE_ANY_POLYGON
     namespace lm = LiteMath;
 
-    auto constexpr MAX_N_STEPS = uint{10'000};
+    auto constexpr MAX_N_STEPS = uint{1'000};
     auto constexpr ANGULAR_FREQUENCY = 2.0f;
     auto constexpr MODULO = 2.0f * lm::M_PI * ANGULAR_FREQUENCY;
-    auto constexpr PHASE_SHIFT = 0.0f;
-    auto constexpr EPSILON = 0.001f;
-    auto constexpr LOWER_BOUND = SIGNED_SOLID_ANGLE_MIN_VALUE;
+    auto constexpr PHASE_SHIFT = 4.0f * lm::M_PI;
+    auto constexpr EPSILON = 0.01f;
+    auto constexpr LOWER_BOUND = -4.0f * lm::M_PI;
 
     auto const poly_id = m_geomData[geom_id].offset.x;
     auto const header = m_AnyPolygonHeaders[poly_id];
@@ -1538,10 +1538,10 @@ void BVHRT::IntersectAnyPolygon(
 
         normal = -normalize(gradient);
 
-        auto const should_stop = lm::min(value - value_lo, value_hi - value) <=
+        auto const close_to_level_set = lm::min(value - value_lo, value_hi - value) <=
                                  EPSILON * lm::length(gradient);
 
-        if (t_near <= distance && should_stop) {
+        if (t_near < distance && close_to_level_set) {
             auto const encoded_normal = encode_normal(normal);
             any_polygon_fill_crt_hit(
                 hit_ptr, distance, encoded_normal, poly_id, inst_id, geom_id
@@ -1567,15 +1567,6 @@ void BVHRT::IntersectAnyPolygon(
         distance += step_size;
         n_steps += 1;
     }
-
-    if (distance <= t_near || t_far <= distance) {
-        return;
-    }
-
-    auto const encoded_normal = encode_normal(normal);
-    any_polygon_fill_crt_hit(
-        hit_ptr, distance, encoded_normal, poly_id, inst_id, geom_id
-    );
 
 #endif  // !defined(DISABLE_ANY_POLYGON)
 }
