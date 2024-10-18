@@ -81,7 +81,7 @@ inline float3 any_polygon_solid_angle_gradient(
         auto const left = points[header.offset + i] - point_of_view;
         auto const right =
             points[header.offset + (i + 1) % header.size] - point_of_view;
-        auto const cross = lm::cross(left, right);
+        auto const cross = lm::cross(right, left);
         auto const cross_len_sqr = lm::dot(cross, cross);
 
         result +=

@@ -1536,7 +1536,7 @@ void BVHRT::IntersectAnyPolygon(
         auto const gradient =
             any_polygon_solid_angle_gradient(m_AnyPolygonVertices, header, pos);
 
-        normal = -normalize(gradient);
+        normal = normalize(gradient);
 
         auto const close_to_level_set = lm::min(value - value_lo, value_hi - value) <=
                                  EPSILON * lm::length(gradient);
