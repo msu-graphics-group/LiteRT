@@ -2620,11 +2620,11 @@ void litert_test_37_any_polygon() {
     namespace img = LiteImage;
     namespace lm = LiteMath;
 
-    static uint constexpr WIDTH = 400;
-    static uint constexpr HEIGHT = 400;
+    static uint constexpr WIDTH = 1024;
+    static uint constexpr HEIGHT = 1024;
     static char constexpr POLYGON_BIN_FILE_RELATIVE_PATH[] =
         "scenes/01_simple_scenes/data/polygon.bin";
-    static float3 const CAMERA_POSITION = float3{0.0f, 3.0f, 2.5f};
+    static float3 const CAMERA_POSITION = float3{0.0f, 2.0f, 2.0f};
     static float3 const CAMERA_TARGET = float3{0.0f};
     static float3 const CAMERA_UP = lm::normalize(float3{0.0f, CAMERA_POSITION.z, -CAMERA_POSITION.y});
     static char constexpr RENDERER_NAME_HOST[] = "CPU";
