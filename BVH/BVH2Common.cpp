@@ -1504,11 +1504,11 @@ void BVHRT::IntersectAnyPolygon(
     namespace lm = LiteMath;
 
     auto constexpr MAX_N_STEPS = uint{10'000};
-    auto constexpr ANGULAR_FREQUENCY = 1.0f;
+    auto constexpr ANGULAR_FREQUENCY = 2.0f;
     auto constexpr MODULO = 2.0f * lm::M_PI * ANGULAR_FREQUENCY;
     auto constexpr PHASE_SHIFT = 0.0f;
     auto constexpr EPSILON = 0.001f;
-    auto constexpr LOWER_BOUND = -4.0f * lm::M_PI;
+    auto constexpr LOWER_BOUND = SIGNED_SOLID_ANGLE_MIN_VALUE;
 
     auto const poly_id = m_geomData[geom_id].offset.x;
     auto const header = m_AnyPolygonHeaders[poly_id];

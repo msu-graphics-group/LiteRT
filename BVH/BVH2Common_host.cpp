@@ -13,6 +13,7 @@
 #include "BVH2Common.h"
 #include "CrossRT.h"
 #include "LiteMath.h"
+#include "cbvh.h"
 #include "harmonic_function/any_polygon_common.h"
 #include "render_settings.h"
 

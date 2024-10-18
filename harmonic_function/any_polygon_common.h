@@ -81,18 +81,18 @@ inline float3 any_polygon_solid_angle_gradient(
     std::vector<float3> const& points, AnyPolygonDataHeader header,
     float3 point_of_view
 ) {
-    auto result = float3(0.0);
+    auto result = float3{0.0};
 
     for (uint i = 0; i < header.size; ++i) {
         auto const left = points[header.offset + i] - point_of_view;
         auto const right =
             points[header.offset + (i + 1) % header.size] - point_of_view;
         auto const cross = lm::cross(left, right);
-        auto const cross_len = lm::length(cross);
+        auto const cross_len_sqr = lm::dot(cross, cross);
 
         result +=
             lm::dot(left - right, lm::normalize(left) - lm::normalize(right)) *
-            cross / (cross_len * cross_len);
+            cross / cross_len_sqr;
     }
 
     return result;

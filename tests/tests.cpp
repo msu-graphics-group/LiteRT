@@ -2618,18 +2618,20 @@ std::optional<std::vector<float3>> read_polygon_from_file(char const *file_name)
 
 void litert_test_37_any_polygon() {
     namespace img = LiteImage;
+    namespace lm = LiteMath;
 
-    static uint constexpr WIDTH = 100;
-    static uint constexpr HEIGHT = 100;
+    static uint constexpr WIDTH = 200;
+    static uint constexpr HEIGHT = 200;
     static char constexpr POLYGON_BIN_FILE_RELATIVE_PATH[] =
         "scenes/01_simple_scenes/data/polygon.bin";
-    static float3 const CAMERA_POSITION = float3{0.0f, 0.0f, 2.5f};
+    static float3 const CAMERA_POSITION = float3{0.0f, 3.0f, 2.5f};
     static float3 const CAMERA_TARGET = float3{0.0f};
-    static float3 const CAMERA_UP = float3{0.0f, 1.0f, 0.0f};
+    static float3 const CAMERA_UP = lm::normalize(float3{0.0f, CAMERA_POSITION.z, -CAMERA_POSITION.y});
     static char constexpr RENDERER_NAME_HOST[] = "CPU";
     static char constexpr RENDERER_NAME_DEVICE[] = "GPU";
 
-    auto const polygon_bin_file_path = scenes_folder_path + POLYGON_BIN_FILE_RELATIVE_PATH;
+    auto const polygon_bin_file_path =
+        scenes_folder_path + POLYGON_BIN_FILE_RELATIVE_PATH;
     auto vertices = read_polygon_from_file(polygon_bin_file_path.c_str());
 
     if (!vertices.has_value()) {
@@ -2643,7 +2645,8 @@ void litert_test_37_any_polygon() {
 
     auto render_preset = getDefaultPreset();
 
-    auto render_custom = [&](char const *renderer_name) -> img::Image2D<uint32_t> {
+    auto render_custom = [&](char const *renderer_name
+                         ) -> img::Image2D<uint32_t> {
         auto image = img::Image2D<uint32_t>{WIDTH, HEIGHT};
 
         auto renderer = CreateMultiRenderer(renderer_name);
@@ -2651,7 +2654,10 @@ void litert_test_37_any_polygon() {
         renderer->SetViewport(0, 0, WIDTH, HEIGHT);
         renderer->SetScene(polygon);
 
-        render(image, renderer, CAMERA_POSITION, CAMERA_TARGET, CAMERA_UP, render_preset);
+        render(
+            image, renderer, CAMERA_POSITION, CAMERA_TARGET, CAMERA_UP,
+            render_preset
+        );
 
         return image;
     };
@@ -2665,6 +2671,7 @@ void litert_test_37_any_polygon() {
     auto const psnr = image_metrics::PSNR(host_image, device_image);
 
     printf(" 31.1. %-64s", "CPU and GPU render image_metrics::PSNR > 50 ");
+
     if (psnr <= 50) {
         printf("passed    (%.2f)\n", psnr);
     } else {
