@@ -1504,11 +1504,13 @@ void BVHRT::IntersectAnyPolygon(
     namespace lm = LiteMath;
 
     auto constexpr MAX_N_STEPS = uint{1'000};
-    auto constexpr ANGULAR_FREQUENCY = 2.0f;
-    auto constexpr MODULO = 2.0f * lm::M_PI * ANGULAR_FREQUENCY;
-    auto constexpr PHASE_SHIFT = 4.0f * lm::M_PI;
     auto constexpr EPSILON = 0.01f;
-    auto constexpr LOWER_BOUND = -4.0f * lm::M_PI;
+
+    auto constexpr MODULO = 4.0f * lm::M_PI;
+    auto constexpr LEVEL_SET = 2.0f * lm::M_PI;
+    auto constexpr SHIFT = 4.0f * lm::M_PI;
+    auto constexpr LOWER_BOUND = 0.0f;
+    auto constexpr UPPER_BOUND = 4.0f * lm::M_PI;
 
     auto const poly_id = m_geomData[geom_id].offset.x;
     auto const header = m_AnyPolygonHeaders[poly_id];
@@ -1526,20 +1528,17 @@ void BVHRT::IntersectAnyPolygon(
 
     while (distance < t_far && n_steps < MAX_N_STEPS) {
         auto const pos = ray_origin + distance * ray_direction;
-        auto const value =
-            (any_polygon_solid_angle(m_AnyPolygonTriangles, header, pos) -
-             PHASE_SHIFT) /
-            MODULO;
-
-        auto const value_lo = MODULO * std::floor(value) + PHASE_SHIFT;
-        auto const value_hi = MODULO * std::ceil(value) + PHASE_SHIFT;
+        auto const solid_angle =
+            any_polygon_solid_angle(m_AnyPolygonTriangles, header, pos);
+        auto const value = lm::mod(solid_angle - LEVEL_SET, MODULO);
         auto const gradient =
             any_polygon_solid_angle_gradient(m_AnyPolygonVertices, header, pos);
 
         normal = normalize(gradient);
 
-        auto const close_to_level_set = lm::min(value - value_lo, value_hi - value) <=
-                                 EPSILON * lm::length(gradient);
+        auto const close_to_level_set =
+            lm::min(value - LOWER_BOUND, UPPER_BOUND - value) <=
+            EPSILON * lm::length(gradient);
 
         if (t_near < distance && close_to_level_set) {
             auto const encoded_normal = encode_normal(normal);
@@ -1551,16 +1550,15 @@ void BVHRT::IntersectAnyPolygon(
         auto const radius =
             any_polygon_boundary_distance(m_AnyPolygonVertices, header, pos);
 
-        auto const a_lo = (value - LOWER_BOUND) / (value_lo - LOWER_BOUND);
-        auto const a_hi = (value - LOWER_BOUND) / (value_hi - LOWER_BOUND);
+        auto const a_lo = (value + SHIFT) / (LOWER_BOUND + SHIFT);
+        auto const a_hi = (value + SHIFT) / (UPPER_BOUND + SHIFT);
 
         auto const step_size_lo =
-            0.5f * radius *
-            lm::abs(a_lo + 2.0f - lm::sqrt(a_lo * a_lo + 8.0f * a_lo));
+            -0.5f * radius *
+            (a_lo + 2.0f - lm::sqrt(a_lo * a_lo + 8.0f * a_lo));
 
         auto const step_size_hi =
-            0.5f * radius *
-            lm::abs(a_hi + 2.0f - lm::sqrt(a_hi * a_hi + 8.0f * a_hi));
+            0.5f * radius * (a_hi + 2.0f - lm::sqrt(a_hi * a_hi + 8.0f * a_hi));
 
         auto const step_size = lm::min(step_size_lo, step_size_hi);
 
