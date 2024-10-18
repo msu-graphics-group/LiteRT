@@ -21,7 +21,7 @@
 #include <chrono>
 #include <optional>
 
-std::string scenes_folder_path = "./";
+std::string const scenes_folder_path = "./";
 
 void render(LiteImage::Image2D<uint32_t> &image, std::shared_ptr<MultiRenderer> pRender, 
             float3 pos, float3 target, float3 up, 
@@ -2621,7 +2621,7 @@ void litert_test_37_any_polygon() {
 
     static uint constexpr WIDTH = 100;
     static uint constexpr HEIGHT = 100;
-    static char constexpr POLYGON_BIN_FILE_NAME[] =
+    static char constexpr POLYGON_BIN_FILE_RELATIVE_PATH[] =
         "scenes/01_simple_scenes/data/polygon.bin";
     static float3 const CAMERA_POSITION = float3{0.0f, 0.0f, 2.5f};
     static float3 const CAMERA_TARGET = float3{0.0f};
@@ -2629,7 +2629,8 @@ void litert_test_37_any_polygon() {
     static char constexpr RENDERER_NAME_HOST[] = "CPU";
     static char constexpr RENDERER_NAME_DEVICE[] = "GPU";
 
-    auto vertices = read_polygon_from_file(POLYGON_BIN_FILE_NAME);
+    auto const polygon_bin_file_path = scenes_folder_path + POLYGON_BIN_FILE_RELATIVE_PATH;
+    auto vertices = read_polygon_from_file(polygon_bin_file_path.c_str());
 
     if (!vertices.has_value()) {
         fprintf(stderr, "failed to read polygon data, skipping test 37\n");

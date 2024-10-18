@@ -2,7 +2,7 @@
 #include <vector>
 #include <string>
 
-extern std::string scenes_folder_path;
+extern std::string const scenes_folder_path;
 
 void perform_tests_litert(const std::vector<int> &test_ids);
 void perform_tests_diff_render(const std::vector<int> &test_ids);
