@@ -178,8 +178,7 @@ struct SdfFrameOctreeTexNode
 struct OTStackElement
 {
   uint32_t nodeId;
-  uint32_t level;
-  uint3 p;
+  uint2 p_size;
 };
 
 //voxel position (i,j,k) to linear index
