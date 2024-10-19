@@ -195,7 +195,7 @@ protected:
   std::vector<uint32_t>          m_packedXY;
 
   //duplicating data for meshes if we want to visualize them with textures
-#ifndef DISABLE_MESH_TEX
+#ifndef DISABLE_MESH
   std::vector<float4> m_vertices; //.w is tc.x
   std::vector<float4> m_normals;  //.w is tc.y
   std::vector<uint32_t> m_indices;

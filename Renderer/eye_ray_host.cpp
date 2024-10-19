@@ -457,7 +457,7 @@ void MultiRenderer::add_mesh_internal(const cmesh4::SimpleMesh &scene, uint32_t 
 {
   if(geomId & CRT_GEOM_MASK_AABB_BIT) // TEMP SOLUTION !!!
     geomId = (geomId & 0x7fffffff);   // TEMP SOLUTION !!!
-#ifndef DISABLE_MESH_TEX
+
   m_geomOffsets.resize(geomId + 1, uint2(0,0));
   m_geomOffsets[geomId].x = m_indices.size();
   m_geomOffsets[geomId].y = m_vertices.size();
@@ -493,7 +493,6 @@ void MultiRenderer::add_mesh_internal(const cmesh4::SimpleMesh &scene, uint32_t 
       m_matIdOffsets[geomId] = uint2(m_matIdbyPrimId.size()-scene.matIndices.size(), scene.matIndices.size());
     }
   }
-#endif
 }
 
 void MultiRenderer::add_SdfFrameOctreeTex_internal(SdfFrameOctreeTexView scene, unsigned geomId)

@@ -301,6 +301,9 @@ struct BVHRT : public ISceneObject
   std::vector<SdfFrameOctreeNode> m_SdfFrameOctreeNodes;//nodes for all SDF octrees
   std::vector<uint32_t> m_SdfFrameOctreeRoots;     //root node ids for each SDF octree
   std::vector<BVHNode> m_origNodes;
+#endif
+
+#ifndef DISABLE_SDF_FRAME_OCTREE_COMPACT
   std::vector<SdfCompactOctreeNode> m_SdfCompactOctreeNodes;//compact nodes for all SDF octrees
 #endif
 
@@ -372,10 +375,12 @@ struct BVHRT : public ISceneObject
 #endif
 
   //meshes data
+#ifndef DISABLE_MESH
   std::vector<float4>   m_vertPos;
   std::vector<float4>   m_vertNorm;
   std::vector<uint32_t> m_indices;
   std::vector<uint32_t> m_primIndices;
+#endif
 
   //geometric data, indexed by geomId
   std::vector<GeomData> m_geomData;

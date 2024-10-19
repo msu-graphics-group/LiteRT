@@ -173,6 +173,7 @@ float4 MultiRenderer::kernel_RayTrace(uint32_t tidX, const float4* rayPosAndNear
 
   if (type == TYPE_MESH_TRIANGLE)
   {
+#ifndef DISABLE_MESH
     const uint2 a_geomOffsets = m_geomOffsets[geomId];
     const uint32_t A = m_indices[a_geomOffsets.x + hit.primId * 3 + 0];
     const uint32_t B = m_indices[a_geomOffsets.x + hit.primId * 3 + 1];
@@ -190,7 +191,7 @@ float4 MultiRenderer::kernel_RayTrace(uint32_t tidX, const float4* rayPosAndNear
 
     tc = (1.0f - hit.coords[0] - hit.coords[1]) * A_tc + hit.coords[1] * B_tc + hit.coords[0] * C_tc;
     norm = normalize(matmul4x3(m_instanceTransformInvTransposed[hit.instId], to_float3(norm4)));
-    // const uint2 a_geomOffsets = m_pAccelStruct-> m_geomData[geomId].offset;
+#endif
   }
   else
   {

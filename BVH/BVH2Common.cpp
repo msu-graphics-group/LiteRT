@@ -589,6 +589,7 @@ float BVHRT::load_distance_values(uint32_t nodeId, float3 voxelPos, uint32_t v_s
 )
 {
   float vmin = 1e6f;
+#ifndef DISABLE_SDF_SBS
   if (header.aux_data == SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F ||
       header.aux_data == SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F_IN)
   {
@@ -637,7 +638,7 @@ float BVHRT::load_distance_values(uint32_t nodeId, float3 voxelPos, uint32_t v_s
       vmin = std::min(vmin, values[i]);
     }
   }
-
+#endif
   return vmin;
 }
 
@@ -646,6 +647,7 @@ void BVHRT::OctreeBrickIntersect(uint32_t type, const float3 ray_pos, const floa
                                  uint32_t bvhNodeId, uint32_t a_count,
                                  CRT_Hit *pHit)
 {
+#ifndef DISABLE_SDF_SBS
   #ifdef USE_TRICUBIC
   float values[64];
   #else
@@ -846,6 +848,7 @@ void BVHRT::OctreeBrickIntersect(uint32_t type, const float3 ray_pos, const floa
       //printf("color = %f %f %f coords = %f %f\n", color.x, color.y, color.z, pHit->coords[0], pHit->coords[1]);
     }
   }
+#endif
 }
 
 void BVHRT::OctreeAdaptBrickIntersect(uint32_t type, const float3 ray_pos, const float3 ray_dir,
@@ -853,6 +856,7 @@ void BVHRT::OctreeAdaptBrickIntersect(uint32_t type, const float3 ray_pos, const
                                       uint32_t bvhNodeId, uint32_t a_count,
                                       CRT_Hit *pHit)
 {
+#ifndef DISABLE_SDF_SBS_ADAPT
   float values[8];
   uint32_t nodeId, primId;
   float qNear, qFar;
@@ -1011,6 +1015,7 @@ void BVHRT::OctreeAdaptBrickIntersect(uint32_t type, const float3 ray_pos, const
       pHit->coords[1] = color.z;
     }
   }
+#endif
 }
 
 void BVHRT::IntersectAllSdfsInLeaf(const float3 ray_pos, const float3 ray_dir,
@@ -2058,6 +2063,7 @@ void BVHRT::IntersectAllTrianglesInLeaf(const float3 ray_pos, const float3 ray_d
                                         uint32_t a_start, uint32_t a_count,
                                         CRT_Hit *pHit)
 {
+#ifndef DISABLE_MESH
   const uint2 a_geomOffsets = m_geomData[geomId].offset;
 
   for (uint32_t triId = a_start; triId < a_start + a_count; triId++)
@@ -2115,6 +2121,7 @@ void BVHRT::IntersectAllTrianglesInLeaf(const float3 ray_pos, const float3 ray_d
       }
     }
   }
+#endif
 }
 
 static inline int first_node(float3 t0, float3 tm)
@@ -2150,6 +2157,7 @@ void BVHRT::OctreeIntersect(const float3 ray_pos, const float3 ray_dir, float tN
                             uint32_t instId, uint32_t geomId, bool stopOnFirstHit,
                             CRT_Hit *pHit)
 {
+#ifndef DISABLE_SDF_FRAME_OCTREE_COMPACT
   float3 pos_ray_pos = ray_pos;
   float3 pos_ray_dir = ray_dir;
   //assume octree is box [-1,1]^3
@@ -2286,6 +2294,7 @@ void BVHRT::OctreeIntersect(const float3 ray_pos, const float3 ray_dir, float tN
         top += buf_top - 1;
       }
     }
+#endif
 }
 
 void BVHRT::BVH2TraverseF32(const float3 ray_pos, const float3 ray_dir, float tNear,
@@ -2422,11 +2431,13 @@ CRT_Hit BVHRT::RayQuery_NearestHit(float4 posAndNear, float4 dirAndFar)
     } while (nodeIdx < 0xFFFFFFFE && !(stopOnFirstHit && hit.primId != uint32_t(-1))); //
   }
 
+#ifndef DISABLE_MESH
   if(hit.geomId < uint32_t(-1) && ((hit.geomId >> SH_TYPE) == TYPE_MESH_TRIANGLE)) 
   {
     const uint2 geomOffsets = m_geomData[hit.geomId & 0x0FFFFFFF].offset;
     hit.primId = m_primIndices[geomOffsets.x/3 + hit.primId];
   }
+#endif
   
   return hit;
 }
