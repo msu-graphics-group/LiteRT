@@ -135,7 +135,7 @@ int main(int, char** argv)
     switch(cur_renderer)
     {
       case 0: draw_points(rbezier, camera, framebuffer, surf_color); break;
-      case 1: draw_newton(surf, camera, framebuffer, surf_color); break;
+      case 1: draw_newton(rbezier, camera, framebuffer, surf_color); break;
       case 2: draw_bezier(surf, camera, framebuffer, surf_color); break;
     }
       

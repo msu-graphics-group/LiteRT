@@ -142,6 +142,8 @@ public:
   Matrix2D<LiteMath::float4> weighted_points;
 public:
   LiteMath::float4 get_point(float u, float v) const;
+  LiteMath::float4 uder(float u, float v) const;
+  LiteMath::float4 vder(float u, float v) const;
 };
 
 struct RBezierGrid
@@ -150,8 +152,11 @@ public:
   std::vector<float> uniq_uknots;
   std::vector<float> uniq_vknots;
   Matrix2D<RBezier> grid;
+  BoundingBox3d bbox;
 public:
   LiteMath::float4 get_point(float u, float v) const;
+  LiteMath::float4 uder(float u, float v) const;
+  LiteMath::float4 vder(float u, float v) const;
   LiteMath::int2 get_spans(float u, float v) const;
 };
 

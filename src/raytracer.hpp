@@ -37,6 +37,12 @@ void draw_newton(
     LiteImage::Image2D<uint32_t> &image, 
     float col[4]);
 
+void draw_newton(
+    const RBezierGrid &surface,
+    const Camera &camera,
+    LiteImage::Image2D<uint32_t> &image, 
+    float col[4]);
+
 void draw_bezier(
     const Surface &surface,
     const Camera &camera,
