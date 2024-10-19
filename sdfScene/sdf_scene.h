@@ -60,6 +60,11 @@ static constexpr unsigned SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F_IN = 5 << 24u; //v_s
                                                                            //voxel on this side, otherwise it is an index of this brick in nodes array
 static constexpr unsigned SDF_SBS_NODE_LAYOUT_MASK          = 0xFF000000;
 
+// enum SdfOctreeNodeFlags
+static constexpr unsigned OCTREE_FLAG_NODE_BORDER = 0; //the is a border in this node, proper intersection calculation required
+static constexpr unsigned OCTREE_FLAG_NODE_EMPTY  = 1; //the node is empty, no need to intersect it
+static constexpr unsigned OCTREE_FLAG_NODE_FULL   = 2; //the node is full, intersection is guaranteed to be on node's border
+
 struct SdfObject
 {
   unsigned type;          // from enum SdfPrimitiveType
@@ -108,6 +113,13 @@ struct SdfFrameOctreeNode
 {
   float values[8];
   unsigned offset; // offset for children (they are stored together). 0 offset means it's a leaf  
+};
+
+struct SdfCompactOctreeNode
+{
+  uint32_t offset; // offset for children (they are stored together). 0 offset means it's a leaf
+  uint32_t flags;  // enum SdfOctreeNodeFlags
+  uint32_t values[2]; //compressed distance values, 1 byte per value
 };
 
 //node for SparseVoxelSet, basically the same as SdfFrameOctree, but more compact

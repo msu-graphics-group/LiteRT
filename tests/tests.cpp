@@ -2852,9 +2852,22 @@ void litert_test_38_direct_octree_traversal()
 
   auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "scenes/01_simple_scenes/data/teapot.vsgf").c_str());
   cmesh4::normalize_mesh(mesh);
-  auto octree = sdf_converter::create_sdf_frame_octree(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 9), mesh);
 
-  unsigned W = 2048, H = 2048;
+  if (false)
+  {
+  auto octree = sdf_converter::create_sdf_frame_octree(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 9), mesh);
+  save_sdf_frame_octree(octree, "saves/octree.bin");
+  auto SVS = sdf_converter::create_sdf_SVS(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 9), mesh);
+  save_sdf_SVS(SVS, "saves/SVS.bin");
+  }
+
+  std::vector<SdfFrameOctreeNode> octree;
+  std::vector<SdfSVSNode> SVS;
+
+  load_sdf_frame_octree(octree, "saves/octree.bin");
+  load_sdf_SVS(SVS, "saves/SVS.bin");
+
+  unsigned W = 512, H = 512;
   MultiRenderPreset preset = getDefaultPreset();
   preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
 
@@ -2864,9 +2877,9 @@ void litert_test_38_direct_octree_traversal()
 
   float timings[4] = {0,0,0,0};
 
+  //if (false)
   {
-    auto SVS = sdf_converter::create_sdf_SVS(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 9), mesh);
-    auto pRender = CreateMultiRenderer("GPU");
+    auto pRender = CreateMultiRenderer("CPU");
     pRender->SetPreset(preset);
     pRender->SetScene(SVS);
 
@@ -2880,8 +2893,9 @@ void litert_test_38_direct_octree_traversal()
     //LiteImage::SaveImage<uint32_t>("saves/test_38_traverse.bmp", image_direct);
   }
 
+  //if (false)
   {
-    auto pRender = CreateMultiRenderer("GPU");
+    auto pRender = CreateMultiRenderer("CPU");
     preset.octree_intersect = OCTREE_INTERSECT_BVH;
     pRender->SetPreset(preset);
     pRender->SetScene(octree);
@@ -2897,7 +2911,7 @@ void litert_test_38_direct_octree_traversal()
   }
 
   {
-    auto pRender = CreateMultiRenderer("GPU");
+    auto pRender = CreateMultiRenderer("CPU");
     preset.octree_intersect = OCTREE_INTERSECT_TRAVERSE;
     pRender->SetPreset(preset);
     pRender->SetScene(octree);

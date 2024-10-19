@@ -2095,4 +2095,56 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
 
     return sbs_n;
   }
+
+  void frame_octree_to_compact_octree_rec(const std::vector<SdfFrameOctreeNode> &frame, std::vector<SdfCompactOctreeNode> &compact,
+                                          unsigned nodeId, unsigned lod_size, uint3 p)
+  {
+    unsigned ofs = frame[nodeId].offset;
+
+    float d_max = 2 * sqrt(3) / lod_size;
+    float min_val = 1000;
+    float max_val = -1000;
+    for (int i = 0; i < 8; i++)
+    {
+      min_val = std::min(min_val, frame[nodeId].values[i]);
+      max_val = std::max(max_val, frame[nodeId].values[i]);
+    }
+
+    compact[nodeId].offset = ofs;
+
+    if (min_val > 0)
+      compact[nodeId].flags = OCTREE_FLAG_NODE_EMPTY;
+    else if (max_val < 0)
+      compact[nodeId].flags = OCTREE_FLAG_NODE_FULL;
+    else
+      compact[nodeId].flags = OCTREE_FLAG_NODE_BORDER;
+
+    compact[nodeId].values[0] = 0u;
+    compact[nodeId].values[1] = 0u;
+    for (int i = 0; i < 8; i++)
+    {
+      unsigned d_compressed = std::max(0.0f, 255 * ((frame[nodeId].values[i] + d_max) / (2 * d_max)) + 0.5f);
+      d_compressed = std::min(d_compressed, 255u);
+      // assert(d_compressed < 256);
+      compact[nodeId].values[i / 4] |= d_compressed << (8 * (i % 4));
+    }
+
+    if (!is_leaf(ofs))
+    {
+      for (int i = 0; i < 8; i++)
+      {
+        uint3 ch_p = 2 * p + uint3((i & 4) >> 2, (i & 2) >> 1, i & 1);
+        frame_octree_to_compact_octree_rec(frame, compact, ofs + i, 2 * lod_size, ch_p);
+      }
+    }
+  }
+
+  std::vector<SdfCompactOctreeNode> frame_octree_to_compact_octree(const std::vector<SdfFrameOctreeNode> &frame)
+  {
+    std::vector<SdfCompactOctreeNode> compact(frame.size());
+
+    frame_octree_to_compact_octree_rec(frame, compact, 0, 1, uint3(0,0,0));
+
+    return compact;
+  }
 }

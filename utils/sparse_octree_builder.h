@@ -49,4 +49,6 @@ namespace sdf_converter
 
   std::vector<SdfFrameOctreeNode> construct_sdf_frame_octree(SparseOctreeSettings settings, MultithreadedDistanceFunction sdf, 
                                                              unsigned max_threads);
+
+  std::vector<SdfCompactOctreeNode> frame_octree_to_compact_octree(const std::vector<SdfFrameOctreeNode> &frame);
 }

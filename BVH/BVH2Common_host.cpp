@@ -11,6 +11,7 @@
 
 #include "BVH2Common.h"
 #include "../nurbs/nurbs_common_host.h"
+#include "../utils/sparse_octree_builder.h"
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -469,6 +470,8 @@ uint32_t BVHRT::AddGeom_SdfFrameOctree(SdfFrameOctreeView octree, ISceneObject *
   //create list of bboxes for BLAS
   std::vector<BVHNode> orig_nodes = GetBoxes_SdfFrameOctree(octree);
   m_origNodes = orig_nodes;
+
+  m_SdfCompactOctreeNodes = sdf_converter::frame_octree_to_compact_octree(m_SdfFrameOctreeNodes);
   
   return fake_this->AddGeom_AABB(AbstractObject::TAG_SDF_NODE, (const CRT_AABB*)orig_nodes.data(), orig_nodes.size(), nullptr, 1);
 }

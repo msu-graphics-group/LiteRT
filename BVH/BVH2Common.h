@@ -301,6 +301,7 @@ struct BVHRT : public ISceneObject
   std::vector<SdfFrameOctreeNode> m_SdfFrameOctreeNodes;//nodes for all SDF octrees
   std::vector<uint32_t> m_SdfFrameOctreeRoots;     //root node ids for each SDF octree
   std::vector<BVHNode> m_origNodes;
+  std::vector<SdfCompactOctreeNode> m_SdfCompactOctreeNodes;//compact nodes for all SDF octrees
 #endif
 
   //SDF Sparse Voxel Sets
