@@ -2853,23 +2853,30 @@ void litert_test_38_direct_octree_traversal()
   auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "scenes/01_simple_scenes/data/teapot.vsgf").c_str());
   cmesh4::normalize_mesh(mesh);
 
-  if (false)
+  if (true)
   {
   auto octree = sdf_converter::create_sdf_frame_octree(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 9), mesh);
   save_sdf_frame_octree(octree, "saves/octree.bin");
   auto SVS = sdf_converter::create_sdf_SVS(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 9), mesh);
   save_sdf_SVS(SVS, "saves/SVS.bin");
+  SdfSBSHeader header{2,0,1,SDF_SBS_NODE_LAYOUT_DX};
+  
+  SdfSBS sbs = sdf_converter::create_sdf_SBS(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 8), header, mesh);
+  save_sdf_SBS(sbs, "saves/sbs.bin");
   }
 
   std::vector<SdfFrameOctreeNode> octree;
   std::vector<SdfSVSNode> SVS;
+  SdfSBS SBS;
 
   load_sdf_frame_octree(octree, "saves/octree.bin");
   load_sdf_SVS(SVS, "saves/SVS.bin");
+  load_sdf_SBS(SBS, "saves/sbs.bin");
 
   unsigned W = 512, H = 512;
   MultiRenderPreset preset = getDefaultPreset();
   preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
+  preset.spp = 16;
 
   LiteImage::Image2D<uint32_t> image_ref(W, H);
   LiteImage::Image2D<uint32_t> image_BVH(W, H);
@@ -2879,7 +2886,7 @@ void litert_test_38_direct_octree_traversal()
 
   //if (false)
   {
-    auto pRender = CreateMultiRenderer("CPU");
+    auto pRender = CreateMultiRenderer("GPU");
     pRender->SetPreset(preset);
     pRender->SetScene(SVS);
 
@@ -2890,12 +2897,28 @@ void litert_test_38_direct_octree_traversal()
 
     float time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
     printf("SVS %.1f ms\n", timings[0]/10);
-    //LiteImage::SaveImage<uint32_t>("saves/test_38_traverse.bmp", image_direct);
+    LiteImage::SaveImage<uint32_t>("saves/test_38_SVS.bmp", image_direct);
   }
 
   //if (false)
   {
-    auto pRender = CreateMultiRenderer("CPU");
+    auto pRender = CreateMultiRenderer("GPU");
+    pRender->SetPreset(preset);
+    pRender->SetScene(SBS);
+
+    auto t1 = std::chrono::steady_clock::now();
+    render(image_direct, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset, 10);
+    pRender->GetExecutionTime("CastRaySingleBlock", timings);
+    auto t2 = std::chrono::steady_clock::now();
+
+    float time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+    printf("SBS %.1f ms\n", timings[0]/10);
+    LiteImage::SaveImage<uint32_t>("saves/test_38_SBS.bmp", image_direct);
+  }
+
+  //if (false)
+  {
+    auto pRender = CreateMultiRenderer("GPU");
     preset.octree_intersect = OCTREE_INTERSECT_BVH;
     pRender->SetPreset(preset);
     pRender->SetScene(octree);
@@ -2911,7 +2934,7 @@ void litert_test_38_direct_octree_traversal()
   }
 
   {
-    auto pRender = CreateMultiRenderer("CPU");
+    auto pRender = CreateMultiRenderer("GPU");
     preset.octree_intersect = OCTREE_INTERSECT_TRAVERSE;
     pRender->SetPreset(preset);
     pRender->SetScene(octree);
