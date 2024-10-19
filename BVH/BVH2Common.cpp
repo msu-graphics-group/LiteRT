@@ -2130,15 +2130,15 @@ uint32_t answer = 0;   // initialize to 00000000
 // select the entry plane and set bits
 if(t0.x > t0.y){
     if(t0.x > t0.z){ // PLANE YZ
-        if(tm.y < t0.x) answer|=2;    // set bit at position 1
-        if(tm.z < t0.x) answer|=1;    // set bit at position 0
+        if(t0.x > tm.y) answer|=2;    // set bit at position 1
+        if(t0.x > tm.z) answer|=1;    // set bit at position 0
         return (int) answer;
     }
 }
 else {
     if(t0.y > t0.z){ // PLANE XZ
         if(tm.x < t0.y) answer|=4;    // set bit at position 2
-        if(tm.z < t0.y) answer|=1;    // set bit at position 0
+        if(t0.y > tm.z) answer|=1;    // set bit at position 0
         return (int) answer;
     }
 }
@@ -2188,6 +2188,8 @@ void BVHRT::OctreeIntersect(const float3 ray_pos, const float3 ray_dir, float tN
   const float3 _t0 = pos_ray_pos * pos_ray_dir_inv - pos_ray_dir_inv;
   const float3 _t1 = pos_ray_pos * pos_ray_dir_inv + pos_ray_dir_inv;
   const float3 _l = _t1 - _t0;
+  //printf("_t0 %f %f %f\n", _t0.x, _t0.y, _t0.z);
+  //printf("_t1 %f %f %f\n", _t1.x, _t1.y, _t1.z);
 
   const uint3 nn_indices[8] = {uint3(4, 2, 1), uint3(5, 3, 8), uint3(6, 8, 3), uint3(7, 8, 8),
                                uint3(8, 6, 5), uint3(8, 7, 8), uint3(8, 8, 7), uint3(8, 8, 8)};
@@ -2261,7 +2263,7 @@ void BVHRT::OctreeIntersect(const float3 ray_pos, const float3 ray_dir, float tN
         LocalSurfaceIntersection(TYPE_SDF_FRAME_OCTREE, ray_dir, 0, 0, values, nodeId, primId, d, qNear, qFar, fNearFar, start_q, /*in */
                                 pHit); /*out*/
 
-        if (pHit->primId != 0xFFFFFFFF && stopOnFirstHit)
+        if (pHit->primId != 0xFFFFFFFF)
           top = -1;
         else
           top--;

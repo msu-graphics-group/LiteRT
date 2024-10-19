@@ -64,6 +64,7 @@ static constexpr unsigned SDF_SBS_NODE_LAYOUT_MASK          = 0xFF000000;
 static constexpr unsigned OCTREE_FLAG_NODE_BORDER = 0; //the is a border in this node, proper intersection calculation required
 static constexpr unsigned OCTREE_FLAG_NODE_EMPTY  = 1; //the node is empty, no need to intersect it
 static constexpr unsigned OCTREE_FLAG_NODE_FULL   = 2; //the node is full, intersection is guaranteed to be on node's border
+static constexpr unsigned OCTREE_FLAG_NODE_PARENT = 3;
 
 struct SdfObject
 {
@@ -178,6 +179,7 @@ struct SdfFrameOctreeTexNode
 struct OTStackElement
 {
   uint32_t nodeId;
+  uint32_t curChildId;
   uint2 p_size;
 };
 

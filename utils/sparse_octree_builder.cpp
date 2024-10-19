@@ -2112,7 +2112,9 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
 
     compact[nodeId].offset = ofs;
 
-    if (min_val > 0)
+    if (!is_leaf(ofs))
+      compact[nodeId].flags = OCTREE_FLAG_NODE_PARENT;
+    else if (min_val > 0)
       compact[nodeId].flags = OCTREE_FLAG_NODE_EMPTY;
     else if (max_val < 0)
       compact[nodeId].flags = OCTREE_FLAG_NODE_FULL;
