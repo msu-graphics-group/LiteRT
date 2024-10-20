@@ -61,10 +61,10 @@ public:
   }
 };
 
-class Surface {
+class NURBS_Surface {
 public:
-  Surface() = default;
-  Surface(
+  NURBS_Surface() = default;
+  NURBS_Surface(
       const Matrix2D<LiteMath::float4> &points,
       const Matrix2D<float> &weights,
       uint32_t deg_u, uint32_t deg_v,
@@ -83,50 +83,16 @@ public:
   std::vector<float> v_knots;
   BoundingBox3d bbox;
 };
-
-struct SurfaceView
-{
-public:
-  SurfaceView() = delete;
-  SurfaceView(const Surface &surf): p_surf(&surf) {
-    left.resize(std::max(p(), q())+1);
-    right.resize(std::max(p(), q())+1);
-    Nu.resize(p()+1);
-    Nv.resize(q()+1);
-    temp.resize(q()+1);
-  }
-public:
-  const Surface *p_surf;
-  mutable std::vector<float> left, right; //temporary buffers
-  mutable std::vector<float> Nu, Nv; //temporary buffers
-  mutable std::vector<LiteMath::float4> temp; //temporary buffer
-public:
-  int n() const { return p_surf->points.get_n()-1; }
-  int m() const { return p_surf->points.get_m()-1; }
-  int p() const { return p_surf->deg_u; }
-  int q() const { return p_surf->deg_v; }
-public:
-  int find_span(int n, int p, float u, const float *U) const;
-  void basis_funs(int i, float u, int p, const float *U, float *N) const;
-public:
-  LiteMath::float4 get_point(float u, float v) const;
-  LiteMath::float4 uderivative(float u, float v) const;
-  LiteMath::float4 vderivative(float u, float v) const;
-  LiteMath::float3 get_normal(float u, float v) const;
-  bool u_closed() const;
-  bool v_closed() const;
-};
-
-Surface load_surface(const std::filesystem::path &path);
+NURBS_Surface load_nurbs(const std::filesystem::path &path);
 
 
-enum class SurfaceParameter { U, V };
 std::vector<std::vector<LiteMath::float4> >
 decompose_curve(
     int n, int p,
     const float *U,
     const LiteMath::float4 *Pw);
 
+enum class SurfaceParameter { U, V };
 std::vector<Matrix2D<LiteMath::float4> >
 decompose_surface(
     int n, int p,
@@ -161,6 +127,6 @@ public:
 };
 
 RBezierGrid
-nurbs2rbezier(Surface nurbs);
+nurbs2rbezier(const NURBS_Surface &nurbs);
 
 #endif

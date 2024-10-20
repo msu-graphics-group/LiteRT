@@ -65,9 +65,8 @@ int main(int, char** argv)
   char path_to_surf[10000] = {};
   std::copy(default_path_to_surf.begin(), default_path_to_surf.end(), path_to_surf);
 
-  Surface surf;
+  NURBS_Surface surf;
   RBezierGrid rbezier;
-  float surf_color[4] = { 1.0f, 1.0f, 0.0f, 1.0f };
 
   LiteImage::Image2D<uint32_t> framebuffer(WIDTH, HEIGHT);
   SDL_Texture *texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ABGR8888, SDL_TEXTUREACCESS_STREAMING, WIDTH, HEIGHT);
@@ -84,9 +83,9 @@ int main(int, char** argv)
   
   const char *renderers[] = { 
     "Regular Sample Points", 
-    "Newton Method (in progress)",
-    "Bezier Method (in progress)"
+    "Newton Method (in progress)"
   };
+
   int cur_renderer = 0;
   float ms = 0.0f;
 
@@ -134,11 +133,9 @@ int main(int, char** argv)
     auto b = std::chrono::high_resolution_clock::now();
     switch(cur_renderer)
     {
-      case 0: draw_points(rbezier, camera, framebuffer, surf_color); break;
-      case 1: draw_newton(rbezier, camera, framebuffer, surf_color); break;
-      case 2: draw_bezier(surf, camera, framebuffer, surf_color); break;
+      case 0: draw_points(rbezier, camera, framebuffer); break;
+      case 1: draw_newton(rbezier, camera, framebuffer); break;
     }
-      
     auto e = std::chrono::high_resolution_clock::now();
     ms = std::chrono::duration_cast<std::chrono::microseconds>(e-b).count()/1000.0f;
 
@@ -164,7 +161,7 @@ int main(int, char** argv)
       ImGui::DragFloat3("Camera target", camera.target.M);
       camera = Camera(camera.aspect, camera.fov, camera.position, camera.target);
       ImGui::Text("Renderer settings:");
-      ImGui::ListBox("Method", &cur_renderer, renderers, 3);
+      ImGui::ListBox("Method", &cur_renderer, renderers, sizeof(renderers)/sizeof(*renderers));
       ImGui::Text("Debug Info");
       ImGui::Text("\tApplication average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
       ImGui::Text("\tCurrent render time: %.3f ms/frame (%.1f FPS)", ms, 1000.0f/ms);
@@ -177,12 +174,14 @@ int main(int, char** argv)
       ImGui::InputText("Path to surface", path_to_surf, sizeof(path_to_surf)-1);
       if (ImGui::Button("OK")) {
         to_load_surface = false;
-        surf = load_surface(path_to_surf);
-        rbezier = nurbs2rbezier(surf);
-        LiteMath::float3 target = get_center_of_mass(surf);
-        float radius = get_sphere_bound(surf, target);
-        float distance = radius / std::sin(M_PI/8);
-        camera = Camera(aspect, fov, { target.x, target.y, target.z+distance }, target);
+        try {
+          surf = load_nurbs(path_to_surf);
+          rbezier = nurbs2rbezier(surf);
+          LiteMath::float3 target = get_center_of_mass(rbezier);
+          float radius = get_sphere_bound(rbezier, target);
+          float distance = radius / std::sin(M_PI/8);
+          camera = Camera(aspect, fov, { target.x, target.y, target.z+distance }, target);
+        } catch(...) {}
       }
       ImGui::End();
     }

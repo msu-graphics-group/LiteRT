@@ -8,110 +8,14 @@
 
 #include "Surface.hpp"
 
-int SurfaceView::find_span(int n, int p, float u, const float *U) const {
-  if (u == U[n+1])
-    return n;
-
-  int l = p-1;
-  int r = n+2;
-  while(r-l > 1) {
-    int m = (l+r)/2;
-    if (u < U[m])
-      r = m;
-    else 
-      l = m;
-  }
-
-  assert(U[l] <= u && u < U[l+1]);
-  return l;
-}
-
-void SurfaceView::basis_funs(int i, float u, int p, const float *U, float *N) const {
-  N[0] = 1.0f;
-  for (int j = 1; j <= p; ++j) {
-    left[j] = u - U[i+1-j];
-    right[j] = U[i+j]-u;
-    float saved = 0.0f;
-    for (int r = 0; r < j; ++r) {
-      float temp = N[r] / (right[r+1]+left[j-r]);
-      N[r] = saved + right[r+1] * temp;
-      saved = left[j-r] * temp;
-    }
-    N[j] = saved;
-  }
-}
-
-LiteMath::float4 SurfaceView::get_point(float u, float v) const {
-  const float *U = p_surf->u_knots.data();
-  const float *V = p_surf->v_knots.data();
-
-  int uspan = find_span(n(), p(), u, U);
-  basis_funs(uspan, u, p(), U, Nu.data());
-  
-  int vspan = find_span(m(), q(), v, V);
-  basis_funs(vspan, v, q(), V, Nv.data());
-
-  std::fill(temp.begin(), temp.end(), LiteMath::float4{0.0f});
-  for (int l = 0; l <= q(); ++l) 
-  for (int k = 0; k <= p(); ++k) 
-  {
-    temp[l] += Nu[k] * (p_surf->points[{uspan-p()+k, vspan-q()+l}])
-                * (p_surf->weights[{uspan-p()+k, vspan-q()+l}]);
-  }
-
-  LiteMath::float4 res = {};
-  for (int l = 0; l <= q(); ++l)
-    res += Nv[l] * temp[l];
-  
-  return res/res.w;
-}
-
-LiteMath::float4 SurfaceView::uderivative(float u, float v) const {
-  constexpr float EPS = 1e-2f;
-  LiteMath::float4 res = {};
-  res += (u+EPS > 1.0f) ? get_point(u, v) : get_point(u+EPS, v);
-  res -= (u-EPS < 0.0f) ? get_point(u, v) : get_point(u-EPS, v);
-
-  return res / (EPS * (1 + ((u+EPS <= 1.0f) && (u-EPS >= 0.0f))));
-}
-
-LiteMath::float4 SurfaceView::vderivative(float u, float v) const {
-  constexpr float EPS = 1e-2f;
-  LiteMath::float4 res = {};
-  res += (v+EPS > 1.0f) ? get_point(u, v) : get_point(u, v+EPS);
-  res -= (v-EPS < 0.0f) ? get_point(u, v) : get_point(u, v-EPS);
-
-  return res / (EPS * (1 + ((v+EPS <= 1.0f) && (v-EPS >= 0.0f))));
-}
-
-LiteMath::float3 SurfaceView::get_normal(float u, float v) const {
-  return LiteMath::normalize(LiteMath::cross(
-        LiteMath::to_float3(uderivative(u, v)),
-        LiteMath::to_float3(vderivative(u, v))));
-}
-
-bool SurfaceView::u_closed() const {
-  constexpr float EPS = 1e-2;
-    for (int j = 0; j <= m(); ++j) 
-      if (length(p_surf->points[{0, j}] - p_surf->points[{n(), j}]) > EPS)
-        return false;
-    return true;
-}
-
-bool SurfaceView::v_closed() const {
-  constexpr float EPS = 1e-2;
-    for (int i = 0; i <= n(); ++i) 
-      if (length(p_surf->points[{i, 0}] - p_surf->points[{i, m()}]) > EPS)
-        return false;
-    return true;
-}
-
-Surface load_surface(const std::filesystem::path &path) {
-  std::fstream fin(path);
+NURBS_Surface load_nurbs(const std::filesystem::path &path) {
+  std::fstream fin;
+  fin.exceptions(std::ios::failbit|std::ios::badbit);
+  fin.open(path);
   std::string tmp_str;
   char tmp_chr;
 
-  Surface surf;
+  NURBS_Surface surf;
 
   int n, m;
   fin >> tmp_chr >> tmp_chr >> n; // n = ...
@@ -257,7 +161,7 @@ decompose_surface(
 }
 
 RBezierGrid
-nurbs2rbezier(Surface nurbs) {
+nurbs2rbezier(const NURBS_Surface &nurbs) {
   int n = nurbs.points.get_n()-1;
   int m = nurbs.points.get_m()-1;
   int p = nurbs.deg_u;
