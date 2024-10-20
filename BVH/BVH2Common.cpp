@@ -596,7 +596,9 @@ float BVHRT::load_distance_values(uint32_t nodeId, float3 voxelPos, uint32_t v_s
     uint32_t v_off = m_SdfSBSNodes[nodeId].data_offset;
     
     #ifdef USE_TRICUBIC
-      uint3 p0 = uint3(voxelPos - 1);
+      int3 p0 = int3(voxelPos - 1);
+      
+      // printf("P0: %d %d %d, V_P: %f %f %f: \n", p0.x, p0.y, p0.z, (voxelPos - 1).x, (voxelPos - 1).y, (voxelPos - 1).z);
 
       for (int x = 0; x < 4; ++x)
       {
@@ -604,7 +606,7 @@ float BVHRT::load_distance_values(uint32_t nodeId, float3 voxelPos, uint32_t v_s
         {
           for (int z = 0; z < 4; z++)
           {
-            uint3 vPos = p0 + uint3(x, y, z);
+            int3 vPos = p0 + int3(x, y, z);
             uint32_t vId = SBS_v_to_i(vPos.x, vPos.y, vPos.z, v_size, header.brick_pad); 
             values[16 * z + 4 * y + x] = m_SdfSBSDataF[m_SdfSBSData[v_off + vId]];
             vmin = std::min(vmin, values[16 * z + 4 * y + x]);

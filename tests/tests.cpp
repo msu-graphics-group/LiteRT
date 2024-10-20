@@ -2577,20 +2577,6 @@ litert_test_34_tricubic_sbs()
       //auto t2 = std::chrono::high_resolution_clock::now();
       LiteImage::SaveImage<uint32_t>("saves/test_34_tricubic.bmp", image_SBS);
     }
-    {
-      preset.interpolation_type = TRILINEAR_INTERPOLATION_MODE;
-      auto pRender = CreateMultiRenderer("GPU");
-      pRender->SetPreset(preset);
-      pRender->SetViewport(0,0,W,H);
-      auto indexed_SBS = sdf_converter::create_sdf_SBS_indexed_with_neighbors(settings, header, mesh, 0, pRender->getMaterials(), pRender->getTextures());
-      pRender->SetScene(indexed_SBS);
-
-      preset.normal_mode = NORMAL_MODE_GEOMETRY;
-      //auto t1 = std::chrono::high_resolution_clock::now();
-      render(image_SBS, pRender, float3(0, 1, 2), float3(0, 0, 0), float3(0, 1, 0), preset);    
-      //auto t2 = std::chrono::high_resolution_clock::now();
-      LiteImage::SaveImage<uint32_t>("saves/test_34_trilinear.bmp", image_SBS);
-    }
   #else
     {
       auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "scenes/01_simple_scenes/data/bunny.vsgf").c_str());
@@ -2604,8 +2590,8 @@ litert_test_34_tricubic_sbs()
       SparseOctreeSettings settings(SparseOctreeBuildType::MESH_TLO, 5);
 
       SdfSBSHeader header;
-      header.brick_size = 10;
-      header.brick_pad = 0;
+      header.brick_size = 2;
+      header.brick_pad = 1;
       header.bytes_per_value = 1;
 
       LiteImage::Image2D<uint32_t> image_mesh(W, H);
