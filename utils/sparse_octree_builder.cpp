@@ -2096,6 +2096,56 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
     return sbs_n;
   }
 
+  unsigned count_and_mark_active_nodes_rec(std::vector<SdfFrameOctreeNode> &frame, unsigned nodeId)
+  {
+    unsigned ofs = frame[nodeId].offset;
+    if (is_leaf(ofs))
+    {
+      float min_val = 1000;
+      float max_val = -1000;
+      for (int i = 0; i < 8; i++)
+      {
+        min_val = std::min(min_val, frame[nodeId].values[i]);
+        max_val = std::max(max_val, frame[nodeId].values[i]);
+      } 
+      bool is_active = min_val < 0;
+      //if (!is_active)
+      //  frame[nodeId].offset = INVALID_IDX;
+      return (unsigned)is_active;
+    }   
+    else
+    {
+      unsigned sum = 0;
+      for (int i = 0; i < 8; i++)
+        sum += count_and_mark_active_nodes_rec(frame, ofs + i);
+      if (sum == 0)
+        frame[nodeId].offset = INVALID_IDX;
+
+      //if (sum == 0)
+      //  printf("parent node %u is not active\n", nodeId);
+      return sum;
+    }
+  }
+
+  void frame_octree_eliminate_invalid_rec(const std::vector<SdfFrameOctreeNode> &frame_old, unsigned oldNodeId, 
+                                          std::vector<SdfFrameOctreeNode> &frame_new, unsigned newNodeId)
+  {
+    unsigned ofs = frame_old[oldNodeId].offset;
+    if (!is_leaf(ofs))
+    {
+      unsigned new_ofs = frame_new.size();
+      frame_new[newNodeId].offset = new_ofs;
+      for (int i = 0; i < 8; i++)
+      {
+        frame_new.push_back(frame_old[ofs + i]);
+        if (frame_new.back().offset & INVALID_IDX)
+          frame_new.back().offset = 0;
+      }
+      for (int i = 0; i < 8; i++)
+        frame_octree_eliminate_invalid_rec(frame_old, ofs + i, frame_new, new_ofs + i);
+    }
+  }
+
   void frame_octree_to_compact_octree_rec(const std::vector<SdfFrameOctreeNode> &frame, std::vector<SdfCompactOctreeNode> &compact,
                                           unsigned nodeId, unsigned lod_size, uint3 p)
   {
@@ -2143,9 +2193,22 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
 
   std::vector<SdfCompactOctreeNode> frame_octree_to_compact_octree(const std::vector<SdfFrameOctreeNode> &frame)
   {
-    std::vector<SdfCompactOctreeNode> compact(frame.size());
+    std::vector<SdfFrameOctreeNode> frame_2 = frame;
+    unsigned nn = count_and_mark_active_nodes_rec(frame_2, 0);
+    assert(!is_leaf(frame_2[0].offset));
 
-    frame_octree_to_compact_octree_rec(frame, compact, 0, 1, uint3(0,0,0));
+    std::vector<SdfFrameOctreeNode> frame_3;
+    frame_3.reserve(frame.size());
+    frame_3.push_back(frame_2[0]);
+    frame_octree_eliminate_invalid_rec(frame_2, 0, frame_3, 0);
+    frame_3.shrink_to_fit();
+
+    //printf("%u/%u nodes are active\n", nn, (unsigned)frame.size());
+    //printf("%u/%u nodes are left after elimination\n", (unsigned)frame_3.size(), (unsigned)frame.size());
+
+    std::vector<SdfCompactOctreeNode> compact(frame_3.size());
+
+    frame_octree_to_compact_octree_rec(frame_3, compact, 0, 1, uint3(0,0,0));
 
     return compact;
   }
