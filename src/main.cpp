@@ -42,6 +42,8 @@ public:
   Vector2D<float> weights;
   std::vector<float> u_knots;
   std::vector<float> v_knots;
+  uint u_degree;
+  uint v_degree;
 };
 
 namespace STEP {
@@ -94,6 +96,10 @@ namespace STEP {
         return id;
     }
 
+    uint parseU(std::string raw) {
+        return std::stoi(raw);
+    }
+
     std::vector<uint> parseUVector1D(std::string raw) {
         std::vector<std::string> args = argsplit(raw);
         std::vector<uint> uvector1D;
@@ -114,7 +120,7 @@ namespace STEP {
         return fvector1D;
     }
 
-    float3 tofloat3(std::map<uint, Entity*> entities, uint id) {
+    float3 tofloat3(std::map<uint, Entity*> &entities, uint id) {
         Entity* entity = entities[id];
         assert(entity->type == Type::POINT);
 
@@ -132,7 +138,7 @@ namespace STEP {
     }
 
     Vector2D<float4> parsePointVector2D(
-            std::map<uint, STEP::Entity*> entities,
+            std::map<uint, STEP::Entity*> &entities,
             std::string raw) {
         std::vector<std::string> points_rows = argsplit(raw);
         size_t rows = points_rows.size();
@@ -204,17 +210,23 @@ namespace STEP {
         return knots;
     }
 
-    RawNURBS* toNURBS(std::map<uint, Entity*> entities, uint id) {
+    RawNURBS* toNURBS(std::map<uint, Entity*> &entities, uint id) {
         Entity* entity = entities[id];
         assert(entity->type == Type::BSPLINE_SURFACE);
 
         RawNURBS* nurbs = new RawNURBS();
 
+        std::string u_degree_arg     = entity->args[1];
+        std::string v_degree_arg     = entity->args[2];
         std::string points_arg       = entity->args[3];
         std::string u_knots_mult_arg = entity->args[8];
         std::string v_knots_mult_arg = entity->args[9];
         std::string u_knots_arg      = entity->args[10];
         std::string v_knots_arg      = entity->args[11];
+
+        // Parse degrees
+        nurbs->u_degree = parseU(u_degree_arg);
+        nurbs->v_degree = parseU(v_degree_arg);
 
         // Parse control points
         nurbs->points = parsePointVector2D(entities, points_arg);
@@ -241,7 +253,7 @@ namespace STEP {
         return nurbs;
     }
 
-     std::vector<RawNURBS*> allNURBS(std::map<uint, Entity*> entities) {
+     std::vector<RawNURBS*> allNURBS(std::map<uint, Entity*> &entities) {
         std::vector<RawNURBS*> allNurbs;
         for (auto &pair : entities) {
             auto id = pair.first;
@@ -316,10 +328,59 @@ void print_nurbs(const RawNURBS *nurbs) {
 }
 
 
+void debug_nurbs(std::vector<RawNURBS*> &nurbsV, uint idx, const std::string &filename) {
+    std::ofstream cout(filename);
+    auto nurbs = nurbsV[idx];
+
+    // Control points dimensions
+    uint32_t n = nurbs->points.rows_count();
+    cout << "n = " << n << std::endl;
+
+    uint32_t m = nurbs->points.cols_count();
+    cout << "m = " << m << std::endl;
+
+    // Control points
+    cout << "points:" << std::endl;
+    for (size_t i = 0; i < n; i++) {
+        for (size_t j = 0; j < m; j++) {
+            auto index = std::make_pair(i, j);
+            auto point = nurbs->points[index];
+            cout << "{" << point.x << " " << point.z << " " << point.y << "}\t";
+        }
+        cout << std::endl;
+    }
+
+    // Weights
+    cout << "weights:" << std::endl;
+    for (size_t i = 0; i < n; i++) {
+        for (size_t j = 0; j < m; j++) {
+            auto index = std::make_pair(i, j);
+            auto point = nurbs->points[index];
+            cout << nurbs->weights[index] << " ";
+        }
+        cout << std::endl;
+    }
+
+    // Degrees
+    cout << "u_degree: " << nurbs->u_degree << std::endl;
+    cout << "v_degree: " << nurbs->v_degree << std::endl;
+
+    // Knots
+    cout << "u_knots: ";
+    for (auto knot : nurbs->u_knots)
+        cout << knot << " ";
+    cout << std::endl;
+    
+    cout << "v_knots: ";
+    for (auto knot : nurbs->v_knots)
+        cout << knot << " ";
+    cout << std::endl;
+}
+
+
 int main() {
-    std::map<uint, STEP::Entity*> entities = STEP::parse("examples/poles.step");
+    std::map<uint, STEP::Entity*> entities = STEP::parse("examples/teapot.step");
     std::vector<RawNURBS*> nurbsV = STEP::allNURBS(entities);
-    for (auto nurbs : nurbsV)
-        print_nurbs(nurbs);
+    debug_nurbs(nurbsV, 0, "test.nurbs");
     return 0;
 }
