@@ -386,3 +386,42 @@ LiteMath::float3 RBezierGrid::normal(float u, float v) const {
   return normal;
 }
 
+
+#include <step_parser.h>
+std::vector<RBezierGrid>
+load_rbeziers(const std::filesystem::path &path) {
+  if (path.extension() == ".nurbss") {
+    return { nurbs2rbezier(load_nurbs(path)) };
+  } 
+
+  assert(path.extension() == ".step");
+
+  std::vector<RBezierGrid> res;
+  auto parsed_nurbs = STEP::allNURBS(STEP::parse(path));
+  for (auto *p_raw_nurbs: parsed_nurbs) {
+    auto [n, m] = p_raw_nurbs->points.shape2D();
+    int p = p_raw_nurbs->u_knots.size()-n-1;
+    int q = p_raw_nurbs->v_knots.size()-m-1;
+    Matrix2D<float4> points(n, m);
+    Matrix2D<float> weights(n, m);
+    std::vector<float> u_knots = p_raw_nurbs->u_knots;
+    float umin = u_knots.front(), umax = u_knots.back();
+    for (float &knot: u_knots)
+      knot = (knot - umin)/(umax-umin);
+    std::vector<float> v_knots = p_raw_nurbs->v_knots;
+    float vmin = v_knots.front(), vmax = v_knots.back();
+    for (float &knot: v_knots)
+      knot = (knot - vmin)/(vmax-vmin);
+    std::copy(p_raw_nurbs->points.data(), p_raw_nurbs->points.data()+n*m, points.data());
+    std::copy(p_raw_nurbs->weights.data(), p_raw_nurbs->weights.data()+n*m, weights.data());
+    NURBS_Surface surf(
+      points, weights, 
+      p, q,
+      u_knots,
+      v_knots);
+    res.push_back(nurbs2rbezier(surf));
+  }
+
+  return res;
+}
+

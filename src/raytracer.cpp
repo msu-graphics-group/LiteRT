@@ -96,12 +96,11 @@ void draw_points(
     const Camera &camera,
     Image2D<uint32_t> &image,
     std::function<ShadeFuncType> shade_function) {
-  image.clear(LiteMath::uchar4{ 153, 153, 153, 255 }.u32);
   if (surface.grid.get_n() == 0)
     return;
   float3 forward = normalize(camera.target - camera.position);
   float4x4 view = lookAt(camera.position, camera.target, camera.up);
-  float4x4 proj = perspectiveMatrix(camera.fov*180*M_1_PI, camera.aspect, 0.01f, 150.0f);
+  float4x4 proj = perspectiveMatrix(camera.fov*180*M_1_PI, camera.aspect, 0.01f, 1000.0f);
   int count = 250;
   for (int ui = 0; ui < count; ++ui)
   for (int vi = 0; vi < count; ++vi)
@@ -119,7 +118,6 @@ void draw_points(
     }
     point /= point.w;
     float3 normal = surface.normal(u, v);
-
     uint32_t x = clamp(static_cast<uint32_t>((point.x+1.0f)/2 * image.width()), 0u, image.width()-1);
     uint32_t y = static_cast<uint32_t>((point.y+1.0f)/2 * image.height());
     y = clamp(image.height() - y, 0u, image.height()-1);
@@ -138,7 +136,6 @@ void draw_newton(
     const Camera &camera,
     Image2D<uint32_t> &image,
     std::function<ShadeFuncType> shade_function) {
-  image.clear(LiteMath::uchar4{ 153, 153, 153, 255 }.u32);
   if (surface.grid.get_n() == 0)
     return;
   float4x4 mat  = perspectiveMatrix(camera.fov*180*M_1_PI, camera.aspect, 0.001f, 100.0f)

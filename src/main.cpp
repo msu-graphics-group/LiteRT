@@ -65,8 +65,7 @@ int main(int, char** argv)
   char path_to_surf[10000] = {};
   std::copy(default_path_to_surf.begin(), default_path_to_surf.end(), path_to_surf);
 
-  NURBS_Surface surf;
-  RBezierGrid rbezier;
+  std::vector<RBezierGrid> rbeziers;
 
   LiteImage::Image2D<uint32_t> framebuffer(WIDTH, HEIGHT);
   SDL_Texture *texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ABGR8888, SDL_TEXTUREACCESS_STREAMING, WIDTH, HEIGHT);
@@ -139,12 +138,22 @@ int main(int, char** argv)
       continue;
     }
 
+    framebuffer.clear(LiteMath::uchar4{ 153, 153, 153, 255 }.u32);
     //Render image
     auto b = std::chrono::high_resolution_clock::now();
-    switch(cur_renderer)
-    {
-      case 0: draw_points(rbezier, camera, framebuffer, shader_funcs[cur_shader]); break;
-      case 1: draw_newton(rbezier, camera, framebuffer, shader_funcs[cur_shader]); break;
+    // if (!rbeziers.empty()) {
+    //   switch(cur_renderer)
+    //   {
+    //     case 0: draw_points(rbeziers[0], camera, framebuffer, shader_funcs[cur_shader]); break;
+    //     case 1: draw_newton(rbeziers[0], camera, framebuffer, shader_funcs[cur_shader]); break;
+    //   }
+    // }
+    for (auto &rbezier: rbeziers) {
+      switch(cur_renderer)
+      {
+        case 0: draw_points(rbezier, camera, framebuffer, shader_funcs[cur_shader]); break;
+        case 1: draw_newton(rbezier, camera, framebuffer, shader_funcs[cur_shader]); break;
+      }
     }
     auto e = std::chrono::high_resolution_clock::now();
     ms = std::chrono::duration_cast<std::chrono::microseconds>(e-b).count()/1000.0f;
@@ -186,13 +195,15 @@ int main(int, char** argv)
       if (ImGui::Button("OK")) {
         to_load_surface = false;
         try {
-          surf = load_nurbs(path_to_surf);
-          rbezier = nurbs2rbezier(surf);
-          LiteMath::float3 target = get_center_of_mass(rbezier);
-          float radius = get_sphere_bound(rbezier, target);
+          rbeziers = load_rbeziers(path_to_surf);
+          LiteMath::float3 target = get_center_of_mass(rbeziers[0]);
+          float radius = get_sphere_bound(rbeziers[0], target);
           float distance = radius / std::sin(M_PI/8);
           camera = Camera(aspect, fov, { target.x, target.y, target.z+distance }, target);
-        } catch(...) {}
+          std::cout << "\"" << path_to_surf << "\" loaded!" << std::endl;
+        } catch(...) {
+          std::cout << "Failed to load \"" << path_to_surf << "\"!" << std::endl;
+        }
       }
       ImGui::End();
     }

@@ -22,6 +22,7 @@ public:
   T& operator[](std::pair<int, int> ids) { return values[ids.first*m+ids.second]; }
   const T& operator[](std::pair<int, int> ids) const { return values[ids.first*m+ids.second]; }
   const T* data() const { return values.data(); }
+  T* data() { return values.data(); }
   int get_n() const { return n; }
   int get_m() const { return m; }
 private:
@@ -129,5 +130,8 @@ public:
 
 RBezierGrid
 nurbs2rbezier(const NURBS_Surface &nurbs);
+
+std::vector<RBezierGrid>
+load_rbeziers(const std::filesystem::path &path);
 
 #endif
