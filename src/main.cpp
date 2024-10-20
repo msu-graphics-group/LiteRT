@@ -241,11 +241,25 @@ namespace STEP {
         return nurbs;
     }
 
+     std::vector<RawNURBS*> allNURBS(std::map<uint, Entity*> entities) {
+        std::vector<RawNURBS*> allNurbs;
+        for (auto &pair : entities) {
+            auto id = pair.first;
+            auto entity = pair.second;
+            if (entity->type == Type::BSPLINE_SURFACE) {
+                RawNURBS* nurbs = toNURBS(entities, id);
+                allNurbs.push_back(nurbs);
+            }
+        }
+        return allNurbs;
+    }
+
     std::map<uint, Entity*> parse(const std::string &filename) {
         std::ifstream file(filename);
         std::stringstream stream;
         stream << file.rdbuf();
         std::string text = stream.str();
+        file.close();
 
         // Remove space symbols
         std::regex rexp("\\s+");
@@ -267,45 +281,45 @@ namespace STEP {
 };
 
 
-int main() {
-    std::map<uint, STEP::Entity*> entities = STEP::parse("examples/teapot.step");
-    for (auto &pair : entities) {
-        auto id = pair.first;
-        auto entity = pair.second;
-        if (entity->type == STEP::Type::BSPLINE_SURFACE) {
-            RawNURBS* nurbs = toNURBS(entities, id);
-            auto points = nurbs->points;
-            for (size_t i = 0; i < points.rows_count(); i++) {
-                for (size_t j = 0; j < points.cols_count(); j++) {
-                    auto index = std::make_pair(i, j);
-                    auto point = points[index];
-                    std::cout << "(" << point.x << " " << point.y << " " << point.z << "), ";
-                }
-                std::cout << std::endl;
-            }
-
-            auto u_knots = nurbs->u_knots;
-            for (size_t i = 0; i < u_knots.size(); i++) {
-                std::cout << u_knots[i] << " ";
-            }
-            std::cout << std::endl;
-
-            auto v_knots = nurbs->v_knots;
-            for (size_t i = 0; i < v_knots.size(); i++) {
-                std::cout << v_knots[i] << " ";
-            }
-            std::cout << std::endl;
-
-            auto weights = nurbs->weights;
-            for (size_t i = 0; i < weights.rows_count(); i++) {
-                for (size_t j = 0; j < weights.cols_count(); j++) {
-                    auto index = std::make_pair(i, j);
-                    auto w = weights[index];
-                    std::cout << w << " ";
-                }
-                std::cout << std::endl;
-            }
+void print_nurbs(const RawNURBS *nurbs) {
+    auto points = nurbs->points;
+    for (size_t i = 0; i < points.rows_count(); i++) {
+        for (size_t j = 0; j < points.cols_count(); j++) {
+            auto index = std::make_pair(i, j);
+            auto point = points[index];
+            std::cout << "(" << point.x << " " << point.y << " " << point.z << "), ";
         }
+        std::cout << std::endl;
     }
+
+    auto u_knots = nurbs->u_knots;
+    for (size_t i = 0; i < u_knots.size(); i++) {
+        std::cout << u_knots[i] << " ";
+    }
+    std::cout << std::endl;
+
+    auto v_knots = nurbs->v_knots;
+    for (size_t i = 0; i < v_knots.size(); i++) {
+        std::cout << v_knots[i] << " ";
+    }
+    std::cout << std::endl;
+
+    auto weights = nurbs->weights;
+    for (size_t i = 0; i < weights.rows_count(); i++) {
+        for (size_t j = 0; j < weights.cols_count(); j++) {
+            auto index = std::make_pair(i, j);
+            auto w = weights[index];
+            std::cout << w << " ";
+        }
+        std::cout << std::endl;
+    }
+}
+
+
+int main() {
+    std::map<uint, STEP::Entity*> entities = STEP::parse("examples/poles.step");
+    std::vector<RawNURBS*> nurbsV = STEP::allNURBS(entities);
+    for (auto nurbs : nurbsV)
+        print_nurbs(nurbs);
     return 0;
 }
