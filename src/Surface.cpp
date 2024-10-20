@@ -379,3 +379,10 @@ LiteMath::float4 RBezierGrid::vder(float u, float v) const {
   return res;
 }
 
+LiteMath::float3 RBezierGrid::normal(float u, float v) const {
+  float4 uderiv = uder(u, v);
+  float4 vderiv = vder(u, v);
+  float3 normal = normalize(cross(to_float3(uderiv), to_float3(vderiv)));
+  return normal;
+}
+

@@ -5,6 +5,7 @@
 
 #include <LiteMath.h>
 #include <Image2d.h>
+#include <functional>
 
 #include "Surface.hpp"
 
@@ -31,13 +32,40 @@ public:
   float fov;
 };
 
+using ShadeFuncType = LiteMath::float4(
+    const LiteMath::float3&,
+    const LiteMath::float3&,
+    const LiteMath::float3&,
+    const LiteMath::float2&);
+
+inline 
+LiteMath::float4 shade_uv(
+    const LiteMath::float3&,
+    const LiteMath::float3&,
+    const LiteMath::float3&,
+    const LiteMath::float2& uv) {
+  return LiteMath::float4{ uv.x, uv.y, 0.0f, 1.0f }; 
+}
+
+inline 
+LiteMath::float4 shade_normals(
+    const LiteMath::float3&,
+    const LiteMath::float3&,
+    const LiteMath::float3& normal,
+    const LiteMath::float2&) {
+  auto normal_col = (normal + 1.0f)/2.0f;
+  return LiteMath::to_float4(normal_col, 1.0f);
+}
+
 void draw_newton(
     const RBezierGrid &surface,
     const Camera &camera,
-    LiteImage::Image2D<uint32_t> &image);
+    LiteImage::Image2D<uint32_t> &image,
+    std::function<ShadeFuncType> shade_function = shade_uv);
 
 void draw_points(
     const RBezierGrid &surface,
     const Camera &camera,
-    LiteImage::Image2D<uint32_t> &image);
+    LiteImage::Image2D<uint32_t> &image,
+    std::function<ShadeFuncType> shade_function = shade_uv);
 #endif

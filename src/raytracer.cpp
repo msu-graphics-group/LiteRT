@@ -30,7 +30,7 @@ float2 bezier_project(
   return float2 { dot(point, P1), dot(point, P2) };
 }
 
-std::optional<float3> trace_surface_newton(
+std::optional<float2> trace_surface_newton(
     const float3 &pos,
     const float3 &ray,
     const RBezierGrid &surf) {
@@ -88,13 +88,14 @@ std::optional<float3> trace_surface_newton(
   if (length(D) > EPS)
     return {};
   
-  return float3(uv.x, uv.y, 0.0f);
+  return uv;
 }
 
 void draw_points(
     const RBezierGrid &surface,
     const Camera &camera,
-    Image2D<uint32_t> &image) {
+    Image2D<uint32_t> &image,
+    std::function<ShadeFuncType> shade_function) {
   image.clear(LiteMath::uchar4{ 153, 153, 153, 255 }.u32);
   if (surface.grid.get_n() == 0)
     return;
@@ -117,20 +118,17 @@ void draw_points(
       continue;
     }
     point /= point.w;
-
-    float3 uder = to_float3(surface.uder(u, v));
-    float3 vder = to_float3(surface.vder(u, v));
-    float3 normal = normalize(cross(uder, vder));
-    float3 normal_col = (normal+1.0f)/2.0f;
+    float3 normal = surface.normal(u, v);
 
     uint32_t x = clamp(static_cast<uint32_t>((point.x+1.0f)/2 * image.width()), 0u, image.width()-1);
     uint32_t y = static_cast<uint32_t>((point.y+1.0f)/2 * image.height());
     y = clamp(image.height() - y, 0u, image.height()-1);
 
+    float4 color = shade_function(camera.position, to_float3(point), normal, float2{u, v});
     image[uint2{x, y}] = uchar4{ 
-        static_cast<u_char>(normal_col.x*255.0f),
-        static_cast<u_char>(normal_col.y*255.0f),
-        static_cast<u_char>(normal_col.z*255.0f),
+        static_cast<u_char>(color.x*255.0f),
+        static_cast<u_char>(color.y*255.0f),
+        static_cast<u_char>(color.z*255.0f),
         static_cast<u_char>(1*255.0f) }.u32;
   }
 }
@@ -138,7 +136,8 @@ void draw_points(
 void draw_newton(
     const RBezierGrid &surface,
     const Camera &camera,
-    Image2D<uint32_t> &image) {
+    Image2D<uint32_t> &image,
+    std::function<ShadeFuncType> shade_function) {
   image.clear(LiteMath::uchar4{ 153, 153, 153, 255 }.u32);
   if (surface.grid.get_n() == 0)
     return;
@@ -163,12 +162,16 @@ void draw_newton(
       continue;
     auto intersect_point = trace_surface_newton(pos, ray, surface);
     if (intersect_point.has_value()) {
-      float3 new_col = intersect_point.value();
+      float2 uv = intersect_point.value();
+      float4 point = surface.get_point(uv.x, uv.y);
+      point /= point.w; 
+      float3 normal = surface.normal(uv.x, uv.y);
+      float4 color = shade_function(camera.position, to_float3(point), normal, uv);
       image[uint2{ x, image.height()-1-y }] = uchar4{ 
-        static_cast<u_char>(new_col[0]*255.0f),
-        static_cast<u_char>(new_col[1]*255.0f),
-        static_cast<u_char>(new_col[2]*255.0f),
-        static_cast<u_char>(new_col[3]*255.0f) }.u32;
+        static_cast<u_char>(color[0]*255.0f),
+        static_cast<u_char>(color[1]*255.0f),
+        static_cast<u_char>(color[2]*255.0f),
+        static_cast<u_char>(color[3]*255.0f) }.u32;
     }
   }
 }

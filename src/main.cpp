@@ -61,7 +61,7 @@ int main(int, char** argv)
   ImGui_ImplSDLRenderer2_Init(renderer);
 
   bool to_load_surface = false;
-  std::string default_path_to_surf = std::filesystem::current_path().append("resources").append("vase.nurbss");
+  std::string default_path_to_surf = std::filesystem::current_path() / "resources" / "vase.nurbss";
   char path_to_surf[10000] = {};
   std::copy(default_path_to_surf.begin(), default_path_to_surf.end(), path_to_surf);
 
@@ -86,7 +86,17 @@ int main(int, char** argv)
     "Newton Method (in progress)"
   };
 
+  const char *shaders[] = {
+    "UV",
+    "Normals"
+  };
+  std::function<ShadeFuncType> shader_funcs[] = {
+    shade_uv,
+    shade_normals
+  };
+
   int cur_renderer = 0;
+  int cur_shader = 0;
   float ms = 0.0f;
 
   while (!done)
@@ -133,8 +143,8 @@ int main(int, char** argv)
     auto b = std::chrono::high_resolution_clock::now();
     switch(cur_renderer)
     {
-      case 0: draw_points(rbezier, camera, framebuffer); break;
-      case 1: draw_newton(rbezier, camera, framebuffer); break;
+      case 0: draw_points(rbezier, camera, framebuffer, shader_funcs[cur_shader]); break;
+      case 1: draw_newton(rbezier, camera, framebuffer, shader_funcs[cur_shader]); break;
     }
     auto e = std::chrono::high_resolution_clock::now();
     ms = std::chrono::duration_cast<std::chrono::microseconds>(e-b).count()/1000.0f;
@@ -162,6 +172,7 @@ int main(int, char** argv)
       camera = Camera(camera.aspect, camera.fov, camera.position, camera.target);
       ImGui::Text("Renderer settings:");
       ImGui::ListBox("Method", &cur_renderer, renderers, sizeof(renderers)/sizeof(*renderers));
+      ImGui::ListBox("Shading", &cur_shader, shaders, sizeof(shaders)/sizeof(*shaders));
       ImGui::Text("Debug Info");
       ImGui::Text("\tApplication average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
       ImGui::Text("\tCurrent render time: %.3f ms/frame (%.1f FPS)", ms, 1000.0f/ms);
