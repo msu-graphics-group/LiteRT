@@ -398,7 +398,8 @@ namespace sdf_converter
     uint16_t max_sz = std::max(std::max(x_sz, y_sz), z_sz) * x_st;
     float d_max = 2.0 * sqrt(3.0) * ((float)max_sz / (float)SDF_SBS_ADAPT_MAX_UNITS);
     uint32_t max_val = sbs.header.bytes_per_value == 4 ? 0xFFFFFFFF : (1 << (8 * sbs.header.bytes_per_value)) - 1;
-    uint8_t x_min = x_sz, x_max = 0, y_min = y_sz, y_max = 0, z_min = z_sz, z_max = 0, cnt = 0;
+    uint8_t x_min = x_sz, x_max = 0, y_min = y_sz, y_max = 0, z_min = z_sz, z_max = 0;
+    uint32_t cnt = 0;
     std::vector<uint8_t> x_imps(x_sz), y_imps(y_sz), z_imps(z_sz);
     std::fill(x_imps.begin(), x_imps.end(), 0);
     std::fill(y_imps.begin(), y_imps.end(), 0);
