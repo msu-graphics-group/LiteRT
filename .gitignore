@@ -1,0 +1,15 @@
+# Vim files
+*.swp
+
+# MacOS files
+.DS_Store
+
+# Runtime files
+obj/*
+main
+
+# Modules
+inc/LiteMath.h
+
+# Keep essential folders
+!.gitkeep
