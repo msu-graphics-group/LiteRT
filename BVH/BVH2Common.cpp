@@ -2202,9 +2202,9 @@ void BVHRT::OctreeIntersect(const float3 ray_pos, const float3 ray_dir, float tN
   uint3 p;
   float3 p_f, t0, t1, tm;
   int currNode;
-  uint32_t nodeId, primId;
+  uint32_t nodeId;
   uint32_t level_sz;
-  float d, qNear, qFar;
+  float d, qFar;
   float2 fNearFar;
   float3 start_q;
   float values[8];
@@ -2233,15 +2233,12 @@ void BVHRT::OctreeIntersect(const float3 ray_pos, const float3 ray_dir, float tN
         float tmin = std::max(t0.x, std::max(t0.y, t0.z));
         float tmax = std::min(t1.x, std::min(t1.y, t1.z));
 
-        qNear = 1.0f;
-
         {
           uint32_t p_mask = level_sz - 1;
           uint3 real_p = uint3(((a & 4) > 0) ? (~p.x & p_mask) : p.x, 
                                ((a & 2) > 0) ? (~p.y & p_mask) : p.y, 
                                ((a & 1) > 0) ? (~p.z & p_mask) : p.z);
 
-          primId = stack[top].nodeId;
           nodeId = stack[top].nodeId;
           float sz = 0.5f*float(level_sz);
           d = 1.0f/sz;
@@ -2251,7 +2248,6 @@ void BVHRT::OctreeIntersect(const float3 ray_pos, const float3 ray_dir, float tN
           float3 start_pos = ray_pos + fNearFar.x*ray_dir;
           start_q = sz*(start_pos - min_pos);
           qFar = sz*(fNearFar.y - fNearFar.x);
-          qNear = 0.0f;
         }
 
         float d_max = 2*1.73205081f/float(level_sz);
@@ -2260,8 +2256,8 @@ void BVHRT::OctreeIntersect(const float3 ray_pos, const float3 ray_dir, float tN
           values[i] = -d_max + 2*d_max*(1.0/255.0f)*((m_SdfCompactOctreeNodes[nodeId].values[i/4] >> (8*(i%4))) & 0xFF);
         }
         
-        LocalSurfaceIntersection(TYPE_SDF_FRAME_OCTREE, ray_dir, 0, 0, values, nodeId, primId, d, qNear, qFar, fNearFar, start_q, /*in */
-                                pHit); /*out*/
+        LocalSurfaceIntersection(TYPE_SDF_FRAME_OCTREE, ray_dir, 0, 0, values, nodeId, nodeId, d, 0.0f, qFar, fNearFar, start_q, /*in */
+                                 pHit); /*out*/
 
         if (pHit->primId != 0xFFFFFFFF)
           top = -1;
@@ -2280,9 +2276,12 @@ void BVHRT::OctreeIntersect(const float3 ray_pos, const float3 ray_dir, float tN
 
           // assert(buf_top < 4);
           // assert(top+buf_top <= 32);
-          tmp_buf[buf_top].nodeId = currNodeOff;
-          tmp_buf[buf_top].p_size = (stack[top].p_size << 1) | uint2(((currNode & 4) << (16-2)) | ((currNode & 2) >> 1), (currNode & 1) << 16);
-          buf_top++;
+          if (m_SdfCompactOctreeNodes[currNodeOff].flags != OCTREE_FLAG_NODE_EMPTY)
+          {
+            tmp_buf[buf_top].nodeId = currNodeOff;
+            tmp_buf[buf_top].p_size = (stack[top].p_size << 1) | uint2(((currNode & 4) << (16-2)) | ((currNode & 2) >> 1), (currNode & 1) << 16);
+            buf_top++;
+          }
           //return (txm < tym) ? (txm < tzm ? x : z) : (tym < tzm ? y : z);
           currNode = new_node(((currNode & 4) > 0) ? t1.x : tm.x, nn_indices[currNode].x,
                               ((currNode & 2) > 0) ? t1.y : tm.y, nn_indices[currNode].y,
