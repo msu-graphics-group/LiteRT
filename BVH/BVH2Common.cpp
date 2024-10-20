@@ -842,7 +842,6 @@ void BVHRT::OctreeBrickIntersect(uint32_t type, const float3 ray_pos, const floa
                      (  dp.x)*(  dp.y)*(  dp.z)*float3(m_SdfSBSDataF[m_SdfSBSData[t_off+7]+0], m_SdfSBSDataF[m_SdfSBSData[t_off+7]+1], m_SdfSBSDataF[m_SdfSBSData[t_off+7]+2]);
 
       color = clamp(floor(255.0f*color + 0.5f), 0.0f, 255.0f);
-      color = float3(0, 0, 0);
 
       pHit->coords[0] = color.x + color.y/256.0f;
       pHit->coords[1] = color.z;
