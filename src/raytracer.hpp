@@ -67,5 +67,6 @@ void draw_points(
     const RBezierGrid &surface,
     const Camera &camera,
     LiteImage::Image2D<uint32_t> &image,
+    int samples_per_parameter = 250,
     std::function<ShadeFuncType> shade_function = shade_uv);
 #endif

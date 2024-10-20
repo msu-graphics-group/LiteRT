@@ -141,17 +141,10 @@ int main(int, char** argv)
     framebuffer.clear(LiteMath::uchar4{ 153, 153, 153, 255 }.u32);
     //Render image
     auto b = std::chrono::high_resolution_clock::now();
-    // if (!rbeziers.empty()) {
-    //   switch(cur_renderer)
-    //   {
-    //     case 0: draw_points(rbeziers[0], camera, framebuffer, shader_funcs[cur_shader]); break;
-    //     case 1: draw_newton(rbeziers[0], camera, framebuffer, shader_funcs[cur_shader]); break;
-    //   }
-    // }
     for (auto &rbezier: rbeziers) {
       switch(cur_renderer)
       {
-        case 0: draw_points(rbezier, camera, framebuffer, shader_funcs[cur_shader]); break;
+        case 0: draw_points(rbezier, camera, framebuffer, 250/std::sqrt(rbeziers.size()), shader_funcs[cur_shader]); break;
         case 1: draw_newton(rbezier, camera, framebuffer, shader_funcs[cur_shader]); break;
       }
     }
@@ -196,8 +189,13 @@ int main(int, char** argv)
         to_load_surface = false;
         try {
           rbeziers = load_rbeziers(path_to_surf);
-          LiteMath::float3 target = get_center_of_mass(rbeziers[0]);
-          float radius = get_sphere_bound(rbeziers[0], target);
+          BoundingBox3d bbox;
+          for (auto &surf: rbeziers) {
+            bbox.mn = LiteMath::min(bbox.mn, surf.bbox.mn);
+            bbox.mx = LiteMath::max(bbox.mx, surf.bbox.mx);
+          }
+          auto target = bbox.center();
+          float radius = LiteMath::length(bbox.mn-target);
           float distance = radius / std::sin(M_PI/8);
           camera = Camera(aspect, fov, { target.x, target.y, target.z+distance }, target);
           std::cout << "\"" << path_to_surf << "\" loaded!" << std::endl;

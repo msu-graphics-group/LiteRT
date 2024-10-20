@@ -95,13 +95,14 @@ void draw_points(
     const RBezierGrid &surface,
     const Camera &camera,
     Image2D<uint32_t> &image,
+    int samples_per_parameter,
     std::function<ShadeFuncType> shade_function) {
   if (surface.grid.get_n() == 0)
     return;
   float3 forward = normalize(camera.target - camera.position);
   float4x4 view = lookAt(camera.position, camera.target, camera.up);
-  float4x4 proj = perspectiveMatrix(camera.fov*180*M_1_PI, camera.aspect, 0.01f, 1000.0f);
-  int count = 250;
+  float4x4 proj = perspectiveMatrix(camera.fov*180*M_1_PI, camera.aspect, 0.01f, 1e5f);
+  int count = samples_per_parameter;
   for (int ui = 0; ui < count; ++ui)
   for (int vi = 0; vi < count; ++vi)
   {
