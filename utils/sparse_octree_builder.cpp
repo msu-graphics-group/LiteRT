@@ -2108,7 +2108,7 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
         min_val = std::min(min_val, frame[nodeId].values[i]);
         max_val = std::max(max_val, frame[nodeId].values[i]);
       } 
-      bool is_active = min_val < 0;
+      bool is_active = min_val <= 0 && max_val >= 0;
       //if (!is_active)
       //  frame[nodeId].offset = INVALID_IDX;
       return (unsigned)is_active;
@@ -2164,10 +2164,8 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
 
     if (!is_leaf(ofs))
       compact[nodeId].flags = OCTREE_FLAG_NODE_PARENT;
-    else if (min_val > 0)
+    else if (min_val > 0 || max_val < 0)
       compact[nodeId].flags = OCTREE_FLAG_NODE_EMPTY;
-    else if (max_val < 0)
-      compact[nodeId].flags = OCTREE_FLAG_NODE_FULL;
     else
       compact[nodeId].flags = OCTREE_FLAG_NODE_BORDER;
 
@@ -2203,8 +2201,8 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
     frame_octree_eliminate_invalid_rec(frame_2, 0, frame_3, 0);
     frame_3.shrink_to_fit();
 
-    //printf("%u/%u nodes are active\n", nn, (unsigned)frame.size());
-    //printf("%u/%u nodes are left after elimination\n", (unsigned)frame_3.size(), (unsigned)frame.size());
+    printf("%u/%u nodes are active\n", nn, (unsigned)frame.size());
+    printf("%u/%u nodes are left after elimination\n", (unsigned)frame_3.size(), (unsigned)frame.size());
 
     std::vector<SdfCompactOctreeNode> compact(frame_3.size());
 
