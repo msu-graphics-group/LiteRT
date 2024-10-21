@@ -2576,6 +2576,8 @@ litert_test_34_tricubic_sbs()
       render(image_SBS, pRender, float3(0, 1, 2), float3(0, 0, 0), float3(0, 1, 0), preset);    
       //auto t2 = std::chrono::high_resolution_clock::now();
       LiteImage::SaveImage<uint32_t>("saves/test_34_tricubic.bmp", image_SBS);
+      float psnr = image_metrics::PSNR(image_mesh, image_SBS);
+      printf("PSNR: %f\n", psnr);
     }
   #else
     {
@@ -2604,7 +2606,7 @@ litert_test_34_tricubic_sbs()
         pRender->SetPreset(preset);
         pRender->SetViewport(0,0,W,H);
         pRender->SetScene(mesh);
-        render(image_mesh, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+        render(image_mesh, pRender, float3(0, 1, 2), float3(0, 0, 0), float3(0, 1, 0), preset);
         LiteImage::SaveImage<uint32_t>("saves/test_34_mesh_ref.bmp", image_mesh);
       }
 
@@ -2620,6 +2622,9 @@ litert_test_34_tricubic_sbs()
         render(image_SBS, pRender, float3(0, 1, 2), float3(0, 0, 0), float3(0, 1, 0), preset);    
         //auto t2 = std::chrono::high_resolution_clock::now();
         LiteImage::SaveImage<uint32_t>("saves/test_34_trilinear.bmp", image_SBS);
+
+        float psnr = image_metrics::PSNR(image_mesh, image_SBS);
+        printf("PSNR: %f\n", psnr);
       }
     }
   #endif
