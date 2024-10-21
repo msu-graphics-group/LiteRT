@@ -2201,8 +2201,8 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
     frame_octree_eliminate_invalid_rec(frame_2, 0, frame_3, 0);
     frame_3.shrink_to_fit();
 
-    printf("%u/%u nodes are active\n", nn, (unsigned)frame.size());
-    printf("%u/%u nodes are left after elimination\n", (unsigned)frame_3.size(), (unsigned)frame.size());
+    //printf("%u/%u nodes are active\n", nn, (unsigned)frame.size());
+    //printf("%u/%u nodes are left after elimination\n", (unsigned)frame_3.size(), (unsigned)frame.size());
 
     std::vector<SdfCompactOctreeNode> compact(frame_3.size());
 

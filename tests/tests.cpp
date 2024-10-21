@@ -2839,15 +2839,15 @@ void litert_test_38_direct_octree_traversal()
   auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "scenes/01_simple_scenes/data/teapot.vsgf").c_str());
   cmesh4::normalize_mesh(mesh);
 
-  if (false)
+  if (true)
   {
-  auto octree = sdf_converter::create_sdf_frame_octree(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 9), mesh);
+  auto octree = sdf_converter::create_sdf_frame_octree(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 11), mesh);
   save_sdf_frame_octree(octree, "saves/octree.bin");
-  auto SVS = sdf_converter::create_sdf_SVS(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 9), mesh);
+  auto SVS = sdf_converter::create_sdf_SVS(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 11), mesh);
   save_sdf_SVS(SVS, "saves/SVS.bin");
   SdfSBSHeader header{2,0,1,SDF_SBS_NODE_LAYOUT_DX};
   
-  SdfSBS sbs = sdf_converter::create_sdf_SBS(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 8), header, mesh);
+  SdfSBS sbs = sdf_converter::create_sdf_SBS(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 10), header, mesh);
   save_sdf_SBS(sbs, "saves/sbs.bin");
   }
 
@@ -2859,7 +2859,7 @@ void litert_test_38_direct_octree_traversal()
   load_sdf_SVS(SVS, "saves/SVS.bin");
   load_sdf_SBS(SBS, "saves/sbs.bin");
 
-  unsigned W = 2048, H = 2048;
+  unsigned W = 4096, H = 4096;
   MultiRenderPreset preset = getDefaultPreset();
   preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
   preset.spp = 1;
