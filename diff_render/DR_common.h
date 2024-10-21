@@ -168,6 +168,9 @@ namespace dr
     bool redistancing_enable;
     unsigned redistancing_interval;
 
+    //raycasting settings and parameters
+    unsigned dr_raycasting_thickness; 
+
     //debug settings
     bool debug_print;                //wether to print loss and ETA during optimization or not
     unsigned debug_print_interval;   //how often to print

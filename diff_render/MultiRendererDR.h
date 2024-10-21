@@ -25,6 +25,7 @@ namespace dr
     preset.dr_border_sampling = DR_BORDER_SAMPLING_RANDOM;
 
     preset.dr_raycasting_mask = DR_RAYCASTING_MASK_OFF;
+    preset.dr_raycasting_thickness = 5;
     preset.dr_atomic_ders = -1;
 
     preset.border_spp = 256;
@@ -71,7 +72,6 @@ namespace dr
   {
   public:
     MultiRendererDR(uint32_t maxPrimitives = 10'000'000);
-    void setBorderThickness(uint32_t thickness);
     void cleanMasks();
     void SetReference(const std::vector<LiteImage::Image2D<float4>>& images, 
                       const std::vector<LiteMath::float4x4>& worldView, 

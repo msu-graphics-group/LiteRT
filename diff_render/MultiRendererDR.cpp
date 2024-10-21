@@ -137,12 +137,6 @@ namespace dr
     process_mask.clear();
   }
 
-  void 
-  MultiRendererDR::setBorderThickness(uint32_t thickness)
-  {
-    this->add_border = thickness;
-  }
-
   float MultiRendererDR::getBaseGradientMult()
   {
     unsigned params_count = dynamic_cast<BVHDR*>(GetAccelStruct()->UnderlyingImpl(0))->m_SdfSBSDataF.size();
@@ -543,7 +537,16 @@ namespace dr
             m_preset.render_mode = original_mode;
             SetPreset(m_preset);
           }
-          
+
+          // LiteImage::Image2D<LiteMath::float4> _proc_mask{m_width, m_height};
+          // for (uint32_t j = 0u; j < m_height; ++j)
+          //   for (uint32_t i = 0u; i < m_width; ++i) {
+          //     _proc_mask[uint2{i, j}] = float4(255.f * masks[image_id][j * m_width + i],
+          //                                      255.f * masks[image_id][j * m_width + i],
+          //                                      255.f * masks[image_id][j * m_width + i], 255.f);
+          // }
+          // LiteImage::SaveImage<LiteMath::float4>(("saves/iter_"+std::to_string(iter)+"_"+std::to_string(image_id)+"_raycast.png").c_str(), _proc_mask);
+
           LiteImage::SaveImage<float4>(("saves/iter_"+std::to_string(iter)+"_"+std::to_string(image_id)+".png").c_str(), m_images[image_id]);
 
           if (preset.debug_render_mode != DR_DEBUG_RENDER_MODE_NONE)

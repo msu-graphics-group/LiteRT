@@ -2514,7 +2514,6 @@ diff_render_test_23_ray_casting_mask()
       dr_preset.dr_raycasting_mask = DR_RAYCASTING_MASK_ON;
 
       MultiRendererDR dr_render;
-      dr_render.setBorderThickness(5);
       dr_render.SetReference(images_ref, view, proj);
 
       auto before = std::chrono::high_resolution_clock::now();
