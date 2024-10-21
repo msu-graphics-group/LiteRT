@@ -122,7 +122,7 @@ struct BVHRT : public ISceneObject
   uint32_t AddGeom_SdfSBS(SdfSBSView octree, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
   uint32_t AddGeom_SdfSBSAdapt(SdfSBSAdaptView octree, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
   uint32_t AddGeom_SdfFrameOctreeTex(SdfFrameOctreeTexView octree, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
-  uint32_t AddGeom_NURBS(const RawNURBS &nurbs, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
+  uint32_t AddGeom_NURBS(const RBezierGrid &nurbs, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
   uint32_t AddGeom_GraphicsPrim(const GraphicsPrimView &nurbs, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
 
   void set_debug_mode(bool enable);
@@ -328,19 +328,18 @@ struct BVHRT : public ISceneObject
   std::vector<float> m_NURBSData;
   std::vector<NURBSHeader> m_NURBSHeaders;
   //NURBS functions
-  virtual float4 control_point(uint i, uint j, NURBSHeader h);
-  virtual float weight(uint i, uint j, NURBSHeader h);
-  virtual float uknot(uint i, NURBSHeader h);
-  virtual float vknot(uint i, NURBSHeader h);
-  virtual int find_uspan(float u, NURBSHeader h);
-  virtual int find_vspan(float v, NURBSHeader h);
-  virtual void ubasis_funs(int i, float u, NURBSHeader h, float N[NURBS_MAX_DEGREE+1]);
-  virtual void vbasis_funs(int i, float v, NURBSHeader h, float N[NURBS_MAX_DEGREE+1]);
-  virtual float4 nurbs_point(float u, float v, NURBSHeader h);
-  virtual float4 uder(float u, float v, NURBSHeader h);
-  virtual float4 vder(float u, float v, NURBSHeader h);
-  virtual bool uclosed(NURBSHeader h);
-  virtual bool vclosed(NURBSHeader h);
+  virtual float4 control_point2d(uint i, uint j, int offset, NURBSHeader h);
+  virtual float4 control_point(uint i, int offset);
+  virtual float knot(uint i, int knots_offset);
+  virtual int find_span(float t, int knots_offset, int knots_count, NURBSHeader h);
+  virtual float4 rbezier_curve_point(float u, int p, int offset);
+  virtual float4 rbezier_surface_point(float u, float v, int points_offset, NURBSHeader h);
+  virtual float4 rbezier_grid_point(float u, float v, NURBSHeader h);
+  virtual float4 rbezier_curve_der(float u, int p, int offset);
+  virtual float4 rbezier_surface_uder(float u, float v, int points_offset, NURBSHeader h);
+  virtual float4 rbezier_surface_vder(float u, float v, int points_offset, NURBSHeader h);
+  virtual float4 rbezier_grid_uder(float u, float v, NURBSHeader h);
+  virtual float4 rbezier_grid_vder(float u, float v, NURBSHeader h);
   virtual NURBS_HitInfo ray_nurbs_newton_intersection(
     const LiteMath::float3 &pos,
     const LiteMath::float3 &ray,

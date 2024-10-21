@@ -93,5 +93,11 @@
         "execution": "cpp",
         "*.ipp": "cpp"
     },
-    "C_Cpp.default.compilerPath": "/usr/bin/g++-11"
+    "C_Cpp.default.compilerPath": "/usr/bin/g++-11",
+    "cmake.debugConfig": {
+      "cwd": "${workspaceFolder}",
+      "args": ["-tests_litert", "31"],
+      "visualizerFile": "${workspaceFolder}/.vscode/litemath.natvis",
+      "showDisplayString": true
+    }
 }

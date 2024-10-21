@@ -1,30 +1,33 @@
 #pragma once
 
 #include <LiteMath.h>
-using LiteMath::float2;
+using LiteMath::float2, LiteMath::float3;
 
 struct NURBSHeader
 {
   uint32_t offset;
-  uint32_t n, m, p, q;
+  uint32_t p, q;
+  uint32_t uknots_cnt, vknots_cnt;
 };
 
 inline
-uint32_t weights_offset(NURBSHeader h) { 
-  return h.offset+(h.n + 1)*(h.m + 1)*4; 
+uint32_t pts_offset(NURBSHeader h, int uspan, int vspan) { 
+  return h.offset+(h.p + 1)*(h.q + 1) * 4 * ((h.vknots_cnt-1)*uspan + vspan); 
 }
 inline
-uint32_t u_knots_offset(NURBSHeader h) { 
-  return h.offset+(h.n + 1)*(h.m + 1)*5; 
+uint32_t uknots_offset(NURBSHeader h) { 
+  return h.offset+(h.p + 1)*(h.q + 1) * 4 * (h.uknots_cnt-1) * (h.vknots_cnt-1);
 }
 inline
-uint32_t v_knots_offset(NURBSHeader h) {
-  return h.offset+(h.n + 1)*(h.m + 1)*5 + (h.n + h.p + 2);
+uint32_t vknots_offset(NURBSHeader h) {
+  return uknots_offset(h)+h.uknots_cnt;
 }
 
 struct NURBS_HitInfo
 {
   bool hitten;
+  float3 point;
+  float3 normal;
   float2 uv;
 };
 
@@ -49,7 +52,7 @@ public:
   const T* data() const { return data_.data(); }
 private:
   std::vector<T> data_;
-  uint32_t n_, m_;
+  uint32_t n_ = 0, m_ = 0;
 };
 
 struct RawNURBS
@@ -59,10 +62,26 @@ public:
   Vector2D<float> weights;
   std::vector<float> u_knots;
   std::vector<float> v_knots;
+  LiteMath::Box4f bbox;
 public:
   uint32_t get_n() const { return points.rows_count() - 1; }
   uint32_t get_m() const { return points.cols_count() - 1; }
   uint32_t get_p() const { return u_knots.size() - get_n() - 2; }
   uint32_t get_q() const { return v_knots.size() - get_m() - 2; }
 };
+
+struct RBezier 
+{ 
+  Vector2D<LiteMath::float4> weighted_points;
+};
+
+struct RBezierGrid
+{
+  std::vector<float> uniq_uknots;
+  std::vector<float> uniq_vknots;
+  Vector2D<RBezier> grid;
+  LiteMath::Box4f bbox;
+};
+
+
 #endif

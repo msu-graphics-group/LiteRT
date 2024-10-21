@@ -26,10 +26,13 @@ find_package(Threads REQUIRED)
 find_package(OpenMP REQUIRED)
 
 set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS} -std=c++17 -O3 -Wall -Wno-unused-function \
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS} -std=c++17 -Wall -Wno-unused-function \
                      -Wno-unused-variable -Wno-unused-but-set-variable -Wno-unused-parameter -Wno-unused-result \
                      -Wno-int-to-pointer-cast -Wno-register -Wreturn-type -Wdisabled-optimization \
                      -Wno-narrowing -Wno-attributes -Wno-sign-compare")
+#release already has -O3 flag
+#message("${CMAKE_CXX_FLAGS_RELEASE}")
+
 
 set(SCENE_LOADER_SRC
     ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/LiteScene/pugixml.cpp
@@ -172,6 +175,11 @@ if (USE_VULKAN)
   set(MODULES_LIBRARIES ${MODULES_LIBRARIES} ${Vulkan_LIBRARY} OpenMP::OpenMP_CXX volk dl)
 endif()
 
+set(
+  NURBS_SRC 
+    nurbs/nurbs_common_host.cpp
+)
+
 add_executable(render_app)
 target_include_directories(render_app PUBLIC ${MODULES_INCLUDE_DIRS})
 
@@ -180,6 +188,7 @@ target_sources(render_app PRIVATE main.cpp
                ${SCENE_LOADER_SRC}
                ${CORE_SRC}
                ${BUILDERS_SRC}
+               ${NURBS_SRC}
               )
 
 set_property(TARGET render_app PROPERTY CXX_STANDARD 17)

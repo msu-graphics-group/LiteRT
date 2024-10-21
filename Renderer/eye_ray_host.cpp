@@ -11,6 +11,8 @@
 #include "../utils/mesh_bvh.h"
 #include "../utils/sdf_converter.h"
 
+#include "../nurbs/nurbs_common_host.h"
+
 using LiteMath::float2;
 using LiteMath::float3;
 using LiteMath::float4;
@@ -397,7 +399,9 @@ void MultiRenderer::SetScene(const RawNURBS &nurbs)
 
   SetPreset(m_preset);
   m_pAccelStruct->ClearGeom();
-  auto geomId = bvhrt->AddGeom_NURBS(nurbs, m_pAccelStruct.get());
+
+  auto rbezier_grid = nurbs2rbezier(nurbs);
+  auto geomId = bvhrt->AddGeom_NURBS(rbezier_grid, m_pAccelStruct.get());
   m_pAccelStruct->ClearScene();
   AddInstance(geomId, LiteMath::float4x4());
   m_pAccelStruct->CommitScene();
