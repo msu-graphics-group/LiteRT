@@ -25,7 +25,7 @@ namespace dr
   static float3 visualize_value_debug(float val)
   {
     float diff_log = log10(abs(val) + 1.0f);
-    float q_red = std::max(0.0f, 1.f - abs(diff_log - 3.0f));
+    float q_red = val != 0;
     float q_green = std::max(0.0f, 1.f - abs(diff_log - 2.0f));
     float q_blue = std::max(0.0f, 1.f - abs(diff_log - 1.0f));
 
@@ -550,7 +550,7 @@ namespace dr
           LiteImage::SaveImage<float4>(("saves/iter_"+std::to_string(iter)+"_"+std::to_string(image_id)+".png").c_str(), m_images[image_id]);
 
           if (preset.debug_render_mode != DR_DEBUG_RENDER_MODE_NONE)
-            LiteImage::SaveImage<float4>(("saves/debug_iter_"+std::to_string(iter)+"_"+std::to_string(image_id)+".png").c_str(), m_imagesDebug[image_id]);
+            LiteImage::SaveImage<float4>(("saves/debug_iter_"+std::to_string(iter)+"_"+std::to_string(image_id)+"_2.png").c_str(), m_imagesDebug[image_id]);
 
         }
       }
@@ -1641,7 +1641,7 @@ namespace dr
   void MultiRendererDR::CastBorderRaySVM(uint32_t tidX, const float4 *image_ref, LiteMath::float4* out_image, float* out_dLoss_dS,
                                          LiteMath::float4* out_image_debug)
   {
-    const float min_sample_radius = 0.01f;
+    const float min_sample_radius = 0.15f;
     const float sample_radius_mult = 2.0f;
     const float max_error_rate = 0.05f;
     const float min_stripe_area = 0.005f;
@@ -1852,7 +1852,7 @@ namespace dr
           BVHDR* bvh_as = static_cast<BVHDR*>(m_pAccelStruct.get());
           float3 intersect_pos = to_float3(rayPosAndNear + payload.missed_hit.t * rayDirAndFar);
           bvh_as->m_GraphicsPrimPoints.push_back(float4(intersect_pos.x, intersect_pos.y, intersect_pos.z, 0.005f));
-          bvh_as->m_GraphicsPrimPoints.push_back(to_float4(intersect_pos + normalize(payload.missed_hit.normal) * 0.1f, 0.f));
+          bvh_as->m_GraphicsPrimPoints.push_back(to_float4(intersect_pos + normalize(payload.missed_hit.normal) * 0.1f, payload.missed_hit.sdf));
           bvh_as->m_GraphicsPrimPoints.push_back(float4(255.f, 0.f, 0.f, 0.f));
         }
       }
