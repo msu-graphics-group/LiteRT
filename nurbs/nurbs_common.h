@@ -5,21 +5,21 @@ using LiteMath::float2, LiteMath::float3;
 
 struct NURBSHeader
 {
-  uint32_t offset;
-  uint32_t p, q;
-  uint32_t uknots_cnt, vknots_cnt;
+  int offset;
+  int p, q;
+  int uknots_cnt, vknots_cnt;
 };
 
 inline
-uint32_t pts_offset(NURBSHeader h, int uspan, int vspan) { 
+int pts_offset(NURBSHeader h, int uspan, int vspan) { 
   return h.offset+(h.p + 1)*(h.q + 1) * 4 * ((h.vknots_cnt-1)*uspan + vspan); 
 }
 inline
-uint32_t uknots_offset(NURBSHeader h) { 
+int uknots_offset(NURBSHeader h) { 
   return h.offset+(h.p + 1)*(h.q + 1) * 4 * (h.uknots_cnt-1) * (h.vknots_cnt-1);
 }
 inline
-uint32_t vknots_offset(NURBSHeader h) {
+int vknots_offset(NURBSHeader h) {
   return uknots_offset(h)+h.uknots_cnt;
 }
 

@@ -3,12 +3,7 @@
 #include <sstream>
 #include <vector>
 #include <algorithm>
-
-#ifndef KERNEL_SLICER
 #include <cassert>
-#else 
-#define assert(...) 
-#endif 
 
 #include <cfloat>
 #include <chrono>
@@ -1324,14 +1319,14 @@ int BVHRT::find_span(float t, int knots_offset, int knots_count, NURBSHeader h) 
       l = m;
   }
 
-  assert(knot(l, knots_offset) <= t && t < knot(l+1, knots_offset));
+  //assert(knot(l, knots_offset) <= t && t < knot(l+1, knots_offset));
   return l;
 }
 
 float4 BVHRT::rbezier_curve_point(float u, int p, int offset) {
   float u_n = 1.0f;
   float _1_u = 1.0f - u;
-  int bc = 1.0f;
+  int bc = 1;
   float4 res = control_point(0, offset) * _1_u;
   for (int i = 1; i <= p-1; ++i) {
     u_n *= u;
@@ -1347,7 +1342,7 @@ float4 BVHRT::rbezier_surface_point(float u, float v, int points_offset, NURBSHe
   int q = h.q;
   float u_n = 1.0f;
   float _1_u = 1.0f - u;
-  int bc = 1.0f;
+  int bc = 1;
   float4 res = rbezier_curve_point(v, q, points_offset+(q+1)*4*0) * _1_u;
   for (int i = 1; i <= p-1; ++i) {
     u_n *= u;
@@ -1373,7 +1368,7 @@ float4 BVHRT::rbezier_grid_point(float u, float v, NURBSHeader h) {
 float4 BVHRT::rbezier_curve_der(float u, int p, int offset) {
   float u_n = 1.0f;
   float _1_u = 1.0f - u;
-  int bc = 1.0f;
+  int bc = 1;
 
   float4 cur_pnt = control_point(0, offset);
   float4 next_pnt = control_point(1, offset);
@@ -1404,7 +1399,7 @@ float4 BVHRT::rbezier_surface_vder(float u, float v, int points_offset, NURBSHea
   int q = h.q;
   float u_n = 1.0f;
   float _1_u = 1.0f - u;
-  int bc = 1.0f;
+  int bc = 1;
   float4 Sw_der = rbezier_curve_der(v, q, points_offset+(q+1)*4*0) * _1_u;
   for (int i = 1; i <= p-1; ++i) {
     u_n *= u;
@@ -1424,7 +1419,7 @@ float4 BVHRT::rbezier_surface_uder(float u, float v, int points_offset, NURBSHea
   int q = h.q;
   float u_n = 1.0f;
   float _1_u = 1.0f - u;
-  int bc = 1.0f;
+  int bc = 1;
   float4 Sw_der = { 0.0f, 0.0f, 0.0f, 0.0f };
 
   float4 cur_point = rbezier_curve_point(v, q, points_offset+(q+1)*4*0);
@@ -1496,16 +1491,16 @@ NURBS_HitInfo BVHRT::ray_nurbs_newton_intersection(
                     : float3{ 0, -ray.z, ray.y };
   float3 ortho_dir2 = normalize(cross(ortho_dir1, ray));
   ortho_dir1 = normalize(cross(ray, ortho_dir2));
-  assert(dot(ortho_dir1, ortho_dir2) < 1e-2f);
-  assert(dot(ortho_dir1, ray) < 1e-2f);
-  assert(dot(ortho_dir2, ray) < 1e-2f);
+  // assert(dot(ortho_dir1, ortho_dir2) < 1e-2f);
+  // assert(dot(ortho_dir1, ray) < 1e-2f);
+  // assert(dot(ortho_dir2, ray) < 1e-2f);
 
   float4 P1 = to_float4(ortho_dir1, -dot(ortho_dir1, pos));
   float4 P2 = to_float4(ortho_dir2, -dot(ortho_dir2, pos));
-  assert(dot(P1, to_float4(pos, 1.0f)) < 1e-2);
-  assert(dot(P2, to_float4(pos, 1.0f)) < 1e-2);
+  // assert(dot(P1, to_float4(pos, 1.0f)) < 1e-2);
+  // assert(dot(P2, to_float4(pos, 1.0f)) < 1e-2);
 
-  float2 uv = float2{ rand()*1.0f/RAND_MAX, rand()*1.0f/RAND_MAX };
+  float2 uv = float2{ 0.5f, 0.5f };
   float4 surf_point = rbezier_grid_point(uv.x, uv.y, h);
   surf_point /= surf_point.w;
   float2 D = project2planes(P1, P2, surf_point); 
@@ -1534,8 +1529,8 @@ NURBS_HitInfo BVHRT::ray_nurbs_newton_intersection(
     uv = uv - (J_inversed[0]*D[0]+J_inversed[1]*D[1]);
     uv.x = clamp(uv.x, 0.0f, 1.0f);
     uv.y = clamp(uv.y, 0.0f, 1.0f);
-    assert(0 <= uv.x && uv.x <= 1);
-    assert(0 <= uv.y && uv.y <= 1);
+    // assert(0 <= uv.x && uv.x <= 1);
+    // assert(0 <= uv.y && uv.y <= 1);
 
     surf_point = rbezier_grid_point(uv.x, uv.y, h);
     surf_point /= surf_point.w;
@@ -1553,7 +1548,12 @@ NURBS_HitInfo BVHRT::ray_nurbs_newton_intersection(
   float3 uder = to_float3(rbezier_grid_uder(uv.x, uv.y, h));
   float3 vder = to_float3(rbezier_grid_vder(uv.x, uv.y, h));
   float3 normal = normalize(cross(uder, vder));
-  return NURBS_HitInfo{ true, to_float3(surf_point), normal, uv };
+
+  hit_info.hitten = true;
+  hit_info.point = to_float3(surf_point);
+  hit_info.normal = normal;
+  hit_info.uv = uv;
+  return hit_info;
 }
 
 void BVHRT::IntersectNURBS(const float3& ray_pos, const float3& ray_dir,
