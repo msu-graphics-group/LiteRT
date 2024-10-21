@@ -617,14 +617,14 @@ namespace dr
   float BVHDR::Intersect(uint32_t ray_flags, const float3 ray_dir, float values[8], float d, 
                          float qNear, float qFar, float3 start_q, RayDiffPayload *relax_pt)
   {
-    const float EPS = 1e-7f;
+    const float EPS = 1e-6f, SDF_EPS = 1e-7f;
     float d_inv = 1.0f / d;
     float t = qNear;
     bool hit = false;
     unsigned iter = 0;
 
     float start_dist = eval_dist_trilinear(values, start_q + t * ray_dir);
-    if (start_dist <= EPS || m_preset.sdf_node_intersect == SDF_OCTREE_NODE_INTERSECT_BBOX)
+    if (start_dist <= SDF_EPS || m_preset.sdf_node_intersect == SDF_OCTREE_NODE_INTERSECT_BBOX)
     {
       hit = true;
     }
@@ -650,7 +650,7 @@ namespace dr
       if (sdf_dsdf_near.y <= 0.f)
         t_dsdf_l = { 0.f, sdf_dsdf_near.y };
 
-      while (t < qFar && dist > EPS && iter < ST_max_iters)
+      while (t < qFar && dist > SDF_EPS && iter < ST_max_iters)
       {
         t += dist * d_inv;
         dist = eval_dist_trilinear(values, start_q + t * ray_dir);
@@ -677,7 +677,7 @@ namespace dr
 
             // If this is the last ST iteration for the voxel, current point has (SDF' <= 0)
             // and furthest ray point in voxel has (SDF' > 0), set ("current" var, and then) right border
-            if ((t >= qFar || dist <= EPS || iter >= ST_max_iters) && sdf_dsdf_far.y > 0.f)
+            if ((t >= qFar || dist <= SDF_EPS || iter >= ST_max_iters) && sdf_dsdf_far.y > 0.f)
               t_dsdf_curr = { qFar, sdf_dsdf_far.y };
           }
           if (t_dsdf_curr.y > 0.f)
@@ -713,7 +713,7 @@ namespace dr
           }
         }
       }
-      hit = (dist <= EPS);
+      hit = (dist <= SDF_EPS);
 
       if (relax_pt && ray_flags & DR_RAY_FLAG_BORDER)
       {
@@ -935,7 +935,7 @@ namespace dr
           unsigned iter = 0;
           rtn = 0.5f*(nwt_min + nwt_max);
           float f = 1000;
-          while (iter < max_iters && std::abs(f) >= EPS)
+          while (iter < max_iters && std::abs(f) >= SDF_EPS)
           {
             f = c0 + rtn*(c1 + rtn*(c2 + rtn*c3));
             float df = c1 + rtn*(2*c2 + rtn*3*c3);
@@ -944,7 +944,7 @@ namespace dr
             iter++;
           }
           t = rtn;
-          hit = (t >= 0 && t <= qFar && std::abs(f) < EPS);
+          hit = (t >= 0 && t <= qFar && std::abs(f) < SDF_EPS);
         }
         else
         {
@@ -1035,7 +1035,7 @@ namespace dr
         float dist = start_dist;
         float3 pp = start_q + t * ray_dir;
 
-        while (t < qFar && dist > EPS && iter < IT_max_iters)
+        while (t < qFar && dist > SDF_EPS && iter < IT_max_iters)
         {
           float df_1 = 3*c3*t*t + 2*c2*t + c1;
           float df_2 = 3*c3*(t+e)*(t+e) + 2*c2*(t+e) + c1;
@@ -1048,7 +1048,7 @@ namespace dr
           pp = start_q + t * ray_dir;
           iter++;
         }
-        hit = (dist <= EPS);
+        hit = (dist <= SDF_EPS);
       
       }
     }
