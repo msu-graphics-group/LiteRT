@@ -319,7 +319,7 @@ namespace cmesh4
         float ch_d = d/2;
         float3 ch_p = 2*p + float3((i & 4) >> 2, (i & 2) >> 1, i & 1);
         float3 ch_center = 2.0f*((ch_p + float3(0.5, 0.5, 0.5))*ch_d) - 1.0f;
-        float3 ch_half_size = search_range_mult*float3(ch_d);
+        float3 ch_half_size = 2.0f/*this*/*search_range_mult*float3(ch_d);
 
         //printf("ch node (%f %f %f)-(%f %f %f)\n", ch_center.x, ch_center.y, ch_center.z, ch_half_size.x, ch_half_size.y, ch_half_size.z);
 
