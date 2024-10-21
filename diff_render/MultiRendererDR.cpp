@@ -25,7 +25,7 @@ namespace dr
   static float3 visualize_value_debug(float val)
   {
     float diff_log = log10(abs(val) + 1.0f);
-    float q_red = val != 0;
+    float q_red = std::max(0.0f, 1.f - abs(diff_log - 3.0f));
     float q_green = std::max(0.0f, 1.f - abs(diff_log - 2.0f));
     float q_blue = std::max(0.0f, 1.f - abs(diff_log - 1.0f));
 
@@ -550,7 +550,7 @@ namespace dr
           LiteImage::SaveImage<float4>(("saves/iter_"+std::to_string(iter)+"_"+std::to_string(image_id)+".png").c_str(), m_images[image_id]);
 
           if (preset.debug_render_mode != DR_DEBUG_RENDER_MODE_NONE)
-            LiteImage::SaveImage<float4>(("saves/debug_iter_"+std::to_string(iter)+"_"+std::to_string(image_id)+"_2.png").c_str(), m_imagesDebug[image_id]);
+            LiteImage::SaveImage<float4>(("saves/debug_iter_"+std::to_string(iter)+"_"+std::to_string(image_id)+".png").c_str(), m_imagesDebug[image_id]);
 
         }
       }
