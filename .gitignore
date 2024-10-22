@@ -13,3 +13,6 @@ inc/LiteMath.h
 
 # Keep essential folders
 !.gitkeep
+
+.vscode
+build
