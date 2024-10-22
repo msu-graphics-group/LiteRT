@@ -41,57 +41,6 @@ void print_nurbs(const RawNURBS &nurbs) {
     }
 }
 
-
-void debug_nurbs(std::vector<RawNURBS> &nurbsV, uint idx, const std::string &filename) {
-    std::ofstream cout(filename);
-    auto nurbs = nurbsV[idx];
-
-    // Control points dimensions
-    uint32_t n = nurbs.points.rows_count();
-    cout << "n = " << n-1 << std::endl;
-
-    uint32_t m = nurbs.points.cols_count();
-    cout << "m = " << m-1 << std::endl;
-
-    // Control points
-    cout << "points:" << std::endl;
-    for (size_t i = 0; i < n; i++) {
-        for (size_t j = 0; j < m; j++) {
-            auto index = std::make_pair(i, j);
-            auto point = nurbs.points[index];
-            cout << "{" << point.x << " " << point.z << " " << point.y << "}\t";
-        }
-        cout << std::endl;
-    }
-
-    // Weights
-    cout << "weights:" << std::endl;
-    for (size_t i = 0; i < n; i++) {
-        for (size_t j = 0; j < m; j++) {
-            auto index = std::make_pair(i, j);
-            auto point = nurbs.points[index];
-            cout << nurbs.weights[index] << " ";
-        }
-        cout << std::endl;
-    }
-
-    // Degrees
-    cout << "u_degree: " << nurbs.u_degree << std::endl;
-    cout << "v_degree: " << nurbs.v_degree << std::endl;
-
-    // Knots
-    cout << "u_knots: ";
-    for (auto knot : nurbs.u_knots)
-        cout << knot << " ";
-    cout << std::endl;
-    
-    cout << "v_knots: ";
-    for (auto knot : nurbs.v_knots)
-        cout << knot << " ";
-    cout << std::endl;
-}
-
-
 int main(int argc, const char **argv) {
   if (argc != 2) {
     std::cout << "Usage: parse_and_print <path_to_stp_file>" << std::endl;
