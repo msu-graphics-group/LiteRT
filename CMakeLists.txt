@@ -12,7 +12,7 @@ add_library(
 target_include_directories(${PROJECT_NAME} PUBLIC include/) 
 target_include_directories(${PROJECT_NAME} PRIVATE external/) 
 
-option(compile_examples "Compile examples from examples")
+option(compile_examples ON)
 if (${compile_examples})
   add_executable(
     parse_and_print
