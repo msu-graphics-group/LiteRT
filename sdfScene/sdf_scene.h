@@ -65,7 +65,11 @@ static constexpr unsigned OCTREE_FLAG_NODE_BORDER = 0; //the is a border in this
 static constexpr unsigned OCTREE_FLAG_NODE_EMPTY  = 1; //the node is empty, no need to intersect it
 static constexpr unsigned OCTREE_FLAG_NODE_FULL   = 2; //the node is full, intersection is guaranteed to be on node's border
 static constexpr unsigned OCTREE_FLAG_NODE_PARENT = 3;
+static constexpr unsigned OCTREE_FLAG_LEAF_NEXT = 1 << 31u; //all childen of this node are leaves
+static constexpr unsigned OCTREE_FLAG_HAS_TC    = 1 << 30u; //this node has texture coordinates
 
+static constexpr unsigned OCTREE_OFFSET_MASK = 0xFFFFFFFF ^ (OCTREE_FLAG_LEAF_NEXT | OCTREE_FLAG_HAS_TC);
+static constexpr unsigned OCTREE_CH_MASK     = 0xF;
 struct SdfObject
 {
   unsigned type;          // from enum SdfPrimitiveType

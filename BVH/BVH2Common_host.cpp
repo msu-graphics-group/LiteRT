@@ -472,6 +472,7 @@ uint32_t BVHRT::AddGeom_SdfFrameOctree(SdfFrameOctreeView octree, ISceneObject *
   m_origNodes = orig_nodes;
 
   m_SdfCompactOctreeNodes = sdf_converter::frame_octree_to_compact_octree(m_SdfFrameOctreeNodes);
+  m_SdfCompactOctreeData  = sdf_converter::frame_octree_to_compact_octree_v2(m_SdfFrameOctreeNodes);
   
   return fake_this->AddGeom_AABB(AbstractObject::TAG_SDF_NODE, (const CRT_AABB*)orig_nodes.data(), orig_nodes.size(), nullptr, 1);
 }
@@ -1207,11 +1208,11 @@ void add_border_nodes_rec(const SdfFrameOctreeView &octree, std::vector<BVHNode>
     {
       if (octree.nodes[idx].values[i] <= 0)
         less = true;
-      else if (octree.nodes[idx].values[i] >= -sqrt(3)*d)
+      else if (octree.nodes[idx].values[i] >= 0)
         more = true;
     }
 
-    if (true)
+    if (less && more)
     {
       float3 min_pos = 2.0f*(d*p) - 1.0f;
       float3 max_pos = min_pos + 2.0f*d*float3(1,1,1);

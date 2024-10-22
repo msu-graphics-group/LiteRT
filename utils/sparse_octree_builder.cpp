@@ -63,14 +63,23 @@ namespace sdf_converter
     float value;
   };
 
+  unsigned count_and_mark_active_nodes_rec(std::vector<SdfFrameOctreeNode> &frame, unsigned nodeId);
+  void frame_octree_eliminate_invalid_rec(const std::vector<SdfFrameOctreeNode> &frame_old, unsigned oldNodeId, 
+                                          std::vector<SdfFrameOctreeNode> &frame_new, unsigned newNodeId);
+
   void add_node_rec(std::vector<SdfFrameOctreeNode> &nodes, SparseOctreeSettings settings, MultithreadedDistanceFunction sdf,
                     unsigned thread_id, unsigned node_idx, unsigned depth, unsigned max_depth, float3 p, float d)
   {
     float value_center = sdf(2.0f * ((p + float3(0.5, 0.5, 0.5)) * d) - float3(1, 1, 1), thread_id);
+    float min_val = 1000;
+    float max_val = -1000;
     for (int cid = 0; cid < 8; cid++)
+    {
       nodes[node_idx].values[cid] = sdf(2.0f * ((p + float3((cid & 4) >> 2, (cid & 2) >> 1, cid & 1)) * d) - float3(1, 1, 1), thread_id);
-
-    if (depth < max_depth && std::abs(value_center) < sqrtf(3) * powf(2.0f, -(float)depth))
+      min_val = std::min(min_val, nodes[node_idx].values[cid]);
+      max_val = std::max(max_val, nodes[node_idx].values[cid]);
+    }
+    if (depth < max_depth && (std::abs(value_center) < sqrtf(3) * d || min_val*max_val <= 0))
     {
       nodes[node_idx].offset = nodes.size();
       
@@ -212,8 +221,18 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
     }
 
 std::chrono::steady_clock::time_point t4 = std::chrono::steady_clock::now();
+  
+    unsigned nn = count_and_mark_active_nodes_rec(res_nodes, 0);
+    assert(!is_leaf(res_nodes[0].offset));
 
-    //check_and_fix_sdf_sign(res_nodes, pow(2,-1.0*min_remove_level), 0, 1.0f);
+    std::vector<SdfFrameOctreeNode> frame_3;
+    frame_3.reserve(res_nodes.size());
+    frame_3.push_back(res_nodes[0]);
+    frame_octree_eliminate_invalid_rec(res_nodes, 0, frame_3, 0);
+    frame_3.shrink_to_fit();
+
+    //printf("%u/%u nodes are active\n", nn, (unsigned)res_nodes.size());
+    //printf("%u/%u nodes are left after elimination\n", (unsigned)frame_3.size(), (unsigned)res_nodes.size());
   
 std::chrono::steady_clock::time_point t5 = std::chrono::steady_clock::now();
   
@@ -227,7 +246,7 @@ std::chrono::steady_clock::time_point t5 = std::chrono::steady_clock::now();
 
     omp_set_num_threads(omp_get_max_threads());
 
-    return res_nodes;
+    return frame_3;
   }
 
   struct PositionHasher
@@ -2191,22 +2210,125 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
 
   std::vector<SdfCompactOctreeNode> frame_octree_to_compact_octree(const std::vector<SdfFrameOctreeNode> &frame)
   {
-    std::vector<SdfFrameOctreeNode> frame_2 = frame;
-    unsigned nn = count_and_mark_active_nodes_rec(frame_2, 0);
-    assert(!is_leaf(frame_2[0].offset));
+    std::vector<SdfCompactOctreeNode> compact(frame.size());
 
-    std::vector<SdfFrameOctreeNode> frame_3;
-    frame_3.reserve(frame.size());
-    frame_3.push_back(frame_2[0]);
-    frame_octree_eliminate_invalid_rec(frame_2, 0, frame_3, 0);
-    frame_3.shrink_to_fit();
+    frame_octree_to_compact_octree_rec(frame, compact, 0, 1, uint3(0,0,0));
 
-    //printf("%u/%u nodes are active\n", nn, (unsigned)frame.size());
-    //printf("%u/%u nodes are left after elimination\n", (unsigned)frame_3.size(), (unsigned)frame.size());
+    return compact;
+  }
 
-    std::vector<SdfCompactOctreeNode> compact(frame_3.size());
+  bool is_empty_node(const float *values)
+  {
+    float min_val = 1000;
+    float max_val = -1000;
+    for (int i = 0; i < 8; i++)
+    {
+      min_val = std::min(min_val, values[i]);
+      max_val = std::max(max_val, values[i]);
+    }
 
-    frame_octree_to_compact_octree_rec(frame_3, compact, 0, 1, uint3(0,0,0));
+    return min_val > 0 || max_val < 0;
+  }
+
+  void frame_octree_to_compact_octree_v2_rec(const std::vector<SdfFrameOctreeNode> &frame, std::vector<uint32_t> &compact,
+                                             unsigned nodeId, unsigned cNodeId, unsigned lod_size, uint3 p)
+  {
+    assert(cNodeId % 2 == 0);
+    unsigned ofs = frame[nodeId].offset;
+    //printf("node p = (%u, %u, %u), lod_size = %u\n", p.x, p.y, p.z, lod_size);
+    assert(!(is_leaf(ofs) && is_empty_node(frame[nodeId].values)));
+
+    if (is_leaf(ofs))
+    {
+      float d_max = 2 * sqrt(3) / lod_size;
+      for (int i = 0; i < 8; i++)
+      {
+        unsigned d_compressed = std::max(0.0f, 255 * ((frame[nodeId].values[i] + d_max) / (2 * d_max)) + 0.5f);
+        d_compressed = std::min(d_compressed, 255u);
+        compact[cNodeId + i / 4] |= d_compressed << (8 * (i % 4));
+      }
+    }
+    else
+    {
+      unsigned ch_info = 0u;
+      unsigned ch_count = 0u;
+      unsigned l_count  = 0u;
+      int ch_ofs[8];
+
+      for (int i = 0; i < 8; i++)
+      {
+        unsigned child_info = ch_count;
+        if (is_leaf(frame[ofs + i].offset))
+        {
+          if (is_empty_node(frame[ofs + i].values))
+          {
+            //if (cNodeId == 111204)
+            //printf("%d: empty leaf (%f %f %f %f %f %f %f %f)\n", i,
+            //       frame[ofs + i].values[0], frame[ofs + i].values[1], frame[ofs + i].values[2], frame[ofs + i].values[3],
+            //       frame[ofs + i].values[4], frame[ofs + i].values[5], frame[ofs + i].values[6], frame[ofs + i].values[7]);
+            child_info = OCTREE_CH_MASK;
+            ch_ofs[i] = -1;
+          }    
+          else
+          {
+            //if (cNodeId == 111204)
+            //printf("%d: leaf (%f %f %f %f %f %f %f %f)\n", i,
+            //       frame[ofs + i].values[0], frame[ofs + i].values[1], frame[ofs + i].values[2], frame[ofs + i].values[3],
+            //       frame[ofs + i].values[4], frame[ofs + i].values[5], frame[ofs + i].values[6], frame[ofs + i].values[7]);
+            ch_ofs[i] = ch_count;
+            ch_count++;
+            l_count ++;            
+          }      
+        }
+        else
+        {
+          //if (cNodeId == 111204)
+          //printf("%d: parent (%f %f %f %f %f %f %f %f)\n", i,
+          //         frame[ofs + i].values[0], frame[ofs + i].values[1], frame[ofs + i].values[2], frame[ofs + i].values[3],
+          //         frame[ofs + i].values[4], frame[ofs + i].values[5], frame[ofs + i].values[6], frame[ofs + i].values[7]);
+          ch_ofs[i] = ch_count;
+          ch_count++;          
+        }
+        ch_info |= child_info << (unsigned)(i * 4);
+      }
+
+      assert(l_count == 0 || l_count == ch_count);
+
+      unsigned offset_flags = compact.size();
+      if (l_count == ch_count)
+        offset_flags |= OCTREE_FLAG_LEAF_NEXT;
+      
+      compact[cNodeId + 0] = offset_flags;
+      compact[cNodeId + 1] = ch_info;
+      //if (cNodeId == 111204)
+      //  printf("%u %u -- %u %u\n",l_count, ch_count, offset_flags, ch_info);
+
+      unsigned base_ch_off = compact.size();
+      compact.resize(base_ch_off + 2*ch_count, 0u);
+
+      for (int i = 0; i < 8; i++)
+      {
+        if (ch_ofs[i] >= 0)
+        {
+          uint3 ch_p = 2 * p + uint3((i & 4) >> 2, (i & 2) >> 1, i & 1);
+          frame_octree_to_compact_octree_v2_rec(frame, compact, ofs + i, base_ch_off + 2*ch_ofs[i], 2 * lod_size, ch_p);
+        }
+      }
+    }
+  }
+
+  std::vector<uint32_t> frame_octree_to_compact_octree_v2(const std::vector<SdfFrameOctreeNode> &frame)
+  {
+    std::vector<uint32_t> compact;
+    assert(2*frame.size() < OCTREE_OFFSET_MASK);
+    compact.reserve(2*frame.size());
+    compact.resize(2, 0u);
+
+    frame_octree_to_compact_octree_v2_rec(frame, compact, 0, 0, 1, uint3(0,0,0));
+
+    compact.shrink_to_fit();
+
+    //printf("compact octree has %u/%u nodes\n", (unsigned)compact.size()/2, (unsigned)frame.size());
 
     return compact;
   }

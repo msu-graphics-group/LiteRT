@@ -305,6 +305,7 @@ struct BVHRT : public ISceneObject
 
 #ifndef DISABLE_SDF_FRAME_OCTREE_COMPACT
   std::vector<SdfCompactOctreeNode> m_SdfCompactOctreeNodes;//compact nodes for all SDF octrees
+  std::vector<uint32_t> m_SdfCompactOctreeData;
 #endif
 
   //SDF Sparse Voxel Sets

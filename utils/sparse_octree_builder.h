@@ -51,4 +51,5 @@ namespace sdf_converter
                                                              unsigned max_threads);
 
   std::vector<SdfCompactOctreeNode> frame_octree_to_compact_octree(const std::vector<SdfFrameOctreeNode> &frame);
+  std::vector<uint32_t> frame_octree_to_compact_octree_v2(const std::vector<SdfFrameOctreeNode> &frame);
 }

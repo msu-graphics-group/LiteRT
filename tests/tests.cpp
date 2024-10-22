@@ -2846,13 +2846,19 @@ void litert_test_38_direct_octree_traversal()
 
   if (true)
   {
-  auto octree = sdf_converter::create_sdf_frame_octree(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 11), mesh);
+  auto octree = sdf_converter::create_sdf_frame_octree(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 11, 2<<28),
+                                                       [&](const float3 &p, unsigned idx) -> float 
+                                                       { return length(p) - 0.45f;}, 16);
   save_sdf_frame_octree(octree, "saves/octree.bin");
-  auto SVS = sdf_converter::create_sdf_SVS(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 11), mesh);
+  auto SVS = sdf_converter::create_sdf_SVS(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 11, 2<<28),
+                                           [&](const float3 &p, unsigned idx) -> float 
+                                           { return length(p) - 0.45f;}, 16);
   save_sdf_SVS(SVS, "saves/SVS.bin");
-  SdfSBSHeader header{2,0,1,SDF_SBS_NODE_LAYOUT_DX};
+  SdfSBSHeader header{4,0,2,SDF_SBS_NODE_LAYOUT_DX};
   
-  SdfSBS sbs = sdf_converter::create_sdf_SBS(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 10), header, mesh);
+  SdfSBS sbs = sdf_converter::create_sdf_SBS(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 9, 2<<28), header,
+                                             [&](const float3 &p, unsigned idx) -> float 
+                                             { return length(p) - 0.45f;}, 16);
   save_sdf_SBS(sbs, "saves/sbs.bin");
   }
 
@@ -2875,6 +2881,11 @@ void litert_test_38_direct_octree_traversal()
 
   float timings[4] = {0,0,0,0};
 
+  size_t SVS_total_bytes = 0;
+  size_t SBS_total_bytes = 0;
+  size_t octree_total_bytes = 0;
+  size_t coctree_total_bytes = 0;
+
   //if (false)
   {
     auto pRender = CreateMultiRenderer("GPU");
@@ -2889,6 +2900,11 @@ void litert_test_38_direct_octree_traversal()
     float time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
     printf("SVS %.1f ms\n", timings[0]/10);
     LiteImage::SaveImage<uint32_t>("saves/test_38_SVS.bmp", image_direct);
+
+    BVHRT *bvh = dynamic_cast<BVHRT*>(pRender->GetAccelStruct().get());
+    SVS_total_bytes = bvh->m_allNodePairs.size()*sizeof(BVHNodePair) + 
+                      bvh->m_primIdCount.size()* sizeof(uint32_t) +
+                      bvh->m_SdfSVSNodes.size()* sizeof(SdfSVSNode);
   }
 
   //if (false)
@@ -2905,6 +2921,13 @@ void litert_test_38_direct_octree_traversal()
     float time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
     printf("SBS %.1f ms\n", timings[0]/10);
     LiteImage::SaveImage<uint32_t>("saves/test_38_SBS.bmp", image_direct);
+
+    BVHRT *bvh = dynamic_cast<BVHRT*>(pRender->GetAccelStruct().get());
+    SBS_total_bytes = bvh->m_allNodePairs.size()*sizeof(BVHNodePair) + 
+                      bvh->m_primIdCount.size()* sizeof(uint32_t) +
+                      bvh->m_SdfSBSNodes.size()* sizeof(SdfSBSNode) +
+                      bvh->m_SdfSBSData.size() * sizeof(uint32_t) +
+                      bvh->m_SdfSBSDataF.size() * sizeof(float);
   }
 
   //if (false)
@@ -2922,6 +2945,11 @@ void litert_test_38_direct_octree_traversal()
     float time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
     printf("framed octree - BVH %.1f ms\n", timings[0]/10);
     LiteImage::SaveImage<uint32_t>("saves/test_38_BVH.bmp", image_BVH);
+
+    BVHRT *bvh = dynamic_cast<BVHRT*>(pRender->GetAccelStruct().get());
+    octree_total_bytes = bvh->m_allNodePairs.size()*sizeof(BVHNodePair) + 
+                         bvh->m_primIdCount.size()* sizeof(uint32_t) +
+                         bvh->m_SdfFrameOctreeNodes.size() * sizeof(SdfFrameOctreeNode);
   }
 
   {
@@ -2938,15 +2966,23 @@ void litert_test_38_direct_octree_traversal()
     float time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
     printf("framed octree - direct %.1f ms\n", timings[0]/10);
     LiteImage::SaveImage<uint32_t>("saves/test_38_traverse.bmp", image_direct);
+    
+    BVHRT *bvh = dynamic_cast<BVHRT*>(pRender->GetAccelStruct().get());
+    coctree_total_bytes = bvh->m_SdfCompactOctreeData.size()*sizeof(uint32_t); 
   }
 
-      float psnr = image_metrics::PSNR(image_BVH, image_direct);
+  printf("SVS:            %.1f Mb\n", SVS_total_bytes/(1024.0f*1024.0f));
+  printf("SBS:            %.1f Mb\n", SBS_total_bytes/(1024.0f*1024.0f));
+  printf("octree:         %.1f Mb\n", octree_total_bytes/(1024.0f*1024.0f));
+  printf("compact octree: %.1f Mb\n", coctree_total_bytes/(1024.0f*1024.0f));
 
-      printf("  38.1 %-64s", "Direct traversal matches BVH");
-      if (psnr >= 50)
-        printf("passed    (%.2f)\n", psnr);
-      else
-        printf("FAILED, psnr = %f\n", psnr);
+  float psnr = image_metrics::PSNR(image_BVH, image_direct);
+
+  printf("  38.1 %-64s", "Direct traversal matches BVH");
+  if (psnr >= 50)
+    printf("passed    (%.2f)\n", psnr);
+  else
+    printf("FAILED, psnr = %f\n", psnr);
 }
 
 void perform_tests_litert(const std::vector<int> &test_ids)

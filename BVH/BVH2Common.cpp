@@ -2212,17 +2212,11 @@ void BVHRT::OctreeIntersect(const float3 ray_pos, const float3 ray_dir, float tN
   float values[8];
 
   stack[top].nodeId = 0;
+  stack[top].curChildId = 0;
   stack[top].p_size = uint2(0,1);
 
     while (top >= 0)
     {
-      if (m_SdfCompactOctreeNodes[stack[top].nodeId].offset == 0 &&
-          m_SdfCompactOctreeNodes[stack[top].nodeId].flags == OCTREE_FLAG_NODE_EMPTY)
-      {
-        top--;
-        continue;        
-      }
-
       level_sz = stack[top].p_size.y & 0xFFFF;
       p = uint3(stack[top].p_size.x >> 16, stack[top].p_size.x & 0xFFFF, stack[top].p_size.y >> 16);
       d = 1.0f/float(level_sz);
@@ -2230,7 +2224,7 @@ void BVHRT::OctreeIntersect(const float3 ray_pos, const float3 ray_dir, float tN
       t0 = _t0 + d*p_f * _l;
       t1 = _t0 + d*(p_f + 1) * _l;
 
-      if(m_SdfCompactOctreeNodes[stack[top].nodeId].offset == 0) //leaf node
+      if(stack[top].curChildId > 0) //leaf node
       {
         float tmin = std::max(t0.x, std::max(t0.y, t0.z));
         float tmax = std::min(t1.x, std::min(t1.y, t1.z));
@@ -2255,7 +2249,7 @@ void BVHRT::OctreeIntersect(const float3 ray_pos, const float3 ray_dir, float tN
         float d_max = 2*1.73205081f/float(level_sz);
         for (int i=0;i<8;i++)
         {
-          values[i] = -d_max + 2*d_max*(1.0/255.0f)*((m_SdfCompactOctreeNodes[nodeId].values[i/4] >> (8*(i%4))) & 0xFF);
+          values[i] = -d_max + 2*d_max*(1.0/255.0f)*((m_SdfCompactOctreeData[stack[top].nodeId + i/4] >> (8*(i%4))) & 0xFF);
         }
         
         LocalSurfaceIntersection(TYPE_SDF_FRAME_OCTREE, ray_dir, 0, 0, values, nodeId, nodeId, d, 0.0f, qFar, fNearFar, start_q, /*in */
@@ -2274,13 +2268,16 @@ void BVHRT::OctreeIntersect(const float3 ray_pos, const float3 ray_dir, float tN
         currNode = first_node(t0, tm);
         do
         {
-          uint32_t currNodeOff = m_SdfCompactOctreeNodes[stack[top].nodeId].offset + (currNode ^ a);
+          uint32_t childrenInfo = m_SdfCompactOctreeData[stack[top].nodeId + 1];
+          uint32_t currChildOffset = (childrenInfo >> (4u*(currNode ^ a))) & OCTREE_CH_MASK;
 
           // assert(buf_top < 4);
           // assert(top+buf_top <= 32);
-          if (m_SdfCompactOctreeNodes[currNodeOff].flags != OCTREE_FLAG_NODE_EMPTY)
+          if (currChildOffset < 8u)
           {
-            tmp_buf[buf_top].nodeId = currNodeOff;
+            uint32_t baseChildrenOffset = m_SdfCompactOctreeData[stack[top].nodeId + 0] & OCTREE_OFFSET_MASK;
+            tmp_buf[buf_top].nodeId = baseChildrenOffset + 2u*currChildOffset;
+            tmp_buf[buf_top].curChildId = m_SdfCompactOctreeData[stack[top].nodeId + 0] & OCTREE_FLAG_LEAF_NEXT;
             tmp_buf[buf_top].p_size = (stack[top].p_size << 1) | uint2(((currNode & 4) << (16-2)) | ((currNode & 2) >> 1), (currNode & 1) << 16);
             buf_top++;
           }
