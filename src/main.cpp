@@ -61,6 +61,9 @@ int main(int, char** argv)
   ImGui_ImplSDLRenderer2_Init(renderer);
 
   bool to_load_surface = false;
+  bool surface_changed = false;
+  bool renderer_changed = false;
+  bool shading_changed = false;
   std::string default_path_to_surf = std::filesystem::current_path() / "resources" / "vase.nurbss";
   char path_to_surf[10000] = {};
   std::copy(default_path_to_surf.begin(), default_path_to_surf.end(), path_to_surf);
@@ -68,8 +71,8 @@ int main(int, char** argv)
   std::vector<RBezierGrid> rbeziers;
 
   FrameBuffer fb = { 
-    LiteImage::Image2D<uint32_t>(WIDTH, HEIGHT),
-    LiteImage::Image2D<float>(WIDTH, HEIGHT)
+    LiteImage::Image2D<uint32_t>(WIDTH, HEIGHT, LiteMath::uchar4{ 153, 153, 153, 255 }.u32),
+    LiteImage::Image2D<float>(WIDTH, HEIGHT, std::numeric_limits<float>::infinity())
   };
   SDL_Texture *texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ABGR8888, SDL_TEXTUREACCESS_STREAMING, WIDTH, HEIGHT);
   SDL_Rect scr_rect = { 0, 0, WIDTH, HEIGHT };
@@ -141,8 +144,12 @@ int main(int, char** argv)
       continue;
     }
 
-    fb.col_buf.clear(LiteMath::uchar4{ 153, 153, 153, 255 }.u32);
-    fb.z_buf.clear(std::numeric_limits<float>::infinity());
+    if (camera_move || surface_changed || renderer_changed || shading_changed) {
+      fb.col_buf.clear(LiteMath::uchar4{ 153, 153, 153, 255 }.u32);
+      fb.z_buf.clear(std::numeric_limits<float>::infinity());
+    }
+    surface_changed = false;
+
     //Render image
     auto b = std::chrono::high_resolution_clock::now();
     for (auto &rbezier: rbeziers) {
@@ -177,8 +184,10 @@ int main(int, char** argv)
       ImGui::DragFloat3("Camera target", camera.target.M);
       camera = Camera(camera.aspect, camera.fov, camera.position, camera.target);
       ImGui::Text("Renderer settings:");
-      ImGui::ListBox("Method", &cur_renderer, renderers, sizeof(renderers)/sizeof(*renderers));
-      ImGui::ListBox("Shading", &cur_shader, shaders, sizeof(shaders)/sizeof(*shaders));
+      renderer_changed = 
+          ImGui::ListBox("Method", &cur_renderer, renderers, sizeof(renderers)/sizeof(*renderers));
+      shading_changed =
+          ImGui::ListBox("Shading", &cur_shader, shaders, sizeof(shaders)/sizeof(*shaders));
       ImGui::Text("Debug Info");
       ImGui::Text("\tApplication average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
       ImGui::Text("\tCurrent render time: %.3f ms/frame (%.1f FPS)", ms, 1000.0f/ms);
@@ -191,6 +200,7 @@ int main(int, char** argv)
       ImGui::InputText("Path to surface", path_to_surf, sizeof(path_to_surf)-1);
       if (ImGui::Button("OK")) {
         to_load_surface = false;
+        surface_changed = true;
         try {
           rbeziers = load_rbeziers(path_to_surf);
           BoundingBox3d bbox;
