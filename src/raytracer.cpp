@@ -152,7 +152,7 @@ void draw_newton(
   float4x4 mat  = perspectiveMatrix(camera.fov*180*M_1_PI, camera.aspect, 0.001f, 100.0f)
                 * lookAt(camera.position, camera.target, camera.up);
   float4x4 inversed_mat = inverse4x4(mat);
-  #pragma omp parallel for 
+  #pragma omp parallel for schedule(dynamic)
   for (uint32_t y = 0; y < fb.col_buf.height(); ++y)
   for (uint32_t x = 0; x < fb.col_buf.width();  ++x)
   {
