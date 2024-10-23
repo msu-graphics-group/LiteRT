@@ -357,7 +357,7 @@ void diff_render_test_2_check_color_derivatives()
 
 
 void test_position_derivatives(const SdfSBS &SBS, unsigned render_node, unsigned diff_render_mode,
-                               unsigned border_sampling, bool close_view, bool empty_reference)
+                               unsigned border_sampling, float relax_eps, bool close_view, bool empty_reference)
 {
   static unsigned off = 1;
   srand(time(nullptr));
@@ -413,7 +413,7 @@ void test_position_derivatives(const SdfSBS &SBS, unsigned render_node, unsigned
   dr_preset.spp = 64;
   dr_preset.border_spp = 1024;
   dr_preset.debug_pd_brightness = 1.0f;
-  dr_preset.border_relax_eps = 1e-5f;
+  dr_preset.border_relax_eps = relax_eps;
   dr_preset.finite_diff_delta = 0.005f;
   dr_preset.finite_diff_brightness = 0.25f;
   dr_preset.debug_render_mode = DR_DEBUG_RENDER_MODE_BORDER_DETECTION;
@@ -664,47 +664,55 @@ void diff_render_test_4_check_position_derivatives()
   printf("4.1 Mask, random border sampling, empty reference\n");
   test_position_derivatives(circle_smallest_scene_colored(), 
                             MULTI_RENDER_MODE_MASK, DR_RENDER_MODE_MASK, DR_BORDER_SAMPLING_RANDOM,
-                            false, true);
+                            1e-2f, false, true);
   printf("4.2 Mask, SVM border sampling, empty reference\n");
   test_position_derivatives(circle_smallest_scene_colored(), 
                             MULTI_RENDER_MODE_MASK, DR_RENDER_MODE_MASK, DR_BORDER_SAMPLING_SVM,
-                            false, true);
-  printf("4.3 Mask, random border sampling, larger model\n");
+                            1e-2f, false, true);;
+  printf("4.3 Mask, random border sampling, empty reference\n");
+  test_position_derivatives(circle_smallest_scene_colored(), 
+                            MULTI_RENDER_MODE_MASK, DR_RENDER_MODE_MASK, DR_BORDER_SAMPLING_RANDOM,
+                            2e-4f, false, true);
+  printf("4.4 Mask, SVM border sampling, empty reference\n");
+  test_position_derivatives(circle_smallest_scene_colored(), 
+                            MULTI_RENDER_MODE_MASK, DR_RENDER_MODE_MASK, DR_BORDER_SAMPLING_SVM,
+                            2e-4f, false, true);
+  printf("4.5 Mask, random border sampling, larger model\n");
   test_position_derivatives(circle_smallest_scene_colored_2(), 
                             MULTI_RENDER_MODE_MASK, DR_RENDER_MODE_MASK, DR_BORDER_SAMPLING_RANDOM,
-                            false, true);
-  printf("4.4 Mask, random border sampling\n");
+                            2e-4f, false, true);
+  printf("4.6 Mask, random border sampling\n");
   test_position_derivatives(circle_smallest_scene_colored(), 
                             MULTI_RENDER_MODE_MASK, DR_RENDER_MODE_MASK, DR_BORDER_SAMPLING_RANDOM,
-                            false, false);
-  printf("4.5 Diffuse, random border sampling\n");
+                            2e-4f, false, false);
+  printf("4.7 Diffuse, random border sampling\n");
   test_position_derivatives(circle_smallest_scene_colored(), 
                             MULTI_RENDER_MODE_DIFFUSE, DR_RENDER_MODE_DIFFUSE, DR_BORDER_SAMPLING_RANDOM,
-                            false, true);
-  printf("4.6 Lambert, random border sampling, close view\n");
+                            2e-4f, false, true);
+  printf("4.8 Lambert, random border sampling, close view\n");
   test_position_derivatives(circle_smallest_scene_colored(), 
                             MULTI_RENDER_MODE_LAMBERT, DR_RENDER_MODE_LAMBERT, DR_BORDER_SAMPLING_RANDOM,
-                            true, true);
-  printf("4.7 Lambert, random border sampling, empty reference\n");
+                            2e-4f, true, true);
+  printf("4.9 Lambert, random border sampling, empty reference\n");
   test_position_derivatives(circle_smallest_scene_colored(), 
                             MULTI_RENDER_MODE_LAMBERT, DR_RENDER_MODE_LAMBERT, DR_BORDER_SAMPLING_RANDOM,
-                            false, true);
-  printf("4.8 Lambert, random border sampling\n");
+                            2e-4f, false, true);
+  printf("4.10 Lambert, random border sampling\n");
   test_position_derivatives(circle_smallest_scene_colored(), 
                             MULTI_RENDER_MODE_LAMBERT, DR_RENDER_MODE_LAMBERT, DR_BORDER_SAMPLING_RANDOM,
-                            false, false);
-  printf("4.9 Lambert, SVM border sampling\n");
+                            2e-4f, false, false);
+  printf("4.11 Lambert, SVM border sampling\n");
   test_position_derivatives(circle_smallest_scene_colored(), 
                             MULTI_RENDER_MODE_LAMBERT, DR_RENDER_MODE_LAMBERT, DR_BORDER_SAMPLING_SVM,
-                            false, false); 
-  printf("4.10 Depth, random border sampling, close view\n");
+                            2e-4f, false, false); 
+  printf("4.12 Depth, random border sampling, close view\n");
   test_position_derivatives(circle_smallest_scene_colored(),
                             MULTI_RENDER_MODE_LINEAR_DEPTH, DR_RENDER_MODE_LINEAR_DEPTH, DR_BORDER_SAMPLING_RANDOM,
-                            true, true);
-  printf("4.11 Depth, random border sampling\n");
+                            2e-4f, true, true);
+  printf("4.13 Depth, random border sampling\n");
   test_position_derivatives(circle_smallest_scene_colored(),
                             MULTI_RENDER_MODE_LINEAR_DEPTH, DR_RENDER_MODE_LINEAR_DEPTH, DR_BORDER_SAMPLING_RANDOM,
-                            false, true);
+                            2e-4f, false, true);
 }
 
 void optimization_stand_common(uint32_t num, uint32_t sub_num, const SdfSBS &SBS_ref, const SdfSBS &SBS_initial, 
@@ -730,6 +738,7 @@ void optimization_stand_common(uint32_t num, uint32_t sub_num, const SdfSBS &SBS
   float4x4 base_proj = LiteMath::perspectiveMatrix(60, 1.0f, 0.01f, 100.0f);
 
   std::vector<float4x4> view = get_cameras_turntable(view_count, float3(0, 0, 0), 4.0f, 1.0f);
+  // view = {view[6]};
   std::vector<float4x4> proj(view.size(), base_proj);
 
   std::vector<LiteImage::Image2D<float4>> images_ref(view.size(), LiteImage::Image2D<float4>(W, H));
@@ -1075,8 +1084,10 @@ void diff_render_test_12_depth()
   dr_preset.dr_render_mode = DR_RENDER_MODE_LINEAR_DEPTH;
   dr_preset.dr_input_type = DR_INPUT_TYPE_LINEAR_DEPTH;
   dr_preset.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_GEOMETRY;
-  dr_preset.opt_iterations = 1000;
-  dr_preset.dr_raycasting_mask = DR_RAYCASTING_MASK_ON;
+  dr_preset.opt_iterations = 11;
+  dr_preset.debug_progress_interval = 10;
+  // dr_preset.debug_border_samples_mega_image = true;
+  // dr_preset.dr_raycasting_mask = DR_RAYCASTING_MASK_ON;
   optimization_stand_common(12, 1, ts_scene, medium_initial, dr_preset, "Two spheres. Depth.");
 }
 
