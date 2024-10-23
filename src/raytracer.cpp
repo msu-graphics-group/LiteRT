@@ -94,7 +94,7 @@ std::optional<float2> trace_surface_newton(
 void draw_points(
     const RBezierGrid &surface,
     const Camera &camera,
-    Image2D<uint32_t> &image,
+    FrameBuffer &fb,
     int samples_per_parameter,
     std::function<ShadeFuncType> shade_function) {
   if (surface.grid.get_n() == 0)
@@ -118,24 +118,30 @@ void draw_points(
       continue;
     }
     point /= point.w;
-    float3 normal = surface.normal(u, v);
-    uint32_t x = clamp(static_cast<uint32_t>((point.x+1.0f)/2 * image.width()), 0u, image.width()-1);
-    uint32_t y = static_cast<uint32_t>((point.y+1.0f)/2 * image.height());
-    y = clamp(image.height() - y, 0u, image.height()-1);
+    float t = length(to_float3(point)-camera.position);
 
-    float4 color = shade_function(camera.position, to_float3(point), normal, float2{u, v});
-    image[uint2{x, y}] = uchar4{ 
+    uint32_t W = fb.col_buf.width(), H = fb.col_buf.height();
+    uint32_t x = clamp(static_cast<uint32_t>((point.x+1.0f)/2 * W), 0u, W-1);
+    uint32_t y = static_cast<uint32_t>((point.y+1.0f)/2 * H);
+    y = clamp(H - y, 0u, H-1);
+
+    if (fb.z_buf[uint2{x, y}] > t) {
+      float3 normal = surface.normal(u, v);
+      float4 color = shade_function(camera.position, to_float3(point), normal, float2{u, v});
+      fb.z_buf[uint2{x, y}] = t;
+      fb.col_buf[uint2{x, y}] = uchar4{ 
         static_cast<u_char>(color.x*255.0f),
         static_cast<u_char>(color.y*255.0f),
         static_cast<u_char>(color.z*255.0f),
         static_cast<u_char>(1*255.0f) }.u32;
+    }
   }
 }
 
 void draw_newton(
     const RBezierGrid &surface,
     const Camera &camera,
-    Image2D<uint32_t> &image,
+    FrameBuffer &fb,
     std::function<ShadeFuncType> shade_function) {
   if (surface.grid.get_n() == 0)
     return;
@@ -143,11 +149,11 @@ void draw_newton(
                 * lookAt(camera.position, camera.target, camera.up);
   float4x4 inversed_mat = inverse4x4(mat);
   #pragma omp parallel for 
-  for (uint32_t y = 0; y < image.height(); ++y)
-  for (uint32_t x = 0; x < image.width();  ++x)
+  for (uint32_t y = 0; y < fb.col_buf.height(); ++y)
+  for (uint32_t x = 0; x < fb.col_buf.width();  ++x)
   {
     float2 ndc_point  = float2{ x+0.5f, y+0.5f } 
-                      / float2{ image.width()*1.0f, image.height()*1.0f }
+                      / float2{ fb.col_buf.width()*1.0f, fb.col_buf.height()*1.0f }
                       * 2.0f
                       - 1.0f;
     float4 ndc_point4 = { ndc_point.x, ndc_point.y, 0.0f, 1.0f };
@@ -163,13 +169,19 @@ void draw_newton(
       float2 uv = intersect_point.value();
       float4 point = surface.get_point(uv.x, uv.y);
       point /= point.w; 
-      float3 normal = surface.normal(uv.x, uv.y);
-      float4 color = shade_function(camera.position, to_float3(point), normal, uv);
-      image[uint2{ x, image.height()-1-y }] = uchar4{ 
-        static_cast<u_char>(color[0]*255.0f),
-        static_cast<u_char>(color[1]*255.0f),
-        static_cast<u_char>(color[2]*255.0f),
-        static_cast<u_char>(color[3]*255.0f) }.u32;
+      float t = length(to_float3(point)-camera.position);
+      uint2 xy = uint2{ x, fb.col_buf.height()-1-y };
+
+      if (fb.z_buf[xy] > t) {
+        float3 normal = surface.normal(uv.x, uv.y);
+        float4 color = shade_function(camera.position, to_float3(point), normal, uv);
+        fb.z_buf[xy] = t;
+        fb.col_buf[xy] = uchar4{ 
+          static_cast<u_char>(color[0]*255.0f),
+          static_cast<u_char>(color[1]*255.0f),
+          static_cast<u_char>(color[2]*255.0f),
+          static_cast<u_char>(color[3]*255.0f) }.u32;
+      }
     }
   }
 }

@@ -67,7 +67,10 @@ int main(int, char** argv)
 
   std::vector<RBezierGrid> rbeziers;
 
-  LiteImage::Image2D<uint32_t> framebuffer(WIDTH, HEIGHT);
+  FrameBuffer fb = { 
+    LiteImage::Image2D<uint32_t>(WIDTH, HEIGHT),
+    LiteImage::Image2D<float>(WIDTH, HEIGHT)
+  };
   SDL_Texture *texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ABGR8888, SDL_TEXTUREACCESS_STREAMING, WIDTH, HEIGHT);
   SDL_Rect scr_rect = { 0, 0, WIDTH, HEIGHT };
 
@@ -138,14 +141,15 @@ int main(int, char** argv)
       continue;
     }
 
-    framebuffer.clear(LiteMath::uchar4{ 153, 153, 153, 255 }.u32);
+    fb.col_buf.clear(LiteMath::uchar4{ 153, 153, 153, 255 }.u32);
+    fb.z_buf.clear(std::numeric_limits<float>::infinity());
     //Render image
     auto b = std::chrono::high_resolution_clock::now();
     for (auto &rbezier: rbeziers) {
       switch(cur_renderer)
       {
-        case 0: draw_points(rbezier, camera, framebuffer, 250/std::sqrt(rbeziers.size()), shader_funcs[cur_shader]); break;
-        case 1: draw_newton(rbezier, camera, framebuffer, shader_funcs[cur_shader]); break;
+        case 0: draw_points(rbezier, camera, fb, 250/std::sqrt(rbeziers.size()), shader_funcs[cur_shader]); break;
+        case 1: draw_newton(rbezier, camera, fb, shader_funcs[cur_shader]); break;
       }
     }
     auto e = std::chrono::high_resolution_clock::now();
@@ -210,7 +214,7 @@ int main(int, char** argv)
     // Rendering
     ImGui::Render();
 
-    copy_image_to_texture(framebuffer, texture);
+    copy_image_to_texture(fb.col_buf, texture);
     SDL_RenderClear(renderer);
     SDL_RenderSetScale(renderer, io.DisplayFramebufferScale.x, io.DisplayFramebufferScale.y);
     SDL_RenderCopy(renderer, texture, &scr_rect, &scr_rect);
@@ -219,7 +223,7 @@ int main(int, char** argv)
   }
   
   auto save_path = std::filesystem::current_path().append("result.bmp");
-  LiteImage::SaveBMP(save_path.c_str(), framebuffer.data(), WIDTH, HEIGHT);
+  LiteImage::SaveBMP(save_path.c_str(), fb.col_buf.data(), WIDTH, HEIGHT);
 
   // Cleanup
   SDL_DestroyTexture(texture);

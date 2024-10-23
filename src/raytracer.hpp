@@ -9,6 +9,12 @@
 
 #include "Surface.hpp"
 
+struct FrameBuffer 
+{
+  LiteImage::Image2D<uint32_t> col_buf;
+  LiteImage::Image2D<float> z_buf;
+};
+
 struct Camera
 {
 public:
@@ -60,13 +66,13 @@ LiteMath::float4 shade_normals(
 void draw_newton(
     const RBezierGrid &surface,
     const Camera &camera,
-    LiteImage::Image2D<uint32_t> &image,
+    FrameBuffer &fb,
     std::function<ShadeFuncType> shade_function = shade_uv);
 
 void draw_points(
     const RBezierGrid &surface,
     const Camera &camera,
-    LiteImage::Image2D<uint32_t> &image,
+    FrameBuffer &fb,
     int samples_per_parameter = 250,
     std::function<ShadeFuncType> shade_function = shade_uv);
 #endif
