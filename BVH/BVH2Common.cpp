@@ -2268,16 +2268,17 @@ void BVHRT::OctreeIntersect(const float3 ray_pos, const float3 ray_dir, float tN
         currNode = first_node(t0, tm);
         do
         {
+          //0-7 bits are child_is_active flags, next 8-15 bits are child_is_leaf flags
           uint32_t childrenInfo = m_SdfCompactOctreeData[stack[top].nodeId + 1];
-          uint32_t currChildOffset = (childrenInfo >> (4u*(currNode ^ a))) & OCTREE_CH_MASK;
+          uint32_t childNode = currNode ^ a; //child node number, from 0 to 8
 
-          // assert(buf_top < 4);
-          // assert(top+buf_top <= 32);
-          if (currChildOffset < 8u)
+          // if child is active
+          if ((childrenInfo & (1u << childNode)) > 0)
           {
-            uint32_t baseChildrenOffset = m_SdfCompactOctreeData[stack[top].nodeId + 0] & OCTREE_OFFSET_MASK;
+            uint32_t currChildOffset = m_bitcount[childrenInfo & ((1u << childNode) - 1)]; //number of child in the list of active children
+            uint32_t baseChildrenOffset = m_SdfCompactOctreeData[stack[top].nodeId];
             tmp_buf[buf_top].nodeId = baseChildrenOffset + 2u*currChildOffset;
-            tmp_buf[buf_top].curChildId = m_SdfCompactOctreeData[stack[top].nodeId + 0] & OCTREE_FLAG_LEAF_NEXT;
+            tmp_buf[buf_top].curChildId = childrenInfo & (1u << (childNode + 8)); // > 0 is child is leaf
             tmp_buf[buf_top].p_size = (stack[top].p_size << 1) | uint2(((currNode & 4) << (16-2)) | ((currNode & 2) >> 1), (currNode & 1) << 16);
             buf_top++;
           }

@@ -2253,6 +2253,8 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
       unsigned ch_info = 0u;
       unsigned ch_count = 0u;
       unsigned l_count  = 0u;
+      unsigned char ch_is_active = 0u; //one bit per child
+      unsigned char ch_is_leaf   = 0u;  //one bit per child
       int ch_ofs[8];
 
       for (int i = 0; i < 8; i++)
@@ -2262,46 +2264,27 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
         {
           if (is_empty_node(frame[ofs + i].values))
           {
-            //if (cNodeId == 111204)
-            //printf("%d: empty leaf (%f %f %f %f %f %f %f %f)\n", i,
-            //       frame[ofs + i].values[0], frame[ofs + i].values[1], frame[ofs + i].values[2], frame[ofs + i].values[3],
-            //       frame[ofs + i].values[4], frame[ofs + i].values[5], frame[ofs + i].values[6], frame[ofs + i].values[7]);
-            child_info = OCTREE_CH_MASK;
             ch_ofs[i] = -1;
           }    
           else
           {
-            //if (cNodeId == 111204)
-            //printf("%d: leaf (%f %f %f %f %f %f %f %f)\n", i,
-            //       frame[ofs + i].values[0], frame[ofs + i].values[1], frame[ofs + i].values[2], frame[ofs + i].values[3],
-            //       frame[ofs + i].values[4], frame[ofs + i].values[5], frame[ofs + i].values[6], frame[ofs + i].values[7]);
             ch_ofs[i] = ch_count;
             ch_count++;
-            l_count ++;            
+            l_count ++;        
+            ch_is_active |= (1 << i);    
+            ch_is_leaf   |= (1 << i);
           }      
         }
         else
         {
-          //if (cNodeId == 111204)
-          //printf("%d: parent (%f %f %f %f %f %f %f %f)\n", i,
-          //         frame[ofs + i].values[0], frame[ofs + i].values[1], frame[ofs + i].values[2], frame[ofs + i].values[3],
-          //         frame[ofs + i].values[4], frame[ofs + i].values[5], frame[ofs + i].values[6], frame[ofs + i].values[7]);
           ch_ofs[i] = ch_count;
-          ch_count++;          
+          ch_count++;     
+          ch_is_active |= (1 << i);      
         }
-        ch_info |= child_info << (unsigned)(i * 4);
       }
-
-      assert(l_count == 0 || l_count == ch_count);
-
-      unsigned offset_flags = compact.size();
-      if (l_count == ch_count)
-        offset_flags |= OCTREE_FLAG_LEAF_NEXT;
       
-      compact[cNodeId + 0] = offset_flags;
-      compact[cNodeId + 1] = ch_info;
-      //if (cNodeId == 111204)
-      //  printf("%u %u -- %u %u\n",l_count, ch_count, offset_flags, ch_info);
+      compact[cNodeId + 0] = compact.size();
+      compact[cNodeId + 1] = ch_is_active | (ch_is_leaf << 8u);
 
       unsigned base_ch_off = compact.size();
       compact.resize(base_ch_off + 2*ch_count, 0u);
@@ -2320,7 +2303,6 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
   std::vector<uint32_t> frame_octree_to_compact_octree_v2(const std::vector<SdfFrameOctreeNode> &frame)
   {
     std::vector<uint32_t> compact;
-    assert(2*frame.size() < OCTREE_OFFSET_MASK);
     compact.reserve(2*frame.size());
     compact.resize(2, 0u);
 
