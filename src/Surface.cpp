@@ -31,6 +31,23 @@ NURBS_Surface load_nurbs(const std::filesystem::path &path) {
     auto &point = surf.points[{i, j}];
     fin >> tmp_chr >> point.x >> tmp_chr >> point.y >> tmp_chr >> point.z >> tmp_chr; // { ..., ..., ... }
   }
+
+  float max_abs_value = 0.0f;
+  for (int i = 0; i < surf.points.get_n(); ++i)
+  for (int j = 0; j < surf.points.get_m(); ++j)
+    max_abs_value = std::max(
+        max_abs_value, 
+        LiteMath::hmax3(LiteMath::abs(surf.points[{i, j}])));
+  
+  std::transform(
+      surf.points.data(), 
+      surf.points.data()+surf.points.get_n()*surf.points.get_m(),
+      surf.points.data(),
+      [&](auto p) {
+        p = p/max_abs_value*5.0f; //map to 5x5x5
+        p.w = 1.0f;
+        return p;
+      });
   surf.bbox = BoundingBox3d(surf.points.data(), surf.points.get_n()*surf.points.get_m());
 
   fin >> tmp_str; // "weights:"
@@ -773,6 +790,16 @@ load_rbeziers(const std::filesystem::path &path) {
   std::vector<RBezierGrid> res;
   auto parsed = STEP::parse(path);
   auto parsed_nurbs = STEP::allNURBS(parsed);
+
+  float max_abs_value = 0.0f;
+  for (auto *p_raw_nurbs: parsed_nurbs) {
+    auto &points = p_raw_nurbs->points;
+    for (int i = 0; i < points.rows_count(); ++i)
+    for (int j = 0; j < points.cols_count(); ++j)
+      max_abs_value = std::max(
+          max_abs_value, 
+          LiteMath::hmax3(LiteMath::abs(points[{i, j}])));
+  }
   for (auto *p_raw_nurbs: parsed_nurbs) {
     auto [n, m] = p_raw_nurbs->points.shape2D();
     int p = p_raw_nurbs->u_knots.size()-n-1;
@@ -788,7 +815,12 @@ load_rbeziers(const std::filesystem::path &path) {
     for (float &knot: v_knots)
       knot = (knot - vmin)/(vmax-vmin);
     std::copy(p_raw_nurbs->points.data(), p_raw_nurbs->points.data()+n*m, points.data());
-    std::transform(points.data(), points.data()+n*m, points.data(), [](auto p) { p/=10000.0f; p.w = 1.0f; return p; });
+    std::transform(points.data(), points.data()+n*m, points.data(), 
+        [&](auto p) { 
+          p = p/max_abs_value*5.0f; //map to 5x5x5 box
+          p.w = 1.0f; 
+          return p; 
+        });
     std::copy(p_raw_nurbs->weights.data(), p_raw_nurbs->weights.data()+n*m, weights.data());
     NURBS_Surface surf(
       points, weights, 
