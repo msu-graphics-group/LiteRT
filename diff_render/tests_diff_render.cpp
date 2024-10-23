@@ -1074,8 +1074,9 @@ void diff_render_test_11_expanding_grid()
 void diff_render_test_12_depth()
 {
   SdfSBS medium_initial = create_grid_sbs(4, 4, 
-                         [&](float3 p){return circle_sdf(float3(-0.2,0,-0.2), 0.6f, p);}, 
-                         single_color);
+                           [&](float3 p){return std::min(circle_sdf(float3(0,0.35,0.45), 0.53f, p),
+                                                         circle_sdf(float3(0,-0.27,-0.55), 0.45f, p));}, 
+                           [](float3 p){return circle_sdf(float3(0,0.3,0.5), 0.5f, p) > circle_sdf(float3(0,-0.3,-0.5), 0.5f, p) ? float3(1,0,0) : float3(0,0,1);});
   SdfSBS ts_scene = two_circles_scene();
 
   printf("TEST 12. Optimization using depth reference images\n");
