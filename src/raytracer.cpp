@@ -49,7 +49,8 @@ std::optional<float2> trace_surface_newton(
   auto distr = std::uniform_real_distribution<float>(0.0f, 1.0f);
   auto &generator = generators[omp_get_thread_num()];
   float2 uv = float2{ distr(generator), distr(generator) };
-  float4 surf_point = surf.get_point(uv.x, uv.y);
+  float4 Sw = surf.get_point(uv.x, uv.y);
+  float4 surf_point = Sw;
   surf_point /= surf_point.w;
   float2 D = bezier_project(P1, P2, surf_point);
   
@@ -57,8 +58,8 @@ std::optional<float2> trace_surface_newton(
   while(length(D) > EPS && steps_left--) {
     float2 J[2] = 
     { 
-      bezier_project(P1, P2, surf.uder(uv.x, uv.y)), //col1
-      bezier_project(P1, P2, surf.vder(uv.x, uv.y)) //col2
+      bezier_project(P1, P2, surf.uder(uv.x, uv.y, Sw)), //col1
+      bezier_project(P1, P2, surf.vder(uv.x, uv.y, Sw)) //col2
     };
 
     float det = J[0][0]*J[1][1] - J[0][1] * J[1][0];
@@ -75,7 +76,9 @@ std::optional<float2> trace_surface_newton(
     assert(0 <= uv.x && uv.x <= 1);
     assert(0 <= uv.y && uv.y <= 1);
 
-    surf_point = surf.get_point(uv.x, uv.y);
+
+    Sw = surf.get_point(uv.x, uv.y);
+    surf_point = Sw;
     surf_point /= surf_point.w;
     float2 new_D = bezier_project(P1, P2, surf_point);
     
@@ -109,7 +112,8 @@ void draw_points(
     float u = ui * 1.0f/count;
     float v = vi * 1.0f/count;
     
-    float4 point = surface.get_point(u, v);
+    float4 Sw = surface.get_point(u, v);
+    float4 point = Sw;
     point = proj * view * point;
     float w = point.w;
     if (!(-w <= point.x && point.x <= w) ||
@@ -126,7 +130,7 @@ void draw_points(
     y = clamp(H - y, 0u, H-1);
 
     if (fb.z_buf[uint2{x, y}] > t) {
-      float3 normal = surface.normal(u, v);
+      float3 normal = surface.normal(u, v, Sw);
       float4 color = shade_function(camera.position, to_float3(point), normal, float2{u, v});
       fb.z_buf[uint2{x, y}] = t;
       fb.col_buf[uint2{x, y}] = uchar4{ 

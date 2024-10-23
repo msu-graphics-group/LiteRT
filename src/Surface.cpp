@@ -244,13 +244,23 @@ LiteMath::float4 rbezier_curve_der(
   float u_n = 1.0f;
   float _1_u = 1.0f - u;
   int bc = 1.0f;
-  float4 res = (pw[1]-pw[0]) * _1_u;
+  
+  float4 next = pw[1];
+  float4 cur = pw[0];
+  float4 res = (next-cur) * _1_u;
+  if (p > 1)
+    cur = next;
+
   for (int i = 1; i <= p-2; ++i) {
     u_n *= u;
     bc = bc * (p-i+1)/i;
-    res = (res + u_n * bc * (pw[i+1]-pw[i])) * _1_u;
+    next = pw[i+1];
+    res = (res + u_n * bc * (next-cur)) * _1_u;
+    cur = next;
   }
-  res += (u_n * u) * (pw[p]-pw[p-1]);
+
+  next = pw[p];
+  res += (u_n * u) * (next-cur);
 
   res *= p;
   return res;
@@ -277,7 +287,10 @@ LiteMath::float4 RBezier::get_point(float u, float v) const {
 
 LiteMath::float4 RBezier::vder(float u, float v) const {
   float4 Sw = get_point(u, v);
+  return vder(u, v, Sw);
+}
 
+LiteMath::float4 RBezier::vder(float u, float v, const LiteMath::float4 &Sw) const {
   int n = weighted_points.get_n()-1;
   int m = weighted_points.get_m()-1;
   float u_n = 1.0f;
@@ -299,33 +312,33 @@ LiteMath::float4 RBezier::vder(float u, float v) const {
 
 LiteMath::float4 RBezier::uder(float u, float v) const {
   float4 Sw = get_point(u, v);
+  return uder(u, v, Sw);
+}
 
+LiteMath::float4 RBezier::uder(float u, float v, const LiteMath::float4 &Sw) const {
   int n = weighted_points.get_n()-1;
   int m = weighted_points.get_m()-1;
   float u_n = 1.0f;
   float _1_u = 1.0f - u;
   int bc = 1.0f;
   
-  float4 Sw_der = std::invoke([&]() {
-    float4 next = rbezier_curve_point(v, m, &weighted_points[{1, 0}]);
-    float4 cur = rbezier_curve_point(v, m, &weighted_points[{0, 0}]);
-    return (next-cur) * _1_u;
-  });
+  float4 next = rbezier_curve_point(v, m, &weighted_points[{1, 0}]);
+  float4 cur = rbezier_curve_point(v, m, &weighted_points[{0, 0}]);
+  float4 Sw_der = (next-cur) * _1_u;
+  if (n > 1)
+    cur = next;
 
   for (int i = 1; i <= n-2; ++i)
   {
     u_n *= u;
     bc = bc * (n-i+1)/i;
-    float4 next = rbezier_curve_point(v, m, &weighted_points[{i+1, 0}]);
-    float4 cur = rbezier_curve_point(v, m, &weighted_points[{i, 0}]);
+    next = rbezier_curve_point(v, m, &weighted_points[{i+1, 0}]);
     Sw_der = (Sw_der + u_n * bc * (next-cur)) * _1_u;
+    cur = next;
   }
 
-  Sw_der += std::invoke([&]() {
-    float4 next = rbezier_curve_point(v, m, &weighted_points[{n, 0}]);
-    float4 cur = rbezier_curve_point(v, m, &weighted_points[{n-1, 0}]);
-    return (u_n*u) * (next-cur);
-  });
+  next = rbezier_curve_point(v, m, &weighted_points[{n, 0}]);
+  Sw_der += (u_n*u) * (next-cur);
 
   Sw_der *= n;
   
@@ -372,6 +385,11 @@ LiteMath::int2 RBezierGrid::get_spans(float u, float v) const {
 }
 
 LiteMath::float4 RBezierGrid::uder(float u, float v) const {
+  float4 Sw = get_point(u, v);
+  return uder(u, v, Sw);
+}
+
+LiteMath::float4 RBezierGrid::uder(float u, float v, const LiteMath::float4 &Sw) const {
   int uspan = find_span(u, uniq_uknots.size(), uniq_uknots.data());
   int vspan = find_span(v, uniq_vknots.size(), uniq_vknots.data());
   float umin = uniq_uknots[uspan], umax = uniq_uknots[uspan+1];
@@ -380,11 +398,16 @@ LiteMath::float4 RBezierGrid::uder(float u, float v) const {
   v = (v-vmin)/(vmax-vmin);
   assert(0 <= u && u <= 1);
   assert(0 <= v && v <= 1);
-  float4 res =  grid[{uspan, vspan}].uder(u, v) / (umax - umin);
+  float4 res =  grid[{uspan, vspan}].uder(u, v, Sw) / (umax - umin);
   return res;
 }
 
 LiteMath::float4 RBezierGrid::vder(float u, float v) const {
+  float4 Sw = get_point(u, v);
+  return vder(u, v, Sw);
+}
+
+LiteMath::float4 RBezierGrid::vder(float u, float v, const LiteMath::float4 &Sw) const {
   int uspan = find_span(u, uniq_uknots.size(), uniq_uknots.data());
   int vspan = find_span(v, uniq_vknots.size(), uniq_vknots.data());
   float umin = uniq_uknots[uspan], umax = uniq_uknots[uspan+1];
@@ -393,13 +416,18 @@ LiteMath::float4 RBezierGrid::vder(float u, float v) const {
   v = (v-vmin)/(vmax-vmin);
   assert(0 <= u && u <= 1);
   assert(0 <= v && v <= 1);
-  float4 res =  grid[{uspan, vspan}].vder(u, v) / (vmax - vmin);
+  float4 res =  grid[{uspan, vspan}].vder(u, v, Sw) / (vmax - vmin);
   return res;
 }
 
 LiteMath::float3 RBezierGrid::normal(float u, float v) const {
-  float4 uderiv = uder(u, v);
-  float4 vderiv = vder(u, v);
+  float4 Sw = get_point(u, v);
+  return normal(u, v, Sw);
+}
+
+LiteMath::float3 RBezierGrid::normal(float u, float v, const float4 &Sw) const {
+  float4 uderiv = uder(u, v, Sw);
+  float4 vderiv = vder(u, v, Sw);
   float3 normal = normalize(cross(to_float3(uderiv), to_float3(vderiv)));
   return normal;
 }

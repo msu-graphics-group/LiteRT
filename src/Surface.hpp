@@ -110,7 +110,9 @@ public:
 public:
   LiteMath::float4 get_point(float u, float v) const;
   LiteMath::float4 uder(float u, float v) const;
+  LiteMath::float4 uder(float u, float v, const LiteMath::float4 &Sw) const;
   LiteMath::float4 vder(float u, float v) const;
+  LiteMath::float4 vder(float u, float v, const LiteMath::float4 &Sw) const;
 };
 
 struct RBezierGrid
@@ -123,8 +125,11 @@ public:
 public:
   LiteMath::float4 get_point(float u, float v) const;
   LiteMath::float4 uder(float u, float v) const;
+  LiteMath::float4 uder(float u, float v, const LiteMath::float4 &Sw) const;
   LiteMath::float4 vder(float u, float v) const;
+  LiteMath::float4 vder(float u, float v, const LiteMath::float4 &Sw) const;
   LiteMath::float3 normal(float u, float v) const;
+  LiteMath::float3 normal(float u, float v, const LiteMath::float4 &Sw) const;
   LiteMath::int2 get_spans(float u, float v) const;
 };
 
