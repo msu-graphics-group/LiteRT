@@ -31,10 +31,12 @@ add_executable(
     src/utils.cpp
 )
 
+add_subdirectory(external/stp_parser)
 find_package(OpenMP)
 target_link_libraries(
   ${PROJECT_NAME}
     LiteMath
     ImGui
     OpenMP::OpenMP_CXX
+    stp_parser
 )
