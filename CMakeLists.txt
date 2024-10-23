@@ -20,14 +20,6 @@ add_library(
 target_link_libraries(ImGui glfw SDL2main SDL2)
 target_include_directories(ImGui PUBLIC external/imgui external/imgui/backends /usr/include/SDL2)
 
-add_library(
-  STEP_Parser
-    external/step_parser/step_parser.cpp 
-    external/step_parser/include/step_parser.h
-)
-target_link_libraries(STEP_Parser LiteMath)
-target_include_directories(STEP_Parser PUBLIC external/step_parser/include)
-
 add_executable(
   ${PROJECT_NAME} 
     src/main.cpp
@@ -45,5 +37,4 @@ target_link_libraries(
     LiteMath
     ImGui
     OpenMP::OpenMP_CXX
-    STEP_Parser
 )
