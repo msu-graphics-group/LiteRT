@@ -31,6 +31,19 @@ add_executable(
     src/utils.cpp
 )
 
+add_executable(
+  embree_based 
+    src/embree_main.cpp
+)
+
+set(embree_DIR external/embree4/lib/cmake/embree-4.3.3)
+find_package(embree 4.3.3)
+target_link_libraries(
+  embree_based
+    LiteMath 
+    embree
+)
+
 add_subdirectory(external/stp_parser)
 find_package(OpenMP)
 target_link_libraries(
