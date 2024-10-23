@@ -32,6 +32,7 @@ namespace dr
     relax_pt->missed_hit.color  = float3(0.0f, 0.0, 0.0f);
     relax_pt->missed_hit.sdf    = 1000.0f;
     relax_pt->missed_hit.normal = float3(1.0f, 0.0f, 0.0f);
+    relax_pt->missed_hit._pad1  = 1;
 
     for (int i=0;i<8;i++)
     {
