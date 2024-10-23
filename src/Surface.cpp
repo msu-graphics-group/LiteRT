@@ -438,8 +438,6 @@ load_rbeziers(const std::filesystem::path &path) {
     return { nurbs2rbezier(load_nurbs(path)) };
   } 
 
-  assert(path.extension() == ".step");
-
   std::vector<RBezierGrid> res;
   auto parsed = STEP::parse(path);
   auto parsed_nurbs = STEP::allNURBS(parsed);
@@ -485,4 +483,3 @@ load_rbeziers(const std::filesystem::path &path) {
 
   return res;
 }
-

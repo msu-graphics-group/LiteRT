@@ -83,6 +83,7 @@ int main(int, char** argv)
   bool done = false;
 
   bool camera_move = false;
+  bool camera_changed = false;
   int prev_x = 0, prev_y = 0;
 
   
@@ -144,11 +145,12 @@ int main(int, char** argv)
       continue;
     }
 
-    if (camera_move || surface_changed || renderer_changed || shading_changed) {
+    if (camera_move || camera_changed || surface_changed || renderer_changed || shading_changed) {
       fb.col_buf.clear(LiteMath::uchar4{ 153, 153, 153, 255 }.u32);
       fb.z_buf.clear(std::numeric_limits<float>::infinity());
     }
     surface_changed = false;
+    camera_changed = false;
 
     //Render image
     auto b = std::chrono::high_resolution_clock::now();
@@ -180,8 +182,8 @@ int main(int, char** argv)
       }
       //ImGui::ColorPicker3("Surface Color", surf_color);
       ImGui::Text("Camera settings:");
-      ImGui::DragFloat3("Camera position", camera.position.M);
-      ImGui::DragFloat3("Camera target", camera.target.M);
+      camera_changed |= ImGui::DragFloat3("Camera position", camera.position.M);
+      camera_changed |= ImGui::DragFloat3("Camera target", camera.target.M);
       camera = Camera(camera.aspect, camera.fov, camera.position, camera.target);
       ImGui::Text("Renderer settings:");
       renderer_changed = 
