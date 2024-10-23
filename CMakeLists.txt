@@ -4,8 +4,8 @@ set(CMAKE_CXX_STANDARD 17)
 
 add_library(
   ${PROJECT_NAME} # library name
-    ${CMAKE_SOURCE_DIR}/src/stp_parser.cpp #sources...
-    ${CMAKE_SOURCE_DIR}/include/stp_parser.hpp #just for vscode intellisence
+    src/stp_parser.cpp #sources...
+    include/stp_parser.hpp #just for vscode intellisence
 )
 #passing -Iinclude/ to compiler
 #PUBLIC will be added to all dependent targets
