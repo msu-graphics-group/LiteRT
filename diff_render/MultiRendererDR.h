@@ -89,7 +89,7 @@ namespace dr
 
   protected:
     float RenderDR(const float4 *image_ref, LiteMath::float4* out_image, float *out_dLoss_dS, unsigned params_count,
-                   LiteMath::float4* out_image_depth, LiteMath::float4* out_image_debug);
+                   LiteMath::float4* out_image_depth, LiteMath::float4* out_image_debug, LiteMath::float4* out_image_debug2);
     float RenderDRFiniteDiff(const float4 *image_ref, LiteMath::float4* out_image, float *out_dLoss_dS, unsigned params_count,
                              unsigned start_index, unsigned end_index, float delta = 0.001f);
     void OptimizeStepAdam(unsigned iter, const float* dX, float *X, float *tmp, unsigned size, MultiRendererDRPreset preset);
@@ -98,7 +98,7 @@ namespace dr
     float CalculateBorderRayDerivatives(float sampling_pdf, const RayDiffPayload &payload, const CRT_HitDR &hit, float4 rayPosAndNear,
                                         float4 rayDirAndFar, const float4 *image_ref, LiteMath::float4 *out_image, float *out_dLoss_dS);
     void CastBorderRay(uint32_t tidX, const float4 *image_ref, LiteMath::float4* out_image, float* out_dLoss_dS,
-                       LiteMath::float4* out_image_debug);
+                       LiteMath::float4* out_image_debug, LiteMath::float4* out_image_debug2);
     void CastBorderRaySVM(uint32_t tidX, const float4 *image_ref, LiteMath::float4* out_image, float* out_dLoss_dS,
                           LiteMath::float4* out_image_debug);
     float3 CalculateColor(const CRT_HitDR &hit);

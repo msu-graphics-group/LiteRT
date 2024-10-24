@@ -59,11 +59,13 @@ namespace dr
   struct RayDiffPayload
   {
     CRT_HitDR missed_hit;
+    CRT_HitDR missed_hit_candidate;
     uint32_t  missed_indices[8];
     float     missed_dSDF_dtheta[8];
 
 #ifdef DEBUG_PAYLOAD_STORE_SDF
-    std::vector<float> sdf_i;
+    std::vector<float> sdf_i2;
+    float sdf_i[4]{0.f,1.f,1.f,0.f};
 #endif
 
     PDColor dDiffuse_dSc[MAX_PD_COUNT_COLOR]; //8 color points, PDs for diffuse (PDs for R,G,B are the same)
