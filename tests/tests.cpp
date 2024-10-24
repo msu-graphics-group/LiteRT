@@ -2844,9 +2844,9 @@ void litert_test_38_direct_octree_traversal()
 
   auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "scenes/01_simple_scenes/data/teapot.vsgf").c_str());
   cmesh4::normalize_mesh(mesh);
-  cmesh4::check_watertight_mesh(mesh, true);// ? mesh : cmesh4::removing_holes(mesh, ind, fl);
-  cmesh4::compress_close_vertices(mesh, 1e-7f, true);
-  cmesh4::fix_normals(mesh, true);
+  //cmesh4::check_watertight_mesh(mesh, true);// ? mesh : cmesh4::removing_holes(mesh, ind, fl);
+  //cmesh4::compress_close_vertices(mesh, 1e-7f, true);
+  //cmesh4::fix_normals(mesh, true);
 
   if (true)
   {
