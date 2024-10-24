@@ -167,12 +167,15 @@ void BVHRT::LocalSurfaceIntersection(uint32_t type, const float3 ray_dir, uint32
   unsigned iter = 0;
 
   float start_dist = 10000;
+  float start_sign = 1;
 
   #ifdef USE_TRICUBIC
     float point[3] = {(start_q + t * ray_dir).x, (start_q + t * ray_dir).y, (start_q + t * ray_dir).z};
     start_dist = tricubicInterpolation(values, point);
   #else
     start_dist = eval_dist_trilinear(values, start_q + t * ray_dir);
+    start_sign = sign(start_dist);
+    start_dist *= start_sign;
   #endif
 
   if (start_dist <= EPS || m_preset.sdf_node_intersect == SDF_OCTREE_NODE_INTERSECT_BBOX)
@@ -193,7 +196,7 @@ void BVHRT::LocalSurfaceIntersection(uint32_t type, const float3 ray_dir, uint32
         float point[3] = {(start_q + t * ray_dir).x, (start_q + t * ray_dir).y, (start_q + t * ray_dir).z};
         dist = tricubicInterpolation(values, point);
       #else
-        dist = eval_dist_trilinear(values, start_q + t * ray_dir);
+        dist = start_sign*eval_dist_trilinear(values, start_q + t * ray_dir);
       #endif
       
       float3 pp = start_q + t * ray_dir;
@@ -427,7 +430,7 @@ void BVHRT::LocalSurfaceIntersection(uint32_t type, const float3 ray_dir, uint32
         float s = std::min((dist*d_inv)/L, e);
         t += s;
         e = k*s;
-        dist = eval_dist_trilinear(values, start_q + t * ray_dir);
+        dist = start_sign*eval_dist_trilinear(values, start_q + t * ray_dir);
         pp = start_q + t * ray_dir;
         iter++;
       }
@@ -472,7 +475,7 @@ void BVHRT::LocalSurfaceIntersection(uint32_t type, const float3 ray_dir, uint32
                    eval_dist_trilinear(values, p0 + float3(0, 0, -h))) /
                   (2 * h);
 
-      norm = normalize(matmul4x3(m_instanceData[instId].transformInvTransposed, float3(ddx, ddy, ddz)));
+      norm = start_sign*normalize(matmul4x3(m_instanceData[instId].transformInvTransposed, float3(ddx, ddy, ddz)));
     }
     
     float2 encoded_norm = encode_normal(norm);
