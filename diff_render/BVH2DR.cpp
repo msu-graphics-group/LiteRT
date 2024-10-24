@@ -93,6 +93,9 @@ namespace dr
       hit.primId = m_primIndices[geomOffsets.x/3 + hit.primId];
     }
     
+    if (relax_pt && relax_pt->missed_hit_candidate.sdf < relax_pt->missed_hit.sdf)
+      relax_pt->missed_hit = relax_pt->missed_hit_candidate;
+
     return hit;
   }
 
@@ -624,6 +627,11 @@ namespace dr
     bool hit = false;
     unsigned iter = 0;
 
+    if(relax_pt)
+    {
+      relax_pt->missed_hit_candidate.sdf = 1000.f;
+    }
+
     float start_dist = eval_dist_trilinear(values, start_q + t * ray_dir);
     if (start_dist <= SDF_EPS || m_preset.sdf_node_intersect == SDF_OCTREE_NODE_INTERSECT_BBOX)
     {
@@ -1031,8 +1039,6 @@ namespace dr
             }
             relax_pt->missed_hit._pad1 = 0;
           }
-          if (sdf3 < 0.f && (c1 + qFar*(2*c2 + qFar*3*c3)) >= 0.f) // sdf3 is SDF(qFar)
-            relax_pt->missed_hit._pad1 = 1;
 
 
           if (false)
@@ -1054,6 +1060,13 @@ namespace dr
             //printf("t_min = %f in (%f, %f)\n", t_min, qNear, qFar);
             relax_pt->missed_hit.t = t_min;
             relax_pt->missed_hit.sdf = -sdf_min*d;
+          }
+          if (sdf3 < 0.f && -sdf3*d < relax_pt->missed_hit.sdf && (c1 + qFar*(2*c2 + qFar*3*c3)) >= 0.f) // sdf3 is SDF(qFar)
+          {
+            relax_pt->missed_hit._pad1 = 1;
+            relax_pt->missed_hit_candidate.t = qFar;
+            relax_pt->missed_hit_candidate.sdf = -sdf3*d;
+
           }
         }
 
