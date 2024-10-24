@@ -460,6 +460,7 @@ void BVHRT::LocalSurfaceIntersection(uint32_t type, const float3 ray_dir, uint32
     float3 norm = float3(0, 0, 1);
     if (need_normal())
     {
+      #ifndef USE_TRICUBIC
       float3 p0 = start_q + t * ray_dir;
       const float h = 0.001;
       float ddx = (eval_dist_trilinear(values, p0 + float3(h, 0, 0)) -
@@ -473,6 +474,32 @@ void BVHRT::LocalSurfaceIntersection(uint32_t type, const float3 ray_dir, uint32
                   (2 * h);
 
       norm = normalize(matmul4x3(m_instanceData[instId].transformInvTransposed, float3(ddx, ddy, ddz)));
+      #else
+      float3 p0 = start_q + t * ray_dir;
+      const float h = 0.001;
+
+      float p1[3] = {(p0 + float3(h, 0, 0)).x, (p0).y, (p0).z};
+      float p2[3] = {(p0 + float3(-h, 0, 0)).x, p0.y, p0.z};
+      
+      float ddx = (tricubicInterpolation(values, p1) -
+                   tricubicInterpolation(values, p2)) /
+                  (2 * h);
+
+      float p3[3] = {p0.x, (p0 + float3(0, h, 0)).y, p0.z};
+      float p4[3] = {p0.x, (p0 + float3(0, -h, 0)).y, p0.z};
+      float ddy = (tricubicInterpolation(values, p3) -
+                   tricubicInterpolation(values, p4)) /
+                  (2 * h);
+
+      float p5[3] = {p0.x, p0.y, (p0 + float3(0, 0, h)).z};
+      float p6[3] = {p0.x, p0.y, (p0 + float3(0, 0, -h)).z};
+
+      float ddz = (tricubicInterpolation(values, p5) -
+                   tricubicInterpolation(values, p6)) /
+                  (2 * h);
+
+      norm = normalize(matmul4x3(m_instanceData[instId].transformInvTransposed, float3(ddx, ddy, ddz)));
+      #endif
     }
     
     float2 encoded_norm = encode_normal(norm);
@@ -604,7 +631,7 @@ float BVHRT::load_distance_values(uint32_t nodeId, float3 voxelPos, uint32_t v_s
         {
           for (int z = 0; z < 4; z++)
           {
-            int3 vPos = p0 + int3(z, y, x);
+            int3 vPos = p0 + int3(x, y, z);
             uint32_t vId = SBS_v_to_i(vPos.x, vPos.y, vPos.z, v_size, header.brick_pad); 
             values[16 * z + 4 * y + x] = m_SdfSBSDataF[m_SdfSBSData[v_off + vId]];
             vmin = std::min(vmin, values[16 * z + 4 * y + x]);
