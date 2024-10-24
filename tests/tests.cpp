@@ -2542,6 +2542,7 @@ litert_test_34_tricubic_sbs()
     MultiRenderPreset preset = getDefaultPreset();
     preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
     preset.interpolation_type = TRICUBIC_INTERPOLATION_MODE;
+    preset.normal_mode = NORMAL_MODE_GEOMETRY;
     SparseOctreeSettings settings(SparseOctreeBuildType::MESH_TLO, 5);
 
     SdfSBSHeader header;
