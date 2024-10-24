@@ -47,6 +47,25 @@ namespace cmesh4
     return trans;
   }
 
+  void transform_mesh(cmesh4::SimpleMesh &mesh, LiteMath::float4x4 transform)
+  {
+    LiteMath::float4x4 norm_transform = transpose(inverse4x4(transform));
+    for (float4 &p : mesh.vPos4f)
+    {
+      float w = p.w;
+      p.w = 1;
+      p = transform * p;
+      p.w = w;
+    }
+    for (float4 &p : mesh.vNorm4f)
+    {
+      float w = p.w;
+      p.w = 0;
+      p = norm_transform * p;
+      p.w = w;
+    }
+  }
+
   bool triangle_aabb_intersect_SAT(const float3 &a, const float3 &b, const float3 &c, 
                                    const float3 &aabb_half_size, float3 axis)
   {
@@ -291,10 +310,7 @@ namespace cmesh4
       nodes[idx].tid_offset = tri_ids.size();
       for (auto &tri_idx : node_tri_ids) 
       {
-        tri_ids.push_back(tri_idx);
-        if (tri_idx == 174649)
-          printf("udx %u ch node (%f %f %f)-%f %u\n", idx, p.x, p.y, p.z, d, level);
-          
+        tri_ids.push_back(tri_idx);    
       }
       
       //printf("created %u-leaf %u on p=(%f %f %f) with %d tris\n", level, idx, p.x, p.y, p.z, (int)node_tri_ids.size());
@@ -483,26 +499,36 @@ namespace cmesh4
           printf("OK: mesh has no broken normals\n");
       }
     }
+
+    int total_visited = 0;
+    int flipped_normals = 0;
+    std::vector<std::vector<unsigned>> edges(mesh.vPos4f.size(), std::vector<unsigned>());
+    std::vector<bool> vertex_visited(mesh.vPos4f.size(), false);
+    for (int i = 0; i < mesh.indices.size(); i += 3)
     {
-      int flipped_normals = 0;
-      std::vector<std::vector<unsigned>> edges(mesh.vPos4f.size(), std::vector<unsigned>());
-      std::vector<bool> vertex_visited(mesh.vPos4f.size(), false);
+      unsigned a = mesh.indices[i];
+      unsigned b = mesh.indices[i + 1];
+      unsigned c = mesh.indices[i + 2];
+      edges[a].push_back(b);
+      edges[a].push_back(c);
+      edges[b].push_back(a);
+      edges[b].push_back(c);
+      edges[c].push_back(a);
+      edges[c].push_back(b);
+    }
 
-      for (int i=0;i<mesh.indices.size();i+=3)
-      {
-        unsigned a = mesh.indices[i];
-        unsigned b = mesh.indices[i+1];
-        unsigned c = mesh.indices[i+2];
-        edges[a].push_back(b);
-        edges[a].push_back(c);
-        edges[b].push_back(a);
-        edges[b].push_back(c);
-        edges[c].push_back(a);
-        edges[c].push_back(b);
-      }
-
+    while (total_visited < mesh.vPos4f.size())
+    {
       //TODO: check if the first normal in pointing in the right direction
       int start_index = 0;
+      for (int i=0;i<mesh.vPos4f.size();i++)
+      {
+        if (!vertex_visited[i])
+        {
+          start_index = i;
+          break;
+        }
+      }
       int intersection_cnt = intersection_count(mesh, 
                                                 to_float3(mesh.vPos4f[start_index]) + 1e-6f*to_float3(mesh.vNorm4f[start_index]), 
                                                 to_float3(mesh.vNorm4f[start_index]));
@@ -538,8 +564,14 @@ namespace cmesh4
         }
       }
 
+      total_visited = 0;
+      for (int i=0;i<vertex_visited.size();i++)
+        total_visited += vertex_visited[i];
+
       if (verbose)
       {
+        printf("visited %d/%d vertices\n", total_visited, (int)vertex_visited.size());
+
         if (flipped_normals == 0 )
           printf("OK: all normals pointing in the same direction\n");
         else

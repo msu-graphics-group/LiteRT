@@ -364,7 +364,7 @@ namespace cmesh4
     int hanging_edges = 0;
     for (auto it = edge_in_planes.begin(); it != edge_in_planes.end(); it++)
     {
-      if (it->second.size() < 2){
+      if (it->second.size() != 2){
         hanging_edges++;
       }
       i++;
