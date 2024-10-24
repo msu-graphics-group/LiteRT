@@ -14,6 +14,7 @@ namespace dr
     bool stopOnFirstHit = (dirAndFar.w <= 0.0f);
     if(stopOnFirstHit)
       dirAndFar.w *= -1.0f;
+    stopOnFirstHit = true;
     const float3 rayDirInv = SafeInverse(to_float3(dirAndFar));
 
     CRT_HitDR hit;
@@ -33,6 +34,7 @@ namespace dr
     relax_pt->missed_hit.sdf    = 1000.0f;
     relax_pt->missed_hit.normal = float3(1.0f, 0.0f, 0.0f);
     relax_pt->missed_hit._pad1  = 1;
+    relax_pt->missed_hit_candidate = relax_pt->missed_hit;
 
     for (int i=0;i<8;i++)
     {
@@ -93,6 +95,9 @@ namespace dr
       hit.primId = m_primIndices[geomOffsets.x/3 + hit.primId];
     }
     
+    if (relax_pt && relax_pt->missed_hit_candidate.sdf < relax_pt->missed_hit.sdf)
+      relax_pt->missed_hit = relax_pt->missed_hit_candidate;
+
     return hit;
   }
 
@@ -624,6 +629,11 @@ namespace dr
     bool hit = false;
     unsigned iter = 0;
 
+    if(relax_pt)
+    {
+      relax_pt->missed_hit_candidate.sdf = 1000.f;
+    }
+
     float start_dist = eval_dist_trilinear(values, start_q + t * ray_dir);
     if (start_dist <= SDF_EPS || m_preset.sdf_node_intersect == SDF_OCTREE_NODE_INTERSECT_BBOX)
     {
@@ -986,8 +996,6 @@ namespace dr
             }
             relax_pt->missed_hit._pad1 = 0;
           }
-          if (sdf3 < 0.f && (c1 + qFar*(2*c2 + qFar*3*c3)) >= 0.f) // sdf3 is SDF(qFar)
-            relax_pt->missed_hit._pad1 = 1;
 
 #ifdef DEBUG_PAYLOAD_STORE_SDF
           for (int t_i = 0; t_i <= 10; ++t_i)
@@ -1016,6 +1024,13 @@ namespace dr
             //printf("t_min = %f in (%f, %f)\n", t_min, qNear, qFar);
             relax_pt->missed_hit.t = t_min;
             relax_pt->missed_hit.sdf = -sdf_min*d;
+          }
+          if (sdf3 < 0.f && -sdf3*d < relax_pt->missed_hit.sdf && (c1 + qFar*(2*c2 + qFar*3*c3)) >= 0.f) // sdf3 is SDF(qFar)
+          {
+            relax_pt->missed_hit._pad1 = 1;
+            relax_pt->missed_hit_candidate.t = qFar;
+            relax_pt->missed_hit_candidate.sdf = -sdf3*d;
+
           }
         }
 

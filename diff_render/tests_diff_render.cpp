@@ -1085,7 +1085,7 @@ void diff_render_test_12_depth()
   dr_preset.dr_render_mode = DR_RENDER_MODE_LINEAR_DEPTH;
   dr_preset.dr_input_type = DR_INPUT_TYPE_LINEAR_DEPTH;
   dr_preset.dr_reconstruction_flags = DR_RECONSTRUCTION_FLAG_GEOMETRY;
-  dr_preset.opt_iterations = 11;
+  dr_preset.opt_iterations = 301;
   dr_preset.debug_progress_interval = 10;
   // dr_preset.debug_border_samples_mega_image = true;
   // dr_preset.dr_raycasting_mask = DR_RAYCASTING_MASK_ON;
