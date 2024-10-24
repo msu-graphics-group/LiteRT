@@ -360,7 +360,7 @@ namespace dr
       m_imagesDebugPD = std::vector<LiteImage::Image2D<float4>>(params_count, LiteImage::Image2D<float4>(m_width, m_height, float4(0, 0, 0, 1)));
     
     if (m_preset_dr.debug_render_mode != DR_DEBUG_RENDER_MODE_NONE)
-      m_imagesDebug = std::vector<LiteImage::Image2D<float4>>(m_imagesRef.size()*2, LiteImage::Image2D<float4>(m_width, m_height, float4(0, 0, 0, 1)));
+      m_imagesDebug = std::vector<LiteImage::Image2D<float4>>(m_imagesRef.size(), LiteImage::Image2D<float4>(m_width, m_height, float4(0, 0, 0, 1)));
 
     if (preset.debug_border_samples_mega_image)
       samples_mega_image = LiteImage::Image2D<float4>(m_width*MEGA_PIXEL_SIZE, m_height*MEGA_PIXEL_SIZE);
@@ -416,16 +416,13 @@ namespace dr
 
         if (m_preset_dr.debug_render_mode != DR_DEBUG_RENDER_MODE_NONE)
           m_imagesDebug[image_id].clear(float4(0,0,0,1));
-        if (m_preset_dr.debug_render_mode != DR_DEBUG_RENDER_MODE_NONE)
-          m_imagesDebug[images_count + image_id].clear(float4(0,0,0,1));
 
         float loss = 1e6f;
         if (preset.dr_diff_mode == DR_DIFF_MODE_DEFAULT)
         {
           loss = RenderDR(m_imagesRef[image_id].data(), m_images[image_id].data(), 
                           m_dLoss_dS_tmp.data(), params_count, m_imagesDepth[image_id].data(),
-                          m_preset_dr.debug_render_mode == DR_DEBUG_RENDER_MODE_NONE ? nullptr : m_imagesDebug[image_id].data(),
-                          m_preset_dr.debug_render_mode == DR_DEBUG_RENDER_MODE_NONE ? nullptr : m_imagesDebug[images_count + image_id].data());
+                          m_preset_dr.debug_render_mode == DR_DEBUG_RENDER_MODE_NONE ? nullptr : m_imagesDebug[image_id].data());
         }
         else if (preset.dr_diff_mode == DR_DIFF_MODE_FINITE_DIFF)
         {
@@ -554,19 +551,7 @@ namespace dr
 
           if (preset.debug_render_mode != DR_DEBUG_RENDER_MODE_NONE)
             LiteImage::SaveImage<float4>(("saves/debug_iter_"+std::to_string(iter)+"_"+std::to_string(image_id)+".png").c_str(), m_imagesDebug[image_id]);
-          if (preset.debug_render_mode != DR_DEBUG_RENDER_MODE_NONE)
-            LiteImage::SaveImage<float4>(("saves/debug_iter_"+std::to_string(iter)+"_"+std::to_string(image_id)+"_color_delta.png").c_str(), m_imagesDebug[images_count + image_id]);
-          // LiteImage::Image2D<LiteMath::float4> _proc_mask{m_width, m_height};
-          // for (uint32_t j = 0u; j < m_height; ++j)
-          //   for (uint32_t i = 0u; i < m_width; ++i) {
-          //     float val = LossGrad(m_preset_dr.dr_loss_function, m_images[image_id][uint2{i,j}], m_imagesRefOriginal[image_id][uint2{i,j}]).x;
-          //     if (val >= 0)
-          //       _proc_mask[uint2{i, j}] = float4(val, 0, 0, 1);
-          //     else
-          //       _proc_mask[uint2{i, j}] = float4(0, -val, 0, 1);
-          // }
-          // LiteImage::SaveImage<LiteMath::float4>(("saves/iter_"+std::to_string(iter)+"_"+std::to_string(image_id)+"_lossgrad.png").c_str(), _proc_mask);
-            
+
         }
       }
 
@@ -591,7 +576,7 @@ namespace dr
 
   float MultiRendererDR::RenderDR(const float4 *image_ref, LiteMath::float4 *out_image,
                                   float *out_dLoss_dS, unsigned params_count, 
-                                  LiteMath::float4* out_image_depth, LiteMath::float4* out_image_debug, LiteMath::float4* out_image_debug2)
+                                  LiteMath::float4* out_image_depth, LiteMath::float4* out_image_debug)
   {
     bool use_multithreading = !(m_preset_dr.debug_border_samples || 
                                 m_preset_dr.debug_pd_images ||
@@ -718,13 +703,13 @@ namespace dr
 
       if (m_preset_dr.dr_border_sampling == DR_BORDER_SAMPLING_RANDOM)
       {
-        // #pragma omp parallel for
+        #pragma omp parallel for
         for (int thread_id = 0; thread_id < max_threads; thread_id++)
         {
           unsigned start = thread_id * border_steps;
           unsigned end = std::min((thread_id + 1) * border_steps, (unsigned)m_borderPixels.size());
           for (int i = start; i < end; i++)
-            CastBorderRay(m_borderPixels[i], image_ref, out_image, out_dLoss_dS + (params_count * thread_id), out_image_debug, out_image_debug2);
+            CastBorderRay(m_borderPixels[i], image_ref, out_image, out_dLoss_dS + (params_count * thread_id), out_image_debug);
         }
       }
       else if (m_preset_dr.dr_border_sampling == DR_BORDER_SAMPLING_SVM)
@@ -779,7 +764,7 @@ namespace dr
 
       params[i] = p0 + delta;
       //RenderFloat(out_image, m_width, m_height, "color");
-      RenderDR(image_ref, out_image, m_dLoss_dS_tmp_2.data(), params_count, nullptr, nullptr, nullptr);
+      RenderDR(image_ref, out_image, m_dLoss_dS_tmp_2.data(), params_count, nullptr, nullptr);
       for (int j = 0; j < m_width * m_height; j++)
       {
         float l = Loss(m_preset_dr.dr_loss_function, out_image[j], image_ref[j]);
@@ -789,7 +774,7 @@ namespace dr
     
       params[i] = p0 - delta;
       //RenderFloat(out_image, m_width, m_height, "color");
-      RenderDR(image_ref, out_image, m_dLoss_dS_tmp_2.data(), params_count, nullptr, nullptr, nullptr);
+      RenderDR(image_ref, out_image, m_dLoss_dS_tmp_2.data(), params_count, nullptr, nullptr);
       for (int j = 0; j < m_width * m_height; j++)
       {
         float l = Loss(m_preset_dr.dr_loss_function, out_image[j], image_ref[j]);
@@ -1383,7 +1368,7 @@ namespace dr
   }
 
   void MultiRendererDR::CastBorderRay(uint32_t tidX, const float4 *image_ref, LiteMath::float4* out_image, float* out_dLoss_dS,
-                                      LiteMath::float4* out_image_debug, LiteMath::float4* out_image_debug2)
+                                      LiteMath::float4* out_image_debug)
   {
     if (tidX >= m_packedXY.size())
       return;
@@ -1399,15 +1384,12 @@ namespace dr
     const float i_spp_sqrt = 1.0f / spp_sqrt;
     
     unsigned border_points = 0;
-    unsigned lost_border_points = 0;
     float total_diff = 0.0f;
     if (m_preset_dr.debug_border_samples || m_preset_dr.debug_border_samples_mega_image)
     {
       samples_debug_color.resize(border_spp, float4(0,0,0,0));
       samples_debug_pos_size.resize(border_spp, float4(0,0,0,0));
     }
-
-    std::vector<std::vector<float>> lost_paths;
 
     for (int sample_id = 0; sample_id < border_spp; sample_id++)
     {
@@ -1425,23 +1407,9 @@ namespace dr
       {
         border_points++;
         pixel_diff = CalculateBorderRayDerivatives(1.0f/border_spp, payload, hit, rayPosAndNear, rayDirAndFar, image_ref, out_image, out_dLoss_dS);
-        float d_in = absolute_to_linear_depth(payload.missed_hit.t);
-        float d_out = hit.primId == 0xFFFFFFFF ? 0.f : absolute_to_linear_depth(hit.t);
-        d_out = 0;
-        if (out_image_debug2)
-          out_image_debug2[y * m_width + x] += to_float4(visualize_value_debug((d_in - d_out) / border_spp * 10.f), 1.0f / border_spp);
       }
       total_diff += pixel_diff;
-#ifdef DEBUG_PAYLOAD_STORE_SDF
-      if (out_image_debug && payload.sdf_i[1] > 0.f && payload.sdf_i[1] < m_preset_dr.border_relax_eps)
-      {
-        lost_border_points++;
-        lost_paths.push_back(payload.sdf_i2);
-        out_image_debug[y * m_width + x] += to_float4(visualize_value_debug(absolute_to_linear_depth(payload.sdf_i[0]) / border_spp * 10.f), 1.0f / border_spp);
-      }
-      payload.sdf_i2.clear();
-#endif
-
+      
       if (m_preset_dr.debug_border_save_normals && is_border_ray)
       {
         BVHDR* bvh_as = static_cast<BVHDR*>(m_pAccelStruct.get());
@@ -1458,24 +1426,24 @@ namespace dr
         else if (hit.primId == 0xFFFFFFFF) //background
         {
 #ifdef DEBUG_PAYLOAD_STORE_SDF
-          // bool neg_flag = false;
-          // for (auto sdf : payload.sdf_i)
-          // {
-          //   if (sdf < 0) // or any other condition
-          //   {
-          //     neg_flag = true;
-          //     break;
-          //   }
-          // }
-          // if (true)
-          // {
-          //   printf("Pts %ld:\n", payload.sdf_i.size());
-          //   for (int i = 0; i < payload.sdf_i.size(); ++i) {
-          //     printf("%f, ", payload.sdf_i[i]);
-          //     if ((i % 11) == 10)
-          //       printf("\n");
-          //   }
-          // }
+          bool neg_flag = false;
+          for (auto sdf : payload.sdf_i)
+          {
+            if (sdf < 0) // or any other condition
+            {
+              neg_flag = true;
+              break;
+            }
+          }
+          if (true)
+          {
+            printf("Pts %ld:\n", payload.sdf_i.size());
+            for (int i = 0; i < payload.sdf_i.size(); ++i) {
+              printf("%f, ", payload.sdf_i[i]);
+              if ((i % 11) == 10)
+                printf("\n");
+            }
+          }
 #endif
           samples_debug_color[sample_id] = float4(0.05, 0.05, 0.05, 1);
         }
@@ -1511,31 +1479,12 @@ namespace dr
     {
       //if (border_points > 0)
       //  printf("border_points %u -- %f\n", border_points, total_diff);
-      // if (m_preset_dr.debug_render_mode == DR_DEBUG_RENDER_MODE_BORDER_DETECTION)
-      //   out_image_debug[y * m_width + x] = float4(1, 1, 1, 1);
-      // else if (m_preset_dr.debug_render_mode == DR_DEBUG_RENDER_MODE_BORDER_FOUND)
-      //   out_image_debug[y * m_width + x] = border_points > 0 ? float4(1, 1, 1, 1) : float4(0, 0, 0, 1);
-      // else if (m_preset_dr.debug_render_mode == DR_DEBUG_RENDER_MODE_BORDER_INTEGRAL)
-      //   out_image_debug[y * m_width + x] = to_float4(visualize_value_debug(total_diff), 1.0f);
-      // out_image_debug[y * m_width + x] = float4(10.0f*border_points/border_spp, border_points > 0 ? 1.0f : 0.0f,0,1);
-      if (!border_points && lost_border_points)
-      {
-#ifdef DEBUG_PAYLOAD_STORE_SDF
-        if (!border_points)
-        {
-          for (const auto &lost_path : lost_paths)
-          {
-            printf("\nRays %d; Pts %ld:\n", lost_border_points, lost_path.size());
-            for (int i = 0; i < lost_path.size(); ++i) {
-              printf("%f, ", lost_path[i]);
-              if ((i % 11) == 10 || i == lost_path.size() - 1)
-                printf("\n");
-            }
-          }
-        }
-#endif
-        out_image_debug[y * m_width + x] = float4(1,1,1,1);
-      }
+      if (m_preset_dr.debug_render_mode == DR_DEBUG_RENDER_MODE_BORDER_DETECTION)
+        out_image_debug[y * m_width + x] = float4(1, 1, 1, 1);
+      else if (m_preset_dr.debug_render_mode == DR_DEBUG_RENDER_MODE_BORDER_FOUND)
+        out_image_debug[y * m_width + x] = border_points > 0 ? float4(1, 1, 1, 1) : float4(0, 0, 0, 1);
+      else if (m_preset_dr.debug_render_mode == DR_DEBUG_RENDER_MODE_BORDER_INTEGRAL)
+        out_image_debug[y * m_width + x] = to_float4(visualize_value_debug(total_diff), 1.0f);
     }
   }
 

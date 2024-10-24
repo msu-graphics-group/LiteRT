@@ -635,22 +635,6 @@ namespace dr
     float start_dist = eval_dist_trilinear(values, start_q + t * ray_dir);
     if (start_dist <= SDF_EPS || m_preset.sdf_node_intersect == SDF_OCTREE_NODE_INTERSECT_BBOX)
     {
-#ifdef DEBUG_PAYLOAD_STORE_SDF
-          if (relax_pt)
-          {
-            if (start_dist < relax_pt->sdf_i[1])
-            {
-              relax_pt->sdf_i[0] = qNear;
-              relax_pt->sdf_i[1] = start_dist;
-              relax_pt->sdf_i[2] = 0.f;
-              relax_pt->sdf_i[3] = 1.f;
-            }
-            relax_pt->sdf_i2.push_back(1369.f);
-            relax_pt->sdf_i2.push_back(start_dist);
-            for (int i = 0; i < 9; ++i)
-              relax_pt->sdf_i2.push_back(-123.f);
-          }
-#endif
       hit = true;
     }
     else if (m_preset.sdf_node_intersect == SDF_OCTREE_NODE_INTERSECT_ST)
@@ -758,11 +742,11 @@ namespace dr
           relax_pt->missed_hit._pad1 = 1;
 
 #ifdef DEBUG_PAYLOAD_STORE_SDF
-        // for (int t_i = 0; t_i <= 10; ++t_i)
-        // {
-        //   float t_br = float(t_i) / 10.f * qFar;
-        //   relax_pt->sdf_i.push_back(eval_dist_trilinear(values, start_q + t_br * ray_dir));
-        // }
+        for (int t_i = 0; t_i <= 10; ++t_i)
+        {
+          float t_br = float(t_i) / 10.f * qFar;
+          relax_pt->sdf_i.push_back(eval_dist_trilinear(values, start_q + t_br * ray_dir));
+        }
 #endif
 
         if (t_sdf_res.x >= t0 && t_sdf_res.x <= qFar && t_sdf_res.y > 0.f && t_sdf_res.y < relax_pt->missed_hit.sdf) // Found relaxation point
@@ -998,35 +982,6 @@ namespace dr
 
           float sdf_min = (c0 + t_min*(c1 + t_min*(c2 + t_min*c3)));
 
-#ifdef DEBUG_PAYLOAD_STORE_SDF
-          uint32_t segment_num = 10;
-          for (int t_i = 0; t_i <= segment_num; ++t_i)
-          {
-            float t_br = float(t_i) / segment_num * qFar;
-            float sdf_br = -d*(c0 + t_br*(c1 + t_br*(c2 + t_br*c3)));
-            float sdf_deriv_br = -d*(c1 + qFar*(2*c2 + qFar*3*c3));
-            float on_border = (t_i == 0 || t_i == segment_num);
-            if (t_i == 0 && relax_pt->missed_hit._pad1 == 1 && sdf_deriv_br >= 0.f)
-            {
-              on_border = 2.f;
-              sdf_deriv_br = 0.f;
-            }
-            
-            if ( //sdf_br > 0.f &&
-                sdf_br <= relax_pt->sdf_i[1]
-              //  && std::abs(sdf_deriv_br) <= 1e-3f
-              )
-            {
-              relax_pt->sdf_i[0] = t_br; // t
-              relax_pt->sdf_i[1] = sdf_br; // sdf
-              relax_pt->sdf_i[2] = sdf_deriv_br; // sdf'
-              relax_pt->sdf_i[3] = on_border; // is on voxel border
-            }
-
-            relax_pt->sdf_i2.push_back(sdf_br);
-          }
-#endif
-
           if (relax_pt->missed_hit._pad1 == 1)
           {
             if (c1 <= 0) // c1 == SDF'(0)
@@ -1040,6 +995,13 @@ namespace dr
             relax_pt->missed_hit._pad1 = 0;
           }
 
+#ifdef DEBUG_PAYLOAD_STORE_SDF
+          for (int t_i = 0; t_i <= 10; ++t_i)
+          {
+            float t_br = float(t_i) / 10.f * qFar;
+            relax_pt->sdf_i.push_back(-d*(c0 + t_br*(c1 + t_br*(c2 + t_br*c3))));
+          }
+#endif
 
           if (false)
           {
@@ -1240,9 +1202,6 @@ static float3 dp_to_nmq(float3 dp, float beta)
 
         float prev_missed_hit_sdf = relax_pt->missed_hit.sdf;
         float t = Intersect(ray_flags, ray_dir, values, d, 0.0f, qFar, start_q, relax_pt); //relax_pt->missed_hit.t is relative here
-#ifdef DEBUG_PAYLOAD_STORE_SDF
-        relax_pt->sdf_i[0] = fNearFar.x + d * relax_pt->sdf_i[0];
-#endif
         float tReal = fNearFar.x + d * t;
         
         if (ray_flags & DR_RAY_FLAG_BORDER)

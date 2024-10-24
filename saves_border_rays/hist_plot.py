@@ -63,7 +63,7 @@ def parse_data_file(n_bins: int, fpath: str = "./saves_border_rays/hist_data.txt
                 arr /= max(hist_samples_count, 1)
 
                 title = "relax_eps = {}, {} bins, {} renders mean, {:.2f} rays, {:.2f} in the first bin".format(relax_eps, n_bins, hist_samples_count, arr.sum(), arr[0])
-                full_plot(title, arr, "./saves_border_rays/Figure_{}_{}_{}_{}.png".format(scene_ind, scene_step, n_bins, relax_eps))
+                full_plot(title, arr, "./saves_border_rays/Figure_{}_{}_{}.png".format(scene_ind, scene_step, n_bins))
                 hist_samples_count = 0
                 arr = np.zeros((n_bins,))
             else:
@@ -77,4 +77,4 @@ if __name__ == "__main__":
 
     # n_bins = 10 if len(argv) <= 1 else int(argv[1])
     parse_data_file(10)
-    parse_data_file(50)
+    parse_data_file(100)
