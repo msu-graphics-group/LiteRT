@@ -14,6 +14,7 @@ namespace dr
     bool stopOnFirstHit = (dirAndFar.w <= 0.0f);
     if(stopOnFirstHit)
       dirAndFar.w *= -1.0f;
+    stopOnFirstHit = true;
     const float3 rayDirInv = SafeInverse(to_float3(dirAndFar));
 
     CRT_HitDR hit;
@@ -33,6 +34,7 @@ namespace dr
     relax_pt->missed_hit.sdf    = 1000.0f;
     relax_pt->missed_hit.normal = float3(1.0f, 0.0f, 0.0f);
     relax_pt->missed_hit._pad1  = 1;
+    relax_pt->missed_hit_candidate = relax_pt->missed_hit;
 
     for (int i=0;i<8;i++)
     {
