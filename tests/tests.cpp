@@ -2593,7 +2593,7 @@ litert_test_34_tricubic_sbs()
 
       SdfSBSHeader header;
       header.brick_size = 2;
-      header.brick_pad = 1;
+      header.brick_pad = 0;
       header.bytes_per_value = 1;
 
       LiteImage::Image2D<uint32_t> image_mesh(W, H);
