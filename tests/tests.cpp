@@ -2718,7 +2718,7 @@ void litert_test_36_primitive_visualization()
 
   GraphicsPrim primitives;
   {
-    primitives.header.prim_type = GRAPH_PRIM_LINE_SEGMENT_DIR;
+    primitives.header.prim_type = GRAPH_PRIM_BOX;
     primitives.header.color = float3(0.f, 255.f, 255.f);
 
     const uint32_t pt_count = 5u;
@@ -2729,7 +2729,7 @@ void litert_test_36_primitive_visualization()
       primitives.points[2*i] = float4(double(rand()) / (RAND_MAX >> 1) - 1.f,
                                       double(rand()) / (RAND_MAX >> 1) - 1.f,
                                       double(rand()) / (RAND_MAX >> 1) - 1.f,
-                                      0.02f);
+                                      0.007f);
       primitives.points[2*i+1] = float4(double(rand()) / (RAND_MAX >> 1) - 1.f,
                                         double(rand()) / (RAND_MAX >> 1) - 1.f,
                                         double(rand()) / (RAND_MAX >> 1) - 1.f, 0.f);
