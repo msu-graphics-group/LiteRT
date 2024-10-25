@@ -989,6 +989,14 @@ uint32_t BVHRT::AddGeom_GraphicsPrim(const GraphicsPrimView &prim_view, ISceneOb
       new_node.boxMin = min(new_node.boxMin, tmp_node.boxMin); // arrow cone
       new_node.boxMax = max(new_node.boxMax, tmp_node.boxMax); // arrow cone
     }
+    else if (prim_view.header.prim_type == GRAPH_PRIM_BOX ||
+             prim_view.header.prim_type == GRAPH_PRIM_BOX_COLOR)
+    {
+      float4 pt_min_rad = prim_view.points[i];
+      float3 pt_max = to_float3(prim_view.points[i+1]);
+      new_node.boxMin = min(to_float3(pt_min_rad), pt_max) - pt_min_rad.w;
+      new_node.boxMax = max(to_float3(pt_min_rad), pt_max) + pt_min_rad.w;
+    }
 
     mn = min(mn, new_node.boxMin);
     mx = max(mx, new_node.boxMax);

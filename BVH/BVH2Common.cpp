@@ -1678,6 +1678,47 @@ void BVHRT::IntersectNURBS(const float3& ray_pos, const float3& ray_dir,
 //////////////////////// END NURBS SECTION ///////////////////////////////////////////////
 #endif
 
+
+float4 rayCapsuleIntersect(const float3& ray_pos, const float3& ray_dir,
+                           const float3& pa, const float3& pb, float ra)
+{
+  float3 ba = pb - pa;
+  float3 oa = ray_pos - pa;
+  float3 ob = ray_pos - pb;
+  float baba = dot(ba,ba);
+  float bard = dot(ba,ray_dir);
+  float baoa = dot(ba,oa);
+  float rdoa = dot(ray_dir,oa);
+  float oaoa = dot(oa,oa);
+  float a = baba      - bard*bard;
+  float b = baba*rdoa - baoa*bard;
+  float c = baba*oaoa - baoa*baoa - ra*ra*baba;
+  float h = b*b - a*c;
+
+  if(h >= 0.f)
+  {
+    float dist = (-b-sqrt(h))/a;
+    float y = baoa + dist*bard;
+
+    // body
+    if(y > 0.f && y < baba)
+      return to_float4(normalize(oa+dist*ray_dir - ba*y/baba), dist);
+
+    // cap
+    float3 oc = (y <= 0.0) ? oa : ob;
+    b = dot(ray_dir,oc);
+    c = dot(oc,oc) - ra*ra;
+    h = b*b - c;
+    if(h > 0.f)
+    {
+      dist = -b - sqrt(h);
+      float3 norm = normalize(ray_pos+dist*ray_dir + (oc - ray_pos));
+      return to_float4(norm, dist);
+    }
+  }
+  return float4(2e15f);
+}
+
 void BVHRT::IntersectGraphicPrims(const float3& ray_pos, const float3& ray_dir,
                                   float tNear, uint32_t instId,
                                   uint32_t geomId, uint32_t a_start,
@@ -1849,6 +1890,35 @@ void BVHRT::IntersectGraphicPrims(const float3& ray_pos, const float3& ray_dir,
           {
             t = dist;
             norm = normalize(m0*(m0*(oa+t*ray_dir)+rr*ba*ra)-ba*hy*y);
+          }
+        }
+      }
+      if (header.prim_type == GRAPH_PRIM_BOX ||
+          header.prim_type == GRAPH_PRIM_BOX_COLOR)
+      {
+        float3 pa = min(point2_3, point1_3);
+        float3 pb = max(point2_3, point1_3);
+        float minmax[3][2] = {{pa.x, pb.x}, {pa.y, pb.y}, {pa.z, pb.z}};
+
+        const int4 vert_indices{0,3,5,6};
+        for (int vert_ind = 0; vert_ind < 4; ++vert_ind)
+        {
+          int axis_indices[3] = { int((vert_indices[vert_ind] & 4u) != 0),
+                                  int((vert_indices[vert_ind] & 2u) != 0),
+                                  int((vert_indices[vert_ind] & 1u) != 0) };
+          pa = float3(minmax[0][axis_indices[0]],
+                      minmax[1][axis_indices[1]],
+                      minmax[2][axis_indices[2]]);
+          for (int axis = 0; axis < 3; ++axis)
+          {
+            pb = pa;
+            pb[axis] = minmax[axis][1-axis_indices[axis]];
+            float4 norm_dist = rayCapsuleIntersect(ray_pos, ray_dir, pa, pb, ra);
+            if (norm_dist.w < t)
+            {
+              t = norm_dist.w;
+              norm = to_float3(norm_dist);
+            }
           }
         }
       }
