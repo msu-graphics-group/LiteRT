@@ -1691,12 +1691,23 @@ void BVHRT::IntersectGraphicPrims(const float3& ray_pos, const float3& ray_dir,
   GraphicsPrimHeader header = m_GraphicsPrimHeaders[primId];
   float3 color = header.color;
 
+  uint32_t prim_len = 2u;
+  if (header.prim_type == GRAPH_PRIM_POINT)
+    prim_len = 1u;
+  if (header.prim_type >= GRAPH_PRIM_LINE_COLOR)
+    prim_len = 3u;
+  
+  uint32_t start_index = primId + prim_len * a_start;
+  uint32_t end_index = start_index + prim_len; // 1 per bbox
+  // start_index = primId;
+  // end_index = nextPrimId;
+
   bool has_custom_color = header.prim_type >= GRAPH_PRIM_POINT_COLOR;
 
   if (header.prim_type == GRAPH_PRIM_POINT ||
       header.prim_type == GRAPH_PRIM_POINT_COLOR)
   {
-    for (uint32_t i = primId; i < nextPrimId; i += 1 + has_custom_color)
+    for (uint32_t i = start_index; i < end_index; i += prim_len)
     {
       float4 point = m_GraphicsPrimPoints[i];
       if (has_custom_color)
@@ -1735,7 +1746,7 @@ void BVHRT::IntersectGraphicPrims(const float3& ray_pos, const float3& ray_dir,
   }
   else
   {
-    for (uint32_t i = primId; i < nextPrimId; i += 2 + has_custom_color)
+    for (uint32_t i = start_index; i < end_index; i += prim_len)
     {
       float4 point1 = m_GraphicsPrimPoints[i  ];
       float4 point2 = m_GraphicsPrimPoints[i+1];
@@ -1744,8 +1755,9 @@ void BVHRT::IntersectGraphicPrims(const float3& ray_pos, const float3& ray_dir,
 
       float3 point1_3 = float3(point1.x, point1.y, point1.z);
       float3 point2_3 = float3(point2.x, point2.y, point2.z);
-      if (header.prim_type == GRAPH_PRIM_LINE_SEGMENT_DIR)
-        point2_3 = point2_3 * 0.8f + point1_3 * 0.2f; // so that the line segment doesn't clip through the cone
+      if (header.prim_type == GRAPH_PRIM_LINE_SEGMENT_DIR ||
+          header.prim_type == GRAPH_PRIM_LINE_SEGMENT_DIR_COLOR)
+        point2_3 = point2_3 * 0.71f + point1_3 * 0.29f; // so that the line segment doesn't clip through the cone
       float ra = point1.w; // line (cylinder) radius
 
       //assert(ra > EPS);
