@@ -460,11 +460,11 @@ void SimpleRender::UpdateView()
   const float aspect   = float(m_width) / float(m_height);
   auto mProjFix        = OpenglToVulkanProjectionMatrixFix();
   m_projectionMatrix   = projectionMatrix(m_cam.fov, aspect, 0.1f, 1000.0f);
-  auto mLookAt         = LiteMath::lookAt(m_cam.pos, m_cam.lookAt, m_cam.up);
-  auto mWorldViewProj  = mProjFix * m_projectionMatrix * mLookAt;
+  m_worldViewMatrix    = LiteMath::lookAt(m_cam.pos, m_cam.lookAt, m_cam.up);
+  auto mWorldViewProj  = mProjFix * m_projectionMatrix * m_worldViewMatrix;
   pushConst2M.projView = mWorldViewProj;
 
-  m_inverseProjViewMatrix = LiteMath::inverse4x4(m_projectionMatrix * transpose(inverse4x4(mLookAt)));
+  m_inverseProjViewMatrix = LiteMath::inverse4x4(m_projectionMatrix * transpose(inverse4x4(m_worldViewMatrix)));
 }
 
 

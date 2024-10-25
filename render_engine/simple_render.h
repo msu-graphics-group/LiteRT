@@ -7,6 +7,7 @@
 #include "render_common.h"
 #include "render_gui.h"
 #include "../shaders/common.h"
+#include "../Renderer/eye_ray.h"
 
 #include <geom/vk_mesh.h>
 #include <vk_descriptor_sets.h>
@@ -130,6 +131,7 @@ protected:
   VkRenderPass m_screenRenderPass = VK_NULL_HANDLE; // rasterization renderpass
 
   LiteMath::float4x4 m_projectionMatrix;
+  LiteMath::float4x4 m_worldViewMatrix;
   LiteMath::float4x4 m_inverseProjViewMatrix;
 
   // *** ray tracing
@@ -149,7 +151,7 @@ protected:
   VkSampler                m_rtImageSampler = VK_NULL_HANDLE;
 
   std::shared_ptr<ISceneObject> m_pAccelStruct = nullptr;
-  // std::unique_ptr<RayTracer> m_pRayTracerCPU;
+  std::shared_ptr<MultiRenderer> m_pRayTracerCPU;
   // std::unique_ptr<RayTracer_GPU> m_pRayTracerGPU;
   void RayTraceCPU();
   void RayTraceGPU();

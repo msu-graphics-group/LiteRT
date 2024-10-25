@@ -42,8 +42,10 @@ void SimpleRender::SetupRTImage()
 // convert geometry data and pass it to acceleration structure builder
 void SimpleRender::SetupRTScene()
 {
-  m_pAccelStruct = std::shared_ptr<ISceneObject>(CreateEmbreeRT());
-  m_pAccelStruct->ClearGeom();
+  m_pRayTracerCPU = CreateMultiRenderer("CPU");
+
+  //m_pAccelStruct = std::shared_ptr<ISceneObject>(CreateSceneRT("BVH2Common", "cbvh_embree2", "SuperTreeletAlignedMerged4"));
+  m_pRayTracerCPU->GetAccelStruct()->ClearGeom();
 
   auto meshesData = m_pScnMgr->GetMeshData();
   std::unordered_map<uint32_t, uint32_t> meshMap;
@@ -62,41 +64,52 @@ void SimpleRender::SetupRTScene()
     }
     memcpy(m_indicesReordered.data(), indices, info.m_indNum * sizeof(m_indicesReordered[0]));
 
-    auto geomId = m_pAccelStruct->AddGeom_Triangles3f((float*)(m_vPos3f.data()), m_vPos3f.size(),
+    auto geomId = m_pRayTracerCPU->GetAccelStruct()->AddGeom_Triangles3f((float*)(m_vPos3f.data()), m_vPos3f.size(),
                                                       m_indicesReordered.data(), m_indicesReordered.size());
+    cmesh4::SimpleMesh mesh;
+    mesh.vPos4f.resize(m_vPos3f.size());
+    mesh.vNorm4f.resize(m_vPos3f.size());
+    mesh.vTexCoord2f.resize(m_vPos3f.size());
+    mesh.indices.resize(m_indicesReordered.size());
+    for(size_t v = 0; v < m_vPos3f.size(); ++v)
+    {
+      mesh.vPos4f[v] = to_float4(m_vPos3f[v], 1.0f);
+      mesh.vNorm4f[v] = float4(1.0, 0.0, 0.0, 0.0f);
+      mesh.vTexCoord2f[v] = float2(0.0f, 0.0f);
+    }
+    for(size_t v = 0; v < m_indicesReordered.size(); ++v)
+    {
+      mesh.indices[v] = m_indicesReordered[v];
+    }
+
+    m_pRayTracerCPU->add_mesh_internal(mesh, geomId);
     meshMap[i] = geomId;
   }
 
-  m_pAccelStruct->ClearScene();
+  m_pRayTracerCPU->GetAccelStruct()->ClearScene();
   for(size_t i = 0; i < m_pScnMgr->InstancesNum(); ++i)
   {
     const auto& info = m_pScnMgr->GetInstanceInfo(i);
     if(meshMap.count(info.mesh_id))
-      m_pAccelStruct->AddInstance(meshMap[info.mesh_id], m_pScnMgr->GetInstanceMatrix(info.inst_id));
+    {
+      //m_pAccelStruct->AddInstance(meshMap[info.mesh_id], m_pScnMgr->GetInstanceMatrix(info.inst_id));
+      m_pRayTracerCPU->AddInstance(meshMap[info.mesh_id], m_pScnMgr->GetInstanceMatrix(info.inst_id));
+    }
   }
-  m_pAccelStruct->CommitScene();
+  m_pRayTracerCPU->GetAccelStruct()->CommitScene();
+  auto preset  =getDefaultPreset();
+  preset.render_mode = MULTI_RENDER_MODE_PRIMITIVE;
+  m_pRayTracerCPU->SetPreset(preset);
+  m_pRayTracerCPU->SetViewport(0,0, m_width, m_height);
+  m_pRayTracerCPU->CommitDeviceData();
+  m_pRayTracerCPU->Clear(m_width, m_height, "color");
 }
 
 // perform ray tracing on the CPU and upload resulting image on the GPU
 void SimpleRender::RayTraceCPU()
 {
-  // if(!m_pRayTracerCPU)
-  // {
-  //   m_pRayTracerCPU = std::make_unique<RayTracer>(m_width, m_height);
-  //   m_pRayTracerCPU->SetScene(m_pAccelStruct);
-  // }
-
-  // m_pRayTracerCPU->UpdateView(m_cam.pos, m_inverseProjViewMatrix);
-
-  #pragma omp parallel for default(none)
-  for (int j = 0; j < m_height; ++j)
-  {
-    for (int i = 0; i < m_width; ++i)
-    {
-      //m_pRayTracerCPU->CastSingleRay(i, j, m_raytracedImageData.data());
-      m_raytracedImageData[j * m_width + i] = 0xFF0000FFu;
-    }
-  }
+  m_pRayTracerCPU->UpdateCamera(m_worldViewMatrix, OpenglToVulkanProjectionMatrixFix() * m_projectionMatrix);
+  m_pRayTracerCPU->Render(m_raytracedImageData.data(), m_width, m_height, "color");
 
   m_pCopyHelper->UpdateImage(m_rtImage.image, m_raytracedImageData.data(), m_width, m_height, 4, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 }
