@@ -67,3 +67,6 @@ build
 scenes/SDFs/*
 
 callgrind.out*
+
+engine
+imgui.ini

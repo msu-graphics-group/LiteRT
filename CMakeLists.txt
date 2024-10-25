@@ -156,6 +156,9 @@ if (USE_VULKAN)
                      ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/vkutils/vk_alloc_simple.cpp
                      ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/vkutils/vk_pipeline.cpp
                      ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/vkutils/vk_descriptor_sets.cpp
+                     ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/vkutils/vk_swapchain.cpp
+                     ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/vkutils/vk_quad.cpp
+                     ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/vkutils/vk_fbuf_attachment.cpp
                      ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/vkutils/ray_tracing/vk_rt_utils.cpp
                      
                      ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/CrossRT/EmbreeRT.cpp
@@ -192,3 +195,43 @@ target_sources(render_app PRIVATE main.cpp
 set_property(TARGET render_app PROPERTY CXX_STANDARD 17)
 target_link_libraries(render_app PRIVATE Threads::Threads dl ${RAYTRACING_EMBREE_LIBS} ${MODULES_LIBRARIES})
 target_link_libraries(render_app PUBLIC OpenMP::OpenMP_CXX)
+
+set(IMGUI_SRC
+        ${CMAKE_SOURCE_DIR}/dependencies/imgui/imgui.cpp
+        ${CMAKE_SOURCE_DIR}/dependencies/imgui/imgui_draw.cpp
+        ${CMAKE_SOURCE_DIR}/dependencies/imgui/imgui_tables.cpp
+        ${CMAKE_SOURCE_DIR}/dependencies/imgui/imgui_widgets.cpp
+        ${CMAKE_SOURCE_DIR}/dependencies/imgui/imgui_demo.cpp
+        ${CMAKE_SOURCE_DIR}/dependencies/imgui/backends/imgui_impl_vulkan.cpp
+        ${CMAKE_SOURCE_DIR}/dependencies/imgui/backends/imgui_impl_glfw.cpp
+        ${CMAKE_SOURCE_DIR}/dependencies/imgui/misc/cpp/imgui_stdlib.cpp)
+
+set(ENGINE_SOURCE 
+    ${CMAKE_SOURCE_DIR}/render_engine/glfw_window.cpp
+    ${CMAKE_SOURCE_DIR}/render_engine/gltf_utils.cpp
+    ${CMAKE_SOURCE_DIR}/render_engine/image_loader.cpp
+    ${CMAKE_SOURCE_DIR}/render_engine/main.cpp
+    ${CMAKE_SOURCE_DIR}/render_engine/render_imgui.cpp
+    ${CMAKE_SOURCE_DIR}/render_engine/scn_manager_load.cpp
+    ${CMAKE_SOURCE_DIR}/render_engine/simple_render_rt.cpp
+    ${CMAKE_SOURCE_DIR}/render_engine/simple_render.cpp
+)   
+
+add_compile_definitions(IMGUI_USER_CONFIG="${CMAKE_SOURCE_DIR}/render_engine/my_imgui_config.h")
+
+add_executable(engine)
+target_include_directories(engine PUBLIC ${MODULES_INCLUDE_DIRS})
+target_include_directories(engine PUBLIC ${CMAKE_SOURCE_DIR}/dependencies/imgui)
+find_package(glfw3 REQUIRED)
+
+target_sources(engine PRIVATE                
+               ${MODULES_SRC}
+               ${SCENE_LOADER_SRC}
+               ${CORE_SRC}
+               ${BUILDERS_SRC} 
+               ${ENGINE_SOURCE} 
+               ${IMGUI_SRC})
+
+set_property(TARGET engine PROPERTY CXX_STANDARD 17)
+target_link_libraries(engine PRIVATE Threads::Threads dl glfw ${RAYTRACING_EMBREE_LIBS} ${MODULES_LIBRARIES})
+target_link_libraries(engine PUBLIC OpenMP::OpenMP_CXX)

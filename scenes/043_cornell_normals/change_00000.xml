@@ -1,0 +1,290 @@
+<?xml version="1.0"?>
+<textures_lib>
+  <texture id="0" name="Map#0" loc="data/chunk_00000.image4ub" offset="8" bytesize="16" width="2" height="2" dl="0" />
+  <texture id="1" name="falloff" type="proc">
+    <code file="c:/[Hydra]/pluginFiles/ProceduralTextures/falloff.c" main="main" loc="data/proctex_00001.c">
+      <generated>
+        <arg id="0" type="float4" name="color1" size="1" wsize="4" woffset="0" />
+        <arg id="1" type="float4" name="color2" size="1" wsize="4" woffset="4" />
+        <return type="float4" />
+        <call>prtex1_main(sHit, make_float4(stack[0], stack[1], stack[2], stack[3]), make_float4(stack[4], stack[5], stack[6], stack[7]), _PROCTEXTAILTAG_)</call>
+      </generated>
+    </code>
+  </texture>
+  <texture id="2" name="hexaplanar" type="proc">
+    <code file="c:/[Hydra]/pluginFiles/ProceduralTextures/hexaplanar.c" main="main" loc="data/proctex_00002.c">
+      <generated>
+        <arg id="0" type="sampler2D" name="texX1" size="1" wsize="1" woffset="0" />
+        <arg id="1" type="sampler2D" name="texY1" size="1" wsize="1" woffset="1" />
+        <arg id="2" type="sampler2D" name="texZ1" size="1" wsize="1" woffset="2" />
+        <arg id="3" type="sampler2D" name="texX2" size="1" wsize="1" woffset="3" />
+        <arg id="4" type="sampler2D" name="texY2" size="1" wsize="1" woffset="4" />
+        <arg id="5" type="sampler2D" name="texZ2" size="1" wsize="1" woffset="5" />
+        <return type="float4" />
+        <call>prtex2_main(sHit, as_int(stack[0]), as_int(stack[1]), as_int(stack[2]), as_int(stack[3]), as_int(stack[4]), as_int(stack[5]), _PROCTEXTAILTAG_)</call>
+      </generated>
+    </code>
+  </texture>
+  <texture id="3" name="falloff" type="proc">
+    <code file="c:/[Hydra]/pluginFiles/ProceduralTextures/falloff.c" main="main" loc="data/proctex_00003.c">
+      <generated>
+        <arg id="0" type="float4" name="color1" size="1" wsize="4" woffset="0" />
+        <arg id="1" type="float4" name="color2" size="1" wsize="4" woffset="4" />
+        <return type="float4" />
+        <call>prtex3_main(sHit, make_float4(stack[0], stack[1], stack[2], stack[3]), make_float4(stack[4], stack[5], stack[6], stack[7]), _PROCTEXTAILTAG_)</call>
+      </generated>
+    </code>
+  </texture>
+  <texture id="4" name="hexaplanar" type="proc">
+    <code file="c:/[Hydra]/pluginFiles/ProceduralTextures/hexaplanar.c" main="main" loc="data/proctex_00004.c">
+      <generated>
+        <arg id="0" type="sampler2D" name="texX1" size="1" wsize="1" woffset="0" />
+        <arg id="1" type="sampler2D" name="texY1" size="1" wsize="1" woffset="1" />
+        <arg id="2" type="sampler2D" name="texZ1" size="1" wsize="1" woffset="2" />
+        <arg id="3" type="sampler2D" name="texX2" size="1" wsize="1" woffset="3" />
+        <arg id="4" type="sampler2D" name="texY2" size="1" wsize="1" woffset="4" />
+        <arg id="5" type="sampler2D" name="texZ2" size="1" wsize="1" woffset="5" />
+        <return type="float4" />
+        <call>prtex4_main(sHit, as_int(stack[0]), as_int(stack[1]), as_int(stack[2]), as_int(stack[3]), as_int(stack[4]), as_int(stack[5]), _PROCTEXTAILTAG_)</call>
+      </generated>
+    </code>
+  </texture>
+</textures_lib>
+<materials_lib>
+  <material id="0" name="grayOverrideMat" type="hydra_material">
+    <diffuse brdf_type="lambert">
+      <color val="0.5 0.5 0.5" />
+    </diffuse>
+  </material>
+  <material id="1" name="grayOverrideMat" type="hydra_material">
+    <diffuse brdf_type="lambert">
+      <color val="0.5 0.5 0.5" />
+    </diffuse>
+  </material>
+  <material id="2" name="hydra_placeholder_material" type="hydra_material">
+    <diffuse brdf_type="lambert">
+      <color>0.078 0.0 0.156</color>
+    </diffuse>
+  </material>
+  <material id="3" name="Green" type="hydra_material">
+    <emission>
+      <color val="0 0 0" />
+      <cast_gi val="1" />
+      <multiplier val="1" />
+    </emission>
+    <diffuse brdf_type="lambert">
+      <color val="0.0235294 0.6 0.0235294" />
+      <roughness val="0" />
+    </diffuse>
+    <reflectivity brdf_type="phong">
+      <extrusion val="maxcolor" />
+      <color val="0 0 0" />
+      <glossiness val="0.100000001" />
+      <fresnel val="1" />
+      <fresnel_ior val="1.5" />
+    </reflectivity>
+  </material>
+  <material id="4" name="White" type="hydra_material">
+    <emission>
+      <color val="0 0 0" />
+      <cast_gi val="1" />
+      <multiplier val="1" />
+    </emission>
+    <diffuse brdf_type="lambert">
+      <color val="0.6 0.6 0.6" />
+      <roughness val="0" />
+    </diffuse>
+    <reflectivity brdf_type="phong">
+      <extrusion val="maxcolor" />
+      <color val="0 0 0" />
+      <glossiness val="0.100000001" />
+      <fresnel val="1" />
+      <fresnel_ior val="1.5" />
+    </reflectivity>
+  </material>
+  <material id="5" name="Red" type="hydra_material">
+    <emission>
+      <color val="0 0 0" />
+      <cast_gi val="1" />
+      <multiplier val="1" />
+    </emission>
+    <diffuse brdf_type="lambert">
+      <color val="0.6 0.0235294 0.0235294" />
+      <roughness val="0" />
+    </diffuse>
+    <reflectivity brdf_type="phong">
+      <extrusion val="maxcolor" />
+      <color val="0 0 0" />
+      <glossiness val="0.100000001" />
+      <fresnel val="1" />
+      <fresnel_ior val="1.5" />
+    </reflectivity>
+  </material>
+  <material id="6" name="teaport_material" type="hydra_material">
+    <diffuse brdf_type="lambert">
+      <color val="0.103922 0.0941177 0" />
+      <roughness val="0" />
+    </diffuse>
+    <reflectivity brdf_type="phong">
+      <extrusion val="luminance" />
+      <color val="0.8 0.715294 0" />
+      <glossiness val="0.5" />
+      <fresnel val="1" />
+      <fresnel_ior val="50" />
+    </reflectivity>
+    <transparency brdf_type="phong">
+      <color val="0 0 0" />
+      <glossiness val="1" />
+      <thin_walled val="0" />
+      <fog_color val="1 1 1" />
+      <fog_multiplier val="0" />
+      <ior val="1.5" />
+    </transparency>
+    <emission>
+      <color val="0 0 0" />
+      <cast_gi val="1" />
+    </emission>
+    <translucency>
+      <color val="0 0 0" />
+      <multiplier val="0" />
+    </translucency>
+  </material>
+  <material id="7" name="3" type="hydra_material">
+    <diffuse brdf_type="lambert">
+      <color val="0.6 0.6 0.6" />
+      <roughness val="0" />
+    </diffuse>
+    <reflectivity brdf_type="phong">
+      <extrusion val="luminance" />
+      <color val="1 1 1" />
+      <glossiness val="0.5" />
+      <fresnel val="1" />
+      <fresnel_ior val="1.5" />
+    </reflectivity>
+    <transparency brdf_type="phong">
+      <color val="0 0 0" />
+      <glossiness val="1" />
+      <thin_walled val="0" />
+      <fog_color val="1 1 1" />
+      <fog_multiplier val="0" />
+      <ior val="1.5" />
+    </transparency>
+    <emission>
+      <color val="0 0 0" />
+      <cast_gi val="1" />
+    </emission>
+    <translucency>
+      <color val="0 0 0" />
+      <multiplier val="0" />
+    </translucency>
+  </material>
+  <material id="8" name="environment_material" type="hydra_material" light_id="0" visible="1">
+    <emission>
+      <color val="0 0 0" />
+    </emission>
+  </material>
+  <material id="9" name="TPhotometricLight001_material" type="hydra_material" light_id="1" visible="1">
+    <emission>
+      <color val="28.8562 28.8562 28.8562" />
+    </emission>
+  </material>
+</materials_lib>
+<geometry_lib>
+  <mesh id="0" name="Box01" type="vsgf" bytesize="1752" loc="data/chunk_00001.vsgf" offset="0" vertNum="28" triNum="10" dl="0" path="" bbox=" -1.27 1.27 -0.19559 2.01057 -1.27 1.27">
+    <positions type="array4f" bytesize="448" offset="24" apply="vertex" />
+    <normals type="array4f" bytesize="448" offset="472" apply="vertex" />
+    <tangents type="array4f" bytesize="448" offset="920" apply="vertex" />
+    <texcoords type="array2f" bytesize="224" offset="1368" apply="vertex" />
+    <indices type="array1i" bytesize="120" offset="1592" apply="tlist" />
+    <matindices type="array1i" bytesize="40" offset="1712" apply="primitive" />
+  </mesh>
+  <mesh id="1" name="Teapot01" type="vsgf" bytesize="3379192" loc="data/chunk_00002.vsgf" offset="0" vertNum="53028" triNum="25600" dl="0" path="" bbox="-0.9525 1.0903 0 1.00013 -0.635 0.635">
+    <positions type="array4f" bytesize="848448" offset="24" apply="vertex" />
+    <normals type="array4f" bytesize="848448" offset="848472" apply="vertex" />
+    <tangents type="array4f" bytesize="848448" offset="1696920" apply="vertex" />
+    <texcoords type="array2f" bytesize="424224" offset="2545368" apply="vertex" />
+    <indices type="array1i" bytesize="307200" offset="2969592" apply="tlist" />
+    <matindices type="array1i" bytesize="102400" offset="3276792" apply="primitive" />
+  </mesh>
+  <mesh id="2" name="ChamferBox001" type="vsgf" bytesize="4984" loc="data/chunk_00003.vsgf" offset="0" vertNum="76" triNum="44" dl="0" path="" bbox="-0.235764 0.235764 0 0.807038 -0.258434 0.258434">
+    <positions type="array4f" bytesize="1216" offset="24" apply="vertex" />
+    <normals type="array4f" bytesize="1216" offset="1240" apply="vertex" />
+    <tangents type="array4f" bytesize="1216" offset="2456" apply="vertex" />
+    <texcoords type="array2f" bytesize="608" offset="3672" apply="vertex" />
+    <indices type="array1i" bytesize="528" offset="4280" apply="tlist" />
+    <matindices type="array1i" bytesize="176" offset="4808" apply="primitive" />
+  </mesh>
+  <mesh id="3" name="ChamferCyl001" type="vsgf" bytesize="14944" loc="data/chunk_00004.vsgf" offset="0" vertNum="239" triNum="96" dl="0" path="" bbox="-0.284592 0.284592 0 0.380124 -0.284592 0.284592">
+    <positions type="array4f" bytesize="3824" offset="24" apply="vertex" />
+    <normals type="array4f" bytesize="3824" offset="3848" apply="vertex" />
+    <tangents type="array4f" bytesize="3824" offset="7672" apply="vertex" />
+    <texcoords type="array2f" bytesize="1912" offset="11496" apply="vertex" />
+    <indices type="array1i" bytesize="1152" offset="13408" apply="tlist" />
+    <matindices type="array1i" bytesize="384" offset="14560" apply="primitive" />
+  </mesh>
+  <mesh id="4" name="L-Ext001" type="vsgf" bytesize="12888" loc="data/chunk_00005.vsgf" offset="0" vertNum="208" triNum="76" dl="0" path="" bbox="     0 0.6474 0 0.232137 0 0.651456">
+    <positions type="array4f" bytesize="3328" offset="24" apply="vertex" />
+    <normals type="array4f" bytesize="3328" offset="3352" apply="vertex" />
+    <tangents type="array4f" bytesize="3328" offset="6680" apply="vertex" />
+    <texcoords type="array2f" bytesize="1664" offset="10008" apply="vertex" />
+    <indices type="array1i" bytesize="912" offset="11672" apply="tlist" />
+    <matindices type="array1i" bytesize="304" offset="12584" apply="primitive" />
+  </mesh>
+  <mesh id="5" name="TPhotometricLight001_lightmesh" type="vsgf" bytesize="280" loc="data/chunk_00006.vsgf" offset="0" vertNum="4" triNum="2" dl="0" path="" light_id="1" bbox="-0.381 0.381 0 0 -0.381 0.381">
+    <positions type="array4f" bytesize="64" offset="24" apply="vertex" />
+    <normals type="array4f" bytesize="64" offset="88" apply="vertex" />
+    <tangents type="array4f" bytesize="64" offset="152" apply="vertex" />
+    <texcoords type="array2f" bytesize="32" offset="216" apply="vertex" />
+    <indices type="array1i" bytesize="24" offset="248" apply="tlist" />
+    <matindices type="array1i" bytesize="8" offset="272" apply="primitive" />
+  </mesh>
+</geometry_lib>
+<lights_lib>
+  <light id="0" name="environment" type="sky" shape="point" distribution="uniform" visible="1" mat_id="8">
+    <intensity>
+      <color val="0 0 0" />
+      <multiplier val="1" />
+    </intensity>
+  </light>
+  <light id="1" name="TPhotometricLight001" type="area" shape="rect" distribution="diffuse" visible="1" mat_id="9" mesh_id="5">
+    <intensity>
+      <multiplier val="28.8561687" />
+      <color val="1 1 1" />
+    </intensity>
+    <size radius="0.381000012" half_length="0.381000012" half_width="0.381000012" />
+  </light>
+</lights_lib>
+<cam_lib>
+  <camera id="0" name="Camera001" type="uvn">
+    <fov>39.5977554</fov>
+    <nearClipPlane>0.00999999978</nearClipPlane>
+    <farClipPlane>100</farClipPlane>
+    <enable_dof>0</enable_dof>
+    <dof_lens_radius>4.20389539e-45</dof_lens_radius>
+    <up>0 1 1.62921e-07</up>
+    <position>0 -6.98998e-08 4.92939</position>
+    <look_at>0 1.62222e-05 -95.0706</look_at>
+    <tiltRotX>0</tiltRotX>
+    <tiltRotY>0</tiltRotY>
+    <tiltShiftX>0</tiltShiftX>
+    <tiltShiftY>0</tiltShiftY>
+  </camera>
+</cam_lib>
+<render_lib />
+<scenes>
+  <scene id="0" name="my scene" discard="1" bbox=" -1.27 1.27 -1.27 1.27 -1.27 1.40939">
+    <remap_lists>
+      <remap_list id="0" size="6" val="0 4 1 5 2 3 " />
+      <remap_list id="1" size="2" val="0 6 " />
+      <remap_list id="2" size="2" val="0 7 " />
+    </remap_lists>
+    <instance id="0" mesh_id="0" rmap_id="0" scn_id="0" scn_sid="0" matrix="1 0 0 0 0 1.15132 0 -1.04481 0 0 1 0 0 0 0 1 " />
+    <instance id="1" mesh_id="1" rmap_id="1" scn_id="0" scn_sid="0" matrix="0.999889 0 -0.0149171 0 0 1 0 -1.27 0.0149171 0 0.999889 0 0 0 0 1 " />
+    <instance id="2" mesh_id="2" rmap_id="2" scn_id="0" scn_sid="0" matrix="1 0 0 0.985493 0 1 0 -1.27 0 0 1 0.512028 0 0 0 1 " />
+    <instance id="3" mesh_id="3" rmap_id="2" scn_id="0" scn_sid="0" matrix="1 0 0 -0.826185 0 1 0 -1.27 0 0 1 0.809034 0 0 0 1 " />
+    <instance id="4" mesh_id="4" rmap_id="2" scn_id="0" scn_sid="0" matrix="0.824126 0 0.566406 -0.0100791 0 1 0 -1.27 -0.566406 0 0.824126 0.872508 0 0 0 1 " />
+    <instance_light id="0" light_id="0" matrix="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 " lgroup_id="-1" />
+    <instance_light id="1" light_id="1" matrix="1 0 0 0 0 1 9.31323e-10 1.2446 0 -9.31323e-10 1 0 0 0 0 1 " lgroup_id="-1" />
+    <instance id="6" mesh_id="5" rmap_id="-1" matrix="1 0 0 0 0 1 9.31323e-10 1.2446 0 -9.31323e-10 1 0 0 0 0 1 " light_id="1" linst_id="1" />
+  </scene>
+</scenes>
