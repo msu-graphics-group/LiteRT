@@ -1,5 +1,6 @@
 #include "VulkanRTX.h"
 #include "simple_render.h"
+#include "../Renderer/eye_ray_gpu.h"
 
 // ***************************************************************************************************************************
 // setup full screen quad to display ray traced image
@@ -42,10 +43,12 @@ void SimpleRender::SetupRTImage()
 // convert geometry data and pass it to acceleration structure builder
 void SimpleRender::SetupRTScene()
 {
-  m_pRayTracerCPU = CreateMultiRenderer(DEVICE_CPU);
+  m_pRayTracer = CreateMultiRenderer(DEVICE_CPU);
+  //return;
+  //m_pRayTracerGPU = dynamic_cast<MultiRenderer_GPU*>(m_pRayTracer.get());
 
   //m_pAccelStruct = std::shared_ptr<ISceneObject>(CreateSceneRT("BVH2Common", "cbvh_embree2", "SuperTreeletAlignedMerged4"));
-  m_pRayTracerCPU->GetAccelStruct()->ClearGeom();
+  m_pRayTracer->GetAccelStruct()->ClearGeom();
 
   auto meshesData = m_pScnMgr->GetMeshData();
   std::unordered_map<uint32_t, uint32_t> meshMap;
@@ -64,7 +67,7 @@ void SimpleRender::SetupRTScene()
     }
     memcpy(m_indicesReordered.data(), indices, info.m_indNum * sizeof(m_indicesReordered[0]));
 
-    auto geomId = m_pRayTracerCPU->GetAccelStruct()->AddGeom_Triangles3f((float*)(m_vPos3f.data()), m_vPos3f.size(),
+    auto geomId = m_pRayTracer->GetAccelStruct()->AddGeom_Triangles3f((float*)(m_vPos3f.data()), m_vPos3f.size(),
                                                       m_indicesReordered.data(), m_indicesReordered.size());
     cmesh4::SimpleMesh mesh;
     mesh.vPos4f.resize(m_vPos3f.size());
@@ -82,40 +85,42 @@ void SimpleRender::SetupRTScene()
       mesh.indices[v] = m_indicesReordered[v];
     }
 
-    m_pRayTracerCPU->add_mesh_internal(mesh, geomId);
+    m_pRayTracer->add_mesh_internal(mesh, geomId);
     meshMap[i] = geomId;
   }
 
-  m_pRayTracerCPU->GetAccelStruct()->ClearScene();
+  m_pRayTracer->GetAccelStruct()->ClearScene();
   for(size_t i = 0; i < m_pScnMgr->InstancesNum(); ++i)
   {
     const auto& info = m_pScnMgr->GetInstanceInfo(i);
     if(meshMap.count(info.mesh_id))
     {
       //m_pAccelStruct->AddInstance(meshMap[info.mesh_id], m_pScnMgr->GetInstanceMatrix(info.inst_id));
-      m_pRayTracerCPU->AddInstance(meshMap[info.mesh_id], m_pScnMgr->GetInstanceMatrix(info.inst_id));
+      m_pRayTracer->AddInstance(meshMap[info.mesh_id], m_pScnMgr->GetInstanceMatrix(info.inst_id));
     }
   }
-  m_pRayTracerCPU->GetAccelStruct()->CommitScene();
+  m_pRayTracer->GetAccelStruct()->CommitScene();
   auto preset  =getDefaultPreset();
   preset.render_mode = MULTI_RENDER_MODE_PRIMITIVE;
-  m_pRayTracerCPU->SetPreset(preset);
-  m_pRayTracerCPU->SetViewport(0,0, m_width, m_height);
-  m_pRayTracerCPU->CommitDeviceData();
-  m_pRayTracerCPU->Clear(m_width, m_height, "color");
+  m_pRayTracer->SetPreset(preset);
+  m_pRayTracer->SetViewport(0,0, m_width, m_height);
+  m_pRayTracer->CommitDeviceData();
+  m_pRayTracer->Clear(m_width, m_height, "color");
 }
 
 // perform ray tracing on the CPU and upload resulting image on the GPU
 void SimpleRender::RayTraceCPU()
 {
-  m_pRayTracerCPU->UpdateCamera(m_worldViewMatrix, OpenglToVulkanProjectionMatrixFix() * m_projectionMatrix);
-  m_pRayTracerCPU->Render(m_raytracedImageData.data(), m_width, m_height, "color");
+  m_pRayTracer->UpdateCamera(m_worldViewMatrix, OpenglToVulkanProjectionMatrixFix() * m_projectionMatrix);
+  m_pRayTracer->Render(m_raytracedImageData.data(), m_width, m_height, "color");
 
   m_pCopyHelper->UpdateImage(m_rtImage.image, m_raytracedImageData.data(), m_width, m_height, 4, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 }
 
 void SimpleRender::RayTraceGPU()
 {
+  printf("rayTrace GPU\n");
+  RayTraceCPU();
 //   if(!m_pRayTracerGPU)
 //   {
 //     m_pRayTracerGPU = std::make_unique<RayTracer_GPU>(m_width, m_height);

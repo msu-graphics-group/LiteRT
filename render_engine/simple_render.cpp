@@ -405,11 +405,11 @@ void SimpleRender::RecreateSwapChain()
   // *** ray tracing resources
   m_raytracedImageData.resize(m_width * m_height);
   // change screen resolution
-  if (m_pRayTracerCPU)
+  if (m_pRayTracer)
   {
-    m_pRayTracerCPU->SetViewport(0,0, m_width, m_height);
-    m_pRayTracerCPU->CommitDeviceData();
-    m_pRayTracerCPU->Clear(m_width, m_height, "color");
+    m_pRayTracer->SetViewport(0,0, m_width, m_height);
+    m_pRayTracer->CommitDeviceData();
+    m_pRayTracer->Clear(m_width, m_height, "color");
   }
 
   SetupRTImage();
@@ -530,7 +530,7 @@ void SimpleRender::DrawFrameSimple()
   }
   else if(m_currentRenderMode == RenderMode::RAYTRACING)
   {
-    if (ENABLE_HARDWARE_RT)
+    if (m_pRayTracerGPU)
       RayTraceGPU();
     else
       RayTraceCPU();
@@ -659,7 +659,7 @@ void SimpleRender::Cleanup()
     m_colorMem = VK_NULL_HANDLE;
   }
 
-  // m_pRayTracerCPU = nullptr;
+  // m_pRayTracer = nullptr;
   // m_pRayTracerGPU = nullptr;
 
   m_pBindings = nullptr;
@@ -745,7 +745,7 @@ void SimpleRender::DrawFrameWithGUI()
   }
   else if(m_currentRenderMode == RenderMode::RAYTRACING)
   {
-    if (ENABLE_HARDWARE_RT)
+    if (m_pRayTracerGPU)
       RayTraceGPU();
     else
       RayTraceCPU();

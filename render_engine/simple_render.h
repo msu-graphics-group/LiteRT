@@ -33,6 +33,8 @@ enum class RenderMode
 //   std::string AlterShaderPath(const char* a_shaderPath) override { return std::string("../src/samples/raytracing/") + std::string(a_shaderPath); }
 // };
 
+class MultiRenderer_GPU;
+
 class SimpleRender : public IRender
 {
 public:
@@ -151,8 +153,8 @@ protected:
   VkSampler                m_rtImageSampler = VK_NULL_HANDLE;
 
   std::shared_ptr<ISceneObject> m_pAccelStruct = nullptr;
-  std::shared_ptr<MultiRenderer> m_pRayTracerCPU;
-  // std::unique_ptr<RayTracer_GPU> m_pRayTracerGPU;
+  std::shared_ptr<MultiRenderer> m_pRayTracer;
+  MultiRenderer_GPU *m_pRayTracerGPU; //it is the same object as m_pRayTracer, but only it's GPU handle
   void RayTraceCPU();
   void RayTraceGPU();
 
