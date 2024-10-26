@@ -555,10 +555,10 @@ uint32_t MultiRenderer::AddInstance(uint32_t a_geomId, const LiteMath::float4x4&
     #include "eye_ray_rtx.h"
     #include "vk_context.h"
     std::shared_ptr<MultiRenderer> CreateMultiRenderer_RTX(uint32_t maxPrimitives, vk_utils::VulkanContext a_ctx, size_t a_maxThreadsGenerated);
-    std::shared_ptr<MultiRenderer> CreateMultiRenderer(const char* a_name, uint32_t maxPrimitives) 
+    std::shared_ptr<MultiRenderer> CreateMultiRenderer(unsigned /*enum RenderDevice*/ device, uint32_t maxPrimitives) 
     {
       static vk_utils::VulkanContext context;
-      if (std::string(a_name) == "RTX" || std::string(a_name) == "GPU")
+      if (device == DEVICE_GPU || device == DEVICE_GPU_RTX)
       {
         if(context.instance == VK_NULL_HANDLE)
         {
@@ -575,11 +575,11 @@ uint32_t MultiRenderer::AddInstance(uint32_t a_geomId, const LiteMath::float4x4&
     #include "eye_ray_gpu.h"
     #include "vk_context.h"
     std::shared_ptr<MultiRenderer> CreateMultiRenderer_GPU(uint32_t maxPrimitives, vk_utils::VulkanContext a_ctx, size_t a_maxThreadsGenerated);
-    std::shared_ptr<MultiRenderer> CreateMultiRenderer(const char* a_name, uint32_t maxPrimitives) 
+    std::shared_ptr<MultiRenderer> CreateMultiRenderer(unsigned /*enum RenderDevice*/ device, uint32_t maxPrimitives) 
     {
       static vk_utils::VulkanContext context;
 
-      if (std::string(a_name) == "RTX" || std::string(a_name) == "GPU")
+      if (device == DEVICE_GPU || device == DEVICE_GPU_RTX)
       {
         if(context.instance == VK_NULL_HANDLE)
         {
@@ -595,7 +595,7 @@ uint32_t MultiRenderer::AddInstance(uint32_t a_geomId, const LiteMath::float4x4&
     }
   #endif
 #else
-std::shared_ptr<MultiRenderer> CreateMultiRenderer(const char* a_name, uint32_t maxPrimitives) 
+std::shared_ptr<MultiRenderer> CreateMultiRenderer(unsigned /*enum RenderDevice*/ device, uint32_t maxPrimitives) 
 { 
   return std::shared_ptr<MultiRenderer>(new MultiRenderer(maxPrimitives)); 
 }

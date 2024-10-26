@@ -66,7 +66,7 @@ void litert_test_1_framed_octree()
       preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
       preset.sdf_node_intersect = presets_oi[i];
 
-      auto pRender = CreateMultiRenderer("GPU");
+      auto pRender = CreateMultiRenderer(DEVICE_GPU);
       pRender->SetPreset(preset);
       pRender->SetScene(frame_nodes);
 
@@ -114,7 +114,7 @@ void litert_test_2_SVS()
       preset.render_mode = MULTI_RENDER_MODE_PHONG_NO_TEX;
       preset.sdf_node_intersect = presets_oi[i];
 
-      auto pRender = CreateMultiRenderer("GPU");
+      auto pRender = CreateMultiRenderer(DEVICE_GPU);
       pRender->SetPreset(preset);
       pRender->SetScene(frame_nodes);
 
@@ -162,7 +162,7 @@ void litert_test_3_SBS_verify()
 
   printf("TEST 3. SVS and SBS correctness\n");
   {
-    auto pRender = CreateMultiRenderer("CPU");
+    auto pRender = CreateMultiRenderer(DEVICE_CPU);
     pRender->SetPreset(preset);
     pRender->SetScene(mesh);
     render(image, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset);
@@ -170,7 +170,7 @@ void litert_test_3_SBS_verify()
     ref_image = image;
   }
   {
-    auto pRender = CreateMultiRenderer("CPU");
+    auto pRender = CreateMultiRenderer(DEVICE_CPU);
     pRender->SetPreset(preset);
     pRender->SetScene(svs_nodes);
 
@@ -187,7 +187,7 @@ void litert_test_3_SBS_verify()
       printf("FAILED, psnr = %f\n", psnr);
   }
   {
-    auto pRender = CreateMultiRenderer("CPU");
+    auto pRender = CreateMultiRenderer(DEVICE_CPU);
     pRender->SetPreset(preset);
     pRender->SetScene(sbs_1_1);
 
@@ -209,7 +209,7 @@ void litert_test_3_SBS_verify()
       printf("FAILED, psnr = %f\n", svs_psnr);
   }
   {
-    auto pRender = CreateMultiRenderer("GPU");
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
     pRender->SetPreset(preset);
     pRender->SetScene(sbs_1_1);
 
@@ -231,7 +231,7 @@ void litert_test_3_SBS_verify()
       printf("FAILED, psnr = %f\n", svs_psnr);
   }
   {
-    auto pRender = CreateMultiRenderer("GPU");
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
     pRender->SetPreset(preset);
     pRender->SetScene(sbs_1_2);
 
@@ -247,7 +247,7 @@ void litert_test_3_SBS_verify()
   }
 
   {
-    auto pRender = CreateMultiRenderer("GPU");
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
     pRender->SetPreset(preset);
     pRender->SetScene(sbs_2_1);
 
@@ -262,7 +262,7 @@ void litert_test_3_SBS_verify()
       printf("FAILED, psnr = %f\n", psnr);
   }
   {
-    auto pRender = CreateMultiRenderer("GPU");
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
     pRender->SetPreset(preset);
     pRender->SetScene(sbs_2_2);
 
@@ -277,7 +277,7 @@ void litert_test_3_SBS_verify()
       printf("FAILED, psnr = %f\n", psnr);
   }
   {
-    auto pRender = CreateMultiRenderer("GPU");
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
     pRender->SetPreset(preset);
     pRender->SetScene(sbs_2_4);
 
@@ -311,12 +311,12 @@ void litert_test_4_hydra_scene()
   LiteImage::Image2D<uint32_t> image(W, H);
   LiteImage::Image2D<uint32_t> ref_image(W, H);
 
-  auto pRenderRef = CreateMultiRenderer("GPU");
+  auto pRenderRef = CreateMultiRenderer(DEVICE_GPU);
   pRenderRef->SetPreset(preset);
   pRenderRef->SetViewport(0,0,W,H);
   pRenderRef->LoadSceneHydra((scenes_folder_path+scene_name).c_str());
 
-  auto pRender = CreateMultiRenderer("GPU");
+  auto pRender = CreateMultiRenderer(DEVICE_GPU);
   pRender->SetPreset(preset);
   pRender->SetViewport(0,0,W,H);
   pRender->CreateSceneFromHydra((scenes_folder_path+scene_name).c_str(), TYPE_SDF_SVS, 
@@ -364,12 +364,12 @@ void litert_test_5_interval_tracing()
   LiteImage::Image2D<uint32_t> image_2(W, H);
   LiteImage::Image2D<uint32_t> ref_image(W, H);
 
-  auto pRenderRef = CreateMultiRenderer("GPU");
+  auto pRenderRef = CreateMultiRenderer(DEVICE_GPU);
   pRenderRef->SetPreset(preset_ref);
   pRenderRef->SetViewport(0,0,W,H);
   pRenderRef->LoadSceneHydra((scenes_folder_path+scene_name).c_str());
 
-  auto pRender = CreateMultiRenderer("GPU");
+  auto pRender = CreateMultiRenderer(DEVICE_GPU);
   pRender->SetPreset(preset_1);
   pRender->SetViewport(0,0,W,H);
   pRender->CreateSceneFromHydra((scenes_folder_path+scene_name).c_str(), TYPE_SDF_SVS,
@@ -423,7 +423,7 @@ void litert_test_6_faster_bvh_build()
   float time_1, time_2;
 
 {
-  auto pRender_1 = CreateMultiRenderer("GPU");
+  auto pRender_1 = CreateMultiRenderer(DEVICE_GPU);
   pRender_1->SetPreset(preset_1);
   pRender_1->SetViewport(0,0,W,H);
 auto t1 = std::chrono::steady_clock::now();
@@ -438,7 +438,7 @@ auto t2 = std::chrono::steady_clock::now();
 }
 
 {
-  auto pRenderRef = CreateMultiRenderer("GPU");
+  auto pRenderRef = CreateMultiRenderer(DEVICE_GPU);
   pRenderRef->SetPreset(preset_ref);
   pRenderRef->SetViewport(0,0,W,H);
   pRenderRef->LoadSceneHydra((scenes_folder_path+scene_name).c_str());
@@ -446,7 +446,7 @@ auto t2 = std::chrono::steady_clock::now();
 }
 
 {
-  auto pRender_2 = CreateMultiRenderer("GPU");
+  auto pRender_2 = CreateMultiRenderer(DEVICE_GPU);
   pRender_2->SetPreset(preset_2);
   pRender_2->SetViewport(0,0,W,H);
 auto t3 = std::chrono::steady_clock::now();
@@ -493,12 +493,12 @@ void litert_test_8_SDF_grid()
   LiteImage::Image2D<uint32_t> image(W, H);
   LiteImage::Image2D<uint32_t> ref_image(W, H);
 
-  auto pRenderRef = CreateMultiRenderer("GPU");
+  auto pRenderRef = CreateMultiRenderer(DEVICE_GPU);
   pRenderRef->SetPreset(preset);
   pRenderRef->SetViewport(0,0,W,H);
   pRenderRef->LoadSceneHydra((scenes_folder_path+scene_name).c_str());
 
-  auto pRender = CreateMultiRenderer("GPU");
+  auto pRender = CreateMultiRenderer(DEVICE_GPU);
   pRender->SetPreset(preset);
   pRender->SetViewport(0,0,W,H);
   pRender->CreateSceneFromHydra((scenes_folder_path+scene_name).c_str(), TYPE_SDF_GRID, 
@@ -532,12 +532,12 @@ void litert_test_9_mesh()
   LiteImage::Image2D<uint32_t> image(W, H);
   LiteImage::Image2D<uint32_t> ref_image(W, H);
 
-  auto pRenderRef = CreateMultiRenderer("CPU");
+  auto pRenderRef = CreateMultiRenderer(DEVICE_CPU);
   pRenderRef->SetPreset(preset);
   pRenderRef->SetViewport(0,0,W,H);
   pRenderRef->LoadSceneHydra((scenes_folder_path+scene_name).c_str());
 
-  auto pRender = CreateMultiRenderer("GPU");
+  auto pRender = CreateMultiRenderer(DEVICE_GPU);
   pRender->SetPreset(preset);
   pRender->SetViewport(0,0,W,H);
   pRender->LoadSceneHydra((scenes_folder_path+scene_name).c_str());
@@ -587,7 +587,7 @@ void litert_test_10_save_load()
   LiteImage::Image2D<uint32_t> image_5(W, H);
 
 {
-  auto pRender_ref = CreateMultiRenderer("GPU");
+  auto pRender_ref = CreateMultiRenderer(DEVICE_GPU);
   pRender_ref->SetPreset(preset);
   pRender_ref->SetScene(mesh);
   render(image_ref, pRender_ref, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
@@ -595,7 +595,7 @@ void litert_test_10_save_load()
 }
 
 {
-  auto pRender_2 = CreateMultiRenderer("GPU");
+  auto pRender_2 = CreateMultiRenderer(DEVICE_GPU);
   pRender_2->SetPreset(preset);
   pRender_2->SetScene(frame_nodes);
   render(image_2, pRender_2, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
@@ -603,7 +603,7 @@ void litert_test_10_save_load()
 }
 
 {
-  auto pRender_3 = CreateMultiRenderer("GPU");
+  auto pRender_3 = CreateMultiRenderer(DEVICE_GPU);
   pRender_3->SetPreset(preset);
   pRender_3->SetScene(svs_nodes);
   render(image_3, pRender_3, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
@@ -611,7 +611,7 @@ void litert_test_10_save_load()
 }
 
 {
-  auto pRender_4 = CreateMultiRenderer("GPU");
+  auto pRender_4 = CreateMultiRenderer(DEVICE_GPU);
   pRender_4->SetPreset(preset);
   pRender_4->SetScene(sbs);
   render(image_4, pRender_4, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
@@ -619,7 +619,7 @@ void litert_test_10_save_load()
 }
 
 {
-  auto pRender_5 = CreateMultiRenderer("CPU");
+  auto pRender_5 = CreateMultiRenderer(DEVICE_CPU);
   pRender_5->SetPreset(preset);
   pRender_5->LoadSceneHydra("scenes/02_sdf_scenes/test_10.xml");
   render(image_5, pRender_5, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
@@ -719,7 +719,7 @@ void litert_test_15_frame_octree_nodes_removal()
   LiteImage::Image2D<uint32_t> image_3(W, H);
 
   {
-    auto pRender_1 = CreateMultiRenderer("GPU");
+    auto pRender_1 = CreateMultiRenderer(DEVICE_GPU);
     pRender_1->SetPreset(preset);
     pRender_1->SetScene(octree_nodes_ref);
     render(image_1, pRender_1, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
@@ -727,7 +727,7 @@ void litert_test_15_frame_octree_nodes_removal()
   }
 
   {
-    auto pRender_2 = CreateMultiRenderer("GPU");
+    auto pRender_2 = CreateMultiRenderer(DEVICE_GPU);
     pRender_2->SetPreset(preset);
     pRender_2->SetScene(octree_nodes_7);
     render(image_2, pRender_2, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
@@ -735,7 +735,7 @@ void litert_test_15_frame_octree_nodes_removal()
   }
 
   {
-    auto pRender_3 = CreateMultiRenderer("GPU");
+    auto pRender_3 = CreateMultiRenderer(DEVICE_GPU);
     pRender_3->SetPreset(preset);
     pRender_3->SetScene(octree_nodes_8);
     render(image_3, pRender_3, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
@@ -805,7 +805,7 @@ void litert_test_16_SVS_nodes_removal()
   LiteImage::Image2D<uint32_t> image_3(W, H);
 
   {
-    auto pRender_1 = CreateMultiRenderer("GPU");
+    auto pRender_1 = CreateMultiRenderer(DEVICE_GPU);
     pRender_1->SetPreset(preset);
     pRender_1->SetScene(octree_nodes_ref);
     render(image_1, pRender_1, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
@@ -813,7 +813,7 @@ void litert_test_16_SVS_nodes_removal()
   }
 
   {
-    auto pRender_2 = CreateMultiRenderer("GPU");
+    auto pRender_2 = CreateMultiRenderer(DEVICE_GPU);
     pRender_2->SetPreset(preset);
     pRender_2->SetScene(octree_nodes_7);
     render(image_2, pRender_2, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
@@ -821,7 +821,7 @@ void litert_test_16_SVS_nodes_removal()
   }
 
   {
-    auto pRender_3 = CreateMultiRenderer("GPU");
+    auto pRender_3 = CreateMultiRenderer(DEVICE_GPU);
     pRender_3->SetPreset(preset);
     pRender_3->SetScene(octree_nodes_8);
     render(image_3, pRender_3, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
@@ -866,43 +866,44 @@ void litert_test_17_all_types_sanity_check()
   std::vector<LiteImage::Image2D<uint32_t>> image_4(3, LiteImage::Image2D<uint32_t>(W, H));
   std::vector<LiteImage::Image2D<uint32_t>> image_5(3, LiteImage::Image2D<uint32_t>(W, H));
   
-  std::vector<std::string> modes = {"CPU", "GPU", "RTX"};
+  std::vector<unsigned> modes = {DEVICE_CPU, DEVICE_GPU, DEVICE_GPU_RTX};
+  std::vector<std::string> render_device_names = {"CPU", "GPU", "RTX"};
 
   for (int m = 0; m < 3; m++)
   {
     {
-      auto pRender = CreateMultiRenderer(modes[m].c_str());
+      auto pRender = CreateMultiRenderer(modes[m]);
       pRender->SetPreset(preset);
       pRender->SetScene(mesh);
       render(image_ref[m], pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
-      LiteImage::SaveImage<uint32_t>(("saves/test_17_ref_"+modes[m]+".bmp").c_str(), image_ref[m]);
+      LiteImage::SaveImage<uint32_t>(("saves/test_17_ref_"+render_device_names[m]+".bmp").c_str(), image_ref[m]);
     }
 
     {
       auto grid = sdf_converter::create_sdf_grid(GridSettings(64), mesh);
-      auto pRender = CreateMultiRenderer(modes[m].c_str());
+      auto pRender = CreateMultiRenderer(modes[m]);
       pRender->SetPreset(preset);
       pRender->SetScene(grid);
       render(image_1[m], pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
-      LiteImage::SaveImage<uint32_t>(("saves/test_17_grid_"+modes[m]+".bmp").c_str(), image_1[m]);    
+      LiteImage::SaveImage<uint32_t>(("saves/test_17_grid_"+render_device_names[m]+".bmp").c_str(), image_1[m]);    
     }
 
     {
       auto octree = sdf_converter::create_sdf_frame_octree(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 8, 64*64*64), mesh);
-      auto pRender = CreateMultiRenderer(modes[m].c_str());
+      auto pRender = CreateMultiRenderer(modes[m]);
       pRender->SetPreset(preset);
       pRender->SetScene(octree);
       render(image_3[m], pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
-      LiteImage::SaveImage<uint32_t>(("saves/test_17_frame_octree_"+modes[m]+".bmp").c_str(), image_3[m]);
+      LiteImage::SaveImage<uint32_t>(("saves/test_17_frame_octree_"+render_device_names[m]+".bmp").c_str(), image_3[m]);
     }
 
     {
       auto octree = sdf_converter::create_sdf_SVS(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 8, 64*64*64), mesh);
-      auto pRender = CreateMultiRenderer(modes[m].c_str());
+      auto pRender = CreateMultiRenderer(modes[m]);
       pRender->SetPreset(preset);
       pRender->SetScene(octree);
       render(image_4[m], pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
-      LiteImage::SaveImage<uint32_t>(("saves/test_17_SVS_"+modes[m]+".bmp").c_str(), image_4[m]);
+      LiteImage::SaveImage<uint32_t>(("saves/test_17_SVS_"+render_device_names[m]+".bmp").c_str(), image_4[m]);
     }
 
     {
@@ -913,7 +914,7 @@ void litert_test_17_all_types_sanity_check()
       header.aux_data = SDF_SBS_NODE_LAYOUT_DX;
 
       auto sbs = sdf_converter::create_sdf_SBS(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 8, 64*64*64), header, mesh);
-      auto pRender = CreateMultiRenderer(modes[m].c_str());
+      auto pRender = CreateMultiRenderer(modes[m]);
       pRender->SetPreset(preset);
       pRender->SetScene(sbs);
       render(image_5[m], pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
@@ -1108,7 +1109,7 @@ void litert_test_18_mesh_normalization()
   LiteImage::Image2D<uint32_t> sdf_4(W, H);
 
   {
-    auto pRender = CreateMultiRenderer("GPU");
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
     pRender->SetPreset(preset);
     pRender->SetViewport(0,0,W,H);
     pRender->SetScene(mesh);
@@ -1116,7 +1117,7 @@ void litert_test_18_mesh_normalization()
     LiteImage::SaveImage<uint32_t>("saves/test_18_1ref.bmp", ref_image);
 
     auto sdf = sdf_converter::create_sdf_SVS(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 9), mesh);
-    auto pRenderSdf = CreateMultiRenderer("GPU");
+    auto pRenderSdf = CreateMultiRenderer(DEVICE_GPU);
     pRenderSdf->SetPreset(preset);
     pRenderSdf->SetViewport(0,0,W,H);
     pRenderSdf->SetScene(sdf);
@@ -1131,7 +1132,7 @@ void litert_test_18_mesh_normalization()
     mesh_filled = mesh;
     printf("mesh_filled size = %d\n", (int)mesh_filled.TrianglesNum());
 
-    auto pRender = CreateMultiRenderer("GPU");
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
     pRender->SetPreset(preset);
     pRender->SetViewport(0,0,W,H);
     pRender->SetScene(mesh_filled);
@@ -1140,7 +1141,7 @@ void litert_test_18_mesh_normalization()
 
 
     auto sdf = sdf_converter::create_sdf_SVS(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 9), mesh_filled);
-    auto pRenderSdf = CreateMultiRenderer("GPU");
+    auto pRenderSdf = CreateMultiRenderer(DEVICE_GPU);
     pRenderSdf->SetPreset(preset);
     pRenderSdf->SetViewport(0,0,W,H);
     pRenderSdf->SetScene(sdf);
@@ -1153,7 +1154,7 @@ void litert_test_18_mesh_normalization()
     cmesh4::compress_close_vertices(mesh_compressed, 1e-9f, true);
     printf("mesh_compressed size = %d\n", (int)mesh_compressed.TrianglesNum());
 
-    auto pRender = CreateMultiRenderer("GPU");
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
     pRender->SetPreset(preset);
     pRender->SetViewport(0,0,W,H);
     pRender->SetScene(mesh_compressed);
@@ -1162,7 +1163,7 @@ void litert_test_18_mesh_normalization()
 
 
     auto sdf = sdf_converter::create_sdf_SVS(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 9), mesh_compressed);
-    auto pRenderSdf = CreateMultiRenderer("GPU");
+    auto pRenderSdf = CreateMultiRenderer(DEVICE_GPU);
     pRenderSdf->SetPreset(preset);
     pRenderSdf->SetViewport(0,0,W,H);
     pRenderSdf->SetScene(sdf);
@@ -1175,7 +1176,7 @@ void litert_test_18_mesh_normalization()
     cmesh4::fix_normals(mesh_n_fixed, true);
     printf("mesh_compressed size = %d\n", (int)mesh_n_fixed.TrianglesNum());
 
-    auto pRender = CreateMultiRenderer("GPU");
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
     pRender->SetPreset(preset);
     pRender->SetViewport(0,0,W,H);
     pRender->SetScene(mesh_n_fixed);
@@ -1184,7 +1185,7 @@ void litert_test_18_mesh_normalization()
 
 
     auto sdf = sdf_converter::create_sdf_SVS(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 9), mesh_n_fixed);
-    auto pRenderSdf = CreateMultiRenderer("GPU");
+    auto pRenderSdf = CreateMultiRenderer(DEVICE_GPU);
     pRenderSdf->SetPreset(preset);
     pRenderSdf->SetViewport(0,0,W,H);
     pRenderSdf->SetScene(sdf);
@@ -1266,7 +1267,7 @@ void litert_test_19_marching_cubes()
   preset.normal_mode = NORMAL_MODE_VERTEX;
   LiteImage::Image2D<uint32_t> image_1(W, H);
   {
-    auto pRender = CreateMultiRenderer("GPU");
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
     pRender->SetPreset(preset);
     pRender->SetViewport(0,0,W,H);
     pRender->SetScene(mesh);
@@ -1288,7 +1289,7 @@ void litert_test_20_radiance_fields()
   preset.render_mode = MULTI_RENDER_MODE_RF;
   LiteImage::Image2D<uint32_t> image(W, H);
 
-  auto pRender = CreateMultiRenderer("GPU");
+  auto pRender = CreateMultiRenderer(DEVICE_GPU);
   pRender->SetPreset(preset);
   pRender->SetViewport(0,0,W,H);
   pRender->LoadScene((scenes_folder_path+scene_name).c_str());
@@ -1363,7 +1364,7 @@ void litert_test_21_rf_to_mesh()
     preset = getDefaultPreset();
     preset.render_mode = MULTI_RENDER_MODE_RF;
 
-    auto pRender = CreateMultiRenderer("GPU");
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
     pRender->SetPreset(preset);
     pRender->SetViewport(0,0,W,H);
     pRender->LoadScene((scenes_folder_path+scene_name).c_str());
@@ -1377,7 +1378,7 @@ void litert_test_21_rf_to_mesh()
   {
     preset = getDefaultPreset();
     preset.normal_mode = NORMAL_MODE_VERTEX;
-    auto pRender = CreateMultiRenderer("GPU");
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
     pRender->SetPreset(preset);
     pRender->SetViewport(0,0,W,H);
     pRender->SetScene(mesh);
@@ -1387,7 +1388,7 @@ void litert_test_21_rf_to_mesh()
 
   {
     auto octree = sdf_converter::create_sdf_SVS(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 10), mesh);
-    auto pRender = CreateMultiRenderer("GPU");
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
     pRender->SetPreset(preset);
     pRender->SetViewport(0,0,W,H);
     pRender->SetScene(octree);
@@ -1492,7 +1493,7 @@ void litert_test_22_sdf_grid_smoothing()
   {
     preset = getDefaultPreset();
     preset.normal_mode = NORMAL_MODE_VERTEX;
-    auto pRender = CreateMultiRenderer("GPU");
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
     pRender->SetPreset(preset);
     pRender->SetViewport(0,0,W,H);
     pRender->SetScene(mesh);
@@ -1502,7 +1503,7 @@ void litert_test_22_sdf_grid_smoothing()
 
   auto grid = sdf_converter::create_sdf_grid(GridSettings(grid_size), real_sdf, max_threads);
   {
-    auto pRender = CreateMultiRenderer("GPU");
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
     pRender->SetPreset(preset);
     pRender->SetViewport(0,0,W,H);
     pRender->SetScene(grid);
@@ -1514,7 +1515,7 @@ void litert_test_22_sdf_grid_smoothing()
 
   auto noisy_grid = sdf_converter::create_sdf_grid(GridSettings(grid_size), noisy_sdf, max_threads);
   {
-    auto pRender = CreateMultiRenderer("GPU");
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
     pRender->SetPreset(preset);
     pRender->SetViewport(0,0,W,H);
     pRender->SetScene(noisy_grid);
@@ -1527,7 +1528,7 @@ void litert_test_22_sdf_grid_smoothing()
   float lambda = 0.3f;
   auto smoothed_grid = sdf_converter::sdf_grid_smoother(noisy_grid, 1, 0.001, lambda, 100);
   {
-    auto pRender = CreateMultiRenderer("GPU");
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
     pRender->SetPreset(preset);
     pRender->SetViewport(0,0,W,H);
     pRender->SetScene(smoothed_grid);
@@ -1561,7 +1562,7 @@ void litert_test_23_textured_sdf()
   LiteImage::Image2D<uint32_t> ref_image_tex(W, H);
 
   {
-    auto pRender = CreateMultiRenderer("GPU");
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
     pRender->SetPreset(preset);
     pRender->SetViewport(0,0,W,H);
     pRender->SetScene(mesh);
@@ -1569,7 +1570,7 @@ void litert_test_23_textured_sdf()
   }
   
   {
-    auto pRender = CreateMultiRenderer("GPU");
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
     pRender->SetPreset(preset);
     pRender->SetViewport(0,0,W,H);
     pRender->SetScene(textured_octree);
@@ -1578,7 +1579,7 @@ void litert_test_23_textured_sdf()
   
   preset.render_mode = MULTI_RENDER_MODE_TEX_COORDS;
   {
-    auto pRender = CreateMultiRenderer("GPU");
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
     pRender->SetPreset(preset);
     pRender->SetViewport(0,0,W,H);
     pRender->SetScene(mesh);
@@ -1586,7 +1587,7 @@ void litert_test_23_textured_sdf()
   }
   
   {
-    auto pRender = CreateMultiRenderer("GPU");
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
     pRender->SetPreset(preset);
     pRender->SetViewport(0,0,W,H);
     pRender->SetScene(textured_octree);
@@ -1596,7 +1597,7 @@ void litert_test_23_textured_sdf()
   LiteImage::Image2D<float4> texture = LiteImage::LoadImage<float4>("scenes/porcelain.png");
   preset.render_mode = MULTI_RENDER_MODE_LAMBERT;
   {
-    auto pRender = CreateMultiRenderer("GPU");
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
     pRender->SetPreset(preset);
     pRender->SetViewport(0,0,W,H);
 
@@ -1612,7 +1613,7 @@ void litert_test_23_textured_sdf()
   }
   
   {
-    auto pRender = CreateMultiRenderer("GPU");
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
     pRender->SetPreset(preset);
     pRender->SetViewport(0,0,W,H);
 
@@ -1710,7 +1711,7 @@ void litert_test_24_demo_meshes()
       auto mesh = meshes[i];
       cmesh4::rescale_mesh(mesh, float3(-0.95, -0.95, -0.95), float3(0.95, 0.95, 0.95));
 
-      auto pRender = CreateMultiRenderer("GPU");
+      auto pRender = CreateMultiRenderer(DEVICE_GPU);
       demo_meshes_set_textures(pRender);
       pRender->SetPreset(preset);
       pRender->SetViewport(0,0,W,H);
@@ -1794,12 +1795,12 @@ void litert_test_25_float_images()
   LiteImage::Image2D<float4> image(W, H);
   LiteImage::Image2D<float4> ref_image(W, H);
 
-  auto pRenderRef = CreateMultiRenderer("CPU");
+  auto pRenderRef = CreateMultiRenderer(DEVICE_CPU);
   pRenderRef->SetPreset(preset);
   pRenderRef->SetViewport(0,0,W,H);
   pRenderRef->LoadSceneHydra((scenes_folder_path+scene_name).c_str());
 
-  auto pRender = CreateMultiRenderer("GPU");
+  auto pRender = CreateMultiRenderer(DEVICE_GPU);
   pRender->SetPreset(preset);
   pRender->SetViewport(0,0,W,H);
   pRender->LoadSceneHydra((scenes_folder_path+scene_name).c_str());
@@ -1853,7 +1854,7 @@ void litert_test_27_textured_colored_SBS()
   LiteImage::Image2D<uint32_t> image_SBS_ind(W, H);
   
   {
-    auto pRender = CreateMultiRenderer("GPU");
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
     pRender->SetPreset(preset);
     pRender->SetViewport(0,0,W,H);
 
@@ -1869,7 +1870,7 @@ void litert_test_27_textured_colored_SBS()
   }
   
   {
-    auto pRender = CreateMultiRenderer("GPU");
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
     pRender->SetPreset(preset);
     pRender->SetViewport(0,0,W,H);
 
@@ -1886,7 +1887,7 @@ void litert_test_27_textured_colored_SBS()
   }
   
   {
-    auto pRender = CreateMultiRenderer("GPU");
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
     pRender->SetPreset(preset);
     pRender->SetViewport(0,0,W,H);
 
@@ -1903,7 +1904,7 @@ void litert_test_27_textured_colored_SBS()
   }
   
   {
-    auto pRender = CreateMultiRenderer("GPU");
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
     pRender->SetPreset(preset);
     pRender->SetViewport(0,0,W,H);
 
@@ -1920,7 +1921,7 @@ void litert_test_27_textured_colored_SBS()
   }
   
   {
-    auto pRender = CreateMultiRenderer("GPU");
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
     pRender->SetPreset(preset);
     pRender->SetViewport(0,0,W,H);
 
@@ -2002,7 +2003,7 @@ void litert_test_28_sbs_reg()
   //LiteImage::Image2D<uint32_t> image_SBS_grid_smooth(W, H);
   
   {
-    auto pRender = CreateMultiRenderer("GPU");
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
     pRender->SetPreset(preset);
     pRender->SetViewport(0,0,W,H);
 
@@ -2021,7 +2022,7 @@ void litert_test_28_sbs_reg()
   
   {
     
-    auto pRender = CreateMultiRenderer("GPU");
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
     pRender->SetPreset(preset);
     pRender->SetViewport(0,0,W,H);
     
@@ -2088,7 +2089,7 @@ void litert_test_29_smoothed_frame_octree()
   MultiRenderPreset preset = getDefaultPreset();
 
   {
-    auto pRender = CreateMultiRenderer("GPU");
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
     pRender->SetPreset(preset);
     pRender->SetViewport(0,0,W,H);
 
@@ -2113,7 +2114,7 @@ void litert_test_29_smoothed_frame_octree()
     std::vector<SdfFrameOctreeNode> frame_nodes = sdf_converter::create_sdf_frame_octree(settings, real_sdf, eps, true, false);
 
     {
-      auto pRender = CreateMultiRenderer("GPU");
+      auto pRender = CreateMultiRenderer(DEVICE_GPU);
       pRender->SetPreset(preset);
       pRender->SetScene(frame_nodes);
       render(image_1, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
@@ -2151,7 +2152,7 @@ void litert_test_29_smoothed_frame_octree()
     printf("\n");*/
 
     {
-      auto pRender = CreateMultiRenderer("GPU");
+      auto pRender = CreateMultiRenderer(DEVICE_GPU);
       pRender->SetPreset(preset);
       pRender->SetScene(frame_nodes);
       render(image_2, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
@@ -2207,7 +2208,7 @@ void litert_test_30_verify_SBS_SBSAdapt()
 
   printf("TEST 30. SBS and SBSAdapt correctness\n");
   {
-    auto pRender = CreateMultiRenderer("CPU");
+    auto pRender = CreateMultiRenderer(DEVICE_CPU);
     pRender->SetPreset(preset);
     pRender->SetScene(mesh);
     render(image, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset);
@@ -2215,7 +2216,7 @@ void litert_test_30_verify_SBS_SBSAdapt()
     ref_image = image;
   }
   {
-    auto pRender = CreateMultiRenderer("CPU");
+    auto pRender = CreateMultiRenderer(DEVICE_CPU);
     pRender->SetPreset(preset);
     pRender->SetScene(curr_sbs);
 
@@ -2232,7 +2233,7 @@ void litert_test_30_verify_SBS_SBSAdapt()
       printf("FAILED, psnr = %f\n", psnr);
   }
   {
-    auto pRender = CreateMultiRenderer("CPU");
+    auto pRender = CreateMultiRenderer(DEVICE_CPU);
     pRender->SetPreset(preset);
     SdfSBSAdapt sbsa_scene;
     SdfSBSAdaptView sbsa_view = convert_sbs_to_adapt(sbsa_scene, curr_sbs);
@@ -2335,13 +2336,13 @@ void litert_test_31_fake_nurbs_render()
   RawNURBS square = test_nurbs_loader(nurbs_path / "square.nurbss");
   RawNURBS cylinder = test_nurbs_loader(nurbs_path / "cylinder.nurbss");
 
-  // auto pRenderRef1 = CreateMultiRenderer("GPU");
+  // auto pRenderRef1 = CreateMultiRenderer(DEVICE_GPU);
   // pRenderRef1->SetPreset(preset);
   // pRenderRef1->SetViewport(0,0,W,H);
-  auto pRenderRef2 = CreateMultiRenderer("CPU");
+  auto pRenderRef2 = CreateMultiRenderer(DEVICE_CPU);
   pRenderRef2->SetPreset(preset);
   pRenderRef2->SetViewport(0,0,W,H);
-  // auto pRenderRef3 = CreateMultiRenderer("GPU");
+  // auto pRenderRef3 = CreateMultiRenderer(DEVICE_GPU);
   // pRenderRef3->SetPreset(preset);
   // pRenderRef3->SetViewport(0,0,W,H);
 
@@ -2398,7 +2399,7 @@ void litert_test_32_smooth_sbs_normals()
   LiteImage::Image2D<uint32_t> image_SBS_n(W, H);
 
   {
-    auto pRender = CreateMultiRenderer("GPU");
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
     preset.normal_mode = NORMAL_MODE_VERTEX;
     pRender->SetPreset(preset);
     pRender->SetViewport(0,0,W,H);
@@ -2407,7 +2408,7 @@ void litert_test_32_smooth_sbs_normals()
   }
 
   {
-    auto pRender = CreateMultiRenderer("GPU");
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
     pRender->SetPreset(preset);
     pRender->SetViewport(0,0,W,H);
     auto indexed_SBS = sdf_converter::create_sdf_SBS_indexed_with_neighbors(settings, header, mesh, 0, pRender->getMaterials(), pRender->getTextures());
@@ -2462,7 +2463,7 @@ void litert_test_33_verify_SBS_SBSAdapt_split()
 
   printf("TEST 33. SBS and non-cubic SBSAdapt correctness\n");
   {
-    auto pRender = CreateMultiRenderer("CPU");
+    auto pRender = CreateMultiRenderer(DEVICE_CPU);
     pRender->SetPreset(preset);
     pRender->SetScene(mesh);
     render(image, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset);
@@ -2477,7 +2478,7 @@ void litert_test_33_verify_SBS_SBSAdapt_split()
     std::string bytes_count = std::to_string(headers[i].bytes_per_value);
 
     {
-      auto pRender = CreateMultiRenderer("CPU");
+      auto pRender = CreateMultiRenderer(DEVICE_CPU);
       pRender->SetPreset(preset);
 
       // SdfSBSAdapt sbsa_scene;
@@ -2500,7 +2501,7 @@ void litert_test_33_verify_SBS_SBSAdapt_split()
         printf("FAILED, psnr = %f\n", psnr);
     }
     {
-      auto pRender = CreateMultiRenderer("CPU");
+      auto pRender = CreateMultiRenderer(DEVICE_CPU);
       pRender->SetPreset(preset);
 
       SdfSBSAdapt sbsa_scene;
@@ -2555,7 +2556,7 @@ litert_test_34_tricubic_sbs()
     LiteImage::Image2D<uint32_t> image_SBS_n(W, H);
 
     {
-      auto pRender = CreateMultiRenderer("GPU");
+      auto pRender = CreateMultiRenderer(DEVICE_GPU);
       preset.normal_mode = NORMAL_MODE_VERTEX;
       pRender->SetPreset(preset);
       pRender->SetViewport(0,0,W,H);
@@ -2566,7 +2567,7 @@ litert_test_34_tricubic_sbs()
 
     {
       preset.interpolation_type = TRICUBIC_INTERPOLATION_MODE;
-      auto pRender = CreateMultiRenderer("CPU");
+      auto pRender = CreateMultiRenderer(DEVICE_CPU);
       pRender->SetPreset(preset);
       pRender->SetViewport(0,0,W,H);
       auto indexed_SBS = sdf_converter::create_sdf_SBS_indexed_with_neighbors(settings, header, mesh, 0, pRender->getMaterials(), pRender->getTextures());
@@ -2602,7 +2603,7 @@ litert_test_34_tricubic_sbs()
       LiteImage::Image2D<uint32_t> image_SBS_n(W, H);
 
       {
-        auto pRender = CreateMultiRenderer("GPU");
+        auto pRender = CreateMultiRenderer(DEVICE_GPU);
         preset.normal_mode = NORMAL_MODE_VERTEX;
         pRender->SetPreset(preset);
         pRender->SetViewport(0,0,W,H);
@@ -2612,7 +2613,7 @@ litert_test_34_tricubic_sbs()
       }
 
       {
-        auto pRender = CreateMultiRenderer("GPU");
+        auto pRender = CreateMultiRenderer(DEVICE_GPU);
         pRender->SetPreset(preset);
         pRender->SetViewport(0,0,W,H);
         auto indexed_SBS = sdf_converter::create_sdf_SBS_indexed_with_neighbors(settings, header, mesh, 0, pRender->getMaterials(), pRender->getTextures());
@@ -2658,7 +2659,7 @@ void litert_test_35_SBSAdapt_greed_creating()
 
   printf("TEST 35. SBSAdapt greed creating\n");
   {
-    auto pRender = CreateMultiRenderer("GPU");
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
     pRender->SetPreset(preset);
     pRender->SetScene(mesh);
     render(image, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset);
@@ -2675,7 +2676,7 @@ void litert_test_35_SBSAdapt_greed_creating()
   SdfSBSAdapt sbs_adapt = sdf_converter::greed_sbs_adapt(real_sdf, 4);
 
   {
-    auto pRender = CreateMultiRenderer("GPU");
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
     pRender->SetPreset(preset);
     pRender->SetScene(sbs_1_1);
 
@@ -2684,7 +2685,7 @@ void litert_test_35_SBSAdapt_greed_creating()
   }
 
   {
-    auto pRender = CreateMultiRenderer("GPU");
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
     pRender->SetPreset(preset);
     pRender->SetScene(sbs_adapt);
 
@@ -2745,7 +2746,7 @@ void litert_test_36_primitive_visualization()
 
   printf("TEST 36. Primitive visualization\n");
   {
-    auto pRender = CreateMultiRenderer("CPU");
+    auto pRender = CreateMultiRenderer(DEVICE_CPU);
     pRender->SetPreset(preset);
     GraphicsPrimView prim_view{primitives};
     pRender->SetScene(prim_view);
@@ -2769,7 +2770,7 @@ void litert_test_37_sbs_adapt_comparison()
   preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
 
   {
-    auto pRender = CreateMultiRenderer("GPU");
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
     pRender->SetPreset(preset);
     pRender->SetViewport(0,0,W,H);
 
@@ -2796,7 +2797,7 @@ void litert_test_37_sbs_adapt_comparison()
     
 
     {
-      auto pRender = CreateMultiRenderer("GPU");
+      auto pRender = CreateMultiRenderer(DEVICE_GPU);
       pRender->SetPreset(preset);
       pRender->SetScene(sbs_adapt);
       render(image_1, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
@@ -2818,7 +2819,7 @@ void litert_test_37_sbs_adapt_comparison()
     SdfSBS sbs = sdf_converter::create_sdf_SBS(settings, header, mesh);
 
     {
-      auto pRender = CreateMultiRenderer("GPU");
+      auto pRender = CreateMultiRenderer(DEVICE_GPU);
       pRender->SetPreset(preset);
       pRender->SetScene(sbs);
       render(image_2, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
@@ -2891,7 +2892,7 @@ void litert_test_38_direct_octree_traversal()
   size_t coctree_total_bytes = 0;
 
   {
-    auto pRender = CreateMultiRenderer("GPU");
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
     pRender->SetPreset(preset);
     pRender->SetScene(mesh);
     pRender->SetLights({create_direct_light(float3(1,1,-1), float3(2.0f/3.0f)), create_ambient_light(float3(0.25, 0.25, 0.25))});
@@ -2917,7 +2918,7 @@ void litert_test_38_direct_octree_traversal()
 
   //if (false)
   {
-    auto pRender = CreateMultiRenderer("GPU");
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
     pRender->SetPreset(preset);
     pRender->SetScene(SVS);
     pRender->SetLights({create_direct_light(float3(1,1,-1), float3(2.0f/3.0f)), create_ambient_light(float3(0.25, 0.25, 0.25))});
@@ -2941,7 +2942,7 @@ void litert_test_38_direct_octree_traversal()
 
   //if (false)
   {
-    auto pRender = CreateMultiRenderer("GPU");
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
     pRender->SetPreset(preset);
     pRender->SetScene(SBS);
     pRender->SetLights({create_direct_light(float3(1,1,-1), float3(2.0f/3.0f)), create_ambient_light(float3(0.25, 0.25, 0.25))});
@@ -2967,7 +2968,7 @@ void litert_test_38_direct_octree_traversal()
 
   //if (false)
   {
-    auto pRender = CreateMultiRenderer("GPU");
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
     preset.octree_intersect = OCTREE_INTERSECT_BVH;
     pRender->SetPreset(preset);
     pRender->SetScene(octree);
@@ -2991,7 +2992,7 @@ void litert_test_38_direct_octree_traversal()
   }
 
   {
-    auto pRender = CreateMultiRenderer("GPU");
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
     preset.octree_intersect = OCTREE_INTERSECT_TRAVERSE;
     pRender->SetPreset(preset);
     pRender->SetScene(octree);

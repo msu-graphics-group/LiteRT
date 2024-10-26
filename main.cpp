@@ -70,7 +70,12 @@ int main(int argc, const char** argv)
     {
       std::string mesh_name = argv[2];
       std::string supported_type = argc == 3  ? "" : argv[3];
-      std::string device = argc == 4  ? "GPU" : argv[4];
+      std::string device_str = argc == 4  ? "GPU" : argv[4];
+      unsigned device = DEVICE_CPU;
+      if (device_str == "GPU")
+        device = DEVICE_GPU;
+      else if (device_str == "GPU_RTX" || device_str == "RTX")
+        device = DEVICE_GPU_RTX;
       unsigned flags = BENCHMARK_FLAG_RENDER_RT;
       if (supported_type == "build")
       {
@@ -105,7 +110,7 @@ int main(int argc, const char** argv)
   std::shared_ptr<IRenderer> pRender = nullptr;
   std::cout << "[main]: init renderer ..." << std::endl; 
   {
-    pRender = CreateMultiRenderer("GPU");  
+    pRender = CreateMultiRenderer(DEVICE_GPU);  
     auto accelStructImpl = CreateSceneRT(accelStruct, buildFormat, layout);
     pRender->SetAccelStruct(accelStructImpl);
   }

@@ -42,7 +42,7 @@ void SimpleRender::SetupRTImage()
 // convert geometry data and pass it to acceleration structure builder
 void SimpleRender::SetupRTScene()
 {
-  m_pRayTracerCPU = CreateMultiRenderer("CPU");
+  m_pRayTracerCPU = CreateMultiRenderer(DEVICE_CPU);
 
   //m_pAccelStruct = std::shared_ptr<ISceneObject>(CreateSceneRT("BVH2Common", "cbvh_embree2", "SuperTreeletAlignedMerged4"));
   m_pRayTracerCPU->GetAccelStruct()->ClearGeom();

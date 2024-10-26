@@ -22,6 +22,13 @@ static constexpr unsigned TYPE_GRAPHICS_PRIM              = 17;
 
 static constexpr unsigned SH_TYPE = 27; //5 bits for type
 
+//enum RenderDevice
+static constexpr unsigned DEVICE_CPU     = 0; //render on CPU
+static constexpr unsigned DEVICE_GPU     = 1; //render on GPU using compute shaders
+static constexpr unsigned DEVICE_GPU_RTX = 2; //render on GPU using RTX pipeline
+//Currently the choice between compute shaders and RTX should be made in CMake files (USE_RTX option) and
+//there is no difference in behavior between DEVICE_GPU and DEVICE_GPU_RTX, what was chosen in Cmake is always used
+
 //enum SdfNodeIntersect
 static constexpr unsigned SDF_OCTREE_NODE_INTERSECT_ST       = 0;// Sphere tracing inside node
 static constexpr unsigned SDF_OCTREE_NODE_INTERSECT_ANALYTIC = 1;// Explicitly finding ray/sdf intersection inside node

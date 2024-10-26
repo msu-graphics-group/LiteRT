@@ -73,7 +73,7 @@ void diff_render_test_1_forward_pass()
   LiteImage::Image2D<float4> image_SBS_diff(W, H);
 
   {
-    auto pRender = CreateMultiRenderer("GPU");
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
     pRender->SetPreset(preset);
     pRender->SetViewport(0,0,W,H);
 
@@ -91,7 +91,7 @@ void diff_render_test_1_forward_pass()
   }
 
   {
-    auto pRender = CreateMultiRenderer("GPU");
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
     pRender->SetPreset(preset);
     pRender->SetViewport(0,0,W,H);
 
@@ -227,7 +227,7 @@ void diff_render_test_2_check_color_derivatives()
   std::vector<LiteImage::Image2D<float4>> images_ref(view.size(), LiteImage::Image2D<float4>(W, H));
   for (int i = 0; i < view.size(); i++)
   {
-    auto pRender = CreateMultiRenderer("CPU");
+    auto pRender = CreateMultiRenderer(DEVICE_CPU);
     pRender->SetPreset(preset);
     pRender->SetViewport(0,0,W,H);
 
@@ -384,7 +384,7 @@ void test_position_derivatives(const SdfSBS &SBS, unsigned render_node, unsigned
   LiteImage::Image2D<float4> image_res(W, H);
   for (int i = 0; i < view.size(); i++)
   {
-    auto pRender = CreateMultiRenderer("CPU");
+    auto pRender = CreateMultiRenderer(DEVICE_CPU);
     pRender->SetPreset(preset);
     pRender->SetViewport(0,0,W,H);
 
@@ -590,7 +590,7 @@ void diff_render_test_3_optimize_color()
   LiteImage::Image2D<float4> image_SBS_dr(W, H);
 
   {
-    auto pRender = CreateMultiRenderer("GPU");
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
     pRender->SetPreset(preset);
     pRender->SetViewport(0,0,W,H);
 
@@ -608,7 +608,7 @@ void diff_render_test_3_optimize_color()
   }
 
   {
-    auto pRender = CreateMultiRenderer("GPU");
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
     pRender->SetPreset(preset);
     pRender->SetViewport(0,0,W,H);
 
@@ -745,7 +745,7 @@ void optimization_stand_common(uint32_t num, uint32_t sub_num, const SdfSBS &SBS
   LiteImage::Image2D<float4> image_res(W, H);
   for (int i = 0; i < view.size(); i++)
   {
-    auto pRender = CreateMultiRenderer("GPU");
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
     pRender->SetPreset(preset);
     pRender->SetViewport(0,0,W,H);
 
@@ -1008,7 +1008,7 @@ void diff_render_test_11_expanding_grid()
   LiteImage::Image2D<float4> image_res(W, H);
   for (int i = 0; i < view.size(); i++)
   {
-    auto pRender = CreateMultiRenderer("GPU");
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
     pRender->SetPreset(preset);
     pRender->SetViewport(0,0,W,H);
     pRender->SetScene(ds_scene);
@@ -1155,7 +1155,7 @@ void diff_render_test_4_render_simple_scenes()
   LiteImage::Image2D<float4> image_one_brick_dr(W, H);
 
   {
-    auto pRender = CreateMultiRenderer("GPU");
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
     pRender->SetPreset(preset);
     pRender->SetViewport(0,0,W,H);
 
@@ -1167,7 +1167,7 @@ void diff_render_test_4_render_simple_scenes()
   }
 
   {
-    auto pRender = CreateMultiRenderer("GPU");
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
     pRender->SetPreset(preset);
     pRender->SetViewport(0,0,W,H);
 
@@ -1177,7 +1177,7 @@ void diff_render_test_4_render_simple_scenes()
   }
 
   {
-    auto pRender = CreateMultiRenderer("GPU");
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
     pRender->SetPreset(preset);
     pRender->SetViewport(0,0,W,H);
 
@@ -1286,7 +1286,7 @@ void diff_render_test_5_optimize_color_simpliest()
 
   for (int i = 0; i < view.size(); i++)
   {
-    auto pRender = CreateMultiRenderer("GPU");
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
     pRender->SetPreset(preset);
     pRender->SetViewport(0,0,W,H);
 
@@ -1427,7 +1427,7 @@ void diff_render_test_7_optimize_with_finite_diff()
 
   for (int i = 0; i < view.size(); i++)
   {
-    auto pRender = CreateMultiRenderer("GPU");
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
     pRender->SetPreset(preset);
     pRender->SetViewport(0,0,W,H);
 
@@ -1521,7 +1521,7 @@ void diff_render_test_8_optimize_with_lambert()
 
   for (int i = 0; i < view.size(); i++)
   {
-    auto pRender = CreateMultiRenderer("GPU");
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
     pRender->SetPreset(preset);
     pRender->SetViewport(0,0,W,H);
 
@@ -1538,7 +1538,7 @@ void diff_render_test_8_optimize_with_lambert()
   }
 
   {
-    auto pRender = CreateMultiRenderer("GPU");
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
     pRender->SetPreset(preset);
     pRender->SetViewport(0,0,W,H);
 
@@ -1610,7 +1610,7 @@ void diff_render_test_11_optimize_smallest_scene()
   LiteImage::Image2D<float4> image_res(W, H);
   for (int i = 0; i < view.size(); i++)
   {
-    auto pRender = CreateMultiRenderer("CPU");
+    auto pRender = CreateMultiRenderer(DEVICE_CPU);
     pRender->SetPreset(preset);
     pRender->SetViewport(0,0,W,H);
 
@@ -1672,7 +1672,7 @@ void diff_render_test_12_optimize_sphere_mask()
   LiteImage::Image2D<float4> image_res(W, H);
   for (int i = 0; i < view.size(); i++)
   {
-    auto pRender = CreateMultiRenderer("GPU");
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
     pRender->SetPreset(preset);
     pRender->SetViewport(0,0,W,H);
 
@@ -1740,7 +1740,7 @@ void diff_render_test_13_optimize_sphere_diffuse()
   LiteImage::Image2D<float4> image_res(W, H);
   for (int i = 0; i < view.size(); i++)
   {
-    auto pRender = CreateMultiRenderer("GPU");
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
     pRender->SetPreset(preset);
     pRender->SetViewport(0,0,W,H);
 
@@ -1808,7 +1808,7 @@ void diff_render_test_14_optimize_sphere_lambert()
   LiteImage::Image2D<float4> image_res(W, H);
   for (int i = 0; i < view.size(); i++)
   {
-    auto pRender = CreateMultiRenderer("GPU");
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
     pRender->SetPreset(preset);
     pRender->SetViewport(0,0,W,H);
 
@@ -1874,7 +1874,7 @@ void diff_render_test_15_combined_reconstruction()
   LiteImage::Image2D<float4> image_res(W, H);
   for (int i = 0; i < view.size(); i++)
   {
-    auto pRender = CreateMultiRenderer("GPU");
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
     pRender->SetPreset(preset);
     pRender->SetViewport(0,0,W,H);
 
@@ -1941,7 +1941,7 @@ void border_detection_test(uint32_t num, uint32_t multi_render_mode, uint32_t dr
   LiteImage::Image2D<float4> image_bint(W, H);
   for (int i = 0; i < view.size(); i++)
   {
-    auto pRender = CreateMultiRenderer("CPU");
+    auto pRender = CreateMultiRenderer(DEVICE_CPU);
     pRender->SetPreset(preset);
     pRender->SetViewport(0,0,W,H);
 
@@ -2070,7 +2070,7 @@ void diff_render_test_17_optimize_bunny()
   LiteImage::Image2D<float4> image_res(W, H);
   for (int i = 0; i < view.size(); i++)
   {
-    auto pRender = CreateMultiRenderer("GPU");
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
     pRender->SetPreset(preset);
     pRender->SetViewport(0,0,W,H);
 
@@ -2151,7 +2151,7 @@ void diff_render_test_18_sphere_depth()
   LiteImage::Image2D<float4> image_res(W, H);
   for (int i = 0; i < view.size(); i++)
   {
-    auto pRender = CreateMultiRenderer("GPU");
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
     pRender->SetPreset(preset);
     pRender->SetViewport(0,0,W,H);
 
@@ -2216,7 +2216,7 @@ void diff_render_test_20_sphere_depth_with_redist()
   LiteImage::Image2D<float4> image_res(W, H);
   for (int i = 0; i < view.size(); i++)
   {
-    auto pRender = CreateMultiRenderer("GPU");
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
     pRender->SetPreset(preset);
     pRender->SetViewport(0,0,W,H);
 
@@ -2290,7 +2290,7 @@ void diff_render_test_22_border_sampling_accuracy_mask()
   SdfSBS indexed_SBS;
 
   {
-    auto pRender = CreateMultiRenderer("CPU");
+    auto pRender = CreateMultiRenderer(DEVICE_CPU);
     pRender->SetPreset(preset);
     pRender->SetViewport(0,0,W,H);
 
@@ -2430,7 +2430,7 @@ diff_render_test_23_ray_casting_mask()
     LiteImage::Image2D<float4> image_res(W, H);
     for (int i = 0; i < view.size(); i++)
     {
-      auto pRender = CreateMultiRenderer("GPU");
+      auto pRender = CreateMultiRenderer(DEVICE_GPU);
       pRender->SetPreset(preset);
       pRender->SetViewport(0,0,W,H);
 
@@ -2496,7 +2496,7 @@ diff_render_test_23_ray_casting_mask()
     LiteImage::Image2D<float4> image_res(W, H);
     for (int i = 0; i < view.size(); i++)
     {
-      auto pRender = CreateMultiRenderer("GPU");
+      auto pRender = CreateMultiRenderer(DEVICE_GPU);
       pRender->SetPreset(preset);
       pRender->SetViewport(0,0,W,H);
 
@@ -2563,7 +2563,7 @@ diff_render_test_24_optimization_with_tricubic()
     LiteImage::Image2D<float4> image_1(W, H);
 
     auto grid = sdf_converter::create_sdf_grid(GridSettings(64), mesh);
-    auto pRender = CreateMultiRenderer("CPU");
+    auto pRender = CreateMultiRenderer(DEVICE_CPU);
     pRender->SetPreset(preset);
     pRender->SetScene(grid);
     render(image_1, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
@@ -2577,7 +2577,7 @@ diff_render_test_24_optimization_with_tricubic()
     LiteImage::Image2D<float4> image_1(W, H);
 
     auto grid = sdf_converter::create_sdf_grid(GridSettings(64), mesh);
-    auto pRender = CreateMultiRenderer("CPU");
+    auto pRender = CreateMultiRenderer(DEVICE_CPU);
     pRender->SetPreset(preset);
     pRender->SetScene(grid);
     render(image_1, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
@@ -2697,7 +2697,7 @@ void diff_render_test_28_border_sampling_normals_vis()
   SdfSBS indexed_SBS;
 
   {
-    auto pRender = CreateMultiRenderer("CPU");
+    auto pRender = CreateMultiRenderer(DEVICE_CPU);
     pRender->SetPreset(preset);
     pRender->SetViewport(0,0,W,H);
 
@@ -2770,7 +2770,7 @@ void diff_render_test_28_border_sampling_normals_vis()
   }
   printf("Normals count: %d\n", (int)normals.points.size());
   {
-    auto pRender = CreateMultiRenderer("GPU");
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
     pRender->SetPreset(preset);
     pRender->GetAccelStruct()->ClearGeom();
     pRender->GetAccelStruct()->ClearScene();
@@ -2825,7 +2825,7 @@ void check_border_rays(const SdfSBS &SBS, unsigned render_node, unsigned diff_re
   LiteImage::Image2D<float4> image_res(W, H);
   for (int i = 0; i < view.size(); i++)
   {
-    auto pRender = CreateMultiRenderer("CPU");
+    auto pRender = CreateMultiRenderer(DEVICE_CPU);
     pRender->SetPreset(preset);
     pRender->SetViewport(0,0,W,H);
 

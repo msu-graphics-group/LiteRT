@@ -39,7 +39,7 @@ void benchmark_iteration_time(MultiRendererDRPreset dr_preset)
   LiteImage::Image2D<float4> image_res(W, H);
   for (int i = 0; i < view.size(); i++)
   {
-    auto pRender = CreateMultiRenderer("CPU");
+    auto pRender = CreateMultiRenderer(DEVICE_CPU);
     pRender->SetPreset(preset);
     pRender->SetViewport(0, 0, W, H);
 
@@ -127,7 +127,7 @@ void benchmark_dr_optimization()
   LiteImage::Image2D<float4> image_res(W, H);
   for (int i = 0; i < view.size(); i++)
   {
-    auto pRender = CreateMultiRenderer("GPU");
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
     pRender->SetPreset(preset);
     pRender->SetViewport(0,0,W,H);
 

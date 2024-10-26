@@ -232,4 +232,4 @@ protected:
   uint32_t m_maxPrimitives; //required in constructor to allocate enough memory in Vulkan
 };
 
-std::shared_ptr<MultiRenderer> CreateMultiRenderer(const char* a_name, uint32_t maxPrimitives = 10'000'000);
+std::shared_ptr<MultiRenderer> CreateMultiRenderer(unsigned /*enum RenderDevice*/ device, uint32_t maxPrimitives = 10'000'000);

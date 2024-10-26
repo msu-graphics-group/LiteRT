@@ -133,7 +133,7 @@ void benchmark_framed_octree_intersection()
           preset.render_mode = render_modes[rm];
           preset.sdf_node_intersect = presets_oi[as_n][i];
 
-          auto pRender = CreateMultiRenderer("GPU");
+          auto pRender = CreateMultiRenderer(DEVICE_GPU);
           pRender->SetPreset(preset);
           if (AS_types[as_n] == TYPE_SDF_FRAME_OCTREE)
             pRender->SetScene(frame_nodes);
@@ -205,7 +205,7 @@ void quality_check(const char *path)
   preset.render_mode = MULTI_RENDER_MODE_PHONG_NO_TEX;
 
   LiteImage::Image2D<uint32_t> image_ref(W, H);
-  auto pRender_ref = CreateMultiRenderer("GPU");
+  auto pRender_ref = CreateMultiRenderer(DEVICE_GPU);
   pRender_ref->SetPreset(preset);
   pRender_ref->SetScene(mesh);
   render(image_ref, pRender_ref, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset, 1);
@@ -219,7 +219,7 @@ void quality_check(const char *path)
     save_sdf_SVS(svs_nodes, ("saves/svs_"+std::to_string(depth)+".bin").c_str());
 
     LiteImage::Image2D<uint32_t> image_1(W, H);
-    auto pRender_1 = CreateMultiRenderer("GPU");
+    auto pRender_1 = CreateMultiRenderer(DEVICE_GPU);
     pRender_1->SetPreset(preset);
     pRender_1->SetScene(svs_nodes);
     render(image_1, pRender_1, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset, 1);
@@ -241,7 +241,7 @@ void main_benchmark(const std::string &path, const std::string &mesh_name, unsig
                      std::vector<std::string> use_intersect,
                      unsigned base_pass_size = 25,
                      unsigned base_iters = 10,
-                     std::string render_device = "GPU")
+                     unsigned render_device = DEVICE_GPU)
 {
   struct StructureInfo
   {
@@ -516,7 +516,7 @@ void main_benchmark(const std::string &path, const std::string &mesh_name, unsig
                 {
                   std::filesystem::create_directory(path + "/" + full_name);
 
-                  pRender = CreateMultiRenderer(render_device.c_str());
+                  pRender = CreateMultiRenderer(render_device);
                   pRender->SetPreset(preset);
                   pRender->SetScene(mesh);
                 }
@@ -525,7 +525,7 @@ void main_benchmark(const std::string &path, const std::string &mesh_name, unsig
                   auto mesh_lod = cmesh4::LoadMeshFromVSGF(filename.c_str());
                   cmesh4::normalize_mesh(mesh_lod);
 
-                  pRender = CreateMultiRenderer(render_device.c_str());
+                  pRender = CreateMultiRenderer(render_device);
                   pRender->SetPreset(preset);
                   pRender->SetScene(mesh_lod);
                 }
@@ -534,7 +534,7 @@ void main_benchmark(const std::string &path, const std::string &mesh_name, unsig
                   SdfGrid grid;
                   load_sdf_grid(grid, filename);
 
-                  pRender = CreateMultiRenderer(render_device.c_str());
+                  pRender = CreateMultiRenderer(render_device);
                   pRender->SetPreset(preset);
                   pRender->SetScene(grid);
                 }
@@ -543,7 +543,7 @@ void main_benchmark(const std::string &path, const std::string &mesh_name, unsig
                   std::vector<SdfFrameOctreeNode> frame_nodes;
                   load_sdf_frame_octree(frame_nodes, filename);
 
-                  pRender = CreateMultiRenderer(render_device.c_str(), frame_nodes.size() + 1);
+                  pRender = CreateMultiRenderer(render_device, frame_nodes.size() + 1);
                   pRender->SetPreset(preset);                  
                   pRender->SetScene(frame_nodes);
                 }
@@ -552,7 +552,7 @@ void main_benchmark(const std::string &path, const std::string &mesh_name, unsig
                   std::vector<SdfSVSNode> svs_nodes;
                   load_sdf_SVS(svs_nodes, filename);
 
-                  pRender = CreateMultiRenderer(render_device.c_str(), svs_nodes.size() + 1);
+                  pRender = CreateMultiRenderer(render_device, svs_nodes.size() + 1);
                   pRender->SetPreset(preset);                  
                   pRender->SetScene(svs_nodes);
                 }
@@ -561,7 +561,7 @@ void main_benchmark(const std::string &path, const std::string &mesh_name, unsig
                   SdfSBS sbs;
                   load_sdf_SBS(sbs, filename);
 
-                  pRender = CreateMultiRenderer(render_device.c_str(), sbs.nodes.size()*std::pow(sbs.header.brick_size, 3) + 1);
+                  pRender = CreateMultiRenderer(render_device, sbs.nodes.size()*std::pow(sbs.header.brick_size, 3) + 1);
                   pRender->SetPreset(preset);                  
                   pRender->SetScene(sbs);
                 }
@@ -570,7 +570,7 @@ void main_benchmark(const std::string &path, const std::string &mesh_name, unsig
                   SdfSBS sbs;
                   load_sdf_SBS(sbs, filename);
 
-                  pRender = CreateMultiRenderer(render_device.c_str(), sbs.nodes.size() + 1);
+                  pRender = CreateMultiRenderer(render_device, sbs.nodes.size() + 1);
                   pRender->SetPreset(preset);                  
                   pRender->SetScene(sbs);                  
                 }
@@ -602,8 +602,10 @@ void main_benchmark(const std::string &path, const std::string &mesh_name, unsig
             float4 render_average_time_ms = float4(sum_ms[0], sum_ms[1], sum_ms[2], sum_ms[3])/(iters*pass_size);
             float4 render_min_time_ms = float4(min_ms[0], min_ms[1], min_ms[2], min_ms[3])/pass_size;
 
+            std::vector<std::string> render_device_names = {"CPU", "GPU", "RTX"};
+
             fprintf(log_fd, "%20s, %6s, %12s, %20s, %6s, %20s, %6.2f, %7.2f, %7.2f\n", 
-                    mesh_name.c_str(), render_device.c_str(), render_mode.c_str(), structure.c_str(), size_limit.c_str(), intersect_mode.c_str(),
+                    mesh_name.c_str(), render_device_names[render_device].c_str(), render_mode.c_str(), structure.c_str(), size_limit.c_str(), intersect_mode.c_str(),
                     psnr/iters,
                     render_average_time_ms.x,
                     render_min_time_ms.x);
@@ -651,14 +653,14 @@ void SBS_benchmark(const std::string &path, const std::string &mesh_name, unsign
                  25, 10);
 }
 
-void rtx_benchmark(const std::string &path, const std::string &mesh_name, unsigned flags, const std::string &supported_type, const std::string &device)
+void rtx_benchmark(const std::string &path, const std::string &mesh_name, unsigned flags, const std::string &supported_type, unsigned device)
 {
   std::vector<std::string> types = {"mesh", "sdf_grid", "sdf_frame_octree", "sdf_SVS", "sdf_SBS-2-1"};
   if (supported_type != "")
     types = {supported_type};
 
   int pass_size = 25;
-  if (device == "CPU")
+  if (device == DEVICE_CPU)
     pass_size = 1;
 
   main_benchmark(path, mesh_name, flags, "image", 
