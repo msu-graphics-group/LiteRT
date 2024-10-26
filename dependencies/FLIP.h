@@ -1637,7 +1637,10 @@ namespace FLIP
             this->init({ size, 1, 1 });
             if (this->mvpHostData != nullptr)
             {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wclass-memaccess"
                 memcpy(this->mvpHostData, pColorMap, size * sizeof(color3));
+#pragma GCC diagnostic pop
             }
         }
 #else   // FLIP_ENABLE_CUDA
@@ -1735,7 +1738,10 @@ namespace FLIP
         void setPixels(const float* pPixels, const int width, const int height)
         {
             this->init({ width, height, 1 });
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wclass-memaccess"
             memcpy(this->mvpHostData, pPixels, size_t(width) * height * sizeof(T));
+#pragma GCC diagnostic pop
         }
 #else
         T get(int x, int y, int z)
@@ -1939,7 +1945,10 @@ namespace FLIP
         {
             if (this->mDim.x == srcImage.getWidth() && this->mDim.y == srcImage.getHeight() && this->mDim.z == srcImage.getDepth())
             {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wclass-memaccess"
                 memcpy(this->mvpHostData, srcImage.getHostData(), this->mVolume * sizeof(T));
+#pragma GCC diagnostic pop
             }
         }
 
