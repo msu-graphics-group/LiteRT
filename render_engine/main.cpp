@@ -1,5 +1,6 @@
 #include "simple_render.h"
 #include "glfw_window.h"
+#include "../Renderer/eye_ray_gpu.h"
 
 void initVulkanGLFW(std::shared_ptr<IRender> &app, GLFWwindow* window, int deviceID)
 {
@@ -30,6 +31,7 @@ int main()
   constexpr int VULKAN_DEVICE_ID = 0;
 
   std::shared_ptr<IRender> app = std::make_shared<SimpleRender>(WIDTH, HEIGHT);
+  std::shared_ptr<SimpleRender> app_sr = std::dynamic_pointer_cast<SimpleRender>(app);
 
   if(app == nullptr)
   {
@@ -44,7 +46,9 @@ int main()
   app->LoadScene("./scenes/043_cornell_normals/statex_00001.xml");
   // app->LoadScene("../resources/scenes/buggy/Buggy.gltf");
 
-  auto mr = CreateMultiRenderer(DEVICE_GPU);
+  auto mr = std::make_shared<MultiRenderer_GPU>(1000000);
+  //mr->SetVulkanContext(a_ctx);
+  mr->InitVulkanObjects(app_sr->m_device, app_sr->m_physicalDevice, 2048*2048);
 
   bool showGUI = true;
   mainLoop(app, window, showGUI);
