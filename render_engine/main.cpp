@@ -44,6 +44,8 @@ int main()
   app->LoadScene("./scenes/043_cornell_normals/statex_00001.xml");
   // app->LoadScene("../resources/scenes/buggy/Buggy.gltf");
 
+  auto mr = CreateMultiRenderer(DEVICE_GPU);
+
   bool showGUI = true;
   mainLoop(app, window, showGUI);
 
