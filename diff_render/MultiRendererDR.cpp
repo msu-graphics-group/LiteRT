@@ -1422,7 +1422,7 @@ namespace dr
       {
         samples_debug_pos_size[sample_id] = float4(d.x, d.y, 0, 1.0f/MEGA_PIXEL_SIZE);
         if (is_border_ray) //border
-          samples_debug_color[sample_id] = float4(0, 0, 0.1*abs(pixel_diff), 1);
+          samples_debug_color[sample_id] = float4(0, 0, 1, 1);
         else if (hit.primId == 0xFFFFFFFF) //background
         {
 #ifdef DEBUG_PAYLOAD_STORE_SDF

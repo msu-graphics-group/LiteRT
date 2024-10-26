@@ -167,12 +167,15 @@ void BVHRT::LocalSurfaceIntersection(uint32_t type, const float3 ray_dir, uint32
   unsigned iter = 0;
 
   float start_dist = 10000;
+  float start_sign = 1;
 
   #ifdef USE_TRICUBIC
     float point[3] = {(start_q + t * ray_dir).x, (start_q + t * ray_dir).y, (start_q + t * ray_dir).z};
     start_dist = tricubicInterpolation(values, point);
   #else
     start_dist = eval_dist_trilinear(values, start_q + t * ray_dir);
+    start_sign = sign(start_dist);
+    start_dist *= start_sign;
   #endif
 
   if (start_dist <= EPS || m_preset.sdf_node_intersect == SDF_OCTREE_NODE_INTERSECT_BBOX)
@@ -193,7 +196,7 @@ void BVHRT::LocalSurfaceIntersection(uint32_t type, const float3 ray_dir, uint32
         float point[3] = {(start_q + t * ray_dir).x, (start_q + t * ray_dir).y, (start_q + t * ray_dir).z};
         dist = tricubicInterpolation(values, point);
       #else
-        dist = eval_dist_trilinear(values, start_q + t * ray_dir);
+        dist = start_sign*eval_dist_trilinear(values, start_q + t * ray_dir);
       #endif
       
       float3 pp = start_q + t * ray_dir;
@@ -427,7 +430,7 @@ void BVHRT::LocalSurfaceIntersection(uint32_t type, const float3 ray_dir, uint32
         float s = std::min((dist*d_inv)/L, e);
         t += s;
         e = k*s;
-        dist = eval_dist_trilinear(values, start_q + t * ray_dir);
+        dist = start_sign*eval_dist_trilinear(values, start_q + t * ray_dir);
         pp = start_q + t * ray_dir;
         iter++;
       }
@@ -460,6 +463,7 @@ void BVHRT::LocalSurfaceIntersection(uint32_t type, const float3 ray_dir, uint32
     float3 norm = float3(0, 0, 1);
     if (need_normal())
     {
+      #ifndef USE_TRICUBIC
       float3 p0 = start_q + t * ray_dir;
       const float h = 0.001;
       float ddx = (eval_dist_trilinear(values, p0 + float3(h, 0, 0)) -
@@ -472,7 +476,33 @@ void BVHRT::LocalSurfaceIntersection(uint32_t type, const float3 ray_dir, uint32
                    eval_dist_trilinear(values, p0 + float3(0, 0, -h))) /
                   (2 * h);
 
+      norm = start_sign*normalize(matmul4x3(m_instanceData[instId].transformInvTransposed, float3(ddx, ddy, ddz)));
+      #else
+      float3 p0 = start_q + t * ray_dir;
+      const float h = 0.001;
+
+      float p1[3] = {(p0 + float3(h, 0, 0)).x, (p0).y, (p0).z};
+      float p2[3] = {(p0 + float3(-h, 0, 0)).x, p0.y, p0.z};
+      
+      float ddx = (tricubicInterpolation(values, p1) -
+                   tricubicInterpolation(values, p2)) /
+                  (2 * h);
+
+      float p3[3] = {p0.x, (p0 + float3(0, h, 0)).y, p0.z};
+      float p4[3] = {p0.x, (p0 + float3(0, -h, 0)).y, p0.z};
+      float ddy = (tricubicInterpolation(values, p3) -
+                   tricubicInterpolation(values, p4)) /
+                  (2 * h);
+
+      float p5[3] = {p0.x, p0.y, (p0 + float3(0, 0, h)).z};
+      float p6[3] = {p0.x, p0.y, (p0 + float3(0, 0, -h)).z};
+
+      float ddz = (tricubicInterpolation(values, p5) -
+                   tricubicInterpolation(values, p6)) /
+                  (2 * h);
+
       norm = normalize(matmul4x3(m_instanceData[instId].transformInvTransposed, float3(ddx, ddy, ddz)));
+      #endif
     }
     
     float2 encoded_norm = encode_normal(norm);
@@ -596,11 +626,9 @@ float BVHRT::load_distance_values(uint32_t nodeId, float3 voxelPos, uint32_t v_s
     uint32_t v_off = m_SdfSBSNodes[nodeId].data_offset;
     
     #ifdef USE_TRICUBIC
-      int3 p0 = int3(voxelPos - 1);
-      
-      // printf("P0: %d %d %d, V_P: %f %f %f: \n", p0.x, p0.y, p0.z, (voxelPos - 1).x, (voxelPos - 1).y, (voxelPos - 1).z);
+      int3 p0 = int3(voxelPos) - 1;
 
-      for (int x = 0; x < 4; ++x)
+      for (int x = 0; x < 4; x++)
       {
         for (int y = 0; y < 4; y++)
         {
@@ -614,6 +642,8 @@ float BVHRT::load_distance_values(uint32_t nodeId, float3 voxelPos, uint32_t v_s
         }
       }
     #else
+      //  (000) (001) (010) (011) (100) (101) (110) (111)
+
       for (int i = 0; i < 8; i++)
       {
         uint3 vPos = uint3(voxelPos) + uint3((i & 4) >> 2, (i & 2) >> 1, i & 1);
@@ -622,6 +652,20 @@ float BVHRT::load_distance_values(uint32_t nodeId, float3 voxelPos, uint32_t v_s
         // printf("%f\n", values[i]);
         vmin = std::min(vmin, values[i]);
       }
+
+      // for (int x = 0; x < 2; x++)
+      // {
+      //   for (int y = 0; y < 2; y++)
+      //   {
+      //     for (int z = 0; z < 2; z++)
+      //     {
+      //       uint3 vPos = uint3(voxelPos) + uint3(z, y, x);
+      //       uint32_t vId = SBS_v_to_i(vPos.x, vPos.y, vPos.z, v_size, header.brick_pad);
+      //       values[4 * z + 2 * y + x] = m_SdfSBSDataF[m_SdfSBSData[v_off + vId]];
+      //       vmin = std::min(vmin, values[4 * z + 2 * y + x]);
+      //     }
+      //   }
+      // }
     #endif
   }
   else
@@ -1634,6 +1678,47 @@ void BVHRT::IntersectNURBS(const float3& ray_pos, const float3& ray_dir,
 //////////////////////// END NURBS SECTION ///////////////////////////////////////////////
 #endif
 
+
+float4 rayCapsuleIntersect(const float3& ray_pos, const float3& ray_dir,
+                           const float3& pa, const float3& pb, float ra)
+{
+  float3 ba = pb - pa;
+  float3 oa = ray_pos - pa;
+  float3 ob = ray_pos - pb;
+  float baba = dot(ba,ba);
+  float bard = dot(ba,ray_dir);
+  float baoa = dot(ba,oa);
+  float rdoa = dot(ray_dir,oa);
+  float oaoa = dot(oa,oa);
+  float a = baba      - bard*bard;
+  float b = baba*rdoa - baoa*bard;
+  float c = baba*oaoa - baoa*baoa - ra*ra*baba;
+  float h = b*b - a*c;
+
+  if(h >= 0.f)
+  {
+    float dist = (-b-sqrt(h))/a;
+    float y = baoa + dist*bard;
+
+    // body
+    if(y > 0.f && y < baba)
+      return to_float4(normalize(oa+dist*ray_dir - ba*y/baba), dist);
+
+    // cap
+    float3 oc = (y <= 0.0) ? oa : ob;
+    b = dot(ray_dir,oc);
+    c = dot(oc,oc) - ra*ra;
+    h = b*b - c;
+    if(h > 0.f)
+    {
+      dist = -b - sqrt(h);
+      float3 norm = normalize(ray_pos+dist*ray_dir + (oc - ray_pos));
+      return to_float4(norm, dist);
+    }
+  }
+  return float4(2e15f);
+}
+
 void BVHRT::IntersectGraphicPrims(const float3& ray_pos, const float3& ray_dir,
                                   float tNear, uint32_t instId,
                                   uint32_t geomId, uint32_t a_start,
@@ -1647,12 +1732,23 @@ void BVHRT::IntersectGraphicPrims(const float3& ray_pos, const float3& ray_dir,
   GraphicsPrimHeader header = m_GraphicsPrimHeaders[primId];
   float3 color = header.color;
 
+  uint32_t prim_len = 2u;
+  if (header.prim_type == GRAPH_PRIM_POINT)
+    prim_len = 1u;
+  if (header.prim_type >= GRAPH_PRIM_LINE_COLOR)
+    prim_len = 3u;
+  
+  uint32_t start_index = primId + prim_len * a_start;
+  uint32_t end_index = start_index + prim_len; // 1 per bbox
+  // start_index = primId;
+  // end_index = nextPrimId;
+
   bool has_custom_color = header.prim_type >= GRAPH_PRIM_POINT_COLOR;
 
   if (header.prim_type == GRAPH_PRIM_POINT ||
       header.prim_type == GRAPH_PRIM_POINT_COLOR)
   {
-    for (uint32_t i = primId; i < nextPrimId; i += 1 + has_custom_color)
+    for (uint32_t i = start_index; i < end_index; i += prim_len)
     {
       float4 point = m_GraphicsPrimPoints[i];
       if (has_custom_color)
@@ -1691,7 +1787,7 @@ void BVHRT::IntersectGraphicPrims(const float3& ray_pos, const float3& ray_dir,
   }
   else
   {
-    for (uint32_t i = primId; i < nextPrimId; i += 2 + has_custom_color)
+    for (uint32_t i = start_index; i < end_index; i += prim_len)
     {
       float4 point1 = m_GraphicsPrimPoints[i  ];
       float4 point2 = m_GraphicsPrimPoints[i+1];
@@ -1700,8 +1796,9 @@ void BVHRT::IntersectGraphicPrims(const float3& ray_pos, const float3& ray_dir,
 
       float3 point1_3 = float3(point1.x, point1.y, point1.z);
       float3 point2_3 = float3(point2.x, point2.y, point2.z);
-      if (header.prim_type == GRAPH_PRIM_LINE_SEGMENT_DIR)
-        point2_3 = point2_3 * 0.8f + point1_3 * 0.2f; // so that the line segment doesn't clip through the cone
+      if (header.prim_type == GRAPH_PRIM_LINE_SEGMENT_DIR ||
+          header.prim_type == GRAPH_PRIM_LINE_SEGMENT_DIR_COLOR)
+        point2_3 = point2_3 * 0.71f + point1_3 * 0.29f; // so that the line segment doesn't clip through the cone
       float ra = point1.w; // line (cylinder) radius
 
       //assert(ra > EPS);
@@ -1793,6 +1890,35 @@ void BVHRT::IntersectGraphicPrims(const float3& ray_pos, const float3& ray_dir,
           {
             t = dist;
             norm = normalize(m0*(m0*(oa+t*ray_dir)+rr*ba*ra)-ba*hy*y);
+          }
+        }
+      }
+      if (header.prim_type == GRAPH_PRIM_BOX ||
+          header.prim_type == GRAPH_PRIM_BOX_COLOR)
+      {
+        float3 pa = min(point2_3, point1_3);
+        float3 pb = max(point2_3, point1_3);
+        float minmax[3][2] = {{pa.x, pb.x}, {pa.y, pb.y}, {pa.z, pb.z}};
+
+        const int4 vert_indices{0,3,5,6};
+        for (int vert_ind = 0; vert_ind < 4; ++vert_ind)
+        {
+          int axis_indices[3] = { int((vert_indices[vert_ind] & 4u) != 0),
+                                  int((vert_indices[vert_ind] & 2u) != 0),
+                                  int((vert_indices[vert_ind] & 1u) != 0) };
+          pa = float3(minmax[0][axis_indices[0]],
+                      minmax[1][axis_indices[1]],
+                      minmax[2][axis_indices[2]]);
+          for (int axis = 0; axis < 3; ++axis)
+          {
+            pb = pa;
+            pb[axis] = minmax[axis][1-axis_indices[axis]];
+            float4 norm_dist = rayCapsuleIntersect(ray_pos, ray_dir, pa, pb, ra);
+            if (norm_dist.w < t)
+            {
+              t = norm_dist.w;
+              norm = to_float3(norm_dist);
+            }
           }
         }
       }

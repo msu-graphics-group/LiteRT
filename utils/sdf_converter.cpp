@@ -80,7 +80,7 @@ namespace sdf_converter
   {
     if (settings.build_type == SparseOctreeBuildType::MESH_TLO)
     {
-      auto tlo = cmesh4::create_triangle_list_octree(mesh, settings.depth, 1, 1.0f);
+      auto tlo = cmesh4::create_triangle_list_octree(mesh, settings.depth, 0, 1.0f);
       std::vector<SdfFrameOctreeNode> nodes;
       mesh_octree_to_sdf_frame_octree(mesh, tlo, nodes);
       frame_octree_limit_nodes(nodes, settings.nodes_limit, false);
@@ -121,7 +121,7 @@ namespace sdf_converter
   {
     if (settings.build_type == SparseOctreeBuildType::MESH_TLO)
     {
-      auto tlo = cmesh4::create_triangle_list_octree(mesh, settings.depth, 1, 1.0f);
+      auto tlo = cmesh4::create_triangle_list_octree(mesh, settings.depth, 0, 1.0f);
       std::vector<SdfFrameOctreeNode> frame;
       std::vector<SdfSVSNode> nodes;
       mesh_octree_to_sdf_frame_octree(mesh, tlo, frame);

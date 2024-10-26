@@ -31,6 +31,8 @@ using LiteMath::Box4f;
 #include "nurbs/nurbs_common.h"
 #include "graphics_primitive/graphics_primitive_common.h"
 
+// #define USE_TRICUBIC 0
+
 
 struct BVHRT;
 struct GeomData

@@ -59,6 +59,7 @@ namespace dr
   struct RayDiffPayload
   {
     CRT_HitDR missed_hit;
+    CRT_HitDR missed_hit_candidate;
     uint32_t  missed_indices[8];
     float     missed_dSDF_dtheta[8];
 

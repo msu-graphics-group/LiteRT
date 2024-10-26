@@ -2542,6 +2542,7 @@ litert_test_34_tricubic_sbs()
     MultiRenderPreset preset = getDefaultPreset();
     preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
     preset.interpolation_type = TRICUBIC_INTERPOLATION_MODE;
+    preset.normal_mode = NORMAL_MODE_GEOMETRY;
     SparseOctreeSettings settings(SparseOctreeBuildType::MESH_TLO, 5);
 
     SdfSBSHeader header;
@@ -2593,7 +2594,7 @@ litert_test_34_tricubic_sbs()
 
       SdfSBSHeader header;
       header.brick_size = 2;
-      header.brick_pad = 1;
+      header.brick_pad = 0;
       header.bytes_per_value = 1;
 
       LiteImage::Image2D<uint32_t> image_mesh(W, H);
@@ -2717,7 +2718,7 @@ void litert_test_36_primitive_visualization()
 
   GraphicsPrim primitives;
   {
-    primitives.header.prim_type = GRAPH_PRIM_LINE_SEGMENT_DIR;
+    primitives.header.prim_type = GRAPH_PRIM_BOX;
     primitives.header.color = float3(0.f, 255.f, 255.f);
 
     const uint32_t pt_count = 5u;
@@ -2728,7 +2729,7 @@ void litert_test_36_primitive_visualization()
       primitives.points[2*i] = float4(double(rand()) / (RAND_MAX >> 1) - 1.f,
                                       double(rand()) / (RAND_MAX >> 1) - 1.f,
                                       double(rand()) / (RAND_MAX >> 1) - 1.f,
-                                      0.02f);
+                                      0.007f);
       primitives.points[2*i+1] = float4(double(rand()) / (RAND_MAX >> 1) - 1.f,
                                         double(rand()) / (RAND_MAX >> 1) - 1.f,
                                         double(rand()) / (RAND_MAX >> 1) - 1.f, 0.f);
@@ -2841,12 +2842,15 @@ void litert_test_38_direct_octree_traversal()
 {
   printf("TEST 38. BVH vs. DIRECT OCTREE TRAVERSAL\n");
 
-  auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "saves/teapot/mesh.vsgf").c_str());
+  auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "scenes/01_simple_scenes/data/teapot.vsgf").c_str());
   cmesh4::normalize_mesh(mesh);
+  //cmesh4::check_watertight_mesh(mesh, true);// ? mesh : cmesh4::removing_holes(mesh, ind, fl);
+  //cmesh4::compress_close_vertices(mesh, 1e-7f, true);
+  //cmesh4::fix_normals(mesh, true);
 
   if (true)
   {
-  auto octree = sdf_converter::create_sdf_frame_octree(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 9, 2<<28),
+  auto octree = sdf_converter::create_sdf_frame_octree(SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, 9, 2<<28),
                                                        mesh);
   save_sdf_frame_octree(octree, "saves/octree.bin");
   auto SVS = sdf_converter::create_sdf_SVS(SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, 9, 2<<28),

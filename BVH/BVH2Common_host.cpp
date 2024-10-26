@@ -854,10 +854,23 @@ uint32_t BVHRT::AddGeom_NURBS(const RawNURBS &nurbs, ISceneObject *fake_this, Bu
   return fake_this->AddGeom_AABB(AbstractObject::TAG_NURBS, (const CRT_AABB*)orig_nodes.data(), orig_nodes.size());
 }
 
+BVHNode getDiskAABB(float3 pt, float3 norm, float rad)
+{
+  BVHNode res_node{};
+  norm = normalize(norm) * rad;
+
+  float xy_len = std::sqrt(norm.x * norm.x + norm.y * norm.y);
+  float xz_len = std::sqrt(norm.x * norm.x + norm.z * norm.z);
+  float yz_len = std::sqrt(norm.y * norm.y + norm.z * norm.z);
+  res_node.boxMin = pt - float3(yz_len, xz_len, xy_len);
+  res_node.boxMax = pt + float3(yz_len, xz_len, xy_len);
+  return res_node;
+}
+
 uint32_t BVHRT::AddGeom_GraphicsPrim(const GraphicsPrimView &prim_view, ISceneObject *fake_this, BuildOptions a_qualityLevel)
 {
-  float4 mn = float4( 1, 1, 1,1);
-  float4 mx = float4(-1,-1,-1,1);
+  float3 mn = float3( 1, 1, 1);
+  float3 mx = float3(-1,-1,-1);
 
   std::vector<BVHNode> orig_nodes;
 
@@ -867,8 +880,6 @@ uint32_t BVHRT::AddGeom_GraphicsPrim(const GraphicsPrimView &prim_view, ISceneOb
   m_abstractObjects.back().m_tag = AbstractObject::TAG_GRAPHICS_PRIM;
 
   m_geomData.emplace_back();
-  m_geomData.back().boxMin = mn;
-  m_geomData.back().boxMax = mx;
   m_geomData.back().offset = uint2(m_GraphicsPrimRoots.size(), m_GraphicsPrimRoots.size() + prim_view.size);
   m_geomData.back().bvhOffset = m_allNodePairs.size();
   m_geomData.back().type = TYPE_GRAPHICS_PRIM;
@@ -877,9 +888,120 @@ uint32_t BVHRT::AddGeom_GraphicsPrim(const GraphicsPrimView &prim_view, ISceneOb
   m_GraphicsPrimRoots.push_back(m_GraphicsPrimPoints.size());
   m_GraphicsPrimPoints.insert(m_GraphicsPrimPoints.end(), prim_view.points, prim_view.points + prim_view.size);
 
-  orig_nodes.emplace_back();
-  orig_nodes[0].boxMin = float3(mn.x, mn.y, mn.z);
-  orig_nodes[0].boxMax = float3(mx.x, mx.y, mx.z);
+
+  uint32_t arr_step = 2u;
+  if (prim_view.header.prim_type == GRAPH_PRIM_POINT)
+    arr_step = 1u;
+  if (prim_view.header.prim_type >= GRAPH_PRIM_LINE_COLOR)
+    arr_step = 3u;
+  
+  for (uint32_t i = 0u; i < prim_view.size; i += arr_step)
+  {
+    BVHNode new_node{};
+    if (prim_view.header.prim_type == GRAPH_PRIM_POINT ||
+        prim_view.header.prim_type == GRAPH_PRIM_POINT_COLOR)
+    {
+      float4 pt_rad = prim_view.points[i];
+      new_node.boxMin = to_float3(pt_rad) - pt_rad.w;
+      new_node.boxMax = to_float3(pt_rad) + pt_rad.w;
+    }
+    else if (prim_view.header.prim_type == GRAPH_PRIM_LINE ||
+             prim_view.header.prim_type == GRAPH_PRIM_LINE_COLOR)
+    {
+      float4 pt1_rad = prim_view.points[i  ];
+      float4 pt2     = prim_view.points[i+1];
+
+      float3 pos = to_float3(pt2);
+      float3 dir = normalize(to_float3(pt1_rad) - pos);
+      float3 inv_dir = float3(dir.x > 1e-4f ? 1.f / dir.x : 0.f,
+                              dir.y > 1e-4f ? 1.f / dir.y : 0.f,
+                              dir.z > 1e-4f ? 1.f / dir.z : 0.f);
+
+      // line-box intersection
+      float2 t{0.f};
+      bool pos_on_positive1 = false;
+      bool pos_on_negative1 = false;
+
+      for (int axis = 0; axis < 3; ++axis)
+      {
+        if (dir[axis] > 1e-4f)
+        {
+          float dist = 1.f - pos[axis];
+          if (std::abs(dist) < 1e-4f)
+            pos_on_positive1 = true;
+          else
+          {
+            float t1 = dist / dir[axis];
+            if (t.x == 0.f || std::abs(t1) < std::abs(t.x))
+              t.x = t1;
+          }
+
+          dist = -1.f - pos[axis];
+          if (std::abs(dist) < 1e-4f)
+            pos_on_negative1 = true;
+          else
+          {
+            float t2 = dist / dir[axis];
+            if (t.y == 0.f || std::abs(t2) < std::abs(t.y))
+              t.y = t2;
+          }
+        }
+      }
+
+      float3 intersect1 = pos_on_positive1 ? pos : pos + t.x * dir;
+      float3 intersect2 = pos_on_negative1 ? pos : pos + t.y * dir;
+
+      new_node = getDiskAABB(intersect1, dir, pt1_rad.w);
+
+      BVHNode tmp_node = getDiskAABB(intersect2, dir, pt1_rad.w);
+      new_node.boxMin = min(new_node.boxMin, tmp_node.boxMin);
+      new_node.boxMax = max(new_node.boxMax, tmp_node.boxMax);
+    }
+    else if (prim_view.header.prim_type == GRAPH_PRIM_LINE_SEGMENT ||
+             prim_view.header.prim_type == GRAPH_PRIM_LINE_SEGMENT_COLOR)
+    {
+      float4 pt1_rad = prim_view.points[i  ];
+      float4 pt2     = prim_view.points[i+1];
+      float3 dir = normalize(to_float3(pt2 - pt1_rad));
+
+      new_node = getDiskAABB(to_float3(pt2), dir, pt1_rad.w);
+
+      BVHNode tmp_node = getDiskAABB(to_float3(pt1_rad), dir, pt1_rad.w);
+      new_node.boxMin = min(new_node.boxMin, tmp_node.boxMin);
+      new_node.boxMax = max(new_node.boxMax, tmp_node.boxMax);
+    }
+    else if (prim_view.header.prim_type == GRAPH_PRIM_LINE_SEGMENT_DIR ||
+             prim_view.header.prim_type == GRAPH_PRIM_LINE_SEGMENT_DIR_COLOR)
+    {
+      float4 pt1_rad = prim_view.points[i];
+      float3 pt2 = to_float3(prim_view.points[i+1]);
+      float3 pt1 = to_float3(pt1_rad);
+      float3 dir = pt2 - pt1;
+
+      float cone_ra = length(pt2 - pt1) * 0.15f;
+      float3 pa = pt2 * 0.7f + pt1 * 0.3f;
+
+      new_node = getDiskAABB(pt1, dir, pt1_rad.w); // arrow start
+      new_node.boxMin = min(new_node.boxMin, pt2); // arrow point
+      new_node.boxMax = max(new_node.boxMax, pt2); // arrow point
+
+      BVHNode tmp_node = getDiskAABB(pa, dir, cone_ra);
+      new_node.boxMin = min(new_node.boxMin, tmp_node.boxMin); // arrow cone
+      new_node.boxMax = max(new_node.boxMax, tmp_node.boxMax); // arrow cone
+    }
+    else if (prim_view.header.prim_type == GRAPH_PRIM_BOX ||
+             prim_view.header.prim_type == GRAPH_PRIM_BOX_COLOR)
+    {
+      float4 pt_min_rad = prim_view.points[i];
+      float3 pt_max = to_float3(prim_view.points[i+1]);
+      new_node.boxMin = min(to_float3(pt_min_rad), pt_max) - pt_min_rad.w;
+      new_node.boxMax = max(to_float3(pt_min_rad), pt_max) + pt_min_rad.w;
+    }
+
+    mn = min(mn, new_node.boxMin);
+    mx = max(mx, new_node.boxMax);
+    orig_nodes.push_back(new_node);
+  }
 
   if (orig_nodes.size() == 1)
   {
@@ -887,6 +1009,9 @@ uint32_t BVHRT::AddGeom_GraphicsPrim(const GraphicsPrimView &prim_view, ISceneOb
     orig_nodes[1].boxMin = orig_nodes[0].boxMin - 0.001f*float3(-1,-1,-1);
     orig_nodes[1].boxMax = orig_nodes[0].boxMin;
   }
+
+  m_geomData.back().boxMin = to_float4(mn, 1);
+  m_geomData.back().boxMax = to_float4(mx, 1);
 
   return fake_this->AddGeom_AABB(AbstractObject::TAG_GRAPHICS_PRIM, (const CRT_AABB*)orig_nodes.data(), orig_nodes.size(), nullptr, 1);
 }
