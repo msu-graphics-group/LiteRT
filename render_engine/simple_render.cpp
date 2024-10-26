@@ -404,8 +404,14 @@ void SimpleRender::RecreateSwapChain()
 
   // *** ray tracing resources
   m_raytracedImageData.resize(m_width * m_height);
-  // m_pRayTracerCPU = nullptr;
-  // m_pRayTracerGPU = nullptr;
+  // change screen resolution
+  if (m_pRayTracerCPU)
+  {
+    m_pRayTracerCPU->SetViewport(0,0, m_width, m_height);
+    m_pRayTracerCPU->CommitDeviceData();
+    m_pRayTracerCPU->Clear(m_width, m_height, "color");
+  }
+
   SetupRTImage();
   SetupQuadRenderer();
   SetupQuadDescriptors();

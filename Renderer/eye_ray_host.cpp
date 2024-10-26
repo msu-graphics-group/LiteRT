@@ -233,7 +233,7 @@ void MultiRenderer::CastRaySingleBlock(uint32_t tidX, uint32_t * out_color, uint
   //CPU version is mostly used by debug, so better make it single-threaded
   //also per-pixel debug does not work with multithreading
   //#ifndef _DEBUG
-  //#pragma omp parallel for default(shared)
+  #pragma omp parallel for default(shared)
   //#endif
   for(int i=0;i<tidX;i++)
     CastRaySingle(i, out_color);
