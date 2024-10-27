@@ -53,7 +53,7 @@ namespace dr
     float3   color;
     float    sdf;       //used only for missed_hit in RayDiffPayload, but we need padding here anyway
     float3   normal;
-    uint32_t _pad1;
+    uint32_t check_vox_border;
   };
 
   struct RayDiffPayload
