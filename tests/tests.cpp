@@ -2783,7 +2783,7 @@ void litert_test_37_sbs_adapt_comparison()
     auto real_sdf = [&](const float3 &p, unsigned idx) -> float 
     { return bvh[idx].get_signed_distance(p);};
 
-    printf("TEST 37. SBS ABD ADAPTIVE SBS COMPARISON\n");
+    printf("TEST 37. SBS AND ADAPTIVE SBS COMPARISON\n");
 
   unsigned num_of_test = 1;
   for (unsigned depth = 2; depth < 6; ++depth, ++num_of_test)
@@ -3085,6 +3085,70 @@ void litert_test_39_visualize_sbs_bricks()
   }
 }
 
+void litert_test_40_psdf_framed_octree()
+{
+  auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "scenes/01_simple_scenes/data/bunny.vsgf").c_str());
+  cmesh4::rescale_mesh(mesh, float3(-0.95, -0.95, -0.95), float3(0.95, 0.95, 0.95));
+  //cmesh4::transform_mesh(mesh, rotate4x4Z(M_PI / 2.0f));
+  //cmesh4::transform_mesh(mesh, rotate4x4Y(M_PI));
+
+  SparseOctreeSettings settings(SparseOctreeBuildType::MESH_TLO, 5);
+  std::vector<SdfFrameOctreeNode> frame_nodes = sdf_converter::create_psdf_frame_octree(settings, mesh);
+
+  MultiRenderPreset preset = getDefaultPreset();
+  preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
+
+  unsigned W = 2048, H = 2048;
+  LiteImage::Image2D<uint32_t> image(W, H);
+  LiteImage::Image2D<uint32_t> image_m(W, H);
+
+  {
+
+    auto pRender = CreateMultiRenderer("GPU");
+    pRender->SetPreset(preset);
+    pRender->SetViewport(0,0,W,H);
+
+    pRender->SetScene(mesh);
+    render(image_m, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+    LiteImage::SaveImage<uint32_t>("saves/test_40_mesh.bmp", image_m); 
+  }
+  
+
+  {
+
+    auto pRender = CreateMultiRenderer("GPU");
+    pRender->SetPreset(preset);
+    pRender->SetScene(frame_nodes);
+    render(image, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset);
+    LiteImage::SaveImage<uint32_t>("saves/test_40_psdf.bmp", image); 
+
+    printf("  40.1 %-64s", "PSDF Framed Octree");
+    float psnr = image_metrics::PSNR(image_m, image);
+    if (psnr >= 30)
+      printf("passed    (%.9f)\n", psnr);
+    else
+      printf("FAILED, psnr = %f\n", psnr);
+  }
+
+  frame_nodes = sdf_converter::create_sdf_frame_octree(settings, mesh);
+
+  {
+
+    auto pRender = CreateMultiRenderer("GPU");
+    pRender->SetPreset(preset);
+    pRender->SetScene(frame_nodes);
+    render(image, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset);
+    LiteImage::SaveImage<uint32_t>("saves/test_40_sdf.bmp", image); 
+
+    printf("  40.2 %-64s", "SDF Framed Octree");
+    float psnr = image_metrics::PSNR(image_m, image);
+    if (psnr >= 30)
+      printf("passed    (%.9f)\n", psnr);
+    else
+      printf("FAILED, psnr = %f\n", psnr);
+  }
+}
+
 void perform_tests_litert(const std::vector<int> &test_ids)
 {
   std::vector<int> tests = test_ids;
@@ -3102,7 +3166,8 @@ void perform_tests_litert(const std::vector<int> &test_ids)
       litert_test_28_sbs_reg, litert_test_29_smoothed_frame_octree, litert_test_30_verify_SBS_SBSAdapt,
       litert_test_31_fake_nurbs_render, litert_test_32_smooth_sbs_normals, litert_test_33_verify_SBS_SBSAdapt_split, 
       litert_test_34_tricubic_sbs, litert_test_35_SBSAdapt_greed_creating, litert_test_36_primitive_visualization,
-      litert_test_37_sbs_adapt_comparison, litert_test_38_direct_octree_traversal, litert_test_39_visualize_sbs_bricks};
+      litert_test_37_sbs_adapt_comparison, litert_test_38_direct_octree_traversal, litert_test_39_visualize_sbs_bricks,
+      litert_test_40_psdf_framed_octree};
 
   if (tests.empty())
   {

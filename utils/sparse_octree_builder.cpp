@@ -509,6 +509,123 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
     mesh_octree_to_sdf_frame_octree_rec(mesh, tl_octree, out_frame, 0, float3(0,0,0), 1);
   }
 
+  void mesh_octree_to_psdf_frame_octree_rec(const cmesh4::SimpleMesh &mesh,
+                                         const cmesh4::TriangleListOctree &tl_octree,
+                                         std::vector<SdfFrameOctreeNode> &frame,
+                                         unsigned idx, float3 p, float d)
+  {
+    unsigned ofs = tl_octree.nodes[idx].offset;
+    frame[idx].offset = ofs;
+
+    if (is_leaf(ofs)) 
+    {
+      float3 pos = 2.0f*(d*p) - 1.0f;
+      bool is_dif_sgn = false;
+      int8_t first_sgn = 0;
+
+      float min_mid_dist_sq = 1000;
+      int min_mid_ti = -1;
+      float3 mid_pos = pos + d*float3(1, 1, 1);
+      for (int i = 0; i < 8; i++)
+      {
+        float3 ch_pos = pos + 2*d*float3((i >> 2) & 1, (i >> 1) & 1, i & 1);
+        float min_dist_sq = 1000;
+        int min_ti = -1;
+        for (int j=0; j<tl_octree.nodes[idx].tid_count; j++)
+        {
+          int t_i = tl_octree.triangle_ids[tl_octree.nodes[idx].tid_offset+j];
+
+          float3 a = to_float3(mesh.vPos4f[mesh.indices[3*t_i+0]]);
+          float3 b = to_float3(mesh.vPos4f[mesh.indices[3*t_i+1]]);
+          float3 c = to_float3(mesh.vPos4f[mesh.indices[3*t_i+2]]);
+          float3 vt = ch_pos - cmesh4::closest_point_triangle(ch_pos, a, b, c);
+          float dist_sq = LiteMath::dot(vt, vt);
+
+          if (dist_sq < min_dist_sq)
+          {
+            min_dist_sq = dist_sq; 
+            min_ti = t_i;
+          }
+
+          if (i == 0)
+          {
+            vt = mid_pos - cmesh4::closest_point_triangle(mid_pos, a, b, c);
+            dist_sq = LiteMath::dot(vt, vt);
+
+            if (dist_sq < min_mid_dist_sq)
+            {
+              min_mid_dist_sq = dist_sq; 
+              min_mid_ti = t_i;
+            }
+          }
+        }
+
+        if (min_ti >= 0)
+        {
+          float3 a = to_float3(mesh.vPos4f[mesh.indices[3*min_ti+0]]);
+          float3 b = to_float3(mesh.vPos4f[mesh.indices[3*min_ti+1]]);
+          float3 c = to_float3(mesh.vPos4f[mesh.indices[3*min_ti+2]]);
+          float3 vt = ch_pos - cmesh4::closest_point_triangle(ch_pos, a, b, c);
+          float3 n = (1.0f/3.0f)*(to_float3(mesh.vNorm4f[mesh.indices[3*min_ti+0]]) + 
+                                  to_float3(mesh.vNorm4f[mesh.indices[3*min_ti+1]]) + 
+                                  to_float3(mesh.vNorm4f[mesh.indices[3*min_ti+2]]));
+
+          frame[idx].values[i] = dot(normalize(n), vt) > 0 ? sqrt(min_dist_sq) : -sqrt(min_dist_sq);
+          if (i == 0)
+          {
+            first_sgn = dot(normalize(n), vt) > 0 ? 1 : -1;
+          }
+          else if (!is_dif_sgn && first_sgn * dot(normalize(n), vt) <= 0)
+          {
+            is_dif_sgn = true;
+            //printf("%d %f\n", i, first_sgn * dot(normalize(n), vt));
+          }
+        }
+        else
+        {
+          frame[idx].values[i] = 1000;
+          is_dif_sgn = true;
+        }
+      }
+      if (!is_dif_sgn)
+      {
+        for (int i = 0; i < 8; ++i)
+        {
+          float3 ch_pos = pos + 2*d*float3((i >> 2) & 1, (i >> 1) & 1, i & 1);
+          float3 a = to_float3(mesh.vPos4f[mesh.indices[3*min_mid_ti+0]]);
+          float3 b = to_float3(mesh.vPos4f[mesh.indices[3*min_mid_ti+1]]);
+          float3 c = to_float3(mesh.vPos4f[mesh.indices[3*min_mid_ti+2]]);
+          float3 vt = ch_pos - cmesh4::closest_point_triangle(ch_pos, a, b, c);
+          float3 n = (1.0f/3.0f)*(to_float3(mesh.vNorm4f[mesh.indices[3*min_mid_ti+0]]) + 
+                                  to_float3(mesh.vNorm4f[mesh.indices[3*min_mid_ti+1]]) + 
+                                  to_float3(mesh.vNorm4f[mesh.indices[3*min_mid_ti+2]]));
+          if (frame[idx].values[i] * dot(normalize(n), vt) < 0)
+          {
+            frame[idx].values[i] = -frame[idx].values[i];
+          }
+          //printf("checked\n");
+        }
+      }
+    }
+    else
+    {
+      for (int i = 0; i < 8; i++)
+      {
+        float ch_d = d / 2;
+        float3 ch_p = 2 * p + float3((i & 4) >> 2, (i & 2) >> 1, i & 1);
+        mesh_octree_to_psdf_frame_octree_rec(mesh, tl_octree, frame, ofs + i, ch_p, ch_d);
+      }
+    }
+  }
+
+  void mesh_octree_to_psdf_frame_octree(const cmesh4::SimpleMesh &mesh,
+                                       const cmesh4::TriangleListOctree &tl_octree, 
+                                       std::vector<SdfFrameOctreeNode> &out_frame)
+  {
+    out_frame.resize(tl_octree.nodes.size());
+    mesh_octree_to_psdf_frame_octree_rec(mesh, tl_octree, out_frame, 0, float3(0,0,0), 1);
+  }
+
   struct LayerFrameNodeInfo
   {
     unsigned idx;
