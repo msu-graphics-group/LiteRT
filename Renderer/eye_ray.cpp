@@ -219,6 +219,32 @@ float4 MultiRenderer::kernel_RayTrace(uint32_t tidX, const float4* rayPosAndNear
   }
   break;
 
+  case MULTI_RENDER_MODE_HSV_DEPTH:
+  {
+    float3 isect_pt = to_float3(rayPos + z * rayDir);
+    float z_transformed = (isect_pt.z + 1.f) * 2.f;
+    z_transformed = z_transformed - int(z_transformed);
+    if (z_transformed < 0.f)
+      z_transformed = 1.f + z_transformed;
+    float3 hsv_col = float3(z_transformed, 1.f, 1.f);
+
+    // HSV -> RGB
+    res_color = float4(hsv_col.z, hsv_col.z, hsv_col.z, 1.f);
+    float Vmin = (1.f - hsv_col.y) * hsv_col.z;
+    float H_i = 0.f;
+    float a = (hsv_col.z - Vmin) * std::modf(hsv_col.x * 6.f, &H_i);
+    uint32_t H_i_int = uint32_t(H_i);
+    H_i_int = H_i_int <= 5u ? H_i_int : 5u;
+
+    res_color[(2u + (H_i_int >> 1)) % 3u] = Vmin;
+    if (H_i_int & 1u)
+      res_color[H_i_int >> 1] = hsv_col.z - a;
+    else
+      res_color[(1u + (H_i_int >> 1)) % 3u] = Vmin + a;
+    res_color.w = 1.f;
+  }
+  break;
+
   case MULTI_RENDER_MODE_INVERSE_LINEAR_DEPTH:
   {
     float d = 1 - ((z - z_near) / (z_far - z_near));
