@@ -237,7 +237,7 @@ float4 MultiRenderer::kernel_RayTrace(uint32_t tidX, const float4* rayPosAndNear
     H_i_int = H_i_int <= 5u ? H_i_int : 5u;
 
     res_color[(2u + (H_i_int >> 1)) % 3u] = Vmin;
-    if (H_i_int & 1u)
+    if ((H_i_int & 1u) != 0u)
       res_color[H_i_int >> 1] = hsv_col.z - a;
     else
       res_color[(1u + (H_i_int >> 1)) % 3u] = Vmin + a;

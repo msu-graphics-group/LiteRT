@@ -3074,7 +3074,7 @@ void litert_test_39_visualize_sbs_bricks()
   printf("boxes points: %ld\n", boxes.points.size() / 3);
 
   {
-    auto pRender = CreateMultiRenderer("CPU");
+    auto pRender = CreateMultiRenderer("GPU");
     pRender->SetPreset(preset);
     pRender->SetScene(boxes);
     render(image_2, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
