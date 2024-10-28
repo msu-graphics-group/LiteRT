@@ -172,6 +172,11 @@ if (USE_VULKAN)
   set(MODULES_LIBRARIES ${MODULES_LIBRARIES} ${Vulkan_LIBRARY} OpenMP::OpenMP_CXX volk dl)
 endif()
 
+set(
+  NURBS_SRC
+    nurbs/nurbs_common_host.cpp
+)
+
 add_executable(render_app)
 target_include_directories(render_app PUBLIC ${MODULES_INCLUDE_DIRS})
 
@@ -179,7 +184,8 @@ target_sources(render_app PRIVATE main.cpp
                ${MODULES_SRC}
                ${SCENE_LOADER_SRC}
                ${CORE_SRC}
-               ${BUILDERS_SRC})
+               ${BUILDERS_SRC}
+               ${NURBS_SRC})
 
 set_property(TARGET render_app PROPERTY CXX_STANDARD 17)
 target_link_libraries(render_app PRIVATE Threads::Threads dl ${RAYTRACING_EMBREE_LIBS} ${MODULES_LIBRARIES})

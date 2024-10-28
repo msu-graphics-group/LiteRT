@@ -82,7 +82,7 @@ public:
   void SetScene(SdfSBSAdaptView scene);
 
   void SetScene(SdfFrameOctreeTexView scene);
-  void SetScene(const RawNURBS &nurbs);
+  void SetScene(const RBezierGrid &rbeziers);
   void SetScene(GraphicsPrimView scene);
 
 #endif

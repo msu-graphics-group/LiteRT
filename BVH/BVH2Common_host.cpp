@@ -10,6 +10,7 @@
 #include <map>
 
 #include "BVH2Common.h"
+#include "../nurbs/nurbs_common_host.h"
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -780,24 +781,13 @@ uint32_t BVHRT::AddGeom_SdfFrameOctreeTex(SdfFrameOctreeTexView octree, ISceneOb
   return fake_this->AddGeom_AABB(AbstractObject::TAG_SDF_NODE, (const CRT_AABB*)m_origNodes.data(), m_origNodes.size());
 }
 
-std::vector<BVHNode> GetBoxes_NURBS(const RawNURBS &nurbs)
+uint32_t BVHRT::AddGeom_NURBS(const RBezierGrid &rbeziers, ISceneObject *fake_this, BuildOptions a_qualityLevel)
 {
-  //TODO: find list of BVH leaf nodes for NURBS
-  std::vector<BVHNode> nodes;
-  nodes.resize(2);
-  nodes[0].boxMin = float3(-0.5,-0.5,-0.5);
-  nodes[0].boxMax = float3(0.5,0.5,0);
-  nodes[1].boxMin = float3(-0.5,-0.5,0);
-  nodes[1].boxMax = float3(0.5,0.5,0.5);
-  return nodes;
-}
-
-uint32_t BVHRT::AddGeom_NURBS(const RawNURBS &nurbs, ISceneObject *fake_this, BuildOptions a_qualityLevel)
-{
-  float4 mn = float4(-0.5,-0.5,-0.5,0.5);
-  float4 mx = float4( 0.5, 0.5, 0.5,0.5);
-
-  //TODO: find BBox for given NURBS
+  auto bbox = rbeziers.bbox;
+  if (LiteMath::any_of(to_float3(bbox.boxMin) == to_float3(bbox.boxMax))) {
+    bbox.boxMin -= 1e-4f;
+    bbox.boxMax += 1e-4f;
+  }
 
   //fill geom data array
   m_abstractObjects.resize(m_abstractObjects.size() + 1); 
@@ -806,16 +796,45 @@ uint32_t BVHRT::AddGeom_NURBS(const RawNURBS &nurbs, ISceneObject *fake_this, Bu
   m_abstractObjects.back().m_tag = type_to_tag(TYPE_NURBS);
 
   m_geomData.emplace_back();
-  m_geomData.back().boxMin = mn;
-  m_geomData.back().boxMax = mx;
+  m_geomData.back().boxMin = bbox.boxMin;
+  m_geomData.back().boxMax = bbox.boxMax;
   m_geomData.back().offset = uint2(m_NURBSHeaders.size(), 0);
   m_geomData.back().bvhOffset = m_allNodePairs.size();
   m_geomData.back().type = TYPE_NURBS;
 
-  //TODO: save NURBS to headers and data
+  //save NURBS to headers and data
+  uint32_t offset = m_NURBSData.size();
+  auto [grid_rows, grid_cols] = rbeziers.grid.shape2D();
+  auto [surf_rows, surf_cols] = rbeziers.grid[{0, 0}].weighted_points.shape2D();
+  
+  m_NURBSHeaders.push_back(NURBSHeader{
+    static_cast<int>(offset), 
+    static_cast<int>(surf_rows-1), static_cast<int>(surf_cols-1), 
+    static_cast<int>(grid_rows+1), static_cast<int>(grid_cols+1)
+  });
+  
+  for (int i = 0; i < rbeziers.grid.rows_count(); ++i)
+  for (int j = 0; j < rbeziers.grid.cols_count(); ++j)
+  {
+    std::copy(
+      reinterpret_cast<const float*>(
+          rbeziers.grid[{i, j}].weighted_points.data()),
+      reinterpret_cast<const float*>(
+          rbeziers.grid[{i, j}].weighted_points.data()+surf_rows*surf_cols),
+      std::back_inserter(m_NURBSData));
+  }
+
+  std::copy(
+    rbeziers.uniq_uknots.begin(), rbeziers.uniq_uknots.end(), 
+    std::back_inserter(m_NURBSData));
+  std::copy(
+    rbeziers.uniq_vknots.begin(), rbeziers.uniq_vknots.end(),
+    std::back_inserter(m_NURBSData));
 
   //create list of bboxes for BLAS
-  std::vector<BVHNode> orig_nodes = GetBoxes_NURBS(nurbs);
+  std::vector<BVHNode> orig_nodes(2);
+  orig_nodes[0].boxMin = to_float3(bbox.boxMin);
+  orig_nodes[0].boxMax = to_float3(bbox.boxMax);
   
   return fake_this->AddGeom_AABB(AbstractObject::TAG_NURBS, (const CRT_AABB*)orig_nodes.data(), orig_nodes.size());
 }
