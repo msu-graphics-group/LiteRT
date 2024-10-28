@@ -95,8 +95,10 @@ public:
   VkDevice         m_device         = VK_NULL_HANDLE;
   VkQueue          m_graphicsQueue  = VK_NULL_HANDLE;
   VkQueue          m_transferQueue  = VK_NULL_HANDLE;
+  VkQueue          m_computeQueue   = VK_NULL_HANDLE;
 
   std::shared_ptr<vk_utils::ICopyEngine> m_pCopyHelper;
+  std::shared_ptr<vk_utils::IMemoryAlloc> m_pAllocatorSpecial;
 
   vk_utils::QueueFID_T m_queueFamilyIDXs {UINT32_MAX, UINT32_MAX, UINT32_MAX};
 

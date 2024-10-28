@@ -19,7 +19,7 @@ SimpleRender::SimpleRender(uint32_t a_width, uint32_t a_height) : m_width(a_widt
 
 void SimpleRender::SetupDeviceFeatures()
 {
-  if(ENABLE_HARDWARE_RT)
+  if(true)
   {
     // m_enabledDeviceFeatures.fillModeNonSolid = VK_TRUE;
     m_enabledRayQueryFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR;
@@ -45,7 +45,7 @@ void SimpleRender::SetupDeviceExtensions()
 {
   m_deviceExtensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
   
-  if(ENABLE_HARDWARE_RT)
+  if(true)
   {
     m_deviceExtensions.push_back(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME);
     m_deviceExtensions.push_back(VK_KHR_RAY_QUERY_EXTENSION_NAME);
@@ -72,6 +72,7 @@ void SimpleRender::GetRTFeatures()
 
 void SimpleRender::SetupValidationLayers()
 {
+  m_enableValidation = false;
   m_validationLayers.push_back("VK_LAYER_KHRONOS_validation");
   m_validationLayers.push_back("VK_LAYER_LUNARG_monitor");
 }
@@ -91,7 +92,7 @@ void SimpleRender::InitVulkan(const char** a_instanceExtensions, uint32_t a_inst
   CreateDevice(a_deviceId);
   volkLoadDevice(m_device);
 
-  GetRTFeatures();
+  // GetRTFeatures();
 
   m_commandPool = vk_utils::createCommandPool(m_device, m_queueFamilyIDXs.graphics,
                                               VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
@@ -110,6 +111,8 @@ void SimpleRender::InitVulkan(const char** a_instanceExtensions, uint32_t a_inst
 
   m_pCopyHelper = std::make_shared<vk_utils::PingPongCopyHelper>(m_physicalDevice, m_device, m_transferQueue,
     m_queueFamilyIDXs.transfer, STAGING_MEM_SIZE);
+
+  m_pAllocatorSpecial = vk_utils::CreateMemoryAlloc_Special(m_device, m_physicalDevice);
 
   LoaderConfig conf = {};
   conf.load_geometry = true;
@@ -179,15 +182,17 @@ void SimpleRender::CreateInstance()
 void SimpleRender::CreateDevice(uint32_t a_deviceId)
 {
   SetupDeviceExtensions();
+  SetupDeviceFeatures();
+
   m_physicalDevice = vk_utils::findPhysicalDevice(m_instance, true, a_deviceId, m_deviceExtensions);
 
-  SetupDeviceFeatures();
   m_device = vk_utils::createLogicalDevice(m_physicalDevice, m_validationLayers, m_deviceExtensions,
                                            m_enabledDeviceFeatures, m_queueFamilyIDXs,
                                            VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_TRANSFER_BIT, m_pDeviceFeatures);
 
   vkGetDeviceQueue(m_device, m_queueFamilyIDXs.graphics, 0, &m_graphicsQueue);
   vkGetDeviceQueue(m_device, m_queueFamilyIDXs.transfer, 0, &m_transferQueue);
+  vkGetDeviceQueue(m_device, m_queueFamilyIDXs.compute,  0, &m_computeQueue);
 }
 
 void SimpleRender::SetupSimplePipeline()
