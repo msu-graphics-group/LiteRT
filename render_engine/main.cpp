@@ -46,9 +46,9 @@ int main()
   app->LoadScene("./scenes/043_cornell_normals/statex_00001.xml");
   // app->LoadScene("../resources/scenes/buggy/Buggy.gltf");
 
-  auto mr = std::make_shared<MultiRenderer_GPU>(1000000);
+  //auto mr = std::make_shared<MultiRenderer_GPU>(1000000);
   //mr->SetVulkanContext(a_ctx);
-  mr->InitVulkanObjects(app_sr->m_device, app_sr->m_physicalDevice, 2048*2048);
+  //mr->InitVulkanObjects(app_sr->m_device, app_sr->m_physicalDevice, 2048*2048);
 
   bool showGUI = true;
   mainLoop(app, window, showGUI);
