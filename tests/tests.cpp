@@ -3021,6 +3021,70 @@ void litert_test_38_direct_octree_traversal()
     printf("FAILED, psnr = %f\n", psnr);
 }
 
+
+void litert_test_39_visualize_sbs_bricks()
+{
+  auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path+"scenes/01_simple_scenes/data/bunny.vsgf").c_str());
+  cmesh4::normalize_mesh(mesh);
+
+  unsigned W = 2048, H = 2048;
+  LiteImage::Image2D<uint32_t> image(W, H);
+  LiteImage::Image2D<uint32_t> image_1(W, H);
+  LiteImage::Image2D<uint32_t> image_2(W, H);
+  MultiRenderPreset preset = getDefaultPreset();
+  preset.render_mode = MULTI_RENDER_MODE_HSV_DEPTH;
+  preset.spp = 4;
+
+  std::vector<MeshBVH> bvh(1);
+  for (unsigned i = 0; i < 1; i++)
+    bvh[i].init(mesh);
+  auto real_sdf = [&](const float3 &p, unsigned idx) -> float 
+  { return bvh[idx].get_signed_distance(p);};
+
+  printf("TEST 39. SBS BRICKS VISUALIZATION\n");
+
+
+  SdfSBSHeader header{2,0,1,SDF_SBS_NODE_LAYOUT_DX};
+  SparseOctreeSettings settings(SparseOctreeBuildType::DEFAULT, 6);
+  SdfSBS sbs = sdf_converter::create_sdf_SBS(settings, header, mesh);
+
+  GraphicsPrim boxes;
+  boxes.header.prim_type = GRAPH_PRIM_BOX_COLOR;
+
+  // Get boxes
+  float4 color = float4(0.f, 255.f, 255.f, 255.f);
+  for (const auto sbs_node : sbs.nodes)
+  {
+    float px = sbs_node.pos_xy >> 16;
+    float py = sbs_node.pos_xy & 0x0000FFFF;
+    float pz = sbs_node.pos_z_lod_size >> 16;
+    float sz = sbs_node.pos_z_lod_size & 0x0000FFFF;
+    float sz_inv = 2.0f/sz;
+    float d = 2.0f/(sz*header.brick_size);
+
+    float3 brick_min_pos = float3(-1,-1,-1) + sz_inv*float3(px,py,pz);
+    float3 brick_max_pos = brick_min_pos + sz_inv*float3(1,1,1);
+
+    boxes.points.push_back(to_float4(brick_min_pos, 0.004f));
+    // printf("Pos min: %f, %f, %f; max: %f, %f, %f\n", brick_min_pos.x, brick_min_pos.y, brick_min_pos.z, brick_max_pos.x, brick_max_pos.y, brick_max_pos.z);
+    boxes.points.push_back(to_float4(brick_max_pos, 0.f));
+    boxes.points.push_back(color);
+    boxes.points.back().z;
+  }
+  printf("boxes points: %ld\n", boxes.points.size() / 3);
+
+  {
+    auto pRender = CreateMultiRenderer("CPU");
+    pRender->SetPreset(preset);
+    pRender->SetScene(boxes);
+    render(image_2, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+
+    float psnr = image_metrics::PSNR(image, image_2);
+
+    LiteImage::SaveImage<uint32_t>("saves/test_39_sbs_boxes.bmp", image_2);
+  }
+}
+
 void perform_tests_litert(const std::vector<int> &test_ids)
 {
   std::vector<int> tests = test_ids;
@@ -3038,7 +3102,7 @@ void perform_tests_litert(const std::vector<int> &test_ids)
       litert_test_28_sbs_reg, litert_test_29_smoothed_frame_octree, litert_test_30_verify_SBS_SBSAdapt,
       litert_test_31_fake_nurbs_render, litert_test_32_smooth_sbs_normals, litert_test_33_verify_SBS_SBSAdapt_split, 
       litert_test_34_tricubic_sbs, litert_test_35_SBSAdapt_greed_creating, litert_test_36_primitive_visualization,
-      litert_test_37_sbs_adapt_comparison, litert_test_38_direct_octree_traversal};
+      litert_test_37_sbs_adapt_comparison, litert_test_38_direct_octree_traversal, litert_test_39_visualize_sbs_bricks};
 
   if (tests.empty())
   {
