@@ -1,6 +1,7 @@
 #include "simple_render.h"
 #include "input_definitions.h"
 #include "scene_mgr.h"
+#include "../Renderer/eye_ray_gpu.h"
 
 #include <geom/vk_mesh.h>
 #include <vk_pipeline.h>
@@ -17,11 +18,14 @@ SimpleRender::SimpleRender(uint32_t a_width, uint32_t a_height) : m_width(a_widt
   m_raytracedImageData.resize(m_width * m_height);
 }
 
-void SimpleRender::SetupDeviceFeatures()
+VkPhysicalDeviceFeatures2 SimpleRender::SetupDeviceFeatures()
 {
-  if(true)
-  {
-    // m_enabledDeviceFeatures.fillModeNonSolid = VK_TRUE;
+  static VkPhysicalDeviceAccelerationStructureFeaturesKHR m_enabledAccelStructFeatures{};
+  static VkPhysicalDeviceBufferDeviceAddressFeatures m_enabledDeviceAddressFeatures{};
+  static VkPhysicalDeviceRayQueryFeaturesKHR m_enabledRayQueryFeatures{};
+  static VkPhysicalDeviceFeatures2 features2{};
+
+
     m_enabledRayQueryFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR;
     m_enabledRayQueryFeatures.rayQuery = VK_TRUE;
     m_enabledRayQueryFeatures.pNext = nullptr;
@@ -34,40 +38,34 @@ void SimpleRender::SetupDeviceFeatures()
     m_enabledAccelStructFeatures.accelerationStructure = VK_TRUE;
     m_enabledAccelStructFeatures.pNext = &m_enabledDeviceAddressFeatures;
     
-    m_pDeviceFeatures = &m_enabledAccelStructFeatures;
-  }
-  else
-    m_pDeviceFeatures = nullptr;
-    
+    features2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+    features2.pNext = &m_enabledAccelStructFeatures;
+
+    m_pDeviceFeatures = &m_enabledAccelStructFeatures;   
+
+    return features2;
 }
 
-void SimpleRender::SetupDeviceExtensions()
+std::vector<const char*> SimpleRender::SetupDeviceExtensions()
 {
-  m_deviceExtensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+  std::vector<const char*> deviceExtensions;
+  deviceExtensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
   
-  if(true)
+  if(false)
   {
-    m_deviceExtensions.push_back(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME);
-    m_deviceExtensions.push_back(VK_KHR_RAY_QUERY_EXTENSION_NAME);
+    deviceExtensions.push_back(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME);
+    deviceExtensions.push_back(VK_KHR_RAY_QUERY_EXTENSION_NAME);
     // Required by VK_KHR_acceleration_structure
-    m_deviceExtensions.push_back(VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME);
-    m_deviceExtensions.push_back(VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME);
-    m_deviceExtensions.push_back(VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME);
+    deviceExtensions.push_back(VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME);
+    deviceExtensions.push_back(VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME);
+    deviceExtensions.push_back(VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME);
     // Required by VK_KHR_ray_tracing_pipeline
-    m_deviceExtensions.push_back(VK_KHR_SPIRV_1_4_EXTENSION_NAME);
+    deviceExtensions.push_back(VK_KHR_SPIRV_1_4_EXTENSION_NAME);
     // Required by VK_KHR_spirv_1_4
-    m_deviceExtensions.push_back(VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME);
+    deviceExtensions.push_back(VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME);
   }
-}
 
-void SimpleRender::GetRTFeatures()
-{
-  m_accelStructFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
-
-  VkPhysicalDeviceFeatures2 deviceFeatures2{};
-  deviceFeatures2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
-  deviceFeatures2.pNext = &m_accelStructFeatures;
-  vkGetPhysicalDeviceFeatures2(m_physicalDevice, &deviceFeatures2);
+  return deviceExtensions;
 }
 
 void SimpleRender::SetupValidationLayers()
@@ -91,8 +89,6 @@ void SimpleRender::InitVulkan(const char** a_instanceExtensions, uint32_t a_inst
 
   CreateDevice(a_deviceId);
   volkLoadDevice(m_device);
-
-  // GetRTFeatures();
 
   m_commandPool = vk_utils::createCommandPool(m_device, m_queueFamilyIDXs.graphics,
                                               VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
@@ -179,16 +175,89 @@ void SimpleRender::CreateInstance()
     vk_utils::initDebugReportCallback(m_instance, &debugReportCallbackFn, &m_debugReportCallback);
 }
 
+std::vector<const char *> merge_extensions(const std::vector<const char *> &e1, const std::vector<const char *> &e2)
+{
+  std::vector<const char *> result = e1;
+  for (const char *r : result)
+  {
+    printf("extension %s\n", r);
+  }
+  for (const char *e : e2)
+  {
+    bool found = false;
+    for (const char *r : result)
+    {
+      if (strcmp(r, e) == 0)
+      {
+        found = true;
+        break;
+      }
+    }
+    if (!found)
+    {
+      result.push_back(e);
+      printf("add extension %s\n", e);
+    }
+  }
+  return result;
+}
+
+VkPhysicalDeviceFeatures2 merge_device_features(VkPhysicalDeviceFeatures2 &f1, VkPhysicalDeviceFeatures2 &f2)
+{
+  std::vector<VkStructureType> all_types = {f1.sType};
+
+  VkPhysicalDeviceFeatures2 *p_feature = &f1;
+  while (p_feature->pNext)
+  {
+    p_feature = (VkPhysicalDeviceFeatures2 *)p_feature->pNext;
+    all_types.push_back(p_feature->sType);
+    printf("new type %u\n", (unsigned)p_feature->sType);
+  }
+
+  VkPhysicalDeviceFeatures2 *p_feature2 = &f2;
+  while (p_feature2)
+  {
+    bool found = false;
+    for (const VkStructureType &t : all_types)
+    {
+      if (p_feature2->sType == t)
+      {
+        found = true;
+        break;
+      }
+    }
+    if (!found)
+    {
+      p_feature->pNext = p_feature2;
+      p_feature = p_feature2;
+      printf("new type %u\n", (unsigned)p_feature->sType);
+    }
+    else
+    {
+      printf("existing type %u\n", (unsigned)p_feature2->sType);
+    }
+    p_feature2 = (VkPhysicalDeviceFeatures2 *)p_feature2->pNext;
+  }
+
+  return f1;
+}
+
 void SimpleRender::CreateDevice(uint32_t a_deviceId)
 {
-  SetupDeviceExtensions();
-  SetupDeviceFeatures();
+  std::vector<const char *> extensions_self = SetupDeviceExtensions();
+  VkPhysicalDeviceFeatures2 features_self  = SetupDeviceFeatures();
 
-  m_physicalDevice = vk_utils::findPhysicalDevice(m_instance, true, a_deviceId, m_deviceExtensions);
+  std::vector<const char *> extensions_raytracer;
+  VkPhysicalDeviceFeatures2 features_raytracer = MultiRenderer_GPU::ListRequiredDeviceFeatures(extensions_raytracer);
 
-  m_device = vk_utils::createLogicalDevice(m_physicalDevice, m_validationLayers, m_deviceExtensions,
+  std::vector<const char *> extensions = merge_extensions(extensions_self, extensions_raytracer);
+  VkPhysicalDeviceFeatures2 features = merge_device_features(features_self, features_raytracer);
+
+  m_physicalDevice = vk_utils::findPhysicalDevice(m_instance, true, a_deviceId, extensions);
+
+  m_device = vk_utils::createLogicalDevice(m_physicalDevice, m_validationLayers, extensions,
                                            m_enabledDeviceFeatures, m_queueFamilyIDXs,
-                                           VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_TRANSFER_BIT, m_pDeviceFeatures);
+                                           VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_TRANSFER_BIT, features.pNext);
 
   vkGetDeviceQueue(m_device, m_queueFamilyIDXs.graphics, 0, &m_graphicsQueue);
   vkGetDeviceQueue(m_device, m_queueFamilyIDXs.transfer, 0, &m_transferQueue);
@@ -597,6 +666,14 @@ void SimpleRender::Cleanup()
   m_pGUIRender = nullptr;
   ImGui::DestroyContext();
   CleanupPipelineAndSwapchain();
+
+  if (m_pRayTracer)
+  {
+    m_pRayTracer.reset();
+    m_pRayTracer = nullptr;
+    m_pRayTracerGPU = nullptr;
+  }
+
   if(m_surface != VK_NULL_HANDLE)
   {
     vkDestroySurfaceKHR(m_instance, m_surface, nullptr);

@@ -57,7 +57,7 @@ void SimpleRender::SetupRTScene()
     a_ctx.pAllocatorSpecial = m_pAllocatorSpecial;
 
 
-  m_pRayTracer = CreateMultiRenderer_GPU(1000000, a_ctx, 2048*2048);
+  m_pRayTracer = CreateMultiRenderer_GPU(1000000, a_ctx, m_width * m_height);
   m_pRayTracerGPU = dynamic_cast<MultiRenderer_GPU*>(m_pRayTracer.get());
 
   //return;
@@ -124,9 +124,9 @@ void SimpleRender::SetupRTScene()
   m_pRayTracer->SetPreset(preset);
   m_pRayTracer->SetViewport(0,0, m_width, m_height);
   m_pRayTracer->CommitDeviceData();
-  m_pRayTracer->Clear(m_width, m_height, "color");
   m_pRayTracerGPU->SetVulkanInOutFor_CastRaySingle(m_genColorBuffer, 0);
   m_pRayTracerGPU->UpdateAll(m_pCopyHelper);
+  m_pRayTracer->Clear(m_width, m_height, "color");
   //m_pRayTracer->Render(m_raytracedImageData.data(), m_width, m_height, "color");
 }
 

@@ -43,7 +43,7 @@ int main()
 
   initVulkanGLFW(app, window, VULKAN_DEVICE_ID);
 
-  app->LoadScene("./scenes/043_cornell_normals/statex_00001.xml");
+  app->LoadScene("./scenes/01_simple_scenes/bunny.xml");
   // app->LoadScene("../resources/scenes/buggy/Buggy.gltf");
 
   //auto mr = std::make_shared<MultiRenderer_GPU>(1000000);

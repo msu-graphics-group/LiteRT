@@ -140,12 +140,7 @@ public:
 
   // *** ray tracing
   // full screen quad resources to display ray traced image
-  void GetRTFeatures();
   void * m_pDeviceFeatures;
-  VkPhysicalDeviceAccelerationStructureFeaturesKHR m_accelStructFeatures{};
-  VkPhysicalDeviceAccelerationStructureFeaturesKHR m_enabledAccelStructFeatures{};
-  VkPhysicalDeviceBufferDeviceAddressFeatures m_enabledDeviceAddressFeatures{};
-  VkPhysicalDeviceRayQueryFeaturesKHR m_enabledRayQueryFeatures;
 
   std::vector<uint32_t> m_raytracedImageData;
   std::shared_ptr<vk_utils::IQuad> m_pFSQuad;
@@ -184,7 +179,6 @@ public:
   bool m_vsync = false;
 
   VkPhysicalDeviceFeatures m_enabledDeviceFeatures = {};
-  std::vector<const char*> m_deviceExtensions      = {};
   std::vector<const char*> m_instanceExtensions    = {};
 
   bool m_enableValidation;
@@ -217,8 +211,8 @@ public:
 
   void Cleanup();
 
-  void SetupDeviceFeatures();
-  void SetupDeviceExtensions();
+  VkPhysicalDeviceFeatures2 SetupDeviceFeatures();
+  std::vector<const char*> SetupDeviceExtensions();
   void SetupValidationLayers();
 };
 
