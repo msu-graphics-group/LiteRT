@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<AutoVisualizer xmlns="http://schemas.microsoft.com/vstudio/debugger/natvis/2010">
+  <Type Name="LiteMath::float2">
+    <DisplayString>{{ {M[0]}, {M[1]} }}</DisplayString>
+  </Type>
+  <Type Name="LiteMath::float3">
+    <DisplayString>{{ {M[0]}, {M[1]}, {M[2]} }}</DisplayString>
+  </Type>
+  <Type Name="LiteMath::float4">
+    <DisplayString>{{ {M[0]}, {M[1]}, {M[2]}, {M[3]} }}</DisplayString>
+  </Type>
+</AutoVisualizer>
