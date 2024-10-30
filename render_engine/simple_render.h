@@ -26,13 +26,6 @@ enum class RenderMode
   RAYTRACING,
 };
 
-// class RayTracer_GPU : public RayTracer_Generated
-// {
-// public:
-//   RayTracer_GPU(int32_t a_width, uint32_t a_height) : RayTracer_Generated(a_width, a_height) {} 
-//   std::string AlterShaderPath(const char* a_shaderPath) override { return std::string("../src/samples/raytracing/") + std::string(a_shaderPath); }
-// };
-
 class MultiRenderer_GPU;
 
 class SimpleRender : public IRender
@@ -40,7 +33,6 @@ class SimpleRender : public IRender
 public:
   const std::string VERTEX_SHADER_PATH   = "./shaders/simple.vert";
   const std::string FRAGMENT_SHADER_PATH = "./shaders/simple.frag";
-  const bool        ENABLE_HARDWARE_RT   = false;
 
   static constexpr uint64_t STAGING_MEM_SIZE = 16 * 16 * 1024u;
 
@@ -140,8 +132,6 @@ public:
 
   // *** ray tracing
   // full screen quad resources to display ray traced image
-  void * m_pDeviceFeatures;
-
   std::vector<uint32_t> m_raytracedImageData;
   std::shared_ptr<vk_utils::IQuad> m_pFSQuad;
   VkDescriptorSet m_quadDS = VK_NULL_HANDLE;

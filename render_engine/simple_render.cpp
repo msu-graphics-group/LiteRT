@@ -25,7 +25,8 @@ VkPhysicalDeviceFeatures2 SimpleRender::SetupDeviceFeatures()
   static VkPhysicalDeviceRayQueryFeaturesKHR m_enabledRayQueryFeatures{};
   static VkPhysicalDeviceFeatures2 features2{};
 
-
+  if (false)
+  {
     m_enabledRayQueryFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR;
     m_enabledRayQueryFeatures.rayQuery = VK_TRUE;
     m_enabledRayQueryFeatures.pNext = nullptr;
@@ -39,9 +40,13 @@ VkPhysicalDeviceFeatures2 SimpleRender::SetupDeviceFeatures()
     m_enabledAccelStructFeatures.pNext = &m_enabledDeviceAddressFeatures;
     
     features2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
-    features2.pNext = &m_enabledAccelStructFeatures;
-
-    m_pDeviceFeatures = &m_enabledAccelStructFeatures;   
+    features2.pNext = &m_enabledAccelStructFeatures;  
+  }
+  else
+  {
+    features2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+    features2.pNext = nullptr;      
+  } 
 
     return features2;
 }
@@ -113,17 +118,7 @@ void SimpleRender::InitVulkan(const char** a_instanceExtensions, uint32_t a_inst
   LoaderConfig conf = {};
   conf.load_geometry = true;
   conf.load_materials = MATERIAL_LOAD_MODE::NONE;
-  if(ENABLE_HARDWARE_RT)
-  {
-    conf.build_acc_structs = true;
-    conf.build_acc_structs_while_loading_scene = true;
-    conf.builder_type = BVH_BUILDER_TYPE::RTX;
-  }
-
   m_pScnMgr = std::make_shared<SceneManager>(m_device, m_physicalDevice, m_queueFamilyIDXs.graphics, m_pCopyHelper, conf);
-//  m_pScnMgr = std::make_shared<SceneManager>(m_device, m_physicalDevice, m_queueFamilyIDXs.transfer,
-//                                             m_queueFamilyIDXs.graphics, ENABLE_HARDWARE_RT);
-
 }
 
 void SimpleRender::InitPresentation(VkSurfaceKHR &a_surface)
@@ -178,10 +173,8 @@ void SimpleRender::CreateInstance()
 std::vector<const char *> merge_extensions(const std::vector<const char *> &e1, const std::vector<const char *> &e2)
 {
   std::vector<const char *> result = e1;
-  for (const char *r : result)
-  {
-    printf("extension %s\n", r);
-  }
+  //for (const char *r : result)
+  // printf("extension %s\n", r);
   for (const char *e : e2)
   {
     bool found = false;
@@ -196,7 +189,7 @@ std::vector<const char *> merge_extensions(const std::vector<const char *> &e1, 
     if (!found)
     {
       result.push_back(e);
-      printf("add extension %s\n", e);
+      //printf("add extension %s\n", e);
     }
   }
   return result;
@@ -211,7 +204,7 @@ VkPhysicalDeviceFeatures2 merge_device_features(VkPhysicalDeviceFeatures2 &f1, V
   {
     p_feature = (VkPhysicalDeviceFeatures2 *)p_feature->pNext;
     all_types.push_back(p_feature->sType);
-    printf("new type %u\n", (unsigned)p_feature->sType);
+    //printf("new type %u\n", (unsigned)p_feature->sType);
   }
 
   VkPhysicalDeviceFeatures2 *p_feature2 = &f2;
@@ -230,11 +223,11 @@ VkPhysicalDeviceFeatures2 merge_device_features(VkPhysicalDeviceFeatures2 &f1, V
     {
       p_feature->pNext = p_feature2;
       p_feature = p_feature2;
-      printf("new type %u\n", (unsigned)p_feature->sType);
+      //printf("new type %u\n", (unsigned)p_feature->sType);
     }
     else
     {
-      printf("existing type %u\n", (unsigned)p_feature2->sType);
+      //printf("existing type %u\n", (unsigned)p_feature2->sType);
     }
     p_feature2 = (VkPhysicalDeviceFeatures2 *)p_feature2->pNext;
   }
@@ -551,15 +544,7 @@ void SimpleRender::UpdateView()
 void SimpleRender::LoadScene(const char* path)
 {
   m_pScnMgr->LoadSceneXML(path, false);
-  if(ENABLE_HARDWARE_RT)
-  {
-    m_pScnMgr->BuildAllBLAS();
-    m_pScnMgr->BuildTLAS();
-  }
-  else
-  {
-    SetupRTScene();
-  }
+  SetupRTScene();
 
   std::vector<std::pair<VkDescriptorType, uint32_t> > dtypes = {
     {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,             1},
@@ -574,13 +559,6 @@ void SimpleRender::LoadScene(const char* path)
 
   SetupSimplePipeline();
   SetupQuadDescriptors();
-
-//  auto loadedCam = m_pScnMgr->GetCamera(0);
-//  m_cam.fov = loadedCam.fov;
-//  m_cam.pos = float3(loadedCam.pos);
-//  m_cam.up  = float3(loadedCam.up);
-//  m_cam.lookAt = float3(loadedCam.lookAt);
-//  m_cam.tdist  = loadedCam.farPlane;
 
   UpdateView();
 }
@@ -740,9 +718,6 @@ void SimpleRender::Cleanup()
     vkFreeMemory(m_device, m_colorMem, nullptr);
     m_colorMem = VK_NULL_HANDLE;
   }
-
-  // m_pRayTracer = nullptr;
-  // m_pRayTracerGPU = nullptr;
 
   m_pBindings = nullptr;
   m_pScnMgr   = nullptr;

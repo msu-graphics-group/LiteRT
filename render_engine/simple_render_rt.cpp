@@ -59,11 +59,6 @@ void SimpleRender::SetupRTScene()
 
   m_pRayTracer = CreateMultiRenderer_GPU(1000000, a_ctx, m_width * m_height);
   m_pRayTracerGPU = dynamic_cast<MultiRenderer_GPU*>(m_pRayTracer.get());
-
-  //return;
-  //m_pRayTracerGPU = dynamic_cast<MultiRenderer_GPU*>(m_pRayTracer.get());
-
-  //m_pAccelStruct = std::shared_ptr<ISceneObject>(CreateSceneRT("BVH2Common", "cbvh_embree2", "SuperTreeletAlignedMerged4"));
   m_pRayTracer->GetAccelStruct()->ClearGeom();
 
   auto meshesData = m_pScnMgr->GetMeshData();
