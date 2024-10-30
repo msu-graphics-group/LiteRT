@@ -13,6 +13,10 @@ Clone this repo with all its submodules:
 
 ### Build (GPU)
 
+Install GLFW
+
+    $ sudo apt-get install libglfw3-dev
+
 Download and build kernel slicer (https://github.com/Ray-Tracing-Systems/kernel_slicer) somewhere outside LiteRT folder (e.g. *~/kernel_slicer*)
 
 Generate GPU-related code and shaders (use your path to slicer folder and executable):
@@ -32,6 +36,9 @@ Then run:
     make -j8
 
 ## Launch
+
+    $ ./engine
+  for launching real-time renderer (available only with -DUSE_VULKAN=ON)
 
     $ ./render_app -tests_litert
   for different rendering tests,
