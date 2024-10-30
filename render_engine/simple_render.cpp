@@ -492,22 +492,23 @@ void SimpleRender::ProcessInput(const AppInput &input)
   // camera movement is processed separately
 
   // recreate pipeline to reload shaders
-  if(input.keyPressed[GLFW_KEY_B])
-  {
-#ifdef WIN32
-    std::system("cd ./shaders && python compile_simple_render_shaders.py");
-#else
-    std::system("cd ./shaders && python3 compile_simple_render_shaders.py");
-#endif
+  // disabled as it is not so trivial with ray tracing
+  //   if(input.keyPressed[GLFW_KEY_B])
+  //   {
+  // #ifdef WIN32
+  //     std::system("cd ./shaders && python compile_simple_render_shaders.py");
+  // #else
+  //     std::system("cd ./shaders && python3 compile_simple_render_shaders.py");
+  // #endif
 
-    SetupSimplePipeline();
+  //     SetupSimplePipeline();
 
-    for (uint32_t i = 0; i < m_framesInFlight; ++i)
-    {
-      BuildCommandBufferSimple(m_cmdBuffersDrawMain[i], m_frameBuffers[i],
-                               m_swapchain.GetAttachment(i).view, m_basicForwardPipeline.pipeline);
-    }
-  }
+  //     for (uint32_t i = 0; i < m_framesInFlight; ++i)
+  //     {
+  //       BuildCommandBufferSimple(m_cmdBuffersDrawMain[i], m_frameBuffers[i],
+  //                                m_swapchain.GetAttachment(i).view, m_basicForwardPipeline.pipeline);
+  //     }
+  //   }
 
   if(input.keyPressed[GLFW_KEY_1])
   {
@@ -542,8 +543,7 @@ void SimpleRender::UpdateView()
 
 void SimpleRender::LoadScene(const char* path)
 {
-  m_pScnMgr->LoadSceneXML(path, false);
-  SetupRTScene();
+  m_scenePath = path;
 
   std::vector<std::pair<VkDescriptorType, uint32_t> > dtypes = {
     {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,             1},
@@ -556,7 +556,6 @@ void SimpleRender::LoadScene(const char* path)
   SetupRTImage();
   CreateUniformBuffer();
 
-  SetupSimplePipeline();
   SetupQuadDescriptors();
 
   UpdateView();
@@ -622,6 +621,20 @@ void SimpleRender::DrawFrameSimple()
 
 void SimpleRender::DrawFrame(float a_time, DrawMode a_mode)
 {
+  if (!m_RasterSceneSetUp && m_currentRenderMode == RenderMode::RASTERIZATION)
+  {
+    m_pScnMgr->LoadSceneXML(m_scenePath.c_str(), false);
+    SetupSimplePipeline();
+
+    m_RasterSceneSetUp = true;
+  }
+
+  if (!m_RTSceneSetUp && m_currentRenderMode == RenderMode::RAYTRACING)
+  {
+    SetupRTScene(m_scenePath.c_str());
+    m_RTSceneSetUp = true;
+  }
+
   UpdateUniformBuffer(a_time);
 
   switch (a_mode)

@@ -112,7 +112,10 @@ protected:
 
   vk_utils::QueueFID_T m_queueFamilyIDXs {UINT32_MAX, UINT32_MAX, UINT32_MAX};
 
-  RenderMode m_currentRenderMode = RenderMode::RASTERIZATION;
+  RenderMode m_currentRenderMode = RenderMode::RAYTRACING;
+  bool m_RasterSceneSetUp = false;
+  bool m_RTSceneSetUp     = false;
+  std::string m_scenePath;
 
   struct
   {
@@ -207,7 +210,7 @@ protected:
   void SetupQuadRenderer();
   void SetupQuadDescriptors();
   void SetupRTImage();
-  void SetupRTScene();
+  void SetupRTScene(const char *path);
   // ***************************
 
   void SetupSimplePipeline();

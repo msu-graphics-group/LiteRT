@@ -40,7 +40,7 @@ void SimpleRender::SetupRTImage()
 // ***************************************************************************************************************************
 
 // convert geometry data and pass it to acceleration structure builder
-void SimpleRender::SetupRTScene()
+void SimpleRender::SetupRTScene(const char *path)
 {
   vk_utils::VulkanContext a_ctx;
     a_ctx.instance       = m_instance;
@@ -62,63 +62,14 @@ void SimpleRender::SetupRTScene()
     m_pRayTracer = Create_MultiRendererGPUImpl(num_primitives, a_ctx, m_width, m_height);
   
   m_pRayTracerGPU = dynamic_cast<MultiRendererGPUImpl*>(m_pRayTracer.get());
-  m_pRayTracer->GetAccelStruct()->ClearGeom();
-
-  auto meshesData = m_pScnMgr->GetMeshData();
-  std::unordered_map<uint32_t, uint32_t> meshMap;
-  for(size_t i = 0; i < m_pScnMgr->MeshesNum(); ++i)
-  {
-    const auto& info = m_pScnMgr->GetMeshInfo(i);
-    auto vertices = reinterpret_cast<float*>((char*)meshesData->VertexData() + info.m_vertexOffset * meshesData->SingleVertexSize());
-    auto indices = meshesData->IndexData() + info.m_indexOffset;
-
-    auto stride = meshesData->SingleVertexSize() / sizeof(float);
-    std::vector<float3> m_vPos3f(info.m_vertNum);
-    std::vector<uint32_t> m_indicesReordered(info.m_indNum);
-    for(size_t v = 0; v < info.m_vertNum; ++v)
-    {
-      m_vPos3f[v] = float3(vertices[v * stride + 0], vertices[v * stride + 1], vertices[v * stride + 2]);
-    }
-    memcpy(m_indicesReordered.data(), indices, info.m_indNum * sizeof(m_indicesReordered[0]));
-
-    auto geomId = m_pRayTracer->GetAccelStruct()->AddGeom_Triangles3f((float*)(m_vPos3f.data()), m_vPos3f.size(),
-                                                      m_indicesReordered.data(), m_indicesReordered.size());
-    cmesh4::SimpleMesh mesh;
-    mesh.vPos4f.resize(m_vPos3f.size());
-    mesh.vNorm4f.resize(m_vPos3f.size());
-    mesh.vTexCoord2f.resize(m_vPos3f.size());
-    mesh.indices.resize(m_indicesReordered.size());
-    for(size_t v = 0; v < m_vPos3f.size(); ++v)
-    {
-      mesh.vPos4f[v] = to_float4(m_vPos3f[v], 1.0f);
-      mesh.vNorm4f[v] = float4(1.0, 0.0, 0.0, 0.0f);
-      mesh.vTexCoord2f[v] = float2(0.0f, 0.0f);
-    }
-    for(size_t v = 0; v < m_indicesReordered.size(); ++v)
-    {
-      mesh.indices[v] = m_indicesReordered[v];
-    }
-
-    m_pRayTracer->add_mesh_internal(mesh, geomId);
-    meshMap[i] = geomId;
-  }
-
-  m_pRayTracer->GetAccelStruct()->ClearScene();
-  for(size_t i = 0; i < m_pScnMgr->InstancesNum(); ++i)
-  {
-    const auto& info = m_pScnMgr->GetInstanceInfo(i);
-    if(meshMap.count(info.mesh_id))
-    {
-      m_pRayTracer->AddInstance(meshMap[info.mesh_id], m_pScnMgr->GetInstanceMatrix(info.inst_id));
-    }
-  }
+  m_pRayTracer->LoadSceneHydra(path);
 
   m_genColorBuffer = vk_utils::createBuffer(m_device, m_width * m_height * sizeof(uint32_t),  VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
   m_colorMem       = vk_utils::allocateAndBindWithPadding(m_device, m_physicalDevice, {m_genColorBuffer});
 
   m_pRayTracer->GetAccelStruct()->CommitScene();
   auto preset  =getDefaultPreset();
-  preset.render_mode = MULTI_RENDER_MODE_PRIMITIVE;
+  preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
   m_pRayTracer->SetPreset(preset);
   m_pRayTracer->SetViewport(0,0, m_width, m_height);
   m_pRayTracer->CommitDeviceData();
