@@ -20,13 +20,31 @@
 
 #include "CrossRT.h"
 
+#if defined(USE_RTX)
+  #include "../Renderer/eye_ray_rtx.h"
+  typedef MultiRenderer_RTX MultiRendererGPUImpl;
+  std::shared_ptr<MultiRenderer> CreateMultiRenderer_RTX(uint32_t maxPrimitives, vk_utils::VulkanContext a_ctx, size_t a_maxThreadsGenerated);
+
+  static std::shared_ptr<MultiRenderer> Create_MultiRenderer(uint32_t maxPrimitives, vk_utils::VulkanContext a_ctx, uint32_t max_width, uint32_t max_height)
+  {
+    return CreateMultiRenderer_RTX(maxPrimitives, a_ctx, max_width * max_height);
+  }
+#else
+  #include "../Renderer/eye_ray_gpu.h"
+  typedef MultiRenderer_GPU MultiRendererGPUImpl;
+  std::shared_ptr<MultiRenderer> CreateMultiRenderer_GPU(uint32_t maxPrimitives, vk_utils::VulkanContext a_ctx, size_t a_maxThreadsGenerated);
+
+  static std::shared_ptr<MultiRenderer> Create_MultiRenderer(uint32_t maxPrimitives, vk_utils::VulkanContext a_ctx, uint32_t max_width, uint32_t max_height)
+  {
+    return CreateMultiRenderer_GPU(maxPrimitives, a_ctx, max_width * max_height);
+  }
+#endif
+
 enum class RenderMode
 {
   RASTERIZATION,
   RAYTRACING,
 };
-
-class MultiRenderer_GPU;
 
 class SimpleRender : public IRender
 {
@@ -141,7 +159,7 @@ public:
 
   std::shared_ptr<ISceneObject> m_pAccelStruct = nullptr;
   std::shared_ptr<MultiRenderer> m_pRayTracer;
-  MultiRenderer_GPU *m_pRayTracerGPU; //it is the same object as m_pRayTracer, but only it's GPU handle
+  MultiRendererGPUImpl *m_pRayTracerGPU; //it is the same object as m_pRayTracer, but only it's GPU handle
   void RayTraceCPU();
   void RayTraceGPU();
 

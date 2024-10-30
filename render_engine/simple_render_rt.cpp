@@ -1,6 +1,5 @@
 #include "VulkanRTX.h"
 #include "simple_render.h"
-#include "../Renderer/eye_ray_gpu.h"
 
 // ***************************************************************************************************************************
 // setup full screen quad to display ray traced image
@@ -40,7 +39,6 @@ void SimpleRender::SetupRTImage()
 }
 // ***************************************************************************************************************************
 
-std::shared_ptr<MultiRenderer> CreateMultiRenderer_GPU(uint32_t maxPrimitives, vk_utils::VulkanContext a_ctx, size_t a_maxThreadsGenerated);
 // convert geometry data and pass it to acceleration structure builder
 void SimpleRender::SetupRTScene()
 {
@@ -57,8 +55,9 @@ void SimpleRender::SetupRTScene()
     a_ctx.pAllocatorSpecial = m_pAllocatorSpecial;
 
 
-  m_pRayTracer = CreateMultiRenderer_GPU(1000000, a_ctx, m_width * m_height);
-  m_pRayTracerGPU = dynamic_cast<MultiRenderer_GPU*>(m_pRayTracer.get());
+  const unsigned num_primitives = 1000000;
+  m_pRayTracer = Create_MultiRenderer(num_primitives, a_ctx, m_width, m_height);
+  m_pRayTracerGPU = dynamic_cast<MultiRendererGPUImpl*>(m_pRayTracer.get());
   m_pRayTracer->GetAccelStruct()->ClearGeom();
 
   auto meshesData = m_pScnMgr->GetMeshData();

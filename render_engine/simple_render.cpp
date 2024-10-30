@@ -1,7 +1,6 @@
 #include "simple_render.h"
 #include "input_definitions.h"
 #include "scene_mgr.h"
-#include "../Renderer/eye_ray_gpu.h"
 
 #include <geom/vk_mesh.h>
 #include <vk_pipeline.h>
@@ -241,7 +240,7 @@ void SimpleRender::CreateDevice(uint32_t a_deviceId)
   VkPhysicalDeviceFeatures2 features_self  = SetupDeviceFeatures();
 
   std::vector<const char *> extensions_raytracer;
-  VkPhysicalDeviceFeatures2 features_raytracer = MultiRenderer_GPU::ListRequiredDeviceFeatures(extensions_raytracer);
+  VkPhysicalDeviceFeatures2 features_raytracer = MultiRendererGPUImpl::ListRequiredDeviceFeatures(extensions_raytracer);
 
   std::vector<const char *> extensions = merge_extensions(extensions_self, extensions_raytracer);
   VkPhysicalDeviceFeatures2 features = merge_device_features(features_self, features_raytracer);
