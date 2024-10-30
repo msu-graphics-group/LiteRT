@@ -20,27 +20,37 @@
 
 #include "CrossRT.h"
 
+#if defined(USE_RTX)
+  #include "../Renderer/eye_ray_rtx.h"
+  typedef MultiRenderer_RTX MultiRendererGPUImpl;
+  std::shared_ptr<MultiRenderer> CreateMultiRenderer_RTX(uint32_t maxPrimitives, vk_utils::VulkanContext a_ctx, size_t a_maxThreadsGenerated);
+
+  static std::shared_ptr<MultiRenderer> Create_MultiRenderer(uint32_t maxPrimitives, vk_utils::VulkanContext a_ctx, uint32_t max_width, uint32_t max_height)
+  {
+    return CreateMultiRenderer_RTX(maxPrimitives, a_ctx, max_width * max_height);
+  }
+#else
+  #include "../Renderer/eye_ray_gpu.h"
+  typedef MultiRenderer_GPU MultiRendererGPUImpl;
+  std::shared_ptr<MultiRenderer> CreateMultiRenderer_GPU(uint32_t maxPrimitives, vk_utils::VulkanContext a_ctx, size_t a_maxThreadsGenerated);
+
+  static std::shared_ptr<MultiRenderer> Create_MultiRenderer(uint32_t maxPrimitives, vk_utils::VulkanContext a_ctx, uint32_t max_width, uint32_t max_height)
+  {
+    return CreateMultiRenderer_GPU(maxPrimitives, a_ctx, max_width * max_height);
+  }
+#endif
+
 enum class RenderMode
 {
   RASTERIZATION,
   RAYTRACING,
 };
 
-// class RayTracer_GPU : public RayTracer_Generated
-// {
-// public:
-//   RayTracer_GPU(int32_t a_width, uint32_t a_height) : RayTracer_Generated(a_width, a_height) {} 
-//   std::string AlterShaderPath(const char* a_shaderPath) override { return std::string("../src/samples/raytracing/") + std::string(a_shaderPath); }
-// };
-
-class MultiRenderer_GPU;
-
 class SimpleRender : public IRender
 {
 public:
   const std::string VERTEX_SHADER_PATH   = "./shaders/simple.vert";
   const std::string FRAGMENT_SHADER_PATH = "./shaders/simple.frag";
-  const bool        ENABLE_HARDWARE_RT   = false;
 
   static constexpr uint64_t STAGING_MEM_SIZE = 16 * 16 * 1024u;
 
@@ -87,7 +97,7 @@ public:
   }
 
   VkDebugReportCallbackEXT m_debugReportCallback = nullptr;
-protected:
+//protected:
 
   VkInstance       m_instance       = VK_NULL_HANDLE;
   VkCommandPool    m_commandPool    = VK_NULL_HANDLE;
@@ -95,8 +105,10 @@ protected:
   VkDevice         m_device         = VK_NULL_HANDLE;
   VkQueue          m_graphicsQueue  = VK_NULL_HANDLE;
   VkQueue          m_transferQueue  = VK_NULL_HANDLE;
+  VkQueue          m_computeQueue   = VK_NULL_HANDLE;
 
   std::shared_ptr<vk_utils::ICopyEngine> m_pCopyHelper;
+  std::shared_ptr<vk_utils::IMemoryAlloc> m_pAllocatorSpecial;
 
   vk_utils::QueueFID_T m_queueFamilyIDXs {UINT32_MAX, UINT32_MAX, UINT32_MAX};
 
@@ -138,13 +150,6 @@ protected:
 
   // *** ray tracing
   // full screen quad resources to display ray traced image
-  void GetRTFeatures();
-  void * m_pDeviceFeatures;
-  VkPhysicalDeviceAccelerationStructureFeaturesKHR m_accelStructFeatures{};
-  VkPhysicalDeviceAccelerationStructureFeaturesKHR m_enabledAccelStructFeatures{};
-  VkPhysicalDeviceBufferDeviceAddressFeatures m_enabledDeviceAddressFeatures{};
-  VkPhysicalDeviceRayQueryFeaturesKHR m_enabledRayQueryFeatures;
-
   std::vector<uint32_t> m_raytracedImageData;
   std::shared_ptr<vk_utils::IQuad> m_pFSQuad;
   VkDescriptorSet m_quadDS = VK_NULL_HANDLE;
@@ -154,7 +159,7 @@ protected:
 
   std::shared_ptr<ISceneObject> m_pAccelStruct = nullptr;
   std::shared_ptr<MultiRenderer> m_pRayTracer;
-  MultiRenderer_GPU *m_pRayTracerGPU; //it is the same object as m_pRayTracer, but only it's GPU handle
+  MultiRendererGPUImpl *m_pRayTracerGPU; //it is the same object as m_pRayTracer, but only it's GPU handle
   void RayTraceCPU();
   void RayTraceGPU();
 
@@ -182,7 +187,6 @@ protected:
   bool m_vsync = false;
 
   VkPhysicalDeviceFeatures m_enabledDeviceFeatures = {};
-  std::vector<const char*> m_deviceExtensions      = {};
   std::vector<const char*> m_instanceExtensions    = {};
 
   bool m_enableValidation;
@@ -215,8 +219,8 @@ protected:
 
   void Cleanup();
 
-  void SetupDeviceFeatures();
-  void SetupDeviceExtensions();
+  VkPhysicalDeviceFeatures2 SetupDeviceFeatures();
+  std::vector<const char*> SetupDeviceExtensions();
   void SetupValidationLayers();
 };
 
