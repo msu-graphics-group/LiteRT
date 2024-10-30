@@ -25,7 +25,7 @@
   typedef MultiRenderer_RTX MultiRendererGPUImpl;
   std::shared_ptr<MultiRenderer> CreateMultiRenderer_RTX(uint32_t maxPrimitives, vk_utils::VulkanContext a_ctx, size_t a_maxThreadsGenerated);
 
-  static std::shared_ptr<MultiRenderer> Create_MultiRenderer(uint32_t maxPrimitives, vk_utils::VulkanContext a_ctx, uint32_t max_width, uint32_t max_height)
+  static std::shared_ptr<MultiRenderer> Create_MultiRendererGPUImpl(uint32_t maxPrimitives, vk_utils::VulkanContext a_ctx, uint32_t max_width, uint32_t max_height)
   {
     return CreateMultiRenderer_RTX(maxPrimitives, a_ctx, max_width * max_height);
   }
@@ -34,7 +34,7 @@
   typedef MultiRenderer_GPU MultiRendererGPUImpl;
   std::shared_ptr<MultiRenderer> CreateMultiRenderer_GPU(uint32_t maxPrimitives, vk_utils::VulkanContext a_ctx, size_t a_maxThreadsGenerated);
 
-  static std::shared_ptr<MultiRenderer> Create_MultiRenderer(uint32_t maxPrimitives, vk_utils::VulkanContext a_ctx, uint32_t max_width, uint32_t max_height)
+  static std::shared_ptr<MultiRenderer> Create_MultiRendererGPUImpl(uint32_t maxPrimitives, vk_utils::VulkanContext a_ctx, uint32_t max_width, uint32_t max_height)
   {
     return CreateMultiRenderer_GPU(maxPrimitives, a_ctx, max_width * max_height);
   }
@@ -97,7 +97,7 @@ public:
   }
 
   VkDebugReportCallbackEXT m_debugReportCallback = nullptr;
-//protected:
+protected:
 
   VkInstance       m_instance       = VK_NULL_HANDLE;
   VkCommandPool    m_commandPool    = VK_NULL_HANDLE;
@@ -157,7 +157,7 @@ public:
   vk_utils::VulkanImageMem m_rtImage;
   VkSampler                m_rtImageSampler = VK_NULL_HANDLE;
 
-  std::shared_ptr<ISceneObject> m_pAccelStruct = nullptr;
+  bool m_force_rayrace_cpu = false;
   std::shared_ptr<MultiRenderer> m_pRayTracer;
   MultiRendererGPUImpl *m_pRayTracerGPU; //it is the same object as m_pRayTracer, but only it's GPU handle
   void RayTraceCPU();

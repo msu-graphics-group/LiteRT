@@ -56,7 +56,11 @@ void SimpleRender::SetupRTScene()
 
 
   const unsigned num_primitives = 1000000;
-  m_pRayTracer = Create_MultiRenderer(num_primitives, a_ctx, m_width, m_height);
+  if (m_force_rayrace_cpu)
+    m_pRayTracer = std::shared_ptr<MultiRenderer>(new MultiRenderer(num_primitives)); 
+  else
+    m_pRayTracer = Create_MultiRendererGPUImpl(num_primitives, a_ctx, m_width, m_height);
+  
   m_pRayTracerGPU = dynamic_cast<MultiRendererGPUImpl*>(m_pRayTracer.get());
   m_pRayTracer->GetAccelStruct()->ClearGeom();
 
@@ -118,10 +122,12 @@ void SimpleRender::SetupRTScene()
   m_pRayTracer->SetPreset(preset);
   m_pRayTracer->SetViewport(0,0, m_width, m_height);
   m_pRayTracer->CommitDeviceData();
-  m_pRayTracerGPU->SetVulkanInOutFor_CastRaySingle(m_genColorBuffer, 0);
-  m_pRayTracerGPU->UpdateAll(m_pCopyHelper);
+  if (m_pRayTracerGPU)
+  {
+    m_pRayTracerGPU->SetVulkanInOutFor_CastRaySingle(m_genColorBuffer, 0);
+    m_pRayTracerGPU->UpdateAll(m_pCopyHelper);
+  }
   m_pRayTracer->Clear(m_width, m_height, "color");
-  //m_pRayTracer->Render(m_raytracedImageData.data(), m_width, m_height, "color");
 }
 
 // perform ray tracing on the CPU and upload resulting image on the GPU
