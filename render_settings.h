@@ -60,6 +60,7 @@ static constexpr unsigned MULTI_RENDER_MODE_TEX_COORDS           = 15; //renderi
 static constexpr unsigned MULTI_RENDER_MODE_DIFFUSE              = 16; //rendering diffuse color from material
 static constexpr unsigned MULTI_RENDER_MODE_LAMBERT              = 17; //Lambert shading, no shadows
 static constexpr unsigned MULTI_RENDER_MODE_PHONG                = 18; //Phong shading
+static constexpr unsigned MULTI_RENDER_MODE_HSV_DEPTH            = 19; //visualize depth, uses HSV color model
 
 //enum NormalMode
 static constexpr unsigned NORMAL_MODE_GEOMETRY     = 0; //geometry normal, default for all types of geometry

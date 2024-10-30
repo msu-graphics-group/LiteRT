@@ -207,14 +207,15 @@ namespace dr
             {
               float2 uv = float2((spp_x*x + dx + 0.5f) / (spp_x*width), (spp_y*y + dy + 0.5f) / (spp_y*height));
               float4 color(0,0,0,0);
-              if (to_mask)
-                color = m_imagesRefMask[image_n].sample(sampler, uv);
-              else
-              {
-                color   = m_imagesRefOriginal[image_n].sample(sampler, uv);
-                color.w = m_imagesRefMask[image_n].sample(sampler, uv).w;
-                //printf("color = %f %f %f %f\n", color.x, color.y, color.z, color.w);
-              }
+              // if (to_mask)
+              //   color = m_imagesRefMask[image_n].sample(sampler, uv);
+              // else
+              // {
+              //   color   = m_imagesRefOriginal[image_n].sample(sampler, uv);
+              //   color.w = m_imagesRefMask[image_n].sample(sampler, uv).w;
+              //   //printf("color = %f %f %f %f\n", color.x, color.y, color.z, color.w);
+              // }
+              color   = m_imagesRefOriginal[image_n].sample(sampler, uv);
               m_imagesRef[image_n].data()[y*width + x] += color / (spp_x*spp_y);
             }
           }

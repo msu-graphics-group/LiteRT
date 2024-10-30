@@ -33,7 +33,7 @@ namespace dr
     relax_pt->missed_hit.color  = float3(0.0f, 0.0, 0.0f);
     relax_pt->missed_hit.sdf    = 1000.0f;
     relax_pt->missed_hit.normal = float3(1.0f, 0.0f, 0.0f);
-    relax_pt->missed_hit._pad1  = 1;
+    relax_pt->missed_hit.check_vox_border  = 1;
     relax_pt->missed_hit_candidate = relax_pt->missed_hit;
 
     for (int i=0;i<8;i++)
@@ -728,7 +728,7 @@ namespace dr
 
       if (relax_pt && ray_flags & DR_RAY_FLAG_BORDER)
       {
-        if (relax_pt->missed_hit._pad1 == 1)
+        if (relax_pt->missed_hit.check_vox_border == 1)
         {
           if (sdf_dsdf_near.y >= 0)
           {
@@ -738,10 +738,10 @@ namespace dr
               relax_pt->missed_hit.sdf = sdf_dsdf_near.x;
             }
           }
-          relax_pt->missed_hit._pad1 = 0;
+          relax_pt->missed_hit.check_vox_border = 0;
         }
         if (sdf_dsdf_far.x > 0.f && sdf_dsdf_far.y <= 0.f)
-          relax_pt->missed_hit._pad1 = 1;
+          relax_pt->missed_hit.check_vox_border = 1;
 
 #ifdef DEBUG_PAYLOAD_STORE_SDF
         for (int t_i = 0; t_i <= 10; ++t_i)
@@ -984,7 +984,7 @@ namespace dr
 
           float sdf_min = (c0 + t_min*(c1 + t_min*(c2 + t_min*c3)));
 
-          if (relax_pt->missed_hit._pad1 == 1)
+          if (relax_pt->missed_hit.check_vox_border == 1)
           {
             if (c1 <= 0) // c1 == SDF'(0)
             {
@@ -994,7 +994,7 @@ namespace dr
                 relax_pt->missed_hit.sdf = -sdf0*d;
               }
             }
-            relax_pt->missed_hit._pad1 = 0;
+            relax_pt->missed_hit.check_vox_border = 0;
           }
 
 #ifdef DEBUG_PAYLOAD_STORE_SDF
@@ -1027,7 +1027,7 @@ namespace dr
           }
           if (sdf3 < 0.f && -sdf3*d < relax_pt->missed_hit.sdf && (c1 + qFar*(2*c2 + qFar*3*c3)) >= 0.f) // sdf3 is SDF(qFar)
           {
-            relax_pt->missed_hit._pad1 = 1;
+            relax_pt->missed_hit.check_vox_border = 1;
             relax_pt->missed_hit_candidate.t = qFar;
             relax_pt->missed_hit_candidate.sdf = -sdf3*d;
 

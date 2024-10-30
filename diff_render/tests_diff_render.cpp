@@ -795,7 +795,7 @@ MultiRendererDRPreset optimization_stand_common_preset()
   dr_preset.dr_border_sampling = DR_BORDER_SAMPLING_RANDOM;
   dr_preset.opt_iterations = 500;
   dr_preset.opt_lr = 0.01f;
-  dr_preset.spp = 16;
+  dr_preset.spp = 64;
   dr_preset.border_spp = 1024;
   dr_preset.image_batch_size = 2;
   dr_preset.render_height = 128;
