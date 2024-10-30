@@ -3075,7 +3075,7 @@ void litert_test_39_visualize_sbs_bricks()
   printf("boxes points: %ld\n", boxes.points.size() / 3);
 
   {
-    auto pRender = CreateMultiRenderer("GPU");
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
     pRender->SetPreset(preset);
     pRender->SetScene(boxes);
     render(image_2, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
@@ -3105,7 +3105,7 @@ void litert_test_40_psdf_framed_octree()
 
   {
 
-    auto pRender = CreateMultiRenderer("GPU");
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
     pRender->SetPreset(preset);
     pRender->SetViewport(0,0,W,H);
 
@@ -3117,7 +3117,7 @@ void litert_test_40_psdf_framed_octree()
 
   {
 
-    auto pRender = CreateMultiRenderer("GPU");
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
     pRender->SetPreset(preset);
     pRender->SetScene(frame_nodes);
     render(image, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset);
@@ -3135,7 +3135,7 @@ void litert_test_40_psdf_framed_octree()
 
   {
 
-    auto pRender = CreateMultiRenderer("GPU");
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
     pRender->SetPreset(preset);
     pRender->SetScene(frame_nodes);
     render(image, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset);
