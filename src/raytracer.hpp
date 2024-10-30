@@ -75,4 +75,10 @@ void draw_points(
     FrameBuffer &fb,
     int samples_per_parameter = 250,
     std::function<ShadeFuncType> shade_function = shade_uv);
+
+void draw_boxes(
+    const std::vector<BoundingBox3d> &bboxes,
+    const std::vector<LiteMath::float2> &uvs,
+    const Camera &camera,
+    FrameBuffer &fb);
 #endif

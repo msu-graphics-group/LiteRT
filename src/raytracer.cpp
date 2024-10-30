@@ -189,3 +189,42 @@ void draw_newton(
     }
   }
 }
+
+void draw_boxes(
+    const std::vector<BoundingBox3d> &bboxes,
+    const std::vector<LiteMath::float2> &uvs,
+    const Camera &camera,
+    FrameBuffer &fb) {
+  float4x4 mat  = perspectiveMatrix(camera.fov*180*M_1_PI, camera.aspect, 0.001f, 100.0f)
+                * lookAt(camera.position, camera.target, camera.up);
+  float4x4 inversed_mat = inverse4x4(mat);
+  #pragma omp parallel for schedule(dynamic)
+  for (uint32_t y = 0; y < fb.col_buf.height(); ++y)
+  for (uint32_t x = 0; x < fb.col_buf.width();  ++x)
+  {
+    float2 ndc_point  = float2{ x+0.5f, y+0.5f } 
+                      / float2{ fb.col_buf.width()*1.0f, fb.col_buf.height()*1.0f }
+                      * 2.0f
+                      - 1.0f;
+    float4 ndc_point4 = { ndc_point.x, ndc_point.y, 0.0f, 1.0f };
+    float4 point = inversed_mat * ndc_point4;
+    point /= point.w;
+
+    float3 ray = normalize(to_float3(point)-camera.position);
+    float3 pos = camera.position;
+    for (int i = 0; i < bboxes.size(); ++i) {
+      if (!bboxes[i].intersects(pos, ray))
+        continue;
+      float t = bboxes[i].tbounds(pos, ray)[0];
+      uint2 xy = uint2{ x, fb.col_buf.height()-1-y };
+      if (fb.z_buf[xy] > t) {
+        fb.z_buf[xy] = t;
+        fb.col_buf[xy] = uchar4{ 
+          static_cast<u_char>(uvs[i].x*255.0f),
+          static_cast<u_char>(uvs[i].y*255.0f),
+          static_cast<u_char>(0.0f*255.0f),
+          static_cast<u_char>(0.0f*255.0f) }.u32;
+      }
+    }
+  }
+}

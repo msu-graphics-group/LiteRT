@@ -11,24 +11,7 @@
 #include <LiteMath.h>
 #include <Image2d.h>
 
-#include <LiteMath.h>
-#include <Image2d.h>
-
-template<typename T>
-struct Matrix2D 
-{
-public:
-  Matrix2D(int n = 0, int m = 0, T value = T()): n(n), m(m), values(n * m, value) {}
-  T& operator[](std::pair<int, int> ids) { return values[ids.first*m+ids.second]; }
-  const T& operator[](std::pair<int, int> ids) const { return values[ids.first*m+ids.second]; }
-  const T* data() const { return values.data(); }
-  T* data() { return values.data(); }
-  int get_n() const { return n; }
-  int get_m() const { return m; }
-private:
-  int n; int m;
-  std::vector<T> values;
-};
+#include "utils.hpp"
 
 struct BoundingBox3d
 {
@@ -47,7 +30,7 @@ public:
   LiteMath::float3 center() const { return (mn+mx)/2; }
   LiteMath::float3 shape() const { return (mn-mx); }
 public:
-  bool intersects(
+  LiteMath::float2 tbounds(
       const LiteMath::float3 &pos,
       const LiteMath::float3 &ray) const {
     LiteMath::float3 lo = (mn-pos)/ray;
@@ -56,9 +39,15 @@ public:
     LiteMath::float3 tmax3 = LiteMath::max(lo, ho);
     float tmin = LiteMath::hmax(tmin3);
     float tmax = LiteMath::hmin(tmax3);
-    if (tmin > tmax)
+    return { tmin, tmax };
+  }
+  bool intersects(
+      const LiteMath::float3 &pos,
+      const LiteMath::float3 &ray) const {
+    auto t_bounds = tbounds(pos, ray);
+    if (t_bounds[1] < t_bounds[0])
       return false;
-    return tmin >= 0.0f;
+    return t_bounds[0] >= 0.0f;
   }
 };
 
@@ -86,23 +75,7 @@ public:
 };
 NURBS_Surface load_nurbs(const std::filesystem::path &path);
 
-
-std::vector<std::vector<LiteMath::float4> >
-decompose_curve(
-    int n, int p,
-    const float *U,
-    const LiteMath::float4 *Pw);
-
 enum class SurfaceParameter { U, V };
-std::vector<Matrix2D<LiteMath::float4> >
-decompose_surface(
-    int n, int p,
-    const float *U,
-    int m,int q,
-    const float *V,
-    const Matrix2D<LiteMath::float4> &Pw,
-    SurfaceParameter dir);
-
 struct RBezier
 {
 public:
@@ -139,4 +112,6 @@ nurbs2rbezier(const NURBS_Surface &nurbs);
 std::vector<RBezierGrid>
 load_rbeziers(const std::filesystem::path &path);
 
+std::tuple<std::vector<BoundingBox3d>, std::vector<LiteMath::float2>>
+get_bvh_leaves(const RBezierGrid &rbezier);
 #endif

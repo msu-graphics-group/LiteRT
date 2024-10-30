@@ -69,7 +69,8 @@ int main(int, char** argv)
   std::copy(default_path_to_surf.begin(), default_path_to_surf.end(), path_to_surf);
 
   std::vector<RBezierGrid> rbeziers;
-
+  std::vector<std::vector<BoundingBox3d>> bboxes;
+  std::vector<std::vector<LiteMath::float2>> uvs;
   FrameBuffer fb = { 
     LiteImage::Image2D<uint32_t>(WIDTH, HEIGHT, LiteMath::uchar4{ 153, 153, 153, 255 }.u32),
     LiteImage::Image2D<float>(WIDTH, HEIGHT, std::numeric_limits<float>::infinity())
@@ -89,7 +90,8 @@ int main(int, char** argv)
   
   const char *renderers[] = { 
     "Regular Sample Points", 
-    "Newton Method (in progress)"
+    "Newton Method (in progress)",
+    "Bounding boxes"
   };
 
   const char *shaders[] = {
@@ -154,11 +156,12 @@ int main(int, char** argv)
 
     //Render image
     auto b = std::chrono::high_resolution_clock::now();
-    for (auto &rbezier: rbeziers) {
+    for (int i = 0; i < rbeziers.size(); ++i) {
       switch(cur_renderer)
       {
-        case 0: draw_points(rbezier, camera, fb, 250/std::sqrt(rbeziers.size()), shader_funcs[cur_shader]); break;
-        case 1: draw_newton(rbezier, camera, fb, shader_funcs[cur_shader]); break;
+        case 0: draw_points(rbeziers[i], camera, fb, 250/std::sqrt(rbeziers.size()), shader_funcs[cur_shader]); break;
+        case 1: draw_newton(rbeziers[i], camera, fb, shader_funcs[cur_shader]); break;
+        case 2: draw_boxes(bboxes[i], uvs[i], camera, fb);
       }
     }
     auto e = std::chrono::high_resolution_clock::now();
@@ -205,6 +208,13 @@ int main(int, char** argv)
         surface_changed = true;
         try {
           rbeziers = load_rbeziers(path_to_surf);
+          bboxes.resize(0);
+          uvs.resize(0);
+          for (auto &surf: rbeziers) {
+            auto [cur_bboxes, cur_uv] = get_bvh_leaves(surf);
+            bboxes.push_back(cur_bboxes);
+            uvs.push_back(cur_uv);
+          }
           BoundingBox3d bbox;
           for (auto &surf: rbeziers) {
             bbox.mn = LiteMath::min(bbox.mn, surf.bbox.mn);
