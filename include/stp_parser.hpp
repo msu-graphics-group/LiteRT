@@ -76,6 +76,9 @@ std::vector<float> decompressKnots(
     std::vector<uint> knots_mult);
 RawNURBS toNURBS(std::map<uint, Entity> &entities, uint id);
 std::vector<RawNURBS> allNURBS(std::map<uint, Entity> &entities);
+std::map<uint, RawNURBS> allIDNurbs(std::map<uint, Entity> &entities);
 std::map<uint, Entity> parse(const std::string &filename);
 
 } // namespace STEP
+
+std::ostream& operator<<(std::ostream& cout, const STEP::RawNURBS &nurbs);

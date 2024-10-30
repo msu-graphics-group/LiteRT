@@ -222,6 +222,18 @@ std::vector<RawNURBS> allNURBS(std::map<uint, Entity> &entities) {
     return allNurbs;
 }
 
+std::map<uint, RawNURBS> allIDNurbs(std::map<uint, Entity> &entities) {
+    std::map<uint, RawNURBS> IDNurbs;
+    for (auto &pair : entities) {
+        auto id = pair.first;
+        auto entity = pair.second;
+        if (entity.type == Type::BSPLINE_SURFACE) {
+          IDNurbs[id] = toNURBS(entities, id);
+        }
+    }
+    return IDNurbs;
+}
+
 std::map<uint, Entity> parse(const std::string &filename) {
     std::ifstream file(filename);
     std::stringstream stream;
@@ -248,4 +260,52 @@ std::map<uint, Entity> parse(const std::string &filename) {
     return entities;
 }
 
+}
+
+std::ostream& operator<<(std::ostream& cout, const STEP::RawNURBS &nurbs) {
+    // Control points dimensions
+    uint32_t n = nurbs.points.rows_count();
+    cout << "n = " << n-1 << std::endl;
+
+    uint32_t m = nurbs.points.cols_count();
+    cout << "m = " << m-1 << std::endl;
+
+    // Control points
+    cout << "points:" << std::endl;
+    for (size_t i = 0; i < n; i++) {
+        for (size_t j = 0; j < m; j++) {
+            auto index = std::make_pair(i, j);
+            auto point = nurbs.points[index];
+            cout << "{" << point.x << " " << point.z << " " << point.y << "}\t";
+        }
+        cout << std::endl;
+    }
+
+    // Weights
+    cout << "weights:" << std::endl;
+    for (size_t i = 0; i < n; i++) {
+        for (size_t j = 0; j < m; j++) {
+            auto index = std::make_pair(i, j);
+            auto point = nurbs.points[index];
+            cout << nurbs.weights[index] << " ";
+        }
+        cout << std::endl;
+    }
+
+    // Degrees
+    cout << "u_degree: " << nurbs.u_degree << std::endl;
+    cout << "v_degree: " << nurbs.v_degree << std::endl;
+
+    // Knots
+    cout << "u_knots: ";
+    for (auto knot : nurbs.u_knots)
+        cout << knot << " ";
+    cout << std::endl;
+
+    cout << "v_knots: ";
+    for (auto knot : nurbs.v_knots)
+        cout << knot << " ";
+    cout << std::endl;
+
+    return cout;
 }

@@ -6,13 +6,12 @@
 
 # Runtime files
 obj/*
-main
-
-# Modules
-inc/LiteMath.h
 
 # Keep essential folders
 !.gitkeep
+
+# TODO list
+TODO.txt
 
 .vscode
 build
