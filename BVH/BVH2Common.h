@@ -6,7 +6,7 @@
 #include <string>
 #include <memory>
 
-#include "CrossRT.h"
+#include "CrossRT/CrossRT.h"
 #include "LiteMath.h"
 
 using LiteMath::cross;

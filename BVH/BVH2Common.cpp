@@ -1496,21 +1496,28 @@ void BVHRT::IntersectGraphicPrims(const float3& ray_pos, const float3& ray_dir,
 }
 
 void BVHRT::IntersectAnyPolygon(
-    float3 const &ray_origin, float3 const &ray_direction, float t_start,
+    float3 const& ray_origin, float3 const& ray_direction, float t_start,
     uint32_t inst_id, uint32_t geom_id, [[maybe_unused]] uint32_t a_start,
-    [[maybe_unused]] uint32_t a_count, CRT_Hit *hit_ptr
+    [[maybe_unused]] uint32_t a_count, CRT_Hit* hit_ptr
 ) {
 #ifndef DISABLE_ANY_POLYGON
-    namespace lm = LiteMath;
+    using LiteMath::mod;
 
-    auto constexpr MAX_N_STEPS = uint{1'000};
-    auto constexpr EPSILON = 0.01f;
+    // All constants named with full path, because `kernel_slicer` will put them
+    // in global namespace.
 
-    auto constexpr MODULO = 4.0f * lm::M_PI;
-    auto constexpr LEVEL_SET = 2.0f * lm::M_PI;
-    auto constexpr SHIFT = 4.0f * lm::M_PI;
-    auto constexpr LOWER_BOUND = 0.0f;
-    auto constexpr UPPER_BOUND = 4.0f * lm::M_PI;
+    // HACK(hack3rmann): `kernel_slicer` puts `M_PI` constant below all
+    // constants defined here, so we can define a new one
+    auto constexpr INTERSECT_ANY_POLYGON_PI = 3.14159265358979323846f;
+
+    uint constexpr INTERSECT_ANY_POLYGON_MAX_N_STEPS = 1000;
+    auto constexpr INTERSECT_ANY_POLYGON_EPSILON = 0.01f;
+
+    auto constexpr INTERSECT_ANY_POLYGON_MODULO = 4.0f * INTERSECT_ANY_POLYGON_PI;
+    auto constexpr INTERSECT_ANY_POLYGON_LEVEL_SET = 2.0f * INTERSECT_ANY_POLYGON_PI;
+    auto constexpr INTERSECT_ANY_POLYGON_SHIFT = 4.0f * INTERSECT_ANY_POLYGON_PI;
+    auto constexpr INTERSECT_ANY_POLYGON_LOWER_BOUND = 0.0f;
+    auto constexpr INTERSECT_ANY_POLYGON_UPPER_BOUND = 4.0f * INTERSECT_ANY_POLYGON_PI;
 
     auto const poly_id = m_geomData[geom_id].offset.x;
     auto const header = m_AnyPolygonHeaders[poly_id];
@@ -1519,27 +1526,30 @@ void BVHRT::IntersectAnyPolygon(
     auto const max_pos = to_float3(m_geomData[geom_id].boxMax);
     auto const t_bounds =
         box_intersects(min_pos, max_pos, ray_origin, ray_direction);
-    auto const t_near = lm::max(t_bounds.x, t_start);
+    auto const t_near = max(t_bounds.x, t_start);
     auto const t_far = t_bounds.y;
 
     auto distance = 0.0f;
     auto overstep = 0.0f;
-    auto normal = float3{};
-    auto n_steps = uint{0};
+    auto normal = float3(0.0f);
+    uint n_steps = 0;
 
-    while (distance < t_far && n_steps < MAX_N_STEPS) {
+    while (distance < t_far && n_steps < INTERSECT_ANY_POLYGON_MAX_N_STEPS) {
         auto const pos = ray_origin + (distance + overstep) * ray_direction;
         auto const solid_angle =
             any_polygon_solid_angle(m_AnyPolygonTriangles, header, pos);
-        auto const value = lm::mod(solid_angle - LEVEL_SET, MODULO);
+        auto const value =
+            mod(solid_angle - INTERSECT_ANY_POLYGON_LEVEL_SET,
+                INTERSECT_ANY_POLYGON_MODULO);
         auto const gradient =
             any_polygon_solid_angle_gradient(m_AnyPolygonVertices, header, pos);
 
         normal = normalize(gradient);
 
         auto const close_to_level_set =
-            lm::min(value - LOWER_BOUND, UPPER_BOUND - value) <=
-            EPSILON * lm::length(gradient);
+            min(value - INTERSECT_ANY_POLYGON_LOWER_BOUND,
+                INTERSECT_ANY_POLYGON_UPPER_BOUND - value) <=
+            INTERSECT_ANY_POLYGON_EPSILON * length(gradient);
 
         if (t_near < distance && close_to_level_set) {
             auto const encoded_normal = encode_normal(normal);
@@ -1551,18 +1561,22 @@ void BVHRT::IntersectAnyPolygon(
         auto const radius =
             any_polygon_boundary_distance(m_AnyPolygonVertices, header, pos);
 
-        auto const a_lo = (value + SHIFT) / (LOWER_BOUND + SHIFT);
-        auto const a_hi = (value + SHIFT) / (UPPER_BOUND + SHIFT);
+        auto const a_lo =
+            (value + INTERSECT_ANY_POLYGON_SHIFT) /
+            (INTERSECT_ANY_POLYGON_LOWER_BOUND + INTERSECT_ANY_POLYGON_SHIFT);
+        auto const a_hi =
+            (value + INTERSECT_ANY_POLYGON_SHIFT) /
+            (INTERSECT_ANY_POLYGON_UPPER_BOUND + INTERSECT_ANY_POLYGON_SHIFT);
 
         auto const step_size_lo =
-            -0.5f * radius *
-            (a_lo + 2.0f - lm::sqrt(a_lo * a_lo + 8.0f * a_lo));
+            -0.5f * radius * (a_lo + 2.0f - sqrt(a_lo * a_lo + 8.0f * a_lo));
 
         auto const step_size_hi =
-            0.5f * radius * (a_hi + 2.0f - lm::sqrt(a_hi * a_hi + 8.0f * a_hi));
+            0.5f * radius * (a_hi + 2.0f - sqrt(a_hi * a_hi + 8.0f * a_hi));
 
-        auto const max_step = lm::min(step_size_lo, step_size_hi);
-        auto const step_size = (max_step >= overstep) ? overstep + max_step : 0.0f;
+        auto const max_step = min(step_size_lo, step_size_hi);
+        auto const step_size =
+            (max_step >= overstep) ? overstep + max_step : 0.0f;
 
         overstep = (max_step >= overstep) ? 0.75f * max_step : 0.0f;
         distance += step_size;

@@ -2,13 +2,19 @@
 
 #include <vector>
 
-#include "CrossRT.h"
+#include "CrossRT/CrossRT.h"
 #include "LiteMath.h"
 #include "render_settings.h"
 
-namespace lm = LiteMath;
+using LiteMath::clamp;
+using LiteMath::cross;
+using LiteMath::dot;
 using LiteMath::float2;
 using LiteMath::float3;
+using LiteMath::INF_POSITIVE;
+using LiteMath::length;
+using LiteMath::M_PI;
+using LiteMath::min;
 using LiteMath::uint;
 
 #ifndef KERNEL_SLICER
@@ -51,7 +57,7 @@ struct AnyPolygonDataHeader {
 };
 
 inline float2 atan2_sum_args(float2 lhs, float2 rhs) {
-    return float2{lhs.x * rhs.x - lhs.y * rhs.y, lhs.x * rhs.y + lhs.y * rhs.x};
+    return float2(lhs.x * rhs.x - lhs.y * rhs.y, lhs.x * rhs.y + lhs.y * rhs.x);
 }
 
 inline float2 triangle_solid_angle_atan2_args(
@@ -60,35 +66,33 @@ inline float2 triangle_solid_angle_atan2_args(
     auto const a = p1 - point_of_view;
     auto const b = p2 - point_of_view;
     auto const c = p3 - point_of_view;
-    auto const a_len = lm::length(a);
-    auto const b_len = lm::length(b);
-    auto const c_len = lm::length(c);
+    auto const a_len = length(a);
+    auto const b_len = length(b);
+    auto const c_len = length(c);
 
-    return float2{
-        a_len * b_len * c_len + c_len * lm::dot(a, b) + a_len * lm::dot(b, c) +
-            b_len * lm::dot(a, c),
-        lm::dot(a, lm::cross(b, c))
-    };
+    return float2(
+        a_len * b_len * c_len + c_len * dot(a, b) + a_len * dot(b, c) +
+            b_len * dot(a, c),
+        dot(a, cross(b, c))
+    );
 }
 
 inline float3 any_polygon_solid_angle_gradient(
     std::vector<float3> const& points, AnyPolygonDataHeader header,
     float3 point_of_view
 ) {
-    auto result = float3{0.0};
+    auto result = float3(0.0);
 
     for (uint i = 0; i < header.size; ++i) {
         auto const left = points[header.offset + i] - point_of_view;
         auto const right =
             points[header.offset + (i + 1) % header.size] - point_of_view;
-        auto const cross = lm::cross(right, left);
-        auto const cross_len_sqr = lm::dot(cross, cross);
+        auto const rcl = cross(right, left);
+        auto const cross_len_sqr = dot(rcl, rcl);
 
-        result +=
-            cross / cross_len_sqr *
-            ((-lm::dot(left, right) + lm::dot(left, left)) / lm::length(left) +
-             (-lm::dot(left, right) + lm::dot(right, right)) / lm::length(right)
-            );
+        result += rcl / cross_len_sqr *
+                  ((-dot(left, right) + dot(left, left)) / length(left) +
+                   (-dot(left, right) + dot(right, right)) / length(right));
     }
 
     return result;
@@ -98,7 +102,7 @@ inline float any_polygon_solid_angle(
     std::vector<float3> const& triangles, AnyPolygonDataHeader header,
     float3 point_of_view
 ) {
-    auto running_angle = float2{1.0f, 0.0f};
+    auto running_angle = float2(1.0f, 0.0f);
 
     for (uint i = 0; i < header.size; ++i) {
         auto const p1 = triangles[header.offset + 3 * i + 0];
@@ -110,7 +114,7 @@ inline float any_polygon_solid_angle(
         running_angle = atan2_sum_args(running_angle, solid_angle_args);
     }
 
-    return 2.0 * std::atan2(running_angle.y, running_angle.x);
+    return 2.0 * atan2(running_angle.y, running_angle.x);
 }
 
 /**
@@ -126,14 +130,14 @@ inline float3 point_segment_height(
     static float constexpr EPS = 1.1920929e-7f;
 
     auto const length_squared =
-        lm::dot(segment_end - segment_start, segment_end - segment_start);
+        dot(segment_end - segment_start, segment_end - segment_start);
 
     if (length_squared < EPS) {
         return point - segment_start;
     }
 
-    auto const t = lm::clamp(
-        lm::dot(point - segment_start, segment_end - segment_start) /
+    auto const t = clamp(
+        dot(point - segment_start, segment_end - segment_start) /
             length_squared,
         0.0, 1.0
     );
@@ -147,7 +151,7 @@ inline float any_polygon_boundary_distance(
     std::vector<float3> const& points, AnyPolygonDataHeader header,
     float3 point_of_view
 ) {
-    auto result_squared = lm::INF_POSITIVE;
+    auto result_squared = INF_POSITIVE;
 
     for (uint i = 0; i < header.size; ++i) {
         auto const start = points[header.offset + i];
@@ -155,10 +159,10 @@ inline float any_polygon_boundary_distance(
 
         auto const height = point_segment_height(start, end, point_of_view);
 
-        result_squared = lm::min(result_squared, lm::dot(height, height));
+        result_squared = min(result_squared, dot(height, height));
     }
 
-    return std::sqrt(result_squared);
+    return sqrt(result_squared);
 }
 
 inline void any_polygon_fill_crt_hit(
