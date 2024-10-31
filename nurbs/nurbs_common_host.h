@@ -14,4 +14,4 @@ enum class SurfaceParameter { U, V };
 RBezierGrid nurbs2rbezier(RawNURBS nurbs);
 RawNURBS load_nurbs (const std::filesystem::path &path);
 std::tuple<std::vector<LiteMath::Box4f>, std::vector<LiteMath::float2>>
-get_bvh_leaves(const RBezierGrid &rbezier);
+get_nurbs_bvh_leaves(const RBezierGrid &rbezier);

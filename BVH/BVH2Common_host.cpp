@@ -831,12 +831,26 @@ uint32_t BVHRT::AddGeom_NURBS(const RBezierGrid &rbeziers, ISceneObject *fake_th
     rbeziers.uniq_vknots.begin(), rbeziers.uniq_vknots.end(),
     std::back_inserter(m_NURBSData));
 
-  //create list of bboxes for BLAS
-  std::vector<BVHNode> orig_nodes(2);
-  orig_nodes[0].boxMin = to_float3(bbox.boxMin);
-  orig_nodes[0].boxMax = to_float3(bbox.boxMax);
-  
-  return fake_this->AddGeom_AABB(AbstractObject::TAG_NURBS, (const CRT_AABB*)orig_nodes.data(), orig_nodes.size());
+  auto [bboxes, uvs] = get_nurbs_bvh_leaves(rbeziers);
+  std::vector<BVHNode> nodes(bboxes.size());
+  for (int i = 0; i < bboxes.size(); ++i) {
+    nodes[i].boxMin = to_float3(bboxes[i].boxMin);
+    nodes[i].boxMax = to_float3(bboxes[i].boxMax);
+    uint32_t approx_id = m_NURBS_approxes.size()/2;
+    uint32_t packed = PackOffsetAndSize(approx_id, 1);
+    m_primIdCount.push_back(packed);
+    m_NURBS_approxes.push_back(uvs[i][0]);
+    m_NURBS_approxes.push_back(uvs[i][1]);
+  }
+
+  if (bboxes.size() == 1) {
+    nodes.resize(2);
+    nodes[1].boxMin = nodes[0].boxMax;
+    nodes[1].boxMax = nodes[0].boxMax+1e-4f;
+    m_primIdCount.push_back(m_primIdCount.back());
+  }
+
+  return fake_this->AddGeom_AABB(AbstractObject::TAG_NURBS, (const CRT_AABB*)nodes.data(), nodes.size());
 }
 
 uint32_t BVHRT::AddGeom_GraphicsPrim(const GraphicsPrimView &prim_view, ISceneObject *fake_this, BuildOptions a_qualityLevel)

@@ -177,7 +177,7 @@ struct BVHRT : public ISceneObject
                          uint32_t a_count, CRT_Hit* pHit);
 
   void IntersectNURBS(const float3& ray_pos, const float3& ray_dir,
-                      float tNear, uint32_t instId,
+                      float tNear, uint32_t approx_offset, uint32_t instId,
                       uint32_t geomId, CRT_Hit* pHit);
 
   void IntersectGraphicPrims(const float3& ray_pos, const float3& ray_dir,
@@ -323,6 +323,7 @@ struct BVHRT : public ISceneObject
 
   //NURBS data
   std::vector<float> m_NURBSData;
+  std::vector<float> m_NURBS_approxes;
   std::vector<NURBSHeader> m_NURBSHeaders;
   //NURBS functions
   virtual float4 control_point2d(uint i, uint j, int offset, NURBSHeader h);
@@ -340,6 +341,7 @@ struct BVHRT : public ISceneObject
   virtual NURBS_HitInfo ray_nurbs_newton_intersection(
     const LiteMath::float3 &pos,
     const LiteMath::float3 &ray,
+    float2 uv,
     NURBSHeader h);
   //end NURBS functions
 
@@ -580,12 +582,11 @@ struct GeomDataNURBS : public AbstractObject
     float3 ray_dir = to_float3(rayDirAndFar);
     float tNear    = rayPosAndNear.w;
     uint32_t geometryId = geomId;
-    //uint32_t globalAABBId = bvhrt->startEnd[geometryId].x + info.aabbId;
-    //uint32_t start_count_packed = bvhrt->m_primIdCount[globalAABBId];
-    //uint32_t a_start = EXTRACT_START(start_count_packed);
-    //uint32_t a_count = EXTRACT_COUNT(start_count_packed);
+    uint32_t globalAABBId = bvhrt->startEnd[geometryId].x + info.aabbId;
+    uint32_t start_count_packed = bvhrt->m_primIdCount[globalAABBId];
+    uint32_t offset = EXTRACT_START(start_count_packed) * 2;
 
-    bvhrt->IntersectNURBS(ray_pos, ray_dir, tNear, info.instId, geometryId, pHit);
+    bvhrt->IntersectNURBS(ray_pos, ray_dir, tNear, offset, info.instId, geometryId, pHit);
     return pHit->primId == 0xFFFFFFFF ? TAG_NONE : TAG_GS;
   }
 };

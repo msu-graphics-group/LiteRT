@@ -1481,6 +1481,7 @@ float2 project2planes(
 NURBS_HitInfo BVHRT::ray_nurbs_newton_intersection(
     const LiteMath::float3 &pos,
     const LiteMath::float3 &ray,
+    float2 uv,
     NURBSHeader h) {
   const int max_steps = 16;
   const float EPS = 1e-3f;
@@ -1499,7 +1500,6 @@ NURBS_HitInfo BVHRT::ray_nurbs_newton_intersection(
   // assert(dot(P1, to_float4(pos, 1.0f)) < 1e-2);
   // assert(dot(P2, to_float4(pos, 1.0f)) < 1e-2);
 
-  float2 uv = float2{ 0.5f, 0.5f };
   float4 surf_point = rbezier_grid_point(uv.x, uv.y, h);
   surf_point /= surf_point.w;
   float2 D = project2planes(P1, P2, surf_point); 
@@ -1556,7 +1556,7 @@ NURBS_HitInfo BVHRT::ray_nurbs_newton_intersection(
 }
 
 void BVHRT::IntersectNURBS(const float3& ray_pos, const float3& ray_dir,
-                           float tNear, uint32_t instId,
+                           float tNear, uint32_t approx_offset, uint32_t instId,
                            uint32_t geomId, CRT_Hit* pHit) {
   uint nurbsId = m_geomData[geomId].offset.x;
   NURBSHeader header  = m_NURBSHeaders[nurbsId];
@@ -1566,7 +1566,10 @@ void BVHRT::IntersectNURBS(const float3& ray_pos, const float3& ray_dir,
   float3 max_pos = to_float3(m_geomData[geomId].boxMax);
   float2 tNear_tFar = box_intersects(min_pos, max_pos, ray_pos, ray_dir);
 
-  NURBS_HitInfo hit = ray_nurbs_newton_intersection(ray_pos, ray_dir, header);
+  float u0 = m_NURBS_approxes[approx_offset];
+  float v0 = m_NURBS_approxes[approx_offset+1];
+
+  NURBS_HitInfo hit = ray_nurbs_newton_intersection(ray_pos, ray_dir, float2{u0, v0}, header);
   if (hit.hitten) {
     float2 uv = hit.uv;
     float3 point = hit.point;

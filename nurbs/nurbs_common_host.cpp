@@ -341,7 +341,7 @@ get_bvh_leaves(const RBezier &rbezier, float2 ubounds, float2 vbounds) {
 }
 
 std::tuple<std::vector<LiteMath::Box4f>, std::vector<float2>>
-get_bvh_leaves(const RBezierGrid &rbezier) {
+get_nurbs_bvh_leaves(const RBezierGrid &rbezier) {
   std::vector<Box4f> ans_boxes;
   std::vector<float2> ans_uv;
   for (int patchi = 0; patchi < rbezier.grid.rows_count(); ++patchi)
