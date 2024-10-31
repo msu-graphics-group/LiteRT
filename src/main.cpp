@@ -34,8 +34,8 @@ int main(int, char** argv)
   SDL_SetHint(SDL_HINT_RENDER_VSYNC, "1");
   atexit(SDL_Quit);
 
-  int WIDTH = 800;
-  int HEIGHT = 600;
+  int WIDTH = 1200;
+  int HEIGHT = 800;
   float aspect = static_cast<float>(WIDTH)/HEIGHT;
   float fov = M_PI_4;
 
