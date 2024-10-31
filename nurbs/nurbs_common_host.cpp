@@ -217,8 +217,6 @@ constexpr float div_constant = 1.0f;
 int flatteing_div_count(
     int p,
     StrideView<const float4> Pw) {
-  if (p == 1)
-    return 0;
 
   float avg_v = 0.0f;
   float mx_a = 0.0f;

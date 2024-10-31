@@ -845,8 +845,6 @@ uint32_t BVHRT::AddGeom_NURBS(const RBezierGrid &rbeziers, ISceneObject *fake_th
 
   if (bboxes.size() == 1) {
     nodes.resize(2);
-    nodes[1].boxMin = nodes[0].boxMax;
-    nodes[1].boxMax = nodes[0].boxMax+1e-4f;
     m_primIdCount.push_back(m_primIdCount.back());
   }
 
