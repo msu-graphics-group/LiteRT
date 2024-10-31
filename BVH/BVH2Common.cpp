@@ -1585,6 +1585,13 @@ void BVHRT::IntersectNURBS(const float3& ray_pos, const float3& ray_dir,
     pHit->coords[0] = uv.x;
     pHit->coords[1] = uv.y;
   } 
+  // pHit->geomId = geomId | (type << SH_TYPE);
+  // pHit->t = tNear;
+  // pHit->primId = 0;
+  // pHit->instId = instId;
+
+  // pHit->coords[0] = u0;
+  // pHit->coords[1] = v0;
 }
 //////////////////////// END NURBS SECTION ///////////////////////////////////////////////
 

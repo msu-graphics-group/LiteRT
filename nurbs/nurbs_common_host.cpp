@@ -296,7 +296,7 @@ static Box4f calc_bbox(const float4 *Pw, size_t count) {
   for (int i = 0; i < count; ++i) {
     float4 point = Pw[i]/Pw[i].w;
     ans.boxMin = min(ans.boxMin, point);
-    ans.boxMax = min(ans.boxMax, point);
+    ans.boxMax = max(ans.boxMax, point);
   }
   return ans;
 }

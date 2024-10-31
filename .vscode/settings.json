@@ -97,7 +97,7 @@
     "cmake.debugConfig": {
       "args": ["-tests_litert", "31"],
       "cwd": "${workspaceFolder}",
-      "visualizerFile": "litemath.natvis",
+      "visualizerFile": "${workspaceFolder}/.vscode/litemath.natvis",
       "showDisplayString": true
     }
 }
