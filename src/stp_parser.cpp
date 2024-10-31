@@ -152,8 +152,8 @@ bool Parser::tryParseEntity(const std::string &entry, Entity &res) {
 } 
 
 std::vector<float> decompressKnots(
-        std::vector<float> knots_comp,
-        std::vector<uint> knots_mult) {
+        std::vector<float> &knots_comp,
+        std::vector<uint> &knots_mult) {
     assert(knots_comp.size() == knots_mult.size());
 
     std::vector<float> knots;
@@ -163,6 +163,25 @@ std::vector<float> decompressKnots(
         }
     }
     return knots;
+}
+
+void trimKnots(std::vector<float> &knots, const std::vector<uint> &knots_mult, uint degree) {
+    // Convert first and last knots to 'nurbs' format,
+    // so that they are repated p+1 times where p is corresponding degree.
+    // This is a crutch, because there should be an option in STEP
+    // that corresponds to the degree multiplicities type.
+    if (knots_mult[0] == 1) {
+        for (size_t i = 0; i < degree; i++) {
+            knots[i] = knots[degree];
+        }
+    }
+
+    size_t size = knots.size();
+    if (knots_mult[size-1] == 1) {
+         for (size_t i = 0; i < degree; i++) {
+            knots[size-i-1] = knots[size-degree-1];
+         }
+    }
 }
 
 RawNURBS Parser::toNURBS(uint id) {
@@ -195,6 +214,10 @@ RawNURBS Parser::toNURBS(uint id) {
     std::vector<float> v_knots_comp = this->parseFVector1D(v_knots_arg);
     nurbs.u_knots = decompressKnots(u_knots_comp, u_knots_mult);
     nurbs.v_knots = decompressKnots(v_knots_comp, v_knots_mult);
+ 
+    // Trim knots
+    trimKnots(nurbs.u_knots, u_knots_mult, nurbs.u_degree);
+    trimKnots(nurbs.v_knots, v_knots_mult, nurbs.v_degree);
 
     // Make default weights
     size_t rows = nurbs.points.rows_count(), cols = nurbs.points.cols_count();
