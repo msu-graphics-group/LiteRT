@@ -548,8 +548,8 @@ void litert_test_9_mesh()
   pRender->Render(image.data(), image.width(), image.height(), m1, m2, preset);
   pRenderRef->Render(ref_image.data(), ref_image.width(), ref_image.height(), m1, m2, preset);
 
-  LiteImage::SaveImage<uint32_t>("saves/test_9_res.bmp", image); 
-  LiteImage::SaveImage<uint32_t>("saves/test_9_ref.bmp", ref_image);
+  LiteImage::SaveImage<uint32_t>("saves/test_9_res.png", image); 
+  LiteImage::SaveImage<uint32_t>("saves/test_9_ref.png", ref_image);
 
   float psnr = image_metrics::PSNR(ref_image, image);
   printf("TEST 9. Rendering simple mesh\n");

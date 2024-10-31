@@ -44,7 +44,9 @@ void MultiRenderer::SetViewport(int a_xStart, int a_yStart, int a_width, int a_h
 {
   m_width  = a_width;
   m_height = a_height;
-  m_packedXY.resize(m_width*m_height);
+  m_packedXY_width  = PACK_XY_BLOCK_SIZE*((a_width + PACK_XY_BLOCK_SIZE - 1) / PACK_XY_BLOCK_SIZE);
+  m_packedXY_height = PACK_XY_BLOCK_SIZE*((a_height + PACK_XY_BLOCK_SIZE - 1) / PACK_XY_BLOCK_SIZE);;
+  m_packedXY.resize(m_packedXY_width*m_packedXY_height);
 }
 
 bool MultiRenderer::LoadScene(const char* a_scenePath)
@@ -224,7 +226,7 @@ void MultiRenderer::Render(uint32_t* a_outColor, uint32_t a_width, uint32_t a_he
 {
   profiling::Timer timer;
   for (int i=0;i<a_passNum;i++)
-    CastRaySingleBlock(a_width*a_height, a_outColor, a_passNum);
+    CastRaySingleBlock(m_packedXY_width*m_packedXY_height, a_outColor, a_passNum);
   timeDataByName["CastRaySingleBlock"] = timer.getElapsedTime().asMilliseconds();
 }
 
@@ -233,7 +235,7 @@ void MultiRenderer::CastRaySingleBlock(uint32_t tidX, uint32_t * out_color, uint
   //CPU version is mostly used by debug, so better make it single-threaded
   //also per-pixel debug does not work with multithreading
   //#ifndef _DEBUG
-  #pragma omp parallel for default(shared)
+  //#pragma omp parallel for default(shared)
   //#endif
   for(int i=0;i<tidX;i++)
     CastRaySingle(i, out_color);
@@ -243,7 +245,7 @@ void MultiRenderer::RenderFloat(float4* a_outColor, uint32_t a_width, uint32_t a
 {
   profiling::Timer timer;
   for (int i=0;i<a_passNum;i++)
-    CastRayFloatSingleBlock(a_width*a_height, a_outColor, a_passNum);
+    CastRayFloatSingleBlock(m_packedXY_width*m_packedXY_height, a_outColor, a_passNum);
   timeDataByName["CastRayFloatSingleBlock"] = timer.getElapsedTime().asMilliseconds();
 }
 

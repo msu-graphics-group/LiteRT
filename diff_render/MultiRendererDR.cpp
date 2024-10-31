@@ -620,7 +620,10 @@ namespace dr
         const uint XY = m_packedXY[i];
         const uint x  = (XY & 0x0000FFFF);
         const uint y  = (XY & 0xFFFF0000) >> 16;
-        
+
+        if (x >= m_width || y >= m_height)
+          continue;
+
         //finding external borders nearby (borders with background)
         //TODO: find internal borders
         float d0 = out_image[y*m_width + x].w;
@@ -1088,6 +1091,9 @@ namespace dr
     const uint x  = (XY & 0x0000FFFF);
     const uint y  = (XY & 0xFFFF0000) >> 16;
 
+    if (x >= m_width || y >= m_height)
+      return 0.0;
+
     if (m_preset_dr.dr_raycasting_mask == DR_RAYCASTING_MASK_ON && !masks[mask_ind][y * m_width + x])
     {
       return 0.f;
@@ -1378,6 +1384,9 @@ namespace dr
     const uint x  = (XY & 0x0000FFFF);
     const uint y  = (XY & 0xFFFF0000) >> 16;
 
+    if (x >= m_width || y >= m_height)
+      return;
+
     const unsigned border_ray_flags = DR_RAY_FLAG_BORDER;
 
     const unsigned border_spp = m_preset_dr.border_spp;
@@ -1654,6 +1663,9 @@ namespace dr
     const uint XY = m_packedXY[tidX];
     const uint x  = (XY & 0x0000FFFF);
     const uint y  = (XY & 0xFFFF0000) >> 16;
+
+    if (x >= m_width || y >= m_height)
+      return;
 
     const unsigned border_ray_flags = DR_RAY_FLAG_BORDER;
     const float relax_eps = m_preset_dr.border_relax_eps;

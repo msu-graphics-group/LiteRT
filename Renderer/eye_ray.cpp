@@ -89,6 +89,9 @@ void MultiRenderer::CastRaySingle(uint32_t tidX, uint32_t* out_color)
   const uint x  = (XY & 0x0000FFFF);
   const uint y  = (XY & 0xFFFF0000) >> 16;
 
+  if (x >= m_width || y >= m_height)
+    return;
+
   float4 res_color = float4(0,0,0,0);
   uint32_t spp_sqrt = uint32_t(sqrt(m_preset.spp));
   float i_spp_sqrt = 1.0f/spp_sqrt;
@@ -113,7 +116,10 @@ void MultiRenderer::CastRayFloatSingle(uint32_t tidX, float4* out_color)
   const uint XY = m_packedXY[tidX];
   const uint x  = (XY & 0x0000FFFF);
   const uint y  = (XY & 0xFFFF0000) >> 16;
-  
+
+  if (x >= m_width || y >= m_height)
+    return;
+
   float4 res_color = float4(0,0,0,0);
   uint32_t spp_sqrt = uint32_t(sqrt(m_preset.spp));
   float i_spp_sqrt = 1.0f/spp_sqrt;
@@ -512,10 +518,10 @@ static inline uint SuperBlockIndex2DOpt(uint tidX, uint tidY, uint a_width)
 
 void MultiRenderer::kernel_PackXY(uint tidX, uint tidY, uint* out_pakedXY)
 {
-  if (tidX >= m_width || tidY >= m_height)
+  if (tidX >= m_packedXY_width || tidY >= m_packedXY_height)
     return;
-  //const uint offset   = BlockIndex2D(tidX, tidY, m_width);
-  const uint offset   = SuperBlockIndex2DOpt(tidX, tidY, m_width);
+
+  const uint offset   = SuperBlockIndex2DOpt(tidX, tidY, m_packedXY_width);
   out_pakedXY[offset] = ((tidY << 16) & 0xFFFF0000) | (tidX & 0x0000FFFF);
 }
 
@@ -541,5 +547,5 @@ void MultiRenderer::PackXYBlock(uint tidX, uint tidY, uint a_passNum)
 
 void MultiRenderer::Clear(uint32_t a_width, uint32_t a_height, const char* a_what)
 {
-  PackXYBlock(a_width, a_height, 1);
+  PackXYBlock(m_packedXY_width, m_packedXY_height, 1);
 }

@@ -30,6 +30,7 @@ static constexpr unsigned DEFAULT_MATERIAL = 0u;
 static constexpr unsigned DEFAULT_TEXTURE = 0u;
 
 static constexpr unsigned MULTI_RENDER_MAX_TEXTURES = 16;
+static constexpr unsigned PACK_XY_BLOCK_SIZE = 8;
 
 struct MultiRendererMaterial
 {
@@ -183,6 +184,8 @@ protected:
 
   uint32_t m_width;
   uint32_t m_height;
+  uint32_t m_packedXY_width;
+  uint32_t m_packedXY_height;
   MultiRenderPreset m_preset;
   uint32_t m_seed;
 
