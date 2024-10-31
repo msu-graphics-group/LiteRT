@@ -59,4 +59,7 @@ namespace cmesh4
   //checks for mesh defects and issues, notifies about them and tries to fix (e.g. wrong normal direction) 
   //it also rescales mesh so that the AABB is fit inside [-1,1]^3, and returns transform that does it
   LiteMath::float4x4 normalize_mesh(cmesh4::SimpleMesh &mesh, bool verbose = false);
+
+
+  cmesh4::SimpleMesh obj_to_mesh(const std::string file, bool aVerbose = false);
 }

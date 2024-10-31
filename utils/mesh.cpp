@@ -4,6 +4,8 @@
 #include <stack>
 #include "vector_comparators.h"
 #include <map>
+#include <fstream>
+#include <iostream>
 
 namespace cmesh4
 {
@@ -741,5 +743,404 @@ namespace cmesh4
     //fix_normals(mesh, verbose);
 
     return transform;
+  }
+
+
+  std::vector<std::string> explode(std::string aStr, char aDelim)
+  {
+    std::vector<std::string> res;
+    std::string str = aStr.substr(0, aStr.find(aDelim));
+
+    while (str.size() < aStr.size())
+    {
+      res.push_back(str);
+      aStr = aStr.substr(aStr.find(aDelim) + 1);
+      str = aStr.substr(0, aStr.find(aDelim));
+    }
+
+    res.push_back(str);
+
+    return res;
+  }
+
+  SimpleMesh obj_to_mesh(const std::string file, bool aVerbose)
+  {
+    SimpleMesh mesh;
+    // Open file
+    std::ifstream objFile(file.c_str());
+
+    if (objFile.fail())
+    {
+      std::cout << "Error: could not open file <" << file << ">" << std::endl;
+      return mesh;
+    }
+
+
+    // Extract verts, normals, textures, and faces
+    std::vector<float> verts, norms, textures;
+
+    std::string line;
+    unsigned index = 0;
+
+    if (aVerbose) std::cout << "Extracting values from file" << std::endl;
+
+    // Visit each line of the obj file
+    while (std::getline(objFile, line))
+    {
+      // Extract vertex
+      // Line starts with v[space]...
+      if (line[0] == 'v' && line[1] == ' ')
+      {
+        std::string lineVals = line.substr(2);
+        float val;
+
+        while (lineVals[0] == ' ') lineVals = lineVals.substr(1);
+
+        std::string val0 = lineVals.substr(0, lineVals.find(' '));
+        //std::cout << val0 << std::endl;
+        val = (float)atof(val0.c_str());
+        verts.push_back(val);
+
+        lineVals = lineVals.substr(lineVals.find(' ') + 1);
+
+        std::string val1 = lineVals.substr(0, lineVals.find(' '));
+        //std::cout << val1 << std::endl;
+        val = (float)atof(val1.c_str());
+        verts.push_back(val);
+
+        lineVals = lineVals.substr(lineVals.find(' ') + 1);
+
+        std::string val2 = lineVals;
+        if (lineVals.find(' ') != -1)
+        {
+          val2 = lineVals.substr(0, lineVals.find(' '));
+        }
+        //std::cout << val2 << std::endl;
+        val = (float)atof(val2.c_str());
+        verts.push_back(val);
+        //std::cout << "--" << std::endl;
+      }
+
+
+      // Extract textures
+      // Line starts with vt[space]...
+      else if (line[0] == 'v' && line[1] == 't' && line[2] == ' ')
+      {
+        std::string lineVals = line.substr(3);
+        float val;
+
+        while (lineVals[0] == ' ') lineVals = lineVals.substr(1);
+
+        std::string val0 = lineVals.substr(0, lineVals.find(' '));
+        val = (float)atof(val0.c_str());
+        textures.push_back(val);
+
+        lineVals = lineVals.substr(lineVals.find(' ') + 1);
+
+        std::string val1 = lineVals;
+        if (lineVals.find(' ') != -1)
+        {
+          val1 = lineVals.substr(0, lineVals.find(' '));
+        }
+        val = (float)atof(val1.c_str());
+        textures.push_back(val);
+      }
+
+
+      // Extract normals
+      // Line starts with vn[space]...
+      else if (line[0] == 'v' && line[1] == 'n' && line[2] == ' ')
+      {
+        std::string lineVals = line.substr(3);
+        float val;
+
+        while (lineVals[0] == ' ') lineVals = lineVals.substr(1);
+
+        std::string val0 = lineVals.substr(0, lineVals.find(' '));
+        val = (float)atof(val0.c_str());
+        norms.push_back(val);
+
+        lineVals = lineVals.substr(lineVals.find(' ') + 1);
+
+        std::string val1 = lineVals.substr(0, lineVals.find(' '));
+        val = (float)atof(val1.c_str());
+        norms.push_back(val);
+
+        lineVals = lineVals.substr(lineVals.find(' ') + 1);
+
+        std::string val2 = lineVals;
+        if (lineVals.find(' ') != -1)
+        {
+          val2 = lineVals.substr(0, lineVals.find(' '));
+        }
+        val = (float)atof(val2.c_str());
+        norms.push_back(val);
+      }
+
+
+      //
+      // 2. Hash faces
+      //
+        // Extract faces
+        // Line starts with f[space]...
+      else if (line[0] == 'f' && line[1] == ' ')
+      {
+        std::string lineVals = line.substr(2);
+
+        while (lineVals[0] == ' ') lineVals = lineVals.substr(1);
+
+        std::string val0 = lineVals.substr(0, lineVals.find_first_of(' '));
+
+        mesh.matIndices.push_back(0);
+        mesh.indices.push_back(index++);
+        mesh.indices.push_back(index++);
+        mesh.indices.push_back(index++);
+        mesh.vTang4f.push_back(LiteMath::float4(0, 0, 0, 1));
+        mesh.vTang4f.push_back(LiteMath::float4(0, 0, 0, 1));
+        mesh.vTang4f.push_back(LiteMath::float4(0, 0, 0, 1));
+
+        // If the value for this face includes texture and/or 
+        // normal, parse them out
+        if (val0.find('/') == std::string::npos)
+        {
+          std::string lineVals = line.substr(2);
+          int val;
+
+          std::string val0 = lineVals.substr(0, lineVals.find(' '));
+          val = (int)atoi(val0.c_str());
+          /*finalVerts.push_back(verts[(val - 1) * 3]);
+          finalVerts.push_back(verts[(val - 1) * 3 + 1]);
+          finalVerts.push_back(verts[(val - 1) * 3 + 2]);
+          finalVerts.push_back(0);
+          finalVerts.push_back(0);
+          finalVerts.push_back(0);
+          finalVerts.push_back(0);
+          finalVerts.push_back(0);*/
+          mesh.vPos4f.push_back(LiteMath::float4(verts[(val - 1) * 3], verts[(val - 1) * 3 + 1], verts[(val - 1) * 3 + 2], 1));
+          mesh.vNorm4f.push_back(LiteMath::float4(0, 0, 0, 1));
+          mesh.vTexCoord2f.push_back(LiteMath::float2(0, 0));
+
+          lineVals = lineVals.substr(lineVals.find(' ') + 1);
+
+          std::string val1 = lineVals.substr(0, lineVals.find(' '));
+          val = (int)atoi(val1.c_str());
+          /*finalVerts.push_back(verts[(val - 1) * 3]);
+          finalVerts.push_back(verts[(val - 1) * 3 + 1]);
+          finalVerts.push_back(verts[(val - 1) * 3 + 2]);
+          finalVerts.push_back(0);
+          finalVerts.push_back(0);
+          finalVerts.push_back(0);
+          finalVerts.push_back(0);
+          finalVerts.push_back(0);*/
+          mesh.vPos4f.push_back(LiteMath::float4(verts[(val - 1) * 3], verts[(val - 1) * 3 + 1], verts[(val - 1) * 3 + 2], 1));
+          mesh.vNorm4f.push_back(LiteMath::float4(0, 0, 0, 1));
+          mesh.vTexCoord2f.push_back(LiteMath::float2(0, 0));
+
+          lineVals = lineVals.substr(lineVals.find(' ') + 1);
+
+          std::string val2 = lineVals;
+          if (lineVals.find(' ') != -1)
+          {
+            val2 = lineVals.substr(0, lineVals.find(' '));
+          }
+          val = (int)atoi(val2.c_str());
+          /*finalVerts.push_back(verts[(val - 1) * 3]);
+          finalVerts.push_back(verts[(val - 1) * 3 + 1]);
+          finalVerts.push_back(verts[(val - 1) * 3 + 2]);
+          finalVerts.push_back(0);
+          finalVerts.push_back(0);
+          finalVerts.push_back(0);
+          finalVerts.push_back(0);
+          finalVerts.push_back(0);*/
+          mesh.vPos4f.push_back(LiteMath::float4(verts[(val - 1) * 3], verts[(val - 1) * 3 + 1], verts[(val - 1) * 3 + 2], 1));
+          mesh.vNorm4f.push_back(LiteMath::float4(0, 0, 0, 1));
+          mesh.vTexCoord2f.push_back(LiteMath::float2(0, 0));
+
+          lineVals = lineVals.substr(lineVals.find(' ') + 1);
+          if (lineVals.find(' ') != -1)
+          {
+            while (lineVals[0] == ' ') lineVals = lineVals.substr(1);
+            if (lineVals.length() > 0 && ((lineVals[0] >= '0' && lineVals[0] <= '9') || lineVals[0] == '-' || lineVals[0] == '/'))
+            {
+              std::string val3 = lineVals;
+              if (lineVals.find(' ') != -1)
+              {
+                val3 = lineVals.substr(0, lineVals.find(' '));
+              }
+              mesh.vNorm4f.push_back(LiteMath::float4(0, 0, 0, 1));
+              mesh.vTexCoord2f.push_back(LiteMath::float2(0, 0));
+              mesh.vNorm4f.push_back(LiteMath::float4(0, 0, 0, 1));
+              mesh.vTexCoord2f.push_back(LiteMath::float2(0, 0));
+              mesh.vNorm4f.push_back(LiteMath::float4(0, 0, 0, 1));
+              mesh.vTexCoord2f.push_back(LiteMath::float2(0, 0));
+              mesh.matIndices.push_back(0);
+              mesh.indices.push_back(index++);
+              mesh.indices.push_back(index++);
+              mesh.indices.push_back(index++);
+              mesh.vTang4f.push_back(LiteMath::float4(0, 0, 0, 1));
+              mesh.vTang4f.push_back(LiteMath::float4(0, 0, 0, 1));
+              mesh.vTang4f.push_back(LiteMath::float4(0, 0, 0, 1));
+              int v0 = (int)atoi(val0.c_str()), v2 = (int)atoi(val2.c_str()), v3 = (int)atoi(val3.c_str());
+              mesh.vPos4f.push_back(LiteMath::float4(verts[(v0 - 1) * 3], verts[(v0 - 1) * 3 + 1], verts[(v0 - 1) * 3 + 2], 1));
+              mesh.vPos4f.push_back(LiteMath::float4(verts[(v2 - 1) * 3], verts[(v2 - 1) * 3 + 1], verts[(v2 - 1) * 3 + 2], 1));
+              mesh.vPos4f.push_back(LiteMath::float4(verts[(v3 - 1) * 3], verts[(v3 - 1) * 3 + 1], verts[(v3 - 1) * 3 + 2], 1));
+            }
+
+          }
+        }
+        else
+        {
+          // Get first group of values
+          std::string g[4];
+          g[0] = val0.substr(0, val0.find(' '));
+
+          // Get second group of values
+          g[1] = lineVals.substr(lineVals.find(' ') + 1);
+          g[1] = g[1].substr(0, g[1].find(' '));
+
+          //g[2] = line.substr(line.find_last_of(' ') + 1);
+          g[2] = lineVals.substr(lineVals.find(' ') + 1);
+          g[2] = g[2].substr(g[2].find(' ') + 1);
+          if (g[2].find(' ') != -1)
+            g[2] = g[2].substr(0, g[2].find(' '));
+          
+          g[3] = lineVals.substr(lineVals.find(' ') + 1);
+          g[3] = g[3].substr(g[3].find(' ') + 1);
+          g[3] = g[3].substr(g[3].find(' ') + 1);
+          if (g[3].find(' ') != -1)
+            g[3] = g[3].substr(0, g[3].find(' '));
+
+          if (aVerbose)
+            std::cout << "Face: (" << g[0] << ") (" << g[1] << ") (" << g[2] << ")" << std::endl;
+
+          for (int k = 0; k < 3; ++k)
+          {
+            std::vector<std::string> data = explode(g[k], '/');
+            if (data[0] != "")
+            {
+              int val = (int)atoi(data[0].c_str());
+              /*finalVerts.push_back(verts[(val - 1) * 3]);
+              finalVerts.push_back(verts[(val - 1) * 3 + 1]);
+              finalVerts.push_back(verts[(val - 1) * 3 + 2]);*/
+              mesh.vPos4f.push_back(LiteMath::float4(verts[(val - 1) * 3], verts[(val - 1) * 3 + 1], verts[(val - 1) * 3 + 2], 1));
+            }
+            else
+            {
+              /*finalVerts.push_back(0);
+              finalVerts.push_back(0);
+              finalVerts.push_back(0);*/
+              mesh.vPos4f.push_back(LiteMath::float4(0, 0, 0, 1));
+            }
+            if (data.size() > 2 && data[2] != "")
+            {
+              int val = (int)atoi(data[2].c_str());
+              /*finalVerts.push_back(norms[(val - 1) * 3]);
+              finalVerts.push_back(norms[(val - 1) * 3 + 1]);
+              finalVerts.push_back(norms[(val - 1) * 3 + 2]);*/
+              mesh.vNorm4f.push_back(LiteMath::float4(norms[(val - 1) * 3], norms[(val - 1) * 3 + 1], norms[(val - 1) * 3 + 2], 1));
+            }
+            else
+            {
+              /*finalVerts.push_back(0);
+              finalVerts.push_back(0);
+              finalVerts.push_back(0);*/
+              mesh.vNorm4f.push_back(LiteMath::float4(0, 0, 0, 1));
+            }
+            if (data[1] != "")
+            {
+              int val = (int)atoi(data[1].c_str());
+              /*finalVerts.push_back(textures[(val - 1) * 2]);
+              finalVerts.push_back(textures[(val - 1) * 2 + 1]);*/
+              mesh.vTexCoord2f.push_back(LiteMath::float2(textures[(val - 1) * 2], textures[(val - 1) * 2 + 1]));
+            }
+            else
+            {
+              /*finalVerts.push_back(0);
+              finalVerts.push_back(0);*/
+              mesh.vTexCoord2f.push_back(LiteMath::float2(0, 0));
+            }
+          }
+          //std::cout << int(g[3][0]) << std::endl;
+          if (g[3] != g[2] && g[3] != "")
+          {
+            while (g[3][0] == ' ') g[3] = g[3].substr(1);
+            if (g[3].length() > 0 && ((g[3][0] >= '0' && g[3][0] <= '9') || g[3][0] == '-' || g[3][0] == '/'))
+            {
+              mesh.matIndices.push_back(0);
+              mesh.indices.push_back(index++);
+              mesh.indices.push_back(index++);
+              mesh.indices.push_back(index++);
+              mesh.vTang4f.push_back(LiteMath::float4(0, 0, 0, 1));
+              mesh.vTang4f.push_back(LiteMath::float4(0, 0, 0, 1));
+              mesh.vTang4f.push_back(LiteMath::float4(0, 0, 0, 1));
+              for (int k = 0; k < 4; ++k)
+              {
+                if (k != 1)
+                {
+                  std::vector<std::string> data = explode(g[k], '/');
+                  if (data[0] != "")
+                  {
+                    int val = (int)atoi(data[0].c_str());
+                    /*finalVerts.push_back(verts[(val - 1) * 3]);
+                    finalVerts.push_back(verts[(val - 1) * 3 + 1]);
+                    finalVerts.push_back(verts[(val - 1) * 3 + 2]);*/
+                    mesh.vPos4f.push_back(LiteMath::float4(verts[(val - 1) * 3], verts[(val - 1) * 3 + 1], verts[(val - 1) * 3 + 2], 1));
+                  }
+                  else
+                  {
+                    /*finalVerts.push_back(0);
+                    finalVerts.push_back(0);
+                    finalVerts.push_back(0);*/
+                    mesh.vPos4f.push_back(LiteMath::float4(0, 0, 0, 1));
+                  }
+                  if (data.size() > 2 && data[2] != "")
+                  {
+                    int val = (int)atoi(data[2].c_str());
+                    /*finalVerts.push_back(norms[(val - 1) * 3]);
+                    finalVerts.push_back(norms[(val - 1) * 3 + 1]);
+                    finalVerts.push_back(norms[(val - 1) * 3 + 2]);*/
+                    mesh.vNorm4f.push_back(LiteMath::float4(norms[(val - 1) * 3], norms[(val - 1) * 3 + 1], norms[(val - 1) * 3 + 2], 1));
+                  }
+                  else
+                  {
+                    /*finalVerts.push_back(0);
+                    finalVerts.push_back(0);
+                    finalVerts.push_back(0);*/
+                    mesh.vNorm4f.push_back(LiteMath::float4(0, 0, 0, 1));
+                  }
+                  if (data[1] != "")
+                  {
+                    int val = (int)atoi(data[1].c_str());
+                    /*finalVerts.push_back(textures[(val - 1) * 2]);
+                    finalVerts.push_back(textures[(val - 1) * 2 + 1]);*/
+                    mesh.vTexCoord2f.push_back(LiteMath::float2(textures[(val - 1) * 2], textures[(val - 1) * 2 + 1]));
+                  }
+                  else
+                  {
+                    /*finalVerts.push_back(0);
+                    finalVerts.push_back(0);*/
+                    mesh.vTexCoord2f.push_back(LiteMath::float2(0, 0));
+                  }
+                }
+              }
+            }
+          }
+
+        }
+      }
+    } /* end getline(file, line) */
+
+    if (aVerbose) std::cout << "Finished extracting values from file" << std::endl
+      << "Quick count check:" << std::endl
+      << "\tVerts = " << verts.size() << std::endl
+      << "\tNorms = " << norms.size() << std::endl
+      << "\tTexts = " << textures.size() << std::endl;
+
+    objFile.close();
+
+    if (aVerbose) std::cout << "Preparing to build faces" << std::endl;
+
+    return mesh;
+    
   }
 }

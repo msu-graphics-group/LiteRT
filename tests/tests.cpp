@@ -3089,9 +3089,11 @@ void litert_test_39_visualize_sbs_bricks()
 void litert_test_40_psdf_framed_octree()
 {
   auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "scenes/01_simple_scenes/data/bunny.vsgf").c_str());
+  //auto mesh = cmesh4::obj_to_mesh((scenes_folder_path + "scenes/01_simple_scenes/data/Lowpoly_tree_sample.obj"));
   cmesh4::rescale_mesh(mesh, float3(-0.95, -0.95, -0.95), float3(0.95, 0.95, 0.95));
   //cmesh4::transform_mesh(mesh, rotate4x4Z(M_PI / 2.0f));
   //cmesh4::transform_mesh(mesh, rotate4x4Y(M_PI));
+  //cmesh4::transform_mesh(mesh, rotate4x4X(M_PI / 2.0f));
 
   SparseOctreeSettings settings(SparseOctreeBuildType::MESH_TLO, 5);
   std::vector<SdfFrameOctreeNode> frame_nodes = sdf_converter::create_psdf_frame_octree(settings, mesh);
