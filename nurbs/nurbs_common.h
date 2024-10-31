@@ -33,12 +33,54 @@ struct NURBS_HitInfo
 
 //HOST PART
 #ifndef KERNEL_SLICER
+
 template<typename T>
-struct Vector2D
+struct StrideView
 {
 public:
-  Vector2D() = default;
-  Vector2D(size_t rows, size_t cols, const T& value = T{})
+  StrideView(T *data = nullptr, size_t stride = 1)
+      : data_(data), stride_(stride) {}
+  StrideView(const StrideView &) = default;
+public:
+  T &operator[](size_t indx) const { return data_[indx*stride_]; }
+  StrideView suffix(size_t begin) const {
+    return StrideView(data_+stride_*begin, stride_);
+  }
+public:
+  friend struct StrideView<const T>;
+private:
+  T *data_;
+  size_t stride_;
+};
+
+template<typename T>
+struct StrideView<const T>
+{
+public:
+  StrideView(const T *data = nullptr, size_t stride = 1)
+      : data_(data), stride_(stride) {}
+  StrideView(const StrideView &) = default;
+  StrideView(StrideView<T> view)
+      : data_(view.data_), stride_(view.stride_) {}
+public:
+  const T &operator[](size_t indx) const { return data_[indx*stride_]; }
+  StrideView suffix(size_t begin) const {
+    return StrideView(data_+stride_*begin, stride_);
+  }
+private:
+  const T *data_;
+  size_t stride_;
+};
+
+template<typename T> StrideView(T*) -> StrideView<T>;
+template<typename T> StrideView(const T*) -> StrideView<const T>;
+
+template<typename T>
+struct Matrix2D
+{
+public:
+  Matrix2D() = default;
+  Matrix2D(size_t rows, size_t cols, const T& value = T{})
       : data_(rows*cols, value), n_(rows), m_(cols) {}
 public:
   T& operator[](std::pair<size_t, size_t> idx) { return data_[m_*idx.first+idx.second]; }
@@ -47,6 +89,12 @@ public:
   uint32_t rows_count() const { return n_; }
   uint32_t cols_count() const { return m_; }
   std::pair<uint32_t, uint32_t> shape2D() const { return { n_, m_ }; }
+public:
+  StrideView<T> row(size_t indx) { return StrideView(data_.data()+indx*m_); }
+  StrideView<const T> row(size_t indx) const { return StrideView(data_.data()+indx*m_); }
+public:
+  StrideView<T> col(size_t indx) { return StrideView(data_.data()+indx, m_); }
+  StrideView<const T> col(size_t indx) const { return StrideView(data_.data()+indx, m_); }
 public:
   T* data() { return data_.data(); }
   const T* data() const { return data_.data(); }
@@ -58,8 +106,8 @@ private:
 struct RawNURBS
 {
 public:
-  Vector2D<LiteMath::float4> points;
-  Vector2D<float> weights;
+  Matrix2D<LiteMath::float4> points;
+  Matrix2D<float> weights;
   std::vector<float> u_knots;
   std::vector<float> v_knots;
   LiteMath::Box4f bbox;
@@ -72,16 +120,14 @@ public:
 
 struct RBezier 
 { 
-  Vector2D<LiteMath::float4> weighted_points;
+  Matrix2D<LiteMath::float4> weighted_points;
 };
 
 struct RBezierGrid
 {
   std::vector<float> uniq_uknots;
   std::vector<float> uniq_vknots;
-  Vector2D<RBezier> grid;
+  Matrix2D<RBezier> grid;
   LiteMath::Box4f bbox;
 };
-
-
 #endif

@@ -1,5 +1,6 @@
 #include <cassert>
 #include <fstream>
+#include <array>
 #include "nurbs_common_host.h"
 
 using namespace LiteMath;
@@ -8,7 +9,7 @@ std::vector<std::vector<LiteMath::float4> >
 decompose_curve(
     int n, int p,
     const float *U,
-    const LiteMath::float4 *Pw) {
+    StrideView<const float4> Pw) {
   int m = n+p+1;
   int a = p;
   int b = p+1;
@@ -56,22 +57,19 @@ decompose_curve(
   return Qw;
 }
 
-std::vector<Vector2D<LiteMath::float4> >
+std::vector<Matrix2D<LiteMath::float4> >
 decompose_surface(
     int n, int p,
     const float *U,
     int m,int q,
     const float *V,
-    const Vector2D<float4> &Pw,
+    const Matrix2D<float4> &Pw,
     SurfaceParameter dir) {
   if (dir == SurfaceParameter::U) {
-    std::vector<Vector2D<float4>> Qw;
+    std::vector<Matrix2D<float4>> Qw;
     for (int col_idx = 0; col_idx <= m; ++col_idx) {
-      std::vector<float4> col(n+1);
-      for (int row_idx = 0; row_idx <= n; ++row_idx)
-        col[row_idx] = Pw[{row_idx, col_idx}];
-      auto col_qw = decompose_curve(n, p, U, col.data());
-      Qw.resize(col_qw.size(), Vector2D<float4>(p+1, m+1));
+      auto col_qw = decompose_curve(n, p, U, Pw.col(col_idx));
+      Qw.resize(col_qw.size(), Matrix2D<float4>(p+1, m+1));
       for (int stripi = 0; stripi < Qw.size(); ++stripi) 
       for (int rowi = 0; rowi < p+1; ++rowi)
       {
@@ -80,10 +78,10 @@ decompose_surface(
     }
     return Qw;
   } else {
-    std::vector<Vector2D<float4>> Qw;
+    std::vector<Matrix2D<float4>> Qw;
     for (int row_idx = 0; row_idx < Pw.shape2D().first; ++row_idx) {
-      auto row_qw = decompose_curve(m, q, V, &Pw[{row_idx, 0}]);
-      Qw.resize(row_qw.size(), Vector2D<float4>(p+1, q+1));
+      auto row_qw = decompose_curve(m, q, V, Pw.row(row_idx));
+      Qw.resize(row_qw.size(), Matrix2D<float4>(p+1, q+1));
       for (int stripi = 0; stripi < Qw.size(); ++stripi) 
       for (int coli = 0; coli < q+1; ++coli)
       {
@@ -111,7 +109,7 @@ nurbs2rbezier(RawNURBS nurbs) {
       m, q, nullptr, 
       weighted_points, SurfaceParameter::U);
 
-   Vector2D<RBezier> ans;
+   Matrix2D<RBezier> ans;
   for (int stripi = 0; stripi < u_decomposed.size(); ++stripi) {
     auto v_decomposed = decompose_surface(
       p, p, nullptr, 
@@ -119,7 +117,7 @@ nurbs2rbezier(RawNURBS nurbs) {
       u_decomposed[stripi], SurfaceParameter::V);
 
     if (ans.shape2D() == std::make_pair(0u, 0u)) { // need to resize to correct shape
-      ans = Vector2D<RBezier>(u_decomposed.size(), v_decomposed.size());
+      ans = Matrix2D<RBezier>(u_decomposed.size(), v_decomposed.size());
     }
 
     for (int stripj = 0; stripj < v_decomposed.size(); ++stripj)
@@ -148,18 +146,15 @@ RawNURBS load_nurbs (const std::filesystem::path &path) {
   fin >> tmp_chr >> tmp_chr >> n; // n = ...
   fin >> tmp_chr >> tmp_chr >> m; // m = ...
 
-  surf.points = Vector2D<LiteMath::float4>(n+1, m+1, { 0, 0, 0, 1.0f });
-  surf.weights = Vector2D<float>(n+1, m+1, 1.0f);
+  surf.points = Matrix2D<LiteMath::float4>(n+1, m+1, { 0, 0, 0, 1.0f });
+  surf.weights = Matrix2D<float>(n+1, m+1, 1.0f);
 
   fin >> tmp_str; // "points:"
   for (int i = 0; i <= n; ++i)
   for (int j = 0; j <= m; ++j)
   {
     auto &point = surf.points[{i, j}];
-    // { ..., ..., ... }
-    fin >> tmp_chr >> point.x >> tmp_chr >> point.y >> tmp_chr >> point.z >> tmp_chr; 
-    surf.bbox.boxMin = LiteMath::min(surf.bbox.boxMin, point);
-    surf.bbox.boxMin = LiteMath::max(surf.bbox.boxMin, point);
+    fin >> tmp_chr >> point.x >> tmp_chr >> point.y >> tmp_chr >> point.z >> tmp_chr; // { ..., ..., ... }
   }
 
   fin >> tmp_str; // "weights:"
@@ -196,5 +191,169 @@ RawNURBS load_nurbs (const std::filesystem::path &path) {
     elem = (elem-v_min)/(v_max-v_min); // map to [0, 1]
 
   return surf;
+}
+
+std::array<std::vector<float4>, 2>
+de_castelaju_divide_curve(
+    int p, float u,
+    StrideView<const float4> Pw) {
+  std::vector<float4> tmp(p+1);
+  std::array<std::vector<float4>, 2> res = { 
+    std::vector<float4>(p+1),
+    std::vector<float4>(p+1)
+  };
+  for (int i = 0; i <= p; ++i)
+    tmp[i] = Pw[i];
+  for (int i = 0; i <= p; ++i) {
+    res[0][i] = tmp[0];
+    res[1][p-i] = tmp[p-i];
+    for (int j = 0; j <= p-i-1; ++j)
+      tmp[j] += (tmp[j+1]-tmp[j])*u;
+  }
+  return res;
+}
+
+constexpr float div_constant = 1.0f;
+int flatteing_div_count(
+    int p,
+    StrideView<const float4> Pw) {
+  if (p == 1)
+    return 0;
+
+  float avg_v = 0.0f;
+  float mx_a = 0.0f;
+  
+  for (int i = 0; i <= p-1; ++i) {
+    float3 p0 = to_float3(Pw[i]/Pw[i].w);
+    float3 p1 = to_float3(Pw[i+1]/Pw[i+1].w);
+    avg_v += p * length(p1-p0);
+  }
+  avg_v /= p;
+
+  for (int i = 0; i <= p-2; ++i) {
+    float3 p0 = to_float3(Pw[i]/Pw[i].w);
+    float3 p1 = to_float3(Pw[i+1]/Pw[i+1].w);
+    float3 p2 = to_float3(Pw[i+2]/Pw[i+2].w);
+    float3 res_p = p0 - 2*p1 + p2;
+    mx_a = std::max(mx_a, length(res_p) * p * (p-1));
+  }
+
+  return static_cast<int>(div_constant * mx_a / std::sqrt(avg_v));
+}
+
+std::vector<std::vector<float4>>
+de_castelaju_uniformly_divide_curve(
+    int p, int div_count,
+    StrideView<const float4> control_points) {
+  std::vector<float4> Pw(p+1);
+  for (int i = 0; i <= p; ++i)
+    Pw[i] = control_points[i];
+  if (div_count == 0) {
+    return { Pw };
+  }
+  std::vector<std::vector<float4>> res(div_count+1, std::vector<float4>(p+1));
+  for (int i = 0; i < div_count; ++i) {
+    float u = 1.0f/(div_count+1)*(i+1);
+    auto [res1, res2] = de_castelaju_divide_curve(p, u, StrideView{ Pw.data(), 1 });
+    res[i] = res1;
+    res[i+1] = res2;
+    Pw = std::move(res2);
+  }
+
+  return res;
+}
+
+std::vector<Matrix2D<LiteMath::float4> >
+decompose_rbezier(
+    int p, int q,
+    const Matrix2D<float4> &Pw,
+    int divs_count, SurfaceParameter dir) {
+  if (dir == SurfaceParameter::U) {
+    std::vector<Matrix2D<float4>> Qw(divs_count+1, Matrix2D<float4>(p+1, q+1));
+    for (int coli = 0; coli <= q; ++coli) {
+      auto decomposed_col = de_castelaju_uniformly_divide_curve(
+          p, divs_count, Pw.col(coli));
+      for (int stripi = 0; stripi < Qw.size(); ++stripi)
+      for (int rowi = 0; rowi <= p; ++rowi)
+        Qw[stripi][{rowi, coli}] = decomposed_col[stripi][rowi];
+    }
+    return Qw;
+  } else {
+    std::vector<Matrix2D<float4>> Qw(divs_count+1, Matrix2D<float4>(p+1, q+1));
+    for (int rowi = 0; rowi <= p; ++rowi) {
+      auto decomposed_row = de_castelaju_uniformly_divide_curve(
+          q, divs_count, Pw.row(rowi));
+      for (int stripi = 0; stripi < Qw.size(); ++stripi)
+      for (int coli = 0; coli <= q; ++coli)
+        Qw[stripi][{rowi, coli}] = decomposed_row[stripi][coli];
+    }
+    return Qw;
+  }
+}
+
+static Box4f calc_bbox(const float4 *Pw, size_t count) {
+  Box4f ans;
+  for (int i = 0; i < count; ++i) {
+    float4 point = Pw[i]/Pw[i].w;
+    ans.boxMin = min(ans.boxMin, point);
+    ans.boxMax = min(ans.boxMax, point);
+  }
+  return ans;
+}
+
+std::tuple<std::vector<LiteMath::Box4f>, std::vector<float2>>
+get_bvh_leaves(const RBezier &rbezier, float2 ubounds, float2 vbounds) {
+  int p = rbezier.weighted_points.rows_count()-1;
+  int q = rbezier.weighted_points.cols_count()-1;
+
+  int udivs = 0;
+  int vdivs = 0;
+  for (int ri = 0; ri <= p; ++ri) {
+    int cur = flatteing_div_count(q, rbezier.weighted_points.row(ri));
+    vdivs = std::max(cur, vdivs);
+  }
+  for (int ci = 0; ci <= q; ++ci) {
+    int cur = flatteing_div_count(p, rbezier.weighted_points.col(ci));
+    udivs = std::max(cur, udivs);
+  }
+
+  auto u_decomposed = decompose_rbezier(
+      p, q, rbezier.weighted_points, udivs, SurfaceParameter::U);
+
+  Matrix2D<RBezier> ans(udivs+1, vdivs+1);
+  std::vector<Box4f> ans_boxes;
+  std::vector<float2> ans_uv;
+  for (int stripi = 0; stripi < u_decomposed.size(); ++stripi) {
+    auto v_decomposed = decompose_rbezier(
+      p, q,
+      u_decomposed[stripi], 
+      vdivs, SurfaceParameter::V);
+    for (int stripj = 0; stripj < v_decomposed.size(); ++stripj) {
+      ans[{stripi, stripj}] = { v_decomposed[stripj] };
+      ans_boxes.push_back(calc_bbox(v_decomposed[stripj].data(), (p+1)*(q+1)));
+      float u = lerp(ubounds[0], ubounds[1], 1.0f*stripi/(udivs+1)+0.5f/(udivs+1));
+      float v = lerp(vbounds[0], vbounds[1], 1.0f*stripj/(vdivs+1)+0.5f/(vdivs+1));
+      ans_uv.push_back(float2{ u, v });
+    }   
+  }
+
+  return { ans_boxes, ans_uv };
+}
+
+std::tuple<std::vector<LiteMath::Box4f>, std::vector<float2>>
+get_bvh_leaves(const RBezierGrid &rbezier) {
+  std::vector<Box4f> ans_boxes;
+  std::vector<float2> ans_uv;
+  for (int patchi = 0; patchi < rbezier.grid.rows_count(); ++patchi)
+  for (int patchj = 0; patchj < rbezier.grid.cols_count(); ++patchj)
+  {
+    auto [cur_boxes, cur_uv] = get_bvh_leaves(
+      rbezier.grid[{patchi, patchj}], 
+      float2{ rbezier.uniq_uknots[patchi], rbezier.uniq_uknots[patchi+1] },
+      float2{ rbezier.uniq_vknots[patchj], rbezier.uniq_vknots[patchj+1] });
+    ans_boxes.insert(ans_boxes.end(), cur_boxes.begin(), cur_boxes.end());
+    ans_uv.insert(ans_uv.end(), cur_uv.begin(), cur_uv.end());
+  }
+  return { ans_boxes, ans_uv };
 }
 
