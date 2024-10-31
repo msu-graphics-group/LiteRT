@@ -14,8 +14,10 @@ int main(int argc, const char **argv) {
   std::filesystem::path stp_path = argv[1];
   std::cout << "Parsing started..." << std::endl;
   auto tick_start = std::chrono::high_resolution_clock::now();
-  auto entities = STEP::parse(stp_path);
-  auto nurbsTable = STEP::allIDNurbs(entities);
+
+  STEP::Parser parser(stp_path);
+  auto nurbsTable = parser.allIDNurbs();
+
   auto tick_end = std::chrono::high_resolution_clock::now();
   std::cout << "Parsing finished successfully." << std::endl;
   float time = 

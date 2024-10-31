@@ -46,7 +46,7 @@ std::vector<std::string> argsplit(const std::string &rawargs) {
     return args;
 }
 
-uint parseID(std::string rawID) {
+uint Parser::parseID(std::string rawID) {
     std::regex rexp("#(\\d+)");
     std::smatch match;
     std::regex_match(rawID, match, rexp);
@@ -54,11 +54,11 @@ uint parseID(std::string rawID) {
     return id;
 }
 
-uint parseU(std::string raw) {
+uint Parser::parseU(std::string raw) {
     return std::stoi(raw);
 }
 
-std::vector<uint> parseUVector1D(std::string raw) {
+std::vector<uint> Parser::parseUVector1D(std::string raw) {
     std::vector<std::string> args = argsplit(raw);
     std::vector<uint> uvector1D;
     for (auto arg : args) {
@@ -68,7 +68,7 @@ std::vector<uint> parseUVector1D(std::string raw) {
     return uvector1D;
 }
 
-std::vector<float> parseFVector1D(std::string raw) {
+std::vector<float> Parser::parseFVector1D(std::string raw) {
     std::vector<std::string> args = argsplit(raw);
     std::vector<float> fvector1D;
     for (auto arg : args) {
@@ -78,8 +78,8 @@ std::vector<float> parseFVector1D(std::string raw) {
     return fvector1D;
 }
 
-float3 tofloat3(std::map<uint, Entity> &entities, uint id) {
-    auto &entity = entities[id];
+float3 Parser::tofloat3(uint id) {
+    auto &entity = this->entities[id];
     assert(entity.type == Type::POINT);
 
     float3 point = float3();
@@ -95,9 +95,7 @@ float3 tofloat3(std::map<uint, Entity> &entities, uint id) {
     return point;
 }
 
-Vector2D<float4> parsePointVector2D(
-        std::map<uint, STEP::Entity> &entities,
-        std::string raw) {
+Vector2D<float4> Parser::parsePointVector2D(std::string raw) {
     std::vector<std::string> points_rows = argsplit(raw);
     size_t rows = points_rows.size();
     size_t cols = argsplit(points_rows[0]).size();
@@ -106,8 +104,8 @@ Vector2D<float4> parsePointVector2D(
         std::vector<std::string> points_row = argsplit(points_rows[i]);
         for (size_t j = 0; j < cols; j++) {
             std::string rawID = points_row[j];
-            uint pointID = parseID(rawID);
-            float3 point = tofloat3(entities, pointID);
+            uint pointID = this->parseID(rawID);
+            float3 point = this->tofloat3(pointID);
             auto index = std::make_pair(i, j);
             points[index] = ::to_float4(point, 1.0f);
         }
@@ -115,7 +113,7 @@ Vector2D<float4> parsePointVector2D(
     return points;
 }
 
-bool try_parse_entity(const std::string &entry, Entity &res) {
+bool Parser::tryParseEntity(const std::string &entry, Entity &res) {
     std::regex rexp;
     std::smatch matches;
     uint id;
@@ -167,8 +165,8 @@ std::vector<float> decompressKnots(
     return knots;
 }
 
-RawNURBS toNURBS(std::map<uint, Entity> &entities, uint id) {
-    Entity &entity = entities[id];
+RawNURBS Parser::toNURBS(uint id) {
+    Entity &entity = this->entities[id];
     assert(entity.type == Type::BSPLINE_SURFACE);
 
     RawNURBS nurbs;
@@ -182,19 +180,19 @@ RawNURBS toNURBS(std::map<uint, Entity> &entities, uint id) {
     std::string v_knots_arg      = entity.args[11];
 
     // Parse degrees
-    nurbs.u_degree = parseU(u_degree_arg);
-    nurbs.v_degree = parseU(v_degree_arg);
+    nurbs.u_degree = this->parseU(u_degree_arg);
+    nurbs.v_degree = this->parseU(v_degree_arg);
 
     // Parse control points
-    nurbs.points = parsePointVector2D(entities, points_arg);
+    nurbs.points = this->parsePointVector2D(points_arg);
 
     // Parse knot_multiplicities
-    std::vector<uint> u_knots_mult = parseUVector1D(u_knots_mult_arg);
-    std::vector<uint> v_knots_mult = parseUVector1D(v_knots_mult_arg);
+    std::vector<uint> u_knots_mult = this->parseUVector1D(u_knots_mult_arg);
+    std::vector<uint> v_knots_mult = this->parseUVector1D(v_knots_mult_arg);
 
     // Parse knots
-    std::vector<float> u_knots_comp = parseFVector1D(u_knots_arg);
-    std::vector<float> v_knots_comp = parseFVector1D(v_knots_arg);
+    std::vector<float> u_knots_comp = this->parseFVector1D(u_knots_arg);
+    std::vector<float> v_knots_comp = this->parseFVector1D(v_knots_arg);
     nurbs.u_knots = decompressKnots(u_knots_comp, u_knots_mult);
     nurbs.v_knots = decompressKnots(v_knots_comp, v_knots_mult);
 
@@ -210,31 +208,31 @@ RawNURBS toNURBS(std::map<uint, Entity> &entities, uint id) {
     return std::move(nurbs);
 }
 
-std::vector<RawNURBS> allNURBS(std::map<uint, Entity> &entities) {
+std::vector<RawNURBS> Parser::allNURBS() {
     std::vector<RawNURBS> allNurbs;
-    for (auto &pair : entities) {
+    for (auto &pair : this->entities) {
         auto id = pair.first;
         auto entity = pair.second;
         if (entity.type == Type::BSPLINE_SURFACE) {
-          allNurbs.push_back(toNURBS(entities, id));
+          allNurbs.push_back(this->toNURBS(id));
         }
     }
     return allNurbs;
 }
 
-std::map<uint, RawNURBS> allIDNurbs(std::map<uint, Entity> &entities) {
+std::map<uint, RawNURBS> Parser::allIDNurbs() {
     std::map<uint, RawNURBS> IDNurbs;
-    for (auto &pair : entities) {
+    for (auto &pair : this->entities) {
         auto id = pair.first;
         auto entity = pair.second;
         if (entity.type == Type::BSPLINE_SURFACE) {
-          IDNurbs[id] = toNURBS(entities, id);
+          IDNurbs[id] = this->toNURBS(id);
         }
     }
     return IDNurbs;
 }
 
-std::map<uint, Entity> parse(const std::string &filename) {
+Parser::Parser(const std::string &filename) {
     std::ifstream file(filename);
     std::stringstream stream;
     stream << file.rdbuf();
@@ -250,16 +248,11 @@ std::map<uint, Entity> parse(const std::string &filename) {
     regexiter_t it(text.begin(), text.end(), rexp, -1);
     regexiter_t end;
 
-    std::map<uint, Entity> entities;
     for (; it != end; it++) {
         Entity entity;
-        if (try_parse_entity(*it, entity)) 
-          entities[entity.id] = std::move(entity);
+        if (this->tryParseEntity(*it, entity)) 
+          this->entities[entity.id] = std::move(entity);
     }
-
-    return entities;
-}
-
 }
 
 std::ostream& operator<<(std::ostream& cout, const STEP::RawNURBS &nurbs) {
@@ -309,3 +302,5 @@ std::ostream& operator<<(std::ostream& cout, const STEP::RawNURBS &nurbs) {
 
     return cout;
 }
+
+} // namespace STEP

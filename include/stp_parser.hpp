@@ -60,25 +60,30 @@ struct Entity {
     std::vector<std::string> args;
 };
 
+class Parser {
+public:
+    Parser(const std::string &filename);
+    LiteMath::float3 tofloat3(uint id);
+    RawNURBS toNURBS(uint id);
+    std::vector<RawNURBS> allNURBS(void);
+    std::map<uint, RawNURBS> allIDNurbs(void);
+private:
+    Vector2D<LiteMath::float4> parsePointVector2D(std::string raw);
+    bool tryParseEntity(const std::string &entry, Entity &result);
+    uint parseID(std::string rawID);
+    uint parseU(std::string raw);
+    std::vector<uint> parseUVector1D(std::string raw);
+    std::vector<float> parseFVector1D(std::string raw);
+    std::map<uint, Entity> entities;
+};
+
+// Utils functions
 Type str2type(std::string name);
 std::vector<std::string> argsplit(const std::string &rawargs);
-uint parseID(std::string rawID);
-uint parseU(std::string raw);
-std::vector<uint> parseUVector1D(std::string raw);
-std::vector<float> parseFVector1D(std::string raw);
-LiteMath::float3 tofloat3(std::map<uint, Entity> &entities, uint id);
-Vector2D<LiteMath::float4> parsePointVector2D(
-          std::map<uint, STEP::Entity> &entities,
-          std::string raw);
-bool try_parse_entity(const std::string &entry, Entity &res);
 std::vector<float> decompressKnots(
-    std::vector<float> knots_comp,
-    std::vector<uint> knots_mult);
-RawNURBS toNURBS(std::map<uint, Entity> &entities, uint id);
-std::vector<RawNURBS> allNURBS(std::map<uint, Entity> &entities);
-std::map<uint, RawNURBS> allIDNurbs(std::map<uint, Entity> &entities);
-std::map<uint, Entity> parse(const std::string &filename);
+        std::vector<float> knots_comp,
+        std::vector<uint> knots_mult);
+std::ostream& operator<<(std::ostream& cout, const RawNURBS &nurbs);
 
 } // namespace STEP
 
-std::ostream& operator<<(std::ostream& cout, const STEP::RawNURBS &nurbs);
