@@ -47,7 +47,7 @@ public:
     auto t_bounds = tbounds(pos, ray);
     if (t_bounds[1] < t_bounds[0])
       return false;
-    return t_bounds[0] >= 0.0f;
+    return t_bounds[1] >= 0.0f;
   }
 };
 

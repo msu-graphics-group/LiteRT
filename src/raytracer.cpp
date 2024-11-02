@@ -30,7 +30,7 @@ float2 bezier_project(
   return float2 { dot(point, P1), dot(point, P2) };
 }
 
-std::optional<float2> trace_surface_newton(
+HitInfo trace_surface_newton(
     const float3 &pos,
     const float3 &ray,
     const RBezierGrid &surf) {
@@ -91,7 +91,9 @@ std::optional<float2> trace_surface_newton(
   if (length(D) > EPS)
     return {};
   
-  return uv;
+  float3 uder = to_float3(surf.uder(uv.x, uv.y, Sw));
+  float3 vder = to_float3(surf.vder(uv.x, uv.y, Sw));
+  return HitInfo{ true, Sw, uder, vder, uv };
 }
 
 void draw_points(
@@ -130,8 +132,10 @@ void draw_points(
     y = clamp(H - y, 0u, H-1);
 
     if (fb.z_buf[uint2{x, y}] > t) {
-      float3 normal = surface.normal(u, v, Sw);
-      float4 color = shade_function(camera.position, to_float3(point), normal, float2{u, v});
+      float3 uder = to_float3(surface.uder(u, v, Sw));
+      float3 vder = to_float3(surface.vder(u, v, Sw));
+      HitInfo info = { true, point, uder, vder, float2{ u, v} };
+      float4 color = shade_function(surface, info, camera.position);
       fb.z_buf[uint2{x, y}] = t;
       fb.col_buf[uint2{x, y}] = uchar4{ 
         static_cast<u_char>(color.x*255.0f),
@@ -168,17 +172,16 @@ void draw_newton(
     float3 pos = camera.position;
     if (!surface.bbox.intersects(pos, ray))
       continue;
-    auto intersect_point = trace_surface_newton(pos, ray, surface);
-    if (intersect_point.has_value()) {
-      float2 uv = intersect_point.value();
-      float4 point = surface.get_point(uv.x, uv.y);
+    auto info = trace_surface_newton(pos, ray, surface);
+    if (info.hitten) {
+      float2 uv = info.uv;
+      float4 point = info.pos;
       point /= point.w; 
       float t = length(to_float3(point)-camera.position);
       uint2 xy = uint2{ x, fb.col_buf.height()-1-y };
 
       if (fb.z_buf[xy] > t) {
-        float3 normal = surface.normal(uv.x, uv.y);
-        float4 color = shade_function(camera.position, to_float3(point), normal, uv);
+        float4 color = shade_function(surface, info, camera.position);
         fb.z_buf[xy] = t;
         fb.col_buf[xy] = uchar4{ 
           static_cast<u_char>(color[0]*255.0f),
