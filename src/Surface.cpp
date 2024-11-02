@@ -501,7 +501,7 @@ de_castelaju_divide_curve(
   return res;
 }
 
-constexpr float div_constant = 2.0f;
+constexpr float div_constant = 1.0f;
 int flatteing_div_count(
     int p,
     StrideView<const float4> Pw) {
@@ -538,7 +538,11 @@ de_castelaju_uniformly_divide_curve(
   }
   std::vector<std::vector<float4>> res(div_count+1, std::vector<float4>(p+1));
   for (int i = 0; i < div_count; ++i) {
-    float u = 1.0f/(div_count+1)*(i+1);
+    float u = 1.0f/(div_count+1)*(i+1); // in domain of full rbezier curve
+    //but in current part u is different, because it's domain [0, 1] maps to [umin, 1]
+    //need to map global u e [umin, 1] to local [0, 1]
+    float umin = 1.0f/(div_count+1)*i;
+    u = (u-umin)/(1.0f-umin);
     auto [res1, res2] = de_castelaju_divide_curve(p, u, StrideView{ Pw.data(), 1 });
     res[i] = res1;
     res[i+1] = res2;
