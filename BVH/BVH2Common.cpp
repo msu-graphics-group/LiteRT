@@ -1569,29 +1569,29 @@ void BVHRT::IntersectNURBS(const float3& ray_pos, const float3& ray_dir,
   float u0 = m_NURBS_approxes[approx_offset];
   float v0 = m_NURBS_approxes[approx_offset+1];
 
-  // NURBS_HitInfo hit = ray_nurbs_newton_intersection(ray_pos, ray_dir, float2{u0, v0}, header);
-  // if (hit.hitten) {
-  //   float2 uv = hit.uv;
-  //   float3 point = hit.point;
-  //   float3 normal = hit.normal;
-  //   float t = dot(normalize(ray_dir), point-ray_pos);
-  //   if (t < tNear_tFar.x || t > tNear_tFar.y)
-  //     return;
-  //   pHit->geomId = geomId | (type << SH_TYPE);
-  //   pHit->t = t;
-  //   pHit->primId = 0;
-  //   pHit->instId = instId;
+  NURBS_HitInfo hit = ray_nurbs_newton_intersection(ray_pos, ray_dir, float2{u0, v0}, header);
+  if (hit.hitten) {
+    float2 uv = hit.uv;
+    float3 point = hit.point;
+    float3 normal = hit.normal;
+    float t = dot(normalize(ray_dir), point-ray_pos);
+    if (t < tNear_tFar.x || t > tNear_tFar.y)
+      return;
+    pHit->geomId = geomId | (type << SH_TYPE);
+    pHit->t = t;
+    pHit->primId = 0;
+    pHit->instId = instId;
 
-  //   pHit->coords[0] = uv.x;
-  //   pHit->coords[1] = uv.y;
-  // } 
-  pHit->geomId = geomId | (type << SH_TYPE);
-  pHit->t = tNear;
-  pHit->primId = 0;
-  pHit->instId = instId;
+    pHit->coords[0] = uv.x;
+    pHit->coords[1] = uv.y;
+  } 
+  // pHit->geomId = geomId | (type << SH_TYPE);
+  // pHit->t = tNear;
+  // pHit->primId = 0;
+  // pHit->instId = instId;
 
-  pHit->coords[0] = u0;
-  pHit->coords[1] = v0;
+  // pHit->coords[0] = u0;
+  // pHit->coords[1] = v0;
 }
 //////////////////////// END NURBS SECTION ///////////////////////////////////////////////
 

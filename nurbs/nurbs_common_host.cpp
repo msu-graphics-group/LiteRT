@@ -194,7 +194,7 @@ RawNURBS load_nurbs (const std::filesystem::path &path) {
 }
 
 std::array<std::vector<float4>, 2>
-de_castelaju_divide_curve(
+de_casteljau_divide_curve(
     int p, float u,
     StrideView<const float4> Pw) {
   std::vector<float4> tmp(p+1);
@@ -217,6 +217,8 @@ constexpr float div_constant = 1.0f;
 int flatteing_div_count(
     int p,
     StrideView<const float4> Pw) {
+  if (p <= 1)
+    return 0;
 
   float avg_v = 0.0f;
   float mx_a = 0.0f;
@@ -240,7 +242,7 @@ int flatteing_div_count(
 }
 
 std::vector<std::vector<float4>>
-de_castelaju_uniformly_divide_curve(
+de_casteljau_uniformly_divide_curve(
     int p, int div_count,
     StrideView<const float4> control_points) {
   std::vector<float4> Pw(p+1);
@@ -251,8 +253,12 @@ de_castelaju_uniformly_divide_curve(
   }
   std::vector<std::vector<float4>> res(div_count+1, std::vector<float4>(p+1));
   for (int i = 0; i < div_count; ++i) {
-    float u = 1.0f/(div_count+1)*(i+1);
-    auto [res1, res2] = de_castelaju_divide_curve(p, u, StrideView{ Pw.data(), 1 });
+    float u = 1.0f/(div_count+1)*(i+1); // in domain of full rbezier curve
+    //but in current part u is different, because it's domain [0, 1] maps to [umin, 1]
+    //need to map global u e [umin, 1] to local [0, 1]
+    float umin = 1.0f/(div_count+1)*i;
+    u = (u-umin)/(1.0f-umin);
+    auto [res1, res2] = de_casteljau_divide_curve(p, u, StrideView{ Pw.data(), 1 });
     res[i] = res1;
     res[i+1] = res2;
     Pw = std::move(res2);
@@ -269,7 +275,7 @@ decompose_rbezier(
   if (dir == SurfaceParameter::U) {
     std::vector<Matrix2D<float4>> Qw(divs_count+1, Matrix2D<float4>(p+1, q+1));
     for (int coli = 0; coli <= q; ++coli) {
-      auto decomposed_col = de_castelaju_uniformly_divide_curve(
+      auto decomposed_col = de_casteljau_uniformly_divide_curve(
           p, divs_count, Pw.col(coli));
       for (int stripi = 0; stripi < Qw.size(); ++stripi)
       for (int rowi = 0; rowi <= p; ++rowi)
@@ -279,7 +285,7 @@ decompose_rbezier(
   } else {
     std::vector<Matrix2D<float4>> Qw(divs_count+1, Matrix2D<float4>(p+1, q+1));
     for (int rowi = 0; rowi <= p; ++rowi) {
-      auto decomposed_row = de_castelaju_uniformly_divide_curve(
+      auto decomposed_row = de_casteljau_uniformly_divide_curve(
           q, divs_count, Pw.row(rowi));
       for (int stripi = 0; stripi < Qw.size(); ++stripi)
       for (int coli = 0; coli <= q; ++coli)
@@ -289,18 +295,19 @@ decompose_rbezier(
   }
 }
 
-static Box4f calc_bbox(const float4 *Pw, size_t count) {
+Box4f calc_bbox(const float4 *Pw, int count) {
   Box4f ans;
   for (int i = 0; i < count; ++i) {
-    float4 point = Pw[i]/Pw[i].w;
+    float4 point = Pw[i];
+    point /= point.w;
     ans.boxMin = min(ans.boxMin, point);
     ans.boxMax = max(ans.boxMax, point);
   }
   return ans;
 }
 
-std::tuple<std::vector<LiteMath::Box4f>, std::vector<float2>>
-get_bvh_leaves(const RBezier &rbezier, float2 ubounds, float2 vbounds) {
+std::tuple<std::vector<Box4f>, std::vector<float2>>
+get_nurbs_bvh_leaves(const RBezier &rbezier, float2 ubounds, float2 vbounds) {
   int p = rbezier.weighted_points.rows_count()-1;
   int q = rbezier.weighted_points.cols_count()-1;
 
@@ -338,14 +345,14 @@ get_bvh_leaves(const RBezier &rbezier, float2 ubounds, float2 vbounds) {
   return { ans_boxes, ans_uv };
 }
 
-std::tuple<std::vector<LiteMath::Box4f>, std::vector<float2>>
+std::tuple<std::vector<Box4f>, std::vector<float2>>
 get_nurbs_bvh_leaves(const RBezierGrid &rbezier) {
   std::vector<Box4f> ans_boxes;
   std::vector<float2> ans_uv;
   for (int patchi = 0; patchi < rbezier.grid.rows_count(); ++patchi)
   for (int patchj = 0; patchj < rbezier.grid.cols_count(); ++patchj)
   {
-    auto [cur_boxes, cur_uv] = get_bvh_leaves(
+    auto [cur_boxes, cur_uv] = get_nurbs_bvh_leaves(
       rbezier.grid[{patchi, patchj}], 
       float2{ rbezier.uniq_uknots[patchi], rbezier.uniq_uknots[patchi+1] },
       float2{ rbezier.uniq_vknots[patchj], rbezier.uniq_vknots[patchj+1] });
@@ -354,4 +361,5 @@ get_nurbs_bvh_leaves(const RBezierGrid &rbezier) {
   }
   return { ans_boxes, ans_uv };
 }
+
 
