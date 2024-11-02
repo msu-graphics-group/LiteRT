@@ -40,10 +40,11 @@ int main(int, char** argv)
   float fov = M_PI_4;
 
   // Create window with SDL_Renderer graphics context
-  SDL_WindowFlags window_flags = (SDL_WindowFlags)(SDL_WINDOW_ALLOW_HIGHDPI);
+  SDL_WindowFlags window_flags = (SDL_WindowFlags)(SDL_WINDOW_RESIZABLE);
   SDL_Window* window = SDL_CreateWindow("Basic NURBS Viewer", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, WIDTH, HEIGHT, window_flags);
-  SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_PRESENTVSYNC| SDL_RENDERER_ACCELERATED);
+  SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_PRESENTVSYNC|SDL_RENDERER_ACCELERATED);
   SDL_RendererInfo info;
+
 
   // Setup Dear ImGui context
   IMGUI_CHECKVERSION();
@@ -117,6 +118,17 @@ int main(int, char** argv)
       if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_CLOSE && 
           event.window.windowID == SDL_GetWindowID(window))
         done = true;
+      if (event.type = SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_RESIZED) {
+        SDL_GetWindowSize(window, &WIDTH, &HEIGHT);
+        camera = Camera(WIDTH*1.0f/HEIGHT, camera.fov, camera.position, camera.target);
+        camera_changed = true;
+        fb.col_buf.resize(WIDTH, HEIGHT);
+        fb.z_buf.resize(WIDTH, HEIGHT);
+        SDL_DestroyTexture(texture);
+        texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ABGR8888, SDL_TEXTUREACCESS_STREAMING, WIDTH, HEIGHT);
+        scr_rect.w = WIDTH;
+        scr_rect.h = HEIGHT;
+      }
     }
 
     if (ImGui::IsMouseDown(ImGuiMouseButton_Left) && !io.WantCaptureMouse) {
