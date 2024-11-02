@@ -482,7 +482,7 @@ load_rbeziers(const std::filesystem::path &path) {
 }
 
 std::array<std::vector<float4>, 2>
-de_castelaju_divide_curve(
+de_casteljau_divide_curve(
     int p, float u,
     StrideView<const float4> Pw) {
   std::vector<float4> tmp(p+1);
@@ -527,7 +527,7 @@ int flatteing_div_count(
 }
 
 std::vector<std::vector<float4>>
-de_castelaju_uniformly_divide_curve(
+de_casteljau_uniformly_divide_curve(
     int p, int div_count,
     StrideView<const float4> control_points) {
   std::vector<float4> Pw(p+1);
@@ -543,7 +543,7 @@ de_castelaju_uniformly_divide_curve(
     //need to map global u e [umin, 1] to local [0, 1]
     float umin = 1.0f/(div_count+1)*i;
     u = (u-umin)/(1.0f-umin);
-    auto [res1, res2] = de_castelaju_divide_curve(p, u, StrideView{ Pw.data(), 1 });
+    auto [res1, res2] = de_casteljau_divide_curve(p, u, StrideView{ Pw.data(), 1 });
     res[i] = res1;
     res[i+1] = res2;
     Pw = std::move(res2);
@@ -560,7 +560,7 @@ decompose_rbezier(
   if (dir == SurfaceParameter::U) {
     std::vector<Matrix2D<float4>> Qw(divs_count+1, Matrix2D<float4>(p+1, q+1));
     for (int coli = 0; coli <= q; ++coli) {
-      auto decomposed_col = de_castelaju_uniformly_divide_curve(
+      auto decomposed_col = de_casteljau_uniformly_divide_curve(
           p, divs_count, Pw.col(coli));
       for (int stripi = 0; stripi < Qw.size(); ++stripi)
       for (int rowi = 0; rowi <= p; ++rowi)
@@ -570,7 +570,7 @@ decompose_rbezier(
   } else {
     std::vector<Matrix2D<float4>> Qw(divs_count+1, Matrix2D<float4>(p+1, q+1));
     for (int rowi = 0; rowi <= p; ++rowi) {
-      auto decomposed_row = de_castelaju_uniformly_divide_curve(
+      auto decomposed_row = de_casteljau_uniformly_divide_curve(
           q, divs_count, Pw.row(rowi));
       for (int stripi = 0; stripi < Qw.size(); ++stripi)
       for (int coli = 0; coli <= q; ++coli)
