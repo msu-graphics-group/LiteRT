@@ -40,3 +40,9 @@ create_sdf4Mesh()
     openvdb::FloatGrid::Ptr grid = openvdb::gridPtrCast<openvdb::FloatGrid>(baseGrid);
     std::cout << grid->tree().leafCount() << std::endl;
 }
+
+void 
+load_mesh(const std::string& path)
+{
+    
+}

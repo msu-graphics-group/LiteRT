@@ -3157,7 +3157,36 @@ void litert_test_41_openvdb()
 {
   printf("TEST 41. COMPARISON BETWEEN OPENVDB AND LITERT RENDER\n");
 
-  create_sdf4Mesh();
+  auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "scenes/01_simple_scenes/data/bunny.vsgf").c_str());
+  cmesh4::rescale_mesh(mesh, float3(-0.95, -0.95, -0.95), float3(0.95, 0.95, 0.95));
+
+  openvdb::initialize();
+
+  std::vector<openvdb::Vec3s> points;
+  std::vector<openvdb::Vec3I> indices;
+
+  for (auto point: mesh.vPos4f)
+  {
+    points.push_back(openvdb::Vec3s(point.x, point.y, point.z));
+  }
+
+  for (int i = 0; i < mesh.IndicesNum(); i += 3)
+  {
+    indices.push_back(openvdb::Vec3I{mesh.indices[i], mesh.indices[i + 1], mesh.indices[i + 2]});
+  }
+
+  float voxelSize = 0.02;
+  float w = 1.f, h = 1.f;
+
+  openvdb::math::Transform::Ptr transform = openvdb::math::Transform::createLinearTransform(voxelSize);
+  openvdb::FloatGrid::Ptr sdfGrid = openvdb::tools::meshToLevelSet<openvdb::FloatGrid>(
+    *transform,
+    points,
+    indices,
+    w
+  );
+
+  printf("OpenVDB leafs count: %lu\n", sdfGrid->tree().leafCount());
 }
 
 void perform_tests_litert(const std::vector<int> &test_ids)

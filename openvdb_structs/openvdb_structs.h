@@ -9,6 +9,8 @@
 #include <openvdb/tools/ChangeBackground.h>
 #include <openvdb/tools/FastSweeping.h>
 #include <openvdb/tools/MeshToVolume.h>
+#include <openvdb/tools/VolumeToMesh.h>
+
 
 void load_mesh(const std::string& path);
 void create_sdf4Mesh();
