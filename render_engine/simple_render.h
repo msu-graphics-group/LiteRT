@@ -211,6 +211,7 @@ protected:
   void SetupQuadDescriptors();
   void SetupRTImage();
   void SetupRTScene(const char *path);
+  void OnScreenResolutionChangeRT();
   // ***************************
 
   void SetupSimplePipeline();

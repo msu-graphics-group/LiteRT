@@ -14,6 +14,7 @@ SimpleRender::SimpleRender(uint32_t a_width, uint32_t a_height) : m_width(a_widt
   m_enableValidation = true;
 #endif
 
+  //m_force_rayrace_cpu = true;
   m_raytracedImageData.resize(m_width * m_height);
 }
 
@@ -471,17 +472,14 @@ void SimpleRender::RecreateSwapChain()
   // *** ray tracing resources
   m_raytracedImageData.resize(m_width * m_height);
   // change screen resolution
-  if (m_pRayTracer)
-  {
-    m_pRayTracer->SetViewport(0,0, m_width, m_height);
-    m_pRayTracer->CommitDeviceData();
-    m_pRayTracer->Clear(m_width, m_height, "color");
-  }
 
   SetupRTImage();
   SetupQuadRenderer();
   SetupQuadDescriptors();
   //
+
+  if (m_pRayTracer)
+    OnScreenResolutionChangeRT();
 
   m_pGUIRender->OnSwapchainChanged(m_swapchain);
 }

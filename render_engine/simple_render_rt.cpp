@@ -39,6 +39,21 @@ void SimpleRender::SetupRTImage()
 }
 // ***************************************************************************************************************************
 
+//call it at the beginning and every time when resolution changed or 
+//swapchain is recreated
+void SimpleRender::OnScreenResolutionChangeRT()
+{
+  m_pRayTracer->SetViewport(0,0, m_width, m_height);
+  m_pRayTracer->CommitDeviceData();
+  if (m_pRayTracerGPU)
+  {
+    m_genColorBuffer = vk_utils::createBuffer(m_device, m_width * m_height * sizeof(uint32_t),  VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
+    m_colorMem       = vk_utils::allocateAndBindWithPadding(m_device, m_physicalDevice, {m_genColorBuffer});
+    m_pRayTracerGPU->SetVulkanInOutFor_CastRaySingle(m_genColorBuffer, 0);
+  }
+  m_pRayTracer->Clear(m_width, m_height, "color");
+}
+
 // convert geometry data and pass it to acceleration structure builder
 void SimpleRender::SetupRTScene(const char *path)
 {
@@ -64,21 +79,11 @@ void SimpleRender::SetupRTScene(const char *path)
   m_pRayTracerGPU = dynamic_cast<MultiRendererGPUImpl*>(m_pRayTracer.get());
   m_pRayTracer->LoadSceneHydra(path);
 
-  m_genColorBuffer = vk_utils::createBuffer(m_device, m_width * m_height * sizeof(uint32_t),  VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
-  m_colorMem       = vk_utils::allocateAndBindWithPadding(m_device, m_physicalDevice, {m_genColorBuffer});
-
   m_pRayTracer->GetAccelStruct()->CommitScene();
   auto preset  =getDefaultPreset();
   preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
   m_pRayTracer->SetPreset(preset);
-  m_pRayTracer->SetViewport(0,0, m_width, m_height);
-  m_pRayTracer->CommitDeviceData();
-  if (m_pRayTracerGPU)
-  {
-    m_pRayTracerGPU->SetVulkanInOutFor_CastRaySingle(m_genColorBuffer, 0);
-    m_pRayTracerGPU->UpdateAll(m_pCopyHelper);
-  }
-  m_pRayTracer->Clear(m_width, m_height, "color");
+  OnScreenResolutionChangeRT();
 }
 
 // perform ray tracing on the CPU and upload resulting image on the GPU
