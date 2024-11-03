@@ -205,6 +205,9 @@ float4 MultiRenderer::kernel_RayTrace(uint32_t tidX, const float4* rayPosAndNear
     norm = decode_normal(float2(hit.coords[2], hit.coords[3]));
   }
 
+  float norm_sign = sign(dot(-1.0f*to_float3(rayDir), norm));
+  norm = norm * norm_sign;
+
   switch (m_preset.render_mode)
   {
   case MULTI_RENDER_MODE_MASK:
