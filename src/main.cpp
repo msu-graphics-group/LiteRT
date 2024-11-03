@@ -3,6 +3,7 @@
 #include <cmath>
 #include <cinttypes>
 #include <string_view>
+#include <cstdio>
 
 #include "imgui.h"
 #include "imgui_impl_sdl2.h"
@@ -34,16 +35,17 @@ int main(int, char** argv)
   SDL_SetHint(SDL_HINT_RENDER_VSYNC, "1");
   atexit(SDL_Quit);
 
-  int WIDTH = 800;
-  int HEIGHT = 600;
+  int WIDTH = 1200;
+  int HEIGHT = 800;
   float aspect = static_cast<float>(WIDTH)/HEIGHT;
   float fov = M_PI_4;
 
   // Create window with SDL_Renderer graphics context
-  SDL_WindowFlags window_flags = (SDL_WindowFlags)(SDL_WINDOW_ALLOW_HIGHDPI);
+  SDL_WindowFlags window_flags = (SDL_WindowFlags)(SDL_WINDOW_RESIZABLE);
   SDL_Window* window = SDL_CreateWindow("Basic NURBS Viewer", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, WIDTH, HEIGHT, window_flags);
-  SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_PRESENTVSYNC| SDL_RENDERER_ACCELERATED);
+  SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_PRESENTVSYNC|SDL_RENDERER_ACCELERATED);
   SDL_RendererInfo info;
+
 
   // Setup Dear ImGui context
   IMGUI_CHECKVERSION();
@@ -64,12 +66,13 @@ int main(int, char** argv)
   bool surface_changed = false;
   bool renderer_changed = false;
   bool shading_changed = false;
-  std::string default_path_to_surf = std::filesystem::current_path() / "resources" / "vase.nurbss";
+  std::string default_path_to_surf = std::filesystem::current_path() / "resources";
   char path_to_surf[10000] = {};
   std::copy(default_path_to_surf.begin(), default_path_to_surf.end(), path_to_surf);
 
   std::vector<RBezierGrid> rbeziers;
-
+  std::vector<std::vector<BoundingBox3d>> bboxes;
+  std::vector<std::vector<LiteMath::float2>> uvs;
   FrameBuffer fb = { 
     LiteImage::Image2D<uint32_t>(WIDTH, HEIGHT, LiteMath::uchar4{ 153, 153, 153, 255 }.u32),
     LiteImage::Image2D<float>(WIDTH, HEIGHT, std::numeric_limits<float>::infinity())
@@ -89,7 +92,8 @@ int main(int, char** argv)
   
   const char *renderers[] = { 
     "Regular Sample Points", 
-    "Newton Method (in progress)"
+    "Newton Method (in progress)",
+    "Bounding boxes"
   };
 
   const char *shaders[] = {
@@ -115,6 +119,17 @@ int main(int, char** argv)
       if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_CLOSE && 
           event.window.windowID == SDL_GetWindowID(window))
         done = true;
+      if (event.type = SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_RESIZED) {
+        SDL_GetWindowSize(window, &WIDTH, &HEIGHT);
+        camera = Camera(WIDTH*1.0f/HEIGHT, camera.fov, camera.position, camera.target);
+        camera_changed = true;
+        fb.col_buf.resize(WIDTH, HEIGHT);
+        fb.z_buf.resize(WIDTH, HEIGHT);
+        SDL_DestroyTexture(texture);
+        texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ABGR8888, SDL_TEXTUREACCESS_STREAMING, WIDTH, HEIGHT);
+        scr_rect.w = WIDTH;
+        scr_rect.h = HEIGHT;
+      }
     }
 
     if (ImGui::IsMouseDown(ImGuiMouseButton_Left) && !io.WantCaptureMouse) {
@@ -154,11 +169,12 @@ int main(int, char** argv)
 
     //Render image
     auto b = std::chrono::high_resolution_clock::now();
-    for (auto &rbezier: rbeziers) {
+    for (int i = 0; i < rbeziers.size(); ++i) {
       switch(cur_renderer)
       {
-        case 0: draw_points(rbezier, camera, fb, 250/std::sqrt(rbeziers.size()), shader_funcs[cur_shader]); break;
-        case 1: draw_newton(rbezier, camera, fb, shader_funcs[cur_shader]); break;
+        case 0: draw_points(rbeziers[i], camera, fb, 250/std::sqrt(rbeziers.size()), shader_funcs[cur_shader]); break;
+        case 1: draw_newton(rbeziers[i], camera, fb, shader_funcs[cur_shader]); break;
+        case 2: draw_boxes(bboxes[i], uvs[i], camera, fb);
       }
     }
     auto e = std::chrono::high_resolution_clock::now();
@@ -197,29 +213,34 @@ int main(int, char** argv)
     }
 
     if (to_load_surface) {
-      ImGui::SetNextWindowPos(ImVec2{ WIDTH/2.0f-327/2.0f, HEIGHT/2.0f-80/2.0f });
-      ImGui::Begin("Loading Surface", &to_load_surface, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoCollapse);
-      ImGui::InputText("Path to surface", path_to_surf, sizeof(path_to_surf)-1);
-      if (ImGui::Button("OK")) {
-        to_load_surface = false;
-        surface_changed = true;
-        try {
-          rbeziers = load_rbeziers(path_to_surf);
-          BoundingBox3d bbox;
-          for (auto &surf: rbeziers) {
-            bbox.mn = LiteMath::min(bbox.mn, surf.bbox.mn);
-            bbox.mx = LiteMath::max(bbox.mx, surf.bbox.mx);
-          }
-          auto target = bbox.center();
-          float radius = LiteMath::length(bbox.mn-target);
-          float distance = radius / std::sin(M_PI/8);
-          camera = Camera(aspect, fov, { target.x, target.y, target.z+distance }, target);
-          std::cout << "\"" << path_to_surf << "\" loaded!" << std::endl;
-        } catch(...) {
-          std::cout << "Failed to load \"" << path_to_surf << "\"!" << std::endl;
+      FILE *f = popen("zenity --file-selection", "r");
+      [[maybe_unused]] auto _ = fgets(path_to_surf, sizeof(path_to_surf), f);
+      fclose(f);
+      path_to_surf[strlen(path_to_surf)-1] = '\0';
+      to_load_surface = false;
+      surface_changed = true;
+      try {
+        rbeziers = load_rbeziers(path_to_surf);
+        bboxes.resize(0);
+        uvs.resize(0);
+        for (auto &surf: rbeziers) {
+          auto [cur_bboxes, cur_uv] = get_bvh_leaves(surf);
+          bboxes.push_back(cur_bboxes);
+          uvs.push_back(cur_uv);
         }
+        BoundingBox3d bbox;
+        for (auto &surf: rbeziers) {
+          bbox.mn = LiteMath::min(bbox.mn, surf.bbox.mn);
+          bbox.mx = LiteMath::max(bbox.mx, surf.bbox.mx);
+        }
+        auto target = bbox.center();
+        float radius = LiteMath::length(bbox.mn-target);
+        float distance = radius / std::sin(M_PI/8);
+        camera = Camera(aspect, fov, { target.x, target.y, target.z+distance }, target);
+        std::cout << "\"" << path_to_surf << "\" loaded!" << std::endl;
+      } catch(...) {
+        std::cout << "Failed to load \"" << path_to_surf << "\"!" << std::endl;
       }
-      ImGui::End();
     }
     ImGui::PopFont();
 
