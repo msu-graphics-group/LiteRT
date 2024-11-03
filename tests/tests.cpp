@@ -3088,6 +3088,8 @@ void litert_test_39_visualize_sbs_bricks()
 
 void litert_test_40_psdf_framed_octree()
 {
+  printf("TEST 40. PSDF FRAMED OCTREE\n");
+
   auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "scenes/01_simple_scenes/data/bunny.vsgf").c_str());
   //auto mesh = cmesh4::obj_to_mesh((scenes_folder_path + "scenes/01_simple_scenes/data/Lowpoly_tree_sample.obj"));
   cmesh4::rescale_mesh(mesh, float3(-0.95, -0.95, -0.95), float3(0.95, 0.95, 0.95));
@@ -3152,6 +3154,53 @@ void litert_test_40_psdf_framed_octree()
   }
 }
 
+void litert_test_41_coctree_v3()
+{
+  printf("TEST 41. COMPACT OCTREE V3\n");
+
+  auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "scenes/01_simple_scenes/data/teapot.vsgf").c_str());
+  cmesh4::normalize_mesh(mesh);
+
+  unsigned W = 2048, H = 2048;
+  MultiRenderPreset preset = getDefaultPreset();
+  preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
+  preset.spp = 1;
+  preset.normal_mode = NORMAL_MODE_GEOMETRY;
+
+  LiteImage::Image2D<uint32_t> image_ref(W, H);
+  LiteImage::Image2D<uint32_t> image_res(W, H);
+
+
+  {
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
+    pRender->SetPreset(preset);
+    pRender->SetScene(mesh);
+    render(image_ref, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset, 10);
+    LiteImage::SaveImage<uint32_t>("saves/test_41_ref.bmp", image_ref);
+  }
+
+  std::vector<int> bpp = {8,16,32};
+
+  for (int b : bpp)
+  {
+    SdfSBSHeader header;
+    header.brick_size = 6;
+    header.brick_pad = 0;
+    header.bytes_per_value = b/8;
+    header.aux_data = SDF_SBS_NODE_LAYOUT_DX;
+
+    SdfSBS sbs = sdf_converter::create_sdf_SBS(SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, 5, 2<<28), header, mesh);
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
+    pRender->SetPreset(preset);
+    pRender->SetScene(sbs);
+    render(image_res, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset, 1);
+    LiteImage::SaveImage<uint32_t>(("saves/test_41_sbs_"+std::to_string(b)+"_bit.bmp").c_str(), image_res);
+
+    float psnr = image_metrics::PSNR(image_ref, image_res);
+    printf("%d bits/distance, PSNR = %.2f\n", b, psnr);
+  }
+}
+
 void perform_tests_litert(const std::vector<int> &test_ids)
 {
   std::vector<int> tests = test_ids;
@@ -3170,7 +3219,7 @@ void perform_tests_litert(const std::vector<int> &test_ids)
       litert_test_31_fake_nurbs_render, litert_test_32_smooth_sbs_normals, litert_test_33_verify_SBS_SBSAdapt_split, 
       litert_test_34_tricubic_sbs, litert_test_35_SBSAdapt_greed_creating, litert_test_36_primitive_visualization,
       litert_test_37_sbs_adapt_comparison, litert_test_38_direct_octree_traversal, litert_test_39_visualize_sbs_bricks,
-      litert_test_40_psdf_framed_octree};
+      litert_test_40_psdf_framed_octree, litert_test_41_coctree_v3};
 
   if (tests.empty())
   {
