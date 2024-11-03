@@ -3,6 +3,7 @@
 #include <cmath>
 #include <cinttypes>
 #include <string_view>
+#include <cstdio>
 
 #include "imgui.h"
 #include "imgui_impl_sdl2.h"
@@ -65,7 +66,7 @@ int main(int, char** argv)
   bool surface_changed = false;
   bool renderer_changed = false;
   bool shading_changed = false;
-  std::string default_path_to_surf = std::filesystem::current_path() / "resources" / "vase.nurbss";
+  std::string default_path_to_surf = std::filesystem::current_path() / "resources";
   char path_to_surf[10000] = {};
   std::copy(default_path_to_surf.begin(), default_path_to_surf.end(), path_to_surf);
 
@@ -212,36 +213,34 @@ int main(int, char** argv)
     }
 
     if (to_load_surface) {
-      ImGui::SetNextWindowPos(ImVec2{ WIDTH/2.0f-327/2.0f, HEIGHT/2.0f-80/2.0f });
-      ImGui::Begin("Loading Surface", &to_load_surface, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoCollapse);
-      ImGui::InputText("Path to surface", path_to_surf, sizeof(path_to_surf)-1);
-      if (ImGui::Button("OK")) {
-        to_load_surface = false;
-        surface_changed = true;
-        try {
-          rbeziers = load_rbeziers(path_to_surf);
-          bboxes.resize(0);
-          uvs.resize(0);
-          for (auto &surf: rbeziers) {
-            auto [cur_bboxes, cur_uv] = get_bvh_leaves(surf);
-            bboxes.push_back(cur_bboxes);
-            uvs.push_back(cur_uv);
-          }
-          BoundingBox3d bbox;
-          for (auto &surf: rbeziers) {
-            bbox.mn = LiteMath::min(bbox.mn, surf.bbox.mn);
-            bbox.mx = LiteMath::max(bbox.mx, surf.bbox.mx);
-          }
-          auto target = bbox.center();
-          float radius = LiteMath::length(bbox.mn-target);
-          float distance = radius / std::sin(M_PI/8);
-          camera = Camera(aspect, fov, { target.x, target.y, target.z+distance }, target);
-          std::cout << "\"" << path_to_surf << "\" loaded!" << std::endl;
-        } catch(...) {
-          std::cout << "Failed to load \"" << path_to_surf << "\"!" << std::endl;
+      FILE *f = popen("zenity --file-selection", "r");
+      [[maybe_unused]] auto _ = fgets(path_to_surf, sizeof(path_to_surf), f);
+      fclose(f);
+      path_to_surf[strlen(path_to_surf)-1] = '\0';
+      to_load_surface = false;
+      surface_changed = true;
+      try {
+        rbeziers = load_rbeziers(path_to_surf);
+        bboxes.resize(0);
+        uvs.resize(0);
+        for (auto &surf: rbeziers) {
+          auto [cur_bboxes, cur_uv] = get_bvh_leaves(surf);
+          bboxes.push_back(cur_bboxes);
+          uvs.push_back(cur_uv);
         }
+        BoundingBox3d bbox;
+        for (auto &surf: rbeziers) {
+          bbox.mn = LiteMath::min(bbox.mn, surf.bbox.mn);
+          bbox.mx = LiteMath::max(bbox.mx, surf.bbox.mx);
+        }
+        auto target = bbox.center();
+        float radius = LiteMath::length(bbox.mn-target);
+        float distance = radius / std::sin(M_PI/8);
+        camera = Camera(aspect, fov, { target.x, target.y, target.z+distance }, target);
+        std::cout << "\"" << path_to_surf << "\" loaded!" << std::endl;
+      } catch(...) {
+        std::cout << "Failed to load \"" << path_to_surf << "\"!" << std::endl;
       }
-      ImGui::End();
     }
     ImGui::PopFont();
 
