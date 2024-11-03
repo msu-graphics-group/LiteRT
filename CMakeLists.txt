@@ -18,6 +18,7 @@ include_directories(${CMAKE_SOURCE_DIR}/dependencies/embree)
 include_directories(${CMAKE_SOURCE_DIR}/sdfScene)
 include_directories(${CMAKE_SOURCE_DIR}/BVH)
 include_directories(${CMAKE_SOURCE_DIR}/Render)
+include_directories(${CMAKE_SOURCE_DIR}/openvdb_structs)
 
 link_directories(${CMAKE_SOURCE_DIR}/dependencies/embree/lib)
 set(RAYTRACING_EMBREE_LIBS embree4 tbb tbbmalloc)
@@ -32,33 +33,35 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS} -std=c++17 -O3 -Wall
                      -Wno-narrowing -Wno-attributes -Wno-sign-compare")
 
 set(SCENE_LOADER_SRC
-    ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/LiteScene/pugixml.cpp
-    ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/LiteScene/hydraxml.cpp
-    ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/LiteScene/cmesh4.cpp
-    ${CMAKE_SOURCE_DIR}/sdfScene/sdf_scene.cpp
-    ${CMAKE_SOURCE_DIR}/utils/mesh_bvh.cpp
-    ${CMAKE_SOURCE_DIR}/utils/mesh.cpp
-    ${CMAKE_SOURCE_DIR}/utils/sparse_octree_builder.cpp
-    ${CMAKE_SOURCE_DIR}/utils/radiance_field.cpp
-    ${CMAKE_SOURCE_DIR}/utils/gaussian_field.cpp
-    ${CMAKE_SOURCE_DIR}/utils/watertight_mesh.cpp
-    ${CMAKE_SOURCE_DIR}/utils/sdf_converter.cpp
-    ${CMAKE_SOURCE_DIR}/utils/hydra_stub.cpp
-    ${CMAKE_SOURCE_DIR}/utils/marching_cubes.cpp
-    ${CMAKE_SOURCE_DIR}/utils/sdf_smoother.cpp
-    ${CMAKE_SOURCE_DIR}/utils/demo_meshes.cpp
-    ${CMAKE_SOURCE_DIR}/utils/image_metrics.cpp
-    ${CMAKE_SOURCE_DIR}/utils/iou.cpp
-    ${CMAKE_SOURCE_DIR}/utils/points_visualizer.cpp
-    ${CMAKE_SOURCE_DIR}/tests/tests.cpp
-    ${CMAKE_SOURCE_DIR}/tests/benchmark.cpp
+  ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/LiteScene/pugixml.cpp
+  ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/LiteScene/hydraxml.cpp
+  ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/LiteScene/cmesh4.cpp
+  ${CMAKE_SOURCE_DIR}/sdfScene/sdf_scene.cpp
+  ${CMAKE_SOURCE_DIR}/utils/mesh_bvh.cpp
+  ${CMAKE_SOURCE_DIR}/utils/mesh.cpp
+  ${CMAKE_SOURCE_DIR}/utils/sparse_octree_builder.cpp
+  ${CMAKE_SOURCE_DIR}/utils/radiance_field.cpp
+  ${CMAKE_SOURCE_DIR}/utils/gaussian_field.cpp
+  ${CMAKE_SOURCE_DIR}/utils/watertight_mesh.cpp
+  ${CMAKE_SOURCE_DIR}/utils/sdf_converter.cpp
+  ${CMAKE_SOURCE_DIR}/utils/hydra_stub.cpp
+  ${CMAKE_SOURCE_DIR}/utils/marching_cubes.cpp
+  ${CMAKE_SOURCE_DIR}/utils/sdf_smoother.cpp
+  ${CMAKE_SOURCE_DIR}/utils/demo_meshes.cpp
+  ${CMAKE_SOURCE_DIR}/utils/image_metrics.cpp
+  ${CMAKE_SOURCE_DIR}/utils/iou.cpp
+  ${CMAKE_SOURCE_DIR}/utils/points_visualizer.cpp
+  ${CMAKE_SOURCE_DIR}/tests/tests.cpp
+  ${CMAKE_SOURCE_DIR}/tests/benchmark.cpp
 
-    ${CMAKE_SOURCE_DIR}/diff_render/DR_common.cpp
-    ${CMAKE_SOURCE_DIR}/diff_render/BVH2DR.cpp
-    ${CMAKE_SOURCE_DIR}/diff_render/MultiRendererDR.cpp
-    ${CMAKE_SOURCE_DIR}/diff_render/benchmark_diff_render.cpp
-    ${CMAKE_SOURCE_DIR}/diff_render/tests_diff_render.cpp
-    )
+  ${CMAKE_SOURCE_DIR}/openvdb_structs/openvdb_structs.cpp
+
+  ${CMAKE_SOURCE_DIR}/diff_render/DR_common.cpp
+  ${CMAKE_SOURCE_DIR}/diff_render/BVH2DR.cpp
+  ${CMAKE_SOURCE_DIR}/diff_render/MultiRendererDR.cpp
+  ${CMAKE_SOURCE_DIR}/diff_render/benchmark_diff_render.cpp
+  ${CMAKE_SOURCE_DIR}/diff_render/tests_diff_render.cpp
+)
 
 set(CORE_SRC
     ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/LiteMath/Image2d.cpp
@@ -195,6 +198,8 @@ target_sources(render_app PRIVATE main.cpp
 set_property(TARGET render_app PROPERTY CXX_STANDARD 17)
 target_link_libraries(render_app PRIVATE Threads::Threads dl ${RAYTRACING_EMBREE_LIBS} ${MODULES_LIBRARIES})
 target_link_libraries(render_app PUBLIC OpenMP::OpenMP_CXX)
+
+target_link_libraries(render_app PUBLIC tbb openvdb)
 
 if (USE_VULKAN)
   set(IMGUI_SRC

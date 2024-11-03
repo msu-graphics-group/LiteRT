@@ -13,6 +13,7 @@
 #include "../utils/image_metrics.h"
 #include "../diff_render/MultiRendererDR.h"
 #include "../utils/iou.h"
+#include "../openvdb_structs/openvdb_structs.h"
 
 #include <functional>
 #include <cassert>
@@ -3152,6 +3153,13 @@ void litert_test_40_psdf_framed_octree()
   }
 }
 
+void litert_test_41_openvdb()
+{
+  printf("TEST 41. COMPARISON BETWEEN OPENVDB AND LITERT RENDER\n");
+
+  create_sdf4Mesh();
+}
+
 void perform_tests_litert(const std::vector<int> &test_ids)
 {
   std::vector<int> tests = test_ids;
@@ -3170,7 +3178,7 @@ void perform_tests_litert(const std::vector<int> &test_ids)
       litert_test_31_fake_nurbs_render, litert_test_32_smooth_sbs_normals, litert_test_33_verify_SBS_SBSAdapt_split, 
       litert_test_34_tricubic_sbs, litert_test_35_SBSAdapt_greed_creating, litert_test_36_primitive_visualization,
       litert_test_37_sbs_adapt_comparison, litert_test_38_direct_octree_traversal, litert_test_39_visualize_sbs_bricks,
-      litert_test_40_psdf_framed_octree};
+      litert_test_40_psdf_framed_octree, litert_test_41_openvdb};
 
   if (tests.empty())
   {
