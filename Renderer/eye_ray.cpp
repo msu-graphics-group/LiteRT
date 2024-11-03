@@ -189,14 +189,28 @@ float4 MultiRenderer::kernel_RayTrace(uint32_t tidX, const float4* rayPosAndNear
     const float2 B_tc = float2(m_vertices[a_geomOffsets.y + B].w, m_normals[a_geomOffsets.y + B].w);
     const float2 C_tc = float2(m_vertices[a_geomOffsets.y + C].w, m_normals[a_geomOffsets.y + C].w);
 
-    const float4 normA = m_normals[a_geomOffsets.y + A];
-    const float4 normB = m_normals[a_geomOffsets.y + B];
-    const float4 normC = m_normals[a_geomOffsets.y + C];
-    const float2 uv    = float2(hit.coords[0], hit.coords[1]);
-    const float4 norm4 = (1.0f - uv.x - uv.y)*normA + uv.y*normB + uv.x*normC;
+    float3 raw_norm = float3(1, 0, 0);
+    if (m_preset.normal_mode == NORMAL_MODE_GEOMETRY)
+    {
+      const float3 posA = to_float3(m_vertices[a_geomOffsets.y + A]);
+      const float3 posB = to_float3(m_vertices[a_geomOffsets.y + B]);
+      const float3 posC = to_float3(m_vertices[a_geomOffsets.y + C]);
+      const float3 edge1 = posB - posA;
+      const float3 edge2 = posC - posA;
+      raw_norm = cross(edge1, edge2);
+    }
+    else if (m_preset.normal_mode == NORMAL_MODE_VERTEX)
+    {
+      const float4 normA = m_normals[a_geomOffsets.y + A];
+      const float4 normB = m_normals[a_geomOffsets.y + B];
+      const float4 normC = m_normals[a_geomOffsets.y + C];
+      const float2 uv = float2(hit.coords[0], hit.coords[1]);
+      const float4 norm4 = (1.0f - uv.x - uv.y) * normA + uv.y * normB + uv.x * normC;
+      raw_norm = to_float3(norm4);
+    }
 
     tc = (1.0f - hit.coords[0] - hit.coords[1]) * A_tc + hit.coords[1] * B_tc + hit.coords[0] * C_tc;
-    norm = normalize(matmul4x3(m_instanceTransformInvTransposed[hit.instId], to_float3(norm4)));
+    norm = normalize(matmul4x3(m_instanceTransformInvTransposed[hit.instId], raw_norm));
 #endif
   }
   else
