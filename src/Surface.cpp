@@ -436,8 +436,8 @@ load_rbeziers(const std::filesystem::path &path) {
   } 
 
   std::vector<RBezierGrid> res;
-  auto parsed = STEP::parse(path);
-  auto parsed_nurbs = STEP::allNURBS(parsed);
+  auto parser = STEP::Parser(path);
+  auto parsed_nurbs = parser.allNURBS();
 
   float max_abs_value = 0.0f;
   for (auto &raw_nurbs: parsed_nurbs) {
