@@ -2375,7 +2375,7 @@ void BVHRT::OctreeIntersect(const float3 ray_pos, const float3 ray_dir, float tN
         float d_max = 2*1.73205081f/float(level_sz);
         for (int i=0;i<8;i++)
         {
-          values[i] = -d_max + 2*d_max*(1.0/255.0f)*((m_SdfCompactOctreeData[stack[top].nodeId + i/4] >> (8*(i%4))) & 0xFF);
+          values[i] = -d_max + 2*d_max*(1.0/255.0f)*((m_SdfCompactOctreeV2Data[stack[top].nodeId + i/4] >> (8*(i%4))) & 0xFF);
         }
         
         LocalSurfaceIntersection(TYPE_SDF_FRAME_OCTREE, ray_dir, 0, 0, values, nodeId, nodeId, d, 0.0f, qFar, fNearFar, start_q, /*in */
@@ -2395,14 +2395,14 @@ void BVHRT::OctreeIntersect(const float3 ray_pos, const float3 ray_dir, float tN
         do
         {
           //0-7 bits are child_is_active flags, next 8-15 bits are child_is_leaf flags
-          uint32_t childrenInfo = m_SdfCompactOctreeData[stack[top].nodeId + 1];
+          uint32_t childrenInfo = m_SdfCompactOctreeV2Data[stack[top].nodeId + 1];
           uint32_t childNode = currNode ^ a; //child node number, from 0 to 8
 
           // if child is active
           if ((childrenInfo & (1u << childNode)) > 0)
           {
             uint32_t currChildOffset = m_bitcount[childrenInfo & ((1u << childNode) - 1)]; //number of child in the list of active children
-            uint32_t baseChildrenOffset = m_SdfCompactOctreeData[stack[top].nodeId];
+            uint32_t baseChildrenOffset = m_SdfCompactOctreeV2Data[stack[top].nodeId];
             tmp_buf[buf_top].nodeId = baseChildrenOffset + 2u*currChildOffset;
             tmp_buf[buf_top].curChildId = childrenInfo & (1u << (childNode + 8)); // > 0 is child is leaf
             tmp_buf[buf_top].p_size = (stack[top].p_size << 1) | uint2(((currNode & 4) << (16-2)) | ((currNode & 2) >> 1), (currNode & 1) << 16);
@@ -2550,7 +2550,8 @@ CRT_Hit BVHRT::RayQuery_NearestHit(float4 posAndNear, float4 dirAndFar)
         const float3 ray_pos = matmul4x3(m_instanceData[instId].transformInv, to_float3(posAndNear));
         const float3 ray_dir = matmul3x3(m_instanceData[instId].transformInv, to_float3(dirAndFar)); // DON'float NORMALIZE IT !!!! When we transform to local space of node, ray_dir must be unnormalized!!!
     
-        if (m_geomData[geomId].type == TYPE_SDF_FRAME_OCTREE && m_preset.octree_intersect == OCTREE_INTERSECT_TRAVERSE)
+        if ((m_geomData[geomId].type == TYPE_COCTREE_V1 || m_geomData[geomId].type == TYPE_COCTREE_V2) && 
+            m_preset.octree_intersect == OCTREE_INTERSECT_TRAVERSE)
           OctreeIntersect(ray_pos, ray_dir, posAndNear.w, instId, geomId, stopOnFirstHit, &hit);
         else
           BVH2TraverseF32(ray_pos, ray_dir, posAndNear.w, instId, geomId, stopOnFirstHit, &hit);

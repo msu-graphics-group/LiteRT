@@ -86,6 +86,9 @@ public:
   void SetScene(const RawNURBS &nurbs);
   void SetScene(GraphicsPrimView scene);
 
+  void SetScene_COctreeV1(const std::vector<SdfCompactOctreeNode> &scene);
+  void SetScene_COctreeV2(const std::vector<uint32_t> &scene);
+
 #endif
   void Render(uint32_t* imageData, uint32_t a_width, uint32_t a_height, 
               const LiteMath::float4x4& a_worldView, const LiteMath::float4x4& a_proj,

@@ -124,6 +124,8 @@ struct BVHRT : public ISceneObject
   uint32_t AddGeom_SdfFrameOctreeTex(SdfFrameOctreeTexView octree, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
   uint32_t AddGeom_NURBS(const RawNURBS &nurbs, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
   uint32_t AddGeom_GraphicsPrim(const GraphicsPrimView &nurbs, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
+  uint32_t AddGeom_COctreeV1(const std::vector<SdfCompactOctreeNode> &nodes, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
+  uint32_t AddGeom_COctreeV2(const std::vector<uint32_t> &data, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
 
   void set_debug_mode(bool enable);
 #endif
@@ -306,8 +308,8 @@ struct BVHRT : public ISceneObject
 #endif
 
 #ifndef DISABLE_SDF_FRAME_OCTREE_COMPACT
-  std::vector<SdfCompactOctreeNode> m_SdfCompactOctreeNodes;//compact nodes for all SDF octrees
-  std::vector<uint32_t> m_SdfCompactOctreeData;
+  std::vector<SdfCompactOctreeNode> m_SdfCompactOctreeV1Data; //compact nodes for all SDF octrees
+  std::vector<uint32_t>             m_SdfCompactOctreeV2Data;
 #endif
 
   //SDF Sparse Voxel Sets

@@ -422,6 +422,39 @@ void MultiRenderer::SetScene(GraphicsPrimView scene)
   m_pAccelStruct->CommitScene();
 }
 
+void MultiRenderer::SetScene_COctreeV1(const std::vector<SdfCompactOctreeNode> &scene)
+{
+  BVHRT *bvhrt = dynamic_cast<BVHRT*>(m_pAccelStruct->UnderlyingImpl(0));
+  if (!bvhrt)
+  {
+    printf("only BVHRT supports Compact Octree v1\n");
+    return;
+  }
+
+  SetPreset(m_preset);
+  m_pAccelStruct->ClearGeom();
+  auto geomId = bvhrt->AddGeom_COctreeV1(scene, m_pAccelStruct.get());
+  m_pAccelStruct->ClearScene();
+  AddInstance(geomId, LiteMath::float4x4());
+  m_pAccelStruct->CommitScene();
+}
+void MultiRenderer::SetScene_COctreeV2(const std::vector<uint32_t> &scene)
+{
+  BVHRT *bvhrt = dynamic_cast<BVHRT*>(m_pAccelStruct->UnderlyingImpl(0));
+  if (!bvhrt)
+  {
+    printf("only BVHRT supports Compact Octree v2\n");
+    return;
+  }
+
+  SetPreset(m_preset);
+  m_pAccelStruct->ClearGeom();
+  auto geomId = bvhrt->AddGeom_COctreeV2(scene, m_pAccelStruct.get());
+  m_pAccelStruct->ClearScene();
+  AddInstance(geomId, LiteMath::float4x4());
+  m_pAccelStruct->CommitScene();
+}
+
 void MultiRenderer::SetPreset(const MultiRenderPreset& a_preset)
 {
   m_preset = a_preset;
