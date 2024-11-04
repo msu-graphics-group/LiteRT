@@ -19,6 +19,7 @@
 #include <cassert>
 #include <chrono>
 #include <filesystem>
+#include <map>
 
 std::string scenes_folder_path = "./";
 
@@ -2253,7 +2254,7 @@ void litert_test_30_verify_SBS_SBSAdapt()
 ////////////////////////// NURBS SECTION ////////////////////////////////
 void litert_test_31_nurbs_render()
 {
-  std::cout << "TEST 31" << std::endl;
+  std::cout << "TEST 31: NURBS" << std::endl;
   unsigned W = 800, H = 600;
 
   MultiRenderPreset preset = getDefaultPreset();
@@ -2265,48 +2266,71 @@ void litert_test_31_nurbs_render()
   auto proj_path = std::filesystem::current_path();
   auto nurbs_path = proj_path / "scenes" / "04_nurbs_scenes";
 
-  RBezierGrid vase = nurbs2rbezier(load_nurbs(nurbs_path / "vase.nurbss"));
-  RBezierGrid square = nurbs2rbezier(load_nurbs(nurbs_path/"square.nurbss"));
-  RBezierGrid cylinder = nurbs2rbezier(load_nurbs(nurbs_path/"cylinder.nurbss"));
+  std::cout << "Loading and preprocessing surfaces... ";
+  std::map<std::string, RBezierGrid> surfaces = {
+    { "vase", nurbs2rbezier(load_nurbs(nurbs_path / "vase.nurbss")) },
+    { "square", nurbs2rbezier(load_nurbs(nurbs_path/"square.nurbss")) },
+    { "cylinder", nurbs2rbezier(load_nurbs(nurbs_path/"cylinder.nurbss")) }
+  };
+  std::map<std::string, cmesh4::SimpleMesh> tesselated = {
+    { "vase", get_nurbs_control_mesh(surfaces["vase"]) },
+    { "square", get_nurbs_control_mesh(surfaces["square"]) },
+    { "cylinder", get_nurbs_control_mesh(surfaces["cylinder"]) }
+  };
+  std::cout << "Done." << std::endl;
 
-  auto pRenderRef1 = CreateMultiRenderer("GPU");
-  pRenderRef1->SetPreset(preset);
-  pRenderRef1->SetViewport(0,0,W,H);
-  auto pRenderRef2 = CreateMultiRenderer("GPU");
-  pRenderRef2->SetPreset(preset);
-  pRenderRef2->SetViewport(0,0,W,H);
-  auto pRenderRef3 = CreateMultiRenderer("GPU");
-  pRenderRef3->SetPreset(preset);
-  pRenderRef3->SetViewport(0,0,W,H);
+  auto create_renderer_f = [&]() {
+    auto res = CreateMultiRenderer("GPU");
+    res->SetPreset(preset);
+    res->SetViewport(0, 0, W, H);
+    return res;
+  };
 
-  float3 camera_pos = { 0, 1.276, 25.557 };
-  float3 camera_target = { 0.0f, 1.276f, 0.0f };
-  float3 camera_up = { 0.0f, 1.0f, 0.0f };
-  pRenderRef1->SetScene(vase);
-  std::cout << "Rendering started" << std::endl;
-  pRenderRef1->Render(
+  std::map<std::string, std::pair<float3, float3>> cameras = {
+    { "vase", { float3{ 0, 1.276, 25.557 }, float3{ 0.0f, 1.276f, 0.0f } } }, 
+    { "square", { float3{ -0.52f, 1.991f, 3.049f }, float3{ 0.0f, 0.0f, 0.0f } } },
+    { "cylinder", { float3{ 2.997f, 4.071f, 2.574f }, float3{ 0.0f, 1.506f, 0.0f } } }
+  };
+
+  for (auto &[name, surf]: surfaces) {
+    auto [camera_pos, target] = cameras[name];
+    float3 up{ 0.0f, 1.0f, 0.0f };
+    std::cout << "Setting up scene for " << name << "... ";
+    auto pRender = create_renderer_f();
+    pRender->SetScene(surf);
+    std::cout << "Done." << std::endl;
+    std::cout << "\"" << name << "\" rendering started... ";
+    auto b = std::chrono::high_resolution_clock::now();
+    pRender->Render(
       ref_image.data(), W, H, 
-      lookAt(camera_pos, camera_target,camera_up),
+      lookAt(camera_pos, target, up),
       perspectiveMatrix(45.0f, W*1.0f/H, 0.001f, 100.0f), preset);
-  LiteImage::SaveImage<uint32_t>("saves/test_31_vase.bmp", ref_image);
+    auto e = std::chrono::high_resolution_clock::now();
+    auto ms = std::chrono::duration_cast<std::chrono::microseconds>(e-b).count()/1000.0f;
+    std::cout << "Ended. Time: " << ms << "ms (" << 1000.0f/ms << "fps)." <<std::endl;
+    auto save_name = std::string("saves/test_31_")+name+".bmp";
+    LiteImage::SaveImage<uint32_t>(save_name.c_str(), ref_image);
+  }
 
-  camera_pos = { -0.52f, 1.991f, 3.049f };
-  camera_target = { 0.0f, 0.0f, 0.0f };
-  pRenderRef2->SetScene(square);
-  pRenderRef2->Render(
+  for (auto &[name, surf]: tesselated) {
+    auto [camera_pos, target] = cameras[name];
+    float3 up{ 0.0f, 1.0f, 0.0f };
+    std::cout << "Setting up scene for tesselated" << name << "... ";
+    auto pRender = create_renderer_f();
+    pRender->SetScene(surf);
+    std::cout << "Done." << std::endl;
+    std::cout << "tesellated \"" << name << "\" rendering started... ";
+    auto b = std::chrono::high_resolution_clock::now();
+    pRender->Render(
       ref_image.data(), W, H, 
-      lookAt(camera_pos, camera_target,camera_up),
+      lookAt(camera_pos, target, up),
       perspectiveMatrix(45.0f, W*1.0f/H, 0.001f, 100.0f), preset);
-  LiteImage::SaveImage<uint32_t>("saves/test_31_square.bmp", ref_image);
-
-  camera_pos = { 2.997f, 4.071f, 2.574f };
-  camera_target = { 0.0f, 1.506f, 0.0f };
-  pRenderRef3->SetScene(cylinder);
-  pRenderRef3->Render(
-      ref_image.data(), W, H, 
-      lookAt(camera_pos, camera_target,camera_up),
-      perspectiveMatrix(45.0f, W*1.0f/H, 0.001f, 100.0f), preset);
-  LiteImage::SaveImage<uint32_t>("saves/test_31_cylinder.bmp", ref_image);
+    auto e = std::chrono::high_resolution_clock::now();
+    auto ms = std::chrono::duration_cast<std::chrono::microseconds>(e-b).count()/1000.0f;
+    std::cout << "Ended. Time: " << ms << "ms (" << 1000.0f/ms << "fps)." <<std::endl;
+    auto save_name = std::string("saves/test_31_tesselated_")+name+".bmp";
+    LiteImage::SaveImage<uint32_t>(save_name.c_str(), ref_image);
+  }
 }
 /////////////////////////// END NURBS //////////////////////////////////////////////////
 

@@ -363,3 +363,330 @@ get_nurbs_bvh_leaves(const RBezierGrid &rbezier) {
 }
 
 
+//copy from Basic NURBS Viewer https://github.com/iMacsimus/Basic-NURBS-Viewer
+LiteMath::float4 rbezier_curve_point(
+    float u,
+    int p,
+    const float4 *pw) {
+  float u_n = 1.0f;
+  float _1_u = 1.0f - u;
+  int bc = 1.0f;
+  float4 res = pw[0] * _1_u;
+  for (int i = 1; i <= p-1; ++i) {
+    u_n *= u;
+    bc = bc * (p-i+1)/i;
+    res = (res + u_n * bc * pw[i]) * _1_u;
+  }
+  res += (u_n * u) * pw[p];
+  return res;
+}
+
+LiteMath::float4 rbezier_curve_der(
+    float u,
+    int p,
+    const float4 *pw) {
+  float u_n = 1.0f;
+  float _1_u = 1.0f - u;
+  int bc = 1.0f;
+  
+  float4 next = pw[1];
+  float4 cur = pw[0];
+  float4 res = (next-cur) * _1_u;
+  if (p > 1)
+    cur = next;
+
+  for (int i = 1; i <= p-2; ++i) {
+    u_n *= u;
+    bc = bc * (p-i+1)/i;
+    next = pw[i+1];
+    res = (res + u_n * bc * (next-cur)) * _1_u;
+    cur = next;
+  }
+
+  next = pw[p];
+  res += (u_n * u) * (next-cur);
+
+  res *= p;
+  return res;
+}
+
+
+LiteMath::float4 RBezier::get_point(float u, float v) const {
+  int n = weighted_points.rows_count()-1;
+  int m = weighted_points.cols_count()-1;
+  float u_n = 1.0f;
+  float _1_u = 1.0f - u;
+  int bc = 1.0f;
+  float4 res = rbezier_curve_point(v, m, &weighted_points[{0, 0}]) * _1_u;
+  for (int i = 1; i <= n-1; ++i)
+  {
+    u_n *= u;
+    bc = bc * (n-i+1)/i;
+    float4 curve_point = rbezier_curve_point(v, m, &weighted_points[{i, 0}]);
+    res = (res + u_n * bc * curve_point) * _1_u;
+  }
+  res += (u_n*u) * rbezier_curve_point(v, m, &weighted_points[{n, 0}]);
+  return res;
+}
+
+LiteMath::float4 RBezier::vder(float u, float v) const {
+  float4 Sw = get_point(u, v);
+  return vder(u, v, Sw);
+}
+
+LiteMath::float4 RBezier::vder(float u, float v, const LiteMath::float4 &Sw) const {
+  int n = weighted_points.rows_count()-1;
+  int m = weighted_points.cols_count()-1;
+  float u_n = 1.0f;
+  float _1_u = 1.0f - u;
+  int bc = 1.0f;
+  float4 Sw_der = rbezier_curve_der(v, m, &weighted_points[{0, 0}]) * _1_u;
+  for (int i = 1; i <= n-1; ++i)
+  {
+    u_n *= u;
+    bc = bc * (n-i+1)/i;
+    float4 curve_der = rbezier_curve_der(v, m, &weighted_points[{i, 0}]);
+    Sw_der = (Sw_der + u_n * bc * curve_der) * _1_u;
+  }
+  Sw_der += (u_n*u) * rbezier_curve_der(v, m, &weighted_points[{n, 0}]);
+  
+  float4 res = (Sw_der * Sw.w - Sw * Sw_der.w)/(Sw.w * Sw.w);
+  return res;
+}
+
+LiteMath::float4 RBezier::uder(float u, float v) const {
+  float4 Sw = get_point(u, v);
+  return uder(u, v, Sw);
+}
+
+LiteMath::float4 RBezier::uder(float u, float v, const LiteMath::float4 &Sw) const {
+  int n = weighted_points.rows_count()-1;
+  int m = weighted_points.cols_count()-1;
+  float u_n = 1.0f;
+  float _1_u = 1.0f - u;
+  int bc = 1.0f;
+  
+  float4 next = rbezier_curve_point(v, m, &weighted_points[{1, 0}]);
+  float4 cur = rbezier_curve_point(v, m, &weighted_points[{0, 0}]);
+  float4 Sw_der = (next-cur) * _1_u;
+  if (n > 1)
+    cur = next;
+
+  for (int i = 1; i <= n-2; ++i)
+  {
+    u_n *= u;
+    bc = bc * (n-i+1)/i;
+    next = rbezier_curve_point(v, m, &weighted_points[{i+1, 0}]);
+    Sw_der = (Sw_der + u_n * bc * (next-cur)) * _1_u;
+    cur = next;
+  }
+
+  next = rbezier_curve_point(v, m, &weighted_points[{n, 0}]);
+  Sw_der += (u_n*u) * (next-cur);
+
+  Sw_der *= n;
+  
+  float4 res = (Sw_der * Sw.w - Sw * Sw_der.w)/(Sw.w * Sw.w);
+  return res;
+}
+
+static
+int find_span(float u, int sz, const float *U)
+{
+  if (u == U[sz-1])
+    return sz-2;
+
+  int l = 0;
+  int r = sz-1;
+  while(r-l > 1) {
+    int m = (l+r)/2;
+    if (u < U[m])
+      r = m;
+    else 
+      l = m;
+  }
+
+  assert(U[l] <= u && u < U[l+1]);
+  return l;
+}
+
+LiteMath::float4 RBezierGrid::get_point(float u, float v) const {
+  int uspan = find_span(u, uniq_uknots.size(), uniq_uknots.data());
+  int vspan = find_span(v, uniq_vknots.size(), uniq_vknots.data());
+  float umin = uniq_uknots[uspan], umax = uniq_uknots[uspan+1];
+  float vmin = uniq_vknots[vspan], vmax = uniq_vknots[vspan+1];
+  u = (u-umin)/(umax-umin);
+  v = (v-vmin)/(vmax-vmin);
+  assert(0 <= u && u <= 1);
+  assert(0 <= v && v <= 1);
+  return grid[{uspan, vspan}].get_point(u, v);
+}
+
+LiteMath::int2 RBezierGrid::get_spans(float u, float v) const {
+  int uspan = find_span(u, uniq_uknots.size(), uniq_uknots.data());
+  int vspan = find_span(v, uniq_vknots.size(), uniq_vknots.data());
+  return int2{ uspan, vspan };
+}
+
+LiteMath::float4 RBezierGrid::uder(float u, float v) const {
+  float4 Sw = get_point(u, v);
+  return uder(u, v, Sw);
+}
+
+LiteMath::float4 RBezierGrid::uder(float u, float v, const LiteMath::float4 &Sw) const {
+  int uspan = find_span(u, uniq_uknots.size(), uniq_uknots.data());
+  int vspan = find_span(v, uniq_vknots.size(), uniq_vknots.data());
+  float umin = uniq_uknots[uspan], umax = uniq_uknots[uspan+1];
+  float vmin = uniq_vknots[vspan], vmax = uniq_vknots[vspan+1];
+  u = (u-umin)/(umax-umin);
+  v = (v-vmin)/(vmax-vmin);
+  assert(0 <= u && u <= 1);
+  assert(0 <= v && v <= 1);
+  float4 res =  grid[{uspan, vspan}].uder(u, v, Sw) / (umax - umin);
+  return res;
+}
+
+LiteMath::float4 RBezierGrid::vder(float u, float v) const {
+  float4 Sw = get_point(u, v);
+  return vder(u, v, Sw);
+}
+
+LiteMath::float4 RBezierGrid::vder(float u, float v, const LiteMath::float4 &Sw) const {
+  int uspan = find_span(u, uniq_uknots.size(), uniq_uknots.data());
+  int vspan = find_span(v, uniq_vknots.size(), uniq_vknots.data());
+  float umin = uniq_uknots[uspan], umax = uniq_uknots[uspan+1];
+  float vmin = uniq_vknots[vspan], vmax = uniq_vknots[vspan+1];
+  u = (u-umin)/(umax-umin);
+  v = (v-vmin)/(vmax-vmin);
+  assert(0 <= u && u <= 1);
+  assert(0 <= v && v <= 1);
+  float4 res =  grid[{uspan, vspan}].vder(u, v, Sw) / (vmax - vmin);
+  return res;
+}
+
+LiteMath::float3 RBezierGrid::normal(float u, float v) const {
+  float4 Sw = get_point(u, v);
+  return normal(u, v, Sw);
+}
+
+LiteMath::float3 RBezierGrid::normal(float u, float v, const float4 &Sw) const {
+  float4 uderiv = uder(u, v, Sw);
+  float4 vderiv = vder(u, v, Sw);
+  float3 normal = normalize(cross(to_float3(uderiv), to_float3(vderiv)));
+  return normal;
+}
+//end copy Basic NURBS Viewer
+
+cmesh4::SimpleMesh
+get_nurbs_control_mesh(const RBezier &rbezier, float2 ubounds, float2 vbounds, int counter)
+{
+  int p = rbezier.weighted_points.rows_count()-1;
+  int q = rbezier.weighted_points.cols_count()-1;
+
+  int udivs = 0;
+  int vdivs = 0;
+  for (int ri = 0; ri <= p; ++ri) {
+    int cur = flatteing_div_count(q, rbezier.weighted_points.row(ri));
+    vdivs = std::max(cur, vdivs);
+  }
+  for (int ci = 0; ci <= q; ++ci) {
+    int cur = flatteing_div_count(p, rbezier.weighted_points.col(ci));
+    udivs = std::max(cur, udivs);
+  }
+
+  auto u_decomposed = decompose_rbezier(
+      p, q, rbezier.weighted_points, udivs, SurfaceParameter::U);
+
+  cmesh4::SimpleMesh res;
+  for (int stripi = 0; stripi < u_decomposed.size(); ++stripi) {
+    auto v_decomposed = decompose_rbezier(
+      p, q,
+      u_decomposed[stripi], 
+      vdivs, SurfaceParameter::V);
+    for (int stripj = 0; stripj < v_decomposed.size(); ++stripj) {
+      auto &points = v_decomposed[stripj];
+      float umin = lerp(ubounds[0], ubounds[1], stripi*1.0f/(udivs+1));
+      float umax = lerp(ubounds[0], ubounds[1], (stripi+1.0f)/(udivs+1));
+      float vmin = lerp(vbounds[0], vbounds[1], stripj*1.0f/(vdivs+1));
+      float vmax = lerp(vbounds[0], vbounds[1], (stripj+1.0f)/(vdivs+1));
+      for (int quadi = 0; quadi <= p-1; ++quadi)
+      for (int quadj = 0; quadj <= q-1; ++quadj)
+      {
+        float4 cPw[] = {
+          points[{quadi, quadj}],
+          points[{quadi+1, quadj}],
+          points[{quadi+1, quadj+1}],
+
+          points[{quadi+1, quadj+1}],
+          points[{quadi, quadj+1}],
+          points[{quadi, quadj}]
+        };
+        for (auto &p: cPw) { p /= p.w; }
+        float2 UV[] = {
+          float2{ quadi*1.0f/p, quadj*1.0f/q },
+          float2{ (quadi+1.0f)/p, quadj*1.0f/q },
+          float2{ (quadi+1.0f)/p, (quadj+1.0f)/q },
+
+          float2{ (quadi+1.0f)/p, (quadj+1.0f)/q },
+          float2{ quadi*1.0f/p, (quadj+1.0f)/q },
+          float2{ quadi*1.0f/p, quadj*1.0f/q },
+        };
+        float4 Pw[] = {
+          rbezier.get_point(UV[0][0], UV[0][1]),
+          rbezier.get_point(UV[1][0], UV[1][1]),
+          rbezier.get_point(UV[2][0], UV[2][1]),
+
+          rbezier.get_point(UV[3][0], UV[3][1]),
+          rbezier.get_point(UV[4][0], UV[4][1]),
+          rbezier.get_point(UV[5][0], UV[5][1]),
+        };
+        auto calc_normal_f = [&](float2 uv, const float4 &Sw) {
+          float3 uder = to_float3(rbezier.uder(uv.x, uv.y, Sw));
+          float3 vder = to_float3(rbezier.vder(uv.x, uv.y, Sw));
+          float3 normal = normalize(cross(uder, vder));
+          return to_float4(normal, 0.0f);
+        };
+        float4 normals[] = {
+          calc_normal_f(UV[0], Pw[0]),
+          calc_normal_f(UV[1], Pw[1]),
+          calc_normal_f(UV[2], Pw[2]),
+
+          calc_normal_f(UV[3], Pw[3]),
+          calc_normal_f(UV[4], Pw[4]),
+          calc_normal_f(UV[5], Pw[5]),
+        };
+        for (auto &uv: UV) {
+          uv.x = lerp(umin, umax, uv.x);
+          uv.y = lerp(vmin, vmax, uv.y);
+        }
+        std::copy(cPw, cPw+6, std::back_inserter(res.vPos4f));
+        std::copy(UV, UV+6, std::back_inserter(res.vTexCoord2f));
+        std::copy(normals, normals+6, std::back_inserter(res.vNorm4f));
+        for (int i = 0; i < 6; ++i)
+          res.indices.push_back(counter++);
+      }
+    }   
+  }
+
+  return res;
+}
+
+cmesh4::SimpleMesh
+get_nurbs_control_mesh(const RBezierGrid &rbezier)
+{
+  cmesh4::SimpleMesh res;
+  for (int patchi = 0; patchi < rbezier.grid.rows_count(); ++patchi)
+  for (int patchj = 0; patchj < rbezier.grid.cols_count(); ++patchj)
+  {
+    auto cur_mesh = get_nurbs_control_mesh(
+      rbezier.grid[{patchi, patchj}], 
+      float2{ rbezier.uniq_uknots[patchi], rbezier.uniq_uknots[patchi+1] },
+      float2{ rbezier.uniq_vknots[patchj], rbezier.uniq_vknots[patchj+1] },
+      res.indices.size());
+    std::copy(cur_mesh.vPos4f.begin(), cur_mesh.vPos4f.end(), std::back_inserter(res.vPos4f));
+    std::copy(cur_mesh.vTexCoord2f.begin(), cur_mesh.vTexCoord2f.end(), std::back_inserter(res.vTexCoord2f));
+    std::copy(cur_mesh.vNorm4f.begin(), cur_mesh.vNorm4f.end(), std::back_inserter(res.vNorm4f));
+    std::copy(cur_mesh.indices.begin(), cur_mesh.indices.end(), std::back_inserter(res.indices));
+  }
+  return res;
+}
