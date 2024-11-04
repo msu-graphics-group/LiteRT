@@ -179,7 +179,7 @@ namespace dr
       for (int i=0;i<m_imagesRefOriginal[image_n].width()*m_imagesRefOriginal[image_n].height();i++)
       {
         float3 color = to_float3(m_imagesRefOriginal[image_n].data()[i]);
-        m_imagesRefMask[image_n].data()[i] = length(color - background_color) < (1.f - 0.001f) ? float4(0,0,0,0) : float4(1,1,1,1);
+        m_imagesRefMask[image_n].data()[i] = length(color - background_color) < 0.001f ? float4(0,0,0,0) : float4(1,1,1,1);
       }
     }
   }
