@@ -14,3 +14,8 @@
 
 void load_mesh(const std::string& path);
 void create_sdf4Mesh();
+
+struct OpenVDB_GRID
+{
+
+};

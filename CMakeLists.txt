@@ -54,7 +54,7 @@ set(SCENE_LOADER_SRC
   ${CMAKE_SOURCE_DIR}/tests/tests.cpp
   ${CMAKE_SOURCE_DIR}/tests/benchmark.cpp
 
-  ${CMAKE_SOURCE_DIR}/openvdb_structs/openvdb_structs.cpp
+  ${CMAKE_SOURCE_DIR}/openvdb_structs/openvdb_common.cpp
 
   ${CMAKE_SOURCE_DIR}/diff_render/DR_common.cpp
   ${CMAKE_SOURCE_DIR}/diff_render/BVH2DR.cpp

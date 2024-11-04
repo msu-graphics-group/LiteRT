@@ -1,4 +1,4 @@
-#include "openvdb_structs.h"
+#include "openvdb_common.h"
 
 void
 create_sdf4Mesh()

@@ -56,6 +56,9 @@ uint32_t type_to_tag(uint32_t type)
   case TYPE_GRAPHICS_PRIM:
     return AbstractObject::TAG_GRAPHICS_PRIM;
 
+  case TYPE_OPENVDB_GRID:
+    return AbstractObject::TAG_OPENVDB_GRID;
+
   default:
     return AbstractObject::TAG_NONE;
   }
@@ -795,6 +798,16 @@ std::vector<BVHNode> GetBoxes_NURBS(const RawNURBS &nurbs)
   nodes[1].boxMin = float3(-0.5,-0.5,0);
   nodes[1].boxMax = float3(0.5,0.5,0.5);
   return nodes;
+}
+
+std::vector<BVHNode> getBoxes_OpenVDB_Grid(const OpenVDB_GRID& grid)
+{
+  //TODO
+}
+
+uint32_t BVHRT::AddGeom_OpenVDB_Grid(const OpenVDB_GRID &grid, ISceneObject *fake_this, BuildOptions a_qualityLevel)
+{
+  //TODO
 }
 
 uint32_t BVHRT::AddGeom_NURBS(const RawNURBS &nurbs, ISceneObject *fake_this, BuildOptions a_qualityLevel)

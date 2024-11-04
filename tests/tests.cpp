@@ -13,7 +13,7 @@
 #include "../utils/image_metrics.h"
 #include "../diff_render/MultiRendererDR.h"
 #include "../utils/iou.h"
-#include "../openvdb_structs/openvdb_structs.h"
+#include "../openvdb_structs/openvdb_common.h"
 
 #include <functional>
 #include <cassert>
@@ -3172,7 +3172,7 @@ void litert_test_41_openvdb()
 
   for (int i = 0; i < mesh.IndicesNum(); i += 3)
   {
-    indices.push_back(openvdb::Vec3I{mesh.indices[i], mesh.indices[i + 1], mesh.indices[i + 2]});
+    indices.push_back(openvdb::Vec3I(mesh.indices[i], mesh.indices[i + 1], mesh.indices[i + 2]));
   }
 
   float voxelSize = 0.02;

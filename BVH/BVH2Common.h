@@ -29,6 +29,7 @@ using LiteMath::Box4f;
 #include "../raytrace_common.h"
 #include "cbvh.h"
 #include "nurbs/nurbs_common.h"
+#include "openvdb_structs/openvdb_common.h"
 #include "graphics_primitive/graphics_primitive_common.h"
 
 // #define USE_TRICUBIC 0
@@ -59,6 +60,7 @@ struct AbstractObject
   static constexpr uint32_t TAG_SDF_ADAPT_BRICK  = 7;
   static constexpr uint32_t TAG_NURBS            = 8; 
   static constexpr uint32_t TAG_GRAPHICS_PRIM    = 9;
+  static constexpr uint32_t TAG_OPENVDB_GRID    = 10;
 
   AbstractObject(){}  // Dispatching on GPU hierarchy must not have destructors, especially virtual   
   virtual uint32_t GetTag()   const  { return TAG_NONE; }; // !!! #REQUIRED by kernel slicer
@@ -124,6 +126,7 @@ struct BVHRT : public ISceneObject
   uint32_t AddGeom_SdfFrameOctreeTex(SdfFrameOctreeTexView octree, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
   uint32_t AddGeom_NURBS(const RawNURBS &nurbs, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
   uint32_t AddGeom_GraphicsPrim(const GraphicsPrimView &nurbs, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
+  uint32_t AddGeom_OpenVDB_Grid(const OpenVDB_GRID& grid, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
 
   void set_debug_mode(bool enable);
 #endif
@@ -181,6 +184,10 @@ struct BVHRT : public ISceneObject
                          uint32_t a_count, CRT_Hit* pHit);
 
   void IntersectNURBS(const float3& ray_pos, const float3& ray_dir,
+                      float tNear, uint32_t instId,
+                      uint32_t geomId, CRT_Hit* pHit);
+
+  void IntersectOpenVDB_Grid(const float3& ray_pos, const float3& ray_dir,
                       float tNear, uint32_t instId,
                       uint32_t geomId, CRT_Hit* pHit);
 
@@ -581,6 +588,27 @@ struct GeomDataRF : public AbstractObject
     bvhrt->IntersectRFInLeaf(ray_pos, ray_dir, tNear, info.instId, geometryId, a_start, a_count, pHit);
 #endif
     return pHit->primId == 0xFFFFFFFF ? TAG_NONE : TAG_RF;
+  }
+};
+
+struct GeomDataOpenVDB_GRID : public AbstractObject
+{
+  GeomDataOpenVDB_GRID() {m_tag = GetTag();}
+
+  uint32_t GetTag() const override { return TAG_OPENVDB_GRID; }
+  uint32_t Intersect(float4 rayPosAndNear, float4 rayDirAndFar, CRT_LeafInfo info, 
+                     CRT_Hit* pHit, BVHRT* bvhrt) const override
+  {
+    float3 ray_pos = to_float3(rayPosAndNear);
+    float3 ray_dir = to_float3(rayDirAndFar);
+    float tNear    = rayPosAndNear.w;
+    uint32_t geometryId = geomId;
+    //uint32_t globalAABBId = bvhrt->startEnd[geometryId].x + info.aabbId;
+    //uint32_t start_count_packed = bvhrt->m_primIdCount[globalAABBId];
+    //uint32_t a_start = EXTRACT_START(start_count_packed);
+    //uint32_t a_count = EXTRACT_COUNT(start_count_packed);
+    bvhrt->IntersectOpenVDB_Grid(ray_pos, ray_dir, tNear, info.instId, geometryId, pHit);
+    return pHit->primId == 0xFFFFFFFF ? TAG_NONE : TAG_GS;
   }
 };
 

@@ -1678,6 +1678,13 @@ void BVHRT::IntersectNURBS(const float3& ray_pos, const float3& ray_dir,
 //////////////////////// END NURBS SECTION ///////////////////////////////////////////////
 #endif
 
+void BVHRT::IntersectOpenVDB_Grid(const float3& ray_pos, const float3& ray_dir,
+                           float tNear, uint32_t instId,
+                           uint32_t geomId, CRT_Hit* pHit)
+{
+
+}
+
 
 float4 rayCapsuleIntersect(const float3& ray_pos, const float3& ray_dir,
                            const float3& pa, const float3& pb, float ra)

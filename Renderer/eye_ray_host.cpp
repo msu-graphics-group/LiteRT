@@ -405,6 +405,11 @@ void MultiRenderer::SetScene(const RawNURBS &nurbs)
   m_pAccelStruct->CommitScene();
 }
 
+void MultiRenderer::SetScene(const OpenVDB_GRID& grid)
+{
+  //TODO
+}
+
 void MultiRenderer::SetScene(GraphicsPrimView scene)
 {
   BVHRT *bvhrt = dynamic_cast<BVHRT*>(m_pAccelStruct->UnderlyingImpl(0));
