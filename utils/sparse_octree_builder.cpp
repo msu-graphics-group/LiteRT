@@ -2629,7 +2629,7 @@ void frame_octree_to_compact_octree_v3_rec(const std::vector<SdfFrameOctreeNode>
 
     compact.shrink_to_fit();
 
-    printf("compact octree %.1f Mb leaf, %.1f Mb non-leaf\n", stat_leaf_bytes.load() / 1024.0f / 1024.0f, stat_nonleaf_bytes.load() / 1024.0f / 1024.0f);
+    printf("compact octree %.1f Kb leaf, %.1f Kb non-leaf\n", stat_leaf_bytes.load() / 1024.0f, stat_nonleaf_bytes.load() / 1024.0f);
 
     return compact;
   }

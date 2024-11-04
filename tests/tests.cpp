@@ -3159,7 +3159,7 @@ void litert_test_41_coctree_v3()
 {
   printf("TEST 41. COMPACT OCTREE V3\n");
 
-  auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path+"scenes/99_demo_scenes/data/sphere.vsgf").c_str());
+  auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path+"scenes/99_demo_scenes/data/bunny.vsgf").c_str());
   cmesh4::normalize_mesh(mesh);
 
   unsigned W = 1024, H = 1024;
@@ -3167,6 +3167,15 @@ void litert_test_41_coctree_v3()
   preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
   preset.spp = 16;
   preset.normal_mode = NORMAL_MODE_GEOMETRY;
+
+  unsigned base_depth = 6;
+
+  float fov_degrees = 40;
+  float z_near = 0.1f;
+  float z_far = 100.0f;
+  float aspect   = 1.0f;
+  auto proj      = LiteMath::perspectiveMatrix(fov_degrees, aspect, z_near, z_far);
+  auto worldView = LiteMath::lookAt(float3(-0.7,0.7,3), float3(-0.7,0.7,0), float3(0,1,0));
 
   LiteImage::Image2D<uint32_t> image_ref(W, H);
   LiteImage::Image2D<uint32_t> image_res(W, H);
@@ -3183,7 +3192,7 @@ void litert_test_41_coctree_v3()
     auto pRender = CreateMultiRenderer(DEVICE_GPU);
     pRender->SetPreset(preset);
     pRender->SetScene(mesh);
-    render(image_ref, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset, 10);
+    pRender->Render(image_ref.data(), W, H, worldView, proj, preset, 25);
     LiteImage::SaveImage<uint32_t>("saves/test_41_ref.bmp", image_ref);
   }
 
@@ -3197,7 +3206,7 @@ void litert_test_41_coctree_v3()
     header.bytes_per_value = b/8;
     header.aux_data = SDF_SBS_NODE_LAYOUT_DX;
 
-    SdfSBS sbs = sdf_converter::create_sdf_SBS(SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, 4, 2<<28), header, mesh);
+    SdfSBS sbs = sdf_converter::create_sdf_SBS(SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, base_depth-3, 2<<28), header, mesh);
     
     const int bin_count = 20;
     std::vector<int> bins(bin_count+1, 0);
@@ -3229,7 +3238,7 @@ void litert_test_41_coctree_v3()
     pRender->SetScene(sbs);
 
     auto t1 = std::chrono::steady_clock::now();
-    render(image_res, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset, 1);
+    pRender->Render(image_res.data(), W, H, worldView, proj, preset, 25);
     pRender->GetExecutionTime("CastRaySingleBlock", timings);
     auto t2 = std::chrono::steady_clock::now();
 
@@ -3247,9 +3256,9 @@ void litert_test_41_coctree_v3()
     printf("SBS %2d bits/distance: %4.1f ms %6.1f Kb %.2f PSNR\n", b, timings[0]/10, SBS_total_bytes/(1024.0f), psnr);
   }
 
-  auto octree = sdf_converter::create_sdf_frame_octree(SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, 7, 2<<28),
-                                                       mesh);
   {
+    auto octree = sdf_converter::create_sdf_frame_octree(SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, base_depth, 2<<28),
+                                                         mesh);
     auto coctree_v2 = sdf_converter::frame_octree_to_compact_octree_v2(octree);
     
     auto pRender = CreateMultiRenderer(DEVICE_GPU);
@@ -3258,7 +3267,7 @@ void litert_test_41_coctree_v3()
     pRender->SetScene_COctreeV2(coctree_v2);
 
     auto t1 = std::chrono::steady_clock::now();
-    render(image_res, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset, 10);
+    pRender->Render(image_res.data(), W, H, worldView, proj, preset, 25);
     pRender->GetExecutionTime("CastRaySingleBlock", timings);
     auto t2 = std::chrono::steady_clock::now();
 
@@ -3281,19 +3290,21 @@ void litert_test_41_coctree_v3()
       
     COctreeV3Header header;
     header.bits_per_value = 8;
-    header.brick_size = 1;
+    header.brick_size = 2;
     header.brick_pad = 0;
 
+    auto octree = sdf_converter::create_sdf_frame_octree(SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, base_depth-1, 2<<28),
+                                                         mesh);
     auto coctree_v3 = sdf_converter::frame_octree_to_compact_octree_v3(octree, header, [&](const float3 &p, unsigned idx) -> float 
                                                                        { return bvh[idx].get_signed_distance(p); }, max_threads);
 
     auto pRender = CreateMultiRenderer(DEVICE_GPU);
     preset.octree_intersect = OCTREE_INTERSECT_TRAVERSE;
     pRender->SetPreset(preset);
-    pRender->SetScene_COctreeV3(coctree_v3);
+    pRender->SetScene_COctreeV3(coctree_v3, header);
 
     auto t1 = std::chrono::steady_clock::now();
-    render(image_res, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset, 10);
+    pRender->Render(image_res.data(), W, H, worldView, proj, preset, 25);
     pRender->GetExecutionTime("CastRaySingleBlock", timings);
     auto t2 = std::chrono::steady_clock::now();
 

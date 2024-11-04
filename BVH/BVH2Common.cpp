@@ -2436,6 +2436,94 @@ void BVHRT::OctreeIntersect(const float3 ray_pos, const float3 ray_dir, float tN
 #endif
 }
 
+float BVHRT::COctreeV3_LoadDistanceValues(uint32_t brickOffset, float3 voxelPos, uint32_t v_size, float sz_inv, const COctreeV3Header &header,
+                                          float values[8] /*out*/)
+{
+  float vmin = 1e6f;
+#ifndef DISABLE_SDF_FRAME_OCTREE_COMPACT
+  uint32_t vals_per_int = 32 / header.bits_per_value;
+  uint32_t bits = header.bits_per_value;
+  uint32_t max_val = header.bits_per_value == 32 ? 0xFFFFFFFF : ((1 << bits) - 1);
+  float d_max = 1.73205081f * sz_inv;
+  float mult = 2 * d_max / max_val;
+  for (int i = 0; i < 8; i++)
+  {
+    uint3 vPos = uint3(voxelPos) + uint3((i & 4) >> 2, (i & 2) >> 1, i & 1);
+    uint32_t vId = SBS_v_to_i(vPos.x, vPos.y, vPos.z, v_size, header.brick_pad);
+    ;
+    values[i] = -d_max + mult * ((m_SdfCompactOctreeV3Data[brickOffset + vId / vals_per_int] >> (bits * (vId % vals_per_int))) & max_val);
+    vmin = std::min(vmin, values[i]);
+  }
+#endif
+  return vmin;
+}
+
+void BVHRT::COctreeV3_BrickIntersect(uint32_t type, const float3 ray_pos, const float3 ray_dir,
+                                     float tNear, uint32_t instId, uint32_t geomId, const COctreeV3Header &header,
+                                     uint32_t brickOffset, float3 p, float sz, 
+                                     CRT_Hit *pHit)
+{
+#ifndef DISABLE_SDF_FRAME_OCTREE_COMPACT
+  float values[8];
+
+  float d, qNear, qFar;
+  float2 fNearFar;
+  float3 start_q;
+
+  qNear = 1.0f;
+
+  //uint32_t sdfId =  m_geomData[geomId].offset.x;
+
+  uint32_t v_size = header.brick_size + 2*header.brick_pad + 1;
+
+  float sz_inv = 2.0f/sz;
+  
+  d = 2.0f/(sz*header.brick_size);
+
+  float3 brick_min_pos = float3(-1,-1,-1) + sz_inv*p;
+  float3 brick_max_pos = brick_min_pos + sz_inv*float3(1,1,1);
+  float3 brick_size = brick_max_pos - brick_min_pos;
+
+  float2 brick_fNearFar = RayBoxIntersection2(ray_pos, SafeInverse(ray_dir), brick_min_pos, brick_max_pos);
+  float old_t = pHit->t;
+  while (brick_fNearFar.x < brick_fNearFar.y && pHit->t == old_t)
+  {
+    float3 hit_pos = ray_pos + brick_fNearFar.x*ray_dir;
+    float3 local_pos = (hit_pos - brick_min_pos) * (0.5f*sz*header.brick_size);
+    float3 voxelPos = floor(clamp(local_pos, 1e-6f, header.brick_size-1e-6f));
+
+    float3 min_pos = brick_min_pos + d*voxelPos;
+    float3 max_pos = min_pos + d*float3(1,1,1);
+    float3 size = max_pos - min_pos;
+
+    float vmin = COctreeV3_LoadDistanceValues(brickOffset, voxelPos, v_size, sz_inv, header, values);
+
+    fNearFar = RayBoxIntersection2(ray_pos, SafeInverse(ray_dir), min_pos, max_pos);
+    if (tNear < fNearFar.x && vmin <= 0.0f)    
+    {
+      float3 start_pos = ray_pos + fNearFar.x*ray_dir;
+      start_q = (start_pos - min_pos) * (0.5f*sz*header.brick_size);
+      qFar = (fNearFar.y - fNearFar.x) * (0.5f*sz*header.brick_size);
+    
+      //LocalSurfaceIntersection(TYPE_SDF_FRAME_OCTREE, ray_dir, 0, 0, values, nodeId, nodeId, d, 0.0f, qFar, fNearFar, start_q, /*in */
+      //                           pHit);
+      LocalSurfaceIntersection(type, ray_dir, instId, geomId, values, brickOffset, brickOffset, d, 0.0f, qFar, fNearFar, start_q, /*in */
+                               pHit); /*out*/
+    
+      //TODO: smooth normal here
+    }
+    
+    brick_fNearFar.x += std::max(0.0f, fNearFar.y-brick_fNearFar.x) + 1e-6f;
+  }
+  
+  //ray hit a brick
+  if (pHit->t < old_t)
+  {
+    //TODO: calculate texture coordinates
+  }
+#endif
+}
+
 void BVHRT::OctreeIntersectV3(const float3 ray_pos, const float3 ray_dir, float tNear, 
                               uint32_t instId, uint32_t geomId, bool stopOnFirstHit,
                               CRT_Hit *pHit)
@@ -2514,39 +2602,12 @@ void BVHRT::OctreeIntersectV3(const float3 ray_pos, const float3 ray_dir, float 
 
       if(stack[top].curChildId > 0) //leaf node
       {
-        float tmin = std::max(t0.x, std::max(t0.y, t0.z));
-        float tmax = std::min(t1.x, std::min(t1.y, t1.z));
+        uint32_t p_mask = level_sz - 1;
+        uint3 real_p = uint3(((a & 4) > 0) ? (~p.x & p_mask) : p.x,
+                             ((a & 2) > 0) ? (~p.y & p_mask) : p.y,
+                             ((a & 1) > 0) ? (~p.z & p_mask) : p.z);
 
-        {
-          uint32_t p_mask = level_sz - 1;
-          uint3 real_p = uint3(((a & 4) > 0) ? (~p.x & p_mask) : p.x, 
-                               ((a & 2) > 0) ? (~p.y & p_mask) : p.y, 
-                               ((a & 1) > 0) ? (~p.z & p_mask) : p.z);
-
-          nodeId = stack[top].nodeId;
-          float sz = 0.5f*float(level_sz);
-          d = 1.0f/sz;
-          float3 min_pos = float3(-1,-1,-1) + d*float3(real_p.x,real_p.y,real_p.z);
-
-          fNearFar = float2(tmin, tmax);
-          float3 start_pos = ray_pos + fNearFar.x*ray_dir;
-          start_q = sz*(start_pos - min_pos);
-          qFar = sz*(fNearFar.y - fNearFar.x);
-        }
-
-        float d_max = 2*1.73205081f/float(level_sz);
-        for (int i=0;i<8;i++)
-        {
-          values[i] = -d_max + 2*d_max*(1.0/255.0f)*((m_SdfCompactOctreeV3Data[stack[top].nodeId + i/4] >> (8*(i%4))) & 0xFF);
-        }
-        //if (counter < 100)
-        //{
-        //  printf("values = %f %f %f %f %f %f %f %f\n", values[0], values[1], values[2], values[3], values[4], values[5], values[6], values[7]);
-        //  counter++;
-        //}
-        
-        LocalSurfaceIntersection(TYPE_SDF_FRAME_OCTREE, ray_dir, 0, 0, values, nodeId, nodeId, d, 0.0f, qFar, fNearFar, start_q, /*in */
-                                 pHit); /*out*/
+        COctreeV3_BrickIntersect(TYPE_SDF_FRAME_OCTREE, ray_pos, ray_dir, tNear, 0u, 0u, coctree_v3_header, stack[top].nodeId, float3(real_p), float(level_sz), pHit);
 
         if (pHit->primId != 0xFFFFFFFF)
           top = -1;

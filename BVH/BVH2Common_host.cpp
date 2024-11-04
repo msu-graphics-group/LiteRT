@@ -1088,11 +1088,14 @@ uint32_t BVHRT::AddGeom_COctreeV2(const std::vector<uint32_t> &octree, ISceneObj
   return fake_this->AddGeom_AABB(m_abstractObjects.back().m_tag, (const CRT_AABB*)orig_nodes.data(), orig_nodes.size(), nullptr, 1);
 }
 
-uint32_t BVHRT::AddGeom_COctreeV3(const std::vector<uint32_t> &octree, ISceneObject *fake_this, BuildOptions a_qualityLevel)
+uint32_t BVHRT::AddGeom_COctreeV3(const std::vector<uint32_t> &octree, const COctreeV3Header &header, ISceneObject *fake_this, BuildOptions a_qualityLevel)
 {
   assert(m_SdfCompactOctreeV1Data.size() == 0); //only one compact octree per scene is supported
   assert(octree.size() > 0);
   assert(octree.size() < (1u<<28)); //huge grids shouldn't be here
+
+  coctree_v3_header = header;
+
   //SDF octree is always a unit cube
   float4 mn = float4(-1,-1,-1,1);
   float4 mx = float4( 1, 1, 1,1);

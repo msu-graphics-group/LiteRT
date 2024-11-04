@@ -126,7 +126,7 @@ struct BVHRT : public ISceneObject
   uint32_t AddGeom_GraphicsPrim(const GraphicsPrimView &nurbs, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
   uint32_t AddGeom_COctreeV1(const std::vector<SdfCompactOctreeNode> &nodes, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
   uint32_t AddGeom_COctreeV2(const std::vector<uint32_t> &data, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
-  uint32_t AddGeom_COctreeV3(const std::vector<uint32_t> &data, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
+  uint32_t AddGeom_COctreeV3(const std::vector<uint32_t> &data, const COctreeV3Header &header, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
 
   void set_debug_mode(bool enable);
 #endif
@@ -216,6 +216,14 @@ struct BVHRT : public ISceneObject
                            float tNear, uint32_t geomId, uint32_t bvhNodeId, 
                            float values[8], uint32_t &primId, uint32_t &nodeId, float &d, 
                            float &qNear, float &qFar, float2 &fNearFar, float3 &start_q);
+
+  float COctreeV3_LoadDistanceValues(uint32_t brickOffset, float3 voxelPos, uint32_t v_size, float sz_inv, 
+                                     const COctreeV3Header &header, float values[8]);
+
+  void COctreeV3_BrickIntersect(uint32_t type, const float3 ray_pos, const float3 ray_dir,
+                                float tNear, uint32_t instId, uint32_t geomId, const COctreeV3Header &header,
+                                uint32_t brickOffset, float3 p, float sz, 
+                                CRT_Hit *pHit);
 
   void LocalSurfaceIntersection(uint32_t type, const float3 ray_dir, uint32_t instId, uint32_t geomId,
                                 #ifdef USE_TRICUBIC 
@@ -316,6 +324,8 @@ struct BVHRT : public ISceneObject
   std::vector<SdfCompactOctreeNode> m_SdfCompactOctreeV1Data; //compact nodes for all SDF octrees
   std::vector<uint32_t>             m_SdfCompactOctreeV2Data;
   std::vector<uint32_t>             m_SdfCompactOctreeV3Data;
+
+  COctreeV3Header coctree_v3_header;
 #endif
 
   //SDF Sparse Voxel Sets
