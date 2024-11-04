@@ -3247,10 +3247,9 @@ void litert_test_41_coctree_v3()
     printf("SBS %2d bits/distance: %4.1f ms %6.1f Kb %.2f PSNR\n", b, timings[0]/10, SBS_total_bytes/(1024.0f), psnr);
   }
 
-  {
-      
-    auto octree = sdf_converter::create_sdf_frame_octree(SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, 7, 2<<28),
+  auto octree = sdf_converter::create_sdf_frame_octree(SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, 7, 2<<28),
                                                        mesh);
+  {
     auto coctree_v2 = sdf_converter::frame_octree_to_compact_octree_v2(octree);
     
     auto pRender = CreateMultiRenderer(DEVICE_GPU);
@@ -3271,6 +3270,22 @@ void litert_test_41_coctree_v3()
 
     float psnr = image_metrics::PSNR(image_ref, image_res);
     printf("octree v2             %4.1f ms %6.1f Kb %.2f PSNR\n", timings[0]/10, coctree_total_bytes/(1024.0f), psnr);
+  }
+
+  {
+    unsigned max_threads = 1;
+
+    std::vector<MeshBVH> bvh(max_threads);
+    for (unsigned i = 0; i < max_threads; i++)
+      bvh[i].init(mesh);
+      
+    COctreeV3Header header;
+    header.bits_per_value = 16;
+    header.brick_size = 2;
+    header.brick_pad = 0;
+
+    auto coctree_v3 = sdf_converter::frame_octree_to_compact_octree_v3(octree, header, [&](const float3 &p, unsigned idx) -> float 
+                                                                       { return bvh[idx].get_signed_distance(p); }, max_threads);
   }
 }
 
