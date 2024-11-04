@@ -126,6 +126,7 @@ struct BVHRT : public ISceneObject
   uint32_t AddGeom_GraphicsPrim(const GraphicsPrimView &nurbs, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
   uint32_t AddGeom_COctreeV1(const std::vector<SdfCompactOctreeNode> &nodes, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
   uint32_t AddGeom_COctreeV2(const std::vector<uint32_t> &data, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
+  uint32_t AddGeom_COctreeV3(const std::vector<uint32_t> &data, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
 
   void set_debug_mode(bool enable);
 #endif
@@ -201,6 +202,10 @@ struct BVHRT : public ISceneObject
   void OctreeIntersect(const float3 ray_pos, const float3 ray_dir, float tNear, 
                        uint32_t instId, uint32_t geomId, bool stopOnFirstHit,
                        CRT_Hit *pHit);
+
+  void OctreeIntersectV3(const float3 ray_pos, const float3 ray_dir, float tNear, 
+                         uint32_t instId, uint32_t geomId, bool stopOnFirstHit,
+                         CRT_Hit *pHit);
 
   void OctreeNodeIntersect(uint32_t type, const float3 ray_pos, const float3 ray_dir,
                            float tNear, uint32_t instId, uint32_t geomId,
@@ -310,6 +315,7 @@ struct BVHRT : public ISceneObject
 #ifndef DISABLE_SDF_FRAME_OCTREE_COMPACT
   std::vector<SdfCompactOctreeNode> m_SdfCompactOctreeV1Data; //compact nodes for all SDF octrees
   std::vector<uint32_t>             m_SdfCompactOctreeV2Data;
+  std::vector<uint32_t>             m_SdfCompactOctreeV3Data;
 #endif
 
   //SDF Sparse Voxel Sets

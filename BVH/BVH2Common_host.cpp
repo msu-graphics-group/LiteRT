@@ -40,6 +40,7 @@ uint32_t type_to_tag(uint32_t type)
   case TYPE_SDF_FRAME_OCTREE_TEX:
   case TYPE_COCTREE_V1: //compact octrees v1 and v2 do not use BVH and AbstractObject concept
   case TYPE_COCTREE_V2: //but it is probably better to list them here anyway
+  case TYPE_COCTREE_V3:
     return AbstractObject::TAG_SDF_NODE;
   
   case TYPE_SDF_SBS:
@@ -1075,6 +1076,42 @@ uint32_t BVHRT::AddGeom_COctreeV2(const std::vector<uint32_t> &octree, ISceneObj
 
   //fill octree-specific data arrays
   m_SdfCompactOctreeV2Data = octree;
+
+  //create smallest possible list of bboxes for BLAS
+  std::vector<BVHNode> orig_nodes;
+  orig_nodes.resize(2);
+  orig_nodes[0].boxMin = float3(-1,-1,-1);
+  orig_nodes[0].boxMax = float3(1,1,0);
+  orig_nodes[1].boxMin = float3(-1,-1,0);
+  orig_nodes[1].boxMax = float3(1,1,1);
+  
+  return fake_this->AddGeom_AABB(m_abstractObjects.back().m_tag, (const CRT_AABB*)orig_nodes.data(), orig_nodes.size(), nullptr, 1);
+}
+
+uint32_t BVHRT::AddGeom_COctreeV3(const std::vector<uint32_t> &octree, ISceneObject *fake_this, BuildOptions a_qualityLevel)
+{
+  assert(m_SdfCompactOctreeV1Data.size() == 0); //only one compact octree per scene is supported
+  assert(octree.size() > 0);
+  assert(octree.size() < (1u<<28)); //huge grids shouldn't be here
+  //SDF octree is always a unit cube
+  float4 mn = float4(-1,-1,-1,1);
+  float4 mx = float4( 1, 1, 1,1);
+
+  //fill geom data array
+  m_abstractObjects.resize(m_abstractObjects.size() + 1); 
+  new (m_abstractObjects.data() + m_abstractObjects.size() - 1) GeomDataSdfNode();
+  m_abstractObjects.back().geomId = m_abstractObjects.size() - 1;
+  m_abstractObjects.back().m_tag = type_to_tag(TYPE_COCTREE_V3);
+
+  m_geomData.emplace_back();
+  m_geomData.back().boxMin = mn;
+  m_geomData.back().boxMax = mx;
+  m_geomData.back().offset = uint2(0, 0);
+  m_geomData.back().bvhOffset = 0;
+  m_geomData.back().type = TYPE_COCTREE_V3;
+
+  //fill octree-specific data arrays
+  m_SdfCompactOctreeV3Data = octree;
 
   //create smallest possible list of bboxes for BLAS
   std::vector<BVHNode> orig_nodes;

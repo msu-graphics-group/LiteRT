@@ -3280,12 +3280,31 @@ void litert_test_41_coctree_v3()
       bvh[i].init(mesh);
       
     COctreeV3Header header;
-    header.bits_per_value = 16;
-    header.brick_size = 2;
+    header.bits_per_value = 8;
+    header.brick_size = 1;
     header.brick_pad = 0;
 
     auto coctree_v3 = sdf_converter::frame_octree_to_compact_octree_v3(octree, header, [&](const float3 &p, unsigned idx) -> float 
                                                                        { return bvh[idx].get_signed_distance(p); }, max_threads);
+
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
+    preset.octree_intersect = OCTREE_INTERSECT_TRAVERSE;
+    pRender->SetPreset(preset);
+    pRender->SetScene_COctreeV3(coctree_v3);
+
+    auto t1 = std::chrono::steady_clock::now();
+    render(image_res, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset, 10);
+    pRender->GetExecutionTime("CastRaySingleBlock", timings);
+    auto t2 = std::chrono::steady_clock::now();
+
+    float time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+    LiteImage::SaveImage<uint32_t>("saves/test_41_coctree_v3.bmp", image_res);
+    
+    BVHRT *bvhrt = dynamic_cast<BVHRT*>(pRender->GetAccelStruct().get());
+    coctree_total_bytes = bvhrt->m_SdfCompactOctreeV3Data.size()*sizeof(uint32_t); 
+
+    float psnr = image_metrics::PSNR(image_ref, image_res);
+    printf("octree v3             %4.1f ms %6.1f Kb %.2f PSNR\n", timings[0]/10, coctree_total_bytes/(1024.0f), psnr);
   }
 }
 

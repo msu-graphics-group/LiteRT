@@ -2350,6 +2350,13 @@ void BVHRT::OctreeIntersect(const float3 ray_pos, const float3 ray_dir, float tN
       t0 = _t0 + d*p_f * _l;
       t1 = _t0 + d*(p_f + 1) * _l;
 
+      //static int counter = 0;
+      //if (counter < 100)
+      //{
+      //  printf("node %u, p = (%u %u %u) d = %f\n", stack[top].nodeId, p.x, p.y, p.z, d);
+      //  counter++;
+      //}
+
       if(stack[top].curChildId > 0) //leaf node
       {
         float tmin = std::max(t0.x, std::max(t0.y, t0.z));
@@ -2377,6 +2384,11 @@ void BVHRT::OctreeIntersect(const float3 ray_pos, const float3 ray_dir, float tN
         {
           values[i] = -d_max + 2*d_max*(1.0/255.0f)*((m_SdfCompactOctreeV2Data[stack[top].nodeId + i/4] >> (8*(i%4))) & 0xFF);
         }
+        //if (counter < 100)
+        //{
+        //  printf("values = %f %f %f %f %f %f %f %f\n", values[0], values[1], values[2], values[3], values[4], values[5], values[6], values[7]);
+        //  counter++;
+        //}
         
         LocalSurfaceIntersection(TYPE_SDF_FRAME_OCTREE, ray_dir, 0, 0, values, nodeId, nodeId, d, 0.0f, qFar, fNearFar, start_q, /*in */
                                  pHit); /*out*/
@@ -2404,6 +2416,160 @@ void BVHRT::OctreeIntersect(const float3 ray_pos, const float3 ray_dir, float tN
             uint32_t currChildOffset = m_bitcount[childrenInfo & ((1u << childNode) - 1)]; //number of child in the list of active children
             uint32_t baseChildrenOffset = m_SdfCompactOctreeV2Data[stack[top].nodeId];
             tmp_buf[buf_top].nodeId = baseChildrenOffset + 2u*currChildOffset;
+            tmp_buf[buf_top].curChildId = childrenInfo & (1u << (childNode + 8)); // > 0 is child is leaf
+            tmp_buf[buf_top].p_size = (stack[top].p_size << 1) | uint2(((currNode & 4) << (16-2)) | ((currNode & 2) >> 1), (currNode & 1) << 16);
+            buf_top++;
+          }
+          //return (txm < tym) ? (txm < tzm ? x : z) : (tym < tzm ? y : z);
+          currNode = new_node(((currNode & 4) > 0) ? t1.x : tm.x, nn_indices[currNode].x,
+                              ((currNode & 2) > 0) ? t1.y : tm.y, nn_indices[currNode].y,
+                              ((currNode & 1) > 0) ? t1.z : tm.z, nn_indices[currNode].z);
+        } while (currNode<8);
+
+        for (int i = 0; i < buf_top; i++)
+        {
+          stack[top+i] = tmp_buf[buf_top-i-1];
+        }
+        top += buf_top - 1;
+      }
+    }
+#endif
+}
+
+void BVHRT::OctreeIntersectV3(const float3 ray_pos, const float3 ray_dir, float tNear, 
+                              uint32_t instId, uint32_t geomId, bool stopOnFirstHit,
+                              CRT_Hit *pHit)
+{
+#ifndef DISABLE_SDF_FRAME_OCTREE_COMPACT
+  float3 pos_ray_pos = ray_pos;
+  float3 pos_ray_dir = ray_dir;
+  //assume octree is box [-1,1]^3
+  uint32_t a = 0;
+  if (ray_dir.x < 0)
+  {
+    pos_ray_pos.x *= -1;
+    pos_ray_dir.x *= -1;
+    a |= 4;
+  }
+
+  if (ray_dir.y < 0)
+  {
+    pos_ray_pos.y *= -1;
+    pos_ray_dir.y *= -1;
+    a |= 2;
+  }
+
+  if (ray_dir.z < 0)
+  {
+    pos_ray_pos.z *= -1;
+    pos_ray_dir.z *= -1;
+    a |= 1;
+  }
+
+  pos_ray_pos *= -1;
+  const float3 pos_ray_dir_inv = SafeInverse(pos_ray_dir);
+  const float3 _t0 = pos_ray_pos * pos_ray_dir_inv - pos_ray_dir_inv;
+  const float3 _t1 = pos_ray_pos * pos_ray_dir_inv + pos_ray_dir_inv;
+  const float3 _l = _t1 - _t0;
+  //printf("_t0 %f %f %f\n", _t0.x, _t0.y, _t0.z);
+  //printf("_t1 %f %f %f\n", _t1.x, _t1.y, _t1.z);
+
+  const uint3 nn_indices[8] = {uint3(4, 2, 1), uint3(5, 3, 8), uint3(6, 8, 3), uint3(7, 8, 8),
+                               uint3(8, 6, 5), uint3(8, 7, 8), uint3(8, 8, 7), uint3(8, 8, 8)};
+
+  OTStackElement stack[32];
+  OTStackElement tmp_buf[4];
+
+  int top = 0;
+  int buf_top = 0;
+  uint3 p;
+  float3 p_f, t0, t1, tm;
+  int currNode;
+  uint32_t nodeId;
+  uint32_t level_sz;
+  float d, qFar;
+  float2 fNearFar;
+  float3 start_q;
+  float values[8];
+
+  stack[top].nodeId = 0;
+  stack[top].curChildId = 0;
+  stack[top].p_size = uint2(0,1);
+
+    while (top >= 0)
+    {
+      level_sz = stack[top].p_size.y & 0xFFFF;
+      p = uint3(stack[top].p_size.x >> 16, stack[top].p_size.x & 0xFFFF, stack[top].p_size.y >> 16);
+      d = 1.0f/float(level_sz);
+      p_f = float3(p);
+      t0 = _t0 + d*p_f * _l;
+      t1 = _t0 + d*(p_f + 1) * _l;
+
+      //static int counter = 0;
+      //if (counter < 100)
+      //{
+      //  printf("node %u, p = (%u %u %u) d = %f\n", stack[top].nodeId, p.x, p.y, p.z, d);
+      //  counter++;
+      //}
+
+      if(stack[top].curChildId > 0) //leaf node
+      {
+        float tmin = std::max(t0.x, std::max(t0.y, t0.z));
+        float tmax = std::min(t1.x, std::min(t1.y, t1.z));
+
+        {
+          uint32_t p_mask = level_sz - 1;
+          uint3 real_p = uint3(((a & 4) > 0) ? (~p.x & p_mask) : p.x, 
+                               ((a & 2) > 0) ? (~p.y & p_mask) : p.y, 
+                               ((a & 1) > 0) ? (~p.z & p_mask) : p.z);
+
+          nodeId = stack[top].nodeId;
+          float sz = 0.5f*float(level_sz);
+          d = 1.0f/sz;
+          float3 min_pos = float3(-1,-1,-1) + d*float3(real_p.x,real_p.y,real_p.z);
+
+          fNearFar = float2(tmin, tmax);
+          float3 start_pos = ray_pos + fNearFar.x*ray_dir;
+          start_q = sz*(start_pos - min_pos);
+          qFar = sz*(fNearFar.y - fNearFar.x);
+        }
+
+        float d_max = 2*1.73205081f/float(level_sz);
+        for (int i=0;i<8;i++)
+        {
+          values[i] = -d_max + 2*d_max*(1.0/255.0f)*((m_SdfCompactOctreeV3Data[stack[top].nodeId + i/4] >> (8*(i%4))) & 0xFF);
+        }
+        //if (counter < 100)
+        //{
+        //  printf("values = %f %f %f %f %f %f %f %f\n", values[0], values[1], values[2], values[3], values[4], values[5], values[6], values[7]);
+        //  counter++;
+        //}
+        
+        LocalSurfaceIntersection(TYPE_SDF_FRAME_OCTREE, ray_dir, 0, 0, values, nodeId, nodeId, d, 0.0f, qFar, fNearFar, start_q, /*in */
+                                 pHit); /*out*/
+
+        if (pHit->primId != 0xFFFFFFFF)
+          top = -1;
+        else
+          top--;
+      }
+      else
+      { 
+        buf_top = 0;
+        tm = 0.5f*(t0 + t1);
+
+        currNode = first_node(t0, tm);
+        do
+        {
+          //0-7 bits are child_is_active flags, next 8-15 bits are child_is_leaf flags
+          uint32_t childrenInfo = m_SdfCompactOctreeV3Data[stack[top].nodeId + 8];
+          uint32_t childNode = currNode ^ a; //child node number, from 0 to 8
+
+          // if child is active
+          if ((childrenInfo & (1u << childNode)) > 0)
+          {
+            uint32_t childOffset = m_SdfCompactOctreeV3Data[stack[top].nodeId + childNode];
+            tmp_buf[buf_top].nodeId = childOffset;
             tmp_buf[buf_top].curChildId = childrenInfo & (1u << (childNode + 8)); // > 0 is child is leaf
             tmp_buf[buf_top].p_size = (stack[top].p_size << 1) | uint2(((currNode & 4) << (16-2)) | ((currNode & 2) >> 1), (currNode & 1) << 16);
             buf_top++;
@@ -2549,10 +2715,16 @@ CRT_Hit BVHRT::RayQuery_NearestHit(float4 posAndNear, float4 dirAndFar)
         //
         const float3 ray_pos = matmul4x3(m_instanceData[instId].transformInv, to_float3(posAndNear));
         const float3 ray_dir = matmul3x3(m_instanceData[instId].transformInv, to_float3(dirAndFar)); // DON'float NORMALIZE IT !!!! When we transform to local space of node, ray_dir must be unnormalized!!!
-    
-        if ((m_geomData[geomId].type == TYPE_COCTREE_V1 || m_geomData[geomId].type == TYPE_COCTREE_V2) && 
-            m_preset.octree_intersect == OCTREE_INTERSECT_TRAVERSE)
-          OctreeIntersect(ray_pos, ray_dir, posAndNear.w, instId, geomId, stopOnFirstHit, &hit);
+
+        if (m_preset.octree_intersect == OCTREE_INTERSECT_TRAVERSE)
+        {
+          if(m_geomData[geomId].type == TYPE_COCTREE_V1 || m_geomData[geomId].type == TYPE_COCTREE_V2)
+            OctreeIntersect(ray_pos, ray_dir, posAndNear.w, instId, geomId, stopOnFirstHit, &hit);
+          else if (m_geomData[geomId].type == TYPE_COCTREE_V3)
+            OctreeIntersectV3(ray_pos, ray_dir, posAndNear.w, instId, geomId, stopOnFirstHit, &hit);
+          else
+          BVH2TraverseF32(ray_pos, ray_dir, posAndNear.w, instId, geomId, stopOnFirstHit, &hit);          
+        }
         else
           BVH2TraverseF32(ray_pos, ray_dir, posAndNear.w, instId, geomId, stopOnFirstHit, &hit);
       }

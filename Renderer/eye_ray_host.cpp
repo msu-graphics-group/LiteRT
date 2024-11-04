@@ -235,7 +235,7 @@ void MultiRenderer::CastRaySingleBlock(uint32_t tidX, uint32_t * out_color, uint
   //CPU version is mostly used by debug, so better make it single-threaded
   //also per-pixel debug does not work with multithreading
   //#ifndef _DEBUG
-  #pragma omp parallel for default(shared)
+  //#pragma omp parallel for default(shared)
   //#endif
   for(int i=0;i<tidX;i++)
     CastRaySingle(i, out_color);
@@ -450,6 +450,23 @@ void MultiRenderer::SetScene_COctreeV2(const std::vector<uint32_t> &scene)
   SetPreset(m_preset);
   m_pAccelStruct->ClearGeom();
   auto geomId = bvhrt->AddGeom_COctreeV2(scene, m_pAccelStruct.get());
+  m_pAccelStruct->ClearScene();
+  AddInstance(geomId, LiteMath::float4x4());
+  m_pAccelStruct->CommitScene();
+}
+
+void MultiRenderer::SetScene_COctreeV3(const std::vector<uint32_t> &scene)
+{
+  BVHRT *bvhrt = dynamic_cast<BVHRT*>(m_pAccelStruct->UnderlyingImpl(0));
+  if (!bvhrt)
+  {
+    printf("only BVHRT supports Compact Octree v3\n");
+    return;
+  }
+
+  SetPreset(m_preset);
+  m_pAccelStruct->ClearGeom();
+  auto geomId = bvhrt->AddGeom_COctreeV3(scene, m_pAccelStruct.get());
   m_pAccelStruct->ClearScene();
   AddInstance(geomId, LiteMath::float4x4());
   m_pAccelStruct->CommitScene();

@@ -2522,108 +2522,94 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
     unsigned bits = header.bits_per_value;
     unsigned max_val = header.bits_per_value == 32 ? 0xFFFFFFFF : ((1 << bits) - 1);
     unsigned vals_per_int = 32 / header.bits_per_value;
+    unsigned size_uints = (v_size*v_size*v_size + vals_per_int - 1) / vals_per_int;
 
-    for (int i = 0; i < values_tmp.size(); i++)
+    for (int i = 0; i < size_uints; i++)
+      u_values_tmp[i] = 0;
+
+    for (int i = 0; i < v_size*v_size*v_size; i++)
     {
       unsigned d_compressed = std::max(0.0f, max_val * ((values_tmp[i] + d_max) / (2 * d_max)));
       d_compressed = std::min(d_compressed, max_val);
       u_values_tmp[i / vals_per_int] |= d_compressed << (bits * (i % vals_per_int));
     }
 
-    return (values_tmp.size() + vals_per_int - 1) / vals_per_int;
+    return size_uints;
   }
 
 static std::atomic<unsigned> stat_leaf_bytes(0);
 static std::atomic<unsigned> stat_nonleaf_bytes(0);
 
-  void frame_octree_to_compact_octree_v3_rec(const std::vector<SdfFrameOctreeNode> &frame, COctreeV3Header header,
-                                             MultithreadedDistanceFunction sdf, unsigned max_threads, 
-                                             std::vector<uint32_t> &compact, std::vector<float> &values_tmp, std::vector<uint32_t> &u_values_tmp,
-                                             unsigned nodeId, unsigned cNodeId, unsigned lod_size, uint3 p)
+void frame_octree_to_compact_octree_v3_rec(const std::vector<SdfFrameOctreeNode> &frame, COctreeV3Header header,
+                                           MultithreadedDistanceFunction sdf, unsigned max_threads,
+                                           std::vector<uint32_t> &compact, std::vector<float> &values_tmp, std::vector<uint32_t> &u_values_tmp,
+                                           unsigned nodeId, unsigned cNodeId, unsigned lod_size, uint3 p)
+{
+  unsigned ofs = frame[nodeId].offset;
+  assert(!is_leaf(ofs));
+
+  unsigned ch_info = 0u;
+  unsigned ch_count = 0u;
+  unsigned l_count = 0u;
+  unsigned char ch_is_active = 0u; // one bit per child
+  unsigned char ch_is_leaf = 0u;   // one bit per child
+  int is_leaf_arr[8];
+
+  for (int i = 0; i < 8; i++)
   {
-    //assert(cNodeId % 2 == 0);
-    unsigned ofs = frame[nodeId].offset;
-    //printf("node p = (%u, %u, %u), lod_size = %u\n", p.x, p.y, p.z, lod_size);
-    assert(!is_leaf(ofs));
+    compact[cNodeId + i] = compact.size(); // offset to this leaf
 
-    // if (is_leaf(ofs))
-    // {
-    //   float d_max = 2 * sqrt(3) / lod_size;
-    //   for (int i = 0; i < 8; i++)
-    //   {
-    //     unsigned d_compressed = std::max(0.0f, 255 * ((frame[nodeId].values[i] + d_max) / (2 * d_max)) + 0.5f);
-    //     d_compressed = std::min(d_compressed, 255u);
-    //     compact[cNodeId + i / 4] |= d_compressed << (8 * (i % 4));
-    //   }
-    // }
-    // else
+    unsigned child_info = ch_count;
+    if (is_leaf(frame[ofs + i].offset))
     {
-      unsigned ch_info = 0u;
-      unsigned ch_count = 0u;
-      unsigned l_count  = 0u;
-      unsigned char ch_is_active = 0u; //one bit per child
-      unsigned char ch_is_leaf   = 0u;  //one bit per child
-      int is_leaf_arr[8];
+      is_leaf_arr[i] = 1;
 
-      for (int i = 0; i < 8; i++)
+      // process leaf, get values grid and check if we actually have a surface in it
+      uint3 ch_p = 2 * p + uint3((i & 4) >> 2, (i & 2) >> 1, i & 1);
+      bool is_border_leaf = node_get_brick_values(frame, header, sdf, 0, values_tmp,
+                                                  ofs + i, 2 * lod_size, ch_p);
+
+      if (is_border_leaf)
       {
-        compact[cNodeId + i] = compact.size(); //offset to this leaf
+        // fill the compact octree with compressed leaf data
+        unsigned leaf_size = brick_values_compress_no_packing(frame, header, 0, values_tmp, u_values_tmp, ofs + i, 2 * lod_size, ch_p);
+        assert(leaf_size > 0);
 
-        unsigned child_info = ch_count;
-        if (is_leaf(frame[ofs + i].offset))
-        {
-          is_leaf_arr[i] = 1;
+        unsigned leaf_offset = compact.size();
+        compact.resize(leaf_offset + leaf_size, 0u); // space for non-leaf child
+        stat_leaf_bytes += leaf_size * sizeof(uint32_t);
 
-          //process leaf, get values grid and check if we actually have a surface in it
-          uint3 ch_p = 2 * p + uint3((i & 4) >> 2, (i & 2) >> 1, i & 1);
-          bool is_empty_leaf = node_get_brick_values(frame, header, sdf, 0, values_tmp,
-                                                     ofs + i, 2*lod_size, ch_p); 
-          if (is_empty_leaf)
-          {
-            //ch_ofs[i] = -1;
-          }    
-          else
-          {
-            //fill the compact octree with compressed leaf data
-            unsigned leaf_size = brick_values_compress_no_packing(frame, header, 0, values_tmp, u_values_tmp, ofs + i, 2*lod_size, ch_p);
-            assert(leaf_size > 0);
+        for (int j = 0; j < leaf_size; j++)
+          compact[leaf_offset + j] = u_values_tmp[j];
 
-            unsigned leaf_offset = compact.size();
-            compact.resize(leaf_offset + leaf_size, 0u); //space for non-leaf child
-            stat_leaf_bytes += leaf_size * sizeof(uint32_t);
-
-            for (int j = 0; j < leaf_size; j++)
-              compact[leaf_offset + j] = u_values_tmp[j];
-
-            ch_count++;
-            l_count ++;        
-            ch_is_active |= (1 << i);    
-            ch_is_leaf   |= (1 << i);
-          }      
-        }
-        else
-        {
-          compact.resize(compact.size() + 9, 0u); //space for non-leaf child
-          stat_nonleaf_bytes += 9 * sizeof(uint32_t);
-
-          is_leaf_arr[i] = 0;
-          ch_count++;     
-          ch_is_active |= (1 << i);      
-        }
-      }
-      compact[cNodeId + 8] = ch_is_active | (ch_is_leaf << 8u);
-
-      for (int i = 0; i < 8; i++)
-      {
-        if (is_leaf_arr[i] == 0)
-        {
-          uint3 ch_p = 2 * p + uint3((i & 4) >> 2, (i & 2) >> 1, i & 1);
-          frame_octree_to_compact_octree_v3_rec(frame, header, sdf, max_threads, compact, values_tmp, u_values_tmp,
-                                                ofs + i, compact[cNodeId + i], 2 * lod_size, ch_p);
-        }
+        ch_count++;
+        l_count++;
+        ch_is_active |= (1 << i);
+        ch_is_leaf |= (1 << i);
       }
     }
+    else
+    {
+      compact.resize(compact.size() + 9, 0u); // space for non-leaf child
+      stat_nonleaf_bytes += 9 * sizeof(uint32_t);
+
+      is_leaf_arr[i] = 0;
+      ch_count++;
+      ch_is_active |= (1 << i);
+    }
   }
+  compact[cNodeId + 8] = ch_is_active | (ch_is_leaf << 8u);
+
+  for (int i = 0; i < 8; i++)
+  {
+    if (is_leaf_arr[i] == 0)
+    {
+      uint3 ch_p = 2 * p + uint3((i & 4) >> 2, (i & 2) >> 1, i & 1);
+      frame_octree_to_compact_octree_v3_rec(frame, header, sdf, max_threads, compact, values_tmp, u_values_tmp,
+                                            ofs + i, compact[cNodeId + i], 2 * lod_size, ch_p);
+    }
+  }
+}
 
   std::vector<uint32_t> frame_octree_to_compact_octree_v3(const std::vector<SdfFrameOctreeNode> &frame, COctreeV3Header header,
                                                           MultithreadedDistanceFunction sdf, unsigned max_threads)
