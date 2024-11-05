@@ -157,7 +157,7 @@ namespace image_metrics
     return ssim / omp_get_max_threads();
   }
 
-  float FLIP(const LiteImage::Image2D<float> &image_1, const LiteImage::Image2D<float> &image_2)
+  float FLIP(const LiteImage::Image2D<uint32_t> &image_1, const LiteImage::Image2D<uint32_t> &image_2)
   {
     assert(image_1.width() == image_2.width());
     assert(image_1.height() == image_2.height());
