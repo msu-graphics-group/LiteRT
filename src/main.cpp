@@ -218,6 +218,7 @@ int main(int, char** argv)
       shading_changed =
           ImGui::ListBox("Shading", &cur_shader, shaders, sizeof(shaders)/sizeof(*shaders));
       ImGui::Text("Debug Info");
+      ImGui::Text("\tResolution: %dx%d", WIDTH, HEIGHT);
       ImGui::Text("\tSurfaces count: %lu", rbeziers.size());
       ImGui::Text("\tTotal boxes count: %d", total_bboxes_count);
       ImGui::Text("\tApplication average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
