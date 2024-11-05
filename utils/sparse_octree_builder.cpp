@@ -2508,7 +2508,7 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
       }
     }
 
-    return is_border_node(min_val, max_val, lod_size);
+    return max_val >= 0 && min_val <= 0;
   }
 
   unsigned brick_values_compress_no_packing(const std::vector<SdfFrameOctreeNode> &frame, COctreeV3Header header, unsigned thread_id,
@@ -2537,8 +2537,135 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
     return size_uints;
   }
 
+  unsigned brick_values_compress(const std::vector<SdfFrameOctreeNode> &frame, COctreeV3Header header, unsigned thread_id,
+                                 std::vector<float> &values_tmp, std::vector<uint32_t> &u_values_tmp,
+                                 unsigned idx, unsigned lod_size, uint3 p)
+  {
+    int v_size = header.brick_size + 2 * header.brick_pad + 1;
+    std::vector<bool> presence_flags(header.brick_size*header.brick_size*header.brick_size, false);
+    std::vector<bool> distance_flags(v_size*v_size*v_size, false);
+
+    for (int i=0;i<header.brick_size;i++)
+    {
+      for (int j=0;j<header.brick_size;j++)
+      {
+        for (int k=0;k<header.brick_size;k++)
+        {
+          unsigned off = SBS_v_to_i(i, j, k, v_size, header.brick_pad);
+          float min_val = values_tmp[off];
+          float max_val = values_tmp[off];
+
+          min_val = std::min(min_val, values_tmp[off + 1]);
+          min_val = std::min(min_val, values_tmp[off + v_size]);
+          min_val = std::min(min_val, values_tmp[off + v_size + 1]);
+          min_val = std::min(min_val, values_tmp[off + v_size*v_size]);
+          min_val = std::min(min_val, values_tmp[off + v_size*v_size + 1]);
+          min_val = std::min(min_val, values_tmp[off + v_size*v_size + v_size]);
+          min_val = std::min(min_val, values_tmp[off + v_size*v_size + v_size + 1]);
+
+          max_val = std::max(max_val, values_tmp[off + 1]);
+          max_val = std::max(max_val, values_tmp[off + v_size]);
+          max_val = std::max(max_val, values_tmp[off + v_size + 1]);
+          max_val = std::max(max_val, values_tmp[off + v_size*v_size]);
+          max_val = std::max(max_val, values_tmp[off + v_size*v_size + 1]);
+          max_val = std::max(max_val, values_tmp[off + v_size*v_size + v_size]);
+          max_val = std::max(max_val, values_tmp[off + v_size*v_size + v_size + 1]);
+
+          if (min_val <= 0 && max_val >= 0)
+          {
+            presence_flags[i*header.brick_size*header.brick_size + j*header.brick_size + k] = true;
+
+            distance_flags[off]                              = true;
+            distance_flags[off + 1]                          = true;
+            distance_flags[off + v_size]                     = true;
+            distance_flags[off + v_size + 1]                 = true;
+            distance_flags[off + v_size*v_size]              = true;
+            distance_flags[off + v_size*v_size + 1]          = true;
+            distance_flags[off + v_size*v_size + v_size]     = true;
+            distance_flags[off + v_size*v_size + v_size + 1] = true;
+          }
+        }
+      }
+    }
+
+    float d_max = 2 * sqrt(3) / lod_size;
+    unsigned bits = header.bits_per_value;
+    unsigned max_val = header.bits_per_value == 32 ? 0xFFFFFFFF : ((1 << bits) - 1);
+    unsigned vals_per_int = 32 / header.bits_per_value;
+
+    constexpr unsigned line_distances_offset_bits = 8;
+    unsigned distance_flags_bits = v_size + line_distances_offset_bits;
+    unsigned distance_flags_per_int = 32 / distance_flags_bits;
+    unsigned distance_flags_size_uints = (v_size*v_size + distance_flags_per_int - 1) / distance_flags_per_int;
+    unsigned presence_flags_size_uints = (header.brick_size*header.brick_size*header.brick_size + 32 - 1) / 32;
+
+    unsigned off_0 = 0;
+    unsigned off_1 = off_0 + presence_flags_size_uints;
+    unsigned off_2 = off_1 + distance_flags_size_uints;
+
+
+    //empty all range that can be used later
+    unsigned max_size_uints = (v_size*v_size*v_size + vals_per_int - 1) / vals_per_int + distance_flags_size_uints + presence_flags_size_uints;
+    for (int i = 0; i < max_size_uints; i++)
+      u_values_tmp[i] = 0;
+
+    //fill presence flags
+    for (int i = 0; i < header.brick_size*header.brick_size*header.brick_size; i++)
+    {
+      u_values_tmp[off_0 + i / 32] |= (unsigned)presence_flags[i] << (i % 32);
+    }
+
+    //fill distnace flags
+    unsigned line_distances_offset = 0;
+    for (int l_i = 0; l_i < v_size*v_size; l_i++)
+    {
+      unsigned base_shift = distance_flags_bits * (l_i % distance_flags_per_int);
+
+      //offset for distances in this line
+      assert(line_distances_offset < (1 << line_distances_offset_bits));
+      u_values_tmp[off_1 + l_i / distance_flags_per_int] |= line_distances_offset << (base_shift + v_size);
+      //printf("offset %u put to line %u\n", line_distances_offset, l_i);
+
+      for (int k = 0; k < v_size; k++)
+      {
+        unsigned distance_bit = (unsigned)distance_flags[l_i*v_size + k];
+        u_values_tmp[off_1 + l_i / distance_flags_per_int] |= distance_bit << (base_shift + k);
+        line_distances_offset += distance_bit;
+      }
+    }
+
+    //fill actual distances
+    unsigned active_distances = 0;
+    for (int i = 0; i < v_size*v_size*v_size; i++)
+    {
+      if (distance_flags[i])
+      {
+        unsigned d_compressed = std::max(0.0f, max_val * ((values_tmp[i] + d_max) / (2 * d_max)));
+        d_compressed = std::min(d_compressed, max_val);
+        u_values_tmp[off_2 + active_distances / vals_per_int] |= d_compressed << (bits * (active_distances % vals_per_int));
+        //printf("distance %d put to %u\n", i, active_distances);
+        active_distances++;
+      }
+    }
+
+    unsigned distances_size_uint = (active_distances + vals_per_int - 1) / vals_per_int;
+    //printf("a leaf %u %u %u (%u/%u)\n", distances_size_uint, distance_flags_size_uints, presence_flags_size_uints, active_distances, v_size*v_size*v_size);
+
+    return distances_size_uint + distance_flags_size_uints + presence_flags_size_uints;
+  }
+
 static std::atomic<unsigned> stat_leaf_bytes(0);
 static std::atomic<unsigned> stat_nonleaf_bytes(0);
+  static constexpr uint32_t m_bitcount[256] = {
+    0,1,1,2,1,2,2,3,1,2,2,3,2,3,3,4,1,2,2,3,2,3,3,4,2,3,3,4,3,4,4,5,
+    1,2,2,3,2,3,3,4,2,3,3,4,3,4,4,5,2,3,3,4,3,4,4,5,3,4,4,5,4,5,5,6,
+    1,2,2,3,2,3,3,4,2,3,3,4,3,4,4,5,2,3,3,4,3,4,4,5,3,4,4,5,4,5,5,6,
+    2,3,3,4,3,4,4,5,3,4,4,5,4,5,5,6,3,4,4,5,4,5,5,6,4,5,5,6,5,6,6,7,
+    1,2,2,3,2,3,3,4,2,3,3,4,3,4,4,5,2,3,3,4,3,4,4,5,3,4,4,5,4,5,5,6,
+    2,3,3,4,3,4,4,5,3,4,4,5,4,5,5,6,3,4,4,5,4,5,5,6,4,5,5,6,5,6,6,7,
+    2,3,3,4,3,4,4,5,3,4,4,5,4,5,5,6,3,4,4,5,4,5,5,6,4,5,5,6,5,6,6,7,
+    3,4,4,5,4,5,5,6,4,5,5,6,5,6,6,7,4,5,5,6,5,6,6,7,5,6,6,7,6,7,7,8
+  };
 
 void frame_octree_to_compact_octree_v3_rec(const std::vector<SdfFrameOctreeNode> &frame, COctreeV3Header header,
                                            MultithreadedDistanceFunction sdf, unsigned max_threads,
@@ -2572,7 +2699,70 @@ void frame_octree_to_compact_octree_v3_rec(const std::vector<SdfFrameOctreeNode>
       if (is_border_leaf)
       {
         // fill the compact octree with compressed leaf data
-        unsigned leaf_size = brick_values_compress_no_packing(frame, header, 0, values_tmp, u_values_tmp, ofs + i, 2 * lod_size, ch_p);
+        if (false)
+        {
+          unsigned leaf_size = brick_values_compress_no_packing(frame, header, 0, values_tmp, u_values_tmp, ofs + i, 2 * lod_size, ch_p);
+          std::vector<unsigned> u_values_tmp_2(u_values_tmp.size(), 0u);
+          unsigned a_leaf_size = brick_values_compress(frame, header, 0, values_tmp, u_values_tmp_2, ofs + i, 2 * lod_size, ch_p);
+          //if (a_leaf_size >= leaf_size)
+          printf("leaf %u %u\n", a_leaf_size, leaf_size);
+
+          int v_size = header.brick_size + 2 * header.brick_pad + 1;
+          float d_max = 2 * sqrt(3) / (2 * lod_size);
+          unsigned bits = header.bits_per_value;
+          unsigned max_val = header.bits_per_value == 32 ? 0xFFFFFFFF : ((1 << bits) - 1);
+          unsigned vals_per_int = 32 / header.bits_per_value;
+
+          constexpr unsigned line_distances_offset_bits = 8;
+          unsigned distance_flags_bits = v_size + line_distances_offset_bits;
+          unsigned distance_flags_per_int = 32 / distance_flags_bits;
+          unsigned distance_flags_size_uints = (v_size*v_size + distance_flags_per_int - 1) / distance_flags_per_int;
+          unsigned presence_flags_size_uints = (header.brick_size*header.brick_size*header.brick_size + 32 - 1) / 32;
+
+          unsigned off_0 = 0;
+          unsigned off_1 = off_0 + presence_flags_size_uints;
+          unsigned off_2 = off_1 + distance_flags_size_uints;
+
+          for (int x=0;x<header.brick_size;x++)
+          {
+            for (int y=0;y<header.brick_size;y++)
+            {
+              for (int z=0;z<header.brick_size;z++)
+              {
+                uint3 voxelPosU = uint3(x,y,z);
+                uint32_t PFlagPos = voxelPosU.x*header.brick_size*header.brick_size + voxelPosU.y*header.brick_size + voxelPosU.z;
+                if ((u_values_tmp_2[off_0 + PFlagPos/32] & (1u << (PFlagPos%32))) == 0)
+                  continue;
+
+                for (int i = 0; i < 8; i++)
+                {
+                  uint3 vPos = uint3(x,y,z) + uint3((i & 4) >> 2, (i & 2) >> 1, i & 1);
+                  uint32_t lineId = (vPos.x + header.brick_pad)*v_size + (vPos.y + header.brick_pad);
+
+                  uint32_t lineInfoMask = (1 << distance_flags_bits) - 1;
+                  uint32_t lineDistanceFlagsMask = (1 << v_size) - 1;
+                  uint32_t distanceFlagMask = (1 << vPos.z) - 1;
+                  uint32_t lineInfo     = (u_values_tmp_2[off_1 + lineId / distance_flags_per_int] >> (distance_flags_bits * (lineId % distance_flags_per_int))) & lineInfoMask;
+                  uint32_t lineOffset   = lineInfo >> v_size;
+                  uint32_t lineFlags    = lineInfo & lineDistanceFlagsMask;
+                  uint32_t localOffset  = m_bitcount[lineFlags & distanceFlagMask];
+
+                  uint32_t vId = lineOffset + localOffset;
+                  uint32_t dist = ((u_values_tmp_2[off_2 + vId / vals_per_int] >> (bits * (vId % vals_per_int))) & max_val);
+
+                  uint32_t real_vId = SBS_v_to_i(vPos.x, vPos.y, vPos.z, v_size, header.brick_pad);
+                  uint32_t real_dist = ((u_values_tmp[real_vId / vals_per_int] >> (bits * (real_vId % vals_per_int))) & max_val);
+
+                  printf("reading distance %u from %u (%u %u)\n", real_vId, vId, lineOffset, localOffset);
+                  printf("%o\n",lineInfo);
+
+                  assert(dist == real_dist);
+                }
+              }
+            }
+          }
+        }
+        unsigned leaf_size = brick_values_compress(frame, header, 0, values_tmp, u_values_tmp, ofs + i, 2 * lod_size, ch_p);
         assert(leaf_size > 0);
 
         unsigned leaf_offset = compact.size();

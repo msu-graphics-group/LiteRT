@@ -3168,7 +3168,7 @@ void litert_test_41_coctree_v3()
   preset.spp = 16;
   preset.normal_mode = NORMAL_MODE_GEOMETRY;
 
-  unsigned base_depth = 6;
+  unsigned base_depth = 7;
 
   float fov_degrees = 40;
   float z_near = 0.1f;
@@ -3192,7 +3192,7 @@ void litert_test_41_coctree_v3()
     auto pRender = CreateMultiRenderer(DEVICE_GPU);
     pRender->SetPreset(preset);
     pRender->SetScene(mesh);
-    pRender->Render(image_ref.data(), W, H, worldView, proj, preset, 25);
+    pRender->Render(image_ref.data(), W, H, worldView, proj, preset, 1);
     LiteImage::SaveImage<uint32_t>("saves/test_41_ref.bmp", image_ref);
   }
 
@@ -3201,12 +3201,12 @@ void litert_test_41_coctree_v3()
   for (int b : bpp)
   {
     SdfSBSHeader header;
-    header.brick_size = 8;
+    header.brick_size = 4;
     header.brick_pad = 0;
     header.bytes_per_value = b/8;
     header.aux_data = SDF_SBS_NODE_LAYOUT_DX;
 
-    SdfSBS sbs = sdf_converter::create_sdf_SBS(SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, base_depth-3, 2<<28), header, mesh);
+    SdfSBS sbs = sdf_converter::create_sdf_SBS(SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, base_depth-2, 2<<28), header, mesh);
     
     const int bin_count = 20;
     std::vector<int> bins(bin_count+1, 0);
@@ -3238,7 +3238,7 @@ void litert_test_41_coctree_v3()
     pRender->SetScene(sbs);
 
     auto t1 = std::chrono::steady_clock::now();
-    pRender->Render(image_res.data(), W, H, worldView, proj, preset, 25);
+    pRender->Render(image_res.data(), W, H, worldView, proj, preset, 10);
     pRender->GetExecutionTime("CastRaySingleBlock", timings);
     auto t2 = std::chrono::steady_clock::now();
 
@@ -3267,7 +3267,7 @@ void litert_test_41_coctree_v3()
     pRender->SetScene_COctreeV2(coctree_v2);
 
     auto t1 = std::chrono::steady_clock::now();
-    pRender->Render(image_res.data(), W, H, worldView, proj, preset, 25);
+    pRender->Render(image_res.data(), W, H, worldView, proj, preset, 10);
     pRender->GetExecutionTime("CastRaySingleBlock", timings);
     auto t2 = std::chrono::steady_clock::now();
 
@@ -3289,11 +3289,11 @@ void litert_test_41_coctree_v3()
       bvh[i].init(mesh);
       
     COctreeV3Header header;
-    header.bits_per_value = 8;
-    header.brick_size = 2;
+    header.bits_per_value = 10;
+    header.brick_size = 4;
     header.brick_pad = 0;
 
-    auto octree = sdf_converter::create_sdf_frame_octree(SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, base_depth-1, 2<<28),
+    auto octree = sdf_converter::create_sdf_frame_octree(SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, base_depth-2, 2<<28),
                                                          mesh);
     auto coctree_v3 = sdf_converter::frame_octree_to_compact_octree_v3(octree, header, [&](const float3 &p, unsigned idx) -> float 
                                                                        { return bvh[idx].get_signed_distance(p); }, max_threads);
@@ -3304,7 +3304,7 @@ void litert_test_41_coctree_v3()
     pRender->SetScene_COctreeV3(coctree_v3, header);
 
     auto t1 = std::chrono::steady_clock::now();
-    pRender->Render(image_res.data(), W, H, worldView, proj, preset, 25);
+    pRender->Render(image_res.data(), W, H, worldView, proj, preset, 10);
     pRender->GetExecutionTime("CastRaySingleBlock", timings);
     auto t2 = std::chrono::steady_clock::now();
 

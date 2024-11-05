@@ -2441,19 +2441,50 @@ float BVHRT::COctreeV3_LoadDistanceValues(uint32_t brickOffset, float3 voxelPos,
 {
   float vmin = 1e6f;
 #ifndef DISABLE_SDF_FRAME_OCTREE_COMPACT
+  //brick structure: <presence_flags><distance_flags><values>
+
+  //early exit if voxel is not present
+  uint3 voxelPosU = uint3(voxelPos);
+  uint32_t PFlagPos = voxelPosU.x*header.brick_size*header.brick_size + voxelPosU.y*header.brick_size + voxelPosU.z;
+  if ((m_SdfCompactOctreeV3Data[brickOffset + PFlagPos/32] & (1u << (PFlagPos%32))) == 0)
+    return 1e6f;
+  
+  //this voxel is guaranteed to have surface
+  uint32_t line_distances_offset_bits = 8;
+  uint32_t distance_flags_bits = v_size + line_distances_offset_bits;
+  uint32_t distance_flags_per_int = 32 / distance_flags_bits;
+  uint32_t distance_flags_size_uints = (v_size * v_size + distance_flags_per_int - 1) / distance_flags_per_int;
+  uint32_t presence_flags_size_uints = (header.brick_size * header.brick_size * header.brick_size + 32 - 1) / 32;
+
+  uint32_t off_1 = presence_flags_size_uints;
+  uint32_t off_2 = off_1 + distance_flags_size_uints;
+
+  uint32_t lineInfoMask = (1 << distance_flags_bits) - 1;
+  uint32_t lineDistanceFlagsMask = (1 << v_size) - 1;
+
   uint32_t vals_per_int = 32 / header.bits_per_value;
   uint32_t bits = header.bits_per_value;
   uint32_t max_val = header.bits_per_value == 32 ? 0xFFFFFFFF : ((1 << bits) - 1);
   float d_max = 1.73205081f * sz_inv;
   float mult = 2 * d_max / max_val;
-  for (int i = 0; i < 8; i++)
+  for (int i = 0; i < 4; i++)
   {
-    uint3 vPos = uint3(voxelPos) + uint3((i & 4) >> 2, (i & 2) >> 1, i & 1);
-    uint32_t vId = SBS_v_to_i(vPos.x, vPos.y, vPos.z, v_size, header.brick_pad);
-    ;
-    values[i] = -d_max + mult * ((m_SdfCompactOctreeV3Data[brickOffset + vId / vals_per_int] >> (bits * (vId % vals_per_int))) & max_val);
-    vmin = std::min(vmin, values[i]);
+    uint32_t lineId = (voxelPosU.x + ((i & 2) >> 1) + header.brick_pad) * v_size + (voxelPosU.y + (i & 1) + header.brick_pad);
+    uint32_t distanceFlagMask = (1 << voxelPosU.z) - 1;
+    uint32_t lineInfo = (m_SdfCompactOctreeV3Data[brickOffset + off_1 + lineId / distance_flags_per_int] >> (distance_flags_bits * (lineId % distance_flags_per_int))) & lineInfoMask;
+    uint32_t lineOffset = lineInfo >> v_size;
+    uint32_t lineFlags = lineInfo & lineDistanceFlagsMask;
+    uint32_t localOffset = m_bitcount[lineFlags & distanceFlagMask];
+
+    uint32_t vId0 = lineOffset + localOffset;
+    uint32_t dist0 = ((m_SdfCompactOctreeV3Data[brickOffset + off_2 + vId0 / vals_per_int] >> (bits * (vId0 % vals_per_int))) & max_val);
+    values[2*i+0] = -d_max + mult * dist0;
+
+    uint32_t vId1 = vId0+1;
+    uint32_t dist1 = ((m_SdfCompactOctreeV3Data[brickOffset + off_2 + vId1 / vals_per_int] >> (bits * (vId1 % vals_per_int))) & max_val);
+    values[2*i+1] = -d_max + mult * dist1;
   }
+  return -1.0f;
 #endif
   return vmin;
 }
