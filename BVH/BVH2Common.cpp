@@ -2444,17 +2444,18 @@ float BVHRT::COctreeV3_LoadDistanceValues(uint32_t brickOffset, float3 voxelPos,
   //brick structure: <presence_flags><distance_flags><values>
 
   //early exit if voxel is not present
-  uint3 voxelPosU = uint3(voxelPos);
-  uint32_t PFlagPos = voxelPosU.x*header.brick_size*header.brick_size + voxelPosU.y*header.brick_size + voxelPosU.z;
+  int3 voxelPosU = int3(voxelPos);
+  uint32_t p_size = header.brick_size + 2 * header.brick_pad;
+  uint32_t PFlagPos = (voxelPosU.x+header.brick_pad)*p_size*p_size + (voxelPosU.y+header.brick_pad)*p_size + voxelPosU.z+header.brick_pad;
   if ((m_SdfCompactOctreeV3Data[brickOffset + PFlagPos/32] & (1u << (PFlagPos%32))) == 0)
     return 1e6f;
   
   //this voxel is guaranteed to have surface
-  uint32_t line_distances_offset_bits = 8;
+  uint32_t line_distances_offset_bits = 9;
   uint32_t distance_flags_bits = v_size + line_distances_offset_bits;
   uint32_t distance_flags_per_int = 32 / distance_flags_bits;
   uint32_t distance_flags_size_uints = (v_size * v_size + distance_flags_per_int - 1) / distance_flags_per_int;
-  uint32_t presence_flags_size_uints = (header.brick_size * header.brick_size * header.brick_size + 32 - 1) / 32;
+  uint32_t presence_flags_size_uints = (p_size * p_size * p_size + 32 - 1) / 32;
 
   uint32_t off_1 = presence_flags_size_uints;
   uint32_t off_2 = off_1 + distance_flags_size_uints;
@@ -2470,7 +2471,7 @@ float BVHRT::COctreeV3_LoadDistanceValues(uint32_t brickOffset, float3 voxelPos,
   for (int i = 0; i < 4; i++)
   {
     uint32_t lineId = (voxelPosU.x + ((i & 2) >> 1) + header.brick_pad) * v_size + (voxelPosU.y + (i & 1) + header.brick_pad);
-    uint32_t distanceFlagMask = (1 << voxelPosU.z) - 1;
+    uint32_t distanceFlagMask = (1 << (voxelPosU.z + header.brick_pad)) - 1;
     uint32_t lineInfo = (m_SdfCompactOctreeV3Data[brickOffset + off_1 + lineId / distance_flags_per_int] >> (distance_flags_bits * (lineId % distance_flags_per_int))) & lineInfoMask;
     uint32_t lineOffset = lineInfo >> v_size;
     uint32_t lineFlags = lineInfo & lineDistanceFlagsMask;
@@ -2536,12 +2537,49 @@ void BVHRT::COctreeV3_BrickIntersect(uint32_t type, const float3 ray_pos, const 
       start_q = (start_pos - min_pos) * (0.5f*sz*header.brick_size);
       qFar = (fNearFar.y - fNearFar.x) * (0.5f*sz*header.brick_size);
     
-      //LocalSurfaceIntersection(TYPE_SDF_FRAME_OCTREE, ray_dir, 0, 0, values, nodeId, nodeId, d, 0.0f, qFar, fNearFar, start_q, /*in */
-      //                           pHit);
       LocalSurfaceIntersection(type, ray_dir, instId, geomId, values, brickOffset, brickOffset, d, 0.0f, qFar, fNearFar, start_q, /*in */
                                pHit); /*out*/
     
-      //TODO: smooth normal here
+      if (m_preset.normal_mode == NORMAL_MODE_SDF_SMOOTHED && need_normal() && pHit->t != old_t)
+      {
+        const float beta = 0.5f;
+        float3 dp = start_q + ((pHit->t - fNearFar.x)/d)*ray_dir; //linear interpolation coefficients in voxels
+
+        float3 normals[8];
+        float values_n[8];
+        for (int i=0;i<8;i++)
+          normals[i] = float3(0,0,0);
+        
+        float3 nmq = float3(0.5f,0.5f,0.5f);
+        nmq.x = dp.x < 0.5f ? step(-beta, beta, dp.x) : step(-beta, beta, dp.x - 1.0f);
+        nmq.y = dp.y < 0.5f ? step(-beta, beta, dp.y) : step(-beta, beta, dp.y - 1.0f);
+        nmq.z = dp.z < 0.5f ? step(-beta, beta, dp.z) : step(-beta, beta, dp.z - 1.0f);
+
+        int3 voxelPos0 = int3(dp.x < 0.5f ? voxelPos.x - 1 : voxelPos.x, dp.y < 0.5f ? voxelPos.y - 1 : voxelPos.y, dp.z < 0.5f ? voxelPos.z - 1 : voxelPos.z);
+        for (int i=0;i<8;i++)
+        {
+          int3 VoxelPosI = voxelPos0 + int3((i & 4) >> 2, (i & 2) >> 1, i & 1);
+          float3 dVoxelPos = float3(VoxelPosI) - voxelPos;
+
+          float vmin_n = COctreeV3_LoadDistanceValues(brickOffset, float3(VoxelPosI), v_size, sz_inv, header, values_n);
+          if (vmin_n <= 0.0f)
+            normals[i] = normalize(eval_dist_trilinear_diff(values_n, dp - dVoxelPos));
+        }
+
+        float3 smoothed_norm = (1-nmq.x)*(1-nmq.y)*(1-nmq.z)*normals[0] + 
+                               (1-nmq.x)*(1-nmq.y)*(  nmq.z)*normals[1] + 
+                               (1-nmq.x)*(  nmq.y)*(1-nmq.z)*normals[2] + 
+                               (1-nmq.x)*(  nmq.y)*(  nmq.z)*normals[3] + 
+                               (  nmq.x)*(1-nmq.y)*(1-nmq.z)*normals[4] + 
+                               (  nmq.x)*(1-nmq.y)*(  nmq.z)*normals[5] + 
+                               (  nmq.x)*(  nmq.y)*(1-nmq.z)*normals[6] + 
+                               (  nmq.x)*(  nmq.y)*(  nmq.z)*normals[7];
+        smoothed_norm = normalize(smoothed_norm);
+        float2 encoded_norm = encode_normal(smoothed_norm);
+
+        pHit->coords[2] = encoded_norm.x;
+        pHit->coords[3] = encoded_norm.y;
+      }
     }
     
     brick_fNearFar.x += std::max(0.0f, fNearFar.y-brick_fNearFar.x) + 1e-6f;

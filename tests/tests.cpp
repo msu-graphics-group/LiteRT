@@ -3166,7 +3166,7 @@ void litert_test_41_coctree_v3()
   MultiRenderPreset preset = getDefaultPreset();
   preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
   preset.spp = 16;
-  preset.normal_mode = NORMAL_MODE_GEOMETRY;
+  preset.normal_mode = NORMAL_MODE_VERTEX;
 
   unsigned base_depth = 7;
 
@@ -3253,7 +3253,8 @@ void litert_test_41_coctree_v3()
                       bvh->m_SdfSBSDataF.size() * sizeof(float);
 
     float psnr = image_metrics::PSNR(image_ref, image_res);
-    printf("SBS %2d bits/distance: %4.1f ms %6.1f Kb %.2f PSNR\n", b, timings[0]/10, SBS_total_bytes/(1024.0f), psnr);
+    float flip = image_metrics::FLIP(image_ref, image_res);
+    printf("SBS %2d bits/distance: %4.1f ms %6.1f Kb %.2f PSNR %.4f FLIP\n", b, timings[0]/10, SBS_total_bytes/(1024.0f), psnr, flip);
   }
 
   {
@@ -3278,7 +3279,8 @@ void litert_test_41_coctree_v3()
     coctree_total_bytes = bvh->m_SdfCompactOctreeV2Data.size()*sizeof(uint32_t); 
 
     float psnr = image_metrics::PSNR(image_ref, image_res);
-    printf("octree v2             %4.1f ms %6.1f Kb %.2f PSNR\n", timings[0]/10, coctree_total_bytes/(1024.0f), psnr);
+    float flip = image_metrics::FLIP(image_ref, image_res);
+    printf("octree v2             %4.1f ms %6.1f Kb %.2f PSNR %.4f FLIP\n", timings[0]/10, coctree_total_bytes/(1024.0f), psnr, flip);
   }
 
   {
@@ -3291,7 +3293,7 @@ void litert_test_41_coctree_v3()
     COctreeV3Header header;
     header.bits_per_value = 10;
     header.brick_size = 4;
-    header.brick_pad = 0;
+    header.brick_pad = 1;
 
     auto octree = sdf_converter::create_sdf_frame_octree(SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, base_depth-2, 2<<28),
                                                          mesh);
@@ -3300,6 +3302,7 @@ void litert_test_41_coctree_v3()
 
     auto pRender = CreateMultiRenderer(DEVICE_GPU);
     preset.octree_intersect = OCTREE_INTERSECT_TRAVERSE;
+    preset.normal_mode = NORMAL_MODE_SDF_SMOOTHED;
     pRender->SetPreset(preset);
     pRender->SetScene_COctreeV3(coctree_v3, header);
 
@@ -3315,7 +3318,8 @@ void litert_test_41_coctree_v3()
     coctree_total_bytes = bvhrt->m_SdfCompactOctreeV3Data.size()*sizeof(uint32_t); 
 
     float psnr = image_metrics::PSNR(image_ref, image_res);
-    printf("octree v3             %4.1f ms %6.1f Kb %.2f PSNR\n", timings[0]/10, coctree_total_bytes/(1024.0f), psnr);
+    float flip = image_metrics::FLIP(image_ref, image_res);
+    printf("octree v3             %4.1f ms %6.1f Kb %.2f PSNR %.4f FLIP\n", timings[0]/10, coctree_total_bytes/(1024.0f), psnr, flip);
   }
 }
 

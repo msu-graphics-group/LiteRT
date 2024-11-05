@@ -2542,15 +2542,17 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
                                  unsigned idx, unsigned lod_size, uint3 p)
   {
     int v_size = header.brick_size + 2 * header.brick_pad + 1;
-    std::vector<bool> presence_flags(header.brick_size*header.brick_size*header.brick_size, false);
+    int p_size = header.brick_size + 2 * header.brick_pad;
+    std::vector<bool> presence_flags(p_size*p_size*p_size, false);
     std::vector<bool> distance_flags(v_size*v_size*v_size, false);
 
-    for (int i=0;i<header.brick_size;i++)
+    for (int i = -(int)header.brick_pad; i < (int)(header.brick_size + header.brick_pad); i++)
     {
-      for (int j=0;j<header.brick_size;j++)
+      for (int j = -(int)header.brick_pad; j < (int)(header.brick_size + header.brick_pad); j++)
       {
-        for (int k=0;k<header.brick_size;k++)
+        for (int k = -(int)header.brick_pad; k < (int)(header.brick_size + header.brick_pad); k++)
         {
+          //printf("i,j,k: %d %d %d\n", i, j, k);
           unsigned off = SBS_v_to_i(i, j, k, v_size, header.brick_pad);
           float min_val = values_tmp[off];
           float max_val = values_tmp[off];
@@ -2573,7 +2575,7 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
 
           if (min_val <= 0 && max_val >= 0)
           {
-            presence_flags[i*header.brick_size*header.brick_size + j*header.brick_size + k] = true;
+            presence_flags[(i+(int)header.brick_pad)*p_size*p_size + (j+(int)header.brick_pad)*p_size + k+(int)header.brick_pad] = true;
 
             distance_flags[off]                              = true;
             distance_flags[off + 1]                          = true;
@@ -2593,11 +2595,11 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
     unsigned max_val = header.bits_per_value == 32 ? 0xFFFFFFFF : ((1 << bits) - 1);
     unsigned vals_per_int = 32 / header.bits_per_value;
 
-    constexpr unsigned line_distances_offset_bits = 8;
+    constexpr unsigned line_distances_offset_bits = 9;
     unsigned distance_flags_bits = v_size + line_distances_offset_bits;
     unsigned distance_flags_per_int = 32 / distance_flags_bits;
     unsigned distance_flags_size_uints = (v_size*v_size + distance_flags_per_int - 1) / distance_flags_per_int;
-    unsigned presence_flags_size_uints = (header.brick_size*header.brick_size*header.brick_size + 32 - 1) / 32;
+    unsigned presence_flags_size_uints = (p_size*p_size*p_size + 32 - 1) / 32;
 
     unsigned off_0 = 0;
     unsigned off_1 = off_0 + presence_flags_size_uints;
@@ -2610,7 +2612,7 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
       u_values_tmp[i] = 0;
 
     //fill presence flags
-    for (int i = 0; i < header.brick_size*header.brick_size*header.brick_size; i++)
+    for (int i = 0; i < p_size*p_size*p_size; i++)
     {
       u_values_tmp[off_0 + i / 32] |= (unsigned)presence_flags[i] << (i % 32);
     }
@@ -2813,7 +2815,7 @@ void frame_octree_to_compact_octree_v3_rec(const std::vector<SdfFrameOctreeNode>
 
     int v_size = header.brick_size + 2*header.brick_pad + 1;
     std::vector<float> values_tmp(v_size*v_size*v_size*max_threads);
-    std::vector<uint32_t> u_values_tmp(2*v_size*v_size*v_size*max_threads);
+    std::vector<uint32_t> u_values_tmp(3*v_size*v_size*v_size*max_threads);
 
     frame_octree_to_compact_octree_v3_rec(frame, header, sdf, max_threads, compact, values_tmp, u_values_tmp, 0, 0, 1, uint3(0,0,0));
 
