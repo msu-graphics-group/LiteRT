@@ -481,6 +481,11 @@ void MultiRenderer::SetPreset(const MultiRenderPreset& a_preset)
     bvhrt->SetPreset(a_preset);
 }
 
+MultiRenderPreset MultiRenderer::GetPreset()
+{
+  return m_preset;
+}
+
 void MultiRenderer::Render(uint32_t* imageData, uint32_t a_width, uint32_t a_height, 
                            const LiteMath::float4x4& a_worldView, const LiteMath::float4x4& a_proj,
                            MultiRenderPreset preset, int a_passNum)
