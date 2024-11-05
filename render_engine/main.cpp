@@ -22,11 +22,26 @@ void initVulkanGLFW(std::shared_ptr<IRender> &app, GLFWwindow* window, int devic
   }
 }
 
-int main()
+int main(int argc, const char ** argv)
 {
   constexpr int WIDTH = 1024;
   constexpr int HEIGHT = 1024;
   constexpr int VULKAN_DEVICE_ID = 0;
+
+  std::string scene_fpath = "./scenes/01_simple_scenes/bunny.xml";
+  if (argc > 1)
+  {
+    for (int i=1; i<argc; i++)
+    {
+      if (std::string(argv[i]) == "-scene")
+      {
+        if (i+1 < argc)
+          scene_fpath = argv[++i];
+        else
+          std::cout << "No scene file path provided" << std::endl;
+      }
+    }
+  }
 
   std::shared_ptr<IRender> app = std::make_shared<SimpleRender>(WIDTH, HEIGHT);
 
@@ -40,7 +55,7 @@ int main()
 
   initVulkanGLFW(app, window, VULKAN_DEVICE_ID);
 
-  app->LoadScene("./scenes/01_simple_scenes/bunny.xml");
+  app->LoadScene(scene_fpath.c_str());
   bool showGUI = true;
   mainLoop(app, window, showGUI);
 
