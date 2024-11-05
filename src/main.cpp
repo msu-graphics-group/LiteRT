@@ -75,6 +75,7 @@ int main(int, char** argv)
   std::vector<RBezierGrid> rbeziers;
   std::vector<char> visible;
   std::vector<std::vector<BoundingBox3d>> bboxes;
+  int total_bboxes_count = 0;
   std::vector<std::vector<LiteMath::float2>> uvs;
   FrameBuffer fb = { 
     LiteImage::Image2D<uint32_t>(WIDTH, HEIGHT, LiteMath::uchar4{ 153, 153, 153, 255 }.u32),
@@ -217,6 +218,8 @@ int main(int, char** argv)
       shading_changed =
           ImGui::ListBox("Shading", &cur_shader, shaders, sizeof(shaders)/sizeof(*shaders));
       ImGui::Text("Debug Info");
+      ImGui::Text("\tSurfaces count: %lu", rbeziers.size());
+      ImGui::Text("\tTotal boxes count: %d", total_bboxes_count);
       ImGui::Text("\tApplication average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
       ImGui::Text("\tCurrent render time: %.3f ms/frame (%.1f FPS)", ms, 1000.0f/ms);
       ImGui::End();
@@ -250,10 +253,12 @@ int main(int, char** argv)
         std::fill(visible.begin(), visible.end(), true);
         bboxes.resize(0);
         uvs.resize(0);
+        total_bboxes_count = 0;
         for (auto &surf: rbeziers) {
           auto [cur_bboxes, cur_uv] = get_bvh_leaves(surf);
           bboxes.push_back(cur_bboxes);
           uvs.push_back(cur_uv);
+          total_bboxes_count += cur_bboxes.size();
         }
         for (int i = 0; i < rbeziers.size(); ++i) {
           embree_scn.attach_surface(rbeziers[i], bboxes[i], uvs[i]);
