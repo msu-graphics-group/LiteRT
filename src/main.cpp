@@ -71,6 +71,7 @@ int main(int, char** argv)
   std::copy(default_path_to_surf.begin(), default_path_to_surf.end(), path_to_surf);
 
   std::vector<RBezierGrid> rbeziers;
+  std::vector<char> visible;
   std::vector<std::vector<BoundingBox3d>> bboxes;
   std::vector<std::vector<LiteMath::float2>> uvs;
   FrameBuffer fb = { 
@@ -170,6 +171,8 @@ int main(int, char** argv)
     //Render image
     auto b = std::chrono::high_resolution_clock::now();
     for (int i = 0; i < rbeziers.size(); ++i) {
+      if (!visible[i])
+        continue;
       switch(cur_renderer)
       {
         case 0: draw_points(rbeziers[i], camera, fb, 250/std::sqrt(rbeziers.size()), shader_funcs[cur_shader]); break;
@@ -212,6 +215,19 @@ int main(int, char** argv)
       ImGui::End();
     }
 
+    {
+      ImGui::SetNextWindowPos({WIDTH-200.0f, 0});
+      ImGui::SetNextWindowSize({ 200*1.0f, HEIGHT*1.0f });
+      ImGui::Begin("Inspector", nullptr, 
+          ImGuiWindowFlags_NoMove|ImGuiWindowFlags_NoResize);
+      for (int i = 0; i < visible.size(); ++i) {
+        std::string label = "Entity #" + std::to_string(i);
+        surface_changed |= ImGui::Checkbox(label.c_str(), reinterpret_cast<bool*>(&visible[i]));
+      }
+      ImGui::End();
+    }
+
+
     if (to_load_surface) {
       FILE *f = popen("zenity --file-selection", "r");
       [[maybe_unused]] auto _ = fgets(path_to_surf, sizeof(path_to_surf), f);
@@ -221,6 +237,8 @@ int main(int, char** argv)
       surface_changed = true;
       try {
         rbeziers = load_rbeziers(path_to_surf);
+        visible.resize(rbeziers.size());
+        std::fill(visible.begin(), visible.end(), true);
         bboxes.resize(0);
         uvs.resize(0);
         for (auto &surf: rbeziers) {
