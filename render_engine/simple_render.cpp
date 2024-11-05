@@ -754,11 +754,20 @@ void SimpleRender::Cleanup()
 
 /////////////////////////////////
 
+//MultiRenderMode item list
+static constexpr const char* const multi_render_mode_items[] = { "Mask", "Lambert (no tex)", "Depth", "Depth (linear)", "Depth (inverse linear)", "Primitive",
+                                                                 "Object type", "Geom", "Normals", "Barycentric", "ST iterations", "Radiance fields",
+                                                                 "Phong (no tex)", "Gaussian splats", "Radiance fields (density)", "Tex coords", "Diffuse",
+                                                                 "Lambert", "Phong", "Depth (HSV)" };
+
 void SimpleRender::SetupGUIElements()
 {
   ImGui_ImplVulkan_NewFrame();
   ImGui_ImplGlfw_NewFrame();
   ImGui::NewFrame();
+
+  MultiRenderPreset preset = this->m_pRayTracer->GetPreset();
+  int render_mode_int = preset.render_mode;
   {
 //    ImGui::ShowDemoWindow();
     ImGui::Begin("Your render settings here");
@@ -777,8 +786,14 @@ void SimpleRender::SetupGUIElements()
     ImGui::Text("Changing bindings is not supported.");
     ImGui::Text("Vertex shader path: %s", VERTEX_SHADER_PATH.c_str());
     ImGui::Text("Fragment shader path: %s", FRAGMENT_SHADER_PATH.c_str());
+    ImGui::Text("Render mode (RT):");
+    ImGui::ListBox("", &render_mode_int, multi_render_mode_items, sizeof(multi_render_mode_items) / sizeof(char*));
     ImGui::End();
   }
+
+  // Update preset
+  preset.render_mode = render_mode_int;
+  this->m_pRayTracer->SetPreset(preset);
 
   // Rendering
   ImGui::Render();

@@ -99,6 +99,7 @@ public:
                    MultiRenderPreset preset = getDefaultPreset(), int a_passNum = 1);
 
   void SetPreset(const MultiRenderPreset& a_preset);
+  MultiRenderPreset GetPreset();
 
   //functions implementing IRenderer interface
   MultiRenderer(uint32_t maxPrimitives); 
