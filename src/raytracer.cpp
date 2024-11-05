@@ -33,7 +33,8 @@ float2 bezier_project(
 HitInfo trace_surface_newton(
     const float3 &pos,
     const float3 &ray,
-    const RBezierGrid &surf) {
+    const RBezierGrid &surf,
+    float2 uv) {
   float3 ortho_dir1 = (ray.x || ray.z) ? float3{ 0, 1, 0 } : float3{ 1, 0, 0 };
   float3 ortho_dir2 = normalize(cross(ortho_dir1, ray));
   ortho_dir1 = normalize(cross(ray, ortho_dir2));
@@ -46,9 +47,6 @@ HitInfo trace_surface_newton(
   assert(dot(P1, to_float4(pos, 1.0f)) < 1e-2);
   assert(dot(P2, to_float4(pos, 1.0f)) < 1e-2);
   
-  auto distr = std::uniform_real_distribution<float>(0.0f, 1.0f);
-  auto &generator = generators[omp_get_thread_num()];
-  float2 uv = float2{ distr(generator), distr(generator) };
   float4 Sw = surf.get_point(uv.x, uv.y);
   float4 surf_point = Sw;
   surf_point /= surf_point.w;
@@ -172,7 +170,11 @@ void draw_newton(
     float3 pos = camera.position;
     if (!surface.bbox.intersects(pos, ray))
       continue;
-    auto info = trace_surface_newton(pos, ray, surface);
+    
+    auto distr = std::uniform_real_distribution<float>(0.0f, 1.0f);
+    auto &generator = generators[omp_get_thread_num()];
+    float2 uv0 = { distr(generator), distr(generator) };
+    auto info = trace_surface_newton(pos, ray, surface, uv0);
     if (info.hitten) {
       float2 uv = info.uv;
       float4 point = info.pos;

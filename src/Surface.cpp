@@ -501,7 +501,7 @@ de_casteljau_divide_curve(
   return res;
 }
 
-constexpr float div_constant = 1.0f;
+constexpr float div_constant = 10.0f;
 int flatteing_div_count(
     int p,
     StrideView<const float4> Pw) {

@@ -15,6 +15,7 @@
 #include "Surface.hpp"
 #include "raytracer.hpp"
 #include "utils.hpp"
+#include "embree_adaptors.hpp"
 
 using namespace LiteMath;
 
@@ -70,6 +71,7 @@ int main(int, char** argv)
   char path_to_surf[10000] = {};
   std::copy(default_path_to_surf.begin(), default_path_to_surf.end(), path_to_surf);
 
+  embree::EmbreeScene embree_scn;
   std::vector<RBezierGrid> rbeziers;
   std::vector<char> visible;
   std::vector<std::vector<BoundingBox3d>> bboxes;
@@ -94,7 +96,8 @@ int main(int, char** argv)
   const char *renderers[] = { 
     "Regular Sample Points", 
     "Newton Method (in progress)",
-    "Bounding boxes"
+    "Bounding boxes",
+    "Embree",
   };
 
   const char *shaders[] = {
@@ -170,15 +173,19 @@ int main(int, char** argv)
 
     //Render image
     auto b = std::chrono::high_resolution_clock::now();
-    for (int i = 0; i < rbeziers.size(); ++i) {
-      if (!visible[i])
-        continue;
-      switch(cur_renderer)
-      {
-        case 0: draw_points(rbeziers[i], camera, fb, 250/std::sqrt(rbeziers.size()), shader_funcs[cur_shader]); break;
-        case 1: draw_newton(rbeziers[i], camera, fb, shader_funcs[cur_shader]); break;
-        case 2: draw_boxes(bboxes[i], uvs[i], camera, fb);
+    if (cur_renderer <= 2) {
+      for (int i = 0; i < rbeziers.size(); ++i) {
+        if (!visible[i])
+          continue;
+        switch(cur_renderer)
+        {
+          case 0: draw_points(rbeziers[i], camera, fb, 250/std::sqrt(rbeziers.size()), shader_funcs[cur_shader]); break;
+          case 1: draw_newton(rbeziers[i], camera, fb, shader_funcs[cur_shader]); break;
+          case 2: draw_boxes(bboxes[i], uvs[i], camera, fb);
+        }
       }
+    } else {
+      embree_scn.draw(camera, fb);
     }
     auto e = std::chrono::high_resolution_clock::now();
     ms = std::chrono::duration_cast<std::chrono::microseconds>(e-b).count()/1000.0f;
@@ -229,6 +236,8 @@ int main(int, char** argv)
 
 
     if (to_load_surface) {
+      embree_scn.clear_scene();
+
       FILE *f = popen("zenity --file-selection", "r");
       [[maybe_unused]] auto _ = fgets(path_to_surf, sizeof(path_to_surf), f);
       fclose(f);
@@ -246,6 +255,10 @@ int main(int, char** argv)
           bboxes.push_back(cur_bboxes);
           uvs.push_back(cur_uv);
         }
+        for (int i = 0; i < rbeziers.size(); ++i) {
+          embree_scn.attach_surface(rbeziers[i], bboxes[i], uvs[i]);
+        }
+        embree_scn.commit_scene();
         BoundingBox3d bbox;
         for (auto &surf: rbeziers) {
           bbox.mn = LiteMath::min(bbox.mn, surf.bbox.mn);

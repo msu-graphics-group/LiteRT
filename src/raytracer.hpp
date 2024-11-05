@@ -70,6 +70,12 @@ LiteMath::float4 shade_normals(
   return LiteMath::to_float4(normal_col, 1.0f);
 }
 
+HitInfo trace_surface_newton(
+    const LiteMath::float3 &pos,
+    const LiteMath::float3 &ray,
+    const RBezierGrid &surf,
+    LiteMath::float2 uv);
+
 void draw_newton(
     const RBezierGrid &surface,
     const Camera &camera,

@@ -4,6 +4,9 @@ project("NURBSViewer" CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native")
 
+set(embree_DIR external/embree4/lib/cmake/embree-4.3.3)
+find_package(embree 4.3.3)
+
 add_library(LiteMath external/LiteMath/Image2d.cpp)
 target_include_directories(LiteMath PUBLIC external/LiteMath)
 
@@ -17,7 +20,7 @@ add_library(
     external/imgui/backends/imgui_impl_sdlrenderer2.cpp 
     external/imgui/backends/imgui_impl_sdl2.cpp
 )
-target_link_libraries(ImGui glfw SDL2main SDL2)
+target_link_libraries(ImGui glfw SDL2main SDL2 embree)
 target_include_directories(ImGui PUBLIC external/imgui external/imgui/backends /usr/include/SDL2)
 
 add_executable(
@@ -29,19 +32,8 @@ add_executable(
     src/raytracer.cpp
     src/utils.hpp
     src/utils.cpp
-)
-
-add_executable(
-  embree_based 
-    src/embree_main.cpp
-)
-
-set(embree_DIR external/embree4/lib/cmake/embree-4.3.3)
-find_package(embree 4.3.3)
-target_link_libraries(
-  embree_based
-    LiteMath 
-    embree
+    src/embree_adaptors.hpp
+    src/embree_adaptors.cpp
 )
 
 add_subdirectory(external/stp_parser)
