@@ -407,7 +407,19 @@ void MultiRenderer::SetScene(const RawNURBS &nurbs)
 
 void MultiRenderer::SetScene(const OpenVDB_Grid& grid)
 {
-  //TODO
+  BVHRT *bvhrt = dynamic_cast<BVHRT*>(m_pAccelStruct->UnderlyingImpl(0));
+  if (!bvhrt)
+  {
+    printf("only BVHRT supports NURBS\n");
+    return;
+  }
+
+  SetPreset(m_preset);
+  m_pAccelStruct->ClearGeom();
+  auto geomId = bvhrt->AddGeom_OpenVDB_Grid(grid, m_pAccelStruct.get());
+  m_pAccelStruct->ClearScene();
+  AddInstance(geomId, LiteMath::float4x4());
+  m_pAccelStruct->CommitScene();
 }
 
 void MultiRenderer::SetScene(GraphicsPrimView scene)

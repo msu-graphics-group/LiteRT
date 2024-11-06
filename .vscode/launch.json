@@ -10,7 +10,7 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/render_app",
-            "args": ["-tests_dr"],
+            "args": ["-tests_litert", "41"],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [],

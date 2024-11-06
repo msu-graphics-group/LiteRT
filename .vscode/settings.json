@@ -94,5 +94,19 @@
         "*.ipp": "cpp",
         "any": "cpp"
     },
-    "C_Cpp.default.compilerPath": "/usr/bin/g++-11"
+    "C_Cpp.default.compilerPath": "/usr/bin/g++-11",
+    "cmake.debugConfig": {
+        "args": [
+            "-tests_litert",
+            "41"
+        ],
+        "cwd": "${workspaceFolder}"
+    },
+    "cmake.buildDirectory": "${workspaceFolder}",
+    "cmake.configureSettings": {
+        "USE_VULKAN": false,
+        "USE_RTX": false,
+        "USE_STB_IMAGE": true,
+        "USE_ENZYME": false
+    }
 }

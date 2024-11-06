@@ -376,6 +376,8 @@ struct BVHRT : public ISceneObject
 #endif
 
 OpenVDB_Grid openvdb_grid;
+std::vector<OpenVDBHeader> m_VDBHeaders;
+std::vector<OpenVDB_Grid> m_VDBData;
 
   // Graphic primitives data
 #ifndef DISABLE_GRAPHICS_PRIM

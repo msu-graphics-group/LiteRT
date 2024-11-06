@@ -183,6 +183,11 @@ struct OTStackElement
   uint2 p_size;
 };
 
+struct OpenVDBHeader
+{
+  uint32_t offset;
+};
+
 //voxel position (i,j,k) to linear index
 static unsigned SBS_v_to_i(int i, int j, int k, unsigned v_size, unsigned pad)
 {

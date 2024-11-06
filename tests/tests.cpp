@@ -3163,7 +3163,32 @@ void litert_test_41_openvdb()
   OpenVDB_Grid grid;
   grid.mesh2sdf(mesh);
 
-  printf("OpenVDB leafs count: %lu\n", grid.sdfGrid->tree().leafCount());
+  //  If you want to see what sdf values are stored in tree
+
+  // auto constAccessor = grid.sdfGrid->getConstAccessor();
+
+  // for (openvdb::FloatGrid::ValueOnCIter iter = grid.sdfGrid->cbeginValueOn(); iter; ++iter)
+  // {
+  //   openvdb::Coord coord = iter.getCoord();
+  //   float value = *iter;
+  //   std::cout << "Voxel at (" << coord.x() << ", " << coord.y() << ", " << coord.z() << "), value = " << value << std::endl;
+  // }
+
+  unsigned W = 450, H = 450;
+
+  MultiRenderPreset preset = getDefaultPreset();
+  preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
+  preset.ray_gen_mode = RAY_GEN_MODE_REGULAR;
+  preset.spp = 1;
+  LiteImage::Image2D<uint32_t> ref_image(W, H);
+
+  auto pRender = CreateMultiRenderer(DEVICE_CPU);
+  preset.normal_mode = NORMAL_MODE_GEOMETRY;
+  pRender->SetPreset(preset);
+  pRender->SetViewport(0,0,W,H);
+  pRender->SetScene(grid);
+  render(ref_image, pRender, float3(0, 1, 2), float3(0, 0, 0), float3(0, 1, 0), preset);
+  LiteImage::SaveImage<uint32_t>("saves/test_41_openvdb.bmp", ref_image);
 }
 
 void perform_tests_litert(const std::vector<int> &test_ids)
