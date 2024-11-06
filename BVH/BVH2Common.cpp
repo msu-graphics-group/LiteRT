@@ -1693,22 +1693,24 @@ void BVHRT::IntersectOpenVDB_Grid(const float3& ray_pos, const float3& ray_dir,
   
   float dist = 1000;
   float t = std::max(tNear, tNear_tFar.x), tFar = tNear_tFar.y;
+  float start_sign = 1;
   float EPS = 1e-6f;
   bool hit = 0;
-  int iter = 1;
+  int iter = 0;
   const uint32_t ST_max_iters = 256;
 
   openvdb::Vec3f rayOrigin(ray_pos.x, ray_pos.y, ray_pos.z), rayDirection(ray_dir.x, ray_dir.y, ray_dir.z);
   openvdb::Vec3f point = rayOrigin + t * rayDirection;
-  openvdb::tools::GridSampler<openvdb::FloatGrid, openvdb::tools::BoxSampler> sampler(*(openvdb_grid.sdfGrid));
 
-  dist = std::abs(sampler.wsSample(point));
+  dist = std::abs(openvdb::tools::BoxSampler::sample(openvdb_grid.sdfGrid->tree(), point));
+  start_sign = sign(dist);
+  dist *= start_sign;
 
   while (t < tFar && dist > EPS && iter < ST_max_iters)
   {
     t += dist + EPS;
     point = rayOrigin + t * rayDirection;
-    dist = std::abs(sampler.wsSample(point));
+    dist = start_sign * openvdb::tools::BoxSampler::sample(openvdb_grid.sdfGrid->tree(), point);
     
     iter++;  
   }
@@ -1729,6 +1731,25 @@ void BVHRT::IntersectOpenVDB_Grid(const float3& ray_pos, const float3& ray_dir,
   pHit->coords[1] = 0;
   pHit->coords[2] = 0;
   pHit->coords[3] = 0;
+
+  float3 norm = float3(0, 0, 1);
+  if (need_normal())
+  {
+    point = rayOrigin + t * rayDirection;
+
+    const float h = 0.001;
+    float ddx = (openvdb::tools::BoxSampler::sample(openvdb_grid.sdfGrid->tree(), point + openvdb::Vec3f(h, 0, 0)) -
+                  openvdb::tools::BoxSampler::sample(openvdb_grid.sdfGrid->tree(), point + openvdb::Vec3f(-h, 0, 0))) /
+                (2 * h);
+    float ddy = (openvdb::tools::BoxSampler::sample(openvdb_grid.sdfGrid->tree(), point + openvdb::Vec3f(0, h, 0)) -
+                  openvdb::tools::BoxSampler::sample(openvdb_grid.sdfGrid->tree(), point + openvdb::Vec3f(0, -h, 0))) /
+                (2 * h);
+    float ddz = (openvdb::tools::BoxSampler::sample(openvdb_grid.sdfGrid->tree(), point + openvdb::Vec3f(0, 0, h)) -
+                  openvdb::tools::BoxSampler::sample(openvdb_grid.sdfGrid->tree(), point + openvdb::Vec3f(0, 0, -h))) /
+                (2 * h);
+
+    norm = start_sign * normalize(matmul4x3(m_instanceData[instId].transformInvTransposed, float3(ddx, ddy, ddz)));
+  }
 }
 
 
