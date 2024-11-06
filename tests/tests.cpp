@@ -3187,8 +3187,11 @@ void litert_test_41_openvdb()
 
   //  Render object by OpenVDB
   {
+    float voxel_size = 0.01;
+    float w = 5;
+
     OpenVDB_Grid grid;
-    grid.mesh2sdf(mesh);
+    grid.mesh2sdf(mesh, voxel_size, w);
 
     unsigned W = 1000, H = 1000;
 
@@ -3215,13 +3218,14 @@ void litert_test_41_openvdb()
   {
     MultiRenderPreset preset = getDefaultPreset();
     preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
+    preset.normal_mode = NORMAL_MODE_SDF_SMOOTHED;
     preset.interpolation_type = TRILINEAR_INTERPOLATION_MODE;
     preset.spp = 1;
 
     SparseOctreeSettings settings(SparseOctreeBuildType::MESH_TLO, 5);
 
     SdfSBSHeader header;
-    header.brick_size = 2;
+    header.brick_size = 4;
     header.brick_pad = 0;
     header.bytes_per_value = 1;
     
@@ -3262,8 +3266,8 @@ void litert_test_41_openvdb()
     psnr_svs = image_metrics::PSNR(ref_image, svs_image);
   }
 
-  printf("Mesh render time: %f \nVDB render time: %f \nSBS render time: %f \nSVS render time: %f \n", time_ref, time_vdb, time_sbs, time_svs);
-  printf("PSNR metrics: \nVDB: %f \nSBS: %f \nSVS: %f \n", psnr_vdb, psnr_sbs, psnr_svs);
+  printf("\nMesh render time: %f ms\nVDB  render time: %f ms\nSBS  render time: %f ms\nSVS  render time: %f ms\n", time_ref, time_vdb, time_sbs, time_svs);
+  printf("\nPSNR metrics: \nVDB: %f \nSBS: %f \nSVS: %f \n", psnr_vdb, psnr_sbs, psnr_svs);
 }
 
 void perform_tests_litert(const std::vector<int> &test_ids)

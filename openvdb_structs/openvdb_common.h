@@ -20,5 +20,5 @@ public:
     openvdb::FloatGrid::Ptr sdfGrid;
 public:
     OpenVDB_Grid() { openvdb::initialize(); }
-    void mesh2sdf(const cmesh4::SimpleMesh& mesh);
+    void mesh2sdf(const cmesh4::SimpleMesh& mesh, const float& voxel_size, const float& w);
 };
