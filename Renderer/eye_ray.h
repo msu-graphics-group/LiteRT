@@ -85,7 +85,7 @@ public:
   void SetScene(SdfFrameOctreeTexView scene);
   void SetScene(const RawNURBS &nurbs);
   void SetScene(GraphicsPrimView scene);
-  void SetScene(const OpenVDB_GRID& grid);
+  void SetScene(const OpenVDB_Grid& grid);
 
 #endif
   void Render(uint32_t* imageData, uint32_t a_width, uint32_t a_height, 

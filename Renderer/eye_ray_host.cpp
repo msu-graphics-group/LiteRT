@@ -405,7 +405,7 @@ void MultiRenderer::SetScene(const RawNURBS &nurbs)
   m_pAccelStruct->CommitScene();
 }
 
-void MultiRenderer::SetScene(const OpenVDB_GRID& grid)
+void MultiRenderer::SetScene(const OpenVDB_Grid& grid)
 {
   //TODO
 }

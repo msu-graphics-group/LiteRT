@@ -172,6 +172,8 @@ void BVHRT::LocalSurfaceIntersection(uint32_t type, const float3 ray_dir, uint32
   #ifdef USE_TRICUBIC
     float point[3] = {(start_q + t * ray_dir).x, (start_q + t * ray_dir).y, (start_q + t * ray_dir).z};
     start_dist = tricubicInterpolation(values, point);
+    start_sign = sign(start_dist);
+    start_dist *= start_sign;
   #else
     start_dist = eval_dist_trilinear(values, start_q + t * ray_dir);
     start_sign = sign(start_dist);
@@ -194,9 +196,9 @@ void BVHRT::LocalSurfaceIntersection(uint32_t type, const float3 ray_dir, uint32
 
       #ifdef USE_TRICUBIC
         float point[3] = {(start_q + t * ray_dir).x, (start_q + t * ray_dir).y, (start_q + t * ray_dir).z};
-        dist = tricubicInterpolation(values, point);
+        dist = start_sign * tricubicInterpolation(values, point);
       #else
-        dist = start_sign*eval_dist_trilinear(values, start_q + t * ray_dir);
+        dist = start_sign * eval_dist_trilinear(values, start_q + t * ray_dir);
       #endif
       
       float3 pp = start_q + t * ray_dir;
@@ -1682,7 +1684,51 @@ void BVHRT::IntersectOpenVDB_Grid(const float3& ray_pos, const float3& ray_dir,
                            float tNear, uint32_t instId,
                            uint32_t geomId, CRT_Hit* pHit)
 {
+  uint openvdbId = m_geomData[geomId].offset.x;
+  uint type = m_geomData[geomId].type;
 
+  float3 min_pos = to_float3(m_geomData[geomId].boxMin);
+  float3 max_pos = to_float3(m_geomData[geomId].boxMax);
+  float2 tNear_tFar = box_intersects(min_pos, max_pos, ray_pos, ray_dir);
+  
+  float dist = 1000;
+  float t = std::max(tNear, tNear_tFar.x), tFar = tNear_tFar.y;
+  float EPS = 1e-6f;
+  bool hit = 0;
+  int iter = 1;
+  const uint32_t ST_max_iters = 256;
+
+  openvdb::Vec3f rayOrigin(ray_pos.x, ray_pos.y, ray_pos.z), rayDirection(ray_dir.x, ray_dir.y, ray_dir.z);
+  openvdb::Vec3f point = rayOrigin + t * rayDirection;
+  openvdb::tools::GridSampler<openvdb::FloatGrid, openvdb::tools::BoxSampler> sampler(*(openvdb_grid.sdfGrid));
+
+  dist = std::abs(sampler.wsSample(point));
+
+  while (t < tFar && dist > EPS && iter < ST_max_iters)
+  {
+    t += dist + EPS;
+    point = rayOrigin + t * rayDirection;
+    dist = std::abs(sampler.wsSample(point));
+    
+    iter++;  
+  }
+  
+  hit = (dist <= EPS);
+
+  if (!hit || t < tNear || t > tFar)
+  {
+    return;
+  }
+
+  pHit->geomId = geomId | (type << SH_TYPE);
+  pHit->t = dot(normalize(ray_dir), float3(point.x(), point.y(), point.z()) - ray_pos);
+  pHit->primId = 0;
+  pHit->instId = instId;
+
+  pHit->coords[0] = 0;
+  pHit->coords[1] = 0;
+  pHit->coords[2] = 0;
+  pHit->coords[3] = 0;
 }
 
 

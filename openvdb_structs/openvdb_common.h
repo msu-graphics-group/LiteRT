@@ -10,12 +10,15 @@
 #include <openvdb/tools/FastSweeping.h>
 #include <openvdb/tools/MeshToVolume.h>
 #include <openvdb/tools/VolumeToMesh.h>
+#include <openvdb/tools/Interpolation.h>
 
+#include "../utils/mesh.h"
 
-void load_mesh(const std::string& path);
-void create_sdf4Mesh();
-
-struct OpenVDB_GRID
+struct OpenVDB_Grid
 {
-
+public:
+    openvdb::FloatGrid::Ptr sdfGrid;
+public:
+    OpenVDB_Grid() { openvdb::initialize(); }
+    void mesh2sdf(const cmesh4::SimpleMesh& mesh);
 };

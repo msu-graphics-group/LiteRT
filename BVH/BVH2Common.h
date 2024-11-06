@@ -31,9 +31,7 @@ using LiteMath::Box4f;
 #include "nurbs/nurbs_common.h"
 #include "openvdb_structs/openvdb_common.h"
 #include "graphics_primitive/graphics_primitive_common.h"
-
-// #define USE_TRICUBIC 0
-
+#include "openvdb_structs/openvdb_common.h"
 
 struct BVHRT;
 struct GeomData
@@ -126,7 +124,7 @@ struct BVHRT : public ISceneObject
   uint32_t AddGeom_SdfFrameOctreeTex(SdfFrameOctreeTexView octree, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
   uint32_t AddGeom_NURBS(const RawNURBS &nurbs, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
   uint32_t AddGeom_GraphicsPrim(const GraphicsPrimView &nurbs, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
-  uint32_t AddGeom_OpenVDB_Grid(const OpenVDB_GRID& grid, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
+  uint32_t AddGeom_OpenVDB_Grid(const OpenVDB_Grid& grid, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
 
   void set_debug_mode(bool enable);
 #endif
@@ -376,6 +374,8 @@ struct BVHRT : public ISceneObject
     NURBSHeader h);
   //end NURBS functions
 #endif
+
+OpenVDB_Grid openvdb_grid;
 
   // Graphic primitives data
 #ifndef DISABLE_GRAPHICS_PRIM

@@ -800,12 +800,18 @@ std::vector<BVHNode> GetBoxes_NURBS(const RawNURBS &nurbs)
   return nodes;
 }
 
-std::vector<BVHNode> getBoxes_OpenVDB_Grid(const OpenVDB_GRID& grid)
+std::vector<BVHNode> getBoxes_OpenVDB_Grid(const OpenVDB_Grid& grid)
 {
-  //TODO
+  std::vector<BVHNode> nodes;
+  nodes.resize(2);
+  nodes[0].boxMin = float3(-1,-1,-1);
+  nodes[0].boxMax = float3(1,1,0);
+  nodes[1].boxMin = float3(-1,-1,0);
+  nodes[1].boxMax = float3(1,1,1);
+  return nodes;
 }
 
-uint32_t BVHRT::AddGeom_OpenVDB_Grid(const OpenVDB_GRID &grid, ISceneObject *fake_this, BuildOptions a_qualityLevel)
+uint32_t BVHRT::AddGeom_OpenVDB_Grid(const OpenVDB_Grid &grid, ISceneObject *fake_this, BuildOptions a_qualityLevel)
 {
   //TODO
 }
