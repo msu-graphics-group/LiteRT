@@ -1727,14 +1727,12 @@ void BVHRT::IntersectOpenVDB_Grid(const float3& ray_pos, const float3& ray_dir,
   }
 
   pHit->geomId = geomId | (type << SH_TYPE);
-  pHit->t = dot(normalize(ray_dir), float3(point.x(), point.y(), point.z()) - ray_pos);
+  pHit->t = t;
   pHit->primId = 0;
   pHit->instId = instId;
 
   pHit->coords[0] = 0;
   pHit->coords[1] = 0;
-  pHit->coords[2] = 0;
-  pHit->coords[3] = 0;
 
   float3 norm = float3(0, 0, 1);
   if (need_normal())
@@ -1753,6 +1751,9 @@ void BVHRT::IntersectOpenVDB_Grid(const float3& ray_pos, const float3& ray_dir,
                 (2 * h);
 
     norm = start_sign * normalize(matmul4x3(m_instanceData[instId].transformInvTransposed, float3(ddx, ddy, ddz)));
+    float2 encoded_norm = encode_normal(norm);
+    pHit->coords[2] = encoded_norm.x;
+    pHit->coords[3] = encoded_norm.y;
   }
 }
 
