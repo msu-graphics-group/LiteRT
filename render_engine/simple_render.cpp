@@ -787,7 +787,7 @@ void SimpleRender::SetupGUIElements()
     ImGui::Text("Vertex shader path: %s", VERTEX_SHADER_PATH.c_str());
     ImGui::Text("Fragment shader path: %s", FRAGMENT_SHADER_PATH.c_str());
     ImGui::Text("Render mode (RT):");
-    ImGui::ListBox("", &render_mode_int, multi_render_mode_items, sizeof(multi_render_mode_items) / sizeof(char*));
+    ImGui::ListBox(".", &render_mode_int, multi_render_mode_items, sizeof(multi_render_mode_items) / sizeof(char*));
     ImGui::End();
   }
 
