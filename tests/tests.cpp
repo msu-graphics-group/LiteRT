@@ -3174,11 +3174,10 @@ void litert_test_41_openvdb()
   //   std::cout << "Voxel at (" << coord.x() << ", " << coord.y() << ", " << coord.z() << "), value = " << value << std::endl;
   // }
 
-  unsigned W = 450, H = 450;
+  unsigned W = 1000, H = 1000;
 
   MultiRenderPreset preset = getDefaultPreset();
   preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
-  preset.ray_gen_mode = RAY_GEN_MODE_REGULAR;
   preset.spp = 1;
   LiteImage::Image2D<uint32_t> ref_image(W, H);
 
@@ -3187,7 +3186,7 @@ void litert_test_41_openvdb()
   pRender->SetPreset(preset);
   pRender->SetViewport(0,0,W,H);
   pRender->SetScene(grid);
-  render(ref_image, pRender, float3(0, 1, 2), float3(0, 0, 0), float3(0, 1, 0), preset);
+  render(ref_image, pRender, float3(0, 0, 2), float3(0, 0, 0), float3(0, 1, 0), preset);
   LiteImage::SaveImage<uint32_t>("saves/test_41_openvdb.bmp", ref_image);
 }
 
