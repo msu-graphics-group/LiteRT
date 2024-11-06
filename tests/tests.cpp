@@ -3160,34 +3160,110 @@ void litert_test_41_openvdb()
   auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "scenes/01_simple_scenes/data/bunny.vsgf").c_str());
   cmesh4::rescale_mesh(mesh, float3(-0.95, -0.95, -0.95), float3(0.95, 0.95, 0.95));
 
-  OpenVDB_Grid grid;
-  grid.mesh2sdf(mesh);
-
-  //  If you want to see what sdf values are stored in tree
-
-  // auto constAccessor = grid.sdfGrid->getConstAccessor();
-
-  // for (openvdb::FloatGrid::ValueOnCIter iter = grid.sdfGrid->cbeginValueOn(); iter; ++iter)
-  // {
-  //   openvdb::Coord coord = iter.getCoord();
-  //   float value = *iter;
-  //   std::cout << "Voxel at (" << coord.x() << ", " << coord.y() << ", " << coord.z() << "), value = " << value << std::endl;
-  // }
-
+  float time_ref = 0, time_vdb = 0, time_sbs = 0, time_svs = 0;
+  float psnr_vdb = 0, psnr_sbs = 0, psnr_svs = 0;
   unsigned W = 1000, H = 1000;
+  LiteImage::Image2D<uint32_t> ref_image(W, H), vdb_image(W, H), sbs_image(W, H), svs_image(W, H);
 
-  MultiRenderPreset preset = getDefaultPreset();
-  preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
-  preset.spp = 1;
-  LiteImage::Image2D<uint32_t> ref_image(W, H);
+  //  Render reference (mesh)
+  {
+    MultiRenderPreset preset = getDefaultPreset();
+    preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
+    preset.spp = 1;
 
-  auto pRender = CreateMultiRenderer(DEVICE_CPU);
-  preset.normal_mode = NORMAL_MODE_GEOMETRY;
-  pRender->SetPreset(preset);
-  pRender->SetViewport(0,0,W,H);
-  pRender->SetScene(grid);
-  render(ref_image, pRender, float3(0, 0, 2), float3(0, 0, 0), float3(0, 1, 0), preset);
-  LiteImage::SaveImage<uint32_t>("saves/test_41_openvdb.bmp", ref_image);
+    auto pRender = CreateMultiRenderer(DEVICE_CPU);
+    preset.normal_mode = NORMAL_MODE_GEOMETRY;
+    pRender->SetPreset(preset);
+    pRender->SetViewport(0,0,W,H);
+    pRender->SetScene(mesh);
+
+    auto t1 = std::chrono::steady_clock::now();
+    render(ref_image, pRender, float3(0, 0, 2), float3(0, 0, 0), float3(0, 1, 0), preset);
+    auto t2 = std::chrono::steady_clock::now();
+
+    time_ref = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+    LiteImage::SaveImage<uint32_t>("saves/test_41_mesh.bmp", ref_image);
+  }
+
+  //  Render object by OpenVDB
+  {
+    OpenVDB_Grid grid;
+    grid.mesh2sdf(mesh);
+
+    unsigned W = 1000, H = 1000;
+
+    MultiRenderPreset preset = getDefaultPreset();
+    preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
+    preset.spp = 1;
+
+    auto pRender = CreateMultiRenderer(DEVICE_CPU);
+    preset.normal_mode = NORMAL_MODE_GEOMETRY;
+    pRender->SetPreset(preset);
+    pRender->SetViewport(0,0,W,H);
+    pRender->SetScene(grid);
+    auto t1 = std::chrono::steady_clock::now();
+    render(vdb_image, pRender, float3(0, 0, 2), float3(0, 0, 0), float3(0, 1, 0), preset);
+    auto t2 = std::chrono::steady_clock::now();
+
+    time_vdb = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+    LiteImage::SaveImage<uint32_t>("saves/test_41_openvdb.bmp", vdb_image);
+
+    psnr_vdb = image_metrics::PSNR(ref_image, vdb_image);
+  }
+
+  //  Render object by SBS struct
+  {
+    MultiRenderPreset preset = getDefaultPreset();
+    preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
+    preset.interpolation_type = TRILINEAR_INTERPOLATION_MODE;
+    preset.spp = 1;
+
+    SparseOctreeSettings settings(SparseOctreeBuildType::MESH_TLO, 5);
+
+    SdfSBSHeader header;
+    header.brick_size = 2;
+    header.brick_pad = 0;
+    header.bytes_per_value = 1;
+    
+    auto pRender = CreateMultiRenderer(DEVICE_CPU);
+    pRender->SetPreset(preset);
+    pRender->SetViewport(0,0,W,H);
+    auto indexed_SBS = sdf_converter::create_sdf_SBS_indexed_with_neighbors(settings, header, mesh, 0, pRender->getMaterials(), pRender->getTextures());
+    pRender->SetScene(indexed_SBS);
+
+    preset.normal_mode = NORMAL_MODE_GEOMETRY;
+    auto t1 = std::chrono::high_resolution_clock::now();
+    render(sbs_image, pRender, float3(0, 0, 2), float3(0, 0, 0), float3(0, 1, 0), preset);    
+    auto t2 = std::chrono::high_resolution_clock::now();
+
+    time_sbs = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+    LiteImage::SaveImage<uint32_t>("saves/test_41_sbs.bmp", sbs_image);
+
+    psnr_sbs = image_metrics::PSNR(ref_image, sbs_image);
+  }
+
+  //  Render object by SVS struct
+  {
+    MultiRenderPreset preset = getDefaultPreset();
+    preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
+    preset.spp = 1;
+
+    auto octree = sdf_converter::create_sdf_SVS(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 8, 64*64*64), mesh);
+    auto pRender = CreateMultiRenderer(DEVICE_CPU);
+    pRender->SetPreset(preset);
+    pRender->SetScene(octree);
+    auto t1 = std::chrono::high_resolution_clock::now();
+    render(svs_image, pRender, float3(0, 0, 2), float3(0, 0, 0), float3(0, 1, 0), preset);
+    auto t2 = std::chrono::high_resolution_clock::now();
+
+    time_svs = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+    LiteImage::SaveImage<uint32_t>("saves/test_41_svs.bmp", svs_image);
+
+    psnr_svs = image_metrics::PSNR(ref_image, svs_image);
+  }
+
+  printf("Mesh render time: %f \nVDB render time: %f \nSBS render time: %f \nSVS render time: %f \n", time_ref, time_vdb, time_sbs, time_svs);
+  printf("PSNR metrics: \nVDB: %f \nSBS: %f \nSVS: %f \n", psnr_vdb, psnr_sbs, psnr_svs);
 }
 
 void perform_tests_litert(const std::vector<int> &test_ids)

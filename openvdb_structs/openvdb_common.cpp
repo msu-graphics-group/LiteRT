@@ -16,8 +16,8 @@ OpenVDB_Grid::mesh2sdf(const cmesh4::SimpleMesh& mesh)
         indices.push_back(openvdb::Vec3I(mesh.indices[i], mesh.indices[i + 1], mesh.indices[i + 2]));
     }
 
-    float voxelSize = 0.02;
-    float w = 2.f;
+    float voxelSize = 0.002;
+    float w = 8.f;
 
     openvdb::math::Transform::Ptr transform = openvdb::math::Transform::createLinearTransform(voxelSize);
     this->sdfGrid = openvdb::tools::meshToLevelSet<openvdb::FloatGrid>(
