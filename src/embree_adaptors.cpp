@@ -27,6 +27,8 @@ namespace embree
 
   void rbgrid_intersect_function(const RTCIntersectFunctionNArguments *args) {
     const RBGridView &view = *reinterpret_cast<const RBGridView*>(args->geometryUserPtr);
+    if (!view.p_grid->is_visible)
+      return;
     assert(args->N == 1);
     if (!args->valid[0])
       return;

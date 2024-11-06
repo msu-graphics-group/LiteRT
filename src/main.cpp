@@ -73,7 +73,6 @@ int main(int, char** argv)
 
   embree::EmbreeScene embree_scn;
   std::vector<RBezierGrid> rbeziers;
-  std::vector<char> visible;
   std::vector<std::vector<BoundingBox3d>> bboxes;
   int total_bboxes_count = 0;
   std::vector<std::vector<LiteMath::float2>> uvs;
@@ -176,7 +175,7 @@ int main(int, char** argv)
     auto b = std::chrono::high_resolution_clock::now();
     if (cur_renderer <= 2) {
       for (int i = 0; i < rbeziers.size(); ++i) {
-        if (!visible[i])
+        if (!rbeziers[i].is_visible)
           continue;
         switch(cur_renderer)
         {
@@ -231,9 +230,9 @@ int main(int, char** argv)
       ImGui::SetNextWindowSize({ 200*1.0f, HEIGHT*1.0f });
       ImGui::Begin("Inspector", nullptr, 
           ImGuiWindowFlags_NoMove|ImGuiWindowFlags_NoResize);
-      for (int i = 0; i < visible.size(); ++i) {
+      for (int i = 0; i < rbeziers.size(); ++i) {
         std::string label = "Entity #" + std::to_string(i);
-        surface_changed |= ImGui::Checkbox(label.c_str(), reinterpret_cast<bool*>(&visible[i]));
+        surface_changed |= ImGui::Checkbox(label.c_str(), &rbeziers[i].is_visible);
       }
       ImGui::End();
     }
@@ -250,8 +249,6 @@ int main(int, char** argv)
       surface_changed = true;
       try {
         rbeziers = load_rbeziers(path_to_surf);
-        visible.resize(rbeziers.size());
-        std::fill(visible.begin(), visible.end(), true);
         bboxes.resize(0);
         uvs.resize(0);
         total_bboxes_count = 0;

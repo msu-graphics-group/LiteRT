@@ -12,7 +12,7 @@
 using namespace LiteMath;
 using namespace LiteImage;
 
-constexpr float EPS = 0.01f;
+constexpr float EPS = 0.001f;
 constexpr int max_steps = 5;
 std::vector<std::mt19937> generators(omp_get_max_threads());
 
