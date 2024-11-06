@@ -44,23 +44,22 @@ namespace embree
     if (!info.hitten)
       return;
 
-    float t = dot(dir, to_float3(info.pos/info.pos.w)-pos);
+    float t = dot(dir, info.pos-pos);
     if (t < ray_hit.ray.tnear || t > ray_hit.ray.tfar)
       return;
     ray_hit.ray.tfar = t;
 
-    float3 normal = normalize(cross(info.uder, info.vder));
     auto &hit = ray_hit.hit;
     hit.geomID = args->geomID;
     hit.primID = args->primID;
     hit.u = info.uv[0];
     hit.v = info.uv[1];
-    hit.Ng_x = normal.x;
-    hit.Ng_y = normal.y;
-    hit.Ng_z = normal.z;
+    hit.Ng_x = info.normal.x;
+    hit.Ng_y = info.normal.y;
+    hit.Ng_z = info.normal.z;
   }
 
-  void EmbreeScene::draw(const Camera &camera, FrameBuffer &fb) const {
+  void EmbreeScene::draw(const Camera &camera, FrameBuffer &fb, std::function<ShadeFuncType> shade_func) const {
     float4x4 mat  = perspectiveMatrix(camera.fov*180*M_1_PI, camera.aspect, 0.001f, 100.0f)
                   * lookAt(camera.position, camera.target, camera.up);
     float4x4 inversed_mat = inverse4x4(mat);
@@ -99,8 +98,16 @@ namespace embree
         uint2 xy = uint2{ x, fb.col_buf.height()-1-y };
 
         if (fb.z_buf[xy] > t) {
-          float3 normal{ rayhit.hit.Ng_x, rayhit.hit.Ng_y, rayhit.hit.Ng_z };
-          float4 color = to_float4((normal+1.0f)/2.0f, 1.0f);
+          HitInfo info;
+          info.hitten = true;
+          info.pos = pos + ray * t;
+          info.uv = float2{ rayhit.hit.u, rayhit.hit.v };
+          info.normal = float3 {
+            rayhit.hit.Ng_x,
+            rayhit.hit.Ng_y,
+            rayhit.hit.Ng_z
+          };
+          float4 color = shade_func(info, pos);
           fb.z_buf[xy] = t;
           fb.col_buf[xy] = uchar4{ 
             static_cast<u_char>(color[0]*255.0f),

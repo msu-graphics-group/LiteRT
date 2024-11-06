@@ -12,7 +12,7 @@
 using namespace LiteMath;
 using namespace LiteImage;
 
-constexpr float EPS = 0.001f;
+constexpr float EPS = 0.01f;
 constexpr int max_steps = 5;
 std::vector<std::mt19937> generators(omp_get_max_threads());
 
@@ -91,7 +91,7 @@ HitInfo trace_surface_newton(
   
   float3 uder = to_float3(surf.uder(uv.x, uv.y, Sw));
   float3 vder = to_float3(surf.vder(uv.x, uv.y, Sw));
-  return HitInfo{ true, Sw, uder, vder, uv };
+  return HitInfo{ true, to_float3(surf_point), normalize(cross(uder, vder)), uv };
 }
 
 void draw_points(
@@ -132,8 +132,8 @@ void draw_points(
     if (fb.z_buf[uint2{x, y}] > t) {
       float3 uder = to_float3(surface.uder(u, v, Sw));
       float3 vder = to_float3(surface.vder(u, v, Sw));
-      HitInfo info = { true, point, uder, vder, float2{ u, v} };
-      float4 color = shade_function(surface, info, camera.position);
+      HitInfo info = { true, to_float3(Sw/Sw.w), normalize(cross(uder, vder)), float2{ u, v} };
+      float4 color = shade_function(info, camera.position);
       fb.z_buf[uint2{x, y}] = t;
       fb.col_buf[uint2{x, y}] = uchar4{ 
         static_cast<u_char>(color.x*255.0f),
@@ -177,13 +177,12 @@ void draw_newton(
     auto info = trace_surface_newton(pos, ray, surface, uv0);
     if (info.hitten) {
       float2 uv = info.uv;
-      float4 point = info.pos;
-      point /= point.w; 
-      float t = length(to_float3(point)-camera.position);
+      float3 point = info.pos;
+      float t = length(point-camera.position);
       uint2 xy = uint2{ x, fb.col_buf.height()-1-y };
 
       if (fb.z_buf[xy] > t) {
-        float4 color = shade_function(surface, info, camera.position);
+        float4 color = shade_function(info, camera.position);
         fb.z_buf[xy] = t;
         fb.col_buf[xy] = uchar4{ 
           static_cast<u_char>(color[0]*255.0f),

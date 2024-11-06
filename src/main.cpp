@@ -185,7 +185,7 @@ int main(int, char** argv)
         }
       }
     } else {
-      embree_scn.draw(camera, fb);
+      embree_scn.draw(camera, fb, shader_funcs[cur_shader]);
     }
     auto e = std::chrono::high_resolution_clock::now();
     ms = std::chrono::duration_cast<std::chrono::microseconds>(e-b).count()/1000.0f;

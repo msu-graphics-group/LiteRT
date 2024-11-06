@@ -67,7 +67,7 @@ namespace embree
       rtcReleaseDevice(device);
     }
   public:
-    void draw(const Camera &camera, FrameBuffer &fb) const;
+    void draw(const Camera &camera, FrameBuffer &fb, std::function<ShadeFuncType> shade_func = shade_uv) const;
   private:
     std::list<RBGridView> views;
     RTCDevice device;

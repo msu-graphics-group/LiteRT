@@ -41,20 +41,17 @@ public:
 struct HitInfo
 {
   bool hitten = false;
-  LiteMath::float4 pos;
-  LiteMath::float3 uder;
-  LiteMath::float3 vder;
+  LiteMath::float3 pos;
+  LiteMath::float3 normal;
   LiteMath::float2 uv;
 };
 
-using ShadeFuncType = LiteMath::float4(
-    const RBezierGrid &grid, 
+using ShadeFuncType = LiteMath::float4( 
     const HitInfo &info,
     const LiteMath::float3 &camera_pos);
 
 inline 
 LiteMath::float4 shade_uv(
-    const RBezierGrid &grid, 
     const HitInfo &info,
     const LiteMath::float3 &camera_pos) {
   return LiteMath::float4{ info.uv.x, info.uv.y, 0.0f, 1.0f }; 
@@ -62,11 +59,9 @@ LiteMath::float4 shade_uv(
 
 inline 
 LiteMath::float4 shade_normals(
-    const RBezierGrid &grid, 
     const HitInfo &info,
     const LiteMath::float3 &camera_pos) {
-  auto normal = LiteMath::normalize(LiteMath::cross(info.uder, info.vder));
-  auto normal_col = (normal+1.0f)/2.0f;
+  auto normal_col = (info.normal+1.0f)/2.0f;
   return LiteMath::to_float4(normal_col, 1.0f);
 }
 
