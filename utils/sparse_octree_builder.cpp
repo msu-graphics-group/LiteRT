@@ -2544,7 +2544,11 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
     int v_size = header.brick_size + 2 * header.brick_pad + 1;
     int p_size = header.brick_size + 2 * header.brick_pad;
     std::vector<bool> presence_flags(p_size*p_size*p_size, false);
+    std::vector<bool> requirement_flags(p_size*p_size*p_size, false);
     std::vector<bool> distance_flags(v_size*v_size*v_size, false);
+
+    #define V_OFF(off, i, j, k) off + (i)*v_size*v_size + (j)*v_size + (k)
+    #define P_OFF(off, i, j, k) off + (i)*p_size*p_size + (j)*p_size + (k)
 
     for (int i = -(int)header.brick_pad; i < (int)(header.brick_size + header.brick_pad); i++)
     {
@@ -2552,31 +2556,94 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
       {
         for (int k = -(int)header.brick_pad; k < (int)(header.brick_size + header.brick_pad); k++)
         {
-          //printf("i,j,k: %d %d %d\n", i, j, k);
           unsigned off = SBS_v_to_i(i, j, k, v_size, header.brick_pad);
-          float min_val = values_tmp[off];
-          float max_val = values_tmp[off];
+          float min_val = values_tmp[V_OFF(off, 0, 0, 0)];
+          float max_val = values_tmp[V_OFF(off, 0, 0, 0)];
 
-          min_val = std::min(min_val, values_tmp[off + 1]);
-          min_val = std::min(min_val, values_tmp[off + v_size]);
-          min_val = std::min(min_val, values_tmp[off + v_size + 1]);
-          min_val = std::min(min_val, values_tmp[off + v_size*v_size]);
-          min_val = std::min(min_val, values_tmp[off + v_size*v_size + 1]);
-          min_val = std::min(min_val, values_tmp[off + v_size*v_size + v_size]);
-          min_val = std::min(min_val, values_tmp[off + v_size*v_size + v_size + 1]);
+          min_val = std::min(min_val, values_tmp[V_OFF(off, 0, 0, 1)]);
+          min_val = std::min(min_val, values_tmp[V_OFF(off, 0, 1, 0)]);
+          min_val = std::min(min_val, values_tmp[V_OFF(off, 0, 1, 1)]);
+          min_val = std::min(min_val, values_tmp[V_OFF(off, 1, 0, 0)]);
+          min_val = std::min(min_val, values_tmp[V_OFF(off, 1, 0, 1)]);
+          min_val = std::min(min_val, values_tmp[V_OFF(off, 1, 1, 0)]);
+          min_val = std::min(min_val, values_tmp[V_OFF(off, 1, 1, 1)]);
 
-          max_val = std::max(max_val, values_tmp[off + 1]);
-          max_val = std::max(max_val, values_tmp[off + v_size]);
-          max_val = std::max(max_val, values_tmp[off + v_size + 1]);
-          max_val = std::max(max_val, values_tmp[off + v_size*v_size]);
-          max_val = std::max(max_val, values_tmp[off + v_size*v_size + 1]);
-          max_val = std::max(max_val, values_tmp[off + v_size*v_size + v_size]);
-          max_val = std::max(max_val, values_tmp[off + v_size*v_size + v_size + 1]);
+          max_val = std::max(max_val, values_tmp[V_OFF(off, 0, 0, 1)]);
+          max_val = std::max(max_val, values_tmp[V_OFF(off, 0, 1, 0)]);
+          max_val = std::max(max_val, values_tmp[V_OFF(off, 0, 1, 1)]);
+          max_val = std::max(max_val, values_tmp[V_OFF(off, 1, 0, 0)]);
+          max_val = std::max(max_val, values_tmp[V_OFF(off, 1, 0, 1)]);
+          max_val = std::max(max_val, values_tmp[V_OFF(off, 1, 1, 0)]);
+          max_val = std::max(max_val, values_tmp[V_OFF(off, 1, 1, 1)]);
 
           if (min_val <= 0 && max_val >= 0)
           {
+            //this voxels contains the surface, set the presence flag
             presence_flags[(i+(int)header.brick_pad)*p_size*p_size + (j+(int)header.brick_pad)*p_size + k+(int)header.brick_pad] = true;
 
+            //if this voxel is inside and we have padding for smooth normals, we should set requirement flags:
+            //1) on this voxel, as it has the actual surface we want to render
+            //2) it's neighbors (both on padding and non-padding voxels), if they contain surface, they
+            //   will be needed for normals smoothing
+            if (header.brick_pad > 0 && 
+                i >= 0 && i < header.brick_size &&
+                j >= 0 && j < header.brick_size &&
+                k >= 0 && k < header.brick_size)
+            {
+              int p_off = (i+(int)header.brick_pad)*p_size*p_size + (j+(int)header.brick_pad)*p_size + k+(int)header.brick_pad;
+              requirement_flags[(i+(int)header.brick_pad)*p_size*p_size + (j+(int)header.brick_pad)*p_size + k+(int)header.brick_pad] = true;
+
+              for (int i=0;i<4;i++)
+              {
+                //if this edge contains surface, we need neighbors of this edge for normals smoothing
+
+                //y axis
+                if (values_tmp[V_OFF(off, 0, i/2, i%2)] * values_tmp[V_OFF(off, 1, i/2, i%2)] < 0)
+                {
+                  requirement_flags[P_OFF(p_off, 0, i/2-1, i%2-1)] = true;
+                  requirement_flags[P_OFF(p_off, 0, i/2-1, i%2  )] = true;
+                  requirement_flags[P_OFF(p_off, 0, i/2  , i%2-1)] = true;
+                  requirement_flags[P_OFF(p_off, 0, i/2  , i%2-1)] = true;
+                }
+
+                //y axis
+                if (values_tmp[V_OFF(off, i/2, 0, i%2)] * values_tmp[V_OFF(off, i>>1, 1, i&1)] < 0)
+                {
+                  requirement_flags[P_OFF(p_off, i/2-1, 0, i%2-1)] = true;
+                  requirement_flags[P_OFF(p_off, i/2-1, 0, i%2  )] = true;
+                  requirement_flags[P_OFF(p_off, i/2  , 0, i%2-1)] = true;
+                  requirement_flags[P_OFF(p_off, i/2  , 0, i%2  )] = true;
+                }
+
+                //z axis
+                if (values_tmp[V_OFF(off, i/2, i%2, 0)] * values_tmp[V_OFF(off, i/2, i%2, 1)] < 0)
+                {
+                  requirement_flags[P_OFF(p_off, i/2-1, i%2  , 0)] = true;
+                  requirement_flags[P_OFF(p_off, i/2-1, i%2-1, 0)] = true;
+                  requirement_flags[P_OFF(p_off, i/2  , i%2  , 0)] = true;
+                  requirement_flags[P_OFF(p_off, i/2  , i%2-1, 0)] = true;
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    //fill distance flags array according to presence flags
+    for (int i = -(int)header.brick_pad; i < (int)(header.brick_size + header.brick_pad); i++)
+    {
+      for (int j = -(int)header.brick_pad; j < (int)(header.brick_size + header.brick_pad); j++)
+      {
+        for (int k = -(int)header.brick_pad; k < (int)(header.brick_size + header.brick_pad); k++)
+        {
+          unsigned p_off = (i+(int)header.brick_pad)*p_size*p_size + (j+(int)header.brick_pad)*p_size + k+(int)header.brick_pad;
+          unsigned off = SBS_v_to_i(i, j, k, v_size, header.brick_pad);
+
+          presence_flags[p_off] = presence_flags[p_off] && requirement_flags[p_off];
+
+          if (presence_flags[p_off]) //this voxel is both present and required
+          {
             distance_flags[off]                              = true;
             distance_flags[off + 1]                          = true;
             distance_flags[off + v_size]                     = true;
@@ -2584,12 +2651,30 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
             distance_flags[off + v_size*v_size]              = true;
             distance_flags[off + v_size*v_size + 1]          = true;
             distance_flags[off + v_size*v_size + v_size]     = true;
-            distance_flags[off + v_size*v_size + v_size + 1] = true;
+            distance_flags[off + v_size*v_size + v_size + 1] = true;            
           }
         }
       }
     }
 
+    /*
+    for (int i=0;i<p_size;i++)
+    {
+      printf("slice %d\n", i);
+      for (int j=0;j<p_size;j++)
+      {
+        for (int k=0;k<p_size;k++)
+        {
+          if (presence_flags[i*p_size*p_size + j*p_size + k])
+            printf("#");
+          else
+            printf("_");
+        }
+        printf("\n");
+      }
+      printf("\n\n");
+    }
+    */
     float d_max = 2 * sqrt(3) / lod_size;
     unsigned bits = header.bits_per_value;
     unsigned max_val = header.bits_per_value == 32 ? 0xFFFFFFFF : ((1 << bits) - 1);
