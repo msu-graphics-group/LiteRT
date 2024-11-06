@@ -2436,6 +2436,10 @@ void BVHRT::OctreeIntersect(const float3 ray_pos, const float3 ray_dir, float tN
 #endif
 }
 
+#ifndef KERNEL_SLICER
+#define bitCount(x) __builtin_popcount(x)
+#endif
+
 float BVHRT::COctreeV3_LoadDistanceValues(uint32_t brickOffset, float3 voxelPos, uint32_t v_size, float sz_inv, const COctreeV3Header &header,
                                           float values[8] /*out*/)
 {
@@ -2471,28 +2475,32 @@ float BVHRT::COctreeV3_LoadDistanceValues(uint32_t brickOffset, float3 voxelPos,
   uint32_t max_val = header.bits_per_value == 32 ? 0xFFFFFFFF : ((1 << bits) - 1);
   float d_max = 1.73205081f * sz_inv;
   float mult = 2 * d_max / max_val;
-  for (int i = 0; i < 8; i++)
+  for (int i = 0; i < 4; i++)
   {
-    int3 vPos = voxelPosU + int3((i & 4) >> 2, (i & 2) >> 1, i & 1);
+    int3 vPos = voxelPosU + int3((i & 2) >> 1, i & 1, 0);
     uint32_t sliceId = vPos.x + header.brick_pad;
     uint32_t localId = (vPos.y + header.brick_pad) * v_size + vPos.z + header.brick_pad;
 
     uint32_t b0 = m_SdfCompactOctreeV3Data[brickOffset + off_1 + slice_distance_flags_uints * sliceId];
     b0 = localId > 31 ? b0 : b0 & ((1u << localId) - 1);
-    b0 = m_bitcount[b0 & 0xff] + m_bitcount[(b0 >> 8) & 0xff] + m_bitcount[(b0 >> 16) & 0xff] + m_bitcount[b0 >> 24];
+    b0 = bitCount(b0);
 
     uint32_t b1 = localId > 32 ? m_SdfCompactOctreeV3Data[brickOffset + off_1 + slice_distance_flags_uints * sliceId + 1] & ((1u << (localId - 32)) - 1)
                                : 0;
-    b1 = m_bitcount[b1 & 0xff] + m_bitcount[(b1 >> 8) & 0xff] + m_bitcount[(b1 >> 16) & 0xff] + m_bitcount[b1 >> 24];
+    b1 = bitCount(b1);
 
     uint32_t sliceOffset = (m_SdfCompactOctreeV3Data[brickOffset + off_2 + sliceId / line_distances_offsets_per_uint] >>
                             (line_distances_offset_bits * (sliceId % line_distances_offsets_per_uint))) &
                            (((1u << line_distances_offset_bits) - 1));
     uint32_t localOffset = b0 + b1;
 
-    uint32_t vId = sliceOffset + localOffset;
-    uint32_t dist = ((m_SdfCompactOctreeV3Data[brickOffset + off_3 + vId / vals_per_int] >> (bits * (vId % vals_per_int))) & max_val);
-    values[i] = -d_max + mult * dist;
+    uint32_t vId0 = sliceOffset + localOffset;
+    uint32_t dist0 = ((m_SdfCompactOctreeV3Data[brickOffset + off_3 + vId0 / vals_per_int] >> (bits * (vId0 % vals_per_int))) & max_val);
+    values[2*i+0] = -d_max + mult * dist0;
+
+    uint32_t vId1 = vId0 + 1;
+    uint32_t dist1 = ((m_SdfCompactOctreeV3Data[brickOffset + off_3 + vId1 / vals_per_int] >> (bits * (vId1 % vals_per_int))) & max_val);
+    values[2*i+1] = -d_max + mult * dist1;
   }
   return -1.0f;
 #endif
