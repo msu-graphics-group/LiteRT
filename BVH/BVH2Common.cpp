@@ -2451,39 +2451,48 @@ float BVHRT::COctreeV3_LoadDistanceValues(uint32_t brickOffset, float3 voxelPos,
     return 1e6f;
   
   //this voxel is guaranteed to have surface
-  uint32_t line_distances_offset_bits = 9;
-  uint32_t distance_flags_bits = v_size + line_distances_offset_bits;
-  uint32_t distance_flags_per_int = 32 / distance_flags_bits;
-  uint32_t distance_flags_size_uints = (v_size * v_size + distance_flags_per_int - 1) / distance_flags_per_int;
+  const uint32_t line_distances_offset_bits = 16;
+  const uint32_t line_distances_offsets_per_uint = 32 / line_distances_offset_bits;
+
+  uint32_t slice_distance_flags_bits = v_size * v_size;
+  uint32_t slice_distance_flags_uints = (slice_distance_flags_bits + 32 - 1) / 32;
+  uint32_t distance_flags_size_uints = v_size * slice_distance_flags_uints;
   uint32_t presence_flags_size_uints = (p_size * p_size * p_size + 32 - 1) / 32;
+  uint32_t distance_offsets_size_uints = (v_size + line_distances_offsets_per_uint - 1) / line_distances_offsets_per_uint; // 16 bits for offset, should be enough for all cases
 
-  uint32_t off_1 = presence_flags_size_uints;
+  //<presence_flags><distance_flags><distance_offsets><distances>
+  uint32_t off_0 = 0;
+  uint32_t off_1 = off_0 + presence_flags_size_uints;
   uint32_t off_2 = off_1 + distance_flags_size_uints;
-
-  uint32_t lineInfoMask = (1 << distance_flags_bits) - 1;
-  uint32_t lineDistanceFlagsMask = (1 << v_size) - 1;
+  uint32_t off_3 = off_2 + distance_offsets_size_uints;
 
   uint32_t vals_per_int = 32 / header.bits_per_value;
   uint32_t bits = header.bits_per_value;
   uint32_t max_val = header.bits_per_value == 32 ? 0xFFFFFFFF : ((1 << bits) - 1);
   float d_max = 1.73205081f * sz_inv;
   float mult = 2 * d_max / max_val;
-  for (int i = 0; i < 4; i++)
+  for (int i = 0; i < 8; i++)
   {
-    uint32_t lineId = (voxelPosU.x + ((i & 2) >> 1) + header.brick_pad) * v_size + (voxelPosU.y + (i & 1) + header.brick_pad);
-    uint32_t distanceFlagMask = (1 << (voxelPosU.z + header.brick_pad)) - 1;
-    uint32_t lineInfo = (m_SdfCompactOctreeV3Data[brickOffset + off_1 + lineId / distance_flags_per_int] >> (distance_flags_bits * (lineId % distance_flags_per_int))) & lineInfoMask;
-    uint32_t lineOffset = lineInfo >> v_size;
-    uint32_t lineFlags = lineInfo & lineDistanceFlagsMask;
-    uint32_t localOffset = m_bitcount[lineFlags & distanceFlagMask];
+    int3 vPos = voxelPosU + int3((i & 4) >> 2, (i & 2) >> 1, i & 1);
+    uint32_t sliceId = vPos.x + header.brick_pad;
+    uint32_t localId = (vPos.y + header.brick_pad) * v_size + vPos.z + header.brick_pad;
 
-    uint32_t vId0 = lineOffset + localOffset;
-    uint32_t dist0 = ((m_SdfCompactOctreeV3Data[brickOffset + off_2 + vId0 / vals_per_int] >> (bits * (vId0 % vals_per_int))) & max_val);
-    values[2*i+0] = -d_max + mult * dist0;
+    uint32_t b0 = m_SdfCompactOctreeV3Data[brickOffset + off_1 + slice_distance_flags_uints * sliceId];
+    b0 = localId > 31 ? b0 : b0 & ((1u << localId) - 1);
+    b0 = m_bitcount[b0 & 0xff] + m_bitcount[(b0 >> 8) & 0xff] + m_bitcount[(b0 >> 16) & 0xff] + m_bitcount[b0 >> 24];
 
-    uint32_t vId1 = vId0+1;
-    uint32_t dist1 = ((m_SdfCompactOctreeV3Data[brickOffset + off_2 + vId1 / vals_per_int] >> (bits * (vId1 % vals_per_int))) & max_val);
-    values[2*i+1] = -d_max + mult * dist1;
+    uint32_t b1 = localId > 32 ? m_SdfCompactOctreeV3Data[brickOffset + off_1 + slice_distance_flags_uints * sliceId + 1] & ((1u << (localId - 32)) - 1)
+                               : 0;
+    b1 = m_bitcount[b1 & 0xff] + m_bitcount[(b1 >> 8) & 0xff] + m_bitcount[(b1 >> 16) & 0xff] + m_bitcount[b1 >> 24];
+
+    uint32_t sliceOffset = (m_SdfCompactOctreeV3Data[brickOffset + off_2 + sliceId / line_distances_offsets_per_uint] >>
+                            (line_distances_offset_bits * (sliceId % line_distances_offsets_per_uint))) &
+                           (((1u << line_distances_offset_bits) - 1));
+    uint32_t localOffset = b0 + b1;
+
+    uint32_t vId = sliceOffset + localOffset;
+    uint32_t dist = ((m_SdfCompactOctreeV3Data[brickOffset + off_3 + vId / vals_per_int] >> (bits * (vId % vals_per_int))) & max_val);
+    values[i] = -d_max + mult * dist;
   }
   return -1.0f;
 #endif
