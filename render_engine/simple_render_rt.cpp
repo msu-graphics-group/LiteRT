@@ -69,8 +69,10 @@ void SimpleRender::SetupRTScene(const char *path)
     a_ctx.pAllocatorCommon  = nullptr;
     a_ctx.pAllocatorSpecial = m_pAllocatorSpecial;
 
+  HydraSceneProperties scene_properties = m_pRayTracer->AnalyzeHydraScene(path);
 
-  const unsigned num_primitives = 1000000;
+  const unsigned num_primitives = scene_properties.num_primitives;
+  // printf("Scene num primitives: %d\n", num_primitives);
   if (m_force_rayrace_cpu)
     m_pRayTracer = std::shared_ptr<MultiRenderer>(new MultiRenderer(num_primitives)); 
   else
