@@ -7,6 +7,7 @@
 #include <embree4/rtcore.h>
 #include <LiteMath.h>
 #include <Image2d.h>
+#include <map>
 
 #include "Surface.hpp"
 #include "raytracer.hpp"
@@ -51,6 +52,7 @@ namespace embree
       rtcAttachGeometry(scn, geom);
       rtcReleaseGeometry(geom);
     }
+    void attach_mesh(const Mesh &mesh);
   public:
     void clear_scene() {
       rtcReleaseScene(scn);

@@ -98,6 +98,7 @@ int main(int, char** argv)
     "Newton Method (in progress)",
     "Bounding boxes",
     "Embree",
+    "Embree tesselated"
   };
 
   const char *shaders[] = {
@@ -193,7 +194,11 @@ int main(int, char** argv)
         }
       }
     } else {
-      embree_scn.draw(camera, fb, shader_funcs[cur_shader]);
+      switch(cur_renderer)
+      {
+        case 3: embree_scn.draw(camera, fb, shader_funcs[cur_shader]); break;
+        case 4: embree_tesselated.draw(camera, fb, shader_funcs[cur_shader]); break;
+      }
     }
     auto e = std::chrono::high_resolution_clock::now();
     ms = std::chrono::duration_cast<std::chrono::microseconds>(e-b).count()/1000.0f;
@@ -248,6 +253,7 @@ int main(int, char** argv)
 
     if (to_load_surface) {
       embree_scn.clear_scene();
+      embree_tesselated.clear_scene();
 
       FILE *f = popen("zenity --file-selection", "r");
       [[maybe_unused]] auto _ = fgets(path_to_surf, sizeof(path_to_surf), f);
@@ -270,6 +276,10 @@ int main(int, char** argv)
           embree_scn.attach_surface(rbeziers[i], bboxes[i], uvs[i]);
         }
         embree_scn.commit_scene();
+        for (int i = 0; i < rbeziers.size(); ++i) {
+          embree_tesselated.attach_mesh(get_nurbs_control_mesh(rbeziers[i]));
+        }
+        embree_tesselated.commit_scene();
         BoundingBox3d bbox;
         for (auto &surf: rbeziers) {
           bbox.mn = LiteMath::min(bbox.mn, surf.bbox.mn);

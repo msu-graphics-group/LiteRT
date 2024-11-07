@@ -636,3 +636,115 @@ get_bvh_leaves(const RBezierGrid &rbezier) {
   return { ans_boxes, ans_uv };
 }
 
+Mesh
+get_nurbs_control_mesh(const RBezier &rbezier, float2 ubounds, float2 vbounds, int counter)
+{
+  int p = rbezier.weighted_points.get_n()-1;
+  int q = rbezier.weighted_points.get_m()-1;
+
+  int udivs = 0;
+  int vdivs = 0;
+  for (int ri = 0; ri <= p; ++ri) {
+    int cur = flatteing_div_count(q, rbezier.weighted_points.row(ri));
+    vdivs = std::max(cur, vdivs);
+  }
+  for (int ci = 0; ci <= q; ++ci) {
+    int cur = flatteing_div_count(p, rbezier.weighted_points.col(ci));
+    udivs = std::max(cur, udivs);
+  }
+
+  auto u_decomposed = decompose_rbezier(
+      p, q, rbezier.weighted_points, udivs, SurfaceParameter::U);
+
+  Mesh res;
+  for (int stripi = 0; stripi < u_decomposed.size(); ++stripi) {
+    auto v_decomposed = decompose_rbezier(
+      p, q,
+      u_decomposed[stripi], 
+      vdivs, SurfaceParameter::V);
+    for (int stripj = 0; stripj < v_decomposed.size(); ++stripj) {
+      auto &points = v_decomposed[stripj];
+      float umin = lerp(ubounds[0], ubounds[1], stripi*1.0f/(udivs+1));
+      float umax = lerp(ubounds[0], ubounds[1], (stripi+1.0f)/(udivs+1));
+      float vmin = lerp(vbounds[0], vbounds[1], stripj*1.0f/(vdivs+1));
+      float vmax = lerp(vbounds[0], vbounds[1], (stripj+1.0f)/(vdivs+1));
+      for (int quadi = 0; quadi <= p-1; ++quadi)
+      for (int quadj = 0; quadj <= q-1; ++quadj)
+      {
+        float4 cPw[] = {
+          points[{quadi, quadj}],
+          points[{quadi+1, quadj}],
+          points[{quadi+1, quadj+1}],
+
+          points[{quadi+1, quadj+1}],
+          points[{quadi, quadj+1}],
+          points[{quadi, quadj}]
+        };
+        for (auto &p: cPw) { p /= p.w; }
+        float2 UV[] = {
+          float2{ quadi*1.0f/p, quadj*1.0f/q },
+          float2{ (quadi+1.0f)/p, quadj*1.0f/q },
+          float2{ (quadi+1.0f)/p, (quadj+1.0f)/q },
+
+          float2{ (quadi+1.0f)/p, (quadj+1.0f)/q },
+          float2{ quadi*1.0f/p, (quadj+1.0f)/q },
+          float2{ quadi*1.0f/p, quadj*1.0f/q },
+        };
+        float4 Pw[] = {
+          rbezier.get_point(UV[0][0], UV[0][1]),
+          rbezier.get_point(UV[1][0], UV[1][1]),
+          rbezier.get_point(UV[2][0], UV[2][1]),
+
+          rbezier.get_point(UV[3][0], UV[3][1]),
+          rbezier.get_point(UV[4][0], UV[4][1]),
+          rbezier.get_point(UV[5][0], UV[5][1]),
+        };
+        auto calc_normal_f = [&](float2 uv, const float4 &Sw) {
+          float3 uder = to_float3(rbezier.uder(uv.x, uv.y, Sw));
+          float3 vder = to_float3(rbezier.vder(uv.x, uv.y, Sw));
+          return normalize(cross(uder, vder));
+        };
+        float3 normals[] = {
+          calc_normal_f(UV[0], Pw[0]),
+          calc_normal_f(UV[1], Pw[1]),
+          calc_normal_f(UV[2], Pw[2]),
+
+          calc_normal_f(UV[3], Pw[3]),
+          calc_normal_f(UV[4], Pw[4]),
+          calc_normal_f(UV[5], Pw[5]),
+        };
+        for (auto &uv: UV) {
+          uv.x = lerp(umin, umax, uv.x);
+          uv.y = lerp(vmin, vmax, uv.y);
+        }
+        std::copy(cPw, cPw+6, std::back_inserter(res.vertices));
+        std::copy(UV, UV+6, std::back_inserter(res.uvs));
+        std::copy(normals, normals+6, std::back_inserter(res.normals));
+        for (int i = 0; i < 6; ++i)
+          res.indices.push_back(counter++);
+      }
+    }   
+  }
+
+  return res;
+}
+
+Mesh
+get_nurbs_control_mesh(const RBezierGrid &rbezier)
+{
+  Mesh res;
+  for (int patchi = 0; patchi < rbezier.grid.get_n(); ++patchi)
+  for (int patchj = 0; patchj < rbezier.grid.get_m(); ++patchj)
+  {
+    auto cur_mesh = get_nurbs_control_mesh(
+      rbezier.grid[{patchi, patchj}], 
+      float2{ rbezier.uniq_uknots[patchi], rbezier.uniq_uknots[patchi+1] },
+      float2{ rbezier.uniq_vknots[patchj], rbezier.uniq_vknots[patchj+1] },
+      res.indices.size());
+    std::copy(cur_mesh.vertices.begin(), cur_mesh.vertices.end(), std::back_inserter(res.vertices));
+    std::copy(cur_mesh.uvs.begin(), cur_mesh.uvs.end(), std::back_inserter(res.uvs));
+    std::copy(cur_mesh.normals.begin(), cur_mesh.normals.end(), std::back_inserter(res.normals));
+    std::copy(cur_mesh.indices.begin(), cur_mesh.indices.end(), std::back_inserter(res.indices));
+  }
+  return res;
+}

@@ -59,6 +59,26 @@ namespace embree
     hit.Ng_z = info.normal.z;
   }
 
+  void EmbreeScene::attach_mesh(const Mesh &mesh) {
+    RTCGeometry geom = rtcNewGeometry(device, RTC_GEOMETRY_TYPE_TRIANGLE);
+    
+    float3 *vertices = reinterpret_cast<float3*>(rtcSetNewGeometryBuffer(
+        geom, RTC_BUFFER_TYPE_VERTEX, 0, RTC_FORMAT_FLOAT3, 
+        sizeof(float3), mesh.indices.size()));
+    for (size_t i = 0; i < mesh.indices.size(); ++i) {
+      vertices[i] = to_float3(mesh.vertices[i]/mesh.vertices[i].w);
+    }
+
+    uint32_t *indices = reinterpret_cast<uint32_t*>(rtcSetNewGeometryBuffer(
+        geom, RTC_BUFFER_TYPE_INDEX, 0, RTC_FORMAT_UINT3, 
+        sizeof(uint32_t)*3, mesh.indices.size()/3));
+    std::copy(mesh.indices.begin(), mesh.indices.end(), indices);
+
+    rtcCommitGeometry(geom);
+    rtcAttachGeometry(scn, geom);
+    rtcReleaseGeometry(geom);
+  }
+
   void EmbreeScene::draw(const Camera &camera, FrameBuffer &fb, std::function<ShadeFuncType> shade_func) const {
     float4x4 mat  = perspectiveMatrix(camera.fov*180*M_1_PI, camera.aspect, 0.001f, 100.0f)
                   * lookAt(camera.position, camera.target, camera.up);
@@ -117,5 +137,5 @@ namespace embree
         }
       }
     }
-    }
+  }
 } // namespace embree

@@ -13,6 +13,14 @@
 
 #include "utils.hpp"
 
+struct Mesh
+{
+  std::vector<LiteMath::float4> vertices;
+  std::vector<LiteMath::float3> normals;
+  std::vector<LiteMath::float2> uvs;
+  std::vector<uint32_t> indices;
+};
+
 struct BoundingBox3d
 {
 public:
@@ -115,4 +123,6 @@ load_rbeziers(const std::filesystem::path &path);
 
 std::tuple<std::vector<BoundingBox3d>, std::vector<LiteMath::float2>>
 get_bvh_leaves(const RBezierGrid &rbezier);
+
+Mesh get_nurbs_control_mesh(const RBezierGrid &rbezier);
 #endif
