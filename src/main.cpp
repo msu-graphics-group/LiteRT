@@ -71,7 +71,7 @@ int main(int, char** argv)
   char path_to_surf[10000] = {};
   std::copy(default_path_to_surf.begin(), default_path_to_surf.end(), path_to_surf);
 
-  embree::EmbreeScene embree_scn;
+  embree::EmbreeScene embree_scn, embree_tesselated;
   std::vector<RBezierGrid> rbeziers;
   std::vector<std::vector<BoundingBox3d>> bboxes;
   int total_bboxes_count = 0;
@@ -157,6 +157,14 @@ int main(int, char** argv)
     } 
     if (ImGui::IsMouseReleased(ImGuiMouseButton_Left) && !io.WantCaptureMouse) {
       camera_move = false;
+    }
+
+    if (ImGui::IsMouseDragging(ImGuiMouseButton_Middle)) {
+      float delata_r = ImGui::GetMouseDragDelta(ImGuiMouseButton_Middle).x;
+      float3 ray = camera.target-camera.position;
+      float distance = length(ray);
+      camera.position = camera.position + normalize(ray)*delata_r / 150.0f;
+      camera_changed = true;
     }
 
     if (SDL_GetWindowFlags(window) & SDL_WINDOW_MINIMIZED) {
