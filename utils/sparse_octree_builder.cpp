@@ -2501,12 +2501,17 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
             val = sdf(pos, thread_id);
           }
 
-          values_tmp[SBS_v_to_i(i, j, k, v_size, header.brick_pad)] = val;
-          if (i >= 0 && j >= 0 && k >= 0 && 
-              i < (int)header.brick_size && j < (int)header.brick_size && k < (int)header.brick_size)
+          if (val > 10 || val < -10) //something went wrong
+            values_tmp[SBS_v_to_i(i, j, k, v_size, header.brick_pad)] = frame[idx].values[0];
+          else
           {
-            min_val = std::min(min_val, val);
-            max_val = std::max(max_val, val);
+            values_tmp[SBS_v_to_i(i, j, k, v_size, header.brick_pad)] = val;
+            if (i >= 0 && j >= 0 && k >= 0 && 
+                i < (int)header.brick_size && j < (int)header.brick_size && k < (int)header.brick_size)
+            {
+              min_val = std::min(min_val, val);
+              max_val = std::max(max_val, val);
+            }
           }
         }
       }
@@ -2693,13 +2698,16 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
     unsigned presence_flags_size_uints = (p_size*p_size*p_size + 32 - 1) / 32;
     unsigned distance_offsets_size_uints = (v_size + line_distances_offsets_per_uint - 1) / line_distances_offsets_per_uint; //16 bits for offset, should be enough for all cases
 
+    const unsigned min_range_size_uints = 2;
+
     assert(slice_distance_flags_uints <= 2); //if we want slices with more than 64 values, we should change rendering
 
-    //<presence_flags><distance_flags><distance_offsets><distances>
+    //<presence_flags><distance_flags><distance_offsets><min value and range><distances>
     unsigned off_0 = 0;
     unsigned off_1 = off_0 + presence_flags_size_uints;
     unsigned off_2 = off_1 + distance_flags_size_uints;
     unsigned off_3 = off_2 + distance_offsets_size_uints;
+    unsigned off_4 = off_3 + min_range_size_uints;
 
 
     //empty all range that can be used later
@@ -2733,15 +2741,35 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
       }
     }
 
+    //find range of distances in this brick to better compress distances in this range
+    float min_active = 1000;
+    float max_active = -1000;
+    for (int i = 0; i < v_size*v_size*v_size; i++)
+    {
+      if (distance_flags[i])
+      {
+        min_active = std::min(min_active, values_tmp[i]);
+        max_active = std::max(max_active, values_tmp[i]);
+      }
+    }
+    float range_active = max_active - min_active;
+    assert(range_active > 0 && range_active < 1);
+    assert(min_active < 0 && min_active > -1);
+
+    uint32_t min_comp   = (-min_active) * float(0xFFFFFFFFu);
+    uint32_t range_comp = range_active * float(0xFFFFFFFFu);
+
+    u_values_tmp[off_3 + 0] = min_comp;
+    u_values_tmp[off_3 + 1] = range_comp;
+
     //fill actual distances
     unsigned active_distances = 0;
     for (int i = 0; i < v_size*v_size*v_size; i++)
     {
       if (distance_flags[i])
       {
-        unsigned d_compressed = std::max(0.0f, max_val * ((values_tmp[i] + d_max) / (2 * d_max)));
-        d_compressed = std::min(d_compressed, max_val);
-        u_values_tmp[off_3 + active_distances / vals_per_int] |= d_compressed << (bits * (active_distances % vals_per_int));
+        unsigned d_compressed = max_val*((values_tmp[i] - min_active) / range_active);
+        u_values_tmp[off_4 + active_distances / vals_per_int] |= d_compressed << (bits * (active_distances % vals_per_int));
         //printf("distance %d put to %u\n", i, active_distances);
         active_distances++;
       }
@@ -2751,7 +2779,7 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
     assert(distances_size_uint > 0);
     //printf("a leaf %u %u %u (%u/%u)\n", distances_size_uint, distance_flags_size_uints, presence_flags_size_uints, active_distances, v_size*v_size*v_size);
 
-    return distances_size_uint + distance_flags_size_uints + presence_flags_size_uints + distance_offsets_size_uints;
+    return distances_size_uint + min_range_size_uints + distance_flags_size_uints + presence_flags_size_uints + distance_offsets_size_uints;
   }
 
 static std::atomic<unsigned> stat_leaf_bytes(0);
@@ -2829,11 +2857,16 @@ void frame_octree_to_compact_octree_v3_rec(const std::vector<SdfFrameOctreeNode>
           unsigned presence_flags_size_uints = (p_size*p_size*p_size + 32 - 1) / 32;
           unsigned distance_offsets_size_uints = (v_size + line_distances_offsets_per_uint - 1) / line_distances_offsets_per_uint; //16 bits for offset, should be enough for all cases
 
-          //<presence_flags><distance_flags><distance_offsets><distances>
+          const unsigned min_range_size_uints = 2;
+
+          assert(slice_distance_flags_uints <= 2); //if we want slices with more than 64 values, we should change rendering
+
+          //<presence_flags><distance_flags><distance_offsets><min value and range><distances>
           unsigned off_0 = 0;
           unsigned off_1 = off_0 + presence_flags_size_uints;
           unsigned off_2 = off_1 + distance_flags_size_uints;
           unsigned off_3 = off_2 + distance_offsets_size_uints;
+          unsigned off_4 = off_3 + min_range_size_uints;
 
           for (int x=0;x<header.brick_size;x++)
           {
@@ -2866,7 +2899,7 @@ void frame_octree_to_compact_octree_v3_rec(const std::vector<SdfFrameOctreeNode>
                   uint32_t localOffset = b0 + b1;
 
                   uint32_t vId = sliceOffset + localOffset;
-                  uint32_t dist = ((u_values_tmp_2[off_3 + vId / vals_per_int] >> (bits * (vId % vals_per_int))) & max_val);
+                  uint32_t dist = ((u_values_tmp_2[off_4 + vId / vals_per_int] >> (bits * (vId % vals_per_int))) & max_val);
 
                   uint32_t real_vId = SBS_v_to_i(vPos.x, vPos.y, vPos.z, v_size, header.brick_pad);
                   uint32_t real_dist = ((u_values_tmp[real_vId / vals_per_int] >> (bits * (real_vId % vals_per_int))) & max_val);
