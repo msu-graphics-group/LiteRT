@@ -3168,7 +3168,7 @@ void litert_test_41_coctree_v3()
   preset.spp = 16;
   preset.normal_mode = NORMAL_MODE_VERTEX;
 
-  unsigned base_depth = 7;
+  unsigned base_depth = 6;
 
   float fov_degrees = 40;
   float z_near = 0.1f;
@@ -3293,11 +3293,11 @@ void litert_test_41_coctree_v3()
     printf("octree v2             %4.1f ms %6.1f Kb %.2f PSNR %.4f FLIP\n", timings[0]/10, coctree_total_bytes/(1024.0f), psnr, flip);
   }
 
-  bpp = {6,8,10,16};
+  bpp = {8};
 
   for (int b : bpp)
   {
-    unsigned max_threads = 1;
+    unsigned max_threads = 16;
 
     std::vector<MeshBVH> bvh(max_threads);
     for (unsigned i = 0; i < max_threads; i++)
@@ -3310,8 +3310,13 @@ void litert_test_41_coctree_v3()
 
     auto octree = sdf_converter::create_sdf_frame_octree(SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, base_depth-2, 2<<28),
                                                          mesh);
+    auto t1 = std::chrono::steady_clock::now();
     auto coctree_v3 = sdf_converter::frame_octree_to_compact_octree_v3(octree, header, [&](const float3 &p, unsigned idx) -> float 
                                                                        { return bvh[idx].get_signed_distance(p); }, max_threads);
+    auto t2 = std::chrono::steady_clock::now();
+
+    float time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+    printf("build took %.1f ms\n", time_ms);
 
     auto pRender = CreateMultiRenderer(DEVICE_GPU);
     preset.octree_intersect = OCTREE_INTERSECT_TRAVERSE;
@@ -3319,12 +3324,12 @@ void litert_test_41_coctree_v3()
     pRender->SetPreset(preset);
     pRender->SetScene_COctreeV3(coctree_v3, header);
 
-    auto t1 = std::chrono::steady_clock::now();
+    t1 = std::chrono::steady_clock::now();
     pRender->Render(image_res.data(), W, H, worldView, proj, preset, 10);
     pRender->GetExecutionTime("CastRaySingleBlock", timings);
-    auto t2 = std::chrono::steady_clock::now();
+    t2 = std::chrono::steady_clock::now();
 
-    float time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+    time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
     LiteImage::SaveImage<uint32_t>(("saves/test_41_coctree_v3_"+std::to_string(b)+"_bits.bmp").c_str(), image_res);
     
     BVHRT *bvhrt = dynamic_cast<BVHRT*>(pRender->GetAccelStruct().get());
