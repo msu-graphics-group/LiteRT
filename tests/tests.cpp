@@ -3283,6 +3283,9 @@ void litert_test_41_coctree_v3()
     printf("octree v2             %4.1f ms %6.1f Kb %.2f PSNR %.4f FLIP\n", timings[0]/10, coctree_total_bytes/(1024.0f), psnr, flip);
   }
 
+  bpp = {6,8,10,16};
+
+  for (int b : bpp)
   {
     unsigned max_threads = 1;
 
@@ -3291,7 +3294,7 @@ void litert_test_41_coctree_v3()
       bvh[i].init(mesh);
       
     COctreeV3Header header;
-    header.bits_per_value = 10;
+    header.bits_per_value = b;
     header.brick_size = 4;
     header.brick_pad = 1;
 
@@ -3312,7 +3315,7 @@ void litert_test_41_coctree_v3()
     auto t2 = std::chrono::steady_clock::now();
 
     float time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
-    LiteImage::SaveImage<uint32_t>("saves/test_41_coctree_v3.bmp", image_res);
+    LiteImage::SaveImage<uint32_t>(("saves/test_41_coctree_v3_"+std::to_string(b)+"_bits.bmp").c_str(), image_res);
     
     BVHRT *bvhrt = dynamic_cast<BVHRT*>(pRender->GetAccelStruct().get());
     coctree_total_bytes = bvhrt->m_SdfCompactOctreeV3Data.size()*sizeof(uint32_t); 
