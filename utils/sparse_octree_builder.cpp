@@ -2433,6 +2433,15 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
     return compact;
   }
 
+  struct COctreeV3ThreadCtx
+  {
+    std::vector<float> values_tmp;
+    std::vector<uint32_t> u_values_tmp;
+    std::vector<bool> presence_flags;
+    std::vector<bool> requirement_flags;
+    std::vector<bool> distance_flags;
+  };
+
   //return false if brick is empty
   bool node_get_brick_values(const std::vector<SdfFrameOctreeNode> &frame, COctreeV3Header header, 
                              MultithreadedDistanceFunction sdf, unsigned thread_id, 
@@ -2520,9 +2529,8 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
     return max_val >= 0 && min_val <= 0;
   }
 
-  unsigned brick_values_compress_no_packing(const std::vector<SdfFrameOctreeNode> &frame, COctreeV3Header header, unsigned thread_id,
-                                            std::vector<float> &values_tmp, std::vector<uint32_t> &u_values_tmp,
-                                            unsigned idx, unsigned lod_size, uint3 p)
+  unsigned brick_values_compress_no_packing(const std::vector<SdfFrameOctreeNode> &frame, COctreeV3Header header,
+                                            COctreeV3ThreadCtx &ctx, unsigned idx, unsigned lod_size, uint3 p)
   {
     int v_size = header.brick_size + 2 * header.brick_pad + 1;
     float d = 1.0f / lod_size;
@@ -2534,27 +2542,32 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
     unsigned size_uints = (v_size*v_size*v_size + vals_per_int - 1) / vals_per_int;
 
     for (int i = 0; i < size_uints; i++)
-      u_values_tmp[i] = 0;
+      ctx.u_values_tmp[i] = 0;
 
     for (int i = 0; i < v_size*v_size*v_size; i++)
     {
-      unsigned d_compressed = std::max(0.0f, max_val * ((values_tmp[i] + d_max) / (2 * d_max)));
+      unsigned d_compressed = std::max(0.0f, max_val * ((ctx.values_tmp[i] + d_max) / (2 * d_max)));
       d_compressed = std::min(d_compressed, max_val);
-      u_values_tmp[i / vals_per_int] |= d_compressed << (bits * (i % vals_per_int));
+      ctx.u_values_tmp[i / vals_per_int] |= d_compressed << (bits * (i % vals_per_int));
     }
 
     return size_uints;
   }
 
-  unsigned brick_values_compress(const std::vector<SdfFrameOctreeNode> &frame, COctreeV3Header header, unsigned thread_id,
-                                 std::vector<float> &values_tmp, std::vector<uint32_t> &u_values_tmp,
-                                 unsigned idx, unsigned lod_size, uint3 p)
+  unsigned brick_values_compress(const std::vector<SdfFrameOctreeNode> &frame, COctreeV3Header header,
+                                 COctreeV3ThreadCtx &ctx, unsigned idx, unsigned lod_size, uint3 p)
   {
     int v_size = header.brick_size + 2 * header.brick_pad + 1;
     int p_size = header.brick_size + 2 * header.brick_pad;
-    std::vector<bool> presence_flags(p_size*p_size*p_size, false);
-    std::vector<bool> requirement_flags(p_size*p_size*p_size, false);
-    std::vector<bool> distance_flags(v_size*v_size*v_size, false);
+
+    for (int i=0;i<v_size*v_size*v_size;i++)
+      ctx.distance_flags[i] = false;
+
+    for (int i=0;i<p_size*p_size*p_size;i++) 
+    {
+      ctx.presence_flags[i] = false;
+      ctx.requirement_flags[i] = false;
+    }
 
     #define V_OFF(off, i, j, k) off + (i)*v_size*v_size + (j)*v_size + (k)
     #define P_OFF(off, i, j, k) off + (i)*p_size*p_size + (j)*p_size + (k)
@@ -2566,29 +2579,29 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
         for (int k = -(int)header.brick_pad; k < (int)(header.brick_size + header.brick_pad); k++)
         {
           unsigned off = SBS_v_to_i(i, j, k, v_size, header.brick_pad);
-          float min_val = values_tmp[V_OFF(off, 0, 0, 0)];
-          float max_val = values_tmp[V_OFF(off, 0, 0, 0)];
+          float min_val = ctx.values_tmp[V_OFF(off, 0, 0, 0)];
+          float max_val = ctx.values_tmp[V_OFF(off, 0, 0, 0)];
 
-          min_val = std::min(min_val, values_tmp[V_OFF(off, 0, 0, 1)]);
-          min_val = std::min(min_val, values_tmp[V_OFF(off, 0, 1, 0)]);
-          min_val = std::min(min_val, values_tmp[V_OFF(off, 0, 1, 1)]);
-          min_val = std::min(min_val, values_tmp[V_OFF(off, 1, 0, 0)]);
-          min_val = std::min(min_val, values_tmp[V_OFF(off, 1, 0, 1)]);
-          min_val = std::min(min_val, values_tmp[V_OFF(off, 1, 1, 0)]);
-          min_val = std::min(min_val, values_tmp[V_OFF(off, 1, 1, 1)]);
+          min_val = std::min(min_val, ctx.values_tmp[V_OFF(off, 0, 0, 1)]);
+          min_val = std::min(min_val, ctx.values_tmp[V_OFF(off, 0, 1, 0)]);
+          min_val = std::min(min_val, ctx.values_tmp[V_OFF(off, 0, 1, 1)]);
+          min_val = std::min(min_val, ctx.values_tmp[V_OFF(off, 1, 0, 0)]);
+          min_val = std::min(min_val, ctx.values_tmp[V_OFF(off, 1, 0, 1)]);
+          min_val = std::min(min_val, ctx.values_tmp[V_OFF(off, 1, 1, 0)]);
+          min_val = std::min(min_val, ctx.values_tmp[V_OFF(off, 1, 1, 1)]);
 
-          max_val = std::max(max_val, values_tmp[V_OFF(off, 0, 0, 1)]);
-          max_val = std::max(max_val, values_tmp[V_OFF(off, 0, 1, 0)]);
-          max_val = std::max(max_val, values_tmp[V_OFF(off, 0, 1, 1)]);
-          max_val = std::max(max_val, values_tmp[V_OFF(off, 1, 0, 0)]);
-          max_val = std::max(max_val, values_tmp[V_OFF(off, 1, 0, 1)]);
-          max_val = std::max(max_val, values_tmp[V_OFF(off, 1, 1, 0)]);
-          max_val = std::max(max_val, values_tmp[V_OFF(off, 1, 1, 1)]);
+          max_val = std::max(max_val, ctx.values_tmp[V_OFF(off, 0, 0, 1)]);
+          max_val = std::max(max_val, ctx.values_tmp[V_OFF(off, 0, 1, 0)]);
+          max_val = std::max(max_val, ctx.values_tmp[V_OFF(off, 0, 1, 1)]);
+          max_val = std::max(max_val, ctx.values_tmp[V_OFF(off, 1, 0, 0)]);
+          max_val = std::max(max_val, ctx.values_tmp[V_OFF(off, 1, 0, 1)]);
+          max_val = std::max(max_val, ctx.values_tmp[V_OFF(off, 1, 1, 0)]);
+          max_val = std::max(max_val, ctx.values_tmp[V_OFF(off, 1, 1, 1)]);
 
           if (min_val <= 0 && max_val >= 0)
           {
             //this voxels contains the surface, set the presence flag
-            presence_flags[(i+(int)header.brick_pad)*p_size*p_size + (j+(int)header.brick_pad)*p_size + k+(int)header.brick_pad] = true;
+            ctx.presence_flags[(i+(int)header.brick_pad)*p_size*p_size + (j+(int)header.brick_pad)*p_size + k+(int)header.brick_pad] = true;
 
             //if this voxel is inside and we have padding for smooth normals, we should set requirement flags:
             //1) on this voxel, as it has the actual surface we want to render
@@ -2600,37 +2613,37 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
                 k >= 0 && k < header.brick_size)
             {
               int p_off = (i+(int)header.brick_pad)*p_size*p_size + (j+(int)header.brick_pad)*p_size + k+(int)header.brick_pad;
-              requirement_flags[(i+(int)header.brick_pad)*p_size*p_size + (j+(int)header.brick_pad)*p_size + k+(int)header.brick_pad] = true;
+              ctx.requirement_flags[(i+(int)header.brick_pad)*p_size*p_size + (j+(int)header.brick_pad)*p_size + k+(int)header.brick_pad] = true;
 
               for (int i=0;i<4;i++)
               {
                 //if this edge contains surface, we need neighbors of this edge for normals smoothing
 
                 //y axis
-                if (values_tmp[V_OFF(off, 0, i/2, i%2)] * values_tmp[V_OFF(off, 1, i/2, i%2)] < 0)
+                if (ctx.values_tmp[V_OFF(off, 0, i/2, i%2)] * ctx.values_tmp[V_OFF(off, 1, i/2, i%2)] < 0)
                 {
-                  requirement_flags[P_OFF(p_off, 0, i/2-1, i%2-1)] = true;
-                  requirement_flags[P_OFF(p_off, 0, i/2-1, i%2  )] = true;
-                  requirement_flags[P_OFF(p_off, 0, i/2  , i%2-1)] = true;
-                  requirement_flags[P_OFF(p_off, 0, i/2  , i%2-1)] = true;
+                  ctx.requirement_flags[P_OFF(p_off, 0, i/2-1, i%2-1)] = true;
+                  ctx.requirement_flags[P_OFF(p_off, 0, i/2-1, i%2  )] = true;
+                  ctx.requirement_flags[P_OFF(p_off, 0, i/2  , i%2-1)] = true;
+                  ctx.requirement_flags[P_OFF(p_off, 0, i/2  , i%2-1)] = true;
                 }
 
                 //y axis
-                if (values_tmp[V_OFF(off, i/2, 0, i%2)] * values_tmp[V_OFF(off, i>>1, 1, i&1)] < 0)
+                if (ctx.values_tmp[V_OFF(off, i/2, 0, i%2)] * ctx.values_tmp[V_OFF(off, i>>1, 1, i&1)] < 0)
                 {
-                  requirement_flags[P_OFF(p_off, i/2-1, 0, i%2-1)] = true;
-                  requirement_flags[P_OFF(p_off, i/2-1, 0, i%2  )] = true;
-                  requirement_flags[P_OFF(p_off, i/2  , 0, i%2-1)] = true;
-                  requirement_flags[P_OFF(p_off, i/2  , 0, i%2  )] = true;
+                  ctx.requirement_flags[P_OFF(p_off, i/2-1, 0, i%2-1)] = true;
+                  ctx.requirement_flags[P_OFF(p_off, i/2-1, 0, i%2  )] = true;
+                  ctx.requirement_flags[P_OFF(p_off, i/2  , 0, i%2-1)] = true;
+                  ctx.requirement_flags[P_OFF(p_off, i/2  , 0, i%2  )] = true;
                 }
 
                 //z axis
-                if (values_tmp[V_OFF(off, i/2, i%2, 0)] * values_tmp[V_OFF(off, i/2, i%2, 1)] < 0)
+                if (ctx.values_tmp[V_OFF(off, i/2, i%2, 0)] * ctx.values_tmp[V_OFF(off, i/2, i%2, 1)] < 0)
                 {
-                  requirement_flags[P_OFF(p_off, i/2-1, i%2  , 0)] = true;
-                  requirement_flags[P_OFF(p_off, i/2-1, i%2-1, 0)] = true;
-                  requirement_flags[P_OFF(p_off, i/2  , i%2  , 0)] = true;
-                  requirement_flags[P_OFF(p_off, i/2  , i%2-1, 0)] = true;
+                  ctx.requirement_flags[P_OFF(p_off, i/2-1, i%2  , 0)] = true;
+                  ctx.requirement_flags[P_OFF(p_off, i/2-1, i%2-1, 0)] = true;
+                  ctx.requirement_flags[P_OFF(p_off, i/2  , i%2  , 0)] = true;
+                  ctx.requirement_flags[P_OFF(p_off, i/2  , i%2-1, 0)] = true;
                 }
               }
             }
@@ -2649,18 +2662,18 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
           unsigned p_off = (i+(int)header.brick_pad)*p_size*p_size + (j+(int)header.brick_pad)*p_size + k+(int)header.brick_pad;
           unsigned off = SBS_v_to_i(i, j, k, v_size, header.brick_pad);
 
-          presence_flags[p_off] = presence_flags[p_off] && requirement_flags[p_off];
+          ctx.presence_flags[p_off] = ctx.presence_flags[p_off] && ctx.requirement_flags[p_off];
 
-          if (presence_flags[p_off]) //this voxel is both present and required
+          if (ctx.presence_flags[p_off]) //this voxel is both present and required
           {
-            distance_flags[off]                              = true;
-            distance_flags[off + 1]                          = true;
-            distance_flags[off + v_size]                     = true;
-            distance_flags[off + v_size + 1]                 = true;
-            distance_flags[off + v_size*v_size]              = true;
-            distance_flags[off + v_size*v_size + 1]          = true;
-            distance_flags[off + v_size*v_size + v_size]     = true;
-            distance_flags[off + v_size*v_size + v_size + 1] = true;            
+            ctx.distance_flags[off]                              = true;
+            ctx.distance_flags[off + 1]                          = true;
+            ctx.distance_flags[off + v_size]                     = true;
+            ctx.distance_flags[off + v_size + 1]                 = true;
+            ctx.distance_flags[off + v_size*v_size]              = true;
+            ctx.distance_flags[off + v_size*v_size + 1]          = true;
+            ctx.distance_flags[off + v_size*v_size + v_size]     = true;
+            ctx.distance_flags[off + v_size*v_size + v_size + 1] = true;            
           }
         }
       }
@@ -2714,12 +2727,12 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
     unsigned max_size_uints = (v_size*v_size*v_size + vals_per_int - 1) / vals_per_int + 
                               distance_flags_size_uints + presence_flags_size_uints + distance_offsets_size_uints;
     for (int i = 0; i < max_size_uints; i++)
-      u_values_tmp[i] = 0;
+      ctx.u_values_tmp[i] = 0;
 
     //fill presence flags
     for (int i = 0; i < p_size*p_size*p_size; i++)
     {
-      u_values_tmp[off_0 + i / 32] |= (unsigned)presence_flags[i] << (i % 32);
+      ctx.u_values_tmp[off_0 + i / 32] |= (unsigned)ctx.presence_flags[i] << (i % 32);
     }
 
     //fill distnace flags and offsets for each slice
@@ -2728,15 +2741,15 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
     {
       //offset for distances in this slice
       assert(cur_distances_offset < (1 << line_distances_offset_bits));
-      u_values_tmp[off_2 + s_i / line_distances_offsets_per_uint] |= cur_distances_offset << (line_distances_offset_bits*(s_i % line_distances_offsets_per_uint));
+      ctx.u_values_tmp[off_2 + s_i / line_distances_offsets_per_uint] |= cur_distances_offset << (line_distances_offset_bits*(s_i % line_distances_offsets_per_uint));
       //printf("offset %u put to slice %u\n", cur_distances_offset, s_i);
 
       for (int k = 0; k < v_size*v_size; k++)
       {
-        unsigned distance_bit = (unsigned)distance_flags[s_i*v_size*v_size + k];
+        unsigned distance_bit = (unsigned)ctx.distance_flags[s_i*v_size*v_size + k];
         //if (distance_bit)
         //  printf("Adistance %d put to %u\n", s_i*v_size*v_size + k, cur_distances_offset);
-        u_values_tmp[off_1 + slice_distance_flags_uints*s_i + k/32] |= distance_bit << (k%32);
+        ctx.u_values_tmp[off_1 + slice_distance_flags_uints*s_i + k/32] |= distance_bit << (k%32);
         cur_distances_offset += distance_bit;
       }
     }
@@ -2746,10 +2759,10 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
     float max_active = -1000;
     for (int i = 0; i < v_size*v_size*v_size; i++)
     {
-      if (distance_flags[i])
+      if (ctx.distance_flags[i])
       {
-        min_active = std::min(min_active, values_tmp[i]);
-        max_active = std::max(max_active, values_tmp[i]);
+        min_active = std::min(min_active, ctx.values_tmp[i]);
+        max_active = std::max(max_active, ctx.values_tmp[i]);
       }
     }
     float range_active = max_active - min_active;
@@ -2759,17 +2772,17 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
     uint32_t min_comp   = (-min_active) * float(0xFFFFFFFFu);
     uint32_t range_comp = range_active * float(0xFFFFFFFFu);
 
-    u_values_tmp[off_3 + 0] = min_comp;
-    u_values_tmp[off_3 + 1] = range_comp;
+    ctx.u_values_tmp[off_3 + 0] = min_comp;
+    ctx.u_values_tmp[off_3 + 1] = range_comp;
 
     //fill actual distances
     unsigned active_distances = 0;
     for (int i = 0; i < v_size*v_size*v_size; i++)
     {
-      if (distance_flags[i])
+      if (ctx.distance_flags[i])
       {
-        unsigned d_compressed = max_val*((values_tmp[i] - min_active) / range_active);
-        u_values_tmp[off_4 + active_distances / vals_per_int] |= d_compressed << (bits * (active_distances % vals_per_int));
+        unsigned d_compressed = max_val*((ctx.values_tmp[i] - min_active) / range_active);
+        ctx.u_values_tmp[off_4 + active_distances / vals_per_int] |= d_compressed << (bits * (active_distances % vals_per_int));
         //printf("distance %d put to %u\n", i, active_distances);
         active_distances++;
       }
@@ -2803,9 +2816,12 @@ static unsigned bitcount(uint32_t x)
 
 void frame_octree_to_compact_octree_v3_rec(const std::vector<SdfFrameOctreeNode> &frame, COctreeV3Header header,
                                            MultithreadedDistanceFunction sdf, unsigned max_threads,
-                                           std::vector<uint32_t> &compact, std::vector<float> &values_tmp, std::vector<uint32_t> &u_values_tmp,
+                                           std::vector<uint32_t> &compact, std::vector<COctreeV3ThreadCtx> &all_ctx,
                                            unsigned nodeId, unsigned cNodeId, unsigned lod_size, uint3 p)
 {
+  unsigned cur_thread_id = 0;
+  COctreeV3ThreadCtx &ctx = all_ctx[cur_thread_id];
+
   unsigned ofs = frame[nodeId].offset;
   assert(!is_leaf(ofs));
 
@@ -2827,7 +2843,7 @@ void frame_octree_to_compact_octree_v3_rec(const std::vector<SdfFrameOctreeNode>
 
       // process leaf, get values grid and check if we actually have a surface in it
       uint3 ch_p = 2 * p + uint3((i & 4) >> 2, (i & 2) >> 1, i & 1);
-      bool is_border_leaf = node_get_brick_values(frame, header, sdf, 0, values_tmp,
+      bool is_border_leaf = node_get_brick_values(frame, header, sdf, 0, ctx.values_tmp,
                                                   ofs + i, 2 * lod_size, ch_p);
 
       if (is_border_leaf)
@@ -2835,9 +2851,9 @@ void frame_octree_to_compact_octree_v3_rec(const std::vector<SdfFrameOctreeNode>
         // fill the compact octree with compressed leaf data
         if (false)
         {
-          unsigned leaf_size = brick_values_compress_no_packing(frame, header, 0, values_tmp, u_values_tmp, ofs + i, 2 * lod_size, ch_p);
-          std::vector<unsigned> u_values_tmp_2(u_values_tmp.size(), 0u);
-          unsigned a_leaf_size = brick_values_compress(frame, header, 0, values_tmp, u_values_tmp_2, ofs + i, 2 * lod_size, ch_p);
+          unsigned leaf_size = brick_values_compress_no_packing(frame, header, ctx, ofs + i, 2 * lod_size, ch_p);
+          std::vector<unsigned> u_values_tmp_2(ctx.u_values_tmp.size(), 0u);
+          unsigned a_leaf_size = brick_values_compress(frame, header, ctx, ofs + i, 2 * lod_size, ch_p);
           //if (a_leaf_size >= leaf_size)
           printf("leaf %u %u\n", a_leaf_size, leaf_size);
 
@@ -2902,7 +2918,7 @@ void frame_octree_to_compact_octree_v3_rec(const std::vector<SdfFrameOctreeNode>
                   uint32_t dist = ((u_values_tmp_2[off_4 + vId / vals_per_int] >> (bits * (vId % vals_per_int))) & max_val);
 
                   uint32_t real_vId = SBS_v_to_i(vPos.x, vPos.y, vPos.z, v_size, header.brick_pad);
-                  uint32_t real_dist = ((u_values_tmp[real_vId / vals_per_int] >> (bits * (real_vId % vals_per_int))) & max_val);
+                  uint32_t real_dist = ((ctx.u_values_tmp[real_vId / vals_per_int] >> (bits * (real_vId % vals_per_int))) & max_val);
 
                   printf("reading distance %u from %u (%u %u - %u %u)\n", real_vId, vId, sliceOffset, localOffset, b0, b1);
                   printf("dist = %u\n", dist);
@@ -2914,7 +2930,7 @@ void frame_octree_to_compact_octree_v3_rec(const std::vector<SdfFrameOctreeNode>
             }
           }
         }
-        unsigned leaf_size = brick_values_compress(frame, header, 0, values_tmp, u_values_tmp, ofs + i, 2 * lod_size, ch_p);
+        unsigned leaf_size = brick_values_compress(frame, header, ctx, ofs + i, 2 * lod_size, ch_p);
         assert(leaf_size > 0);
 
         unsigned leaf_offset = compact.size();
@@ -2922,7 +2938,7 @@ void frame_octree_to_compact_octree_v3_rec(const std::vector<SdfFrameOctreeNode>
         stat_leaf_bytes += leaf_size * sizeof(uint32_t);
 
         for (int j = 0; j < leaf_size; j++)
-          compact[leaf_offset + j] = u_values_tmp[j];
+          compact[leaf_offset + j] = ctx.u_values_tmp[j];
 
         ch_count++;
         l_count++;
@@ -2947,7 +2963,7 @@ void frame_octree_to_compact_octree_v3_rec(const std::vector<SdfFrameOctreeNode>
     if (is_leaf_arr[i] == 0)
     {
       uint3 ch_p = 2 * p + uint3((i & 4) >> 2, (i & 2) >> 1, i & 1);
-      frame_octree_to_compact_octree_v3_rec(frame, header, sdf, max_threads, compact, values_tmp, u_values_tmp,
+      frame_octree_to_compact_octree_v3_rec(frame, header, sdf, max_threads, compact, all_ctx,
                                             ofs + i, compact[cNodeId + i], 2 * lod_size, ch_p);
     }
   }
@@ -2963,11 +2979,19 @@ void frame_octree_to_compact_octree_v3_rec(const std::vector<SdfFrameOctreeNode>
     compact.reserve(9*frame.size());
     compact.resize(9, 0u);
 
-    int v_size = header.brick_size + 2*header.brick_pad + 1;
-    std::vector<float> values_tmp(v_size*v_size*v_size*max_threads);
-    std::vector<uint32_t> u_values_tmp(3*v_size*v_size*v_size*max_threads);
+    int v_size = header.brick_size + 2 * header.brick_pad + 1;
+    int p_size = header.brick_size + 2 * header.brick_pad;
+    std::vector<COctreeV3ThreadCtx> all_ctx(max_threads);
+    for (int i = 0; i < max_threads; i++)
+    {
+      all_ctx[i].values_tmp = std::vector<float>(v_size*v_size*v_size*max_threads);
+      all_ctx[i].u_values_tmp = std::vector<uint32_t>(3*v_size*v_size*v_size*max_threads);
+      all_ctx[i].presence_flags = std::vector<bool>(p_size*p_size*p_size, false);
+      all_ctx[i].requirement_flags = std::vector<bool>(p_size*p_size*p_size, false);
+      all_ctx[i].distance_flags = std::vector<bool>(v_size*v_size*v_size, false);
+    }
 
-    frame_octree_to_compact_octree_v3_rec(frame, header, sdf, max_threads, compact, values_tmp, u_values_tmp, 0, 0, 1, uint3(0,0,0));
+    frame_octree_to_compact_octree_v3_rec(frame, header, sdf, max_threads, compact, all_ctx, 0, 0, 1, uint3(0,0,0));
 
     compact.shrink_to_fit();
 
