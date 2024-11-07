@@ -3194,6 +3194,16 @@ void litert_test_41_coctree_v3()
     pRender->SetScene(mesh);
     pRender->Render(image_ref.data(), W, H, worldView, proj, preset, 1);
     LiteImage::SaveImage<uint32_t>("saves/test_41_ref.bmp", image_ref);
+    
+    BVHRT *bvh = dynamic_cast<BVHRT*>(pRender->GetAccelStruct().get());
+    mesh_total_bytes = bvh->m_allNodePairs.size()*sizeof(BVHNodePair) + 
+                       bvh->m_primIdCount.size()* sizeof(uint32_t) +
+                       bvh->m_vertPos.size()* sizeof(float4) +
+                       bvh->m_vertNorm.size()* sizeof(float4) +
+                       bvh->m_indices.size()* sizeof(uint32_t) +
+                       bvh->m_primIndices.size()* sizeof(uint32_t);
+  
+    printf("mesh        %4.1f ms %.1f Kb\n", timings[0]/10, mesh_total_bytes/1024.0f);
   }
 
   std::vector<int> bpp = {8,16,32};
