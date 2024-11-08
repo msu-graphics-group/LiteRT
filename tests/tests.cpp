@@ -3162,6 +3162,8 @@ void litert_test_41_coctree_v3()
   auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path+"scenes/99_demo_scenes/data/bunny.vsgf").c_str());
   cmesh4::normalize_mesh(mesh);
 
+  LiteImage::Image2D<float4> texture = LiteImage::LoadImage<float4>("scenes/porcelain.png");
+
   unsigned W = 1024, H = 1024;
   MultiRenderPreset preset = getDefaultPreset();
   preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
@@ -3180,6 +3182,9 @@ void litert_test_41_coctree_v3()
   LiteImage::Image2D<uint32_t> image_ref(W, H);
   LiteImage::Image2D<uint32_t> image_res(W, H);
 
+  LiteImage::Image2D<uint32_t> image_ref_tex(W, H);
+  LiteImage::Image2D<uint32_t> image_res_tex(W, H);
+
   float timings[4] = {0,0,0,0};
 
   size_t mesh_total_bytes    = 0;
@@ -3195,6 +3200,18 @@ void litert_test_41_coctree_v3()
     pRender->Render(image_ref.data(), W, H, worldView, proj, preset, 1);
     LiteImage::SaveImage<uint32_t>("saves/test_41_ref.bmp", image_ref);
     
+    MultiRenderPreset preset_tex = preset;
+    preset_tex.render_mode = MULTI_RENDER_MODE_LAMBERT;
+    uint32_t texId = pRender->AddTexture(texture);
+    MultiRendererMaterial mat;
+    mat.type = MULTI_RENDER_MATERIAL_TYPE_TEXTURED;
+    mat.texId = texId;
+    uint32_t matId = pRender->AddMaterial(mat);
+    pRender->SetMaterial(matId, 0);
+    pRender->SetPreset(preset_tex);
+    pRender->Render(image_ref_tex.data(), W, H, worldView, proj, preset_tex, 1);
+    LiteImage::SaveImage<uint32_t>("saves/test_41_ref_tex.bmp", image_ref_tex);
+
     BVHRT *bvh = dynamic_cast<BVHRT*>(pRender->GetAccelStruct().get());
     mesh_total_bytes = bvh->m_allNodePairs.size()*sizeof(BVHNodePair) + 
                        bvh->m_primIdCount.size()* sizeof(uint32_t) +
@@ -3307,7 +3324,7 @@ void litert_test_41_coctree_v3()
     header.bits_per_value = b;
     header.brick_size = 4;
     header.brick_pad = 1;
-    header.uv_size = 0;
+    header.uv_size = 1;
 
     auto t1 = std::chrono::steady_clock::now();
     auto coctree_v3 = sdf_converter::create_COctree_v3(SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, base_depth-2, 2<<28),
@@ -3322,6 +3339,12 @@ void litert_test_41_coctree_v3()
     preset.normal_mode = NORMAL_MODE_SDF_SMOOTHED;
     pRender->SetPreset(preset);
     pRender->SetScene_COctreeV3(coctree_v3, header);
+    uint32_t texId = pRender->AddTexture(texture);
+    MultiRendererMaterial mat;
+    mat.type = MULTI_RENDER_MATERIAL_TYPE_TEXTURED;
+    mat.texId = texId;
+    uint32_t matId = pRender->AddMaterial(mat);
+    pRender->SetMaterial(matId, 0);
 
     t1 = std::chrono::steady_clock::now();
     pRender->Render(image_res.data(), W, H, worldView, proj, preset, 10);
@@ -3331,13 +3354,58 @@ void litert_test_41_coctree_v3()
     time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
     LiteImage::SaveImage<uint32_t>(("saves/test_41_coctree_v3_"+std::to_string(b)+"_bits.bmp").c_str(), image_res);
     
+    MultiRenderPreset preset_tex = preset;
+    preset_tex.render_mode = MULTI_RENDER_MODE_LAMBERT;
+    pRender->SetPreset(preset_tex);
+    pRender->Render(image_res_tex.data(), W, H, worldView, proj, preset_tex, 1);
+    LiteImage::SaveImage<uint32_t>(("saves/test_41_coctree_v3_"+std::to_string(b)+"_bits_tex.bmp").c_str(), image_res_tex); 
+
     BVHRT *bvhrt = dynamic_cast<BVHRT*>(pRender->GetAccelStruct().get());
     coctree_total_bytes = bvhrt->m_SdfCompactOctreeV3Data.size()*sizeof(uint32_t); 
 
     float psnr = image_metrics::PSNR(image_ref, image_res);
     float flip = image_metrics::FLIP(image_ref, image_res);
     printf("octree v3             %4.1f ms %6.1f Kb %.2f PSNR %.4f FLIP\n", timings[0]/10, coctree_total_bytes/(1024.0f), psnr, flip);
+
+    float psnr_tex = image_metrics::PSNR(image_ref_tex, image_res_tex);
+    float flip_tex = image_metrics::FLIP(image_ref_tex, image_res_tex);
+    printf("            textured                    %.2f PSNR %.4f FLIP\n", psnr_tex, flip_tex);
   }
+
+  {
+    auto octree = sdf_converter::create_sdf_frame_octree_tex(SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, base_depth, 2<<28),
+                                                         mesh);
+    
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
+    preset.octree_intersect = OCTREE_INTERSECT_TRAVERSE;
+    pRender->SetPreset(preset);
+    pRender->SetScene(octree);
+    uint32_t texId = pRender->AddTexture(texture);
+    MultiRendererMaterial mat;
+    mat.type = MULTI_RENDER_MATERIAL_TYPE_TEXTURED;
+    mat.texId = texId;
+    uint32_t matId = pRender->AddMaterial(mat);
+    pRender->SetMaterial(matId, 0);
+
+    MultiRenderPreset preset_tex = preset;
+    preset_tex.render_mode = MULTI_RENDER_MODE_LAMBERT;
+    pRender->SetPreset(preset_tex);
+    auto t1 = std::chrono::steady_clock::now();
+    pRender->Render(image_res_tex.data(), W, H, worldView, proj, preset_tex, 10);
+    pRender->GetExecutionTime("CastRaySingleBlock", timings);
+    auto t2 = std::chrono::steady_clock::now();
+
+    float time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+    LiteImage::SaveImage<uint32_t>("saves/test_41_framed_octree_tex.bmp", image_res_tex);
+    
+    BVHRT *bvh = dynamic_cast<BVHRT*>(pRender->GetAccelStruct().get());
+    coctree_total_bytes = bvh->m_SdfCompactOctreeV2Data.size()*sizeof(uint32_t); 
+
+    float psnr = image_metrics::PSNR(image_ref_tex, image_res_tex);
+    float flip = image_metrics::FLIP(image_ref_tex, image_res_tex);
+    printf("framed octree tex     %4.1f ms %6.1f Kb %.2f PSNR %.4f FLIP\n", timings[0]/10, coctree_total_bytes/(1024.0f), psnr, flip);
+  }
+
 }
 
 void perform_tests_litert(const std::vector<int> &test_ids)
