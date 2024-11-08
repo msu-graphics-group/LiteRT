@@ -173,7 +173,7 @@ float4 MultiRenderer::kernel_RayTrace(uint32_t tidX, const float4* rayPosAndNear
 
   float4 res_color = float4(1,0,1,1); //if pixel is purple at the end, then something gone wrong!
   unsigned type = hit.geomId >> SH_TYPE;
-  unsigned geomId = hit.geomId & 0x0FFFFFFF;
+  unsigned geomId = hit.geomId & GEOM_ID_MASK;
   float2 tc = float2(0, 0);
   float3 norm = float3(1,0,0);
 

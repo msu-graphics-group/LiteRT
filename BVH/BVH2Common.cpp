@@ -2932,7 +2932,7 @@ CRT_Hit BVHRT::RayQuery_NearestHit(float4 posAndNear, float4 dirAndFar)
 #ifndef DISABLE_MESH
   if(hit.geomId < uint32_t(-1) && ((hit.geomId >> SH_TYPE) == TYPE_MESH_TRIANGLE)) 
   {
-    const uint2 geomOffsets = m_geomData[hit.geomId & 0x0FFFFFFF].offset;
+    const uint2 geomOffsets = m_geomData[hit.geomId & GEOM_ID_MASK].offset;
     hit.primId = m_primIndices[geomOffsets.x/3 + hit.primId];
   }
 #endif
