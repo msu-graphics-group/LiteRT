@@ -2428,10 +2428,32 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
 
     compact.shrink_to_fit();
 
-    //printf("compact octree has %u/%u nodes\n", (unsigned)compact.size()/2, (unsigned)frame.size());
-
     return compact;
   }
+
+  struct COctreeV3ThreadCtx
+  {
+    std::vector<float> values_tmp;
+    std::vector<uint32_t> u_values_tmp;
+    std::vector<bool> presence_flags;
+    std::vector<bool> requirement_flags;
+    std::vector<bool> distance_flags;
+  };
+
+  struct COctreeV3BuildTask
+  {
+    unsigned nodeId; 
+    unsigned cNodeId;
+    unsigned lod_size;
+    uint3 p;
+  };
+
+  struct COctreeV3GlobalCtx
+  {
+    std::vector<COctreeV3BuildTask> tasks;
+    unsigned tasks_count;
+    std::vector<uint32_t> compact;
+  };
 
   //return false if brick is empty
   bool node_get_brick_values(const std::vector<SdfFrameOctreeTexNode> &frame, COctreeV3Header header, 
@@ -2501,12 +2523,17 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
             val = sdf(pos, thread_id);
           }
 
-          values_tmp[SBS_v_to_i(i, j, k, v_size, header.brick_pad)] = val;
-          if (i >= 0 && j >= 0 && k >= 0 && 
-              i < (int)header.brick_size && j < (int)header.brick_size && k < (int)header.brick_size)
+          if (val > 10 || val < -10) //something went wrong
+            values_tmp[SBS_v_to_i(i, j, k, v_size, header.brick_pad)] = frame[idx].values[0];
+          else
           {
-            min_val = std::min(min_val, val);
-            max_val = std::max(max_val, val);
+            values_tmp[SBS_v_to_i(i, j, k, v_size, header.brick_pad)] = val;
+            if (i >= 0 && j >= 0 && k >= 0 && 
+                i < (int)header.brick_size && j < (int)header.brick_size && k < (int)header.brick_size)
+            {
+              min_val = std::min(min_val, val);
+              max_val = std::max(max_val, val);
+            }
           }
         }
       }
@@ -2515,9 +2542,8 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
     return max_val >= 0 && min_val <= 0;
   }
 
-  unsigned brick_values_compress_no_packing(const std::vector<SdfFrameOctreeTexNode> &frame, COctreeV3Header header, unsigned thread_id,
-                                            std::vector<float> &values_tmp, std::vector<uint32_t> &u_values_tmp,
-                                            unsigned idx, unsigned lod_size, uint3 p)
+  unsigned brick_values_compress_no_packing(const std::vector<SdfFrameOctreeTexNode> &frame, COctreeV3Header header,
+                                            COctreeV3ThreadCtx &ctx, unsigned idx, unsigned lod_size, uint3 p)
   {
     int v_size = header.brick_size + 2 * header.brick_pad + 1;
     float d = 1.0f / lod_size;
@@ -2529,27 +2555,32 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
     unsigned size_uints = (v_size*v_size*v_size + vals_per_int - 1) / vals_per_int;
 
     for (int i = 0; i < size_uints; i++)
-      u_values_tmp[i] = 0;
+      ctx.u_values_tmp[i] = 0;
 
     for (int i = 0; i < v_size*v_size*v_size; i++)
     {
-      unsigned d_compressed = std::max(0.0f, max_val * ((values_tmp[i] + d_max) / (2 * d_max)));
+      unsigned d_compressed = std::max(0.0f, max_val * ((ctx.values_tmp[i] + d_max) / (2 * d_max)));
       d_compressed = std::min(d_compressed, max_val);
-      u_values_tmp[i / vals_per_int] |= d_compressed << (bits * (i % vals_per_int));
+      ctx.u_values_tmp[i / vals_per_int] |= d_compressed << (bits * (i % vals_per_int));
     }
 
     return size_uints;
   }
 
-  unsigned brick_values_compress(const std::vector<SdfFrameOctreeTexNode> &frame, COctreeV3Header header, unsigned thread_id,
-                                 std::vector<float> &values_tmp, std::vector<uint32_t> &u_values_tmp,
-                                 unsigned idx, unsigned lod_size, uint3 p)
+  unsigned brick_values_compress(const std::vector<SdfFrameOctreeTexNode> &frame, COctreeV3Header header,
+                                 COctreeV3ThreadCtx &ctx, unsigned idx, unsigned lod_size, uint3 p)
   {
     int v_size = header.brick_size + 2 * header.brick_pad + 1;
     int p_size = header.brick_size + 2 * header.brick_pad;
-    std::vector<bool> presence_flags(p_size*p_size*p_size, false);
-    std::vector<bool> requirement_flags(p_size*p_size*p_size, false);
-    std::vector<bool> distance_flags(v_size*v_size*v_size, false);
+
+    for (int i=0;i<v_size*v_size*v_size;i++)
+      ctx.distance_flags[i] = false;
+
+    for (int i=0;i<p_size*p_size*p_size;i++) 
+    {
+      ctx.presence_flags[i] = false;
+      ctx.requirement_flags[i] = false;
+    }
 
     #define V_OFF(off, i, j, k) off + (i)*v_size*v_size + (j)*v_size + (k)
     #define P_OFF(off, i, j, k) off + (i)*p_size*p_size + (j)*p_size + (k)
@@ -2561,29 +2592,29 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
         for (int k = -(int)header.brick_pad; k < (int)(header.brick_size + header.brick_pad); k++)
         {
           unsigned off = SBS_v_to_i(i, j, k, v_size, header.brick_pad);
-          float min_val = values_tmp[V_OFF(off, 0, 0, 0)];
-          float max_val = values_tmp[V_OFF(off, 0, 0, 0)];
+          float min_val = ctx.values_tmp[V_OFF(off, 0, 0, 0)];
+          float max_val = ctx.values_tmp[V_OFF(off, 0, 0, 0)];
 
-          min_val = std::min(min_val, values_tmp[V_OFF(off, 0, 0, 1)]);
-          min_val = std::min(min_val, values_tmp[V_OFF(off, 0, 1, 0)]);
-          min_val = std::min(min_val, values_tmp[V_OFF(off, 0, 1, 1)]);
-          min_val = std::min(min_val, values_tmp[V_OFF(off, 1, 0, 0)]);
-          min_val = std::min(min_val, values_tmp[V_OFF(off, 1, 0, 1)]);
-          min_val = std::min(min_val, values_tmp[V_OFF(off, 1, 1, 0)]);
-          min_val = std::min(min_val, values_tmp[V_OFF(off, 1, 1, 1)]);
+          min_val = std::min(min_val, ctx.values_tmp[V_OFF(off, 0, 0, 1)]);
+          min_val = std::min(min_val, ctx.values_tmp[V_OFF(off, 0, 1, 0)]);
+          min_val = std::min(min_val, ctx.values_tmp[V_OFF(off, 0, 1, 1)]);
+          min_val = std::min(min_val, ctx.values_tmp[V_OFF(off, 1, 0, 0)]);
+          min_val = std::min(min_val, ctx.values_tmp[V_OFF(off, 1, 0, 1)]);
+          min_val = std::min(min_val, ctx.values_tmp[V_OFF(off, 1, 1, 0)]);
+          min_val = std::min(min_val, ctx.values_tmp[V_OFF(off, 1, 1, 1)]);
 
-          max_val = std::max(max_val, values_tmp[V_OFF(off, 0, 0, 1)]);
-          max_val = std::max(max_val, values_tmp[V_OFF(off, 0, 1, 0)]);
-          max_val = std::max(max_val, values_tmp[V_OFF(off, 0, 1, 1)]);
-          max_val = std::max(max_val, values_tmp[V_OFF(off, 1, 0, 0)]);
-          max_val = std::max(max_val, values_tmp[V_OFF(off, 1, 0, 1)]);
-          max_val = std::max(max_val, values_tmp[V_OFF(off, 1, 1, 0)]);
-          max_val = std::max(max_val, values_tmp[V_OFF(off, 1, 1, 1)]);
+          max_val = std::max(max_val, ctx.values_tmp[V_OFF(off, 0, 0, 1)]);
+          max_val = std::max(max_val, ctx.values_tmp[V_OFF(off, 0, 1, 0)]);
+          max_val = std::max(max_val, ctx.values_tmp[V_OFF(off, 0, 1, 1)]);
+          max_val = std::max(max_val, ctx.values_tmp[V_OFF(off, 1, 0, 0)]);
+          max_val = std::max(max_val, ctx.values_tmp[V_OFF(off, 1, 0, 1)]);
+          max_val = std::max(max_val, ctx.values_tmp[V_OFF(off, 1, 1, 0)]);
+          max_val = std::max(max_val, ctx.values_tmp[V_OFF(off, 1, 1, 1)]);
 
           if (min_val <= 0 && max_val >= 0)
           {
             //this voxels contains the surface, set the presence flag
-            presence_flags[(i+(int)header.brick_pad)*p_size*p_size + (j+(int)header.brick_pad)*p_size + k+(int)header.brick_pad] = true;
+            ctx.presence_flags[(i+(int)header.brick_pad)*p_size*p_size + (j+(int)header.brick_pad)*p_size + k+(int)header.brick_pad] = true;
 
             //if this voxel is inside and we have padding for smooth normals, we should set requirement flags:
             //1) on this voxel, as it has the actual surface we want to render
@@ -2595,37 +2626,37 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
                 k >= 0 && k < header.brick_size)
             {
               int p_off = (i+(int)header.brick_pad)*p_size*p_size + (j+(int)header.brick_pad)*p_size + k+(int)header.brick_pad;
-              requirement_flags[(i+(int)header.brick_pad)*p_size*p_size + (j+(int)header.brick_pad)*p_size + k+(int)header.brick_pad] = true;
+              ctx.requirement_flags[(i+(int)header.brick_pad)*p_size*p_size + (j+(int)header.brick_pad)*p_size + k+(int)header.brick_pad] = true;
 
               for (int i=0;i<4;i++)
               {
                 //if this edge contains surface, we need neighbors of this edge for normals smoothing
 
                 //y axis
-                if (values_tmp[V_OFF(off, 0, i/2, i%2)] * values_tmp[V_OFF(off, 1, i/2, i%2)] < 0)
+                if (ctx.values_tmp[V_OFF(off, 0, i/2, i%2)] * ctx.values_tmp[V_OFF(off, 1, i/2, i%2)] < 0)
                 {
-                  requirement_flags[P_OFF(p_off, 0, i/2-1, i%2-1)] = true;
-                  requirement_flags[P_OFF(p_off, 0, i/2-1, i%2  )] = true;
-                  requirement_flags[P_OFF(p_off, 0, i/2  , i%2-1)] = true;
-                  requirement_flags[P_OFF(p_off, 0, i/2  , i%2-1)] = true;
+                  ctx.requirement_flags[P_OFF(p_off, 0, i/2-1, i%2-1)] = true;
+                  ctx.requirement_flags[P_OFF(p_off, 0, i/2-1, i%2  )] = true;
+                  ctx.requirement_flags[P_OFF(p_off, 0, i/2  , i%2-1)] = true;
+                  ctx.requirement_flags[P_OFF(p_off, 0, i/2  , i%2-1)] = true;
                 }
 
                 //y axis
-                if (values_tmp[V_OFF(off, i/2, 0, i%2)] * values_tmp[V_OFF(off, i>>1, 1, i&1)] < 0)
+                if (ctx.values_tmp[V_OFF(off, i/2, 0, i%2)] * ctx.values_tmp[V_OFF(off, i>>1, 1, i&1)] < 0)
                 {
-                  requirement_flags[P_OFF(p_off, i/2-1, 0, i%2-1)] = true;
-                  requirement_flags[P_OFF(p_off, i/2-1, 0, i%2  )] = true;
-                  requirement_flags[P_OFF(p_off, i/2  , 0, i%2-1)] = true;
-                  requirement_flags[P_OFF(p_off, i/2  , 0, i%2  )] = true;
+                  ctx.requirement_flags[P_OFF(p_off, i/2-1, 0, i%2-1)] = true;
+                  ctx.requirement_flags[P_OFF(p_off, i/2-1, 0, i%2  )] = true;
+                  ctx.requirement_flags[P_OFF(p_off, i/2  , 0, i%2-1)] = true;
+                  ctx.requirement_flags[P_OFF(p_off, i/2  , 0, i%2  )] = true;
                 }
 
                 //z axis
-                if (values_tmp[V_OFF(off, i/2, i%2, 0)] * values_tmp[V_OFF(off, i/2, i%2, 1)] < 0)
+                if (ctx.values_tmp[V_OFF(off, i/2, i%2, 0)] * ctx.values_tmp[V_OFF(off, i/2, i%2, 1)] < 0)
                 {
-                  requirement_flags[P_OFF(p_off, i/2-1, i%2  , 0)] = true;
-                  requirement_flags[P_OFF(p_off, i/2-1, i%2-1, 0)] = true;
-                  requirement_flags[P_OFF(p_off, i/2  , i%2  , 0)] = true;
-                  requirement_flags[P_OFF(p_off, i/2  , i%2-1, 0)] = true;
+                  ctx.requirement_flags[P_OFF(p_off, i/2-1, i%2  , 0)] = true;
+                  ctx.requirement_flags[P_OFF(p_off, i/2-1, i%2-1, 0)] = true;
+                  ctx.requirement_flags[P_OFF(p_off, i/2  , i%2  , 0)] = true;
+                  ctx.requirement_flags[P_OFF(p_off, i/2  , i%2-1, 0)] = true;
                 }
               }
             }
@@ -2644,18 +2675,18 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
           unsigned p_off = (i+(int)header.brick_pad)*p_size*p_size + (j+(int)header.brick_pad)*p_size + k+(int)header.brick_pad;
           unsigned off = SBS_v_to_i(i, j, k, v_size, header.brick_pad);
 
-          presence_flags[p_off] = presence_flags[p_off] && requirement_flags[p_off];
+          ctx.presence_flags[p_off] = ctx.presence_flags[p_off] && ctx.requirement_flags[p_off];
 
-          if (presence_flags[p_off]) //this voxel is both present and required
+          if (ctx.presence_flags[p_off]) //this voxel is both present and required
           {
-            distance_flags[off]                              = true;
-            distance_flags[off + 1]                          = true;
-            distance_flags[off + v_size]                     = true;
-            distance_flags[off + v_size + 1]                 = true;
-            distance_flags[off + v_size*v_size]              = true;
-            distance_flags[off + v_size*v_size + 1]          = true;
-            distance_flags[off + v_size*v_size + v_size]     = true;
-            distance_flags[off + v_size*v_size + v_size + 1] = true;            
+            ctx.distance_flags[off]                              = true;
+            ctx.distance_flags[off + 1]                          = true;
+            ctx.distance_flags[off + v_size]                     = true;
+            ctx.distance_flags[off + v_size + 1]                 = true;
+            ctx.distance_flags[off + v_size*v_size]              = true;
+            ctx.distance_flags[off + v_size*v_size + 1]          = true;
+            ctx.distance_flags[off + v_size*v_size + v_size]     = true;
+            ctx.distance_flags[off + v_size*v_size + v_size + 1] = true;            
           }
         }
       }
@@ -2693,25 +2724,28 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
     unsigned presence_flags_size_uints = (p_size*p_size*p_size + 32 - 1) / 32;
     unsigned distance_offsets_size_uints = (v_size + line_distances_offsets_per_uint - 1) / line_distances_offsets_per_uint; //16 bits for offset, should be enough for all cases
 
+    const unsigned min_range_size_uints = 2;
+
     assert(slice_distance_flags_uints <= 2); //if we want slices with more than 64 values, we should change rendering
 
-    //<presence_flags><distance_flags><distance_offsets><distances>
+    //<presence_flags><distance_flags><distance_offsets><min value and range><distances>
     unsigned off_0 = 0;
     unsigned off_1 = off_0 + presence_flags_size_uints;
     unsigned off_2 = off_1 + distance_flags_size_uints;
     unsigned off_3 = off_2 + distance_offsets_size_uints;
+    unsigned off_4 = off_3 + min_range_size_uints;
 
 
     //empty all range that can be used later
     unsigned max_size_uints = (v_size*v_size*v_size + vals_per_int - 1) / vals_per_int + 
                               distance_flags_size_uints + presence_flags_size_uints + distance_offsets_size_uints;
     for (int i = 0; i < max_size_uints; i++)
-      u_values_tmp[i] = 0;
+      ctx.u_values_tmp[i] = 0;
 
     //fill presence flags
     for (int i = 0; i < p_size*p_size*p_size; i++)
     {
-      u_values_tmp[off_0 + i / 32] |= (unsigned)presence_flags[i] << (i % 32);
+      ctx.u_values_tmp[off_0 + i / 32] |= (unsigned)ctx.presence_flags[i] << (i % 32);
     }
 
     //fill distnace flags and offsets for each slice
@@ -2720,28 +2754,48 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
     {
       //offset for distances in this slice
       assert(cur_distances_offset < (1 << line_distances_offset_bits));
-      u_values_tmp[off_2 + s_i / line_distances_offsets_per_uint] |= cur_distances_offset << (line_distances_offset_bits*(s_i % line_distances_offsets_per_uint));
+      ctx.u_values_tmp[off_2 + s_i / line_distances_offsets_per_uint] |= cur_distances_offset << (line_distances_offset_bits*(s_i % line_distances_offsets_per_uint));
       //printf("offset %u put to slice %u\n", cur_distances_offset, s_i);
 
       for (int k = 0; k < v_size*v_size; k++)
       {
-        unsigned distance_bit = (unsigned)distance_flags[s_i*v_size*v_size + k];
+        unsigned distance_bit = (unsigned)ctx.distance_flags[s_i*v_size*v_size + k];
         //if (distance_bit)
         //  printf("Adistance %d put to %u\n", s_i*v_size*v_size + k, cur_distances_offset);
-        u_values_tmp[off_1 + slice_distance_flags_uints*s_i + k/32] |= distance_bit << (k%32);
+        ctx.u_values_tmp[off_1 + slice_distance_flags_uints*s_i + k/32] |= distance_bit << (k%32);
         cur_distances_offset += distance_bit;
       }
     }
+
+    //find range of distances in this brick to better compress distances in this range
+    float min_active = 1000;
+    float max_active = -1000;
+    for (int i = 0; i < v_size*v_size*v_size; i++)
+    {
+      if (ctx.distance_flags[i])
+      {
+        min_active = std::min(min_active, ctx.values_tmp[i]);
+        max_active = std::max(max_active, ctx.values_tmp[i]);
+      }
+    }
+    float range_active = max_active - min_active;
+    assert(range_active > 0 && range_active < 1);
+    assert(min_active < 0 && min_active > -1);
+
+    uint32_t min_comp   = (-min_active) * float(0xFFFFFFFFu);
+    uint32_t range_comp = range_active * float(0xFFFFFFFFu);
+
+    ctx.u_values_tmp[off_3 + 0] = min_comp;
+    ctx.u_values_tmp[off_3 + 1] = range_comp;
 
     //fill actual distances
     unsigned active_distances = 0;
     for (int i = 0; i < v_size*v_size*v_size; i++)
     {
-      if (distance_flags[i])
+      if (ctx.distance_flags[i])
       {
-        unsigned d_compressed = std::max(0.0f, max_val * ((values_tmp[i] + d_max) / (2 * d_max)));
-        d_compressed = std::min(d_compressed, max_val);
-        u_values_tmp[off_3 + active_distances / vals_per_int] |= d_compressed << (bits * (active_distances % vals_per_int));
+        unsigned d_compressed = max_val*((ctx.values_tmp[i] - min_active) / range_active);
+        ctx.u_values_tmp[off_4 + active_distances / vals_per_int] |= d_compressed << (bits * (active_distances % vals_per_int));
         //printf("distance %d put to %u\n", i, active_distances);
         active_distances++;
       }
@@ -2751,7 +2805,7 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
     assert(distances_size_uint > 0);
     //printf("a leaf %u %u %u (%u/%u)\n", distances_size_uint, distance_flags_size_uints, presence_flags_size_uints, active_distances, v_size*v_size*v_size);
 
-    return distances_size_uint + distance_flags_size_uints + presence_flags_size_uints + distance_offsets_size_uints;
+    return distances_size_uint + min_range_size_uints + distance_flags_size_uints + presence_flags_size_uints + distance_offsets_size_uints;
   }
 
 static std::atomic<unsigned> stat_leaf_bytes(0);
@@ -2774,11 +2828,11 @@ static unsigned bitcount(uint32_t x)
 }
 
 void frame_octree_to_compact_octree_v3_rec(const std::vector<SdfFrameOctreeTexNode> &frame, COctreeV3Header header,
-                                           MultithreadedDistanceFunction sdf, unsigned max_threads,
-                                           std::vector<uint32_t> &compact, std::vector<float> &values_tmp, std::vector<uint32_t> &u_values_tmp,
-                                           unsigned nodeId, unsigned cNodeId, unsigned lod_size, uint3 p)
+                                           COctreeV3GlobalCtx &global_ctx, COctreeV3ThreadCtx &thread_ctx,
+                                           MultithreadedDistanceFunction sdf, unsigned thread_id,
+                                           const COctreeV3BuildTask &task)
 {
-  unsigned ofs = frame[nodeId].offset;
+  unsigned ofs = frame[task.nodeId].offset;
   assert(!is_leaf(ofs));
 
   unsigned ch_info = 0u;
@@ -2790,32 +2844,30 @@ void frame_octree_to_compact_octree_v3_rec(const std::vector<SdfFrameOctreeTexNo
 
   for (int i = 0; i < 8; i++)
   {
-    compact[cNodeId + i] = compact.size(); // offset to this leaf
-
     unsigned child_info = ch_count;
     if (is_leaf(frame[ofs + i].offset))
     {
       is_leaf_arr[i] = 1;
 
       // process leaf, get values grid and check if we actually have a surface in it
-      uint3 ch_p = 2 * p + uint3((i & 4) >> 2, (i & 2) >> 1, i & 1);
-      bool is_border_leaf = node_get_brick_values(frame, header, sdf, 0, values_tmp,
-                                                  ofs + i, 2 * lod_size, ch_p);
+      uint3 ch_p = 2 * task.p + uint3((i & 4) >> 2, (i & 2) >> 1, i & 1);
+      bool is_border_leaf = node_get_brick_values(frame, header, sdf, 0, thread_ctx.values_tmp,
+                                                  ofs + i, 2 * task.lod_size, ch_p);
 
       if (is_border_leaf)
       {
         // fill the compact octree with compressed leaf data
         if (false)
         {
-          unsigned leaf_size = brick_values_compress_no_packing(frame, header, 0, values_tmp, u_values_tmp, ofs + i, 2 * lod_size, ch_p);
-          std::vector<unsigned> u_values_tmp_2(u_values_tmp.size(), 0u);
-          unsigned a_leaf_size = brick_values_compress(frame, header, 0, values_tmp, u_values_tmp_2, ofs + i, 2 * lod_size, ch_p);
+          unsigned leaf_size = brick_values_compress_no_packing(frame, header, thread_ctx, ofs + i, 2 * task.lod_size, ch_p);
+          std::vector<unsigned> u_values_tmp_2(thread_ctx.u_values_tmp.size(), 0u);
+          unsigned a_leaf_size = brick_values_compress(frame, header, thread_ctx, ofs + i, 2 * task.lod_size, ch_p);
           //if (a_leaf_size >= leaf_size)
           printf("leaf %u %u\n", a_leaf_size, leaf_size);
 
           int v_size = header.brick_size + 2 * header.brick_pad + 1;
           int p_size = header.brick_size + 2 * header.brick_pad;
-          float d_max = 2 * sqrt(3) / (2 * lod_size);
+          float d_max = 2 * sqrt(3) / (2 * task.lod_size);
           unsigned bits = header.bits_per_value;
           unsigned max_val = header.bits_per_value == 32 ? 0xFFFFFFFF : ((1 << bits) - 1);
           unsigned vals_per_int = 32 / header.bits_per_value;
@@ -2829,11 +2881,16 @@ void frame_octree_to_compact_octree_v3_rec(const std::vector<SdfFrameOctreeTexNo
           unsigned presence_flags_size_uints = (p_size*p_size*p_size + 32 - 1) / 32;
           unsigned distance_offsets_size_uints = (v_size + line_distances_offsets_per_uint - 1) / line_distances_offsets_per_uint; //16 bits for offset, should be enough for all cases
 
-          //<presence_flags><distance_flags><distance_offsets><distances>
+          const unsigned min_range_size_uints = 2;
+
+          assert(slice_distance_flags_uints <= 2); //if we want slices with more than 64 values, we should change rendering
+
+          //<presence_flags><distance_flags><distance_offsets><min value and range><distances>
           unsigned off_0 = 0;
           unsigned off_1 = off_0 + presence_flags_size_uints;
           unsigned off_2 = off_1 + distance_flags_size_uints;
           unsigned off_3 = off_2 + distance_offsets_size_uints;
+          unsigned off_4 = off_3 + min_range_size_uints;
 
           for (int x=0;x<header.brick_size;x++)
           {
@@ -2866,10 +2923,10 @@ void frame_octree_to_compact_octree_v3_rec(const std::vector<SdfFrameOctreeTexNo
                   uint32_t localOffset = b0 + b1;
 
                   uint32_t vId = sliceOffset + localOffset;
-                  uint32_t dist = ((u_values_tmp_2[off_3 + vId / vals_per_int] >> (bits * (vId % vals_per_int))) & max_val);
+                  uint32_t dist = ((u_values_tmp_2[off_4 + vId / vals_per_int] >> (bits * (vId % vals_per_int))) & max_val);
 
                   uint32_t real_vId = SBS_v_to_i(vPos.x, vPos.y, vPos.z, v_size, header.brick_pad);
-                  uint32_t real_dist = ((u_values_tmp[real_vId / vals_per_int] >> (bits * (real_vId % vals_per_int))) & max_val);
+                  uint32_t real_dist = ((thread_ctx.u_values_tmp[real_vId / vals_per_int] >> (bits * (real_vId % vals_per_int))) & max_val);
 
                   printf("reading distance %u from %u (%u %u - %u %u)\n", real_vId, vId, sliceOffset, localOffset, b0, b1);
                   printf("dist = %u\n", dist);
@@ -2881,15 +2938,20 @@ void frame_octree_to_compact_octree_v3_rec(const std::vector<SdfFrameOctreeTexNo
             }
           }
         }
-        unsigned leaf_size = brick_values_compress(frame, header, 0, values_tmp, u_values_tmp, ofs + i, 2 * lod_size, ch_p);
+        unsigned leaf_size = brick_values_compress(frame, header, thread_ctx, ofs + i, 2 * task.lod_size, ch_p);
         assert(leaf_size > 0);
 
-        unsigned leaf_offset = compact.size();
-        compact.resize(leaf_offset + leaf_size, 0u); // space for non-leaf child
+        unsigned leaf_offset = 1;
+        #pragma omp critical
+        {
+          leaf_offset = global_ctx.compact.size();
+          global_ctx.compact[task.cNodeId + i] = leaf_offset; // offset to this leaf
+          global_ctx.compact.resize(leaf_offset + leaf_size, 0u); // space for the leaf child
+        }
         stat_leaf_bytes += leaf_size * sizeof(uint32_t);
 
         for (int j = 0; j < leaf_size; j++)
-          compact[leaf_offset + j] = u_values_tmp[j];
+          global_ctx.compact[leaf_offset + j] = thread_ctx.u_values_tmp[j];
 
         ch_count++;
         l_count++;
@@ -2899,7 +2961,12 @@ void frame_octree_to_compact_octree_v3_rec(const std::vector<SdfFrameOctreeTexNo
     }
     else
     {
-      compact.resize(compact.size() + 9, 0u); // space for non-leaf child
+      #pragma omp critical
+      {
+        unsigned child_offset = global_ctx.compact.size();
+        global_ctx.compact[task.cNodeId + i] = child_offset; // offset to this child
+        global_ctx.compact.resize(global_ctx.compact.size() + 9, 0u); // space for non-leaf child
+      }
       stat_nonleaf_bytes += 9 * sizeof(uint32_t);
 
       is_leaf_arr[i] = 0;
@@ -2907,15 +2974,21 @@ void frame_octree_to_compact_octree_v3_rec(const std::vector<SdfFrameOctreeTexNo
       ch_is_active |= (1 << i);
     }
   }
-  compact[cNodeId + 8] = ch_is_active | (ch_is_leaf << 8u);
+  global_ctx.compact[task.cNodeId + 8] = ch_is_active | (ch_is_leaf << 8u);
 
   for (int i = 0; i < 8; i++)
   {
     if (is_leaf_arr[i] == 0)
     {
-      uint3 ch_p = 2 * p + uint3((i & 4) >> 2, (i & 2) >> 1, i & 1);
-      frame_octree_to_compact_octree_v3_rec(frame, header, sdf, max_threads, compact, values_tmp, u_values_tmp,
-                                            ofs + i, compact[cNodeId + i], 2 * lod_size, ch_p);
+      uint3 ch_p = 2 * task.p + uint3((i & 4) >> 2, (i & 2) >> 1, i & 1);
+      #pragma omp critical
+      {
+        global_ctx.tasks[global_ctx.tasks_count].nodeId = ofs + i;
+        global_ctx.tasks[global_ctx.tasks_count].cNodeId = global_ctx.compact[task.cNodeId + i];
+        global_ctx.tasks[global_ctx.tasks_count].lod_size = 2 * task.lod_size;
+        global_ctx.tasks[global_ctx.tasks_count].p = ch_p;
+        global_ctx.tasks_count++;
+      }
     }
   }
 }
@@ -2930,16 +3003,49 @@ void frame_octree_to_compact_octree_v3_rec(const std::vector<SdfFrameOctreeTexNo
     compact.reserve(9*frame.size());
     compact.resize(9, 0u);
 
-    int v_size = header.brick_size + 2*header.brick_pad + 1;
-    std::vector<float> values_tmp(v_size*v_size*v_size*max_threads);
-    std::vector<uint32_t> u_values_tmp(3*v_size*v_size*v_size*max_threads);
+    int v_size = header.brick_size + 2 * header.brick_pad + 1;
+    int p_size = header.brick_size + 2 * header.brick_pad;
+    std::vector<COctreeV3ThreadCtx> all_ctx(max_threads);
+    for (int i = 0; i < max_threads; i++)
+    {
+      all_ctx[i].values_tmp = std::vector<float>(v_size*v_size*v_size*max_threads);
+      all_ctx[i].u_values_tmp = std::vector<uint32_t>(3*v_size*v_size*v_size*max_threads);
+      all_ctx[i].presence_flags = std::vector<bool>(p_size*p_size*p_size, false);
+      all_ctx[i].requirement_flags = std::vector<bool>(p_size*p_size*p_size, false);
+      all_ctx[i].distance_flags = std::vector<bool>(v_size*v_size*v_size, false);
+    }
 
-    frame_octree_to_compact_octree_v3_rec(frame, header, sdf, max_threads, compact, values_tmp, u_values_tmp, 0, 0, 1, uint3(0,0,0));
+    COctreeV3GlobalCtx global_ctx;
+    global_ctx.compact.reserve(9*frame.size());
+    global_ctx.compact.resize(9, 0u);
+    global_ctx.tasks = std::vector<COctreeV3BuildTask>(frame.size());
 
-    compact.shrink_to_fit();
+    global_ctx.tasks[0].nodeId = 0;
+    global_ctx.tasks[0].cNodeId = 0;
+    global_ctx.tasks[0].lod_size = 1;
+    global_ctx.tasks[0].p = uint3(0,0,0);
+    global_ctx.tasks_count = 1;
+
+    int start_task = 0;
+    int end_task = 1;
+
+    while (end_task > start_task)
+    {
+      #pragma omp parallel for num_threads(max_threads)
+      for (int i = start_task; i < end_task; i++)
+      {
+        auto threadId = omp_get_thread_num();
+        frame_octree_to_compact_octree_v3_rec(frame, header, global_ctx, all_ctx[threadId], sdf, threadId, global_ctx.tasks[i]);
+      }
+
+      start_task = end_task;
+      end_task = global_ctx.tasks_count;
+    }
+
+    global_ctx.compact.shrink_to_fit();
 
     printf("compact octree %.1f Kb leaf, %.1f Kb non-leaf\n", stat_leaf_bytes.load() / 1024.0f, stat_nonleaf_bytes.load() / 1024.0f);
 
-    return compact;
+    return global_ctx.compact;
   }
 }

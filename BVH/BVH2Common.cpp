@@ -2464,17 +2464,25 @@ float BVHRT::COctreeV3_LoadDistanceValues(uint32_t brickOffset, float3 voxelPos,
   uint32_t presence_flags_size_uints = (p_size * p_size * p_size + 32 - 1) / 32;
   uint32_t distance_offsets_size_uints = (v_size + line_distances_offsets_per_uint - 1) / line_distances_offsets_per_uint; // 16 bits for offset, should be enough for all cases
 
-  //<presence_flags><distance_flags><distance_offsets><distances>
-  uint32_t off_0 = 0;
-  uint32_t off_1 = off_0 + presence_flags_size_uints;
-  uint32_t off_2 = off_1 + distance_flags_size_uints;
-  uint32_t off_3 = off_2 + distance_offsets_size_uints;
+  const unsigned min_range_size_uints = 2;
+
+  //<presence_flags><distance_flags><distance_offsets><min value and range><distances>
+  unsigned off_0 = 0;
+  unsigned off_1 = off_0 + presence_flags_size_uints;
+  unsigned off_2 = off_1 + distance_flags_size_uints;
+  unsigned off_3 = off_2 + distance_offsets_size_uints;
+  unsigned off_4 = off_3 + min_range_size_uints;
 
   uint32_t vals_per_int = 32 / header.bits_per_value;
   uint32_t bits = header.bits_per_value;
   uint32_t max_val = header.bits_per_value == 32 ? 0xFFFFFFFF : ((1 << bits) - 1);
   float d_max = 1.73205081f * sz_inv;
   float mult = 2 * d_max / max_val;
+
+
+  float min_val = -float(m_SdfCompactOctreeV3Data[brickOffset + off_3 + 0]) / float(0xFFFFFFFFu);
+  float range   =  (float(m_SdfCompactOctreeV3Data[brickOffset + off_3 + 1]) / float(0xFFFFFFFFu)) / max_val;
+
   for (int i = 0; i < 4; i++)
   {
     int3 vPos = voxelPosU + int3((i & 2) >> 1, i & 1, 0);
@@ -2495,12 +2503,12 @@ float BVHRT::COctreeV3_LoadDistanceValues(uint32_t brickOffset, float3 voxelPos,
     uint32_t localOffset = b0 + b1;
 
     uint32_t vId0 = sliceOffset + localOffset;
-    uint32_t dist0 = ((m_SdfCompactOctreeV3Data[brickOffset + off_3 + vId0 / vals_per_int] >> (bits * (vId0 % vals_per_int))) & max_val);
-    values[2*i+0] = -d_max + mult * dist0;
+    uint32_t dist0 = ((m_SdfCompactOctreeV3Data[brickOffset + off_4 + vId0 / vals_per_int] >> (bits * (vId0 % vals_per_int))) & max_val);
+    values[2*i+0] = min_val + range * dist0;
 
     uint32_t vId1 = vId0 + 1;
-    uint32_t dist1 = ((m_SdfCompactOctreeV3Data[brickOffset + off_3 + vId1 / vals_per_int] >> (bits * (vId1 % vals_per_int))) & max_val);
-    values[2*i+1] = -d_max + mult * dist1;
+    uint32_t dist1 = ((m_SdfCompactOctreeV3Data[brickOffset + off_4 + vId1 / vals_per_int] >> (bits * (vId1 % vals_per_int))) & max_val);
+    values[2*i+1] = min_val + range * dist1;
   }
   return -1.0f;
 #endif

@@ -218,6 +218,27 @@ bool MultiRenderer::CreateSceneFromHydra(const std::string& a_path, unsigned typ
   return true;
 }
 
+HydraSceneProperties MultiRenderer::AnalyzeHydraScene(const std::string& a_path)
+{
+  hydra_xml::HydraScene scene;
+  if(scene.LoadState(a_path) < 0)
+  {
+    printf("Could not load hydra scene\n");
+    return {};
+  }
+
+  HydraSceneProperties res_properties{};
+
+  auto mIter = scene.GeomNodes().begin();
+  while (mIter != scene.GeomNodes().end())
+  {
+    printf("num_primitives: %d\n", mIter->attribute(L"num_primitives").as_uint());
+    res_properties.num_primitives += mIter->attribute(L"num_primitives").as_uint();
+    mIter++;
+  }
+  return res_properties;
+}
+
 ////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////

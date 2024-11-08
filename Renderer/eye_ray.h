@@ -53,6 +53,11 @@ struct Light
   unsigned _pad;
 };
 
+struct HydraSceneProperties
+{
+  uint32_t num_primitives;
+};
+
 static Light create_direct_light(float3 dir, float3 color)
 {
   return {normalize(dir), LIGHT_TYPE_DIRECT, color, 0};
@@ -165,6 +170,8 @@ public:
 
   void setSeed(uint32_t seed) { m_seed = seed; }
   uint32_t getSeed() const { return m_seed; }
+
+  HydraSceneProperties AnalyzeHydraScene(const std::string& a_path);
 
 protected:
 
