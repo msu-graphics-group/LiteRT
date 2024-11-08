@@ -2434,7 +2434,7 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
   }
 
   //return false if brick is empty
-  bool node_get_brick_values(const std::vector<SdfFrameOctreeNode> &frame, COctreeV3Header header, 
+  bool node_get_brick_values(const std::vector<SdfFrameOctreeTexNode> &frame, COctreeV3Header header, 
                              MultithreadedDistanceFunction sdf, unsigned thread_id, 
                              std::vector<float> &values_tmp, unsigned idx, unsigned lod_size, uint3 p)
   {
@@ -2515,7 +2515,7 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
     return max_val >= 0 && min_val <= 0;
   }
 
-  unsigned brick_values_compress_no_packing(const std::vector<SdfFrameOctreeNode> &frame, COctreeV3Header header, unsigned thread_id,
+  unsigned brick_values_compress_no_packing(const std::vector<SdfFrameOctreeTexNode> &frame, COctreeV3Header header, unsigned thread_id,
                                             std::vector<float> &values_tmp, std::vector<uint32_t> &u_values_tmp,
                                             unsigned idx, unsigned lod_size, uint3 p)
   {
@@ -2541,7 +2541,7 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
     return size_uints;
   }
 
-  unsigned brick_values_compress(const std::vector<SdfFrameOctreeNode> &frame, COctreeV3Header header, unsigned thread_id,
+  unsigned brick_values_compress(const std::vector<SdfFrameOctreeTexNode> &frame, COctreeV3Header header, unsigned thread_id,
                                  std::vector<float> &values_tmp, std::vector<uint32_t> &u_values_tmp,
                                  unsigned idx, unsigned lod_size, uint3 p)
   {
@@ -2773,7 +2773,7 @@ static unsigned bitcount(uint32_t x)
   return m_bitcount[x & 0xff] + m_bitcount[(x >> 8) & 0xff] + m_bitcount[(x >> 16) & 0xff] + m_bitcount[x >> 24];
 }
 
-void frame_octree_to_compact_octree_v3_rec(const std::vector<SdfFrameOctreeNode> &frame, COctreeV3Header header,
+void frame_octree_to_compact_octree_v3_rec(const std::vector<SdfFrameOctreeTexNode> &frame, COctreeV3Header header,
                                            MultithreadedDistanceFunction sdf, unsigned max_threads,
                                            std::vector<uint32_t> &compact, std::vector<float> &values_tmp, std::vector<uint32_t> &u_values_tmp,
                                            unsigned nodeId, unsigned cNodeId, unsigned lod_size, uint3 p)
@@ -2920,7 +2920,7 @@ void frame_octree_to_compact_octree_v3_rec(const std::vector<SdfFrameOctreeNode>
   }
 }
 
-  std::vector<uint32_t> frame_octree_to_compact_octree_v3(const std::vector<SdfFrameOctreeNode> &frame, COctreeV3Header header,
+  std::vector<uint32_t> frame_octree_to_compact_octree_v3(const std::vector<SdfFrameOctreeTexNode> &frame, COctreeV3Header header,
                                                           MultithreadedDistanceFunction sdf, unsigned max_threads)
   {
     stat_leaf_bytes.store(0);

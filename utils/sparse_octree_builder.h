@@ -56,6 +56,6 @@ namespace sdf_converter
 
   std::vector<SdfCompactOctreeNode> frame_octree_to_compact_octree(const std::vector<SdfFrameOctreeNode> &frame);
   std::vector<uint32_t> frame_octree_to_compact_octree_v2(const std::vector<SdfFrameOctreeNode> &frame);
-  std::vector<uint32_t> frame_octree_to_compact_octree_v3(const std::vector<SdfFrameOctreeNode> &frame, COctreeV3Header header,
+  std::vector<uint32_t> frame_octree_to_compact_octree_v3(const std::vector<SdfFrameOctreeTexNode> &frame, COctreeV3Header header,
                                                           MultithreadedDistanceFunction sdf, unsigned max_threads);
 }

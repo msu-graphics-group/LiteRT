@@ -308,6 +308,20 @@ namespace sdf_converter
     return SBS_ind_to_SBS_ind_with_neighbors(sbs);
   }
 
+  std::vector<uint32_t> create_COctree_v3(SparseOctreeSettings settings, COctreeV3Header header, const cmesh4::SimpleMesh &mesh)
+  {
+    auto frame_octree_tex = create_sdf_frame_octree_tex(settings, mesh);
+
+    unsigned max_threads = omp_get_max_threads();
+    std::vector<MeshBVH> bvh(max_threads);
+    for (unsigned i = 0; i < max_threads; i++)
+      bvh[i].init(mesh);
+    MultithreadedDistanceFunction mt_sdf = [&](const float3 &p, unsigned idx) -> float 
+                                           { return bvh[idx].get_signed_distance(p); };
+    
+    return frame_octree_to_compact_octree_v3(frame_octree_tex, header, mt_sdf, max_threads);
+  }
+
   uint32_t sbs_adapt_node_metric(SdfSBSAdaptNode &node, SdfSBSAdaptHeader &header)
   {
     uint32_t metric = sizeof(node);

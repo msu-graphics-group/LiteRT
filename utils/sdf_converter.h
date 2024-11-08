@@ -88,4 +88,6 @@ namespace sdf_converter
                                                const std::vector<std::shared_ptr<ICombinedImageSampler>> &textures_lib);
 
   SdfSBSAdapt greed_sbs_adapt(MultithreadedDistanceFunction sdf, uint8_t depth);
+
+  std::vector<uint32_t> create_COctree_v3(SparseOctreeSettings settings, COctreeV3Header header, const cmesh4::SimpleMesh &mesh);
 }

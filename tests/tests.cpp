@@ -3295,10 +3295,8 @@ void litert_test_41_coctree_v3()
     header.brick_size = 4;
     header.brick_pad = 1;
 
-    auto octree = sdf_converter::create_sdf_frame_octree(SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, base_depth-2, 2<<28),
-                                                         mesh);
-    auto coctree_v3 = sdf_converter::frame_octree_to_compact_octree_v3(octree, header, [&](const float3 &p, unsigned idx) -> float 
-                                                                       { return bvh[idx].get_signed_distance(p); }, max_threads);
+    auto coctree_v3 = sdf_converter::create_COctree_v3(SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, base_depth-2, 2<<28),
+                                                       header, mesh);
 
     auto pRender = CreateMultiRenderer(DEVICE_GPU);
     preset.octree_intersect = OCTREE_INTERSECT_TRAVERSE;
