@@ -310,7 +310,11 @@ namespace sdf_converter
 
   std::vector<uint32_t> create_COctree_v3(SparseOctreeSettings settings, COctreeV3Header header, const cmesh4::SimpleMesh &mesh)
   {
-    auto frame_octree_tex = create_sdf_frame_octree_tex(settings, mesh);
+    std::vector<SdfFrameOctreeTexNode> frame;
+    {
+      auto tlo = cmesh4::create_triangle_list_octree(mesh, settings.depth, 0, 1.0f);
+      mesh_octree_to_sdf_frame_octree_tex(mesh, tlo, frame);
+    }
 
     unsigned max_threads = omp_get_max_threads();
     std::vector<MeshBVH> bvh(max_threads);
@@ -319,7 +323,7 @@ namespace sdf_converter
     MultithreadedDistanceFunction mt_sdf = [&](const float3 &p, unsigned idx) -> float 
                                            { return bvh[idx].get_signed_distance(p); };
     
-    return frame_octree_to_compact_octree_v3(frame_octree_tex, header, mt_sdf, max_threads);
+    return frame_octree_to_compact_octree_v3(frame, header, mt_sdf, max_threads);
   }
 
   uint32_t sbs_adapt_node_metric(SdfSBSAdaptNode &node, SdfSBSAdaptHeader &header)

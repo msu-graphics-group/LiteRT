@@ -2473,6 +2473,8 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
     float3 p0 = 2.0f * (d * float3(p)) - 1.0f;
     float dp = 2.0f * d / header.brick_size;
 
+    bool is_broken = false;
+
     for (int i = -(int)header.brick_pad; i <= (int)(header.brick_size + header.brick_pad); i++)
     {
       for (int j = -(int)header.brick_pad; j <= (int)(header.brick_size + header.brick_pad); j++)
@@ -2524,7 +2526,7 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
           }
 
           if (val > 10 || val < -10) //something went wrong
-            values_tmp[SBS_v_to_i(i, j, k, v_size, header.brick_pad)] = frame[idx].values[0];
+            is_broken = true;
           else
           {
             values_tmp[SBS_v_to_i(i, j, k, v_size, header.brick_pad)] = val;
@@ -2539,7 +2541,7 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
       }
     }
 
-    return max_val >= 0 && min_val <= 0;
+    return (!is_broken) && max_val >= 0 && min_val <= 0;
   }
 
   unsigned brick_values_compress_no_packing(const std::vector<SdfFrameOctreeTexNode> &frame, COctreeV3Header header,

@@ -3168,7 +3168,7 @@ void litert_test_41_coctree_v3()
   preset.spp = 16;
   preset.normal_mode = NORMAL_MODE_VERTEX;
 
-  unsigned base_depth = 6;
+  unsigned base_depth = 7;
 
   float fov_degrees = 40;
   float z_near = 0.1f;
