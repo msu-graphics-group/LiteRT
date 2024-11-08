@@ -3320,16 +3320,18 @@ void litert_test_41_coctree_v3()
     for (unsigned i = 0; i < max_threads; i++)
       bvh[i].init(mesh);
       
-    COctreeV3Header header;
-    header.bits_per_value = b;
-    header.brick_size = 4;
-    header.brick_pad = 1;
-    header.uv_size = 1;
+    COctreeV3 coctree;
+    coctree.header.bits_per_value = b;
+    coctree.header.brick_size = 4;
+    coctree.header.brick_pad = 1;
+    coctree.header.uv_size = 1;
 
     auto t1 = std::chrono::steady_clock::now();
-    auto coctree_v3 = sdf_converter::create_COctree_v3(SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, base_depth-2, 2<<28),
-                                                       header, mesh);
+    coctree.data = sdf_converter::create_COctree_v3(SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, base_depth-2, 2<<28),
+                                                    coctree.header, mesh);
     auto t2 = std::chrono::steady_clock::now();
+
+    save_coctree_v3(coctree, "saves/test_41_coctree_v3.bin");
 
     float time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
     printf("build took %.1f ms\n", time_ms);
@@ -3338,7 +3340,7 @@ void litert_test_41_coctree_v3()
     preset.octree_intersect = OCTREE_INTERSECT_TRAVERSE;
     preset.normal_mode = NORMAL_MODE_SDF_SMOOTHED;
     pRender->SetPreset(preset);
-    pRender->SetScene_COctreeV3(coctree_v3, header);
+    pRender->SetScene(coctree);
     uint32_t texId = pRender->AddTexture(texture);
     MultiRendererMaterial mat;
     mat.type = MULTI_RENDER_MATERIAL_TYPE_TEXTURED;

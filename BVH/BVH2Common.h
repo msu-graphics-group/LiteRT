@@ -126,7 +126,7 @@ struct BVHRT : public ISceneObject
   uint32_t AddGeom_GraphicsPrim(const GraphicsPrimView &nurbs, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
   uint32_t AddGeom_COctreeV1(const std::vector<SdfCompactOctreeNode> &nodes, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
   uint32_t AddGeom_COctreeV2(const std::vector<uint32_t> &data, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
-  uint32_t AddGeom_COctreeV3(const std::vector<uint32_t> &data, const COctreeV3Header &header, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
+  uint32_t AddGeom_COctreeV3(COctreeV3View octree, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
 
   void set_debug_mode(bool enable);
 #endif

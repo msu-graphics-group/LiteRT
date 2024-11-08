@@ -145,6 +145,34 @@ void load_sdf_frame_octree_tex(std::vector<SdfFrameOctreeTexNode> &scene, const 
   fs.close();
 }
 
+void save_coctree_v3(const COctreeV3View &scene, const std::string &path)
+{
+  std::ofstream fs(path, std::ios::binary);
+  fs.write((const char *)&COctreeV3::VERSION, sizeof(uint32_t));
+  fs.write((const char *)&scene.header, sizeof(COctreeV3Header));
+  fs.write((const char *)&scene.size, sizeof(uint32_t));
+  fs.write((const char *)scene.data, scene.size * sizeof(uint32_t));
+  fs.flush();
+  fs.close();
+}
+
+void load_coctree_v3(COctreeV3 &scene, const std::string &path)
+{
+  std::ifstream fs(path, std::ios::binary);
+  uint32_t version = 0;
+  fs.read((char *)&version, sizeof(uint32_t));
+  if (version != COctreeV3::VERSION) {
+    printf("COctreeV3 version mismatch (save is version %u, current version is %u)\n",
+           version, COctreeV3::VERSION);
+  }
+  fs.read((char *)&scene.header, sizeof(COctreeV3Header));
+  uint32_t sz = 0;
+  fs.read((char *)&sz, sizeof(uint32_t));
+  scene.data.resize(sz);
+  fs.read((char *)scene.data.data(), sz * sizeof(uint32_t));
+  fs.close();
+}
+
 void load_neural_sdf_scene_SIREN(SdfScene &scene, const std::string &path)
 {
   constexpr unsigned layers = 4;

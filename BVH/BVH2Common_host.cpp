@@ -153,6 +153,13 @@ uint32_t BVHRT::AddCustomGeom_FromFile(const char *geom_type_name, const char *f
     load_gs_scene(scene, filename);
     return AddGeom_GSScene(scene, fake_this);
   }
+  else if (name == "sdf_coctree_v3")
+  {
+    std::cout << "[LoadScene]: SDF compact octree = " << filename << std::endl;
+    COctreeV3 scene;
+    load_coctree_v3(scene, filename);
+    return AddGeom_COctreeV3(scene, fake_this);
+  }
   else
   {
     std::cout << "[LoadScene]: unknown geometry node type: " << name.c_str() << std::endl;
@@ -1088,13 +1095,13 @@ uint32_t BVHRT::AddGeom_COctreeV2(const std::vector<uint32_t> &octree, ISceneObj
   return fake_this->AddGeom_AABB(m_abstractObjects.back().m_tag, (const CRT_AABB*)orig_nodes.data(), orig_nodes.size(), nullptr, 1);
 }
 
-uint32_t BVHRT::AddGeom_COctreeV3(const std::vector<uint32_t> &octree, const COctreeV3Header &header, ISceneObject *fake_this, BuildOptions a_qualityLevel)
+uint32_t BVHRT::AddGeom_COctreeV3(COctreeV3View octree, ISceneObject *fake_this, BuildOptions a_qualityLevel)
 {
   assert(m_SdfCompactOctreeV1Data.size() == 0); //only one compact octree per scene is supported
-  assert(octree.size() > 0);
-  assert(octree.size() < (1u<<28)); //huge grids shouldn't be here
+  assert(octree.size > 0);
+  assert(octree.size < (1u<<28)); //huge grids shouldn't be here
 
-  coctree_v3_header = header;
+  coctree_v3_header = octree.header;
 
   //SDF octree is always a unit cube
   float4 mn = float4(-1,-1,-1,1);
@@ -1114,7 +1121,7 @@ uint32_t BVHRT::AddGeom_COctreeV3(const std::vector<uint32_t> &octree, const COc
   m_geomData.back().type = TYPE_COCTREE_V3;
 
   //fill octree-specific data arrays
-  m_SdfCompactOctreeV3Data = octree;
+  m_SdfCompactOctreeV3Data = std::vector<uint32_t>(octree.data, octree.data + octree.size);
 
   //create smallest possible list of bboxes for BLAS
   std::vector<BVHNode> orig_nodes;

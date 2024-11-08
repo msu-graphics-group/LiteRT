@@ -423,6 +423,33 @@ struct SdfFrameOctreeTexView
   const SdfFrameOctreeTexNode *nodes;
 };
 
+struct COctreeV3
+{
+  static constexpr unsigned VERSION = 1; // change version if structure changes
+  COctreeV3Header header;
+  std::vector<uint32_t> data;
+};
+
+struct COctreeV3View
+{
+  COctreeV3View() = default;
+  COctreeV3View(const COctreeV3 &a_octree)
+  {
+    header = a_octree.header;
+    data = a_octree.data.data();
+    size = a_octree.data.size();
+  }
+  COctreeV3View(COctreeV3Header a_header, const std::vector<uint32_t> &a_data)
+  {
+    header = a_header;
+    data = a_data.data();
+    size = a_data.size();
+  }
+  COctreeV3Header header;
+  const uint32_t *data = nullptr;
+  uint32_t size = 0;
+};
+
 // interface to evaluate SdfGrid out of context of rendering
 class ISdfGridFunction
 {
@@ -451,6 +478,9 @@ void load_sdf_SBS(SdfSBS &scene, const std::string &path);
 
 void save_sdf_frame_octree_tex(const SdfFrameOctreeTexView &scene, const std::string &path);
 void load_sdf_frame_octree_tex(std::vector<SdfFrameOctreeTexNode> &scene, const std::string &path);
+
+void save_coctree_v3(const COctreeV3View &scene, const std::string &path);
+void load_coctree_v3(COctreeV3 &scene, const std::string &path);
 
 void load_neural_sdf_scene_SIREN(SdfScene &scene, const std::string &path); // loads scene from raw SIREN weights file
 
