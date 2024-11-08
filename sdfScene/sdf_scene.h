@@ -188,6 +188,7 @@ struct COctreeV3Header
   uint32_t brick_size;      //number of voxels in each brick, 1 to 16
   uint32_t brick_pad;       //how many additional voxels are stored on the borders, 0 is default, 1 is for tricubic filtration or normals smoothing
   uint32_t bits_per_value;  //6, 8, 10, 16, 32 bits per value is allowed
+  uint32_t uv_size;         //0 if COctreeV3 is not textured, 1 for default (16 for u and v) and 2 for more precision (32 for u and v, not supported)
 };
 
 

@@ -3307,6 +3307,7 @@ void litert_test_41_coctree_v3()
     header.bits_per_value = b;
     header.brick_size = 4;
     header.brick_pad = 1;
+    header.uv_size = 0;
 
     auto t1 = std::chrono::steady_clock::now();
     auto coctree_v3 = sdf_converter::create_COctree_v3(SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, base_depth-2, 2<<28),

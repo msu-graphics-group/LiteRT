@@ -2467,11 +2467,12 @@ float BVHRT::COctreeV3_LoadDistanceValues(uint32_t brickOffset, float3 voxelPos,
   const unsigned min_range_size_uints = 2;
 
   //<presence_flags><distance_flags><distance_offsets><min value and range><distances>
-  unsigned off_0 = 0;
-  unsigned off_1 = off_0 + presence_flags_size_uints;
-  unsigned off_2 = off_1 + distance_flags_size_uints;
-  unsigned off_3 = off_2 + distance_offsets_size_uints;
-  unsigned off_4 = off_3 + min_range_size_uints;
+  unsigned off_0 = 0;                                   // presence flags
+  unsigned off_1 = off_0 + presence_flags_size_uints;   // distance flags
+  unsigned off_2 = off_1 + distance_flags_size_uints;   // distance offsets
+  unsigned off_3 = off_2 + distance_offsets_size_uints; // min value and range
+  unsigned off_4 = off_3 + min_range_size_uints;        // texture coordinates
+  unsigned off_5 = off_4 + 8 * header.uv_size;          // distances
 
   uint32_t vals_per_int = 32 / header.bits_per_value;
   uint32_t bits = header.bits_per_value;
@@ -2503,11 +2504,11 @@ float BVHRT::COctreeV3_LoadDistanceValues(uint32_t brickOffset, float3 voxelPos,
     uint32_t localOffset = b0 + b1;
 
     uint32_t vId0 = sliceOffset + localOffset;
-    uint32_t dist0 = ((m_SdfCompactOctreeV3Data[brickOffset + off_4 + vId0 / vals_per_int] >> (bits * (vId0 % vals_per_int))) & max_val);
+    uint32_t dist0 = ((m_SdfCompactOctreeV3Data[brickOffset + off_5 + vId0 / vals_per_int] >> (bits * (vId0 % vals_per_int))) & max_val);
     values[2*i+0] = min_val + range * dist0;
 
     uint32_t vId1 = vId0 + 1;
-    uint32_t dist1 = ((m_SdfCompactOctreeV3Data[brickOffset + off_4 + vId1 / vals_per_int] >> (bits * (vId1 % vals_per_int))) & max_val);
+    uint32_t dist1 = ((m_SdfCompactOctreeV3Data[brickOffset + off_5 + vId1 / vals_per_int] >> (bits * (vId1 % vals_per_int))) & max_val);
     values[2*i+1] = min_val + range * dist1;
   }
   return -1.0f;
@@ -2611,9 +2612,51 @@ void BVHRT::COctreeV3_BrickIntersect(uint32_t type, const float3 ray_pos, const 
   }
   
   //ray hit a brick
-  if (pHit->t < old_t)
+  if (pHit->t < old_t && header.uv_size > 0)
   {
-    //TODO: calculate texture coordinates
+    uint32_t p_size = header.brick_size + 2 * header.brick_pad;
+  
+    //this voxel is guaranteed to have surface
+    const uint32_t line_distances_offset_bits = 16;
+    const uint32_t line_distances_offsets_per_uint = 32 / line_distances_offset_bits;
+
+    uint32_t slice_distance_flags_bits = v_size * v_size;
+    uint32_t slice_distance_flags_uints = (slice_distance_flags_bits + 32 - 1) / 32;
+    uint32_t distance_flags_size_uints = v_size * slice_distance_flags_uints;
+    uint32_t presence_flags_size_uints = (p_size * p_size * p_size + 32 - 1) / 32;
+    uint32_t distance_offsets_size_uints = (v_size + line_distances_offsets_per_uint - 1) / line_distances_offsets_per_uint; // 16 bits for offset, should be enough for all cases
+
+    const unsigned min_range_size_uints = 2;
+
+    //<presence_flags><distance_flags><distance_offsets><min value and range><distances>
+    unsigned off_0 = 0;                                   // presence flags
+    unsigned off_1 = off_0 + presence_flags_size_uints;   // distance flags
+    unsigned off_2 = off_1 + distance_flags_size_uints;   // distance offsets
+    unsigned off_3 = off_2 + distance_offsets_size_uints; // min value and range
+    unsigned off_4 = off_3 + min_range_size_uints;        // texture coordinates
+    unsigned off_5 = off_4 + 8 * header.uv_size;          // distances
+
+    float3 pos = ray_pos + pHit->t*ray_dir;
+    float3 dp = (pos - brick_min_pos)*(0.5f*sz);
+
+      pHit->coords[0] = (1-dp.x)*(1-dp.y)*(1-dp.z)*(1.5259022e-5f*float(m_SdfCompactOctreeV3Data[brickOffset + off_4 + 0] >> 16)) + 
+                        (1-dp.x)*(1-dp.y)*(  dp.z)*(1.5259022e-5f*float(m_SdfCompactOctreeV3Data[brickOffset + off_4 + 1] >> 16)) + 
+                        (1-dp.x)*(  dp.y)*(1-dp.z)*(1.5259022e-5f*float(m_SdfCompactOctreeV3Data[brickOffset + off_4 + 2] >> 16)) + 
+                        (1-dp.x)*(  dp.y)*(  dp.z)*(1.5259022e-5f*float(m_SdfCompactOctreeV3Data[brickOffset + off_4 + 3] >> 16)) + 
+                        (  dp.x)*(1-dp.y)*(1-dp.z)*(1.5259022e-5f*float(m_SdfCompactOctreeV3Data[brickOffset + off_4 + 4] >> 16)) + 
+                        (  dp.x)*(1-dp.y)*(  dp.z)*(1.5259022e-5f*float(m_SdfCompactOctreeV3Data[brickOffset + off_4 + 5] >> 16)) + 
+                        (  dp.x)*(  dp.y)*(1-dp.z)*(1.5259022e-5f*float(m_SdfCompactOctreeV3Data[brickOffset + off_4 + 6] >> 16)) + 
+                        (  dp.x)*(  dp.y)*(  dp.z)*(1.5259022e-5f*float(m_SdfCompactOctreeV3Data[brickOffset + off_4 + 7] >> 16));
+
+      pHit->coords[1] = (1-dp.x)*(1-dp.y)*(1-dp.z)*(1.5259022e-5f*float(m_SdfCompactOctreeV3Data[brickOffset + off_4 + 0] & 0xFFFF)) + 
+                        (1-dp.x)*(1-dp.y)*(  dp.z)*(1.5259022e-5f*float(m_SdfCompactOctreeV3Data[brickOffset + off_4 + 1] & 0xFFFF)) + 
+                        (1-dp.x)*(  dp.y)*(1-dp.z)*(1.5259022e-5f*float(m_SdfCompactOctreeV3Data[brickOffset + off_4 + 2] & 0xFFFF)) + 
+                        (1-dp.x)*(  dp.y)*(  dp.z)*(1.5259022e-5f*float(m_SdfCompactOctreeV3Data[brickOffset + off_4 + 3] & 0xFFFF)) + 
+                        (  dp.x)*(1-dp.y)*(1-dp.z)*(1.5259022e-5f*float(m_SdfCompactOctreeV3Data[brickOffset + off_4 + 4] & 0xFFFF)) + 
+                        (  dp.x)*(1-dp.y)*(  dp.z)*(1.5259022e-5f*float(m_SdfCompactOctreeV3Data[brickOffset + off_4 + 5] & 0xFFFF)) + 
+                        (  dp.x)*(  dp.y)*(1-dp.z)*(1.5259022e-5f*float(m_SdfCompactOctreeV3Data[brickOffset + off_4 + 6] & 0xFFFF)) + 
+                        (  dp.x)*(  dp.y)*(  dp.z)*(1.5259022e-5f*float(m_SdfCompactOctreeV3Data[brickOffset + off_4 + 7] & 0xFFFF));
+
   }
 #endif
 }

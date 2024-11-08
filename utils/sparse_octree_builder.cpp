@@ -2731,11 +2731,12 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
     assert(slice_distance_flags_uints <= 2); //if we want slices with more than 64 values, we should change rendering
 
     //<presence_flags><distance_flags><distance_offsets><min value and range><distances>
-    unsigned off_0 = 0;
-    unsigned off_1 = off_0 + presence_flags_size_uints;
-    unsigned off_2 = off_1 + distance_flags_size_uints;
-    unsigned off_3 = off_2 + distance_offsets_size_uints;
-    unsigned off_4 = off_3 + min_range_size_uints;
+    unsigned off_0 = 0;                                  //presence flags
+    unsigned off_1 = off_0 + presence_flags_size_uints;  //distance flags
+    unsigned off_2 = off_1 + distance_flags_size_uints;  //distance offsets
+    unsigned off_3 = off_2 + distance_offsets_size_uints;//min value and range
+    unsigned off_4 = off_3 + min_range_size_uints;       //texture coordinates
+    unsigned off_5 = off_4 + 8*header.uv_size;           //distances
 
 
     //empty all range that can be used later
@@ -2790,6 +2791,18 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
     ctx.u_values_tmp[off_3 + 0] = min_comp;
     ctx.u_values_tmp[off_3 + 1] = range_comp;
 
+    //fill texture coordinates
+    if (header.uv_size > 0)
+    {
+      assert(header.uv_size == 1); //only 16 bit precision is supported now
+      for (int i=0; i<8; i++)
+      {
+        float u_comp = 0xFFFF * LiteMath::clamp(frame[idx].tex_coords[2*i+0], 0.0f, 1.0f);
+        float v_comp = 0xFFFF * LiteMath::clamp(frame[idx].tex_coords[2*i+1], 0.0f, 1.0f);
+        ctx.u_values_tmp[off_4 + i] = (unsigned)u_comp << 16 | (unsigned)v_comp;
+      }
+    }
+
     //fill actual distances
     unsigned active_distances = 0;
     for (int i = 0; i < v_size*v_size*v_size; i++)
@@ -2797,7 +2810,7 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
       if (ctx.distance_flags[i])
       {
         unsigned d_compressed = max_val*((ctx.values_tmp[i] - min_active) / range_active);
-        ctx.u_values_tmp[off_4 + active_distances / vals_per_int] |= d_compressed << (bits * (active_distances % vals_per_int));
+        ctx.u_values_tmp[off_5 + active_distances / vals_per_int] |= d_compressed << (bits * (active_distances % vals_per_int));
         //printf("distance %d put to %u\n", i, active_distances);
         active_distances++;
       }
@@ -2807,7 +2820,8 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
     assert(distances_size_uint > 0);
     //printf("a leaf %u %u %u (%u/%u)\n", distances_size_uint, distance_flags_size_uints, presence_flags_size_uints, active_distances, v_size*v_size*v_size);
 
-    return distances_size_uint + min_range_size_uints + distance_flags_size_uints + presence_flags_size_uints + distance_offsets_size_uints;
+    return distances_size_uint + min_range_size_uints + distance_flags_size_uints + presence_flags_size_uints + distance_offsets_size_uints
+           + 8*header.uv_size;
   }
 
 static std::atomic<unsigned> stat_leaf_bytes(0);
@@ -2888,11 +2902,12 @@ void frame_octree_to_compact_octree_v3_rec(const std::vector<SdfFrameOctreeTexNo
           assert(slice_distance_flags_uints <= 2); //if we want slices with more than 64 values, we should change rendering
 
           //<presence_flags><distance_flags><distance_offsets><min value and range><distances>
-          unsigned off_0 = 0;
-          unsigned off_1 = off_0 + presence_flags_size_uints;
-          unsigned off_2 = off_1 + distance_flags_size_uints;
-          unsigned off_3 = off_2 + distance_offsets_size_uints;
-          unsigned off_4 = off_3 + min_range_size_uints;
+          unsigned off_0 = 0;                                  //presence flags
+          unsigned off_1 = off_0 + presence_flags_size_uints;  //distance flags
+          unsigned off_2 = off_1 + distance_flags_size_uints;  //distance offsets
+          unsigned off_3 = off_2 + distance_offsets_size_uints;//min value and range
+          unsigned off_4 = off_3 + min_range_size_uints;       //texture coordinates
+          unsigned off_5 = off_4 + 8*header.uv_size;           //distances
 
           for (int x=0;x<header.brick_size;x++)
           {
@@ -2925,7 +2940,7 @@ void frame_octree_to_compact_octree_v3_rec(const std::vector<SdfFrameOctreeTexNo
                   uint32_t localOffset = b0 + b1;
 
                   uint32_t vId = sliceOffset + localOffset;
-                  uint32_t dist = ((u_values_tmp_2[off_4 + vId / vals_per_int] >> (bits * (vId % vals_per_int))) & max_val);
+                  uint32_t dist = ((u_values_tmp_2[off_5 + vId / vals_per_int] >> (bits * (vId % vals_per_int))) & max_val);
 
                   uint32_t real_vId = SBS_v_to_i(vPos.x, vPos.y, vPos.z, v_size, header.brick_pad);
                   uint32_t real_dist = ((thread_ctx.u_values_tmp[real_vId / vals_per_int] >> (bits * (real_vId % vals_per_int))) & max_val);
