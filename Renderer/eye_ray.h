@@ -89,7 +89,7 @@ public:
   void SetScene(SdfFrameOctreeTexView scene);
   void SetScene(const RawNURBS &nurbs);
   void SetScene(GraphicsPrimView scene);
-  void SetScene(COctreeV3View scene);
+  void SetScene(COctreeV3View scene, unsigned bvh_level);
 
   void SetScene_COctreeV1(const std::vector<SdfCompactOctreeNode> &scene);
   void SetScene_COctreeV2(const std::vector<uint32_t> &scene);

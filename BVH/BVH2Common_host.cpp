@@ -162,7 +162,7 @@ uint32_t BVHRT::AddCustomGeom_FromFile(const char *geom_type_name, const char *f
     std::cout << "[LoadScene]: SDF compact octree = " << filename << std::endl;
     COctreeV3 scene;
     load_coctree_v3(scene, filename);
-    return AddGeom_COctreeV3(scene, fake_this);
+    return AddGeom_COctreeV3(scene, 0, fake_this);
   }
   else
   {
@@ -1109,7 +1109,47 @@ uint32_t BVHRT::AddGeom_COctreeV2(const std::vector<uint32_t> &octree, ISceneObj
   return fake_this->AddGeom_AABB(m_abstractObjects.back().m_tag, (const CRT_AABB*)orig_nodes.data(), orig_nodes.size(), nullptr, 1);
 }
 
-uint32_t BVHRT::AddGeom_COctreeV3(COctreeV3View octree, ISceneObject *fake_this, BuildOptions a_qualityLevel)
+void add_border_nodes_rec(COctreeV3View octree, uint32_t max_bvh_level, 
+                          std::vector<BVHNode> &nodes,
+                          uint32_t nodeId, float3 p, float d, uint32_t level)
+{
+  unsigned childrenInfo = octree.data[nodeId + 8];
+  unsigned children_leaves = childrenInfo & 0xFF00u;
+
+  if (children_leaves || max_bvh_level == level)
+  {
+    //stop here
+    nodes.emplace_back();
+    nodes.back().leftOffset = nodeId;
+    nodes.back().boxMin = float3(-1,-1,-1) + 2.0f*p*d;
+    nodes.back().boxMax = float3(-1,-1,-1) + 2.0f*(p+float3(1,1,1))*d;
+    //printf("added box (%f, %f, %f), (%f, %f, %f)\n", nodes.back().boxMin.x, nodes.back().boxMin.y, nodes.back().boxMin.z, nodes.back().boxMax.x, nodes.back().boxMax.y, nodes.back().boxMax.z);
+  }
+  else
+  {
+    for (int i = 0; i < 8; i++)
+    {
+      // if child is active
+      if ((childrenInfo & (1u << i)) > 0)
+      {
+        float ch_d = d / 2;
+        float3 ch_p = 2 * p + float3((i & 4) >> 2, (i & 2) >> 1, i & 1);
+        add_border_nodes_rec(octree, max_bvh_level, nodes, octree.data[nodeId + i], ch_p, ch_d, level+1);
+      }
+    }
+  }
+}
+
+std::vector<BVHNode> GetBoxes_COctreeV3(COctreeV3View octree, uint32_t max_bvh_level, 
+                                        uint32_t nodeId, float3 p, float d, uint32_t level)
+{
+  std::vector<BVHNode> nodes;
+  add_border_nodes_rec(octree, max_bvh_level, nodes, 0, float3(0,0,0), 1.0f, 0);
+
+  return nodes;
+}
+
+uint32_t BVHRT::AddGeom_COctreeV3(COctreeV3View octree, unsigned bvh_level, ISceneObject *fake_this, BuildOptions a_qualityLevel)
 {
   assert(m_SdfCompactOctreeV1Data.size() == 0); //only one compact octree per scene is supported
   assert(octree.size > 0);
@@ -1137,16 +1177,20 @@ uint32_t BVHRT::AddGeom_COctreeV3(COctreeV3View octree, ISceneObject *fake_this,
   //fill octree-specific data arrays
   m_SdfCompactOctreeV3Data = std::vector<uint32_t>(octree.data, octree.data + octree.size);
 
-  //create smallest possible list of bboxes for BLAS
-  std::vector<BVHNode> orig_nodes;
-  orig_nodes.resize(2);
-  orig_nodes[0].boxMin = float3(-1,-1,-1);
-  orig_nodes[0].boxMax = float3(1,1,1);
-  orig_nodes[0].leftOffset = 0;
+  //list of bboxes for BLAS
+  std::vector<BVHNode> orig_nodes = GetBoxes_COctreeV3(octree, bvh_level, 0, float3(0,0,0), 1.0f, 0);
 
-  orig_nodes[1].boxMin = float3(-1.0001,-1.0001,-1.0001);
-  orig_nodes[1].boxMax = float3(-1,-1,-1);
-  orig_nodes[1].leftOffset = 0;
+  if (orig_nodes.size() < 2)
+  {
+    orig_nodes.resize(2);
+    orig_nodes[0].boxMin = float3(-1,-1,-1);
+    orig_nodes[0].boxMax = float3(1,1,1);
+    orig_nodes[0].leftOffset = 0;
+
+    orig_nodes[1].boxMin = float3(-1.0001,-1.0001,-1.0001);
+    orig_nodes[1].boxMax = float3(-1,-1,-1);
+    orig_nodes[1].leftOffset = 0;
+  }
 
   m_origNodes = orig_nodes;
   

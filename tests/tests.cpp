@@ -3307,11 +3307,12 @@ void litert_test_41_coctree_v3()
     printf("octree v2             %4.1f ms %6.1f Kb %.2f PSNR %.4f FLIP\n", timings[0]/10, coctree_total_bytes/(1024.0f), psnr, flip);
   }
 
-  bpp = {8};
+  std::vector<int> bvh_levels = {0,1,2,3,4};
 
-  for (int b : bpp)
+  for (int bvh_level : bvh_levels)
   {
     unsigned max_threads = 16;
+    unsigned b = 8;
 
     std::vector<MeshBVH> bvh(max_threads);
     for (unsigned i = 0; i < max_threads; i++)
@@ -3336,7 +3337,7 @@ void litert_test_41_coctree_v3()
     auto pRender = CreateMultiRenderer(DEVICE_GPU);
     preset.normal_mode = NORMAL_MODE_SDF_SMOOTHED;
     pRender->SetPreset(preset);
-    pRender->SetScene(coctree);
+    pRender->SetScene(coctree, bvh_level);
     uint32_t texId = pRender->AddTexture(texture);
     MultiRendererMaterial mat;
     mat.type = MULTI_RENDER_MATERIAL_TYPE_TEXTURED;
@@ -3359,11 +3360,14 @@ void litert_test_41_coctree_v3()
     LiteImage::SaveImage<uint32_t>(("saves/test_41_coctree_v3_"+std::to_string(b)+"_bits_tex.bmp").c_str(), image_res_tex); 
 
     BVHRT *bvhrt = dynamic_cast<BVHRT*>(pRender->GetAccelStruct().get());
-    coctree_total_bytes = bvhrt->m_SdfCompactOctreeV3Data.size()*sizeof(uint32_t); 
+    coctree_total_bytes = bvhrt->m_SdfCompactOctreeV3Data.size()*sizeof(uint32_t) + 
+                          bvhrt->m_allNodePairs.size()*sizeof(BVHNodePair) + 
+                          bvhrt->m_primIdCount.size()* sizeof(uint32_t) +
+                          bvhrt->m_origNodes.size()*sizeof(BVHNode);  
 
     float psnr = image_metrics::PSNR(image_ref, image_res);
     float flip = image_metrics::FLIP(image_ref, image_res);
-    printf("octree v3             %4.1f ms %6.1f Kb %.2f PSNR %.4f FLIP\n", timings[0]/10, coctree_total_bytes/(1024.0f), psnr, flip);
+    printf("octree v3 bvh=%d       %4.1f ms %6.1f Kb %.2f PSNR %.4f FLIP\n", bvh_level, timings[0]/10, coctree_total_bytes/(1024.0f), psnr, flip);
 
     float psnr_tex = image_metrics::PSNR(image_ref_tex, image_res_tex);
     float flip_tex = image_metrics::FLIP(image_ref_tex, image_res_tex);

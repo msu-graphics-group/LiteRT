@@ -476,7 +476,7 @@ void MultiRenderer::SetScene_COctreeV2(const std::vector<uint32_t> &scene)
   m_pAccelStruct->CommitScene();
 }
 
-void MultiRenderer::SetScene(COctreeV3View scene)
+void MultiRenderer::SetScene(COctreeV3View scene, unsigned bvh_level)
 {
   BVHRT *bvhrt = dynamic_cast<BVHRT*>(m_pAccelStruct->UnderlyingImpl(0));
   if (!bvhrt)
@@ -487,7 +487,7 @@ void MultiRenderer::SetScene(COctreeV3View scene)
 
   SetPreset(m_preset);
   m_pAccelStruct->ClearGeom();
-  auto geomId = bvhrt->AddGeom_COctreeV3(scene, m_pAccelStruct.get());
+  auto geomId = bvhrt->AddGeom_COctreeV3(scene, bvh_level, m_pAccelStruct.get());
   m_pAccelStruct->ClearScene();
   AddInstance(geomId, LiteMath::float4x4());
   m_pAccelStruct->CommitScene();
