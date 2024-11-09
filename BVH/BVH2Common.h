@@ -59,6 +59,8 @@ struct AbstractObject
   static constexpr uint32_t TAG_SDF_ADAPT_BRICK  = 7;
   static constexpr uint32_t TAG_NURBS            = 8; 
   static constexpr uint32_t TAG_GRAPHICS_PRIM    = 9;
+  static constexpr uint32_t TAG_COCTREE_SIMPLE   = 10; //V1 and V2
+  static constexpr uint32_t TAG_COCTREE_BRICKED  = 11; //V3
 
   AbstractObject(){}  // Dispatching on GPU hierarchy must not have destructors, especially virtual   
   virtual uint32_t GetTag()   const  { return TAG_NONE; }; // !!! #REQUIRED by kernel slicer
@@ -199,12 +201,14 @@ struct BVHRT : public ISceneObject
                                    uint32_t a_start, uint32_t a_count,
                                    CRT_Hit *pHit);
                                    
-  void OctreeIntersect(const float3 ray_pos, const float3 ray_dir, float tNear, 
-                       uint32_t instId, uint32_t geomId, bool stopOnFirstHit,
+  void OctreeIntersect(uint32_t type, const float3 ray_pos, const float3 ray_dir,
+                       float tNear, uint32_t instId, uint32_t geomId,
+                       uint32_t a_start, uint32_t a_count,
                        CRT_Hit *pHit);
 
-  void OctreeIntersectV3(const float3 ray_pos, const float3 ray_dir, float tNear, 
-                         uint32_t instId, uint32_t geomId, bool stopOnFirstHit,
+  void OctreeIntersectV3(uint32_t type, const float3 ray_pos, const float3 ray_dir,
+                         float tNear, uint32_t instId, uint32_t geomId,
+                         uint32_t a_start, uint32_t a_count,
                          CRT_Hit *pHit);
 
   void OctreeNodeIntersect(uint32_t type, const float3 ray_pos, const float3 ray_dir,
@@ -670,5 +674,51 @@ struct GeomDataGraphicsPrim : public AbstractObject
 
     bvhrt->IntersectGraphicPrims(ray_pos, ray_dir, tNear, info.instId, geometryId, a_start, a_count, pHit);
     return pHit->primId == 0xFFFFFFFF ? TAG_NONE : TAG_GRAPHICS_PRIM;
+  }
+};
+
+struct GeomDataCOctreeSimple : public AbstractObject
+{
+  GeomDataCOctreeSimple() {m_tag = GetTag();} 
+
+  uint32_t GetTag() const override { return TAG_COCTREE_SIMPLE; }  
+  uint32_t Intersect(float4 rayPosAndNear, float4 rayDirAndFar, CRT_LeafInfo info, 
+                     CRT_Hit* pHit, BVHRT* bvhrt) const override
+  {
+    float3 ray_pos = to_float3(rayPosAndNear);
+    float3 ray_dir = to_float3(rayDirAndFar);
+    float tNear    = rayPosAndNear.w;
+    uint32_t geometryId = geomId;
+    uint32_t globalAABBId = bvhrt->startEnd[geometryId].x + info.aabbId;
+    uint32_t start_count_packed = bvhrt->m_primIdCount[globalAABBId];
+    uint32_t a_start = EXTRACT_START(start_count_packed);
+    uint32_t a_count = EXTRACT_COUNT(start_count_packed);
+    uint32_t type = bvhrt->m_geomData[geometryId].type;
+
+    bvhrt->OctreeIntersect(type, ray_pos, ray_dir, tNear, info.instId, geometryId, a_start, a_count, pHit);
+    return pHit->primId == 0xFFFFFFFF ? TAG_NONE : TAG_COCTREE_SIMPLE;
+  }
+};
+
+struct GeomDataCOctreeBricked : public AbstractObject
+{
+  GeomDataCOctreeBricked() {m_tag = GetTag();} 
+
+  uint32_t GetTag() const override { return TAG_COCTREE_BRICKED; }  
+  uint32_t Intersect(float4 rayPosAndNear, float4 rayDirAndFar, CRT_LeafInfo info, 
+                     CRT_Hit* pHit, BVHRT* bvhrt) const override
+  {
+    float3 ray_pos = to_float3(rayPosAndNear);
+    float3 ray_dir = to_float3(rayDirAndFar);
+    float tNear    = rayPosAndNear.w;
+    uint32_t geometryId = geomId;
+    uint32_t globalAABBId = bvhrt->startEnd[geometryId].x + info.aabbId;
+    uint32_t start_count_packed = bvhrt->m_primIdCount[globalAABBId];
+    uint32_t a_start = EXTRACT_START(start_count_packed);
+    uint32_t a_count = EXTRACT_COUNT(start_count_packed);
+    uint32_t type = bvhrt->m_geomData[geometryId].type;
+
+    bvhrt->OctreeIntersectV3(type, ray_pos, ray_dir, tNear, info.instId, geometryId, a_start, a_count, pHit);
+    return pHit->primId == 0xFFFFFFFF ? TAG_NONE : TAG_COCTREE_BRICKED;
   }
 };

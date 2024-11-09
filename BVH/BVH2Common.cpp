@@ -2281,8 +2281,12 @@ static inline int new_node(float txm, int x, float tym, int y, float tzm, int z)
   return (txm < tym) ? (txm < tzm ? x : z) : (tym < tzm ? y : z);
 }
 
-void BVHRT::OctreeIntersect(const float3 ray_pos, const float3 ray_dir, float tNear, 
-                            uint32_t instId, uint32_t geomId, bool stopOnFirstHit,
+//Octree intersect for Compact Octrees V1 and V2
+//We don't use BVh with theese octrees, so some of the parameters
+//are not needed, but were included to match other *Intersect functions
+void BVHRT::OctreeIntersect(uint32_t type, const float3 ray_pos, const float3 ray_dir,
+                            float tNear, uint32_t instId, uint32_t geomId,
+                            uint32_t a_start, uint32_t a_count,
                             CRT_Hit *pHit)
 {
 #ifndef DISABLE_SDF_FRAME_OCTREE_COMPACT
@@ -2661,8 +2665,11 @@ void BVHRT::COctreeV3_BrickIntersect(uint32_t type, const float3 ray_pos, const 
 #endif
 }
 
-void BVHRT::OctreeIntersectV3(const float3 ray_pos, const float3 ray_dir, float tNear, 
-                              uint32_t instId, uint32_t geomId, bool stopOnFirstHit,
+//Octree intersect for Compact Octrees V3
+//This is used with BVH (so it is a two-layer hierarchy)
+void BVHRT::OctreeIntersectV3(uint32_t type, const float3 ray_pos, const float3 ray_dir,
+                              float tNear, uint32_t instId, uint32_t geomId,
+                              uint32_t bvhNodeId, uint32_t a_count,
                               CRT_Hit *pHit)
 {
 #ifndef DISABLE_SDF_FRAME_OCTREE_COMPACT
@@ -2691,6 +2698,19 @@ void BVHRT::OctreeIntersectV3(const float3 ray_pos, const float3 ray_dir, float 
     a |= 1;
   }
 
+  float3 min_pos = m_origNodes[bvhNodeId].boxMin;
+  float3 max_pos = m_origNodes[bvhNodeId].boxMax;
+  float3 center = 0.5f * (min_pos + max_pos);
+
+  uint32_t start_sz = uint32_t(2.0f / (max_pos.x - min_pos.x));
+  uint3 start_p_orig = uint3(float(start_sz)*0.5f*(min_pos - float3(-1,-1,-1)));
+  uint32_t p_mask = start_sz - 1;
+  uint3 start_p = uint3(((a & 4) > 0) ? (~start_p_orig.x & p_mask) : start_p_orig.x,
+                        ((a & 2) > 0) ? (~start_p_orig.y & p_mask) : start_p_orig.y,
+                        ((a & 1) > 0) ? (~start_p_orig.z & p_mask) : start_p_orig.z);
+
+  uint32_t startNodeOffset = m_origNodes[bvhNodeId].leftOffset;
+
   pos_ray_pos *= -1;
   const float3 pos_ray_dir_inv = SafeInverse(pos_ray_dir);
   const float3 _t0 = pos_ray_pos * pos_ray_dir_inv - pos_ray_dir_inv;
@@ -2717,9 +2737,9 @@ void BVHRT::OctreeIntersectV3(const float3 ray_pos, const float3 ray_dir, float 
   float3 start_q;
   float values[8];
 
-  stack[top].nodeId = 0;
+  stack[top].nodeId = startNodeOffset;
   stack[top].curChildId = 0;
-  stack[top].p_size = uint2(0,1);
+  stack[top].p_size = uint2((start_p.x << 16) | start_p.y, (start_p.z << 16) | start_sz);
 
     while (top >= 0)
     {
@@ -2914,17 +2934,7 @@ CRT_Hit BVHRT::RayQuery_NearestHit(float4 posAndNear, float4 dirAndFar)
         const float3 ray_pos = matmul4x3(m_instanceData[instId].transformInv, to_float3(posAndNear));
         const float3 ray_dir = matmul3x3(m_instanceData[instId].transformInv, to_float3(dirAndFar)); // DON'float NORMALIZE IT !!!! When we transform to local space of node, ray_dir must be unnormalized!!!
 
-        if (m_preset.octree_intersect == OCTREE_INTERSECT_TRAVERSE)
-        {
-          if(m_geomData[geomId].type == TYPE_COCTREE_V1 || m_geomData[geomId].type == TYPE_COCTREE_V2)
-            OctreeIntersect(ray_pos, ray_dir, posAndNear.w, instId, geomId, stopOnFirstHit, &hit);
-          else if (m_geomData[geomId].type == TYPE_COCTREE_V3)
-            OctreeIntersectV3(ray_pos, ray_dir, posAndNear.w, instId, geomId, stopOnFirstHit, &hit);
-          else
-          BVH2TraverseF32(ray_pos, ray_dir, posAndNear.w, instId, geomId, stopOnFirstHit, &hit);          
-        }
-        else
-          BVH2TraverseF32(ray_pos, ray_dir, posAndNear.w, instId, geomId, stopOnFirstHit, &hit);
+        BVH2TraverseF32(ray_pos, ray_dir, posAndNear.w, instId, geomId, stopOnFirstHit, &hit);
       }
     } while (nodeIdx < 0xFFFFFFFE && !(stopOnFirstHit && hit.primId != uint32_t(-1))); //
   }

@@ -40,10 +40,6 @@ static constexpr unsigned SDF_OCTREE_NODE_INTERSECT_NEWTON   = 2;// Using Newton
 static constexpr unsigned SDF_OCTREE_NODE_INTERSECT_BBOX     = 3;// Intersect with node bbox for debug purposes
 static constexpr unsigned SDF_OCTREE_NODE_INTERSECT_IT       = 4;// Interval tracing inside node
 
-//enum SdfOctreeIntersect
-static constexpr unsigned OCTREE_INTERSECT_BVH      = 0;//use BVH
-static constexpr unsigned OCTREE_INTERSECT_TRAVERSE = 1;//no BVH, traverse octree directly
-
 //enum MultiRenderMode
 static constexpr unsigned MULTI_RENDER_MODE_MASK                 =  0; //white object, black background
 static constexpr unsigned MULTI_RENDER_MODE_LAMBERT_NO_TEX       =  1; //Lambert shading, no texture, no shadows
@@ -82,7 +78,6 @@ static constexpr unsigned TRICUBIC_INTERPOLATION_MODE = 1;
 struct MultiRenderPreset
 {
   unsigned render_mode;        //enum MultiRenderMode
-  unsigned octree_intersect;   //enum SdfOctreeIntersect
   unsigned sdf_node_intersect; //enum SdfNodeIntersect
   unsigned normal_mode;        //enum NormalMode
   unsigned ray_gen_mode;       //enum RayGenMode
@@ -94,7 +89,6 @@ static MultiRenderPreset getDefaultPreset()
 {
   MultiRenderPreset p;
   p.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
-  p.octree_intersect = OCTREE_INTERSECT_BVH;
   p.sdf_node_intersect = SDF_OCTREE_NODE_INTERSECT_ST;
   p.normal_mode = NORMAL_MODE_GEOMETRY;
   p.ray_gen_mode = RAY_GEN_MODE_REGULAR;

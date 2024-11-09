@@ -2969,7 +2969,6 @@ void litert_test_38_direct_octree_traversal()
   //if (false)
   {
     auto pRender = CreateMultiRenderer(DEVICE_GPU);
-    preset.octree_intersect = OCTREE_INTERSECT_BVH;
     pRender->SetPreset(preset);
     pRender->SetScene(octree);
     pRender->SetLights({create_direct_light(float3(1,1,-1), float3(2.0f/3.0f)), create_ambient_light(float3(0.25, 0.25, 0.25))});
@@ -2993,7 +2992,6 @@ void litert_test_38_direct_octree_traversal()
 
   {
     auto pRender = CreateMultiRenderer(DEVICE_GPU);
-    preset.octree_intersect = OCTREE_INTERSECT_TRAVERSE;
     pRender->SetPreset(preset);
     auto coctree_v2 = sdf_converter::frame_octree_to_compact_octree_v2(octree);
     pRender->SetScene_COctreeV2(coctree_v2);
@@ -3290,7 +3288,6 @@ void litert_test_41_coctree_v3()
     auto coctree_v2 = sdf_converter::frame_octree_to_compact_octree_v2(octree);
     
     auto pRender = CreateMultiRenderer(DEVICE_GPU);
-    preset.octree_intersect = OCTREE_INTERSECT_TRAVERSE;
     pRender->SetPreset(preset);
     pRender->SetScene_COctreeV2(coctree_v2);
 
@@ -3337,7 +3334,6 @@ void litert_test_41_coctree_v3()
     printf("build took %.1f ms\n", time_ms);
 
     auto pRender = CreateMultiRenderer(DEVICE_GPU);
-    preset.octree_intersect = OCTREE_INTERSECT_TRAVERSE;
     preset.normal_mode = NORMAL_MODE_SDF_SMOOTHED;
     pRender->SetPreset(preset);
     pRender->SetScene(coctree);
@@ -3359,7 +3355,7 @@ void litert_test_41_coctree_v3()
     MultiRenderPreset preset_tex = preset;
     preset_tex.render_mode = MULTI_RENDER_MODE_LAMBERT;
     pRender->SetPreset(preset_tex);
-    pRender->Render(image_res_tex.data(), W, H, worldView, proj, preset_tex, 1);
+    //pRender->Render(image_res_tex.data(), W, H, worldView, proj, preset_tex, 1);
     LiteImage::SaveImage<uint32_t>(("saves/test_41_coctree_v3_"+std::to_string(b)+"_bits_tex.bmp").c_str(), image_res_tex); 
 
     BVHRT *bvhrt = dynamic_cast<BVHRT*>(pRender->GetAccelStruct().get());
@@ -3379,7 +3375,6 @@ void litert_test_41_coctree_v3()
                                                          mesh);
     
     auto pRender = CreateMultiRenderer(DEVICE_GPU);
-    preset.octree_intersect = OCTREE_INTERSECT_TRAVERSE;
     pRender->SetPreset(preset);
     pRender->SetScene(octree);
     uint32_t texId = pRender->AddTexture(texture);

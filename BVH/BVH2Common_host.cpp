@@ -38,9 +38,6 @@ uint32_t type_to_tag(uint32_t type)
   case TYPE_SDF_SVS:
   case TYPE_SDF_FRAME_OCTREE:
   case TYPE_SDF_FRAME_OCTREE_TEX:
-  case TYPE_COCTREE_V1: //compact octrees v1 and v2 do not use BVH and AbstractObject concept
-  case TYPE_COCTREE_V2: //but it is probably better to list them here anyway
-  case TYPE_COCTREE_V3:
     return AbstractObject::TAG_SDF_NODE;
   
   case TYPE_SDF_SBS:
@@ -58,6 +55,13 @@ uint32_t type_to_tag(uint32_t type)
 
   case TYPE_GRAPHICS_PRIM:
     return AbstractObject::TAG_GRAPHICS_PRIM;
+
+  case TYPE_COCTREE_V1:
+  case TYPE_COCTREE_V2:
+    return AbstractObject::TAG_COCTREE_SIMPLE;
+  
+  case TYPE_COCTREE_V3:
+    return AbstractObject::TAG_COCTREE_BRICKED;
 
   default:
     return AbstractObject::TAG_NONE;
@@ -1034,7 +1038,7 @@ uint32_t BVHRT::AddGeom_COctreeV1(const std::vector<SdfCompactOctreeNode> &octre
 
   //fill geom data array
   m_abstractObjects.resize(m_abstractObjects.size() + 1); 
-  new (m_abstractObjects.data() + m_abstractObjects.size() - 1) GeomDataSdfNode();
+  new (m_abstractObjects.data() + m_abstractObjects.size() - 1) GeomDataCOctreeSimple();
   m_abstractObjects.back().geomId = m_abstractObjects.size() - 1;
   m_abstractObjects.back().m_tag = type_to_tag(TYPE_COCTREE_V1);
 
@@ -1052,9 +1056,14 @@ uint32_t BVHRT::AddGeom_COctreeV1(const std::vector<SdfCompactOctreeNode> &octre
   std::vector<BVHNode> orig_nodes;
   orig_nodes.resize(2);
   orig_nodes[0].boxMin = float3(-1,-1,-1);
-  orig_nodes[0].boxMax = float3(1,1,0);
-  orig_nodes[1].boxMin = float3(-1,-1,0);
-  orig_nodes[1].boxMax = float3(1,1,1);
+  orig_nodes[0].boxMax = float3(1,1,1);
+  orig_nodes[0].leftOffset = 0;
+
+  orig_nodes[1].boxMin = float3(-1.0001,-1.0001,-1.0001);
+  orig_nodes[1].boxMax = float3(-1,-1,-1);
+  orig_nodes[1].leftOffset = 0;
+
+  m_origNodes = orig_nodes;
   
   return fake_this->AddGeom_AABB(m_abstractObjects.back().m_tag, (const CRT_AABB*)orig_nodes.data(), orig_nodes.size(), nullptr, 1);
 }
@@ -1070,7 +1079,7 @@ uint32_t BVHRT::AddGeom_COctreeV2(const std::vector<uint32_t> &octree, ISceneObj
 
   //fill geom data array
   m_abstractObjects.resize(m_abstractObjects.size() + 1); 
-  new (m_abstractObjects.data() + m_abstractObjects.size() - 1) GeomDataSdfNode();
+  new (m_abstractObjects.data() + m_abstractObjects.size() - 1) GeomDataCOctreeSimple();
   m_abstractObjects.back().geomId = m_abstractObjects.size() - 1;
   m_abstractObjects.back().m_tag = type_to_tag(TYPE_COCTREE_V2);
 
@@ -1088,9 +1097,14 @@ uint32_t BVHRT::AddGeom_COctreeV2(const std::vector<uint32_t> &octree, ISceneObj
   std::vector<BVHNode> orig_nodes;
   orig_nodes.resize(2);
   orig_nodes[0].boxMin = float3(-1,-1,-1);
-  orig_nodes[0].boxMax = float3(1,1,0);
-  orig_nodes[1].boxMin = float3(-1,-1,0);
-  orig_nodes[1].boxMax = float3(1,1,1);
+  orig_nodes[0].boxMax = float3(1,1,1);
+  orig_nodes[0].leftOffset = 0;
+
+  orig_nodes[1].boxMin = float3(-1.0001,-1.0001,-1.0001);
+  orig_nodes[1].boxMax = float3(-1,-1,-1);
+  orig_nodes[1].leftOffset = 0;
+
+  m_origNodes = orig_nodes;
   
   return fake_this->AddGeom_AABB(m_abstractObjects.back().m_tag, (const CRT_AABB*)orig_nodes.data(), orig_nodes.size(), nullptr, 1);
 }
@@ -1109,7 +1123,7 @@ uint32_t BVHRT::AddGeom_COctreeV3(COctreeV3View octree, ISceneObject *fake_this,
 
   //fill geom data array
   m_abstractObjects.resize(m_abstractObjects.size() + 1); 
-  new (m_abstractObjects.data() + m_abstractObjects.size() - 1) GeomDataSdfNode();
+  new (m_abstractObjects.data() + m_abstractObjects.size() - 1) GeomDataCOctreeBricked();
   m_abstractObjects.back().geomId = m_abstractObjects.size() - 1;
   m_abstractObjects.back().m_tag = type_to_tag(TYPE_COCTREE_V3);
 
@@ -1127,9 +1141,14 @@ uint32_t BVHRT::AddGeom_COctreeV3(COctreeV3View octree, ISceneObject *fake_this,
   std::vector<BVHNode> orig_nodes;
   orig_nodes.resize(2);
   orig_nodes[0].boxMin = float3(-1,-1,-1);
-  orig_nodes[0].boxMax = float3(1,1,0);
-  orig_nodes[1].boxMin = float3(-1,-1,0);
-  orig_nodes[1].boxMax = float3(1,1,1);
+  orig_nodes[0].boxMax = float3(1,1,1);
+  orig_nodes[0].leftOffset = 0;
+
+  orig_nodes[1].boxMin = float3(-1.0001,-1.0001,-1.0001);
+  orig_nodes[1].boxMax = float3(-1,-1,-1);
+  orig_nodes[1].leftOffset = 0;
+
+  m_origNodes = orig_nodes;
   
   return fake_this->AddGeom_AABB(m_abstractObjects.back().m_tag, (const CRT_AABB*)orig_nodes.data(), orig_nodes.size(), nullptr, 1);
 }
