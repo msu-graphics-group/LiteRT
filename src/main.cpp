@@ -71,7 +71,7 @@ int main(int, char** argv)
   char path_to_surf[10000] = {};
   std::copy(default_path_to_surf.begin(), default_path_to_surf.end(), path_to_surf);
 
-  embree::EmbreeScene embree_scn, embree_tesselated;
+  embree::EmbreeScene embree_scn, embree_tesselated, embree_boxes;
   std::vector<RBezierGrid> rbeziers;
   std::vector<std::vector<BoundingBox3d>> bboxes;
   int total_bboxes_count = 0;
@@ -95,10 +95,10 @@ int main(int, char** argv)
   
   const char *renderers[] = { 
     "Regular Sample Points", 
-    "Newton Method (in progress)",
-    "Bounding boxes",
-    "Embree",
-    "Embree tesselated"
+    "Newton Method",
+    "BVH Leaves",
+    "Embree User Defined",
+    "Embree Triangles"
   };
 
   const char *shaders[] = {
@@ -182,7 +182,7 @@ int main(int, char** argv)
 
     //Render image
     auto b = std::chrono::high_resolution_clock::now();
-    if (cur_renderer <= 2) {
+    if (cur_renderer <= 1) {
       for (int i = 0; i < rbeziers.size(); ++i) {
         if (!rbeziers[i].is_visible)
           continue;
@@ -190,12 +190,12 @@ int main(int, char** argv)
         {
           case 0: draw_points(rbeziers[i], camera, fb, 250/std::sqrt(rbeziers.size()), shader_funcs[cur_shader]); break;
           case 1: draw_newton(rbeziers[i], camera, fb, shader_funcs[cur_shader]); break;
-          case 2: draw_boxes(bboxes[i], uvs[i], camera, fb);
         }
       }
     } else {
       switch(cur_renderer)
       {
+        case 2: embree_boxes.draw(camera, fb, shader_funcs[cur_shader]); break;
         case 3: embree_scn.draw(camera, fb, shader_funcs[cur_shader]); break;
         case 4: embree_tesselated.draw(camera, fb, shader_funcs[cur_shader]); break;
       }
@@ -254,6 +254,7 @@ int main(int, char** argv)
     if (to_load_surface) {
       embree_scn.clear_scene();
       embree_tesselated.clear_scene();
+      embree_boxes.clear_scene();
 
       FILE *f = popen("zenity --file-selection", "r");
       [[maybe_unused]] auto _ = fgets(path_to_surf, sizeof(path_to_surf), f);
@@ -274,11 +275,11 @@ int main(int, char** argv)
         }
         for (int i = 0; i < rbeziers.size(); ++i) {
           embree_scn.attach_surface(rbeziers[i], bboxes[i], uvs[i]);
-        }
-        embree_scn.commit_scene();
-        for (int i = 0; i < rbeziers.size(); ++i) {
+          embree_boxes.attach_boxes(bboxes[i], uvs[i]);
           embree_tesselated.attach_mesh(get_nurbs_control_mesh(rbeziers[i]));
         }
+        embree_scn.commit_scene();
+        embree_boxes.commit_scene();
         embree_tesselated.commit_scene();
         BoundingBox3d bbox;
         for (auto &surf: rbeziers) {

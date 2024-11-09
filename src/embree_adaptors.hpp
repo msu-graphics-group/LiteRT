@@ -22,6 +22,7 @@ namespace embree
   };
   void rbgrid_bounds_function(const RTCBoundsFunctionArguments *args);
   void rbgrid_intersect_function(const RTCIntersectFunctionNArguments *args);
+  void boxes_intersect_function(const RTCIntersectFunctionNArguments *args);
   void rbgrid_occluded_function(const RTCOccludedFunctionNArguments *args);
 
   void errorFunction(void* userPtr, enum RTCError error, const char* str);
@@ -39,20 +40,11 @@ namespace embree
     void attach_surface(
         const RBezierGrid &rbezier, 
         const std::vector<BoundingBox3d> &boxes,
-        const std::vector<LiteMath::float2> &uvs) {
-      views.push_back(RBGridView{ &rbezier, &boxes, &uvs });
-      auto &view = views.back();
-      RTCGeometry geom = rtcNewGeometry(device, RTC_GEOMETRY_TYPE_USER);
-      rtcSetGeometryUserPrimitiveCount(geom, boxes.size());
-      rtcSetGeometryUserData(geom, &view);
-      rtcSetGeometryBoundsFunction(geom, rbgrid_bounds_function, nullptr);
-      rtcSetGeometryIntersectFunction(geom, rbgrid_intersect_function);
-      //rtcSetGeometryOccludedFunction(geom, rbgrid_occluded_function);
-      rtcCommitGeometry(geom);
-      rtcAttachGeometry(scn, geom);
-      rtcReleaseGeometry(geom);
-    }
+        const std::vector<LiteMath::float2> &uvs);
     void attach_mesh(const Mesh &mesh);
+    void attach_boxes(
+      const std::vector<BoundingBox3d> &boxes,
+      const std::vector<LiteMath::float2> &uvs);
   public:
     void clear_scene() {
       rtcReleaseScene(scn);

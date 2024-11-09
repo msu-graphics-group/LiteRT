@@ -11,6 +11,59 @@ namespace embree
     printf("error %d: %s\n", error, str);
   }
 
+  void EmbreeScene::attach_surface(
+          const RBezierGrid &rbezier, 
+          const std::vector<BoundingBox3d> &boxes,
+          const std::vector<LiteMath::float2> &uvs) {
+    views.push_back(RBGridView{ &rbezier, &boxes, &uvs });
+    auto &view = views.back();
+    RTCGeometry geom = rtcNewGeometry(device, RTC_GEOMETRY_TYPE_USER);
+    rtcSetGeometryUserPrimitiveCount(geom, boxes.size());
+    rtcSetGeometryUserData(geom, &view);
+    rtcSetGeometryBoundsFunction(geom, rbgrid_bounds_function, nullptr);
+    rtcSetGeometryIntersectFunction(geom, rbgrid_intersect_function);
+    //rtcSetGeometryOccludedFunction(geom, rbgrid_occluded_function);
+    rtcCommitGeometry(geom);
+    rtcAttachGeometry(scn, geom);
+    rtcReleaseGeometry(geom);
+  }
+
+  void EmbreeScene::attach_boxes(
+        const std::vector<BoundingBox3d> &boxes,
+        const std::vector<LiteMath::float2> &uvs) {
+    views.push_back(RBGridView{ nullptr, &boxes, &uvs });
+    auto &view = views.back();
+    RTCGeometry geom = rtcNewGeometry(device, RTC_GEOMETRY_TYPE_USER);
+    rtcSetGeometryUserPrimitiveCount(geom, boxes.size());
+    rtcSetGeometryUserData(geom, &view);
+    rtcSetGeometryBoundsFunction(geom, rbgrid_bounds_function, nullptr);
+    rtcSetGeometryIntersectFunction(geom, boxes_intersect_function);
+    //rtcSetGeometryOccludedFunction(geom, rbgrid_occluded_function);
+    rtcCommitGeometry(geom);
+    rtcAttachGeometry(scn, geom);
+    rtcReleaseGeometry(geom);
+  }
+
+  void EmbreeScene::attach_mesh(const Mesh &mesh) {
+    RTCGeometry geom = rtcNewGeometry(device, RTC_GEOMETRY_TYPE_TRIANGLE);
+    
+    float3 *vertices = reinterpret_cast<float3*>(rtcSetNewGeometryBuffer(
+        geom, RTC_BUFFER_TYPE_VERTEX, 0, RTC_FORMAT_FLOAT3, 
+        sizeof(float3), mesh.indices.size()));
+    for (size_t i = 0; i < mesh.indices.size(); ++i) {
+      vertices[i] = to_float3(mesh.vertices[i]/mesh.vertices[i].w);
+    }
+
+    uint32_t *indices = reinterpret_cast<uint32_t*>(rtcSetNewGeometryBuffer(
+        geom, RTC_BUFFER_TYPE_INDEX, 0, RTC_FORMAT_UINT3, 
+        sizeof(uint32_t)*3, mesh.indices.size()/3));
+    std::copy(mesh.indices.begin(), mesh.indices.end(), indices);
+
+    rtcCommitGeometry(geom);
+    rtcAttachGeometry(scn, geom);
+    rtcReleaseGeometry(geom);
+  }
+
   void rbgrid_bounds_function(const RTCBoundsFunctionArguments *args) {
     const RBGridView &view = *reinterpret_cast<const RBGridView*>(args->geometryUserPtr);
     int id = args->primID;
@@ -59,24 +112,30 @@ namespace embree
     hit.Ng_z = info.normal.z;
   }
 
-  void EmbreeScene::attach_mesh(const Mesh &mesh) {
-    RTCGeometry geom = rtcNewGeometry(device, RTC_GEOMETRY_TYPE_TRIANGLE);
-    
-    float3 *vertices = reinterpret_cast<float3*>(rtcSetNewGeometryBuffer(
-        geom, RTC_BUFFER_TYPE_VERTEX, 0, RTC_FORMAT_FLOAT3, 
-        sizeof(float3), mesh.indices.size()));
-    for (size_t i = 0; i < mesh.indices.size(); ++i) {
-      vertices[i] = to_float3(mesh.vertices[i]/mesh.vertices[i].w);
-    }
+  void boxes_intersect_function(const RTCIntersectFunctionNArguments *args) {
+    const RBGridView &view = *reinterpret_cast<const RBGridView*>(args->geometryUserPtr);
+    assert(args->N == 1);
+    if (!args->valid[0])
+      return;
 
-    uint32_t *indices = reinterpret_cast<uint32_t*>(rtcSetNewGeometryBuffer(
-        geom, RTC_BUFFER_TYPE_INDEX, 0, RTC_FORMAT_UINT3, 
-        sizeof(uint32_t)*3, mesh.indices.size()/3));
-    std::copy(mesh.indices.begin(), mesh.indices.end(), indices);
+    auto &ray_hit = const_cast<RTCRayHit&>(*reinterpret_cast<const RTCRayHit*>(args->rayhit));
+    float3 pos{ ray_hit.ray.org_x, ray_hit.ray.org_y, ray_hit.ray.org_z };
+    float3 dir{ ray_hit.ray.dir_x, ray_hit.ray.dir_y, ray_hit.ray.dir_z };
 
-    rtcCommitGeometry(geom);
-    rtcAttachGeometry(scn, geom);
-    rtcReleaseGeometry(geom);
+    int id = args->primID;
+    float2 uv = (*view.p_uvs)[id];
+
+    auto tbounds = (*view.p_boxes)[id].tbounds(pos, dir);
+    float t = tbounds[0] >= 0 ? tbounds[0] : tbounds[1];
+    if (t < ray_hit.ray.tnear || t > ray_hit.ray.tfar)
+      return;
+    ray_hit.ray.tfar = t;
+
+    auto &hit = ray_hit.hit;
+    hit.geomID = args->geomID;
+    hit.primID = args->primID;
+    hit.u = uv[0];
+    hit.v = uv[1];
   }
 
   void EmbreeScene::draw(const Camera &camera, FrameBuffer &fb, std::function<ShadeFuncType> shade_func) const {
