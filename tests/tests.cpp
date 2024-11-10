@@ -3157,25 +3157,26 @@ void litert_test_41_coctree_v3()
 {
   printf("TEST 41. COMPACT OCTREE V3\n");
 
-  auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path+"scenes/99_demo_scenes/data/bunny.vsgf").c_str());
+  auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path+"saves/buddha/mesh.vsgf").c_str());
+  cmesh4::transform_mesh(mesh, rotate4x4Y(M_PI));
   cmesh4::normalize_mesh(mesh);
 
   LiteImage::Image2D<float4> texture = LiteImage::LoadImage<float4>("scenes/porcelain.png");
 
-  unsigned W = 1024, H = 1024;
+  unsigned W = 2048, H = 2048;
   MultiRenderPreset preset = getDefaultPreset();
   preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
-  preset.spp = 16;
+  preset.spp = 4;
   preset.normal_mode = NORMAL_MODE_VERTEX;
 
-  unsigned base_depth = 7;
+  unsigned base_depth = 9;
 
-  float fov_degrees = 40;
+  float fov_degrees = 30;
   float z_near = 0.1f;
   float z_far = 100.0f;
   float aspect   = 1.0f;
   auto proj      = LiteMath::perspectiveMatrix(fov_degrees, aspect, z_near, z_far);
-  auto worldView = LiteMath::lookAt(float3(-0.7,0.7,3), float3(-0.7,0.7,0), float3(0,1,0));
+  auto worldView = LiteMath::lookAt(float3(-0.5,0.5,2), float3(-0.5,0.5,0), float3(0,1,0));
 
   LiteImage::Image2D<uint32_t> image_ref(W, H);
   LiteImage::Image2D<uint32_t> image_res(W, H);
@@ -3307,33 +3308,33 @@ void litert_test_41_coctree_v3()
     printf("octree v2             %4.1f ms %6.1f Kb %.2f PSNR %.4f FLIP\n", timings[0]/10, coctree_total_bytes/(1024.0f), psnr, flip);
   }
 
-  std::vector<int> bvh_levels = {0,1,2,3,4};
+  unsigned max_threads = 16;
+  unsigned b = 8;
+
+  std::vector<MeshBVH> bvh(max_threads);
+  for (unsigned i = 0; i < max_threads; i++)
+    bvh[i].init(mesh);
+
+  COctreeV3 coctree;
+  coctree.header.bits_per_value = b;
+  coctree.header.brick_size = 4;
+  coctree.header.brick_pad = 1;
+  coctree.header.uv_size = 0;
+
+  auto t1 = std::chrono::steady_clock::now();
+  coctree.data = sdf_converter::create_COctree_v3(SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, base_depth - 2, 2 << 28),
+                                                  coctree.header, mesh);
+  auto t2 = std::chrono::steady_clock::now();
+
+  save_coctree_v3(coctree, "saves/test_41_coctree_v3.bin");
+
+  float time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+  printf("build took %.1f ms\n", time_ms);
+
+  std::vector<int> bvh_levels = {0,1,2,3,4,5,6};
 
   for (int bvh_level : bvh_levels)
   {
-    unsigned max_threads = 16;
-    unsigned b = 8;
-
-    std::vector<MeshBVH> bvh(max_threads);
-    for (unsigned i = 0; i < max_threads; i++)
-      bvh[i].init(mesh);
-      
-    COctreeV3 coctree;
-    coctree.header.bits_per_value = b;
-    coctree.header.brick_size = 4;
-    coctree.header.brick_pad = 1;
-    coctree.header.uv_size = 1;
-
-    auto t1 = std::chrono::steady_clock::now();
-    coctree.data = sdf_converter::create_COctree_v3(SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, base_depth-2, 2<<28),
-                                                    coctree.header, mesh);
-    auto t2 = std::chrono::steady_clock::now();
-
-    save_coctree_v3(coctree, "saves/test_41_coctree_v3.bin");
-
-    float time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
-    printf("build took %.1f ms\n", time_ms);
-
     auto pRender = CreateMultiRenderer(DEVICE_GPU);
     preset.normal_mode = NORMAL_MODE_SDF_SMOOTHED;
     pRender->SetPreset(preset);
@@ -3369,11 +3370,12 @@ void litert_test_41_coctree_v3()
     float flip = image_metrics::FLIP(image_ref, image_res);
     printf("octree v3 bvh=%d       %4.1f ms %6.1f Kb %.2f PSNR %.4f FLIP\n", bvh_level, timings[0]/10, coctree_total_bytes/(1024.0f), psnr, flip);
 
-    float psnr_tex = image_metrics::PSNR(image_ref_tex, image_res_tex);
-    float flip_tex = image_metrics::FLIP(image_ref_tex, image_res_tex);
-    printf("            textured                    %.2f PSNR %.4f FLIP\n", psnr_tex, flip_tex);
+    //float psnr_tex = image_metrics::PSNR(image_ref_tex, image_res_tex);
+    //float flip_tex = image_metrics::FLIP(image_ref_tex, image_res_tex);
+    //printf("            textured                    %.2f PSNR %.4f FLIP\n", psnr_tex, flip_tex);
   }
 
+  if (false)
   {
     auto octree = sdf_converter::create_sdf_frame_octree_tex(SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, base_depth, 2<<28),
                                                          mesh);
