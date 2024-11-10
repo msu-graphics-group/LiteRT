@@ -1282,15 +1282,6 @@ void BVHRT::IntersectGSInLeaf(const float3& ray_pos, const float3& ray_dir,
 #endif
 
 //////////////////// NURBS SECTION /////////////////////////////////////////////////////
-float4 BVHRT::control_point2d(uint i, uint j, int offset, NURBSHeader h) {
-  return float4 {
-    m_NURBSData[offset+4*((h.q+1)*i + j)+0],
-    m_NURBSData[offset+4*((h.q+1)*i + j)+1],
-    m_NURBSData[offset+4*((h.q+1)*i + j)+2],
-    m_NURBSData[offset+4*((h.q+1)*i + j)+3]
-  };
-}
-
 float4 BVHRT::control_point(uint i, int offset) {
   return float4 {
     m_NURBSData[offset+i*4+0],
@@ -1391,9 +1382,7 @@ float4 BVHRT::rbezier_curve_der(float u, int p, int offset) {
   return res;
 }
 
-float4 BVHRT::rbezier_surface_vder(float u, float v, int points_offset, NURBSHeader h) {
-  float4 Sw = rbezier_surface_point(u, v, points_offset, h);
-
+float4 BVHRT::rbezier_surface_vder(float u, float v, const float4 &Sw, int points_offset, NURBSHeader h) {
   int p = h.p;
   int q = h.q;
   float u_n = 1.0f;
@@ -1411,9 +1400,7 @@ float4 BVHRT::rbezier_surface_vder(float u, float v, int points_offset, NURBSHea
   return S_der;
 }
 
-float4 BVHRT::rbezier_surface_uder(float u, float v, int points_offset, NURBSHeader h) {
-  float4 Sw = rbezier_surface_point(u, v, points_offset, h);
-
+float4 BVHRT::rbezier_surface_uder(float u, float v, const float4 &Sw, int points_offset, NURBSHeader h) {
   int p = h.p;
   int q = h.q;
   float u_n = 1.0f;
@@ -1444,7 +1431,7 @@ float4 BVHRT::rbezier_surface_uder(float u, float v, int points_offset, NURBSHea
   return S_der;
 }
 
-float4 BVHRT::rbezier_grid_uder(float u, float v, NURBSHeader h) {
+float4 BVHRT::rbezier_grid_uder(float u, float v, const float4 &Sw, NURBSHeader h) {
   int uoffset = uknots_offset(h);
   int voffset = vknots_offset(h);
   int uspan = find_span(u, uoffset, h.uknots_cnt, h);
@@ -1453,11 +1440,11 @@ float4 BVHRT::rbezier_grid_uder(float u, float v, NURBSHeader h) {
   float vmin = knot(vspan, voffset), vmax = knot(vspan+1, voffset);
   u = (u-umin)/(umax-umin);
   v = (v-vmin)/(vmax-vmin);
-  float4 surf_der = rbezier_surface_uder(u, v, pts_offset(h, uspan, vspan), h);
+  float4 surf_der = rbezier_surface_uder(u, v, Sw, pts_offset(h, uspan, vspan), h);
   return surf_der * (1.0f/(umax-umin));
 }
 
-float4 BVHRT::rbezier_grid_vder(float u, float v, NURBSHeader h) {
+float4 BVHRT::rbezier_grid_vder(float u, float v, const float4 &Sw, NURBSHeader h) {
   int uoffset = uknots_offset(h);
   int voffset = vknots_offset(h);
   int uspan = find_span(u, uoffset, h.uknots_cnt, h);
@@ -1466,7 +1453,7 @@ float4 BVHRT::rbezier_grid_vder(float u, float v, NURBSHeader h) {
   float vmin = knot(vspan, voffset), vmax = knot(vspan+1, voffset);
   u = (u-umin)/(umax-umin);
   v = (v-vmin)/(vmax-vmin);
-  float4 surf_der = rbezier_surface_vder(u, v, pts_offset(h, uspan, vspan), h);
+  float4 surf_der = rbezier_surface_vder(u, v, Sw, pts_offset(h, uspan, vspan), h);
   return surf_der * (1.0f/(vmax-vmin));
 }
 
@@ -1500,7 +1487,8 @@ NURBS_HitInfo BVHRT::ray_nurbs_newton_intersection(
   // assert(dot(P1, to_float4(pos, 1.0f)) < 1e-2);
   // assert(dot(P2, to_float4(pos, 1.0f)) < 1e-2);
 
-  float4 surf_point = rbezier_grid_point(uv.x, uv.y, h);
+  float4 Sw = rbezier_grid_point(uv.x, uv.y, h);
+  float4 surf_point = Sw;
   surf_point /= surf_point.w;
   float2 D = project2planes(P1, P2, surf_point); 
 
@@ -1513,8 +1501,8 @@ NURBS_HitInfo BVHRT::ray_nurbs_newton_intersection(
 
     float2 J[2] = 
     { 
-      project2planes(P1, P2, rbezier_grid_uder(uv.x, uv.y, h)), //col1
-      project2planes(P1, P2, rbezier_grid_vder(uv.x, uv.y, h)) //col2
+      project2planes(P1, P2, rbezier_grid_uder(uv.x, uv.y, Sw, h)), //col1
+      project2planes(P1, P2, rbezier_grid_vder(uv.x, uv.y, Sw, h)) //col2
     };
 
     float det = J[0][0]*J[1][1] - J[0][1] * J[1][0];
@@ -1531,7 +1519,8 @@ NURBS_HitInfo BVHRT::ray_nurbs_newton_intersection(
     // assert(0 <= uv.x && uv.x <= 1);
     // assert(0 <= uv.y && uv.y <= 1);
 
-    surf_point = rbezier_grid_point(uv.x, uv.y, h);
+    Sw = rbezier_grid_point(uv.x, uv.y, h);
+    surf_point = Sw;
     surf_point /= surf_point.w;
     float2 new_D = project2planes(P1, P2, surf_point);
     
@@ -1544,8 +1533,8 @@ NURBS_HitInfo BVHRT::ray_nurbs_newton_intersection(
   if (length(D) > EPS)
     return hit_info; // hitten = false;
   
-  float3 uder = to_float3(rbezier_grid_uder(uv.x, uv.y, h));
-  float3 vder = to_float3(rbezier_grid_vder(uv.x, uv.y, h));
+  float3 uder = to_float3(rbezier_grid_uder(uv.x, uv.y, Sw, h));
+  float3 vder = to_float3(rbezier_grid_vder(uv.x, uv.y, Sw, h));
   float3 normal = normalize(cross(uder, vder));
 
   hit_info.hitten = true;

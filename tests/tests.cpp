@@ -2315,7 +2315,7 @@ void litert_test_31_nurbs_render()
   for (auto &[name, surf]: tesselated) {
     auto [camera_pos, target] = cameras[name];
     float3 up{ 0.0f, 1.0f, 0.0f };
-    std::cout << "Setting up scene for tesselated" << name << "... ";
+    std::cout << "Setting up scene for tesselated " << name << "... ";
     auto pRender = create_renderer_f();
     pRender->SetScene(surf);
     std::cout << "Done." << std::endl;

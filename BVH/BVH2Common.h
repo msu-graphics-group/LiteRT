@@ -326,7 +326,6 @@ struct BVHRT : public ISceneObject
   std::vector<float> m_NURBS_approxes;
   std::vector<NURBSHeader> m_NURBSHeaders;
   //NURBS functions
-  virtual float4 control_point2d(uint i, uint j, int offset, NURBSHeader h);
   virtual float4 control_point(uint i, int offset);
   virtual float knot(uint i, int knots_offset);
   virtual int find_span(float t, int knots_offset, int knots_count, NURBSHeader h);
@@ -334,10 +333,10 @@ struct BVHRT : public ISceneObject
   virtual float4 rbezier_surface_point(float u, float v, int points_offset, NURBSHeader h);
   virtual float4 rbezier_grid_point(float u, float v, NURBSHeader h);
   virtual float4 rbezier_curve_der(float u, int p, int offset);
-  virtual float4 rbezier_surface_uder(float u, float v, int points_offset, NURBSHeader h);
-  virtual float4 rbezier_surface_vder(float u, float v, int points_offset, NURBSHeader h);
-  virtual float4 rbezier_grid_uder(float u, float v, NURBSHeader h);
-  virtual float4 rbezier_grid_vder(float u, float v, NURBSHeader h);
+  virtual float4 rbezier_surface_uder(float u, float v, const float4 &Sw, int points_offset, NURBSHeader h);
+  virtual float4 rbezier_surface_vder(float u, float v, const float4 &Sw, int points_offset, NURBSHeader h);
+  virtual float4 rbezier_grid_uder(float u, float v, const float4 &Sw, NURBSHeader h);
+  virtual float4 rbezier_grid_vder(float u, float v, const float4 &Sw, NURBSHeader h);
   virtual NURBS_HitInfo ray_nurbs_newton_intersection(
     const LiteMath::float3 &pos,
     const LiteMath::float3 &ray,
