@@ -18,6 +18,7 @@ struct FrameBuffer
 struct Camera
 {
 public:
+  Camera() = default;
   Camera(
       float aspect, float fov,
       const LiteMath::float3 &position,

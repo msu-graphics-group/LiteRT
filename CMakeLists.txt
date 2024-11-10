@@ -34,6 +34,8 @@ add_executable(
     src/utils.cpp
     src/embree_adaptors.hpp
     src/embree_adaptors.cpp
+    src/gui.hpp 
+    src/gui.cpp
 )
 
 add_subdirectory(external/stp_parser)

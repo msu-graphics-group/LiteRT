@@ -16,83 +16,36 @@
 #include "raytracer.hpp"
 #include "utils.hpp"
 #include "embree_adaptors.hpp"
+#include "gui.hpp"
 
 using namespace LiteMath;
+using namespace LiteImage;
 
-void setup_imgui_style();
-ImFont* load_imgui_font(ImGuiIO &io);
-void copy_image_to_texture(
-    const LiteImage::Image2D<uint32_t> &image,
-    SDL_Texture *texture);
-
-// Main code
 int main(int, char** argv)
 {
   std::filesystem::path exec_path = std::filesystem::canonical(argv[0]);
   std::filesystem::current_path(exec_path.parent_path().parent_path());
-
-  SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_GAMECONTROLLER) ;
-  SDL_SetHint(SDL_HINT_IME_SHOW_UI, "1");
-  SDL_SetHint(SDL_HINT_RENDER_VSYNC, "1");
-  atexit(SDL_Quit);
+  auto proj_path = std::filesystem::current_path();
 
   int WIDTH = 1200;
   int HEIGHT = 800;
   float aspect = static_cast<float>(WIDTH)/HEIGHT;
   float fov = M_PI_4;
 
-  // Create window with SDL_Renderer graphics context
-  SDL_WindowFlags window_flags = (SDL_WindowFlags)(SDL_WINDOW_RESIZABLE);
-  SDL_Window* window = SDL_CreateWindow("Basic NURBS Viewer", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, WIDTH, HEIGHT, window_flags);
-  SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_PRESENTVSYNC|SDL_RENDERER_ACCELERATED);
-  SDL_RendererInfo info;
-
-
-  // Setup Dear ImGui context
-  IMGUI_CHECKVERSION();
-  ImGui::CreateContext();
-  ImGuiIO& io = ImGui::GetIO();
-  io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
-
-  // Setup Dear ImGui style
-  setup_imgui_style();
-  // New font
-  ImFont *font = load_imgui_font(io);
-
-  // Setup Platform/Renderer backends
-  ImGui_ImplSDL2_InitForSDLRenderer(window, renderer);
-  ImGui_ImplSDLRenderer2_Init(renderer);
-
+  Application app("Basic NURBS Viewer", WIDTH, HEIGHT);
+  Camera camera(aspect, fov, {}, {});
+  
+  app.set_context();
+  auto *font = ImGui::GetIO().Fonts->AddFontFromFileTTF(
+    (proj_path / "resources" / "Roboto-Black.ttf").c_str(), 14);
+  
+  bool done = false;
   bool to_load_surface = false;
   bool surface_changed = false;
   bool renderer_changed = false;
   bool shading_changed = false;
-  std::string default_path_to_surf = std::filesystem::current_path() / "resources";
-  char path_to_surf[10000] = {};
-  std::copy(default_path_to_surf.begin(), default_path_to_surf.end(), path_to_surf);
-
-  embree::EmbreeScene embree_scn, embree_tesselated, embree_boxes;
-  std::vector<RBezierGrid> rbeziers;
-  std::vector<std::vector<BoundingBox3d>> bboxes;
-  int total_bboxes_count = 0;
-  std::vector<std::vector<LiteMath::float2>> uvs;
-  FrameBuffer fb = { 
-    LiteImage::Image2D<uint32_t>(WIDTH, HEIGHT, LiteMath::uchar4{ 153, 153, 153, 255 }.u32),
-    LiteImage::Image2D<float>(WIDTH, HEIGHT, std::numeric_limits<float>::infinity())
-  };
-  SDL_Texture *texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ABGR8888, SDL_TEXTUREACCESS_STREAMING, WIDTH, HEIGHT);
-  SDL_Rect scr_rect = { 0, 0, WIDTH, HEIGHT };
-
-  Camera camera(aspect, fov, {}, {});
-
-  // Main loop
-  bool done = false;
-
-  bool camera_move = false;
   bool camera_changed = false;
-  int prev_x = 0, prev_y = 0;
 
-  
   const char *renderers[] = { 
     "Regular Sample Points", 
     "Newton Method",
@@ -100,6 +53,7 @@ int main(int, char** argv)
     "Embree User Defined",
     "Embree Triangles"
   };
+  int cur_renderer = 0;
 
   const char *shaders[] = {
     "UV",
@@ -109,37 +63,44 @@ int main(int, char** argv)
     shade_uv,
     shade_normals
   };
-
-  int cur_renderer = 0;
   int cur_shader = 0;
-  float ms = 0.0f;
 
-  while (!done)
-  {
-    SDL_Event event;
-    while (SDL_PollEvent(&event)) {
-      ImGui_ImplSDL2_ProcessEvent(&event);
-      if (event.type == SDL_QUIT)
+  embree::EmbreeScene embree_scn, embree_tesselated, embree_boxes;
+  std::vector<RBezierGrid> rbeziers;
+  std::vector<std::vector<LiteMath::float2>> uvs;
+  std::vector<std::vector<BoundingBox3d>> bboxes;
+  int total_bboxes_count = 0;
+
+  FrameBuffer fb = { 
+    Image2D<uint32_t>(WIDTH, HEIGHT, uchar4{ 153, 153, 153, 255 }.u32),
+    Image2D<float>(WIDTH, HEIGHT, std::numeric_limits<float>::infinity())
+  };
+
+  auto close_event_f = [&](SDL_Event event) {
+    if (event.type == SDL_QUIT)
         done = true;
-      if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_CLOSE && 
-          event.window.windowID == SDL_GetWindowID(window))
-        done = true;
-      if (event.type = SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_RESIZED) {
-        SDL_GetWindowSize(window, &WIDTH, &HEIGHT);
-        camera = Camera(WIDTH*1.0f/HEIGHT, camera.fov, camera.position, camera.target);
-        camera_changed = true;
-        fb.col_buf.resize(WIDTH, HEIGHT);
-        fb.z_buf.resize(WIDTH, HEIGHT);
-        SDL_DestroyTexture(texture);
-        texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ABGR8888, SDL_TEXTUREACCESS_STREAMING, WIDTH, HEIGHT);
-        scr_rect.w = WIDTH;
-        scr_rect.h = HEIGHT;
-      }
+    if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_CLOSE && 
+        event.window.windowID == SDL_GetWindowID(app.get_window()))
+      done = true;
+  };
+
+  auto resize_event_f = [&](SDL_Event event) {
+    if (event.type = SDL_EventType::SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_RESIZED 
+        && event.window.windowID == SDL_GetWindowID(app.get_window())) {
+      SDL_GetWindowSize(app.get_window(), &WIDTH, &HEIGHT);
+      fb.col_buf.resize(WIDTH, HEIGHT);
+      fb.z_buf.resize(WIDTH, HEIGHT);
+      camera = Camera(WIDTH*1.0f/HEIGHT, camera.fov, camera.position, camera.target);
+      camera_changed = true;
     }
+  };
 
+  auto mouse_callback_f = [&, mouse_move = false, prev_x = 0, prev_y = 0]() mutable {
+    auto &io = ImGui::GetIO();
     if (ImGui::IsMouseDown(ImGuiMouseButton_Left) && !io.WantCaptureMouse) {
-      if (!camera_move) {
-        camera_move = true;
+      camera_changed = true;
+      if (!mouse_move) {
+        mouse_move = true;
         SDL_GetMouseState(&prev_x, &prev_y);
       } else {
         int x, y;
@@ -157,23 +118,33 @@ int main(int, char** argv)
       }
     } 
     if (ImGui::IsMouseReleased(ImGuiMouseButton_Left) && !io.WantCaptureMouse) {
-      camera_move = false;
+      mouse_move = false;
     }
+  };
 
-    if (ImGui::IsMouseDragging(ImGuiMouseButton_Middle)) {
-      float delata_r = ImGui::GetMouseDragDelta(ImGuiMouseButton_Middle).x;
-      float3 ray = camera.target-camera.position;
-      float distance = length(ray);
-      camera.position = camera.position + normalize(ray)*delata_r / 150.0f;
+  auto scroll_calback_f = [&](SDL_Event event) mutable {
+    auto &io = ImGui::GetIO();
+    if (event.type == SDL_EventType::SDL_MOUSEWHEEL
+        && event.window.windowID == SDL_GetWindowID(app.get_window())
+        && !io.WantCaptureMouse) {
+      float r = event.wheel.y;
+      float3 new_pos  = camera.position + normalize(camera.target-camera.position) * r;
+      camera = Camera(camera.aspect, camera.fov, new_pos, camera.target);
       camera_changed = true;
     }
+  };
 
-    if (SDL_GetWindowFlags(window) & SDL_WINDOW_MINIMIZED) {
-      SDL_Delay(10);
-      continue;
-    }
+  app.add_sdl_callback(close_event_f);
+  app.add_sdl_callback(resize_event_f);
+  app.add_sdl_callback(scroll_calback_f);
+  app.add_imgui_callback(mouse_callback_f);
 
-    if (camera_move || camera_changed || surface_changed || renderer_changed || shading_changed) {
+  app.set_context();
+  while (!done)
+  {
+    app.poll_events();
+
+    if (camera_changed || surface_changed || renderer_changed || shading_changed) {
       fb.col_buf.clear(LiteMath::uchar4{ 153, 153, 153, 255 }.u32);
       fb.z_buf.clear(std::numeric_limits<float>::infinity());
     }
@@ -201,15 +172,11 @@ int main(int, char** argv)
       }
     }
     auto e = std::chrono::high_resolution_clock::now();
-    ms = std::chrono::duration_cast<std::chrono::microseconds>(e-b).count()/1000.0f;
+    float ms = std::chrono::duration_cast<std::chrono::microseconds>(e-b).count()/1000.0f;      
 
-    // Start the Dear ImGui frame
-    ImGui_ImplSDLRenderer2_NewFrame();
-    ImGui_ImplSDL2_NewFrame();
-    ImGui::NewFrame();        
-
+    app.start_new_frame();
     ImGui::PushFont(font);
-    // 2. Show a simple window that we create ourselves. We use a Begin/End pair to create a named window.
+    //Preferences window
     {  
       ImGui::SetNextWindowPos({0, 0});
       ImGui::SetNextWindowSize({ 333*1.0f, HEIGHT*1.0f });
@@ -219,7 +186,6 @@ int main(int, char** argv)
       if (ImGui::Button("Load new surface")) {
         to_load_surface = true;
       }
-      //ImGui::ColorPicker3("Surface Color", surf_color);
       ImGui::Text("Camera settings:");
       camera_changed |= ImGui::DragFloat3("Camera position", camera.position.M);
       camera_changed |= ImGui::DragFloat3("Camera target", camera.target.M);
@@ -233,11 +199,13 @@ int main(int, char** argv)
       ImGui::Text("\tResolution: %dx%d", WIDTH, HEIGHT);
       ImGui::Text("\tSurfaces count: %lu", rbeziers.size());
       ImGui::Text("\tTotal boxes count: %d", total_bboxes_count);
+      auto &io = ImGui::GetIO();
       ImGui::Text("\tApplication average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
       ImGui::Text("\tCurrent render time: %.3f ms/frame (%.1f FPS)", ms, 1000.0f/ms);
       ImGui::End();
     }
 
+    //Inspector window
     {
       ImGui::SetNextWindowPos({WIDTH-200.0f, 0});
       ImGui::SetNextWindowSize({ 200*1.0f, HEIGHT*1.0f });
@@ -249,14 +217,17 @@ int main(int, char** argv)
       }
       ImGui::End();
     }
+    ImGui::PopFont();
 
 
+    //loading new surface
     if (to_load_surface) {
       embree_scn.clear_scene();
       embree_tesselated.clear_scene();
       embree_boxes.clear_scene();
 
       FILE *f = popen("zenity --file-selection", "r");
+      char path_to_surf[1000] = {};
       [[maybe_unused]] auto _ = fgets(path_to_surf, sizeof(path_to_surf), f);
       fclose(f);
       path_to_surf[strlen(path_to_surf)-1] = '\0';
@@ -295,76 +266,13 @@ int main(int, char** argv)
         std::cout << "Failed to load \"" << path_to_surf << "\"!" << std::endl;
       }
     }
-    ImGui::PopFont();
 
     // Rendering
-    ImGui::Render();
-
-    copy_image_to_texture(fb.col_buf, texture);
-    SDL_RenderClear(renderer);
-    SDL_RenderSetScale(renderer, io.DisplayFramebufferScale.x, io.DisplayFramebufferScale.y);
-    SDL_RenderCopy(renderer, texture, &scr_rect, &scr_rect);
-    ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData(), renderer);
-    SDL_RenderPresent(renderer);
-  }
-  
+    app.fill_buffer(fb.col_buf);
+    app.draw();
+  }  
   auto save_path = std::filesystem::current_path().append("result.bmp");
   LiteImage::SaveBMP(save_path.c_str(), fb.col_buf.data(), WIDTH, HEIGHT);
 
-  // Cleanup
-  SDL_DestroyTexture(texture);
-  io.Fonts->ClearFonts();
-  ImGui_ImplSDLRenderer2_Shutdown();
-  ImGui_ImplSDL2_Shutdown();
-  ImGui::DestroyContext();
-
-  SDL_DestroyRenderer(renderer);
-  SDL_DestroyWindow(window);
-
   return 0;
-}
-
-void setup_imgui_style() {
-  ImGuiStyle &style = ImGui::GetStyle();
-  style.Colors[ImGuiCol_TitleBgActive] = ImVec4(0.3f, 0.3f, 0.3f, 1.0f);
-  style.Colors[ImGuiCol_TitleBg] = ImVec4(0.3f, 0.3f, 0.3f, 1.0f);
-  style.Colors[ImGuiCol_Border] = ImVec4(0.35f, 0.35f, 0.35f, 1.0f);
-  style.Colors[ImGuiCol_WindowBg] = ImVec4(0.4f, 0.4f, 0.4f, 1.0f);
-  style.Colors[ImGuiCol_FrameBg] = ImVec4(0.5f, 0.5f, 0.5f, 1.0f);
-  style.Colors[ImGuiCol_SliderGrab] = ImVec4(0.3f, 0.3f, 0.3f, 1.0f);
-  style.Colors[ImGuiCol_SliderGrabActive] = ImVec4(0.35f, 0.35f, 0.35f, 1.0f);
-  style.Colors[ImGuiCol_FrameBgActive] = ImVec4(0.5f, 0.5f, 0.5f, 1.0f);
-  style.Colors[ImGuiCol_FrameBgHovered] = ImVec4(0.5f, 0.5f, 0.5f, 1.0f);
-  style.Colors[ImGuiCol_Button] = ImVec4(0.3f, 0.3f, 0.3f, 1.0f);
-  style.Colors[ImGuiCol_ButtonHovered] = ImVec4(0.35f, 0.35f, 0.35f, 1.0f);
-  style.Colors[ImGuiCol_CheckMark] = ImVec4(0.3f, 0.3f, 0.3f, 1.0f);
-  style.Colors[ImGuiCol_ButtonActive] = ImVec4(0.35f, 0.35f, 0.35f, 1.0f);
-  style.Colors[ImGuiCol_TextSelectedBg] = ImVec4(0.35f, 0.35f, 0.35f, 1.0f);
-  style.WindowRounding = 8.0f;
-  style.ScrollbarRounding = 10.0f;
-  style.FrameRounding = 5.0f;
-  style.GrabRounding = 10.0f;
-  style.GrabMinSize = 20.0f;
-}
-
-ImFont* load_imgui_font(ImGuiIO &io) {
-  io.Fonts->AddFontDefault();
-  auto path = std::filesystem::current_path().append("resources").append("Roboto-Black.ttf");
-  return io.Fonts->AddFontFromFileTTF(path.c_str(), 14, nullptr, io.Fonts->GetGlyphRangesCyrillic());
-}
-
-void copy_image_to_texture(
-    const LiteImage::Image2D<uint32_t> &image,
-    SDL_Texture *texture) {
-  char *pixels = nullptr;
-  int pitch = 0;
-  SDL_Rect scr_rect = { 0, 0, static_cast<int>(image.width()), static_cast<int>(image.height()) };
-  SDL_LockTexture(texture, &scr_rect, reinterpret_cast<void**>(&pixels), &pitch);
-  for (uint32_t y = 0; y < image.height(); ++y) {
-    std::copy(
-        image.data()+y*image.width(),
-        image.data()+y*image.width()+image.width(),
-        reinterpret_cast<uint32_t*>(pixels+y*pitch));
-  }
-  SDL_UnlockTexture(texture);
 }
