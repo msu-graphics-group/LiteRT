@@ -3157,7 +3157,8 @@ void litert_test_41_coctree_v3()
 {
   printf("TEST 41. COMPACT OCTREE V3\n");
 
-  auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path+"saves/buddha/mesh.vsgf").c_str());
+  //auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path+"saves/buddha/mesh.vsgf").c_str());
+  auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "scenes/01_simple_scenes/data/bunny.vsgf").c_str());
   cmesh4::transform_mesh(mesh, rotate4x4Y(M_PI));
   cmesh4::normalize_mesh(mesh);
 
