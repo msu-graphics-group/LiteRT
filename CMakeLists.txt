@@ -19,6 +19,10 @@ include_directories(${CMAKE_SOURCE_DIR}/sdfScene)
 include_directories(${CMAKE_SOURCE_DIR}/BVH)
 include_directories(${CMAKE_SOURCE_DIR}/Render)
 
+#include_directories(SYSTEM ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/spectral/include)
+#set(SPECTRAL_LIB_ONLY ON)
+#add_subdirectory(${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/spectral)
+
 link_directories(${CMAKE_SOURCE_DIR}/dependencies/embree/lib)
 set(RAYTRACING_EMBREE_LIBS embree4 tbb tbbmalloc)
 
@@ -74,6 +78,21 @@ set(BUILDERS_SRC
     ${CMAKE_SOURCE_DIR}/BVH/cbvh_fat.cpp
     ${CMAKE_SOURCE_DIR}/BVH/cbvh_embree2.cpp
     )
+
+# set(HYDRA_SRC
+#     ${CMAKE_SOURCE_DIR}/tests/hydra_integration.cpp
+#     ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/integrator_rt.cpp
+#     ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/integrator_pt.cpp
+#     ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/integrator_pt_scene.cpp
+#     ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/integrator_pt_scene_mat.cpp
+#     ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/integrator_pt_scene_lgt.cpp
+#     ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/integrator_pt_scene_tex.cpp
+#     ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/integrator_pt_host.cpp
+#     ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/integrator_pt_lgt.cpp
+#     ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/integrator_pt_mat.cpp
+#     ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/integrator_spectrum.cpp
+#     ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/integrator_gbuffer.cpp
+#     ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/utils.cpp)  
 
 message(STATUS "CMAKE_BUILD_TYPE = ${CMAKE_BUILD_TYPE}")
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
