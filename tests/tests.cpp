@@ -3162,6 +3162,10 @@ void litert_test_41_openvdb()
 
   float time_ref = 0, time_vdb = 0, time_sbs = 0, time_svs = 0;
   float psnr_vdb = 0, psnr_sbs = 0, psnr_svs = 0;
+  float bytes_vdb = 0, bytes_sbs = 0, bytes_svs = 0;
+
+  uint32_t voxels_vdb = 0;
+  
   unsigned W = 1000, H = 1000;
   LiteImage::Image2D<uint32_t> ref_image(W, H), vdb_image(W, H), sbs_image(W, H), svs_image(W, H);
 
@@ -3193,6 +3197,8 @@ void litert_test_41_openvdb()
     OpenVDB_Grid grid;
     grid.mesh2sdf(mesh, voxel_size, w);
 
+    auto mem = grid.sdfGrid->memUsage();
+
     unsigned W = 1000, H = 1000;
 
     MultiRenderPreset preset = getDefaultPreset();
@@ -3212,6 +3218,8 @@ void litert_test_41_openvdb()
     LiteImage::SaveImage<uint32_t>("saves/test_41_openvdb.bmp", vdb_image);
 
     psnr_vdb = image_metrics::PSNR(ref_image, vdb_image);
+    bytes_vdb = (float)grid.sdfGrid->memUsage() / 1024 / 1024;
+    voxels_vdb = grid.sdfGrid->tree().activeVoxelCount();
   }
 
   //  Render object by SBS struct
@@ -3222,7 +3230,7 @@ void litert_test_41_openvdb()
     preset.interpolation_type = TRILINEAR_INTERPOLATION_MODE;
     preset.spp = 1;
 
-    SparseOctreeSettings settings(SparseOctreeBuildType::MESH_TLO, 5);
+    SparseOctreeSettings settings(SparseOctreeBuildType::MESH_TLO, 6, voxels_vdb);
 
     SdfSBSHeader header;
     header.brick_size = 4;
@@ -3244,6 +3252,14 @@ void litert_test_41_openvdb()
     LiteImage::SaveImage<uint32_t>("saves/test_41_sbs.bmp", sbs_image);
 
     psnr_sbs = image_metrics::PSNR(ref_image, sbs_image);
+
+    BVHRT *bvh = dynamic_cast<BVHRT*>(pRender->GetAccelStruct().get());
+    bytes_sbs = bvh->m_allNodePairs.size()*sizeof(BVHNodePair) + 
+                      bvh->m_primIdCount.size()* sizeof(uint32_t) +
+                      bvh->m_SdfSBSNodes.size()* sizeof(SdfSBSNode) +
+                      bvh->m_SdfSBSData.size() * sizeof(uint32_t) +
+                      bvh->m_SdfSBSDataF.size() * sizeof(float);
+    bytes_sbs /= 1024.0f * 1024.0f;
   }
 
   //  Render object by SVS struct
@@ -3252,7 +3268,12 @@ void litert_test_41_openvdb()
     preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
     preset.spp = 1;
 
-    auto octree = sdf_converter::create_sdf_SVS(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 8, 64*64*64), mesh);
+    std::vector<SdfSVSNode> octree;
+    SparseOctreeSettings settings(SparseOctreeBuildType::DEFAULT, 7);
+    std::vector<SdfFrameOctreeNode> nodes = sdf_converter::create_sdf_frame_octree(settings, mesh);
+    sdf_converter::frame_octree_limit_nodes(nodes, voxels_vdb, false);
+    sdf_converter::frame_octree_to_SVS_rec(nodes, octree, 0, uint3(0,0,0), 1);
+
     auto pRender = CreateMultiRenderer(DEVICE_CPU);
     pRender->SetPreset(preset);
     pRender->SetScene(octree);
@@ -3264,10 +3285,17 @@ void litert_test_41_openvdb()
     LiteImage::SaveImage<uint32_t>("saves/test_41_svs.bmp", svs_image);
 
     psnr_svs = image_metrics::PSNR(ref_image, svs_image);
+
+    BVHRT *bvh = dynamic_cast<BVHRT*>(pRender->GetAccelStruct().get());
+    bytes_svs = bvh->m_allNodePairs.size()*sizeof(BVHNodePair) + 
+                      bvh->m_primIdCount.size()* sizeof(uint32_t) +
+                      bvh->m_SdfSVSNodes.size()* sizeof(SdfSVSNode);
+    bytes_svs /= 1024.0f * 1024.0f;
   }
 
   printf("\nMesh render time: %f ms\nVDB  render time: %f ms\nSBS  render time: %f ms\nSVS  render time: %f ms\n", time_ref, time_vdb, time_sbs, time_svs);
-  printf("\nPSNR metrics: \nVDB: %f \nSBS: %f \nSVS: %f \n", psnr_vdb, psnr_sbs, psnr_svs);
+  printf("\nPSNR metrics: \nVDB: %.2f \nSBS: %.2f \nSVS: %.2f \n", psnr_vdb, psnr_sbs, psnr_svs);
+  printf("\nMemory usage:\nVDB: %.2f Mb\nSBS: %.2f Mb\nSVS: %.2f Mb\n", bytes_vdb, bytes_sbs, bytes_svs);
 }
 
 void perform_tests_litert(const std::vector<int> &test_ids)
