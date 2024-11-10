@@ -2617,6 +2617,7 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
           {
             //this voxels contains the surface, set the presence flag
             ctx.presence_flags[(i+(int)header.brick_pad)*p_size*p_size + (j+(int)header.brick_pad)*p_size + k+(int)header.brick_pad] = true;
+            ctx.requirement_flags[(i+(int)header.brick_pad)*p_size*p_size + (j+(int)header.brick_pad)*p_size + k+(int)header.brick_pad] = true;
 
             //if this voxel is inside and we have padding for smooth normals, we should set requirement flags:
             //1) on this voxel, as it has the actual surface we want to render
@@ -2628,7 +2629,6 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
                 k >= 0 && k < header.brick_size)
             {
               int p_off = (i+(int)header.brick_pad)*p_size*p_size + (j+(int)header.brick_pad)*p_size + k+(int)header.brick_pad;
-              ctx.requirement_flags[(i+(int)header.brick_pad)*p_size*p_size + (j+(int)header.brick_pad)*p_size + k+(int)header.brick_pad] = true;
 
               for (int i=0;i<4;i++)
               {
