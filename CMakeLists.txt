@@ -30,7 +30,7 @@ find_package(Threads REQUIRED)
 find_package(OpenMP REQUIRED)
 
 set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS} -std=c++17 -O3 -Wall -Wno-unused-function \
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS} -std=c++17 -Wall -Wno-unused-function \
                      -Wno-unused-variable -Wno-unused-but-set-variable -Wno-unused-parameter -Wno-unused-result \
                      -Wno-int-to-pointer-cast -Wno-register -Wreturn-type -Wdisabled-optimization \
                      -Wno-narrowing -Wno-attributes -Wno-sign-compare")
@@ -201,6 +201,11 @@ if (USE_VULKAN)
   set(MODULES_LIBRARIES ${MODULES_LIBRARIES} ${Vulkan_LIBRARY} OpenMP::OpenMP_CXX volk dl)
 endif()
 
+set(
+  NURBS_SRC
+    nurbs/nurbs_common_host.cpp
+)
+
 add_executable(render_app)
 target_include_directories(render_app PUBLIC ${MODULES_INCLUDE_DIRS})
 
@@ -209,7 +214,7 @@ target_sources(render_app PRIVATE main.cpp
                ${SCENE_LOADER_SRC}
                ${CORE_SRC}
                ${BUILDERS_SRC}
-              )
+               ${NURBS_SRC})
 
 set_property(TARGET render_app PROPERTY CXX_STANDARD 17)
 target_link_libraries(render_app PRIVATE Threads::Threads dl ${RAYTRACING_EMBREE_LIBS} ${MODULES_LIBRARIES})
@@ -250,7 +255,8 @@ if (USE_VULKAN)
                 ${CORE_SRC}
                 ${BUILDERS_SRC} 
                 ${ENGINE_SOURCE} 
-                ${IMGUI_SRC})
+                ${IMGUI_SRC}
+                ${NURBS_SRC})
 
   set_property(TARGET engine PROPERTY CXX_STANDARD 17)
   target_link_libraries(engine PRIVATE Threads::Threads dl glfw ${RAYTRACING_EMBREE_LIBS} ${MODULES_LIBRARIES})

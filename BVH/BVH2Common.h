@@ -124,7 +124,7 @@ struct BVHRT : public ISceneObject
   uint32_t AddGeom_SdfSBS(SdfSBSView octree, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
   uint32_t AddGeom_SdfSBSAdapt(SdfSBSAdaptView octree, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
   uint32_t AddGeom_SdfFrameOctreeTex(SdfFrameOctreeTexView octree, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
-  uint32_t AddGeom_NURBS(const RawNURBS &nurbs, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
+  uint32_t AddGeom_NURBS(const RBezierGrid &rbeziers, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
   uint32_t AddGeom_GraphicsPrim(const GraphicsPrimView &nurbs, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
   uint32_t AddGeom_COctreeV1(const std::vector<SdfCompactOctreeNode> &nodes, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
   uint32_t AddGeom_COctreeV2(const std::vector<uint32_t> &data, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
@@ -186,7 +186,7 @@ struct BVHRT : public ISceneObject
                          uint32_t a_count, CRT_Hit* pHit);
 
   void IntersectNURBS(const float3& ray_pos, const float3& ray_dir,
-                      float tNear, uint32_t instId,
+                      float tNear, uint32_t approx_offset, uint32_t instId,
                       uint32_t geomId, CRT_Hit* pHit);
 
   void IntersectGraphicPrims(const float3& ray_pos, const float3& ray_dir,
@@ -370,28 +370,27 @@ struct BVHRT : public ISceneObject
 #ifndef DISABLE_NURBS
   //NURBS data
   std::vector<float> m_NURBSData;
+  std::vector<float> m_NURBS_approxes;
   std::vector<NURBSHeader> m_NURBSHeaders;
   //NURBS functions
-  virtual float4 control_point(uint i, uint j, NURBSHeader h);
-  virtual float weight(uint i, uint j, NURBSHeader h);
-  virtual float uknot(uint i, NURBSHeader h);
-  virtual float vknot(uint i, NURBSHeader h);
-  virtual int find_uspan(float u, NURBSHeader h);
-  virtual int find_vspan(float v, NURBSHeader h);
-  virtual void ubasis_funs(int i, float u, NURBSHeader h, float N[NURBS_MAX_DEGREE+1]);
-  virtual void vbasis_funs(int i, float v, NURBSHeader h, float N[NURBS_MAX_DEGREE+1]);
-  virtual float4 nurbs_point(float u, float v, NURBSHeader h);
-  virtual float4 uder(float u, float v, NURBSHeader h);
-  virtual float4 vder(float u, float v, NURBSHeader h);
-  virtual bool uclosed(NURBSHeader h);
-  virtual bool vclosed(NURBSHeader h);
+  virtual float4 control_point(uint i, int offset);
+  virtual float knot(uint i, int knots_offset);
+  virtual int find_span(float t, int knots_offset, int knots_count, NURBSHeader h);
+  virtual float4 rbezier_curve_point(float u, int p, int offset);
+  virtual float4 rbezier_surface_point(float u, float v, int points_offset, NURBSHeader h);
+  virtual float4 rbezier_grid_point(float u, float v, NURBSHeader h);
+  virtual float4 rbezier_curve_der(float u, int p, int offset);
+  virtual float4 rbezier_surface_uder(float u, float v, const float4 &Sw, int points_offset, NURBSHeader h);
+  virtual float4 rbezier_surface_vder(float u, float v, const float4 &Sw, int points_offset, NURBSHeader h);
+  virtual float4 rbezier_grid_uder(float u, float v, const float4 &Sw, NURBSHeader h);
+  virtual float4 rbezier_grid_vder(float u, float v, const float4 &Sw, NURBSHeader h);
   virtual NURBS_HitInfo ray_nurbs_newton_intersection(
     const LiteMath::float3 &pos,
     const LiteMath::float3 &ray,
+    float2 uv,
     NURBSHeader h);
   //end NURBS functions
 #endif
-
   // Graphic primitives data
 #ifndef DISABLE_GRAPHICS_PRIM
   std::vector<float4> m_GraphicsPrimPoints;
@@ -642,15 +641,11 @@ struct GeomDataNURBS : public AbstractObject
     float3 ray_dir = to_float3(rayDirAndFar);
     float tNear    = rayPosAndNear.w;
     uint32_t geometryId = geomId;
-    //uint32_t globalAABBId = bvhrt->startEnd[geometryId].x + info.aabbId;
-    //uint32_t start_count_packed = bvhrt->m_primIdCount[globalAABBId];
-    //uint32_t a_start = EXTRACT_START(start_count_packed);
-    //uint32_t a_count = EXTRACT_COUNT(start_count_packed);
+    uint32_t globalAABBId = bvhrt->startEnd[geometryId].x + info.aabbId;
+    uint32_t start_count_packed = bvhrt->m_primIdCount[globalAABBId];
+    uint32_t offset = EXTRACT_START(start_count_packed) * 2;
 
-    pHit->primId = 0xFFFFFFFF;
-#ifndef DISABLE_NURBS
-    bvhrt->IntersectNURBS(ray_pos, ray_dir, tNear, info.instId, geometryId, pHit);
-#endif
+    bvhrt->IntersectNURBS(ray_pos, ray_dir, tNear, offset, info.instId, geometryId, pHit);
     return pHit->primId == 0xFFFFFFFF ? TAG_NONE : TAG_GS;
   }
 };

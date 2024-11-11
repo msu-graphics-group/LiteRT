@@ -1382,240 +1382,229 @@ void BVHRT::IntersectGSInLeaf(const float3& ray_pos, const float3& ray_dir,
 #endif
 
 #ifndef DISABLE_NURBS
+
 //////////////////// NURBS SECTION /////////////////////////////////////////////////////
-float4 
-BVHRT::control_point(uint i, uint j, NURBSHeader h)
-{
-  return LiteMath::float4 { 
-      m_NURBSData[h.offset+(i*(h.m+1)+j)*4], 
-      m_NURBSData[h.offset+(i*(h.m+1)+j)*4+1],
-      m_NURBSData[h.offset+(i*(h.m+1)+j)*4+2],
-      m_NURBSData[h.offset+(i*(h.m+1)+j)*4+3] 
+float4 BVHRT::control_point(uint i, int offset) {
+  return float4 {
+    m_NURBSData[offset+i*4+0],
+    m_NURBSData[offset+i*4+1],
+    m_NURBSData[offset+i*4+2],
+    m_NURBSData[offset+i*4+3],
   };
-} 
-float 
-BVHRT::weight(uint i, uint j, NURBSHeader h)
-{
-  return m_NURBSData[weights_offset(h)+i*h.m+j];
 }
-float 
-BVHRT::uknot(uint i, NURBSHeader h)
-{
-  return m_NURBSData[u_knots_offset(h)+i];
-}
-float 
-BVHRT::vknot(uint i, NURBSHeader h)
-{
-  return m_NURBSData[v_knots_offset(h)+i];
-}
-int 
-BVHRT::find_uspan(float u, NURBSHeader h) {
-  int n = h.n;
-  int p = h.p;
 
-  if (u == uknot(n+1, h))
-    return n;
+float BVHRT::knot(uint i, int knots_offset) {
+  return m_NURBSData[knots_offset+i];
+}
 
-  int l = p-1;
-  int r = n+2;
+int BVHRT::find_span(float t, int knots_offset, int knots_count, NURBSHeader h) {
+  if (t == knot(knots_count-1, knots_offset))
+    return knots_count-2;
+
+  int l = 0;
+  int r = knots_count-1;
   while(r-l > 1) {
     int m = (l+r)/2;
-    if (u < uknot(m, h))
+    if (t < knot(m, knots_offset))
       r = m;
     else 
       l = m;
   }
-  //assert(uknot(l, h) <= u && u < uknot(l+1, h));
-  return l;
-}
-int 
-BVHRT::find_vspan(float v, NURBSHeader h) {
-  int n = h.m;
-  int p = h.q;
 
-  if (v == vknot(n+1, h))
-    return n;
-
-  int l = p-1;
-  int r = n+2;
-  while(r-l > 1) {
-    int m = (l+r)/2;
-    if (v < vknot(m, h))
-      r = m;
-    else 
-      l = m;
-  }
-  //assert(vknot(l, h) <= v && v < vknot(l+1, h));
+  //assert(knot(l, knots_offset) <= t && t < knot(l+1, knots_offset));
   return l;
 }
 
-void 
-BVHRT::ubasis_funs(int i, float u, NURBSHeader h, float N[NURBS_MAX_DEGREE+1]) {
-  int n = h.n;
-  int p = h.p;
-
-  N[0] = 1.0f;
-  float left[NURBS_MAX_DEGREE+1];
-  float right[NURBS_MAX_DEGREE+1];
-  for (int i = 0; i < p+1; ++i)
-    left[i] = right[i] = 0;
-
-  for (int j = 1; j <= p; ++j) {
-    left[j] = u - uknot(i+1-j, h);
-    right[j] = uknot(i+j, h)-u;
-    float saved = 0.0f;
-    for (int r = 0; r < j; ++r) {
-      float temp = N[r] / (right[r+1]+left[j-r]);
-      N[r] = saved + right[r+1] * temp;
-      saved = left[j-r] * temp;
-    }
-    N[j] = saved;
+float4 BVHRT::rbezier_curve_point(float u, int p, int offset) {
+  float u_n = 1.0f;
+  float _1_u = 1.0f - u;
+  int bc = 1;
+  float4 res = control_point(0, offset) * _1_u;
+  for (int i = 1; i <= p-1; ++i) {
+    u_n *= u;
+    bc = bc * (p-i+1)/i;
+    res = (res + u_n * bc * control_point(i, offset)) * _1_u;
   }
-}
-void 
-BVHRT::vbasis_funs(int i, float v, NURBSHeader h, float N[NURBS_MAX_DEGREE+1]) {
-  int n = h.m;
-  int p = h.q;
-  N[0] = 1.0f;
-  float left[NURBS_MAX_DEGREE+1];
-  float right[NURBS_MAX_DEGREE+1];
-  for (int i = 0; i < p+1; ++i)
-    left[i] = right[i] = 0;
-
-  for (int j = 1; j <= p; ++j) {
-    left[j] = v - vknot(i+1-j, h);
-    right[j] = vknot(i+j, h)-v;
-    float saved = 0.0f;
-    for (int r = 0; r < j; ++r) {
-      float temp = N[r] / (right[r+1]+left[j-r]);
-      N[r] = saved + right[r+1] * temp;
-      saved = left[j-r] * temp;
-    }
-    N[j] = saved;
-  }
+  res += (u_n * u) * control_point(p, offset);
+  return res;
 }
 
-float4 
-BVHRT::nurbs_point(float u, float v, NURBSHeader h) {
-  int n = h.n;
-  int m = h.m;
+float4 BVHRT::rbezier_surface_point(float u, float v, int points_offset, NURBSHeader h) {
   int p = h.p;
   int q = h.q;
-  //assert(p <= NURBS_MAX_DEGREE);
-  //assert(q <= NURBS_MAX_DEGREE);
+  float u_n = 1.0f;
+  float _1_u = 1.0f - u;
+  int bc = 1;
+  float4 res = rbezier_curve_point(v, q, points_offset+(q+1)*4*0) * _1_u;
+  for (int i = 1; i <= p-1; ++i) {
+    u_n *= u;
+    bc = bc * (p-i+1)/i;
+    res = (res + u_n * bc * rbezier_curve_point(v, q, points_offset+(q+1)*4*i)) * _1_u;
+  }
+  res += (u_n * u) * rbezier_curve_point(v, q, points_offset+(q+1)*4*p);
+  return res;
+}
 
-  int uspan = find_uspan(u, h);
-  float Nu[NURBS_MAX_DEGREE+1];
-  for (int i = 0; i < p+1; ++i)
-    Nu[i] = 0;
-  ubasis_funs(uspan, u, h, Nu);
-  
-  int vspan = find_vspan(v, h);
-  float Nv[NURBS_MAX_DEGREE+1];
-  for (int i = 0; i < q+1; ++i)
-    Nv[i] = 0;
-  vbasis_funs(vspan, v, h, Nv);
+float4 BVHRT::rbezier_grid_point(float u, float v, NURBSHeader h) {
+  int uoffset = uknots_offset(h);
+  int voffset = vknots_offset(h);
+  int uspan = find_span(u, uoffset, h.uknots_cnt, h);
+  int vspan = find_span(v, voffset, h.vknots_cnt, h);
+  float umin = knot(uspan, uoffset), umax = knot(uspan+1, uoffset);
+  float vmin = knot(vspan, voffset), vmax = knot(vspan+1, voffset);
+  u = (u-umin)/(umax-umin);
+  v = (v-vmin)/(vmax-vmin);
+  return rbezier_surface_point(u, v, pts_offset(h, uspan, vspan), h);
+}
 
-  float4 temp[NURBS_MAX_DEGREE+1];
-  for (int i = 0; i < q+1; ++i)
-    temp[i] = float4{ 0.0f, 0.0f, 0.0f, 0.0f };
+float4 BVHRT::rbezier_curve_der(float u, int p, int offset) {
+  float u_n = 1.0f;
+  float _1_u = 1.0f - u;
+  int bc = 1;
 
-  for (int l = 0; l <= q; ++l) 
-  for (int k = 0; k <= p; ++k) 
-  {
-    temp[l] += Nu[k] 
-             * control_point(uspan-p+k, vspan-q+l, h) 
-             * weight(uspan-p+k, vspan-q+l, h);
+  float4 cur_pnt = control_point(0, offset);
+  float4 next_pnt = control_point(1, offset);
+  float4 res = (next_pnt-cur_pnt) * _1_u;
+  if (p > 1)
+    cur_pnt = next_pnt;
+
+  for (int i = 1; i <= p-2; ++i) {
+    u_n *= u;
+    bc = bc * (p-i+1)/i;
+    next_pnt = control_point(i+1, offset);
+    res = (res + u_n * bc * (next_pnt-cur_pnt)) * _1_u;
+    cur_pnt = next_pnt;
   }
 
-  float4 res = { 0.0f, 0.0f, 0.0f, 0.0f };
-  for (int l = 0; l <= q; ++l)
-    res += Nv[l] * temp[l];
+  next_pnt = control_point(p, offset);
+  res += (u_n * u) * (next_pnt-cur_pnt);
+
+  res *= p;
+
+  return res;
+}
+
+float4 BVHRT::rbezier_surface_vder(float u, float v, const float4 &Sw, int points_offset, NURBSHeader h) {
+  int p = h.p;
+  int q = h.q;
+  float u_n = 1.0f;
+  float _1_u = 1.0f - u;
+  int bc = 1;
+  float4 Sw_der = rbezier_curve_der(v, q, points_offset+(q+1)*4*0) * _1_u;
+  for (int i = 1; i <= p-1; ++i) {
+    u_n *= u;
+    bc = bc * (p-i+1)/i;
+    Sw_der = (Sw_der + u_n * bc * rbezier_curve_der(v, q, points_offset+(q+1)*4*i)) * _1_u;
+  }
+  Sw_der += (u_n * u) * rbezier_curve_der(v, q, points_offset+(q+1)*4*p);
+
+  float4 S_der = (Sw_der * Sw.w - Sw * Sw_der.w) / (Sw.w * Sw.w);
+  return S_der;
+}
+
+float4 BVHRT::rbezier_surface_uder(float u, float v, const float4 &Sw, int points_offset, NURBSHeader h) {
+  int p = h.p;
+  int q = h.q;
+  float u_n = 1.0f;
+  float _1_u = 1.0f - u;
+  int bc = 1;
+  float4 Sw_der = { 0.0f, 0.0f, 0.0f, 0.0f };
+
+  float4 cur_point = rbezier_curve_point(v, q, points_offset+(q+1)*4*0);
+  float4 next_point = rbezier_curve_point(v, q, points_offset+(q+1)*4*1);
+  Sw_der = (next_point - cur_point) * _1_u;
+  if (p > 1)
+    cur_point = next_point;
+
+  for (int i = 1; i <= p-2; ++i) {
+    u_n *= u;
+    bc = bc * (p-i+1)/i;
+    next_point = rbezier_curve_point(v, q, points_offset+(q+1)*4*(i+1));
+    Sw_der = (Sw_der + u_n * bc * (next_point-cur_point)) * _1_u;
+    cur_point = next_point;
+  }
+
+  next_point = rbezier_curve_point(v, q, points_offset+(q+1)*4*p);
+  Sw_der += (u_n * u) * (next_point-cur_point);
+
+  Sw_der *= p;
   
-  return res/res.w;
+  float4 S_der = (Sw_der * Sw.w - Sw * Sw_der.w)/(Sw.w * Sw.w);
+  return S_der;
 }
 
-float4 
-BVHRT::uder(float u, float v, NURBSHeader h) {
-  const float EPS = 1e-2f;
-  LiteMath::float4 res = { 0.0f, 0.0f, 0.0f, 0.0f };
-  res += (u+EPS > 1.0f) ? nurbs_point(u, v, h) : nurbs_point(u+EPS, v, h);
-  res -= (u-EPS < 0.0f) ? nurbs_point(u, v, h) : nurbs_point(u-EPS, v, h);
-
-  return res / (EPS * (1 + (int)((u+EPS <= 1.0f) && (u-EPS >= 0.0f))));
+float4 BVHRT::rbezier_grid_uder(float u, float v, const float4 &Sw, NURBSHeader h) {
+  int uoffset = uknots_offset(h);
+  int voffset = vknots_offset(h);
+  int uspan = find_span(u, uoffset, h.uknots_cnt, h);
+  int vspan = find_span(v, voffset, h.vknots_cnt, h);
+  float umin = knot(uspan, uoffset), umax = knot(uspan+1, uoffset);
+  float vmin = knot(vspan, voffset), vmax = knot(vspan+1, voffset);
+  u = (u-umin)/(umax-umin);
+  v = (v-vmin)/(vmax-vmin);
+  float4 surf_der = rbezier_surface_uder(u, v, Sw, pts_offset(h, uspan, vspan), h);
+  return surf_der * (1.0f/(umax-umin));
 }
 
-float4 
-BVHRT::vder(float u, float v, NURBSHeader h) {
-  const float EPS = 1e-2f;
-  LiteMath::float4 res = { 0.0f, 0.0f, 0.0f, 0.0f };
-  res += (v+EPS > 1.0f) ? nurbs_point(u, v, h) : nurbs_point(u, v+EPS, h);
-  res -= (v-EPS < 0.0f) ? nurbs_point(u, v, h) : nurbs_point(u, v-EPS, h);
-
-  return res / (EPS * (1 + (int)((v+EPS <= 1.0f) && (v-EPS >= 0.0f))));
+float4 BVHRT::rbezier_grid_vder(float u, float v, const float4 &Sw, NURBSHeader h) {
+  int uoffset = uknots_offset(h);
+  int voffset = vknots_offset(h);
+  int uspan = find_span(u, uoffset, h.uknots_cnt, h);
+  int vspan = find_span(v, voffset, h.vknots_cnt, h);
+  float umin = knot(uspan, uoffset), umax = knot(uspan+1, uoffset);
+  float vmin = knot(vspan, voffset), vmax = knot(vspan+1, voffset);
+  u = (u-umin)/(umax-umin);
+  v = (v-vmin)/(vmax-vmin);
+  float4 surf_der = rbezier_surface_vder(u, v, Sw, pts_offset(h, uspan, vspan), h);
+  return surf_der * (1.0f/(vmax-vmin));
 }
 
-bool 
-BVHRT::uclosed(NURBSHeader h) {
-  const float EPS = 1e-2f;
-  for (int j = 0; j <= h.m; ++j) 
-    if (length(control_point(0, j, h) - control_point(h.n, j, h)) > EPS)
-      return false;
-  return true;
+inline
+float2 project2planes(
+    const float4 &P1, 
+    const float4 &P2,
+    const float4 &point) {
+  return float2{ dot(P1, point), dot(P2, point) };
 }
 
-bool 
-BVHRT::vclosed(NURBSHeader h) {
-  const float EPS = 1e-2f;
-  for (int i = 0; i <= h.n; ++i) 
-    if (length(control_point(i, 0, h) - control_point(i, h.m, h)) > EPS)
-      return false;
-  return true;
-}
-
-float closed_clamp(float val) {
-  val -= int(val);
-  if (val < 0.0f)
-    return 1.0f+val;
-  if (val > 1.0f)
-    return val-1.0f;
-  return val;
-}
-
-NURBS_HitInfo 
-BVHRT::ray_nurbs_newton_intersection(
+NURBS_HitInfo BVHRT::ray_nurbs_newton_intersection(
     const LiteMath::float3 &pos,
     const LiteMath::float3 &ray,
+    float2 uv,
     NURBSHeader h) {
   const int max_steps = 16;
-  const float EPS = 0.001f;
+  const float EPS = 1e-3f;
 
-  bool u_closed = uclosed(h);
-  bool v_closed = vclosed(h);
-
-  float3 ortho_dir1 = (bool(ray.x) || bool(ray.z)) ? float3{ 0, 1, 0 } : float3{ 1, 0, 0 };
+  float3 ortho_dir1 = (abs(ray.x) > abs(ray.y) && abs(ray.x) > abs(ray.z)) 
+                    ? float3{ -ray.y, ray.x, 0 } 
+                    : float3{ 0, -ray.z, ray.y };
   float3 ortho_dir2 = normalize(cross(ortho_dir1, ray));
   ortho_dir1 = normalize(cross(ray, ortho_dir2));
-  // assert(dot(ortho_dir1, ortho_dir2) < EPS);
-  // assert(dot(ortho_dir1, ray) < EPS);
-  // assert(dot(ortho_dir2, ray) < EPS);
+  // assert(dot(ortho_dir1, ortho_dir2) < 1e-2f);
+  // assert(dot(ortho_dir1, ray) < 1e-2f);
+  // assert(dot(ortho_dir2, ray) < 1e-2f);
 
   float4 P1 = to_float4(ortho_dir1, -dot(ortho_dir1, pos));
   float4 P2 = to_float4(ortho_dir2, -dot(ortho_dir2, pos));
-  // assert(dot(P1, to_float4(pos, 1.0f)) < EPS);
-  // assert(dot(P2, to_float4(pos, 1.0f)) < EPS);
+  // assert(dot(P1, to_float4(pos, 1.0f)) < 1e-2);
+  // assert(dot(P2, to_float4(pos, 1.0f)) < 1e-2);
 
-  float2 uv = { 0.5f, 0.5f };
-  float2 D = { dot(P1, nurbs_point(uv.x, uv.y, h)), dot(P2, nurbs_point(uv.x, uv.y, h)) };
-  NURBS_HitInfo hit_info = { false, uv };
+  float4 Sw = rbezier_grid_point(uv.x, uv.y, h);
+  float4 surf_point = Sw;
+  surf_point /= surf_point.w;
+  float2 D = project2planes(P1, P2, surf_point); 
+
+  NURBS_HitInfo hit_info;
+  hit_info.hitten = false;
 
   int steps_left = max_steps-1;
-  while(length(D) > EPS && (steps_left!=0)) {
-    steps_left--;
+  while(length(D) > EPS && steps_left > 0) {
+    --steps_left;
+
     float2 J[2] = 
     { 
-      { dot(P1, uder(uv.x, uv.y, h)), dot(P2, uder(uv.x, uv.y, h)) }, //col1
-      { dot(P1, vder(uv.x, uv.y, h)), dot(P2, vder(uv.x, uv.y, h)) } //col2
+      project2planes(P1, P2, rbezier_grid_uder(uv.x, uv.y, Sw, h)), //col1
+      project2planes(P1, P2, rbezier_grid_vder(uv.x, uv.y, Sw, h)) //col2
     };
 
     float det = J[0][0]*J[1][1] - J[0][1] * J[1][0];
@@ -1627,29 +1616,38 @@ BVHRT::ray_nurbs_newton_intersection(
     };
 
     uv = uv - (J_inversed[0]*D[0]+J_inversed[1]*D[1]);
-    uv.x = u_closed ? closed_clamp(uv.x) : clamp(uv.x, 0.0f, 1.0f);
-    uv.y = v_closed ? closed_clamp(uv.y) : clamp(uv.y, 0.0f, 1.0f);
+    uv.x = clamp(uv.x, 0.0f, 1.0f);
+    uv.y = clamp(uv.y, 0.0f, 1.0f);
     // assert(0 <= uv.x && uv.x <= 1);
     // assert(0 <= uv.y && uv.y <= 1);
 
-    float2 new_D = { dot(P1, nurbs_point(uv.x, uv.y, h)), dot(P2, nurbs_point(uv.x, uv.y, h)) };
+    Sw = rbezier_grid_point(uv.x, uv.y, h);
+    surf_point = Sw;
+    surf_point /= surf_point.w;
+    float2 new_D = project2planes(P1, P2, surf_point);
     
     if (length(new_D) > length(D))
-      return hit_info;
+      return hit_info; // hitten = false
     
     D = new_D;
   }
 
   if (length(D) > EPS)
-    return hit_info;
+    return hit_info; // hitten = false;
   
+  float3 uder = to_float3(rbezier_grid_uder(uv.x, uv.y, Sw, h));
+  float3 vder = to_float3(rbezier_grid_vder(uv.x, uv.y, Sw, h));
+  float3 normal = normalize(cross(uder, vder));
+
   hit_info.hitten = true;
+  hit_info.point = to_float3(surf_point);
+  hit_info.normal = normal;
   hit_info.uv = uv;
   return hit_info;
 }
 
 void BVHRT::IntersectNURBS(const float3& ray_pos, const float3& ray_dir,
-                           float tNear, uint32_t instId,
+                           float tNear, uint32_t approx_offset, uint32_t instId,
                            uint32_t geomId, CRT_Hit* pHit) {
   uint nurbsId = m_geomData[geomId].offset.x;
   NURBSHeader header  = m_NURBSHeaders[nurbsId];
@@ -1659,10 +1657,14 @@ void BVHRT::IntersectNURBS(const float3& ray_pos, const float3& ray_dir,
   float3 max_pos = to_float3(m_geomData[geomId].boxMax);
   float2 tNear_tFar = box_intersects(min_pos, max_pos, ray_pos, ray_dir);
 
-  NURBS_HitInfo hit_pos = ray_nurbs_newton_intersection(ray_pos, ray_dir, header);
-  if (hit_pos.hitten) {
-    float2 uv = hit_pos.uv;
-    float3 point = to_float3(nurbs_point(uv.x, uv.y, header));
+  float u0 = m_NURBS_approxes[approx_offset];
+  float v0 = m_NURBS_approxes[approx_offset+1];
+
+  NURBS_HitInfo hit = ray_nurbs_newton_intersection(ray_pos, ray_dir, float2{u0, v0}, header);
+  if (hit.hitten) {
+    float2 uv = hit.uv;
+    float3 point = hit.point;
+    float3 normal = hit.normal;
     float t = dot(normalize(ray_dir), point-ray_pos);
     if (t < tNear_tFar.x || t > tNear_tFar.y)
       return;
@@ -1674,10 +1676,16 @@ void BVHRT::IntersectNURBS(const float3& ray_pos, const float3& ray_dir,
     pHit->coords[0] = uv.x;
     pHit->coords[1] = uv.y;
   } 
+  // pHit->geomId = geomId | (type << SH_TYPE);
+  // pHit->t = tNear;
+  // pHit->primId = 0;
+  // pHit->instId = instId;
+
+  // pHit->coords[0] = u0;
+  // pHit->coords[1] = v0;
 }
 //////////////////////// END NURBS SECTION ///////////////////////////////////////////////
 #endif
-
 
 float4 rayCapsuleIntersect(const float3& ray_pos, const float3& ray_dir,
                            const float3& pa, const float3& pb, float ra)
@@ -1718,6 +1726,7 @@ float4 rayCapsuleIntersect(const float3& ray_pos, const float3& ray_dir,
   }
   return float4(2e15f);
 }
+
 
 void BVHRT::IntersectGraphicPrims(const float3& ray_pos, const float3& ray_dir,
                                   float tNear, uint32_t instId,
@@ -2933,8 +2942,8 @@ CRT_Hit BVHRT::RayQuery_NearestHit(float4 posAndNear, float4 dirAndFar)
         //
         const float3 ray_pos = matmul4x3(m_instanceData[instId].transformInv, to_float3(posAndNear));
         const float3 ray_dir = matmul3x3(m_instanceData[instId].transformInv, to_float3(dirAndFar)); // DON'float NORMALIZE IT !!!! When we transform to local space of node, ray_dir must be unnormalized!!!
-
-        BVH2TraverseF32(ray_pos, ray_dir, posAndNear.w, instId, geomId, stopOnFirstHit, &hit);
+    
+        BVH2TraverseF32(ray_pos, ray_dir, posAndNear.w, instId, geomId, true, &hit);
       }
     } while (nodeIdx < 0xFFFFFFFE && !(stopOnFirstHit && hit.primId != uint32_t(-1))); //
   }

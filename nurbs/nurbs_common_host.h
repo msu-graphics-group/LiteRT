@@ -4,33 +4,19 @@
 #include <tuple>
 #include <cinttypes>
 #include <optional>
+#include <filesystem>
 
 #include <LiteMath.h>
+#include <cmesh4.h>
 
 #include "nurbs_common.h"
 
 enum class SurfaceParameter { U, V };
+RBezierGrid nurbs2rbezier(RawNURBS nurbs);
+RawNURBS load_nurbs (const std::filesystem::path &path);
 
-std::vector<std::vector<LiteMath::float4> >
-decompose_curve(
-    int n, int p,
-    const float *U,
-    const LiteMath::float4 *Pw);
+std::tuple<std::vector<LiteMath::Box4f>, std::vector<LiteMath::float2>>
+get_nurbs_bvh_leaves(const RBezierGrid &rbezier);
 
-std::vector<Vector2D<LiteMath::float4> >
-decompose_surface(
-    int n, int p,
-    const float *U,
-    int m,int q,
-    const float *V,
-    const Vector2D<LiteMath::float4> &Pw,
-    SurfaceParameter dir);
-
-struct RBezier
-{
-public:
-  Vector2D<LiteMath::float4> weighted_points;
-};
-
-Vector2D<RBezier>
-nurbs2rbezier(RawNURBS nurbs);
+cmesh4::SimpleMesh
+get_nurbs_control_mesh(const RBezierGrid &rbezier);

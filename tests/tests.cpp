@@ -13,11 +13,13 @@
 #include "../utils/image_metrics.h"
 #include "../diff_render/MultiRendererDR.h"
 #include "../utils/iou.h"
+#include "../nurbs/nurbs_common_host.h"
 
 #include <functional>
 #include <cassert>
 #include <chrono>
 #include <filesystem>
+#include <map>
 
 std::string scenes_folder_path = "./";
 
@@ -2258,70 +2260,10 @@ void litert_test_30_verify_SBS_SBSAdapt()
   }
 }
 
-
 ////////////////////////// NURBS SECTION ////////////////////////////////
-RawNURBS test_nurbs_loader(const std::filesystem::path &path) {
-  std::fstream fin(path);
-  fin.exceptions(std::ifstream::badbit|std::ifstream::failbit);
-  std::string tmp_str;
-  char tmp_chr;
-
-  RawNURBS surf;
-
-  int n, m, p, q;
-  fin >> tmp_chr >> tmp_chr >> n; // n = ...
-  fin >> tmp_chr >> tmp_chr >> m; // m = ...
-
-  surf.points = Vector2D<LiteMath::float4>(n+1, m+1, { 0, 0, 0, 1.0f });
-  surf.weights = Vector2D<float>(n+1, m+1, 1.0f);
-
-  fin >> tmp_str; // "points:"
-  for (int i = 0; i <= n; ++i)
-  for (int j = 0; j <= m; ++j)
-  {
-    auto &point = surf.points[{i, j}];
-    fin >> tmp_chr >> point.x >> tmp_chr >> point.y >> tmp_chr >> point.z >> tmp_chr; // { ..., ..., ... }
-  }
-
-  fin >> tmp_str; // "weights:"
-  for (int i = 0; i <= n; ++i)
-  for (int j = 0; j <= m; ++j)
-  {
-    fin >> surf.weights[{i, j}];
-  }
-
-  fin >> tmp_str; // "u_degree:"
-  fin >> p; 
-
-  fin >> tmp_str; // "v_degree:"
-  fin >> q;
-
-  surf.u_knots.resize(n+p+2);
-  fin >> tmp_str; // "u_knots:"
-  for (size_t i = 0; i < surf.u_knots.size(); ++i) {
-    fin >> surf.u_knots[i];
-  }
-  float u_min = surf.u_knots.front();
-  float u_max = surf.u_knots.back();
-  for (auto &elem: surf.u_knots)
-    elem = (elem-u_min)/u_max; // map to [0, 1]
-
-  surf.v_knots.resize(m+q+2);
-  fin >> tmp_str; // "v_knots:"
-  for (size_t i = 0; i < surf.v_knots.size(); ++i) {
-    fin >> surf.v_knots[i];
-  }
-  float v_min = surf.v_knots.front();
-  float v_max = surf.v_knots.back();
-  for (auto &elem: surf.v_knots)
-    elem = (elem-v_min)/v_max; // map to [0, 1]
-
-  return surf;
-}
-
-void litert_test_31_fake_nurbs_render()
+void litert_test_31_nurbs_render()
 {
-  std::cout << "TEST 31" << std::endl;
+  std::cout << "TEST 31: NURBS" << std::endl;
   unsigned W = 800, H = 600;
 
   MultiRenderPreset preset = getDefaultPreset();
@@ -2332,48 +2274,72 @@ void litert_test_31_fake_nurbs_render()
 
   auto proj_path = std::filesystem::current_path();
   auto nurbs_path = proj_path / "scenes" / "04_nurbs_scenes";
-  RawNURBS vase = test_nurbs_loader(nurbs_path / "vase.nurbss");
-  RawNURBS square = test_nurbs_loader(nurbs_path / "square.nurbss");
-  RawNURBS cylinder = test_nurbs_loader(nurbs_path / "cylinder.nurbss");
 
-  // auto pRenderRef1 = CreateMultiRenderer(DEVICE_GPU);
-  // pRenderRef1->SetPreset(preset);
-  // pRenderRef1->SetViewport(0,0,W,H);
-  auto pRenderRef2 = CreateMultiRenderer(DEVICE_CPU);
-  pRenderRef2->SetPreset(preset);
-  pRenderRef2->SetViewport(0,0,W,H);
-  // auto pRenderRef3 = CreateMultiRenderer(DEVICE_GPU);
-  // pRenderRef3->SetPreset(preset);
-  // pRenderRef3->SetViewport(0,0,W,H);
+  std::cout << "Loading and preprocessing surfaces... ";
+  std::map<std::string, RBezierGrid> surfaces = {
+    { "vase", nurbs2rbezier(load_nurbs(nurbs_path / "vase.nurbss")) },
+    { "square", nurbs2rbezier(load_nurbs(nurbs_path/"square.nurbss")) },
+    { "cylinder", nurbs2rbezier(load_nurbs(nurbs_path/"cylinder.nurbss")) }
+  };
+  std::map<std::string, cmesh4::SimpleMesh> tesselated = {
+    { "vase", get_nurbs_control_mesh(surfaces["vase"]) },
+    { "square", get_nurbs_control_mesh(surfaces["square"]) },
+    { "cylinder", get_nurbs_control_mesh(surfaces["cylinder"]) }
+  };
+  std::cout << "Done." << std::endl;
 
-  float3 camera_pos = { 0, 1.276, 25.557 };
-  float3 camera_target = { 0.0f, 1.276f, 0.0f };
-  float3 camera_up = { 0.0f, 1.0f, 0.0f };
-  // pRenderRef1->SetScene(vase);
-  // std::cout << "Rendering started" << std::endl;
-  // pRenderRef1->Render(
-  //     ref_image.data(), W, H, 
-  //     lookAt(camera_pos, camera_target,camera_up),
-  //     perspectiveMatrix(45.0f, W*1.0f/H, 0.001f, 100.0f), preset);
-  // LiteImage::SaveImage<uint32_t>("saves/test_31_vase.bmp", ref_image);
+  auto create_renderer_f = [&]() {
+    auto res = CreateMultiRenderer(DEVICE_GPU);
+    res->SetPreset(preset);
+    res->SetViewport(0, 0, W, H);
+    return res;
+  };
 
-  camera_pos = { -0.52f, 1.991f, 3.049f };
-  camera_target = { 0.0f, 0.0f, 0.0f };
-  pRenderRef2->SetScene(square);
-  pRenderRef2->Render(
+  std::map<std::string, std::pair<float3, float3>> cameras = {
+    { "vase", { float3{ 0, 1.276, 25.557 }, float3{ 0.0f, 1.276f, 0.0f } } }, 
+    { "square", { float3{ -0.52f, 1.991f, 3.049f }, float3{ 0.0f, 0.0f, 0.0f } } },
+    { "cylinder", { float3{ 2.997f, 4.071f, 2.574f }, float3{ 0.0f, 1.506f, 0.0f } } }
+  };
+
+  for (auto &[name, surf]: surfaces) {
+    auto [camera_pos, target] = cameras[name];
+    float3 up{ 0.0f, 1.0f, 0.0f };
+    std::cout << "Setting up scene for " << name << "... ";
+    auto pRender = create_renderer_f();
+    pRender->SetScene(surf);
+    std::cout << "Done." << std::endl;
+    std::cout << "\"" << name << "\" rendering started... ";
+    auto b = std::chrono::high_resolution_clock::now();
+    pRender->Render(
       ref_image.data(), W, H, 
-      lookAt(camera_pos, camera_target,camera_up),
+      lookAt(camera_pos, target, up),
       perspectiveMatrix(45.0f, W*1.0f/H, 0.001f, 100.0f), preset);
-  LiteImage::SaveImage<uint32_t>("saves/test_31_square.bmp", ref_image);
+    auto e = std::chrono::high_resolution_clock::now();
+    auto ms = std::chrono::duration_cast<std::chrono::microseconds>(e-b).count()/1000.0f;
+    std::cout << "Ended. Time: " << ms << "ms (" << 1000.0f/ms << "fps)." <<std::endl;
+    auto save_name = std::string("saves/test_31_")+name+".bmp";
+    LiteImage::SaveImage<uint32_t>(save_name.c_str(), ref_image);
+  }
 
-  // camera_pos = { 2.997f, 4.071f, 2.574f };
-  // camera_target = { 0.0f, 1.506f, 0.0f };
-  // pRenderRef3->SetScene(cylinder);
-  // pRenderRef3->Render(
-  //     ref_image.data(), W, H, 
-  //     lookAt(camera_pos, camera_target,camera_up),
-  //     perspectiveMatrix(45.0f, W*1.0f/H, 0.001f, 100.0f), preset);
-  // LiteImage::SaveImage<uint32_t>("saves/test_31_cylinder.bmp", ref_image);
+  for (auto &[name, surf]: tesselated) {
+    auto [camera_pos, target] = cameras[name];
+    float3 up{ 0.0f, 1.0f, 0.0f };
+    std::cout << "Setting up scene for tesselated " << name << "... ";
+    auto pRender = create_renderer_f();
+    pRender->SetScene(surf);
+    std::cout << "Done." << std::endl;
+    std::cout << "tesellated \"" << name << "\" rendering started... ";
+    auto b = std::chrono::high_resolution_clock::now();
+    pRender->Render(
+      ref_image.data(), W, H, 
+      lookAt(camera_pos, target, up),
+      perspectiveMatrix(45.0f, W*1.0f/H, 0.001f, 100.0f), preset);
+    auto e = std::chrono::high_resolution_clock::now();
+    auto ms = std::chrono::duration_cast<std::chrono::microseconds>(e-b).count()/1000.0f;
+    std::cout << "Ended. Time: " << ms << "ms (" << 1000.0f/ms << "fps)." <<std::endl;
+    auto save_name = std::string("saves/test_31_tesselated_")+name+".bmp";
+    LiteImage::SaveImage<uint32_t>(save_name.c_str(), ref_image);
+  }
 }
 /////////////////////////// END NURBS //////////////////////////////////////////////////
 
@@ -3427,7 +3393,7 @@ void perform_tests_litert(const std::vector<int> &test_ids)
       litert_test_22_sdf_grid_smoothing, litert_test_23_textured_sdf, litert_test_24_demo_meshes,
       litert_test_25_float_images, litert_test_26_sbs_shallow_bvh, litert_test_27_textured_colored_SBS,
       litert_test_28_sbs_reg, litert_test_29_smoothed_frame_octree, litert_test_30_verify_SBS_SBSAdapt,
-      litert_test_31_fake_nurbs_render, litert_test_32_smooth_sbs_normals, litert_test_33_verify_SBS_SBSAdapt_split, 
+      litert_test_31_nurbs_render, litert_test_32_smooth_sbs_normals, litert_test_33_verify_SBS_SBSAdapt_split, 
       litert_test_34_tricubic_sbs, litert_test_35_SBSAdapt_greed_creating, litert_test_36_primitive_visualization,
       litert_test_37_sbs_adapt_comparison, litert_test_38_direct_octree_traversal, litert_test_39_visualize_sbs_bricks,
       litert_test_40_psdf_framed_octree, litert_test_41_coctree_v3};

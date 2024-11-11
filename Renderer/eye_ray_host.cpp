@@ -255,9 +255,9 @@ void MultiRenderer::CastRaySingleBlock(uint32_t tidX, uint32_t * out_color, uint
 {
   //CPU version is mostly used by debug, so better make it single-threaded
   //also per-pixel debug does not work with multithreading
-  //#ifndef _DEBUG
-  //#pragma omp parallel for default(shared)
-  //#endif
+  // #ifndef _DEBUG
+  // #pragma omp parallel for default(shared) schedule(dynamic)
+  // #endif
   for(int i=0;i<tidX;i++)
     CastRaySingle(i, out_color);
 }
@@ -409,7 +409,7 @@ void MultiRenderer::SetScene(SdfFrameOctreeTexView scene)
   m_pAccelStruct->CommitScene();
 }
 
-void MultiRenderer::SetScene(const RawNURBS &nurbs)
+void MultiRenderer::SetScene(const RBezierGrid &rbeziers)
 {
   BVHRT *bvhrt = dynamic_cast<BVHRT*>(m_pAccelStruct->UnderlyingImpl(0));
   if (!bvhrt)
@@ -420,7 +420,7 @@ void MultiRenderer::SetScene(const RawNURBS &nurbs)
 
   SetPreset(m_preset);
   m_pAccelStruct->ClearGeom();
-  auto geomId = bvhrt->AddGeom_NURBS(nurbs, m_pAccelStruct.get());
+  auto geomId = bvhrt->AddGeom_NURBS(rbeziers, m_pAccelStruct.get());
   m_pAccelStruct->ClearScene();
   AddInstance(geomId, LiteMath::float4x4());
   m_pAccelStruct->CommitScene();
