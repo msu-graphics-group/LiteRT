@@ -811,4 +811,19 @@ namespace sdf_converter
 
     return sbs;
   }
+
+  std::vector<SdfFrameOctreeNode> create_vmpdf_framed_octree(SparseOctreeSettings settings, 
+                                                                     const cmesh4::SimpleMesh &mesh)
+  {
+    if (settings.build_type != SparseOctreeBuildType::MESH_TLO)
+    {
+      printf("VMPDF frame octree can be built only from mesh with MESH_TLO build type\n");
+      return {};
+    }
+    auto tlo = cmesh4::create_triangle_list_octree(mesh, settings.depth, 0, 1.0f);
+    std::vector<SdfFrameOctreeNode> frame;
+    mesh_octree_to_vmpdf(mesh, tlo, frame);
+    //frame_octree_limit_nodes(frame, settings.nodes_limit, true);
+    return frame;
+  }
 }

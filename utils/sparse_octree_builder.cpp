@@ -4,6 +4,7 @@
 #include <chrono>
 #include <unordered_map>
 #include <atomic>
+#include <functional>
 
 namespace LiteMath
 {
@@ -625,6 +626,217 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
   {
     out_frame.resize(tl_octree.nodes.size());
     mesh_octree_to_psdf_frame_octree_rec(mesh, tl_octree, out_frame, 0, float3(0,0,0), 1);
+  }
+
+  bool eq_float3(const float3& lhs, const float3& rhs)
+  {
+    return std::abs(lhs.x - rhs.x) < 1e-12f && std::abs(lhs.y - rhs.y) < 1e-12f && std::abs(lhs.z - rhs.z) < 1e-12f;
+  }
+
+  bool is_tri_have_same_edge(float3 a[3], float3 b[3], 
+                             bool &norm_fixed)
+  {
+    for (int i = 0; i < 3; ++i)
+    {
+      for (int j = 0; j < 3; ++j)
+      {
+        if (eq_float3(a[i], b[j]) && eq_float3(a[(i + 1) % 3], b[(j + 1) % 3]))
+        {
+          norm_fixed = false;
+          return true;
+        }
+        if (eq_float3(a[i], b[(j + 1) % 3]) && eq_float3(a[(i + 1) % 3], b[j]))
+        {
+          norm_fixed = true;
+          return true;
+        }
+      }
+    }
+    norm_fixed = false;
+    return false;
+  }
+
+  void mesh_octree_to_vmpdf_rec(const cmesh4::SimpleMesh &mesh,
+                                         const cmesh4::TriangleListOctree &tl_octree,
+                                         /*std::vector<SdfFrameOctreeNode> &frame,*/
+                                         const std::function<void(unsigned idx, unsigned offset, 
+                                                          float3 p, float d, 
+                                                          std::vector<std::vector<float3>> groups, 
+                                                          bool is_leaf, bool is_norm_fixed)> &creating,
+                                         unsigned idx, float3 p, float d)
+  {
+    unsigned ofs = tl_octree.nodes[idx].offset;
+    //frame[idx].offset = ofs;
+    std::vector<std::vector<float3>> groups;
+    bool norm_broken = false;
+    if (is_leaf(ofs)) 
+    {
+      float3 pos = 2.0f*(d*p) - 1.0f;
+      for (int j=0; j<tl_octree.nodes[idx].tid_count; j++)
+      {
+        int t_i = tl_octree.triangle_ids[tl_octree.nodes[idx].tid_offset+j];
+        float3 a = to_float3(mesh.vPos4f[mesh.indices[3*t_i+0]]);
+        float3 b = to_float3(mesh.vPos4f[mesh.indices[3*t_i+1]]);
+        float3 c = to_float3(mesh.vPos4f[mesh.indices[3*t_i+2]]);
+        float3 t[3] = {a, b, c};
+        //TODO find groups and fix normals
+        bool is_find_group = false;
+        int real_group = -1;
+        bool first_check = false;
+        std::vector<int> del_groups = {};
+        std::vector<bool> del_checks = {};
+        for (int i = 0; i < groups.size(); ++i)
+        {
+          //if (norm_broken) break;
+          
+          bool is_correct_norm = true;
+          bool is_first = true;
+          for (int u = 0; u < groups[i].size(); u += 3)
+          {
+            //if (norm_broken) break;
+
+            bool check = false;
+            float3 x[3] = {groups[i][u], groups[i][u+1], groups[i][u+2]};
+            if (is_find_group)
+            {
+              if (is_tri_have_same_edge(t, x, check))
+              {
+                if (is_first)
+                {
+                  is_first = false;
+                  is_correct_norm = check;
+                  del_groups.push_back(i);
+                  del_checks.push_back(check);
+                }
+                else if ((is_correct_norm && !check) || (!is_correct_norm && check))
+                {
+                  norm_broken = true;
+                }
+              }
+            }
+            else
+            {
+              if (is_tri_have_same_edge(t, x, check))
+              {
+                is_find_group = true;
+                is_correct_norm = check;
+                first_check = check;
+                is_first = false;
+                real_group = i;
+              }
+            }
+          }
+        }
+        //if (norm_broken) break;
+
+        if (!is_find_group)
+        {
+          groups.push_back({a, b, c});
+        }
+        else
+        {
+          if (first_check)
+          {
+            groups[real_group].push_back(a);
+            groups[real_group].push_back(b);
+            groups[real_group].push_back(c);
+          }
+          else
+          {
+            groups[real_group].push_back(b);
+            groups[real_group].push_back(a);
+            groups[real_group].push_back(c);
+          }
+
+          for (int i = del_checks.size() - 1; i >= 0; --i)
+          {
+            for (int k = 0; k < groups[del_groups[i]].size(); k += 3)
+            {
+              if ((del_checks[i] && first_check) || (!del_checks[i] && !first_check))
+              {
+                groups[real_group].push_back(groups[del_groups[i]][k+0]);
+                groups[real_group].push_back(groups[del_groups[i]][k+1]);
+                groups[real_group].push_back(groups[del_groups[i]][k+2]);
+              }
+              else
+              {
+                groups[real_group].push_back(groups[del_groups[i]][k+1]);
+                groups[real_group].push_back(groups[del_groups[i]][k+0]);
+                groups[real_group].push_back(groups[del_groups[i]][k+2]);
+              }
+            }
+            groups.erase(groups.begin() + del_groups[i]);
+          }
+        }
+      }
+    }
+    else
+    {
+      for (int i = 0; i < 8; i++)
+      {
+        float ch_d = d / 2;
+        float3 ch_p = 2 * p + float3((i & 4) >> 2, (i & 2) >> 1, i & 1);
+        mesh_octree_to_vmpdf_rec(mesh, tl_octree, creating, ofs + i, ch_p, ch_d);
+      }
+    }
+    creating(idx, ofs, p, d, groups, is_leaf(ofs), norm_broken);
+  }
+
+  void mesh_octree_to_vmpdf(const cmesh4::SimpleMesh &mesh,
+                                         const cmesh4::TriangleListOctree &tl_octree, 
+                                         std::vector<SdfFrameOctreeNode> &out_frame)
+  {
+    out_frame.resize(tl_octree.nodes.size());
+    std::function lambda = [&out_frame](unsigned idx, unsigned offset, 
+                               float3 p, float d, 
+                               std::vector<std::vector<float3>> groups, 
+                               bool is_leaf, bool is_norm_broken) -> void
+    {
+      out_frame[idx].offset = offset;
+      float3 pos = 2.0f*(d*p) - 1.0f;
+      if (is_norm_broken)
+      {
+        for (int i = 0; i < 8; ++i)
+        {
+          out_frame[idx].values[i] = 0;
+        }
+      }
+      else if (is_leaf)
+      {
+        for (int i = 0; i < 8; i++)
+        {
+          float3 ch_pos = pos + 2*d*float3((i >> 2) & 1, (i >> 1) & 1, i & 1);
+          float global_sign = 1, global_min_dist_sq = 1000;
+
+          for (auto j : groups)
+          {
+            float local_sign = 1, local_min_dist_sq = 1000;
+            for (int k = 0; k < j.size(); k += 3)
+            {
+              float3 a = j[k+0], b = j[k+1], c = j[k+2];
+              float3 vt = ch_pos - cmesh4::closest_point_triangle(ch_pos, a, b, c);
+              float dst_sq = LiteMath::dot(vt, vt);
+              if (local_min_dist_sq > dst_sq)
+              {
+                local_min_dist_sq = dst_sq;
+                if (LiteMath::dot(LiteMath::cross(a - b, a - c), vt) < 0)
+                {
+                  local_sign = -1;
+                }
+                else
+                {
+                  local_sign = 1;
+                }
+              }
+            }
+            global_sign *= local_sign;
+            if (global_min_dist_sq > local_min_dist_sq) global_min_dist_sq = local_min_dist_sq;
+          }
+          out_frame[idx].values[i] = global_sign * sqrt(global_min_dist_sq);
+        }
+      }
+    };
+    mesh_octree_to_vmpdf_rec(mesh, tl_octree, lambda, 0, float3(0,0,0), 1);
   }
 
   struct LayerFrameNodeInfo
