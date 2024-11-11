@@ -27,5 +27,12 @@ if (${compile_examples})
   )
   target_link_libraries(parse_and_div ${PROJECT_NAME})
   target_include_directories(${PROJECT_NAME} PUBLIC ${PROJECT_SOURCE_DIR}/external/)
+
+  add_executable(
+    argsplit
+      examples/argsplit.cpp
+  )
+  target_link_libraries(argsplit ${PROJECT_NAME})
+  target_include_directories(${PROJECT_NAME} PUBLIC ${PROJECT_SOURCE_DIR}/external/)
 endif()
 

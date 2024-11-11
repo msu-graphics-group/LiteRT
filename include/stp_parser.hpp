@@ -51,7 +51,14 @@ struct RawNURBS
 enum class Type {
     UNDEFINED,
     POINT,
+    REPRESENTATION_ITEM,
+    GEOMETRIC_REPRESENTATION_ITEM,
+    BSPLINE_SURFACE_WITH_KNOTS,
+    RATIONAL_BSPLINE_SURFACE,
     BSPLINE_SURFACE,
+    BOUNDED_SURFACE,
+    SURFACE,
+    COMPLEX,
 };
 
 struct Entity {
@@ -64,22 +71,42 @@ class Parser {
 public:
     Parser(const std::string &filename);
     LiteMath::float3 tofloat3(uint id);
+    
+    RawNURBS RationalBSplineSurfaceToNURBS(uint id);
+    RawNURBS BSplineSurfaceWithKnotsToNURBS(uint id);
     RawNURBS toNURBS(uint id);
     std::vector<RawNURBS> allNURBS(void);
     std::map<uint, RawNURBS> allIDNurbs(void);
+
+    bool isBSplineWithKnots(uint id);
+    bool isRationalBSpline(uint id);
+    bool isConvertableToNurbs(uint id);
+
+    Entity getEntity(uint id);
 private:
-    Vector2D<LiteMath::float4> parsePointVector2D(std::string raw);
+    Vector2D<float> parseFVector2D(std::string raw);
+    Vector2D<LiteMath::float4> parsePointVector2D(std::string raw); 
+    Entity parseComplexArg(const std::string &arg);
+    Entity parseComplexEntity(const std::string &entity, uint id);
+    Entity parseSimpleEntity(const std::string &entity, uint id); 
     bool tryParseEntity(const std::string &entry, Entity &result);
     uint parseID(std::string rawID);
+    uint parseF(std::string raw);
     uint parseU(std::string raw);
     std::vector<uint> parseUVector1D(std::string raw);
     std::vector<float> parseFVector1D(std::string raw);
+
+    void storeBSplineSurface(Entity &entity, RawNURBS &nurbs);
+    void storeBSplineSurfaceWithKnots(Entity &entity, RawNURBS &nurbs);
+    void storeRationalBSplineSurface(Entity &entity, RawNURBS &nurbs);
+
     std::map<uint, Entity> entities;
 };
 
 // Utils functions
 Type str2type(std::string name);
-std::vector<std::string> argsplit(const std::string &rawargs);
+std::string type2str(Type type);
+std::vector<std::string> argsplit(const std::string &rawargs, bool bycomma = true);
 std::vector<float> decompressKnots(
         std::vector<float> &knots_comp,
         std::vector<uint> &knots_mult);

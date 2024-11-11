@@ -18,32 +18,95 @@ using regexiter_t = std::sregex_token_iterator;
 namespace STEP {
 
 Type str2type(std::string name) {
-    if (name == "B_SPLINE_SURFACE_WITH_KNOTS")
-        return Type::BSPLINE_SURFACE;
-    else if (name == "CARTESIAN_POINT")
+    if (name == "CARTESIAN_POINT")
         return Type::POINT;
+    else if (name == "REPRESENTATION_ITEM")
+        return Type::REPRESENTATION_ITEM;
+    else if (name == "GEOMETRIC_REPRESENTATION_ITEM")
+        return Type::GEOMETRIC_REPRESENTATION_ITEM;
+    else if (name == "B_SPLINE_SURFACE_WITH_KNOTS")
+        return Type::BSPLINE_SURFACE_WITH_KNOTS;
+    else if (name == "RATIONAL_B_SPLINE_SURFACE")
+        return Type::RATIONAL_BSPLINE_SURFACE;
+    else if (name == "B_SPLINE_SURFACE")
+        return Type::BSPLINE_SURFACE;
+    else if (name == "BOUNDED_SURFACE")
+        return Type::BOUNDED_SURFACE;
+    else if (name == "SURFACE")
+        return Type::SURFACE;
+    else if (name == "COMPLEX")
+        return Type::COMPLEX;
     return Type::UNDEFINED;
 }
 
-std::vector<std::string> argsplit(const std::string &rawargs) {
+std::string type2str(Type type) {
+    if (type == Type::POINT)
+        return "CARTESIAN_POINT";
+    else if (type == Type::REPRESENTATION_ITEM)
+        return "REPRESENTATION_ITEM";
+    else if (type == Type::GEOMETRIC_REPRESENTATION_ITEM)
+        return "GEOMETRIC_REPRESENTATION_ITEM";
+    else if (type == Type::BSPLINE_SURFACE_WITH_KNOTS)
+        return "B_SPLINE_SURFACE_WITH_KNOTS";
+    else if (type == Type::RATIONAL_BSPLINE_SURFACE)
+        return "RATIONAL_B_SPLINE_SURFACE";
+    else if (type == Type::BSPLINE_SURFACE)
+        return "B_SPLINE_SURFACE"; 
+    else if (type == Type::BOUNDED_SURFACE)
+        return "BOUNDED_SURFACE";
+    else if (type == Type::SURFACE)
+        return "SURFACE";
+    else if (type == Type::COMPLEX)
+        return "COMPLEX";
+    return "UNDEFINED";
+}
+
+std::vector<std::string> argsplit(const std::string &rawargs, bool bycomma) {
     int level = 0;
     std::vector<uint> argpos = { 1 };
+    bool isname = true;
     for (uint idx = 0; idx < rawargs.size(); idx++) {
         char chr = rawargs[idx];
         if (chr == '(') level++;
         else if (chr == ')') level--;
-        else if (chr == ',' && level == 1) argpos.push_back(idx + 1);
+        else if (bycomma && chr == ',' && level == 1) argpos.push_back(idx + 1);
+        else if (!bycomma && level == 1 && !isname) { argpos.push_back(idx); isname = true; }
+        if (level > 1) isname = false;
     }
-    argpos.push_back(rawargs.size());
+
+    argpos.push_back(rawargs.size() - !bycomma);
 
     std::vector<std::string> args;
     for (uint idx = 1; idx < argpos.size(); idx++) {
         uint cur = argpos[idx - 1], next = argpos[idx];
-        std::string arg = rawargs.substr(cur, next - cur - 1);
+        std::string arg = rawargs.substr(cur, next - cur - bycomma);
         args.push_back(arg);
     }
 
     return args;
+}
+
+Parser::Parser(const std::string &filename) {
+    std::ifstream file(filename);
+    std::stringstream stream;
+    stream << file.rdbuf();
+    std::string text = stream.str();
+    file.close();
+
+    // Remove space symbols
+    std::regex rexp("\\s+");
+    text = std::regex_replace(text, rexp, "");
+
+    // Parse each entry, separated by semicolon
+    rexp = std::regex(";");
+    regexiter_t it(text.begin(), text.end(), rexp, -1);
+    regexiter_t end;
+
+    for (; it != end; it++) {
+        Entity entity;
+        if (this->tryParseEntity(*it, entity))
+          this->entities[entity.id] = std::move(entity);
+    }
 }
 
 uint Parser::parseID(std::string rawID) {
@@ -52,6 +115,10 @@ uint Parser::parseID(std::string rawID) {
     std::regex_match(rawID, match, rexp);
     uint id = std::stoi(match[1].str());
     return id;
+}
+
+uint Parser::parseF(std::string raw) {
+    return std::stof(raw);
 }
 
 uint Parser::parseU(std::string raw) {
@@ -95,6 +162,22 @@ float3 Parser::tofloat3(uint id) {
     return point;
 }
 
+Vector2D<float> Parser::parseFVector2D(std::string raw) {
+    std::vector<std::string> points_rows = argsplit(raw);
+    size_t rows = points_rows.size();
+    size_t cols = argsplit(points_rows[0]).size();
+    Vector2D<float> points(rows, cols);
+    for (size_t i = 0; i < rows; i++) {
+        std::vector<std::string> points_row = argsplit(points_rows[i]);
+        for (size_t j = 0; j < cols; j++) {
+            std::string rawF = points_row[j];
+            auto index = std::make_pair(i, j);
+            points[index] = this->parseF(rawF);
+        }
+    }
+    return points;
+}
+
 Vector2D<float4> Parser::parsePointVector2D(std::string raw) {
     std::vector<std::string> points_rows = argsplit(raw);
     size_t rows = points_rows.size();
@@ -113,24 +196,11 @@ Vector2D<float4> Parser::parsePointVector2D(std::string raw) {
     return points;
 }
 
-bool Parser::tryParseEntity(const std::string &entry, Entity &res) {
+Entity Parser::parseSimpleEntity(const std::string &entry, uint id) {
     std::regex rexp;
     std::smatch matches;
-    uint id;
     Type type;
     std::vector<std::string> args;
-
-    // Match the id of entity
-    rexp = std::regex("#(\\d+)=");
-    if (!std::regex_search(entry, matches, rexp))
-      return false;
-
-    id = std::stoi(matches[1].str());
-
-    // Context or settings?
-    rexp = std::regex("=\\(");
-    if (std::regex_search(entry, matches, rexp))
-        return false;
 
     // Match the type of entity
     rexp = std::regex("=(\\S+?)\\(");
@@ -144,13 +214,90 @@ bool Parser::tryParseEntity(const std::string &entry, Entity &res) {
 
     std::string rawargs = matches[1].str(); 
     args = argsplit(rawargs);
-    
-    res.id = id;
-    res.type = type;
-    res.args = args;
-    return true;
-} 
 
+    Entity entity;
+    entity.id = id;
+    entity.type = type;
+    entity.args = args;
+    return entity;
+}
+
+Entity Parser::parseComplexArg(const std::string &arg) {
+    // Returns complex entity name and args.
+    // It is similar to simple STEP entity,
+    // but since it is the argument, it doesn't have the id.
+    // Although the types of complex arguments match the
+    // STEP entity types, their arguments are just 'subarguments'
+    // from the real STEP entity.
+    // Therefore, their args must be parsed in a different way.
+    std::regex rexp;
+    std::smatch matches;
+    Type type;
+    std::vector<std::string> args;
+
+    rexp = std::regex("(\\S+?)(\\(.*\\))");
+    std::regex_search(arg, matches, rexp);
+
+    std::string rawtype = matches[1].str();
+    std::string rawargs = matches[2].str();
+    type = str2type(rawtype);
+    args = argsplit(rawargs);
+
+    Entity entity;
+    entity.id = 0;
+    entity.type = type;
+    entity.args = args;
+    return entity;
+}
+
+Entity Parser::parseComplexEntity(const std::string &entry, uint id) {
+    std::regex rexp;
+    std::smatch matches;
+    Type type = Type::COMPLEX;
+    std::vector<std::string> args;
+
+    // Match the arguments of entity
+    rexp = std::regex("=(\\(.+\\))");
+    std::regex_search(entry, matches, rexp);
+
+    std::string rawargs = matches[1].str();
+    args = argsplit(rawargs, false);
+
+    Entity entity;
+    entity.id = id;
+    entity.type = type;
+    entity.args = args;
+    return entity;
+}
+
+bool Parser::tryParseEntity(const std::string &entry, Entity &res) {
+    std::regex rexp;
+    std::smatch matches;
+    uint id;
+
+    // Match the id of entity
+    rexp = std::regex("#(\\d+)=");
+    if (!std::regex_search(entry, matches, rexp))
+        return false;
+
+    id = std::stoi(matches[1].str());
+
+    // Complex or Simple entity?
+    rexp = std::regex("=\\(");
+    if (std::regex_search(entry, matches, rexp))
+        res = this->parseComplexEntity(entry, id);
+    else res = this->parseSimpleEntity(entry, id);
+
+    return true;
+}
+
+Entity Parser::getEntity(uint id) {
+    return this->entities[id];
+}
+
+/**************************************************************************/
+/*************             NURBS section start                *************/
+/**************************************************************************/
 std::vector<float> decompressKnots(
         std::vector<float> &knots_comp,
         std::vector<uint> &knots_mult) {
@@ -184,10 +331,57 @@ void trimKnots(std::vector<float> &knots, const std::vector<uint> &knots_mult, u
     }
 }
 
-RawNURBS Parser::toNURBS(uint id) {
-    Entity &entity = this->entities[id];
+void Parser::storeBSplineSurface(Entity &entity, RawNURBS &nurbs) {
+    // Store BSPLINE_SURFACE complex entity part to NURBS
     assert(entity.type == Type::BSPLINE_SURFACE);
 
+    std::string u_degree_arg     = entity.args[0];
+    std::string v_degree_arg     = entity.args[1];
+    std::string points_arg       = entity.args[2];
+
+    // Parse degrees
+    nurbs.u_degree = this->parseU(u_degree_arg);
+    nurbs.v_degree = this->parseU(v_degree_arg);
+
+    // Parse control points
+    nurbs.points = this->parsePointVector2D(points_arg);
+}
+
+void Parser::storeBSplineSurfaceWithKnots(Entity &entity, RawNURBS &nurbs) {
+    // Store BSPLINE_SURFACE_WITH_KNOTS complex entity part to NURBS
+    assert(entity.type == Type::BSPLINE_SURFACE_WITH_KNOTS);
+
+    std::string u_knots_mult_arg = entity.args[0];
+    std::string v_knots_mult_arg = entity.args[1];
+    std::string u_knots_arg      = entity.args[2];
+    std::string v_knots_arg      = entity.args[3];
+
+    // Parse knot_multiplicities
+    std::vector<uint> u_knots_mult = this->parseUVector1D(u_knots_mult_arg);
+    std::vector<uint> v_knots_mult = this->parseUVector1D(v_knots_mult_arg);
+
+    // Parse knots
+    std::vector<float> u_knots_comp = this->parseFVector1D(u_knots_arg);
+    std::vector<float> v_knots_comp = this->parseFVector1D(v_knots_arg);
+    nurbs.u_knots = decompressKnots(u_knots_comp, u_knots_mult);
+    nurbs.v_knots = decompressKnots(v_knots_comp, v_knots_mult);
+
+    // Trim knots
+    trimKnots(nurbs.u_knots, u_knots_mult, nurbs.u_degree);
+    trimKnots(nurbs.v_knots, v_knots_mult, nurbs.v_degree);
+}
+
+void Parser::storeRationalBSplineSurface(Entity &entity, RawNURBS &nurbs) {
+    assert(entity.type == Type::RATIONAL_BSPLINE_SURFACE);
+
+    std::string weights_arg = entity.args[0];
+
+    // Parse weights
+    nurbs.weights = parseFVector2D(weights_arg);
+}
+
+RawNURBS Parser::BSplineSurfaceWithKnotsToNURBS(uint id) {
+    Entity entity = this->getEntity(id);
     RawNURBS nurbs;
 
     std::string u_degree_arg     = entity.args[1];
@@ -214,7 +408,7 @@ RawNURBS Parser::toNURBS(uint id) {
     std::vector<float> v_knots_comp = this->parseFVector1D(v_knots_arg);
     nurbs.u_knots = decompressKnots(u_knots_comp, u_knots_mult);
     nurbs.v_knots = decompressKnots(v_knots_comp, v_knots_mult);
- 
+
     // Trim knots
     trimKnots(nurbs.u_knots, u_knots_mult, nurbs.u_degree);
     trimKnots(nurbs.v_knots, v_knots_mult, nurbs.v_degree);
@@ -231,12 +425,61 @@ RawNURBS Parser::toNURBS(uint id) {
     return std::move(nurbs);
 }
 
+RawNURBS Parser::RationalBSplineSurfaceToNURBS(uint id) {
+    Entity entity = this->getEntity(id);
+
+    Entity BSplineSurface = this->parseComplexArg(entity.args[1]);
+    Entity BSplineSurfaceWithKnots = this->parseComplexArg(entity.args[2]);
+    Entity RationalBSplineSurface = this->parseComplexArg(entity.args[4]);
+
+    RawNURBS nurbs;
+    this->storeBSplineSurface(BSplineSurface, nurbs);
+    this->storeBSplineSurfaceWithKnots(BSplineSurfaceWithKnots, nurbs);
+    this->storeRationalBSplineSurface(RationalBSplineSurface, nurbs);
+    return nurbs;
+}
+
+RawNURBS Parser::toNURBS(uint id) {
+    // Call this function iff the nurbs is passed
+    Entity entity = this->getEntity(id);
+    if (isBSplineWithKnots(id)) return this->BSplineSurfaceWithKnotsToNURBS(id);
+    else if (isRationalBSpline(id)) return this->RationalBSplineSurfaceToNURBS(id);
+
+    assert(false);
+    return RawNURBS();
+}
+
+bool Parser::isBSplineWithKnots(uint id) {
+    Entity entity = this->getEntity(id);
+    return entity.type == Type::BSPLINE_SURFACE_WITH_KNOTS;
+}
+
+bool Parser::isRationalBSpline(uint id) {
+    Entity entity = this->getEntity(id);
+
+    bool result = false;
+    if (entity.type == Type::COMPLEX && entity.args.size() == 7) {
+        result = this->parseComplexArg(entity.args[0]).type == Type::BOUNDED_SURFACE &&
+            this->parseComplexArg(entity.args[1]).type == Type::BSPLINE_SURFACE &&
+            this->parseComplexArg(entity.args[2]).type == Type::BSPLINE_SURFACE_WITH_KNOTS &&
+            this->parseComplexArg(entity.args[3]).type == Type::GEOMETRIC_REPRESENTATION_ITEM &&
+            this->parseComplexArg(entity.args[4]).type == Type::RATIONAL_BSPLINE_SURFACE &&
+            this->parseComplexArg(entity.args[5]).type == Type::REPRESENTATION_ITEM &&
+            this->parseComplexArg(entity.args[6]).type == Type::SURFACE;
+    }
+    return result;
+}
+
+bool Parser::isConvertableToNurbs(uint id) {
+    return this->isBSplineWithKnots(id) || this->isRationalBSpline(id);
+}
+
 std::vector<RawNURBS> Parser::allNURBS() {
     std::vector<RawNURBS> allNurbs;
     for (auto &pair : this->entities) {
         auto id = pair.first;
         auto entity = pair.second;
-        if (entity.type == Type::BSPLINE_SURFACE) {
+        if (this->isConvertableToNurbs(id)) {
           allNurbs.push_back(this->toNURBS(id));
         }
     }
@@ -248,34 +491,11 @@ std::map<uint, RawNURBS> Parser::allIDNurbs() {
     for (auto &pair : this->entities) {
         auto id = pair.first;
         auto entity = pair.second;
-        if (entity.type == Type::BSPLINE_SURFACE) {
+        if (this->isConvertableToNurbs(id)) {
           IDNurbs[id] = this->toNURBS(id);
         }
     }
     return IDNurbs;
-}
-
-Parser::Parser(const std::string &filename) {
-    std::ifstream file(filename);
-    std::stringstream stream;
-    stream << file.rdbuf();
-    std::string text = stream.str();
-    file.close();
-
-    // Remove space symbols
-    std::regex rexp("\\s+");
-    text = std::regex_replace(text, rexp, "");
-
-    // Parse each entry, separated by semicolon
-    rexp = std::regex(";");
-    regexiter_t it(text.begin(), text.end(), rexp, -1);
-    regexiter_t end;
-
-    for (; it != end; it++) {
-        Entity entity;
-        if (this->tryParseEntity(*it, entity)) 
-          this->entities[entity.id] = std::move(entity);
-    }
 }
 
 std::ostream& operator<<(std::ostream& cout, const STEP::RawNURBS &nurbs) {
@@ -325,5 +545,8 @@ std::ostream& operator<<(std::ostream& cout, const STEP::RawNURBS &nurbs) {
 
     return cout;
 }
+/**************************************************************************/
+/*************              NURBS section end                 *************/
+/**************************************************************************/
 
 } // namespace STEP
