@@ -47,3 +47,8 @@ target_link_libraries(
     OpenMP::OpenMP_CXX
     stp_parser
 )
+
+enable_language(ISPC)
+set(CMAKE_ISPC_HEADER_DIRECTORY ../src/)
+add_library(ispc_ray_pack src/ispc_ray_pack.ispc)
+target_include_directories(ispc_ray_pack PUBLIC external/embree4/include)

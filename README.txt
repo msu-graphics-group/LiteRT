@@ -1,16 +1,19 @@
 Installation guide (Ubuntu):
-1) install submodules:
+* install submodules:
   git submodule update --init
-2) install cmake:
+* install Intel ISPC compiler:
+  1) Download binaries https://ispc.github.io/downloads.html
+  2) copy ispc to /usr/bin/local
+* install cmake:
   sudo apt install cmake
-3) install dependencies:
+* install dependencies:
   sudo apt install libglfw3 libglfw3-dev libsdl2-dev libomp-dev
-2) make "build" folder in the project directory:
+* make "build" folder in the project directory:
   mkdir build
   cd ./build 
-3) build an application:
+* build an application:
   cmake .. -DCMAKE_BUILD_TYPE=Release 
   make -j 8 
-4) Application "NURBSViewer" will appear in "build" directory 
-5) Run "NURBSViewer" from any working directory:
+* Application "NURBSViewer" will appear in "build" directory 
+* Run "NURBSViewer" from any working directory:
   <path_to_build_dir...>/NURBSViewer
