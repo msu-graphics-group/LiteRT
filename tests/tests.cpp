@@ -3378,6 +3378,144 @@ void litert_test_41_coctree_v3()
 
 }
 
+void litert_test_42_mesh_lods()
+{
+	std::cout << "TEST 42. LoDs\n";
+	std::string lod_maker_path = "../LodMaker/lod_maker";
+
+	constexpr int W = 2048, H = 2048;
+
+	std::string ref_path = "scenes/01_simple_scenes/data/teapot.vsgf";
+
+	constexpr int RENDERINGS = 10;
+	constexpr int LODS = 6;
+
+	auto create_lod = [&](const std::string&ref_path, const std::string&path, float factor){
+		std::cout << "Creating LoD of mesh '"<< ref_path <<"' with compression factor " << factor << "\n";
+		std::string cmd = lod_maker_path  + " " + ref_path + " " + path + " " + std::to_string(factor);
+		std::cout << "Running '" << cmd << "' to create LoD\n";
+		if (system(cmd.c_str())) {
+			perror("Failed to create mesh");
+			throw 1;
+		}
+		std::cout << "Successfully created LoD '" + path + "'\n";
+	};
+
+	struct Info
+	{
+		LiteImage::Image2D<uint32_t> image;
+		float time;
+		size_t file_size;
+		size_t complete_size;
+    	float factor;
+		float psnr;
+	};
+
+	auto get_info = [&](const std::string&path)->Info{
+		
+		LiteImage::Image2D<uint32_t> image(W, H);
+		auto mesh = cmesh4::LoadMeshFromVSGF(path.c_str());
+
+		MultiRenderPreset preset = getDefaultPreset();
+		preset.normal_mode = NORMAL_MODE_VERTEX;
+		auto renderer = CreateMultiRenderer(DEVICE_GPU);
+		renderer->SetPreset(preset);
+		renderer->SetViewport(0,0,W,H);
+		renderer->SetScene(mesh);	
+
+		render(image, renderer, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset, RENDERINGS);
+
+		float timings[4];
+		renderer->GetExecutionTime("CastRaySingleBlock", timings);
+		
+		Info info{std::move(image)};
+		info.time = timings[0] / RENDERINGS;
+		info.file_size = std::filesystem::file_size(path);
+		BVHRT *bvh = dynamic_cast<BVHRT*>(renderer->GetAccelStruct().get());
+    	info.complete_size = bvh->m_allNodePairs.size()*sizeof(BVHNodePair) + 
+                       bvh->m_primIdCount.size()* sizeof(uint32_t) +
+                       bvh->m_vertPos.size()* sizeof(float4) +
+                       bvh->m_vertNorm.size()* sizeof(float4) +
+                       bvh->m_indices.size()* sizeof(uint32_t) +
+                       bvh->m_primIndices.size()* sizeof(uint32_t);
+
+		return info;
+	};
+
+	std::vector<Info> infos{get_info(ref_path)};
+
+	{
+		std::string ref_img_path = "saves/test_42_ref.png";
+		LiteImage::SaveImage<uint32_t>(ref_img_path.c_str(), infos[0].image);
+		std::cout << "Reference image saved to '" << ref_img_path << "'\n";
+    	infos[0].factor = 1.0f;
+  	}
+	
+	for (int i = 0; i < LODS; i++)
+	{
+		// Sorry for this
+		try {
+			float factor = pow(2, -(i + 1));
+			std::string lod_path = "saves/test_42_lod_" + std::to_string(i + 1) + ".vsgf";
+			std::string lod_img_path = "saves/test_42_lod_" + std::to_string(i + 1) + ".png";
+			create_lod(ref_path, lod_path, factor);
+			infos.push_back(get_info(lod_path));
+    		infos.back().factor = factor;
+			LiteImage::SaveImage<uint32_t>(lod_img_path.c_str(), infos.back().image);
+			std::cout << "LoD " << factor << " image saved to '" << lod_img_path << "'\n";
+		} catch(...)
+		{
+			std::cout << "Stopping test\n";
+			return;
+		}
+	}
+
+	for (auto&i :infos)
+	{
+		i.psnr = image_metrics::PSNR(infos[0].image, i.image);
+	}
+
+	constexpr int NAME_SIZE = 20;
+	constexpr int VALUE_SIZE = 10;
+	std::cout << std::setprecision(3);
+	std::cout << std::setw(NAME_SIZE) << "Compression factor|";
+	for (auto&i : infos)
+	{
+		std::cout << std::setw(VALUE_SIZE + 2) << i.factor << "|";
+	}
+	std::cout << "\n";
+
+	std::cout << std::setw(NAME_SIZE) << "File size|";
+	for (auto&i : infos)
+	{
+		std::cout << std::setw(VALUE_SIZE) << i.file_size / 1024.0f / 1024.0f << "MB|";
+	}
+	std::cout << "\n";
+
+	std::cout << std::setw(NAME_SIZE) << "Complete size|";
+	for (auto&i : infos)
+	{
+		std::cout << std::setw(VALUE_SIZE)  << i.complete_size / 1024.0f / 1024.0f<< "MB|";
+	}
+	std::cout << "\n";
+
+	std::cout << std::setw(NAME_SIZE) << "Rendering time|";
+	for (auto&i : infos)
+	{
+		std::cout << std::setw(VALUE_SIZE)<< i.time << "ms|";
+	}
+	std::cout << "\n";
+
+	std::cout << std::setw(NAME_SIZE) << "PSNR|";
+	for (auto&i : infos)
+	{
+		std::cout << std::setw(VALUE_SIZE + 2)  << i.psnr << "|";
+	}
+	std::cout << "\n";
+
+
+}
+
 void perform_tests_litert(const std::vector<int> &test_ids)
 {
   std::vector<int> tests = test_ids;
@@ -3396,7 +3534,7 @@ void perform_tests_litert(const std::vector<int> &test_ids)
       litert_test_31_nurbs_render, litert_test_32_smooth_sbs_normals, litert_test_33_verify_SBS_SBSAdapt_split, 
       litert_test_34_tricubic_sbs, litert_test_35_SBSAdapt_greed_creating, litert_test_36_primitive_visualization,
       litert_test_37_sbs_adapt_comparison, litert_test_38_direct_octree_traversal, litert_test_39_visualize_sbs_bricks,
-      litert_test_40_psdf_framed_octree, litert_test_41_coctree_v3};
+      litert_test_40_psdf_framed_octree, litert_test_41_coctree_v3, litert_test_42_mesh_lods};
 
   if (tests.empty())
   {
