@@ -8,7 +8,7 @@ static
 float4 rbezier_curve_point(
     float u,
     uniform int p,
-    uniform const float4 *pw) {
+    const uniform float4 * uniform pw) {
   float u_n = 1.0f;
   float _1_u = 1.0f - u;
   uniform int bc = 1.0f;
@@ -26,7 +26,7 @@ static
 float4 rbezier_curve_der(
     float u,
     uniform int p,
-    uniform const float4 *pw) {
+    const uniform float4 * uniform pw) {
   float u_n = 1.0f;
   float _1_u = 1.0f - u;
   uniform int bc = 1.0f;
@@ -57,7 +57,7 @@ float4
 surface_point(
     float u, float v, 
     uniform int n, uniform int m, 
-    const float4 *pw) {
+    const uniform float4 * uniform pw) {
   float u_n = 1.0f;
   float _1_u = 1.0f - u;
   uniform int bc = 1.0f;
@@ -76,7 +76,7 @@ surface_point(
 static
 float4 surface_vder(
     float u,  float v, const float4 &Sw,
-    uniform int n, uniform int m, const float4 *pw) {
+    uniform int n, uniform int m, const uniform float4 * uniform pw) {
   float u_n = 1.0f;
   float _1_u = 1.0f - u;
   uniform int bc = 1.0f;
@@ -97,7 +97,7 @@ float4 surface_vder(
 static 
 float4 surface_uder(
     float u, float v, const float4 &Sw,
-    uniform int n, uniform int m, uniform float4 *pw) {
+    uniform int n, uniform int m, const uniform float4 * uniform pw) {
   float u_n = 1.0f;
   float _1_u = 1.0f - u;
   uniform int bc = 1.0f;
@@ -197,7 +197,7 @@ trace_surface_newton(
     const float3 &pos,
     const float3 &ray,
     float2 uv,
-    uniform int n, uniform int m, const float4 *pw) {
+    uniform int n, uniform int m, const uniform float4 * uniform pw) {
   float3 ortho_dir1 = { 0.0f, 0.0f, 0.0f };
   if (abs(ray.x) > abs(ray.y) && abs(ray.x) > abs(ray.z)) {
     ortho_dir1.x = -ray.y;
@@ -269,53 +269,58 @@ struct SurfaceData
 {
   int n;
   int m;
-  const float4 **pw;
-  float2 uv;
+  const float4 *pw;
+  float u;
+  float v;
 };
 
 
 template<uniform int N>
-void surf_intersectN(const RTCIntersectFunctionNArguments * uniform args)
+void surf_intersectN(const RTCIntersectFunctionNArguments * uniform args, const uniform SurfaceData * uniform data)
 {
-  const uniform SurfaceData * uniform data = (const uniform SurfaceData* uniform)(args->geometryUserPtr);
   RTCRayN * uniform rays = RTCRayHitN_RayN(args->rayhit, N);
+  float * uniform ray_floats = (float * uniform )rays;
+  
   RTCHitN * uniform hits = RTCRayHitN_HitN(args->rayhit, N);
+  float * uniform hit_floats = (float * uniform)hits; // as float array view
+  uint * uniform hit_ints = (uint * uniform)hits; // as uints array view
+  
   foreach(i = 0...N-1) {
     if (args->valid[i]) {
-      float3 pos = { RTCRayN_org_x(rays, N, i), RTCRayN_org_y(rays, N, i), RTCRayN_org_z(rays, N, i) };
-      float3 dir = { RTCRayN_dir_x(rays, N, i), RTCRayN_dir_x(rays, N, i), RTCRayN_dir_x(rays, N, i) };
-      float2 uv = data->uv;
+      float3 pos = { ray_floats[i], ray_floats[N+i], ray_floats[2*N+i] };
+      float3 dir = { ray_floats[4*N+i], ray_floats[5*N+i], ray_floats[6*N+i] };
+      float2 uv = { data->u, data->v };
       HitInfo info = trace_surface_newton(pos, dir, uv, data->n, data->m, data->pw);
       float t = dot(dir, info.pos-pos);
-      if (info.hitten && (t >= RTCRayN_tnear(rays, N, i)) && (t <= RTCRayN_tfar(rays, N, i))) {
-        RTCRayN_tfar(rays, N, i) = t;
+      if (info.hitten && (t >= ray_floats[3*N+i]) && (t <= ray_floats[8*N+i])) {
+        ray_floats[8*N+i] = t; // tfar
 
-        RTCHitN_geomID(hits, N, i) = args->geomID;
-        RTCHitN_primID(hits, N, i) = args->primID;
-        RTCHitN_u(hits, N, i) = info.uv[0];
-        RTCHitN_v(hits, N, i) = info.uv[1];
-        RTCHitN_Ng_x(hits, N, i) = info.normal.x;
-        RTCHitN_Ng_y(hits, N, i) = info.normal.y;
-        RTCHitN_Ng_z(hits, N, i) = info.normal.z;
+        hit_ints[6*N+i] = args->geomID;
+        hit_ints[5*N+i] = args->primID;
+        hit_floats[3*N+i] = info.uv[0];
+        hit_floats[4*N+i] = info.uv[1];
+        hit_floats[0*N+i] = info.normal.x;
+        hit_floats[1*N+i] = info.normal.y;
+        hit_floats[2*N+i] = info.normal.z;
       }
     }
   }
 }
 
 export
-void surf_intersect4(const RTCIntersectFunctionNArguments * uniform args)
+void surf_intersect4(const RTCIntersectFunctionNArguments * uniform args, const uniform SurfaceData * uniform data)
 {
-  surf_intersectN<4>(args);
+  surf_intersectN<4>(args, data);
 }
 
 export
-void surf_intersect8(const RTCIntersectFunctionNArguments * uniform args)
+void surf_intersect8(const RTCIntersectFunctionNArguments * uniform args, const uniform SurfaceData * uniform data)
 {
-  surf_intersectN<8>(args);
+  surf_intersectN<8>(args, data);
 }
 
 export
-void surf_intersect16(const RTCIntersectFunctionNArguments * uniform args)
+void surf_intersect16(const RTCIntersectFunctionNArguments * uniform args, const uniform SurfaceData * uniform data)
 {
-  surf_intersectN<16>(args);
+  surf_intersectN<16>(args, data);
 }

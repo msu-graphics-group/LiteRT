@@ -1,6 +1,7 @@
 #include <cassert>
 
 #include "embree_adaptors.hpp"
+#include "ispc_ray_pack_ispc.h"
 
 using namespace LiteMath;
 
@@ -78,7 +79,7 @@ namespace embree
     args->bounds_o->upper_z = bbox.mx.z;
   }
 
-  void rbgrid_intersect_function(const RTCIntersectFunctionNArguments *args) {
+  void rbgrid_intersect1_function(const RTCIntersectFunctionNArguments *args) {
     const RBGridView &view = *reinterpret_cast<const RBGridView*>(args->geometryUserPtr);
     if (!view.p_grid->is_visible)
       return;
@@ -110,6 +111,44 @@ namespace embree
     hit.Ng_x = info.normal.x;
     hit.Ng_y = info.normal.y;
     hit.Ng_z = info.normal.z;
+  }
+
+  ispc::SurfaceData get_data(const RBezierGrid &grid, float2 uv)
+  {
+    auto spans = grid.get_spans(uv.x, uv.y);
+    auto uspan = spans[0], vspan = spans[1];
+    auto &rbezier = grid.grid[{uspan, vspan}];
+    float umin = grid.uniq_uknots[uspan], umax = grid.uniq_uknots[uspan+1];
+    float vmin = grid.uniq_vknots[vspan], vmax = grid.uniq_vknots[vspan+1];
+    float u = (uv[0]-umin)/(umax-umin);
+    float v = (uv[1]-vmin)/(vmax-vmin);
+    return ispc::SurfaceData {
+      rbezier.weighted_points.get_n()-1,
+      rbezier.weighted_points.get_m()-1,
+      reinterpret_cast<const ispc::float4*>(rbezier.weighted_points.data()),
+      u, v
+    };
+  }
+
+  void rbgrid_intersect_function(const RTCIntersectFunctionNArguments *args) {
+    int N = args->N;
+    assert(N == 1 || N == 4 || N == 8 || N == 16);
+
+    const ispc::RTCIntersectFunctionNArguments *ispc_args = reinterpret_cast<const ispc::RTCIntersectFunctionNArguments*>(args);
+    const RBGridView &view = *reinterpret_cast<const RBGridView*>(args->geometryUserPtr);
+    float2 uv = (*view.p_uvs)[args->primID];
+    
+    if (!view.p_grid->is_visible)
+      return;
+    
+    auto data = get_data(*view.p_grid, uv);
+    switch (args->N)
+    {
+    case 4: ispc::surf_intersect4(ispc_args, &data); break;
+    case 8: ispc::surf_intersect8(ispc_args, &data); break;
+    case 16: ispc::surf_intersect16(ispc_args, &data); break;
+    case 1: default: rbgrid_intersect1_function(args); break; 
+    };
   }
 
   void boxes_intersect_function(const RTCIntersectFunctionNArguments *args) {
