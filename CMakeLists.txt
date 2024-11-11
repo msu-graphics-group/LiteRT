@@ -32,7 +32,7 @@ target_compile_features(project_options INTERFACE cxx_std_17)
 add_library(project_warnings INTERFACE)
 
 include(${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/cmake/CompilerWarnings.cmake)
-set_project_warnings(project_warnings)
+#set_project_warnings(project_warnings)
 
 # sanitizer options
 include(${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/cmake/Sanitizers.cmake)
