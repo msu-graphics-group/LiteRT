@@ -23,6 +23,28 @@ include_directories(${CMAKE_SOURCE_DIR}/Render)
 #set(SPECTRAL_LIB_ONLY ON)
 #add_subdirectory(${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/spectral)
 
+set(HYDRA_CORE3_LIB ON)
+
+add_library(project_options INTERFACE)
+target_compile_features(project_options INTERFACE cxx_std_17)
+
+# compiler warnings
+add_library(project_warnings INTERFACE)
+
+include(${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/cmake/CompilerWarnings.cmake)
+set_project_warnings(project_warnings)
+
+# sanitizer options
+include(${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/cmake/Sanitizers.cmake)
+enable_sanitizers(project_options)
+
+include_directories(${CMAKE_SOURCE_DIR}/dependencies/HydraCore3)
+include_directories(${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external)
+include_directories(${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/spectral)
+
+add_subdirectory(${CMAKE_SOURCE_DIR}/dependencies/HydraCore3)
+link_directories(${CMAKE_SOURCE_DIR}/dependencies/HydraCore3)
+
 link_directories(${CMAKE_SOURCE_DIR}/dependencies/embree/lib)
 set(RAYTRACING_EMBREE_LIBS embree4 tbb tbbmalloc)
 
@@ -78,6 +100,9 @@ set(BUILDERS_SRC
     ${CMAKE_SOURCE_DIR}/BVH/cbvh_fat.cpp
     ${CMAKE_SOURCE_DIR}/BVH/cbvh_embree2.cpp
     )
+
+set(HYDRA_SRC
+    ${CMAKE_SOURCE_DIR}/tests/hydra_integration.cpp)
 
 # set(HYDRA_SRC
 #     ${CMAKE_SOURCE_DIR}/tests/hydra_integration.cpp
@@ -154,10 +179,10 @@ if (USE_VULKAN)
                                                    ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/vkutils
                                                    ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/volk)
 
-  link_directories(${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/volk)
+  #link_directories(${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/volk)
 
-  add_subdirectory(${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/volk
-                   ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/volk/build)
+  #add_subdirectory(${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/volk
+  #                 ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/volk/build)
 
   add_compile_definitions(USE_GPU)
   add_compile_definitions(USE_VOLK)
@@ -218,7 +243,7 @@ target_sources(render_app PRIVATE main.cpp
 
 set_property(TARGET render_app PROPERTY CXX_STANDARD 17)
 target_link_libraries(render_app PRIVATE Threads::Threads dl ${RAYTRACING_EMBREE_LIBS} ${MODULES_LIBRARIES})
-target_link_libraries(render_app PUBLIC OpenMP::OpenMP_CXX)
+target_link_libraries(render_app PUBLIC hydra OpenMP::OpenMP_CXX)
 
 if (USE_VULKAN)
   set(IMGUI_SRC
