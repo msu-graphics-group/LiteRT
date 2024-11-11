@@ -60,7 +60,7 @@ namespace sdf_converter
   std::vector<SdfFrameOctreeNode> create_sdf_frame_octree(SparseOctreeSettings settings, MultithreadedDistanceFunction sdf, float eps, bool is_smooth, bool fix_artefacts);
 
   std::vector<SdfFrameOctreeNode> create_psdf_frame_octree(SparseOctreeSettings settings, const cmesh4::SimpleMesh &mesh);
-  std::vector<SdfFrameOctreeNode> create_vmpdf_framed_octree(SparseOctreeSettings settings, const cmesh4::SimpleMesh &mesh);
+  std::vector<SdfFrameOctreeNode> create_vmpdf_frame_octree(SparseOctreeSettings settings, const cmesh4::SimpleMesh &mesh);
 
   std::vector<SdfSVSNode> create_sdf_SVS(SparseOctreeSettings settings, DistanceFunction sdf);
   std::vector<SdfSVSNode> create_sdf_SVS(SparseOctreeSettings settings, MultithreadedDistanceFunction sdf, unsigned max_threads);
@@ -91,4 +91,27 @@ namespace sdf_converter
   SdfSBSAdapt greed_sbs_adapt(MultithreadedDistanceFunction sdf, uint8_t depth);
 
   std::vector<uint32_t> create_COctree_v3(SparseOctreeSettings settings, COctreeV3Header header, const cmesh4::SimpleMesh &mesh);
+
+  //-------------------------------------------------------------------------------------------------
+
+  struct GlobalOctreeHeader
+  {
+    uint32_t brick_size;      //number of voxels in each brick, (min 1)
+    uint32_t brick_pad;       //how many additional voxels are stored on the borders, 0 is default
+  };
+
+  struct GlobalOctreeNode
+  {
+    float tex_coords[8]; //texture coordinates on corners
+    unsigned val_off;    //offset on values and values_f vectors
+    unsigned offset;     //offset on nodes vector for next child (0 if its leaf)
+  };
+
+  struct GlobalOctree
+  {
+    GlobalOctreeHeader header;
+    std::vector<GlobalOctreeNode> nodes;
+    std::vector<uint32_t> values;
+    std::vector<float> values_f;
+  };
 }

@@ -679,7 +679,6 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
         float3 b = to_float3(mesh.vPos4f[mesh.indices[3*t_i+1]]);
         float3 c = to_float3(mesh.vPos4f[mesh.indices[3*t_i+2]]);
         float3 t[3] = {a, b, c};
-        //TODO find groups and fix normals
         bool is_find_group = false;
         int real_group = -1;
         bool first_check = false;
@@ -769,6 +768,8 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
           }
         }
       }
+
+      creating(idx, ofs, p, d, groups, is_leaf(ofs), norm_broken);
     }
     else
     {
@@ -776,10 +777,13 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
       {
         float ch_d = d / 2;
         float3 ch_p = 2 * p + float3((i & 4) >> 2, (i & 2) >> 1, i & 1);
+
+        creating(idx, ofs, p, d, groups, is_leaf(ofs), norm_broken);
+
         mesh_octree_to_vmpdf_rec(mesh, tl_octree, creating, ofs + i, ch_p, ch_d);
       }
     }
-    creating(idx, ofs, p, d, groups, is_leaf(ofs), norm_broken);
+    //creating(idx, ofs, p, d, groups, is_leaf(ofs), norm_broken);
   }
 
   void mesh_octree_to_vmpdf(const cmesh4::SimpleMesh &mesh,
@@ -800,9 +804,24 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
         {
           out_frame[idx].values[i] = 0;
         }
+        //printf("AAA\n");
       }
       else if (is_leaf)
       {
+        /*if (groups.size() > 1)
+        {
+          for (auto x : groups)
+          {
+            for (int p = 0; p < x.size(); p += 3)
+            {
+              printf("%f %f %f\n", x[p+0].x, x[p+0].y, x[p+0].z);
+              printf("%f %f %f\n", x[p+1].x, x[p+1].y, x[p+1].z);
+              printf("%f %f %f\n", x[p+2].x, x[p+2].y, x[p+2].z);
+              printf("\n");
+            }
+            printf("----\n");
+          }
+        }*/
         for (int i = 0; i < 8; i++)
         {
           float3 ch_pos = pos + 2*d*float3((i >> 2) & 1, (i >> 1) & 1, i & 1);
@@ -837,6 +856,156 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
       }
     };
     mesh_octree_to_vmpdf_rec(mesh, tl_octree, lambda, 0, float3(0,0,0), 1);
+  }
+
+  void mesh_octree_to_global_octree_rec(const cmesh4::SimpleMesh &mesh,
+                                         const cmesh4::TriangleListOctree &tl_octree,
+                                         GlobalOctree &out_octree,
+                                         unsigned idx, float3 p, float d)
+  {
+    unsigned ofs = tl_octree.nodes[idx].offset;
+    out_octree.nodes[idx].offset = ofs;
+    std::vector<std::vector<float3>> groups;
+    bool norm_broken = false;
+    if (is_leaf(ofs)) 
+    {
+      float3 pos = 2.0f*(d*p) - 1.0f;
+      for (int j=0; j<tl_octree.nodes[idx].tid_count; j++)
+      {
+        int t_i = tl_octree.triangle_ids[tl_octree.nodes[idx].tid_offset+j];
+        float3 a = to_float3(mesh.vPos4f[mesh.indices[3*t_i+0]]);
+        float3 b = to_float3(mesh.vPos4f[mesh.indices[3*t_i+1]]);
+        float3 c = to_float3(mesh.vPos4f[mesh.indices[3*t_i+2]]);
+        float3 t[3] = {a, b, c};
+        bool is_find_group = false;
+        int real_group = -1;
+        bool first_check = false;
+        std::vector<int> del_groups = {};
+        std::vector<bool> del_checks = {};
+        for (int i = 0; i < groups.size(); ++i)
+        {
+          //if (norm_broken) break;
+          
+          bool is_correct_norm = true;
+          bool is_first = true;
+          for (int u = 0; u < groups[i].size(); u += 3)
+          {
+            //if (norm_broken) break;
+
+            bool check = false;
+            float3 x[3] = {groups[i][u], groups[i][u+1], groups[i][u+2]};
+            if (is_find_group)
+            {
+              if (is_tri_have_same_edge(t, x, check))
+              {
+                if (is_first)
+                {
+                  is_first = false;
+                  is_correct_norm = check;
+                  del_groups.push_back(i);
+                  del_checks.push_back(check);
+                }
+                else if ((is_correct_norm && !check) || (!is_correct_norm && check))
+                {
+                  norm_broken = true;
+                }
+              }
+            }
+            else
+            {
+              if (is_tri_have_same_edge(t, x, check))
+              {
+                is_find_group = true;
+                is_correct_norm = check;
+                first_check = check;
+                is_first = false;
+                real_group = i;
+              }
+            }
+          }
+        }
+        //if (norm_broken) break;
+
+        if (!is_find_group)
+        {
+          groups.push_back({a, b, c});
+        }
+        else
+        {
+          if (first_check)
+          {
+            groups[real_group].push_back(a);
+            groups[real_group].push_back(b);
+            groups[real_group].push_back(c);
+          }
+          else
+          {
+            groups[real_group].push_back(b);
+            groups[real_group].push_back(a);
+            groups[real_group].push_back(c);
+          }
+
+          for (int i = del_checks.size() - 1; i >= 0; --i)
+          {
+            for (int k = 0; k < groups[del_groups[i]].size(); k += 3)
+            {
+              if ((del_checks[i] && first_check) || (!del_checks[i] && !first_check))
+              {
+                groups[real_group].push_back(groups[del_groups[i]][k+0]);
+                groups[real_group].push_back(groups[del_groups[i]][k+1]);
+                groups[real_group].push_back(groups[del_groups[i]][k+2]);
+              }
+              else
+              {
+                groups[real_group].push_back(groups[del_groups[i]][k+1]);
+                groups[real_group].push_back(groups[del_groups[i]][k+0]);
+                groups[real_group].push_back(groups[del_groups[i]][k+2]);
+              }
+            }
+            groups.erase(groups.begin() + del_groups[i]);
+          }
+        }
+      }
+
+      //TODO fill global octree leaf
+      out_octree.nodes[idx].val_off = out_octree.values.size();
+      for (int i = -out_octree.header.brick_pad; i <= out_octree.header.brick_size + out_octree.header.brick_pad; ++i)
+      {
+        for (int j = -out_octree.header.brick_pad; j <= out_octree.header.brick_size + out_octree.header.brick_pad; ++j)
+        {
+          for (int k = -out_octree.header.brick_pad; k <= out_octree.header.brick_size + out_octree.header.brick_pad; ++k)
+          {
+            out_octree.values_f.push_back(0);//temp stubs
+            out_octree.values.push_back(0);//temp stubs
+          }
+        }
+      }
+      //tex coords
+      for (int i = 0; i < 8; ++i)
+      {
+        out_octree.nodes[idx].tex_coords[i] = 0;//temp stubs
+      }
+    }
+    else
+    {
+      for (int i = 0; i < 8; i++)
+      {
+        float ch_d = d / 2;
+        float3 ch_p = 2 * p + float3((i & 4) >> 2, (i & 2) >> 1, i & 1);
+
+        mesh_octree_to_global_octree_rec(mesh, tl_octree, out_octree, ofs + i, ch_p, ch_d);
+
+        //TODO maybe fill not leaf nodes
+      }
+    }
+  }
+
+  void mesh_octree_to_global_octree(const cmesh4::SimpleMesh &mesh,
+                                    const cmesh4::TriangleListOctree &tl_octree, 
+                                    GlobalOctree &out_octree)
+  {
+    out_octree.nodes.resize(tl_octree.nodes.size());
+    mesh_octree_to_global_octree_rec(mesh, tl_octree, out_octree, 0, float3(0,0,0), 1);
   }
 
   struct LayerFrameNodeInfo
