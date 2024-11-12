@@ -102,7 +102,7 @@ float4 surface_uder(
   float _1_u = 1.0f - u;
   uniform int bc = 1.0f;
   
-  float4 next = rbezier_curve_point(v, m, pw+m);
+  float4 next = rbezier_curve_point(v, m, pw+m+1);
   float4 cur = rbezier_curve_point(v, m, pw);
   float4 Sw_der = (next-cur) * _1_u;
   if (n > 1)
