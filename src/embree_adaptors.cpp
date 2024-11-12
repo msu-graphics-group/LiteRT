@@ -242,19 +242,19 @@ namespace embree
       typename EmbreeRayHit<size>::type ray_hit;
 
       int valid[16]; 
-      std::fill(valid, valid+16, 1);
-
-      for (uint32_t dx = 0; dx < ray_pack_dim; ++dx)
+      std::fill(valid, valid+16, -1);
+      
       for (uint32_t dy = 0; dy < ray_pack_dim; ++dy)
+      for (uint32_t dx = 0; dx < ray_pack_dim; ++dx)
       {
         uint32_t cur_x = x+dx;
         uint32_t cur_y = y+dy;
         if (cur_x >= fb.col_buf.width() || cur_y >= fb.col_buf.height()) {
-          valid[ray_pack_dim*dy+dx] = false;
+          valid[ray_pack_dim*dy+dx] = 0;
           continue;
         }
 
-        float2 ndc_point  = float2{ x+0.5f, y+0.5f } 
+        float2 ndc_point  = float2{ x+dx+0.5f, y+dy+0.5f } 
                         / float2{ fb.col_buf.width()*1.0f, fb.col_buf.height()*1.0f }
                         * 2.0f
                         - 1.0f;
@@ -280,8 +280,8 @@ namespace embree
 
       intersect_f(valid, scn, &ray_hit);
 
-      for (uint32_t dx = 0; dx < ray_pack_dim; ++dx)
       for (uint32_t dy = 0; dy < ray_pack_dim; ++dy)
+      for (uint32_t dx = 0; dx < ray_pack_dim; ++dx)
       {
         int idx = dy*ray_pack_dim+dx;
         if (ray_hit.hit.geomID[idx] != RTC_INVALID_GEOMETRY_ID) {

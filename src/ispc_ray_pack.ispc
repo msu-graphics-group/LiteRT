@@ -190,7 +190,7 @@ float length(float2 val) {
 }
 
 #define MAX_STEPS 5
-#define EPS 0.01f
+#define EPS 0.001f
 static
 HitInfo 
 trace_surface_newton(
