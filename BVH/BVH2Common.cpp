@@ -2817,6 +2817,11 @@ void BVHRT::OctreeIntersectV3(uint32_t type, const float3 ray_pos, const float3 
 #endif
 }
 
+static bool first_hit_is_closest(uint32_t tag)
+{
+  return tag != 1; /*TAG_TRIANGLE*/
+}
+
 void BVHRT::BVH2TraverseF32(const float3 ray_pos, const float3 ray_dir, float tNear,
                                 uint32_t instId, uint32_t geomId, bool stopOnFirstHit,
                                 CRT_Hit* pHit)
@@ -2826,9 +2831,13 @@ void BVHRT::BVH2TraverseF32(const float3 ray_pos, const float3 ray_dir, float tN
   uint32_t stack[STACK_SIZE];
   int top = 0;
   uint32_t leftNodeOffset = 0;
+  bool hitFound = false; //set to true if we found a hit with an opaque object
+                         //1) if stopOnFirstHit = true, it is some hit, not closest
+                         //2) if we hit and object of some specific type (i.e. octree)
+                         //   we can guarantee that the first hit will be the closest
 
   const float3 rayDirInv = SafeInverse(ray_dir);
-  while (top >= 0 && !(stopOnFirstHit && pHit->primId != uint32_t(-1)))
+  while (top >= 0 && !hitFound)
   {
 #ifndef DISABLE_RF_GRID
     if (m_RFGridFlags.size() > 0 && pHit->coords[0] <= 0.01f)
@@ -2881,7 +2890,8 @@ void BVHRT::BVH2TraverseF32(const float3 ray_pos, const float3 ray_dir, float tN
       const float SDF_BIAS = 0.1f;
       const float tNearSdf = std::max(tNear, SDF_BIAS);
   
-      m_abstractObjectPtrs[geomId]->Intersect( to_float4(ray_pos, tNearSdf), to_float4(ray_dir, 1e9f), leafInfo, pHit, this);
+      uint32_t hitTag = m_abstractObjectPtrs[geomId]->Intersect(to_float4(ray_pos, tNearSdf), to_float4(ray_dir, 1e9f), leafInfo, pHit, this);
+      hitFound = (hitTag != 0 /*TAG_NONE*/) && (first_hit_is_closest(hitTag) || stopOnFirstHit);
     }
 
     // continue BVH traversal
@@ -2943,7 +2953,7 @@ CRT_Hit BVHRT::RayQuery_NearestHit(float4 posAndNear, float4 dirAndFar)
         const float3 ray_pos = matmul4x3(m_instanceData[instId].transformInv, to_float3(posAndNear));
         const float3 ray_dir = matmul3x3(m_instanceData[instId].transformInv, to_float3(dirAndFar)); // DON'float NORMALIZE IT !!!! When we transform to local space of node, ray_dir must be unnormalized!!!
     
-        BVH2TraverseF32(ray_pos, ray_dir, posAndNear.w, instId, geomId, true, &hit);
+        BVH2TraverseF32(ray_pos, ray_dir, posAndNear.w, instId, geomId, stopOnFirstHit, &hit);
       }
     } while (nodeIdx < 0xFFFFFFFE && !(stopOnFirstHit && hit.primId != uint32_t(-1))); //
   }
