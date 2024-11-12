@@ -7,6 +7,7 @@
 #include <fstream>
 #include <sstream>
 #include <cassert>
+#include <cctype>
 
 #include <LiteMath.h>
 
@@ -86,26 +87,48 @@ std::vector<std::string> argsplit(const std::string &rawargs, bool bycomma) {
     return args;
 }
 
+std::string Parser::readEntry(const std::string &text, size_t &offset) {
+    std::string entry;
+    bool iscomment = false;
+    size_t size = text.size();
+    for (; offset < size - 1; offset++) {
+        char prev = text[offset-1], chr = text[offset], next = text[offset+1];
+        if (std::isspace(chr)) continue;
+        if (!iscomment && chr == ';') { offset++; break; }
+
+        if (chr == '/' && next == '*') iscomment = true;
+        else if (prev == '*' && chr == '/') { iscomment = false; continue; }
+
+        if (!iscomment) entry.push_back(chr);
+    }
+    return entry;
+}
+
 Parser::Parser(const std::string &filename) {
     std::ifstream file(filename);
     std::stringstream stream;
-    stream << file.rdbuf();
+
+    // Add whitespaces for always accessing
+    // previous, current and next chars in readEntry
+    stream << ' ' << file.rdbuf() << ' ';
+
     std::string text = stream.str();
     file.close();
 
-    // Remove space symbols
-    std::regex rexp("\\s+");
-    text = std::regex_replace(text, rexp, "");
+    bool isDataSection = false;
+    std::string entry;
+    size_t offset = 1;
+    while (true) {
+        entry = this->readEntry(text, offset);
+        size_t size = entry.size();
+        if (size == 0) break;
 
-    // Parse each entry, separated by semicolon
-    rexp = std::regex(";");
-    regexiter_t it(text.begin(), text.end(), rexp, -1);
-    regexiter_t end;
+        if (entry == "DATA") { isDataSection = true; continue; }
+        if (entry == "ENDSEC" && isDataSection) isDataSection = false;
+        if (!isDataSection) continue;
 
-    for (; it != end; it++) {
-        Entity entity;
-        if (this->tryParseEntity(*it, entity))
-          this->entities[entity.id] = std::move(entity);
+        Entity entity = this->parseEntity(entry);
+        this->entities[entity.id] = std::move(entity);
     }
 }
 
@@ -270,7 +293,7 @@ Entity Parser::parseComplexEntity(const std::string &entry, uint id) {
     return entity;
 }
 
-bool Parser::tryParseEntity(const std::string &entry, Entity &res) {
+Entity Parser::parseEntity(const std::string &entry) {
     std::regex rexp;
     std::smatch matches;
     uint id;
@@ -278,17 +301,15 @@ bool Parser::tryParseEntity(const std::string &entry, Entity &res) {
     // Match the id of entity
     rexp = std::regex("#(\\d+)=");
     if (!std::regex_search(entry, matches, rexp))
-        return false;
+        return Entity();
 
     id = std::stoi(matches[1].str());
 
     // Complex or Simple entity?
     rexp = std::regex("=\\(");
     if (std::regex_search(entry, matches, rexp))
-        res = this->parseComplexEntity(entry, id);
-    else res = this->parseSimpleEntity(entry, id);
-
-    return true;
+        return this->parseComplexEntity(entry, id);
+    return this->parseSimpleEntity(entry, id);
 }
 
 Entity Parser::getEntity(uint id) {

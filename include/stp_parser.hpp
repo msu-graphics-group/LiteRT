@@ -89,7 +89,7 @@ private:
     Entity parseComplexArg(const std::string &arg);
     Entity parseComplexEntity(const std::string &entity, uint id);
     Entity parseSimpleEntity(const std::string &entity, uint id); 
-    bool tryParseEntity(const std::string &entry, Entity &result);
+    Entity parseEntity(const std::string &entry);
     uint parseID(std::string rawID);
     uint parseF(std::string raw);
     uint parseU(std::string raw);
@@ -99,7 +99,8 @@ private:
     void storeBSplineSurface(Entity &entity, RawNURBS &nurbs);
     void storeBSplineSurfaceWithKnots(Entity &entity, RawNURBS &nurbs);
     void storeRationalBSplineSurface(Entity &entity, RawNURBS &nurbs);
-
+    
+    std::string readEntry(const std::string &text, size_t &offset);
     std::map<uint, Entity> entities;
 };
 
