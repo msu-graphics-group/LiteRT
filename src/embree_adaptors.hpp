@@ -25,6 +25,14 @@ namespace embree
   void boxes_intersect_function(const RTCIntersectFunctionNArguments *args);
   void rbgrid_occluded_function(const RTCOccludedFunctionNArguments *args);
 
+  enum class RayPackSize
+  {
+    RAY_PACK_1 = 1,
+    RAY_PACK_4 = 4,
+    RAY_PACK_8 = 8,
+    RAY_PACK_16 = 16
+  };
+
   void errorFunction(void* userPtr, enum RTCError error, const char* str);
   struct EmbreeScene
   {
@@ -61,7 +69,12 @@ namespace embree
       rtcReleaseDevice(device);
     }
   public:
-    void draw(const Camera &camera, FrameBuffer &fb, std::function<ShadeFuncType> shade_func = shade_uv) const;
+    void draw(const Camera &camera, FrameBuffer &fb, std::function<ShadeFuncType> shade_func = shade_uv,
+                RayPackSize ray_pack = RayPackSize::RAY_PACK_1) const;
+  private:
+    void draw1(const Camera &camera, FrameBuffer &fb, std::function<ShadeFuncType> shade_func) const;
+    template<RayPackSize size>
+    void drawN(const Camera &camera, FrameBuffer &fb, std::function<ShadeFuncType> shade_func) const;
   private:
     std::list<RBGridView> views;
     RTCDevice device;

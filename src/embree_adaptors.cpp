@@ -177,9 +177,161 @@ namespace embree
     hit.v = uv[1];
   }
 
-  void EmbreeScene::draw(const Camera &camera, FrameBuffer &fb, std::function<ShadeFuncType> shade_func) const {
-    float4x4 mat  = perspectiveMatrix(camera.fov*180*M_1_PI, camera.aspect, 0.001f, 100.0f)
-                  * lookAt(camera.position, camera.target, camera.up);
+  template<RayPackSize size>
+  struct EmbreeRayHit;
+  template<>
+  struct EmbreeRayHit<RayPackSize::RAY_PACK_1> { using type = RTCRayHit; };
+  template<>
+  struct EmbreeRayHit<RayPackSize::RAY_PACK_4> { using type = RTCRayHit4; };
+  template<>
+  struct EmbreeRayHit<RayPackSize::RAY_PACK_8> { using type = RTCRayHit8; };
+  template<>
+  struct EmbreeRayHit<RayPackSize::RAY_PACK_16> { using type = RTCRayHit16; };
+
+  template<RayPackSize size>
+  struct EmbreeIntersect;
+  template<>
+  struct EmbreeIntersect<RayPackSize::RAY_PACK_1> {  
+    static auto make_func() {  
+      return [](int *valid, RTCScene scene, RTCRayHit *rayhit) {
+        rtcIntersect1(scene, rayhit);
+      };
+    }
+  };
+  
+  template<>
+  struct EmbreeIntersect<RayPackSize::RAY_PACK_4> {  
+    static auto make_func() {  
+      return [](int *valid, RTCScene scene, RTCRayHit4 *rayhit) {
+        rtcIntersect4(valid, scene, rayhit);
+      };
+    }
+  };
+
+  template<>
+  struct EmbreeIntersect<RayPackSize::RAY_PACK_8> {  
+    static auto make_func() {  
+      return [](int *valid, RTCScene scene, RTCRayHit8 *rayhit) {
+        rtcIntersect8(valid, scene, rayhit);
+      };
+    }
+  };
+
+  template<>
+  struct EmbreeIntersect<RayPackSize::RAY_PACK_16> {  
+    static auto make_func() {  
+      return [](int *valid, RTCScene scene, RTCRayHit16 *rayhit) {
+        rtcIntersect16(valid, scene, rayhit);
+      };
+    }
+  };
+
+  template<RayPackSize size>
+  void EmbreeScene::drawN(
+      const Camera &camera, 
+      FrameBuffer &fb, 
+      std::function<ShadeFuncType> shade_func) const {
+    auto intersect_f = EmbreeIntersect<size>::make_func();
+    float4x4 mat  = perspectiveMatrix(camera.fov*180*M_1_PI, camera.aspect, 0.001f, 1000.0f)
+                * lookAt(camera.position, camera.target, camera.up);
+    float4x4 inversed_mat = inverse4x4(mat);
+    int ray_pack_dim = std::sqrt(static_cast<int>(size));
+    #pragma omp parallel for schedule(dynamic)
+    for (uint32_t y = 0; y < fb.col_buf.height(); y += ray_pack_dim)
+    for (uint32_t x = 0; x < fb.col_buf.width();  x += ray_pack_dim) {
+      typename EmbreeRayHit<size>::type ray_hit;
+
+      int valid[16]; 
+      std::fill(valid, valid+16, 1);
+
+      for (uint32_t dx = 0; dx < ray_pack_dim; ++dx)
+      for (uint32_t dy = 0; dy < ray_pack_dim; ++dy)
+      {
+        uint32_t cur_x = x+dx;
+        uint32_t cur_y = y+dy;
+        if (cur_x >= fb.col_buf.width() || cur_y >= fb.col_buf.height()) {
+          valid[ray_pack_dim*dy+dx] = false;
+          continue;
+        }
+
+        float2 ndc_point  = float2{ x+0.5f, y+0.5f } 
+                        / float2{ fb.col_buf.width()*1.0f, fb.col_buf.height()*1.0f }
+                        * 2.0f
+                        - 1.0f;
+        float4 ndc_point4 = { ndc_point.x, ndc_point.y, 0.0f, 1.0f };
+        float4 point = inversed_mat * ndc_point4;
+        point /= point.w;
+
+        float3 ray = normalize(to_float3(point)-camera.position);
+        float3 pos = camera.position;
+
+        ray_hit.ray.org_x[dy*ray_pack_dim+dx] = pos.x;
+        ray_hit.ray.org_y[dy*ray_pack_dim+dx] = pos.y;
+        ray_hit.ray.org_z[dy*ray_pack_dim+dx] = pos.z;
+        ray_hit.ray.dir_x[dy*ray_pack_dim+dx] = ray.x;
+        ray_hit.ray.dir_y[dy*ray_pack_dim+dx] = ray.y;
+        ray_hit.ray.dir_z[dy*ray_pack_dim+dx] = ray.z;
+        ray_hit.ray.tnear[dy*ray_pack_dim+dx] = 0.0f;
+        ray_hit.ray.tfar[dy*ray_pack_dim+dx]  = std::numeric_limits<float>::infinity();
+        ray_hit.hit.geomID[ray_pack_dim*dy+dx] = RTC_INVALID_GEOMETRY_ID;
+        ray_hit.ray.mask[ray_pack_dim*dy+dx] = -1;
+        ray_hit.ray.flags[ray_pack_dim*dy+dx] = 0;
+      }
+
+      intersect_f(valid, scn, &ray_hit);
+
+      for (uint32_t dx = 0; dx < ray_pack_dim; ++dx)
+      for (uint32_t dy = 0; dy < ray_pack_dim; ++dy)
+      {
+        int idx = dy*ray_pack_dim+dx;
+        if (ray_hit.hit.geomID[idx] != RTC_INVALID_GEOMETRY_ID) {
+          HitInfo info;
+          info.hitten = true;
+          info.uv = float2{ ray_hit.hit.u[idx], ray_hit.hit.v[idx] };
+          info.normal = float3{ ray_hit.hit.Ng_x[idx], ray_hit.hit.Ng_y[idx], ray_hit.hit.Ng_z[idx] };
+          info.pos = float3{ ray_hit.ray.org_x[idx], ray_hit.ray.org_y[idx], ray_hit.ray.org_z[idx] }
+                   + float3{ ray_hit.ray.dir_x[idx], ray_hit.ray.dir_y[idx], ray_hit.ray.dir_z[idx] } 
+                      * ray_hit.ray.tfar[idx];
+                      
+          float2 uv = info.uv;
+          float3 point = info.pos;
+          float t = length(point-camera.position);
+          uint2 xy = uint2{ x+dx, fb.col_buf.height()-1-y-dy };
+
+          if (fb.z_buf[xy] > t) {
+            float4 color = shade_func(info, camera.position);
+            fb.z_buf[xy] = t;
+            fb.col_buf[xy] = uchar4{ 
+              static_cast<u_char>(color[0]*255.0f),
+              static_cast<u_char>(color[1]*255.0f),
+              static_cast<u_char>(color[2]*255.0f),
+              static_cast<u_char>(color[3]*255.0f) }.u32;
+          }
+        }
+      }
+    }
+  }
+
+  void EmbreeScene::draw(
+      const Camera &camera, 
+      FrameBuffer &fb, 
+      std::function<ShadeFuncType> shade_func, 
+      RayPackSize ray_pack) const {
+    switch (ray_pack)
+    {
+    case RayPackSize::RAY_PACK_1: draw1(camera, fb, shade_func); break;
+    case RayPackSize::RAY_PACK_4: drawN<RayPackSize::RAY_PACK_4>(camera, fb, shade_func); break;
+    case RayPackSize::RAY_PACK_8: drawN<RayPackSize::RAY_PACK_8>(camera, fb, shade_func); break;
+    case RayPackSize::RAY_PACK_16: drawN<RayPackSize::RAY_PACK_16>(camera, fb, shade_func); break;
+    }
+  }
+
+  void EmbreeScene::draw1(
+      const Camera &camera, 
+      FrameBuffer &fb, 
+      std::function<ShadeFuncType> shade_func) const {
+    float4x4 mat  = perspectiveMatrix(camera.fov*180*M_1_PI, camera.aspect, 0.001f, 1000.0f)
+                * lookAt(camera.position, camera.target, camera.up);
     float4x4 inversed_mat = inverse4x4(mat);
     #pragma omp parallel for schedule(dynamic)
     for (uint32_t y = 0; y < fb.col_buf.height(); ++y)
@@ -196,36 +348,34 @@ namespace embree
       float3 ray = normalize(to_float3(point)-camera.position);
       float3 pos = camera.position;
       
-      struct RTCRayHit rayhit;
-      rayhit.ray.org_x = pos.x;
-      rayhit.ray.org_y = pos.y;
-      rayhit.ray.org_z = pos.z;
-      rayhit.ray.dir_x = ray.x;
-      rayhit.ray.dir_y = ray.y;
-      rayhit.ray.dir_z = ray.z;
-      rayhit.ray.tnear = 0;
-      rayhit.ray.tfar = std::numeric_limits<float>::infinity();
-      rayhit.ray.mask = -1;
-      rayhit.ray.flags = 0;
-      rayhit.hit.geomID = RTC_INVALID_GEOMETRY_ID;
-      rayhit.hit.instID[0] = RTC_INVALID_GEOMETRY_ID;
+      
+      RTCRayHit ray_hit;
+      ray_hit.ray.org_x = pos.x;
+      ray_hit.ray.org_y = pos.y;
+      ray_hit.ray.org_z = pos.z;
+      ray_hit.ray.dir_x = ray.x;
+      ray_hit.ray.dir_y = ray.y;
+      ray_hit.ray.dir_z = ray.z;
+      ray_hit.ray.tnear = 0.0f;
+      ray_hit.ray.mask = -1;
+      ray_hit.ray.flags = 0;
+      ray_hit.ray.tfar = std::numeric_limits<float>::infinity();
+      ray_hit.hit.geomID = RTC_INVALID_GEOMETRY_ID;
+      rtcIntersect1(scn, &ray_hit);
+      if (ray_hit.hit.geomID != RTC_INVALID_GEOMETRY_ID) {
+        HitInfo info;
+        info.hitten = true;
+        info.uv = float2{ ray_hit.hit.u, ray_hit.hit.v };
+        info.normal = float3{ ray_hit.hit.Ng_x, ray_hit.hit.Ng_y, ray_hit.hit.Ng_z };
+        info.pos = pos + ray * ray_hit.ray.tfar;
 
-      rtcIntersect1(scn, &rayhit);
-      if (rayhit.hit.geomID != RTC_INVALID_GEOMETRY_ID) {
-        float t = rayhit.ray.tfar;
+        float2 uv = info.uv;
+        float3 point = info.pos;
+        float t = length(point-camera.position);
         uint2 xy = uint2{ x, fb.col_buf.height()-1-y };
 
         if (fb.z_buf[xy] > t) {
-          HitInfo info;
-          info.hitten = true;
-          info.pos = pos + ray * t;
-          info.uv = float2{ rayhit.hit.u, rayhit.hit.v };
-          info.normal = float3 {
-            rayhit.hit.Ng_x,
-            rayhit.hit.Ng_y,
-            rayhit.hit.Ng_z
-          };
-          float4 color = shade_func(info, pos);
+          float4 color = shade_func(info, camera.position);
           fb.z_buf[xy] = t;
           fb.col_buf[xy] = uchar4{ 
             static_cast<u_char>(color[0]*255.0f),

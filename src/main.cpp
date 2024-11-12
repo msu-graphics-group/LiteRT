@@ -167,7 +167,7 @@ int main(int, char** argv)
       switch(cur_renderer)
       {
         case 2: embree_boxes.draw(camera, fb, shader_funcs[cur_shader]); break;
-        case 3: embree_scn.draw(camera, fb, shader_funcs[cur_shader]); break;
+        case 3: embree_scn.draw(camera, fb, shader_funcs[cur_shader], embree::RayPackSize::RAY_PACK_16); break;
         case 4: embree_tesselated.draw(camera, fb, shader_funcs[cur_shader]); break;
       }
     }
