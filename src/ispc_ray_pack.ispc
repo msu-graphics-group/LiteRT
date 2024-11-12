@@ -285,7 +285,7 @@ void surf_intersectN(const RTCIntersectFunctionNArguments * uniform args, const 
   float * uniform hit_floats = (float * uniform)hits; // as float array view
   uint * uniform hit_ints = (uint * uniform)hits; // as uints array view
   
-  foreach(i = 0...N-1) {
+  foreach(i = 0...N) {
     if (args->valid[i]) {
       float3 pos = { ray_floats[i], ray_floats[N+i], ray_floats[2*N+i] };
       float3 dir = { ray_floats[4*N+i], ray_floats[5*N+i], ray_floats[6*N+i] };

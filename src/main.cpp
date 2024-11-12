@@ -66,6 +66,18 @@ int main(int, char** argv)
   int cur_shader = 0;
 
   embree::EmbreeScene embree_scn, embree_tesselated, embree_boxes;
+
+  embree::RayPackSize ray_pack_sizes[] = { 
+    embree::RayPackSize::RAY_PACK_1,
+    embree::RayPackSize::RAY_PACK_4,
+    embree::RayPackSize::RAY_PACK_8,
+    embree::RayPackSize::RAY_PACK_16
+  };
+  int cur_ray_pack = 0;
+  const char *ray_packs_str[] = {
+    "x1", "x4", "x8", "x16"
+  };
+
   std::vector<RBezierGrid> rbeziers;
   std::vector<std::vector<LiteMath::float2>> uvs;
   std::vector<std::vector<BoundingBox3d>> bboxes;
@@ -167,8 +179,8 @@ int main(int, char** argv)
       switch(cur_renderer)
       {
         case 2: embree_boxes.draw(camera, fb, shader_funcs[cur_shader]); break;
-        case 3: embree_scn.draw(camera, fb, shader_funcs[cur_shader], embree::RayPackSize::RAY_PACK_16); break;
-        case 4: embree_tesselated.draw(camera, fb, shader_funcs[cur_shader]); break;
+        case 3: embree_scn.draw(camera, fb, shader_funcs[cur_shader], ray_pack_sizes[cur_ray_pack]); break;
+        case 4: embree_tesselated.draw(camera, fb, shader_funcs[cur_shader], ray_pack_sizes[cur_ray_pack]); break;
       }
     }
     auto e = std::chrono::high_resolution_clock::now();
@@ -191,7 +203,9 @@ int main(int, char** argv)
       camera_changed |= ImGui::DragFloat3("Camera target", camera.target.M);
       camera = Camera(camera.aspect, camera.fov, camera.position, camera.target);
       ImGui::Text("Renderer settings:");
-      renderer_changed = 
+      renderer_changed |= 
+          ImGui::ListBox("Embree Ray Pack Size", &cur_ray_pack, ray_packs_str, 4);
+      renderer_changed |= 
           ImGui::ListBox("Method", &cur_renderer, renderers, sizeof(renderers)/sizeof(*renderers));
       shading_changed =
           ImGui::ListBox("Shading", &cur_shader, shaders, sizeof(shaders)/sizeof(*shaders));
