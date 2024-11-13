@@ -2,6 +2,7 @@
 #include <vector>
 #include <string>
 #include "../render_settings.h"
+#include "hydra_integration.h"
 
 extern std::string scenes_folder_path;
 

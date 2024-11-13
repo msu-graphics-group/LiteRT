@@ -76,14 +76,6 @@ set(SCENE_LOADER_SRC
     ${CMAKE_SOURCE_DIR}/utils/image_metrics.cpp
     ${CMAKE_SOURCE_DIR}/utils/iou.cpp
     ${CMAKE_SOURCE_DIR}/utils/points_visualizer.cpp
-    ${CMAKE_SOURCE_DIR}/tests/tests.cpp
-    ${CMAKE_SOURCE_DIR}/tests/benchmark.cpp
-
-    ${CMAKE_SOURCE_DIR}/diff_render/DR_common.cpp
-    ${CMAKE_SOURCE_DIR}/diff_render/BVH2DR.cpp
-    ${CMAKE_SOURCE_DIR}/diff_render/MultiRendererDR.cpp
-    ${CMAKE_SOURCE_DIR}/diff_render/benchmark_diff_render.cpp
-    ${CMAKE_SOURCE_DIR}/diff_render/tests_diff_render.cpp
     )
 
 set(CORE_SRC
@@ -101,23 +93,19 @@ set(BUILDERS_SRC
     ${CMAKE_SOURCE_DIR}/BVH/cbvh_embree2.cpp
     )
 
+set(TESTS_SRC
+    ${CMAKE_SOURCE_DIR}/tests/tests.cpp
+    ${CMAKE_SOURCE_DIR}/tests/benchmark.cpp)
+
+set(DR_SRC 
+    ${CMAKE_SOURCE_DIR}/diff_render/DR_common.cpp
+    ${CMAKE_SOURCE_DIR}/diff_render/BVH2DR.cpp
+    ${CMAKE_SOURCE_DIR}/diff_render/MultiRendererDR.cpp
+    ${CMAKE_SOURCE_DIR}/diff_render/benchmark_diff_render.cpp
+    ${CMAKE_SOURCE_DIR}/diff_render/tests_diff_render.cpp)
+
 set(HYDRA_SRC
     ${CMAKE_SOURCE_DIR}/tests/hydra_integration.cpp)
-
-# set(HYDRA_SRC
-#     ${CMAKE_SOURCE_DIR}/tests/hydra_integration.cpp
-#     ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/integrator_rt.cpp
-#     ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/integrator_pt.cpp
-#     ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/integrator_pt_scene.cpp
-#     ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/integrator_pt_scene_mat.cpp
-#     ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/integrator_pt_scene_lgt.cpp
-#     ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/integrator_pt_scene_tex.cpp
-#     ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/integrator_pt_host.cpp
-#     ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/integrator_pt_lgt.cpp
-#     ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/integrator_pt_mat.cpp
-#     ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/integrator_spectrum.cpp
-#     ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/integrator_gbuffer.cpp
-#     ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/utils.cpp)  
 
 message(STATUS "CMAKE_BUILD_TYPE = ${CMAKE_BUILD_TYPE}")
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
@@ -239,7 +227,10 @@ target_sources(render_app PRIVATE main.cpp
                ${SCENE_LOADER_SRC}
                ${CORE_SRC}
                ${BUILDERS_SRC}
-               ${NURBS_SRC})
+               ${NURBS_SRC}
+               ${TESTS_SRC}
+               ${DR_SRC}
+               ${HYDRA_SRC})
 
 set_property(TARGET render_app PROPERTY CXX_STANDARD 17)
 target_link_libraries(render_app PRIVATE Threads::Threads dl ${RAYTRACING_EMBREE_LIBS} ${MODULES_LIBRARIES})

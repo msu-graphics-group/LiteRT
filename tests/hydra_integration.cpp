@@ -21,15 +21,17 @@ void toLDRImage(const float *rgb, int width, int height, float a_normConst, floa
   }
 }
 
-void hyda_integration_example(std::string scene_filename)
+std::shared_ptr<ISceneObject> CreateSceneRT(const char* a_implName, const char* a_buildName, const char* a_layoutName);
+
+void hydra_integration_example(std::string scene_filename)
 {
-  int FB_WIDTH        = 1024;
-  int FB_HEIGHT       = 1024;
+  int FB_WIDTH        = 256;
+  int FB_HEIGHT       = 256;
   int FB_CHANNELS     = 4;
 
-  int PASS_NUMBER     = 256; //spp
+  int PASS_NUMBER     = 16; //spp
 
-  std::string scenePath      = "../resources/HydraCore/hydra_app/tests/test_42/statex_00001.xml";
+  std::string scenePath      = scene_filename;
   std::string sceneDir       = "";          // alternative path of scene library root folder (by default it is the folder where scene xml is located)
   std::string imageOut       = "saves/hydra_test_out.png";
   std::string integratorType = "mispt";
@@ -50,6 +52,7 @@ void hyda_integration_example(std::string scene_filename)
   std::vector<float> realColor(FB_WIDTH*FB_HEIGHT*FB_CHANNELS);
 
   pImpl = std::make_shared<Integrator>(FB_WIDTH*FB_HEIGHT,features);
+  pImpl->SetAccelStruct(CreateSceneRT("BVH2Common", "cbvh_embree2", "SuperTreeletAlignedMerged4"));
 
   const int vpStartX = 0;
   const int vpStartY = 0;
@@ -93,5 +96,12 @@ void hyda_integration_example(std::string scene_filename)
   const float normConst = 1.0f/float(PASS_NUMBER);
   LiteImage::Image2D<uint32_t> tmp(FB_WIDTH, FB_HEIGHT);
   toLDRImage(realColor.data(), FB_WIDTH, FB_HEIGHT, normConst, gamma, const_cast< std::vector<uint32_t>& >(tmp.vector()), true);
+  for (int y = 0; y < FB_HEIGHT; y++)
+  {
+    for (int x = 0; x < FB_WIDTH; x++)
+    {
+      //printf("%.2f %.2f %.2f %.2f\n", realColor[4 * (y*FB_WIDTH + x) + 0], realColor[4 * (y*FB_WIDTH + x) + 1], realColor[4 * (y*FB_WIDTH + x) + 2], realColor[4 * (y*FB_WIDTH + x) + 3]);
+    }
+  }
   LiteImage::SaveImage(imageOut.c_str(), tmp);
 }
