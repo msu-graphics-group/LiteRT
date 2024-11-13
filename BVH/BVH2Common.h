@@ -25,8 +25,8 @@ using LiteMath::uint3;
 using LiteMath::uint4;
 using LiteMath::Box4f;
 
-#include "../ISceneObject.h"
-#include "../raytrace_common.h"
+#include "ISceneObject.h"
+#include "raytrace_common.h"
 #include "cbvh.h"
 #include "nurbs/nurbs_common.h"
 #include "graphics_primitive/graphics_primitive_common.h"

@@ -9,5 +9,5 @@ bash scripts/slicer_preprocess_rtx.sh $1 $2
 bash scripts/slicer_build_shaders_rtx.sh $1 $2
 
 printf "SLICER EXECUTE FOR HYDRA\n"
-bash scripts/slicer_preprocess_hydra.sh $1 $2
+bash scripts/slicer_preprocess_hydra_litert.sh $1 $2
 bash scripts/slicer_build_shaders_hydra.sh $1 $2

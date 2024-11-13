@@ -6,12 +6,13 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
 project(loader_app CXX)
 
-include_directories(${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/LiteMath/external)
+add_compile_definitions(LITERT_RENDERER)
 
 include_directories(${CMAKE_SOURCE_DIR})
 include_directories(${CMAKE_SOURCE_DIR}/dependencies)
 include_directories(${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external)
 include_directories(${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/LiteMath)
+include_directories(${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/LiteMath/external)
 include_directories(${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/LiteScene)
 include_directories(${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/CrossRT)
 include_directories(${CMAKE_SOURCE_DIR}/dependencies/embree)
