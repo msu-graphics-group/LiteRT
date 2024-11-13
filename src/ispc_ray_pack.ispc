@@ -189,8 +189,8 @@ float length(float2 val) {
   return sqrt(val.x*val.x+val.y*val.y);
 }
 
-#define MAX_STEPS 5
-#define EPS 0.001f
+extern uniform int max_steps;
+extern uniform float EPS;
 static
 HitInfo 
 trace_surface_newton(
@@ -221,7 +221,7 @@ trace_surface_newton(
   HitInfo res;
   res.hitten = false;
 
-  uniform int steps_left = MAX_STEPS-1;
+  uniform int steps_left = max_steps-1;
   while(length(D) > EPS && steps_left--) {
     float2 J[2] = 
     { 

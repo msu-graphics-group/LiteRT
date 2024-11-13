@@ -66,6 +66,8 @@ LiteMath::float4 shade_normals(
   return LiteMath::to_float4(normal_col, 1.0f);
 }
 
+extern int max_steps;
+extern float EPS;
 HitInfo trace_surface_newton(
     const LiteMath::float3 &pos,
     const LiteMath::float3 &ray,

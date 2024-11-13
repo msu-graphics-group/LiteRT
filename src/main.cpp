@@ -204,7 +204,9 @@ int main(int, char** argv)
       camera = Camera(camera.aspect, camera.fov, camera.position, camera.target);
       ImGui::Text("Renderer settings:");
       renderer_changed |= 
-          ImGui::ListBox("Embree Ray Pack Size", &cur_ray_pack, ray_packs_str, 4);
+          ImGui::ListBox("Ray Pack Size", &cur_ray_pack, ray_packs_str, 4);
+      ImGui::InputInt("Max Steps", &max_steps);
+      ImGui::InputFloat("Intersection EPS", &EPS, 0.005f);
       renderer_changed |= 
           ImGui::ListBox("Method", &cur_renderer, renderers, sizeof(renderers)/sizeof(*renderers));
       shading_changed =
