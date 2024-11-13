@@ -65,7 +65,7 @@
     <indices type="array1i" bytesize="120" offset="1144" apply="tlist" />
     <matindices type="array1i" bytesize="40" offset="1264" apply="primitive" />
   </mesh>
-  <sdf_svs id="1" name="teapot" type="sdf_svs" bytesize="651812" loc="data/bunny_svs.bin" num_primitives="22203734" mat_id="6">
+  <sdf_svs id="1" name="teapot" type="sdf_svs" bytesize="651812" loc="../../saves/bunny/bunny_sdf_SVS_64Mb/data.bin" num_primitives="22203734" mat_id="6">
   </sdf_svs>
   <mesh id="2" name="my_area_light_lightmesh" type="vsgf" bytesize="280" loc="data/chunk_00003.vsgf" offset="0" vertNum="4" triNum="2" dl="0" path="" light_id="0" bbox="    -1 1 0 0 -1 1">
     <positions type="array4f" bytesize="64" offset="24" apply="vertex" />

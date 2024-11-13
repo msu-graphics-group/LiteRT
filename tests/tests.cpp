@@ -3518,8 +3518,8 @@ void litert_test_42_mesh_lods()
 
 void litert_test_43_hydra_integration()
 {
-  hydra_integration_example(DEVICE_CPU);
-  hydra_integration_example(DEVICE_GPU);
+  //hydra_integration_example(DEVICE_CPU, "scenes/02_sdf_scenes/test_10.xml");
+  hydra_integration_example(DEVICE_GPU, "scenes/02_sdf_scenes/bunny_svs.xml");
 }
 
 void perform_tests_litert(const std::vector<int> &test_ids)

@@ -29,11 +29,11 @@ std::shared_ptr<ISceneObject> CreateSceneRT(const char* a_implName, const char* 
 
 void hydra_integration_example(unsigned device, std::string scene_filename)
 {
-  int FB_WIDTH        = 256;
-  int FB_HEIGHT       = 256;
+  int FB_WIDTH        = 512;
+  int FB_HEIGHT       = 512;
   int FB_CHANNELS     = 4;
 
-  int PASS_NUMBER     = 16; //spp
+  int PASS_NUMBER     = 512; //spp
 
   std::string scenePath      = scene_filename;
   std::string sceneDir       = "";          // alternative path of scene library root folder (by default it is the folder where scene xml is located)
