@@ -3,18 +3,17 @@
 #include <string>
 #include <map>
 #include <utility>
-#include <regex>
 #include <fstream>
 #include <sstream>
 #include <cassert>
 #include <cctype>
+#include <regex>
 
 #include <LiteMath.h>
 
 #include <stp_parser.hpp>
 
 using namespace LiteMath;
-using regexiter_t = std::sregex_token_iterator;
 
 namespace STEP {
 
@@ -219,32 +218,6 @@ Vector2D<float4> Parser::parsePointVector2D(std::string raw) {
     return points;
 }
 
-Entity Parser::parseSimpleEntity(const std::string &entry, uint id) {
-    std::regex rexp;
-    std::smatch matches;
-    Type type;
-    std::vector<std::string> args;
-
-    // Match the type of entity
-    rexp = std::regex("=(\\S+?)\\(");
-    std::regex_search(entry, matches, rexp);
-
-    type = str2type(matches[1].str());
-
-    // Match the arguments of entity
-    rexp = std::regex("=\\S+?(\\(.+\\))");
-    std::regex_search(entry, matches, rexp);
-
-    std::string rawargs = matches[1].str(); 
-    args = argsplit(rawargs);
-
-    Entity entity;
-    entity.id = id;
-    entity.type = type;
-    entity.args = args;
-    return entity;
-}
-
 Entity Parser::parseComplexArg(const std::string &arg) {
     // Returns complex entity name and args.
     // It is similar to simple STEP entity,
@@ -273,43 +246,35 @@ Entity Parser::parseComplexArg(const std::string &arg) {
     return entity;
 }
 
-Entity Parser::parseComplexEntity(const std::string &entry, uint id) {
-    std::regex rexp;
-    std::smatch matches;
-    Type type = Type::COMPLEX;
-    std::vector<std::string> args;
+Entity Parser::parseEntity(const std::string &entry) {
+    std::string id;
+    std::string type;
+    std::string args;
 
-    // Match the arguments of entity
-    rexp = std::regex("=(\\(.+\\))");
-    std::regex_search(entry, matches, rexp);
+    bool storedID   = false;
+    bool storedName = false;
+    for (auto chr : entry) {
+        if (chr == '=') { storedID = true; continue; }
+        if (!storedID && std::isdigit(chr)) { id.push_back(chr); continue; }
 
-    std::string rawargs = matches[1].str();
-    args = argsplit(rawargs, false);
+        if (chr == '(') storedName = true;
+        if (!storedName && storedID) { type.push_back(chr); continue; }
+
+        if (storedID && storedName) args.push_back(chr);
+    }
 
     Entity entity;
-    entity.id = id;
-    entity.type = type;
-    entity.args = args;
+    entity.id = this->parseU(id);
+
+    if (type.size() == 0) {
+        entity.type = Type::COMPLEX;
+        entity.args = argsplit(args, false);
+    }
+    else {
+        entity.type = str2type(type);
+        entity.args = argsplit(args, true);
+    }
     return entity;
-}
-
-Entity Parser::parseEntity(const std::string &entry) {
-    std::regex rexp;
-    std::smatch matches;
-    uint id;
-
-    // Match the id of entity
-    rexp = std::regex("#(\\d+)=");
-    if (!std::regex_search(entry, matches, rexp))
-        return Entity();
-
-    id = std::stoi(matches[1].str());
-
-    // Complex or Simple entity?
-    rexp = std::regex("=\\(");
-    if (std::regex_search(entry, matches, rexp))
-        return this->parseComplexEntity(entry, id);
-    return this->parseSimpleEntity(entry, id);
 }
 
 Entity Parser::getEntity(uint id) {
