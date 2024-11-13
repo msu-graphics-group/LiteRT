@@ -3,7 +3,7 @@ Installation guide (Ubuntu):
   git submodule update --init
 * install Intel ISPC compiler:
   1) Download binaries https://ispc.github.io/downloads.html
-  2) copy ispc to /usr/bin/local
+  2) copy ispc to /usr/local/bin or any another directory from PATH
 * install cmake:
   sudo apt install cmake
 * install dependencies:
