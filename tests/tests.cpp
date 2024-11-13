@@ -3518,7 +3518,8 @@ void litert_test_42_mesh_lods()
 
 void litert_test_43_hydra_integration()
 {
-  hydra_integration_example();
+  hydra_integration_example(DEVICE_CPU);
+  hydra_integration_example(DEVICE_GPU);
 }
 
 void perform_tests_litert(const std::vector<int> &test_ids)
