@@ -47,12 +47,26 @@ namespace embree
 
   void EmbreeScene::attach_mesh(const Mesh &mesh) {
     RTCGeometry geom = rtcNewGeometry(device, RTC_GEOMETRY_TYPE_TRIANGLE);
-    
+    rtcSetGeometryVertexAttributeCount(geom, 2);
     float3 *vertices = reinterpret_cast<float3*>(rtcSetNewGeometryBuffer(
         geom, RTC_BUFFER_TYPE_VERTEX, 0, RTC_FORMAT_FLOAT3, 
         sizeof(float3), mesh.indices.size()));
     for (size_t i = 0; i < mesh.indices.size(); ++i) {
       vertices[i] = to_float3(mesh.vertices[i]/mesh.vertices[i].w);
+    }
+
+    float3 *normals = reinterpret_cast<float3*>(rtcSetNewGeometryBuffer(
+        geom, RTC_BUFFER_TYPE_VERTEX_ATTRIBUTE, 0, RTC_FORMAT_FLOAT3, 
+        sizeof(float3), mesh.indices.size()));
+    for (size_t i = 0; i < mesh.indices.size(); ++i) {
+      normals[i] = mesh.normals[i];
+    }
+
+    float2 *uvs = reinterpret_cast<float2*>(rtcSetNewGeometryBuffer(
+        geom, RTC_BUFFER_TYPE_VERTEX_ATTRIBUTE, 1, RTC_FORMAT_FLOAT2, 
+        sizeof(float2), mesh.indices.size()));
+    for (size_t i = 0; i < mesh.indices.size(); ++i) {
+      uvs[i] = mesh.uvs[i];
     }
 
     uint32_t *indices = reinterpret_cast<uint32_t*>(rtcSetNewGeometryBuffer(
@@ -175,6 +189,9 @@ namespace embree
     hit.primID = args->primID;
     hit.u = uv[0];
     hit.v = uv[1];
+    hit.Ng_x = 0.0f;
+    hit.Ng_y = 0.0f;
+    hit.Ng_z = 0.0f;
   }
 
   template<RayPackSize size>
@@ -367,6 +384,73 @@ namespace embree
         info.hitten = true;
         info.uv = float2{ ray_hit.hit.u, ray_hit.hit.v };
         info.normal = float3{ ray_hit.hit.Ng_x, ray_hit.hit.Ng_y, ray_hit.hit.Ng_z };
+        info.pos = pos + ray * ray_hit.ray.tfar;
+
+        float2 uv = info.uv;
+        float3 point = info.pos;
+        float t = length(point-camera.position);
+        uint2 xy = uint2{ x, fb.col_buf.height()-1-y };
+
+        if (fb.z_buf[xy] > t) {
+          float4 color = shade_func(info, camera.position);
+          fb.z_buf[xy] = t;
+          fb.col_buf[xy] = uchar4{ 
+            static_cast<u_char>(color[0]*255.0f),
+            static_cast<u_char>(color[1]*255.0f),
+            static_cast<u_char>(color[2]*255.0f),
+            static_cast<u_char>(color[3]*255.0f) }.u32;
+        }
+      }
+    }
+  }
+
+  void EmbreeScene::draw_triangles(const Camera &camera, FrameBuffer &fb, std::function<ShadeFuncType> shade_func) const {
+    float4x4 mat  = perspectiveMatrix(camera.fov*180*M_1_PI, camera.aspect, 0.001f, 1000.0f)
+                * lookAt(camera.position, camera.target, camera.up);
+    float4x4 inversed_mat = inverse4x4(mat);
+    #pragma omp parallel for schedule(dynamic)
+    for (uint32_t y = 0; y < fb.col_buf.height(); ++y)
+    for (uint32_t x = 0; x < fb.col_buf.width();  ++x)
+    {
+      float2 ndc_point  = float2{ x+0.5f, y+0.5f } 
+                        / float2{ fb.col_buf.width()*1.0f, fb.col_buf.height()*1.0f }
+                        * 2.0f
+                        - 1.0f;
+      float4 ndc_point4 = { ndc_point.x, ndc_point.y, 0.0f, 1.0f };
+      float4 point = inversed_mat * ndc_point4;
+      point /= point.w;
+
+      float3 ray = normalize(to_float3(point)-camera.position);
+      float3 pos = camera.position;
+      
+      
+      RTCRayHit ray_hit;
+      ray_hit.ray.org_x = pos.x;
+      ray_hit.ray.org_y = pos.y;
+      ray_hit.ray.org_z = pos.z;
+      ray_hit.ray.dir_x = ray.x;
+      ray_hit.ray.dir_y = ray.y;
+      ray_hit.ray.dir_z = ray.z;
+      ray_hit.ray.tnear = 0.0f;
+      ray_hit.ray.mask = -1;
+      ray_hit.ray.flags = 0;
+      ray_hit.ray.tfar = std::numeric_limits<float>::infinity();
+      ray_hit.hit.geomID = RTC_INVALID_GEOMETRY_ID;
+      rtcIntersect1(scn, &ray_hit);
+      if (ray_hit.hit.geomID != RTC_INVALID_GEOMETRY_ID) {
+        HitInfo info;
+
+        float tr_u = ray_hit.hit.u;
+        float tr_v = ray_hit.hit.v;
+        RTCGeometry geom = rtcGetGeometry(scn, ray_hit.hit.geomID);
+        rtcInterpolate0(
+            geom, ray_hit.hit.primID, tr_u, tr_v, RTC_BUFFER_TYPE_VERTEX_ATTRIBUTE, 0, 
+            reinterpret_cast<float*>(&info.normal), 3);
+        rtcInterpolate0(
+            geom, ray_hit.hit.primID, tr_u, tr_v, RTC_BUFFER_TYPE_VERTEX_ATTRIBUTE, 1, 
+            reinterpret_cast<float*>(&info.uv), 2);
+        
+        info.hitten = true;
         info.pos = pos + ray * ray_hit.ray.tfar;
 
         float2 uv = info.uv;

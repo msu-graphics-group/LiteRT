@@ -180,7 +180,7 @@ int main(int, char** argv)
       {
         case 2: embree_boxes.draw(camera, fb, shader_funcs[cur_shader]); break;
         case 3: embree_scn.draw(camera, fb, shader_funcs[cur_shader], ray_pack_sizes[cur_ray_pack]); break;
-        case 4: embree_tesselated.draw(camera, fb, shader_funcs[cur_shader], ray_pack_sizes[cur_ray_pack]); break;
+        case 4: embree_tesselated.draw_triangles(camera, fb, shader_funcs[cur_shader]); break;
       }
     }
     auto e = std::chrono::high_resolution_clock::now();

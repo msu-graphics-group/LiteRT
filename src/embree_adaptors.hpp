@@ -71,6 +71,7 @@ namespace embree
   public:
     void draw(const Camera &camera, FrameBuffer &fb, std::function<ShadeFuncType> shade_func = shade_uv,
                 RayPackSize ray_pack = RayPackSize::RAY_PACK_1) const;
+    void draw_triangles(const Camera &camera, FrameBuffer &fb, std::function<ShadeFuncType> shade_func = shade_uv) const;
   private:
     void draw1(const Camera &camera, FrameBuffer &fb, std::function<ShadeFuncType> shade_func) const;
     template<RayPackSize size>
