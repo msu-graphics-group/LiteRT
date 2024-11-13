@@ -87,9 +87,10 @@ private:
     Vector2D<float> parseFVector2D(std::string raw);
     Vector2D<LiteMath::float4> parsePointVector2D(std::string raw); 
     Entity parseComplexArg(const std::string &arg);
-    Entity parseEntity(const std::string &entry);
+    Entity parseEntity(const std::string &entry, bool hasID = true);
     uint parseID(std::string rawID);
-    uint parseF(std::string raw);
+    float parseF(std::string raw);
+    long double parseLD(std::string raw);
     uint parseU(std::string raw);
     std::vector<uint> parseUVector1D(std::string raw);
     std::vector<float> parseFVector1D(std::string raw);

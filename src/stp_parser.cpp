@@ -7,7 +7,6 @@
 #include <sstream>
 #include <cassert>
 #include <cctype>
-#include <regex>
 
 #include <LiteMath.h>
 
@@ -132,14 +131,16 @@ Parser::Parser(const std::string &filename) {
 }
 
 uint Parser::parseID(std::string rawID) {
-    std::regex rexp("#(\\d+)");
-    std::smatch match;
-    std::regex_match(rawID, match, rexp);
-    uint id = std::stoi(match[1].str());
-    return id;
+    size_t size = rawID.size();
+    std::string id = rawID.substr(1, size - 1);
+    return this->parseU(id);
 }
 
-uint Parser::parseF(std::string raw) {
+long double Parser::parseLD(std::string raw) {
+    return std::stold(raw);
+}
+
+float Parser::parseF(std::string raw) {
     return std::stof(raw);
 }
 
@@ -151,7 +152,7 @@ std::vector<uint> Parser::parseUVector1D(std::string raw) {
     std::vector<std::string> args = argsplit(raw);
     std::vector<uint> uvector1D;
     for (auto arg : args) {
-        uint num = stoi(arg);
+        uint num = this->parseU(arg);
         uvector1D.push_back(num);
     }
     return uvector1D;
@@ -161,7 +162,7 @@ std::vector<float> Parser::parseFVector1D(std::string raw) {
     std::vector<std::string> args = argsplit(raw);
     std::vector<float> fvector1D;
     for (auto arg : args) {
-        float num = stof(arg);
+        float num = this->parseLD(arg);
         fvector1D.push_back(num);
     }
     return fvector1D;
@@ -178,7 +179,7 @@ float3 Parser::tofloat3(uint id) {
     std::vector<std::string> coords = argsplit(coords_arg);
     assert(coords.size() == 3);
     for (size_t i = 0; i < coords.size(); i++) {
-        point[i] = std::stof(coords[i]);
+        point[i] = this->parseLD(coords[i]);
     }
 
     return point;
@@ -218,40 +219,19 @@ Vector2D<float4> Parser::parsePointVector2D(std::string raw) {
     return points;
 }
 
-Entity Parser::parseComplexArg(const std::string &arg) {
-    // Returns complex entity name and args.
+Entity Parser::parseEntity(const std::string &entry, bool hasID) {
+    // If hasID is false, returns complex entity name and args.
     // It is similar to simple STEP entity,
     // but since it is the argument, it doesn't have the id.
     // Although the types of complex arguments match the
     // STEP entity types, their arguments are just 'subarguments'
     // from the real STEP entity.
     // Therefore, their args must be parsed in a different way.
-    std::regex rexp;
-    std::smatch matches;
-    Type type;
-    std::vector<std::string> args;
-
-    rexp = std::regex("(\\S+?)(\\(.*\\))");
-    std::regex_search(arg, matches, rexp);
-
-    std::string rawtype = matches[1].str();
-    std::string rawargs = matches[2].str();
-    type = str2type(rawtype);
-    args = argsplit(rawargs);
-
-    Entity entity;
-    entity.id = 0;
-    entity.type = type;
-    entity.args = args;
-    return entity;
-}
-
-Entity Parser::parseEntity(const std::string &entry) {
     std::string id;
     std::string type;
     std::string args;
 
-    bool storedID   = false;
+    bool storedID   = !hasID;
     bool storedName = false;
     for (auto chr : entry) {
         if (chr == '=') { storedID = true; continue; }
@@ -264,7 +244,8 @@ Entity Parser::parseEntity(const std::string &entry) {
     }
 
     Entity entity;
-    entity.id = this->parseU(id);
+    if (hasID) entity.id = this->parseU(id);
+    else entity.id = 0;
 
     if (type.size() == 0) {
         entity.type = Type::COMPLEX;
@@ -414,9 +395,9 @@ RawNURBS Parser::BSplineSurfaceWithKnotsToNURBS(uint id) {
 RawNURBS Parser::RationalBSplineSurfaceToNURBS(uint id) {
     Entity entity = this->getEntity(id);
 
-    Entity BSplineSurface = this->parseComplexArg(entity.args[1]);
-    Entity BSplineSurfaceWithKnots = this->parseComplexArg(entity.args[2]);
-    Entity RationalBSplineSurface = this->parseComplexArg(entity.args[4]);
+    Entity BSplineSurface = this->parseEntity(entity.args[1], false);
+    Entity BSplineSurfaceWithKnots = this->parseEntity(entity.args[2], false);
+    Entity RationalBSplineSurface = this->parseEntity(entity.args[4], false);
 
     RawNURBS nurbs;
     this->storeBSplineSurface(BSplineSurface, nurbs);
@@ -445,13 +426,13 @@ bool Parser::isRationalBSpline(uint id) {
 
     bool result = false;
     if (entity.type == Type::COMPLEX && entity.args.size() == 7) {
-        result = this->parseComplexArg(entity.args[0]).type == Type::BOUNDED_SURFACE &&
-            this->parseComplexArg(entity.args[1]).type == Type::BSPLINE_SURFACE &&
-            this->parseComplexArg(entity.args[2]).type == Type::BSPLINE_SURFACE_WITH_KNOTS &&
-            this->parseComplexArg(entity.args[3]).type == Type::GEOMETRIC_REPRESENTATION_ITEM &&
-            this->parseComplexArg(entity.args[4]).type == Type::RATIONAL_BSPLINE_SURFACE &&
-            this->parseComplexArg(entity.args[5]).type == Type::REPRESENTATION_ITEM &&
-            this->parseComplexArg(entity.args[6]).type == Type::SURFACE;
+        result = this->parseEntity(entity.args[0], false).type == Type::BOUNDED_SURFACE &&
+            this->parseEntity(entity.args[1], false).type == Type::BSPLINE_SURFACE &&
+            this->parseEntity(entity.args[2], false).type == Type::BSPLINE_SURFACE_WITH_KNOTS &&
+            this->parseEntity(entity.args[3], false).type == Type::GEOMETRIC_REPRESENTATION_ITEM &&
+            this->parseEntity(entity.args[4], false).type == Type::RATIONAL_BSPLINE_SURFACE &&
+            this->parseEntity(entity.args[5], false).type == Type::REPRESENTATION_ITEM &&
+            this->parseEntity(entity.args[6], false).type == Type::SURFACE;
     }
     return result;
 }
