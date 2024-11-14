@@ -2773,36 +2773,104 @@ void BVHRT::OctreeIntersectV3(uint32_t type, const float3 ray_pos, const float3 
       }
       else
       { 
-        buf_top = 0;
-        tm = 0.5f*(t0 + t1);
+        // buf_top = 0;
+        // tm = 0.5f*(t0 + t1);
 
-        currNode = first_node(t0, tm);
-        do
+        // currNode = first_node(t0, tm);
+        // do
+        // {
+        //   //0-7 bits are child_is_active flags, next 8-15 bits are child_is_leaf flags
+        //   uint32_t childrenInfo = m_SdfCompactOctreeV3Data[stack[top].nodeId + 8];
+        //   uint32_t childNode = currNode ^ a; //child node number, from 0 to 8
+
+        //   // if child is active
+        //   if ((childrenInfo & (1u << childNode)) > 0)
+        //   {
+        //     uint32_t childOffset = m_SdfCompactOctreeV3Data[stack[top].nodeId + childNode];
+        //     tmp_buf[buf_top].nodeId = childOffset;
+        //     tmp_buf[buf_top].curChildId = childrenInfo & (1u << (childNode + 8)); // > 0 is child is leaf
+        //     tmp_buf[buf_top].p_size = (stack[top].p_size << 1) | uint2(((currNode & 4) << (16-2)) | ((currNode & 2) >> 1), (currNode & 1) << 16);
+        //     buf_top++;
+        //   }
+        //   //return (txm < tym) ? (txm < tzm ? x : z) : (tym < tzm ? y : z);
+        //   currNode = new_node(((currNode & 4) > 0) ? t1.x : tm.x, nn_indices[currNode].x,
+        //                       ((currNode & 2) > 0) ? t1.y : tm.y, nn_indices[currNode].y,
+        //                       ((currNode & 1) > 0) ? t1.z : tm.z, nn_indices[currNode].z);
+        // } while (currNode<8);
+
+        // for (int i = 0; i < buf_top; i++)
+        // {
+        //   stack[top+i] = tmp_buf[buf_top-i-1];
+        // }
+        // top += buf_top - 1;
+
+
+        //beg
+        const float level_sz_half = level_sz * 0.5f;
+        float3 real_p = p_f;
+        if ((a & 4) > 0) real_p.x = ~p.x & (level_sz - 1);
+        if ((a & 2) > 0) real_p.y = ~p.y & (level_sz - 1);
+        if ((a & 1) > 0) real_p.z = ~p.z & (level_sz - 1);
+        real_p = float3(level_sz_half) - real_p;
+
+        float3 c0 = level_sz_half * (ray_pos + std::max(std::max(t0.x, t0.y), t0.z) * ray_dir) + real_p;
+        float3 c1 = level_sz_half * (ray_pos + std::min(std::min(t1.x, t1.y), t1.z) * ray_dir) + real_p;
+        const float EPS = 1e-5f;
+
+        uint4 nodes{8u};
+
+        nodes[0] = ((c0.x >= 0.5f) << 2u) | ((c0.y >= 0.5f) << 1u) | (c0.z >= 0.5f); // in
+        nodes[3] = ((c1.x >= 0.5f) << 2u) | ((c1.y >= 0.5f) << 1u) | (c1.z >= 0.5f); // out
+
+        if (nodes[0] == nodes[3])
         {
-          //0-7 bits are child_is_active flags, next 8-15 bits are child_is_leaf flags
-          uint32_t childrenInfo = m_SdfCompactOctreeV3Data[stack[top].nodeId + 8];
-          uint32_t childNode = currNode ^ a; //child node number, from 0 to 8
-
-          // if child is active
-          if ((childrenInfo & (1u << childNode)) > 0)
-          {
-            uint32_t childOffset = m_SdfCompactOctreeV3Data[stack[top].nodeId + childNode];
-            tmp_buf[buf_top].nodeId = childOffset;
-            tmp_buf[buf_top].curChildId = childrenInfo & (1u << (childNode + 8)); // > 0 is child is leaf
-            tmp_buf[buf_top].p_size = (stack[top].p_size << 1) | uint2(((currNode & 4) << (16-2)) | ((currNode & 2) >> 1), (currNode & 1) << 16);
-            buf_top++;
-          }
-          //return (txm < tym) ? (txm < tzm ? x : z) : (tym < tzm ? y : z);
-          currNode = new_node(((currNode & 4) > 0) ? t1.x : tm.x, nn_indices[currNode].x,
-                              ((currNode & 2) > 0) ? t1.y : tm.y, nn_indices[currNode].y,
-                              ((currNode & 1) > 0) ? t1.z : tm.z, nn_indices[currNode].z);
-        } while (currNode<8);
-
-        for (int i = 0; i < buf_top; i++)
-        {
-          stack[top+i] = tmp_buf[buf_top-i-1];
+          // same node
+          nodes[3] = 8u;
         }
-        top += buf_top - 1;
+        else if ((nodes[0] ^ nodes[3]) & ((nodes[0] ^ nodes[3]) - 1)) // neighbours ignored - we know them
+        {
+          float3 coefs{1e+38f};
+          int a1 = 2;
+          bool diagonal = (nodes[0] ^ nodes[3]) == 7u;
+
+          for (int i = 0; i < 3; ++i)
+          {
+            if (std::abs(0.5f - c1[i]) > 1e-5f)
+            {
+              coefs[i] = (clamp(c0[i], 0.f, 1.f) - 0.5f) / (0.5f - clamp(c1[i], 0.f, 1.f));
+              // coefs[i] = coefs[i] / (1.f + coefs[i]);
+              if (coefs[i] >= 0.f && coefs[i] < coefs[a1])
+                a1 = i;
+            }
+          }
+
+          nodes[1] = nodes[0] ^ (1 << (2 - a1));
+          if (diagonal)
+          {
+            int a2 = (a1 + 1) % 3;
+            int a3 = (a2 + 1) % 3;
+            if (coefs[a3] < coefs[a2])
+              a2 = a3;
+            nodes[2] = nodes[1] ^ (1 << (2 - a2));
+          }
+        }
+
+        uint32_t childrenInfo = m_SdfCompactOctreeV3Data[stack[top].nodeId + 8];
+        uint2 p_size = stack[top].p_size << 1;
+        uint32_t node_id = stack[top].nodeId;
+        for (int i = 3; i >= 0; --i)
+        {
+          if (nodes[i] < 8 && (childrenInfo & (1u << nodes[i])) > 0)
+          {
+            uint32_t curr_node = nodes[i] ^ a;
+            stack[top].nodeId = m_SdfCompactOctreeV3Data[node_id + nodes[i]];
+            stack[top].curChildId = childrenInfo & (1u << (nodes[i] + 8)); // > 0 is child is leaf
+            stack[top].p_size = p_size | uint2(((curr_node & 4) << (16-2)) | ((curr_node & 2) >> 1), (curr_node & 1) << 16);
+            ++top;
+          }
+        }
+        --top;
+        //end
       }
     }
 #endif

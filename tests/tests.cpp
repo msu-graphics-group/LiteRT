@@ -3223,7 +3223,7 @@ void litert_test_41_coctree_v3()
     printf("mesh        %4.1f ms %.1f Kb\n", timings[0]/10, mesh_total_bytes/1024.0f);
   }
 
-  std::vector<int> bpp = {8,16,32};
+  std::vector<int> bpp = {};
 
   for (int b : bpp)
   {
@@ -3283,7 +3283,7 @@ void litert_test_41_coctree_v3()
     float flip = image_metrics::FLIP(image_ref, image_res);
     printf("SBS %2d bits/distance: %4.1f ms %6.1f Kb %.2f PSNR %.4f FLIP\n", b, timings[0]/10, SBS_total_bytes/(1024.0f), psnr, flip);
   }
-
+if (false)
   {
     auto octree = sdf_converter::create_sdf_frame_octree(SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, base_depth, 2<<28),
                                                          mesh);
@@ -3353,13 +3353,13 @@ void litert_test_41_coctree_v3()
     t2 = std::chrono::steady_clock::now();
 
     time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
-    LiteImage::SaveImage<uint32_t>(("saves/test_41_coctree_v3_"+std::to_string(b)+"_bits.bmp").c_str(), image_res);
+    LiteImage::SaveImage<uint32_t>(("saves/test_41_coctree_v3_"+std::to_string(bvh_level)+"_bits.bmp").c_str(), image_res);
     
     MultiRenderPreset preset_tex = preset;
     preset_tex.render_mode = MULTI_RENDER_MODE_LAMBERT;
     pRender->SetPreset(preset_tex);
     //pRender->Render(image_res_tex.data(), W, H, worldView, proj, preset_tex, 1);
-    LiteImage::SaveImage<uint32_t>(("saves/test_41_coctree_v3_"+std::to_string(b)+"_bits_tex.bmp").c_str(), image_res_tex); 
+    LiteImage::SaveImage<uint32_t>(("saves/test_41_coctree_v3_"+std::to_string(bvh_level)+"_bits_tex.bmp").c_str(), image_res_tex); 
 
     BVHRT *bvhrt = dynamic_cast<BVHRT*>(pRender->GetAccelStruct().get());
     coctree_total_bytes = bvhrt->m_SdfCompactOctreeV3Data.size()*sizeof(uint32_t) + 
