@@ -1458,6 +1458,13 @@ float4 BVHRT::rbezier_grid_point(float u, float v, NURBSHeader h) {
 }
 
 float4 BVHRT::rbezier_curve_der(float u, int p, int offset) {
+  if (p == 1) {
+    float4 cur_pnt = control_point(0, offset);
+    float4 next_pnt = control_point(1, offset);
+    float4 res = (next_pnt-cur_pnt) * p;
+    return res;
+  }
+
   float u_n = 1.0f;
   float _1_u = 1.0f - u;
   int bc = 1;
@@ -1465,12 +1472,11 @@ float4 BVHRT::rbezier_curve_der(float u, int p, int offset) {
   float4 cur_pnt = control_point(0, offset);
   float4 next_pnt = control_point(1, offset);
   float4 res = (next_pnt-cur_pnt) * _1_u;
-  if (p > 1)
-    cur_pnt = next_pnt;
+  cur_pnt = next_pnt;
 
   for (int i = 1; i <= p-2; ++i) {
     u_n *= u;
-    bc = bc * (p-i+1)/i;
+    bc = bc * (p-i)/i;
     next_pnt = control_point(i+1, offset);
     res = (res + u_n * bc * (next_pnt-cur_pnt)) * _1_u;
     cur_pnt = next_pnt;
@@ -1505,6 +1511,14 @@ float4 BVHRT::rbezier_surface_vder(float u, float v, const float4 &Sw, int point
 float4 BVHRT::rbezier_surface_uder(float u, float v, const float4 &Sw, int points_offset, NURBSHeader h) {
   int p = h.p;
   int q = h.q;
+  if (p == 1) {
+    float4 cur_point = rbezier_curve_point(v, q, points_offset+(q+1)*4*0);
+    float4 next_point = rbezier_curve_point(v, q, points_offset+(q+1)*4*1);
+    float4 Sw_der = (next_point - cur_point) * p;
+    float4 S_der = (Sw_der * Sw.w - Sw * Sw_der.w)/(Sw.w * Sw.w);
+    return S_der;
+  }
+
   float u_n = 1.0f;
   float _1_u = 1.0f - u;
   int bc = 1;
@@ -1513,12 +1527,11 @@ float4 BVHRT::rbezier_surface_uder(float u, float v, const float4 &Sw, int point
   float4 cur_point = rbezier_curve_point(v, q, points_offset+(q+1)*4*0);
   float4 next_point = rbezier_curve_point(v, q, points_offset+(q+1)*4*1);
   Sw_der = (next_point - cur_point) * _1_u;
-  if (p > 1)
-    cur_point = next_point;
+  cur_point = next_point;
 
   for (int i = 1; i <= p-2; ++i) {
     u_n *= u;
-    bc = bc * (p-i+1)/i;
+    bc = bc * (p-i)/i;
     next_point = rbezier_curve_point(v, q, points_offset+(q+1)*4*(i+1));
     Sw_der = (Sw_der + u_n * bc * (next_point-cur_point)) * _1_u;
     cur_point = next_point;
