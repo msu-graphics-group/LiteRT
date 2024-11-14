@@ -631,29 +631,22 @@ get_nurbs_control_mesh(const RBezier &rbezier, float2 ubounds, float2 vbounds, i
           float2{ quadi*1.0f/p, (quadj+1.0f)/q },
           float2{ quadi*1.0f/p, quadj*1.0f/q },
         };
-        float4 Pw[] = {
-          rbezier.get_point(UV[0][0], UV[0][1]),
-          rbezier.get_point(UV[1][0], UV[1][1]),
-          rbezier.get_point(UV[2][0], UV[2][1]),
-
-          rbezier.get_point(UV[3][0], UV[3][1]),
-          rbezier.get_point(UV[4][0], UV[4][1]),
-          rbezier.get_point(UV[5][0], UV[5][1]),
-        };
-        auto calc_normal_f = [&](float2 uv, const float4 &Sw) {
-          float3 uder = to_float3(rbezier.uder(uv.x, uv.y, Sw));
-          float3 vder = to_float3(rbezier.vder(uv.x, uv.y, Sw));
+        auto calc_normal_f = [&](float2 uv) {
+          uv.x = lerp(stripi*1.0f/(udivs+1), (stripi+1.0f)/(udivs+1), uv.x);
+          uv.y = lerp(stripj*1.0f/(vdivs+1), (stripj+1.0f)/(vdivs+1), uv.y);
+          float3 uder = to_float3(rbezier.uder(uv.x, uv.y));
+          float3 vder = to_float3(rbezier.vder(uv.x, uv.y));
           float3 normal = normalize(cross(uder, vder));
           return to_float4(normal, 0.0f);
         };
         float4 normals[] = {
-          calc_normal_f(UV[0], Pw[0]),
-          calc_normal_f(UV[1], Pw[1]),
-          calc_normal_f(UV[2], Pw[2]),
-
-          calc_normal_f(UV[3], Pw[3]),
-          calc_normal_f(UV[4], Pw[4]),
-          calc_normal_f(UV[5], Pw[5]),
+          calc_normal_f(UV[0]),
+          calc_normal_f(UV[1]),
+          calc_normal_f(UV[2]),
+          
+          calc_normal_f(UV[3]),
+          calc_normal_f(UV[4]),
+          calc_normal_f(UV[5]),
         };
         for (auto &uv: UV) {
           uv.x = lerp(umin, umax, uv.x);

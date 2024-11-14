@@ -2267,6 +2267,8 @@ void litert_test_31_nurbs_render()
   unsigned W = 800, H = 600;
 
   MultiRenderPreset preset = getDefaultPreset();
+  // preset.render_mode = MULTI_RENDER_MODE_NORMAL;
+  //preset.normal_mode = NORMAL_MODE_VERTEX;
   preset.render_mode = MULTI_RENDER_MODE_TEX_COORDS;
   preset.ray_gen_mode = RAY_GEN_MODE_REGULAR;
   preset.spp = 1;
