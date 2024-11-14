@@ -31,15 +31,15 @@ Test lists:
     Example:
         --unittest 1 2 --regression 3 4 --unittest 5
         means test list of unittests with names "1", "2", "5" and
-            regression tests witrh names "3" and "4".
-    If no names are specified for <type> but <type>, it means all tests of <type>
+            regression tests with names "3" and "4".
+    If no names are specified for <type> but <type> is specified, it means all tests of <type>
     Example:
         test --run --unittest --regression 1 2
         runs all unittests and regression tests with names "1" and "2".
     --all means all tests of all types
-Shotcuts:
+Shortcuts:
     If no command is specified --run is assumed
-    If no test is specified and <cmd> is --run or --list, then --all is assumend
+    If no test is specified --all is assumed
 )";
 
 }

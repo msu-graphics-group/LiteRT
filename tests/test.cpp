@@ -4,34 +4,100 @@
 #include <optional>
 #include "args.h"
 #include "help.h"
-
-namespace test
-{
-    std::vector<Unittest*> Unittest::tests_;
-}
+#include <iomanip>
 
 namespace test
 {
 
-    template<typename Test>
-    std::optional<std::vector<Test*>> collect_tests(const std::vector<std::string_view>&names)
+    enum class COLOR
     {
-        return {};
+        RED,
+        GREEN
+    };
+
+    const char* color_begin(COLOR c)
+    {
+        switch(c)
+        {
+            case COLOR::RED:
+                return "\33[31m";
+            case COLOR::GREEN:
+                return "\33[32m";
+            default:
+                return "\33[97m"; // white
+        }
+    }
+
+    const char* color_end()
+    {
+        return "\33[0m";
     }
 
     template<typename Test>
-    bool list_tests(const std::vector<Test*>& tests)
+    std::optional<std::vector<const Test*>> collect_tests(const std::vector<std::string_view>&names)
     {
+        if (names.size() == 0)
+        {
+            return Test::all();
+        }
+
+        std::map<std::string_view, const Test*> tests;
+
+        for (auto i : Test::all())
+        {
+            tests[i->name()] = i;
+        }
+
+        std::vector<const Test*> out;
+        for (auto name : names)
+        {
+            auto it  = tests.find(name);
+            if (it == tests.end())
+            {
+                std::cerr << "Unrecognized test name '" << name << "'" << std::endl;
+                return std::nullopt;
+            }
+            out.push_back(it->second);
+        }
+
+        return out;
+    }
+
+    template<typename Test>
+    bool list_tests(const std::vector<const Test*>& tests)
+    {
+
+        for (auto i : tests)
+        {
+            std::cout << "[" << i->name() << "]" << " \"" << i->description() << "\"" << std::endl;
+        }
+
         return true;
     }
 
     template<typename Test>
-    bool run_tests(const std::vector<Test*>& tests)
+    bool run_tests(const std::vector<const Test*>& tests, size_t&total)
     {
+        total = 0;
+        for (auto i : tests)
+        {
+            std::cout << "[RUN   ] [" << i->name() << "] \"" << i->description() << "\"" << std::endl;
+            bool res = i->execute();
+            if (res)
+            {
+                std::cout << color_begin(COLOR::GREEN) << "[PASSED]" << color_end();
+                total += 1;
+            }
+            else
+            {
+                std::cout << color_begin(COLOR::RED) <<  "[FAILED]" << color_end();
+            }
+            std::cout << " [" << i->name() << "]" << std::endl;
+        }
         return true;
     }
 
-    bool rewrite_regression(const Unittest*test)
+    bool rewrite_regression(const Regression*test)
     {
         return true;
     }
@@ -49,7 +115,7 @@ namespace test
 
         if (!(
             args->check_only({
-                 "--help",
+                "--help",
                 "--run",
                 "--list",
                 "--rewrite",
@@ -90,45 +156,81 @@ namespace test
 
         if (all)
         {
-            unittest = {};
-            regression = {};
+            unittest = std::vector<std::string_view>{};
+            regression = std::vector<std::string_view>{};
         }
 
-        auto wanted_unittests = collect_tests<Unittest>(*unittest);
+        auto wanted_unittests = (unittest ? collect_tests<Unittest>(*unittest) : std::vector<const Unittest*>{});
         if (!wanted_unittests)
         {
             return false;
         }
         
-        auto wanted_regressions = collect_tests<Unittest>(*regression);
+        auto wanted_regressions = regression ? collect_tests<Regression>(*regression) : std::vector<const Regression*>{};
         if (!wanted_regressions)
         {
             return false;
         }
 
+        bool has_unittests = wanted_unittests->size() > 0;
+        bool has_regressions = wanted_regressions->size() > 0;
 
         if (run)
         {
-            if (run_tests(*wanted_unittests))
-            {
-                return false;
+            if (has_unittests) {
+                std::cout << "###################" << std::endl;
+                std::cout << " Running unittests" << std::endl;
+                std::cout << "###################" << std::endl;
+                size_t passed_unittests = 0;
+                if (!run_tests(*wanted_unittests, passed_unittests))
+                {
+                    return false;
+                }
+                std::cout << "Total: " << passed_unittests << "/" << wanted_unittests->size() << " passed." << std::endl;
             }
-            if (!run_tests(*wanted_regressions))
-            {
-                return false;
+
+            if (has_unittests && has_regressions)
+                std::cout << std::endl;
+            
+            if (has_regressions) {
+                std::cout << "##########################" << std::endl;
+                std::cout << " Running regression tests" << std::endl;
+                std::cout << "##########################" << std::endl;
+                size_t passed_regressions = 0;
+                if (!run_tests(*wanted_regressions, passed_regressions))
+                {
+                    return false;
+                }
+                std::cout << "Total: " << passed_regressions << "/" << wanted_regressions->size() << " passed." << std::endl;
             }
+
             return true;
         }
         else if(list)
         {
-            if (list_tests(*wanted_unittests))
+            if (has_unittests) {
+            std::cout << "###########" << std::endl;
+            std::cout << " Unittests" << std::endl;
+            std::cout << "###########" << std::endl;
+            if (!list_tests(*wanted_unittests))
             {
                 return false;
             }
-            if (!list_tests(*wanted_regressions))
-            {
-                return false;
             }
+
+            if (has_unittests && has_regressions)
+                std::cout << std::endl;
+            
+            if (has_regressions) {
+                std::cout << "##################" << std::endl;
+                std::cout << " Regression tests" << std::endl;
+                std::cout << "##################" << std::endl;
+                if (!list_tests(*wanted_regressions))
+                {
+                    return false;
+                }
+            }
+
             return true;
         }
         else if(rewrite)
@@ -146,6 +248,8 @@ namespace test
             return true;
         }
 
+        // Should never be here
+        return true;
     }
 
 }
@@ -153,6 +257,11 @@ namespace test
 ADD_UNITTEST(1, 01, "test 1")
 {
     return true;
+}
+
+ADD_REGRESSION(2, 10, "reg test 10")
+{
+    return false;
 }
 
 int main(int argc, char**argv)

@@ -1,5 +1,6 @@
 #include "args.h"
 #include <iostream>
+#include <algorithm>
 #include "help.h"
 
 namespace test
@@ -47,7 +48,7 @@ namespace test
         for (auto&[key, values] : args_)
         {
             auto it = std::find(names.begin(), names.end(), key);
-            if (it != names.end())
+            if (it == names.end())
             {
                 std::cerr << "Unrecognized argument name '" << key << "'." << std::endl;
                 std::cerr << read_help_message << std::endl;
