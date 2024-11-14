@@ -27,6 +27,10 @@ float4 rbezier_curve_der(
     float u,
     uniform int p,
     const uniform float4 * uniform pw) {
+  if (p == 1) {
+    return p * (pw[1]-pw[0]);
+  }
+
   float u_n = 1.0f;
   float _1_u = 1.0f - u;
   uniform int bc = 1.0f;
@@ -34,12 +38,11 @@ float4 rbezier_curve_der(
   float4 next = pw[1];
   float4 cur = pw[0];
   float4 res = (next-cur) * _1_u;
-  if (p > 1)
-    cur = next;
+  cur = next;
 
   for (uniform int i = 1; i <= p-2; ++i) {
     u_n *= u;
-    bc = bc * (p-i+1)/i;
+    bc = bc * (p-i)/i;
     next = pw[i+1];
     res = (res + u_n * bc * (next-cur)) * _1_u;
     cur = next;
@@ -98,6 +101,14 @@ static
 float4 surface_uder(
     float u, float v, const float4 &Sw,
     uniform int n, uniform int m, const uniform float4 * uniform pw) {
+  if (n == 1) {
+    float4 next = rbezier_curve_point(v, m, pw+m+1);
+    float4 cur = rbezier_curve_point(v, m, pw);
+    float4 Sw_der = n*(next-cur);
+    float4 res = (Sw_der * Sw.w - Sw * Sw_der.w)/(Sw.w * Sw.w);
+    return res;
+  }
+
   float u_n = 1.0f;
   float _1_u = 1.0f - u;
   uniform int bc = 1.0f;
@@ -105,13 +116,12 @@ float4 surface_uder(
   float4 next = rbezier_curve_point(v, m, pw+m+1);
   float4 cur = rbezier_curve_point(v, m, pw);
   float4 Sw_der = (next-cur) * _1_u;
-  if (n > 1)
-    cur = next;
+  cur = next;
 
   for (uniform int i = 1; i <= n-2; ++i)
   {
     u_n *= u;
-    bc = bc * (n-i+1)/i;
+    bc = bc * (n-i)/i;
     next = rbezier_curve_point(v, m, pw+(i+1)*(m+1));
     Sw_der = (Sw_der + u_n * bc * (next-cur)) * _1_u;
     cur = next;

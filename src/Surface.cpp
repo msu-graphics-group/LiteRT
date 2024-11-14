@@ -238,6 +238,10 @@ LiteMath::float4 rbezier_curve_der(
     float u,
     int p,
     const float4 *pw) {
+  if (p == 1) {
+    return p * (pw[1]-pw[0]);
+  }
+
   float u_n = 1.0f;
   float _1_u = 1.0f - u;
   int bc = 1.0f;
@@ -245,12 +249,11 @@ LiteMath::float4 rbezier_curve_der(
   float4 next = pw[1];
   float4 cur = pw[0];
   float4 res = (next-cur) * _1_u;
-  if (p > 1)
-    cur = next;
+  cur = next;
 
   for (int i = 1; i <= p-2; ++i) {
     u_n *= u;
-    bc = bc * (p-i+1)/i;
+    bc = bc * (p-i)/i;
     next = pw[i+1];
     res = (res + u_n * bc * (next-cur)) * _1_u;
     cur = next;
@@ -315,6 +318,14 @@ LiteMath::float4 RBezier::uder(float u, float v) const {
 LiteMath::float4 RBezier::uder(float u, float v, const LiteMath::float4 &Sw) const {
   int n = weighted_points.get_n()-1;
   int m = weighted_points.get_m()-1;
+  if (n == 1) {
+    float4 next = rbezier_curve_point(v, m, &weighted_points[{1, 0}]);
+    float4 cur = rbezier_curve_point(v, m, &weighted_points[{0, 0}]);
+    float4 Sw_der = n * (next - cur);
+    float4 res = (Sw_der * Sw.w - Sw * Sw_der.w)/(Sw.w * Sw.w);
+    return res;
+  }
+
   float u_n = 1.0f;
   float _1_u = 1.0f - u;
   int bc = 1.0f;
@@ -322,13 +333,12 @@ LiteMath::float4 RBezier::uder(float u, float v, const LiteMath::float4 &Sw) con
   float4 next = rbezier_curve_point(v, m, &weighted_points[{1, 0}]);
   float4 cur = rbezier_curve_point(v, m, &weighted_points[{0, 0}]);
   float4 Sw_der = (next-cur) * _1_u;
-  if (n > 1)
-    cur = next;
+  cur = next;
 
   for (int i = 1; i <= n-2; ++i)
   {
     u_n *= u;
-    bc = bc * (n-i+1)/i;
+    bc = bc * (n-i)/i;
     next = rbezier_curve_point(v, m, &weighted_points[{i+1, 0}]);
     Sw_der = (Sw_der + u_n * bc * (next-cur)) * _1_u;
     cur = next;
