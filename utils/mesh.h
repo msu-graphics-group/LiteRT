@@ -46,8 +46,8 @@ namespace cmesh4
 
   //rescales mesh with constant scale to fit it inside the given box and returns transform that does it
   LiteMath::float4x4 rescale_mesh(cmesh4::SimpleMesh &mesh, float3 min_pos, float3 max_pos);
-
   void transform_mesh(cmesh4::SimpleMesh &mesh, LiteMath::float4x4 transform);
+  void set_mat_id(cmesh4::SimpleMesh &mesh, int mat_id);
 
   //checks if mesh is watertight (it is required to build proper SDF from it)
   bool check_watertight_mesh(const cmesh4::SimpleMesh& mesh, bool verbose = false);

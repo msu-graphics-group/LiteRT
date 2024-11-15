@@ -459,30 +459,55 @@ public:
 };
 std::shared_ptr<ISdfGridFunction> get_SdfGridFunction(SdfGridView scene);
 
-// save/load scene
-void save_sdf_scene_hydra(const SdfScene &scene, const std::string &folder, const std::string &name);
+struct ModelInfo
+{
+  std::string name;
+  unsigned bytesize;
+  unsigned num_primitives;
+};
+
+namespace cmesh4
+{
+  struct SimpleMesh;
+};
+
+// for every type of SDF representation, we need three functions:
+// save, load, info
+// the last one is requires to generate xml file with model of this type
 void save_sdf_scene(const SdfScene &scene, const std::string &path);
 void load_sdf_scene(SdfScene &scene, const std::string &path);
+ModelInfo get_info_sdf_scene(const SdfScene &scene);
 
 void save_sdf_grid(const SdfGridView &scene, const std::string &path);
 void load_sdf_grid(SdfGrid &scene, const std::string &path);
+ModelInfo get_info_sdf_grid(const SdfGridView &scene);
 
 void save_sdf_frame_octree(const SdfFrameOctreeView &scene, const std::string &path);
 void load_sdf_frame_octree(std::vector<SdfFrameOctreeNode> &scene, const std::string &path);
+ModelInfo get_info_sdf_frame_octree(const SdfFrameOctreeView &scene);
 
 void save_sdf_SVS(const SdfSVSView &scene, const std::string &path);
 void load_sdf_SVS(std::vector<SdfSVSNode> &scene, const std::string &path);
+ModelInfo get_info_sdf_SVS(const SdfSVSView &scene);
 
 void save_sdf_SBS(const SdfSBSView &scene, const std::string &path);
 void load_sdf_SBS(SdfSBS &scene, const std::string &path);
+ModelInfo get_info_sdf_SVS(const SdfSBSView &scene);
 
 void save_sdf_frame_octree_tex(const SdfFrameOctreeTexView &scene, const std::string &path);
 void load_sdf_frame_octree_tex(std::vector<SdfFrameOctreeTexNode> &scene, const std::string &path);
+ModelInfo get_info_sdf_frame_octree_tex(const SdfFrameOctreeTexView &scene);
 
 void save_coctree_v3(const COctreeV3View &scene, const std::string &path);
 void load_coctree_v3(COctreeV3 &scene, const std::string &path);
+ModelInfo get_info_coctree_v3(const COctreeV3View &scene);
+
+std::string get_xml_string_model_demo_scene(std::string bin_file_name, ModelInfo info, int mat_id); //for all models except mesh
+std::string get_xml_string_model_demo_scene(std::string bin_file_name, const cmesh4::SimpleMesh &mesh);
+void save_xml_string(const std::string xml_string, const std::string &path);
 
 void load_neural_sdf_scene_SIREN(SdfScene &scene, const std::string &path); // loads scene from raw SIREN weights file
+void save_sdf_scene_hydra(const SdfScene &scene, const std::string &folder, const std::string &name);
 
 SdfSBSAdaptView convert_sbs_to_adapt(SdfSBSAdapt &adapt_scene, const SdfSBSView &scene);
 SdfSBSAdaptView convert_sbs_to_adapt_with_split(SdfSBSAdapt &adapt_scene, const SdfSBSView &scene);

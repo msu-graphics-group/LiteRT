@@ -1,6 +1,8 @@
 #include "sdf_scene.h"
 #include <cassert>
 #include <fstream>
+#include "cmesh4.h"
+#include "utils/mesh.h"
 
 void save_sdf_scene(const SdfScene &scene, const std::string &path)
 {
@@ -44,6 +46,19 @@ void load_sdf_scene(SdfScene &scene, const std::string &path)
   fs.close();
 }
 
+ModelInfo get_info_sdf_scene(const SdfScene &scene)
+{
+  ModelInfo info;
+
+  info.name = "sdf";
+  info.bytesize = scene.conjunctions.size() * sizeof(SdfConjunction) + sizeof(unsigned) +
+                  scene.objects.size() * sizeof(SdfObject) + sizeof(unsigned) +
+                  scene.parameters.size() * sizeof(float) + sizeof(unsigned);
+  info.num_primitives = scene.objects.size();
+
+  return info;
+}
+
 void save_sdf_grid(const SdfGridView &scene, const std::string &path)
 {
   std::ofstream fs(path, std::ios::binary);
@@ -60,6 +75,17 @@ void load_sdf_grid(SdfGrid &scene, const std::string &path)
   scene.data.resize(scene.size.x*scene.size.y*scene.size.z);
   fs.read((char *)scene.data.data(), scene.size.x*scene.size.y*scene.size.z * sizeof(float));
   fs.close();
+}
+
+ModelInfo get_info_sdf_grid(const SdfGridView &scene)
+{
+  ModelInfo info;
+  
+  info.name = "sdf_grid";
+  info.bytesize = scene.size.x*scene.size.y*scene.size.z * sizeof(float) + sizeof(unsigned);
+  info.num_primitives = 1;
+
+  return info;
 }
 
 void save_sdf_frame_octree(const SdfFrameOctreeView &scene, const std::string &path)
@@ -81,6 +107,17 @@ void load_sdf_frame_octree(std::vector<SdfFrameOctreeNode> &scene, const std::st
   fs.close();
 }
 
+ModelInfo get_info_sdf_frame_octree(const SdfFrameOctreeView &scene)
+{
+  ModelInfo info;
+
+  info.name = "sdf_frame_octree";
+  info.bytesize = scene.size * sizeof(SdfFrameOctreeNode) + sizeof(unsigned);
+  info.num_primitives = scene.size;
+
+  return info;
+}
+
 void save_sdf_SVS(const SdfSVSView &scene, const std::string &path)
 {
   std::ofstream fs(path, std::ios::binary);
@@ -98,6 +135,17 @@ void load_sdf_SVS(std::vector<SdfSVSNode> &scene, const std::string &path)
   scene.resize(sz);
   fs.read((char *)scene.data(), scene.size() * sizeof(SdfSVSNode));
   fs.close();
+}
+
+ModelInfo get_info_sdf_SVS(const SdfSVSView &scene)
+{
+  ModelInfo info;
+
+  info.name = "sdf_svs";
+  info.bytesize = scene.size * sizeof(SdfSVSNode) + sizeof(unsigned);
+  info.num_primitives = scene.size;
+
+  return info;
 }
 
 void save_sdf_SBS(const SdfSBSView &scene, const std::string &path)
@@ -126,6 +174,19 @@ void  load_sdf_SBS(SdfSBS &scene, const std::string &path)
   fs.close();
 }
 
+ModelInfo get_info_sdf_SBS(const SdfSBSView &scene)
+{
+  ModelInfo info;
+
+  info.name = "sdf_sbs";
+  info.bytesize = sizeof(SdfSBSHeader) + 
+                  scene.size * sizeof(SdfSBSNode) + sizeof(unsigned) + 
+                  scene.values_count * sizeof(unsigned);
+  info.num_primitives = scene.size;
+
+  return info;
+}
+
 void save_sdf_frame_octree_tex(const SdfFrameOctreeTexView &scene, const std::string &path)
 {
   std::ofstream fs(path, std::ios::binary);
@@ -143,6 +204,17 @@ void load_sdf_frame_octree_tex(std::vector<SdfFrameOctreeTexNode> &scene, const 
   scene.resize(sz);
   fs.read((char *)scene.data(), scene.size() * sizeof(SdfFrameOctreeTexNode));
   fs.close();
+}
+
+ModelInfo get_info_sdf_frame_octree_tex(const SdfFrameOctreeTexView &scene)
+{
+  ModelInfo info;
+
+  info.name = "sdf_frame_octree_tex";
+  info.bytesize = scene.size * sizeof(SdfFrameOctreeTexNode) + sizeof(unsigned);
+  info.num_primitives = scene.size;
+
+  return info;
 }
 
 void save_coctree_v3(const COctreeV3View &scene, const std::string &path)
@@ -171,6 +243,18 @@ void load_coctree_v3(COctreeV3 &scene, const std::string &path)
   scene.data.resize(sz);
   fs.read((char *)scene.data.data(), sz * sizeof(uint32_t));
   fs.close();
+}
+
+ModelInfo get_info_coctree_v3(const COctreeV3View &scene)
+{
+  ModelInfo info;
+
+  info.name = "sdf_coctree_v3";
+  info.bytesize = sizeof(uint32_t) + sizeof(COctreeV3Header) + 
+                  scene.size * sizeof(uint32_t) + sizeof(uint32_t);
+  info.num_primitives = scene.size;
+
+  return info;
 }
 
 void load_neural_sdf_scene_SIREN(SdfScene &scene, const std::string &path)
@@ -277,6 +361,205 @@ void save_sdf_scene_hydra(const SdfScene &scene, const std::string &folder, cons
   fs << std::string(buf);
   fs.flush();
   fs.close();
+}
+
+std::string insert_in_demo_scene(const std::string &geom_info_str)
+{
+constexpr unsigned MAX_BUF_SIZE = 8192;
+  char buf[MAX_BUF_SIZE];
+
+    snprintf(buf, MAX_BUF_SIZE, R""""(
+    <?xml version="1.0"?>
+    <textures_lib total_chunks="4">
+      <texture id="0" name="Map#0" loc="../scenes/01_simple_scenes/data/chunk_00000.image4ub" offset="8" bytesize="16" width="2" height="2" dl="0" />
+    </textures_lib>
+    <materials_lib>
+      <material id="0" name="mysimplemat" type="hydra_material">
+        <diffuse brdf_type="lambert">
+          <color val="0.5 0.5 0.5" />
+        </diffuse>
+      </material>
+      <material id="1" name="red" type="hydra_material">
+        <diffuse brdf_type="lambert">
+          <color val="0.5 0.0 0.0" />
+        </diffuse>
+      </material>
+      <material id="2" name="green" type="hydra_material">
+        <diffuse brdf_type="lambert">
+          <color val="0.0 0.5 0.0" />
+        </diffuse>
+      </material>
+      <material id="3" name="white" type="hydra_material">
+        <diffuse brdf_type="lambert">
+          <color val="0.5 0.5 0.5" />
+        </diffuse>
+      </material>
+      <material id="4" name="gold" type="hydra_material">
+        <diffuse brdf_type="lambert">
+          <color val="0.40 0.4 0" />
+        </diffuse>
+        <reflectivity brdf_type="ggx">
+          <color val="0.20 0.20 0" />
+          <glossiness val="0.750000024" />
+        </reflectivity>
+      </material>
+      <material id="5" name="my_area_light_material" type="hydra_material" light_id="0" visible="1">
+        <emission>
+          <color val="25 25 25" />
+        </emission>
+      </material>
+      <material id="6" name="Silver2_SG" type="hydra_material">
+        <emission>
+          <color val="0 0 0" />
+          <cast_gi val="1" />
+          <multiplier val="1" />
+        </emission>
+        <diffuse brdf_type="lambert">
+          <color val="0.27 0.29 0.29" />
+          <roughness val="0" />
+        </diffuse>
+        <reflectivity brdf_type="phong">
+          <extrusion val="maxcolor" />
+          <color val="0.85 0.85 0.85" />
+          <glossiness val="1" />
+          <fresnel val="1" />
+          <fresnel_ior val="1.5" />
+        </reflectivity>
+      </material>
+    </materials_lib>
+    <geometry_lib total_chunks="4">
+      <mesh id="0" name="my_box" type="vsgf" bytesize="1304" loc="../scenes/01_simple_scenes/data/cornell_open.vsgf" offset="0" vertNum="20" triNum="10" dl="0" path="" bbox="    -4 4 -4 4 -4 4">
+        <positions type="array4f" bytesize="320" offset="24" apply="vertex" />
+        <normals type="array4f" bytesize="320" offset="344" apply="vertex" />
+        <tangents type="array4f" bytesize="320" offset="664" apply="vertex" />
+        <texcoords type="array2f" bytesize="160" offset="984" apply="vertex" />
+        <indices type="array1i" bytesize="120" offset="1144" apply="tlist" />
+        <matindices type="array1i" bytesize="40" offset="1264" apply="primitive" />
+      </mesh>
+      %s
+      <mesh id="2" name="my_area_light_lightmesh" type="vsgf" bytesize="280" loc="../scenes/01_simple_scenes/data/chunk_00003.vsgf" offset="0" vertNum="4" triNum="2" dl="0" path="" light_id="0" bbox="    -1 1 0 0 -1 1">
+        <positions type="array4f" bytesize="64" offset="24" apply="vertex" />
+        <normals type="array4f" bytesize="64" offset="88" apply="vertex" />
+        <tangents type="array4f" bytesize="64" offset="152" apply="vertex" />
+        <texcoords type="array2f" bytesize="32" offset="216" apply="vertex" />
+        <indices type="array1i" bytesize="24" offset="248" apply="tlist" />
+        <matindices type="array1i" bytesize="8" offset="272" apply="primitive" />
+      </mesh>
+    </geometry_lib>
+    <lights_lib>
+      <light id="0" name="my_area_light" type="area" shape="rect" distribution="diffuse" visible="1" mat_id="5" mesh_id="2">
+        <size half_length="1" half_width="1" />
+        <intensity>
+          <color val="1 1 1" />
+          <multiplier val="25" />
+        </intensity>
+      </light>
+    </lights_lib>
+    <cam_lib>
+      <camera id="0" name="my camera" type="uvn">
+        <fov>45</fov>
+        <nearClipPlane>0.01</nearClipPlane>
+        <farClipPlane>100.0</farClipPlane>
+        <up>0 1 0</up>
+        <position>0 0 14</position>
+        <look_at>0 0 0</look_at>
+      </camera>
+    </cam_lib>
+    <render_lib>
+      <render_settings type="HydraModern" id="0">
+        <width>512</width>
+        <height>512</height>
+        <method_primary>pathtracing</method_primary>
+        <method_secondary>pathtracing</method_secondary>
+        <method_tertiary>pathtracing</method_tertiary>
+        <method_caustic>pathtracing</method_caustic>
+        <trace_depth>4</trace_depth>
+        <diff_trace_depth>4</diff_trace_depth>
+        <maxRaysPerPixel>1024</maxRaysPerPixel>
+        <qmc_variant>7</qmc_variant>
+      </render_settings>
+    </render_lib>
+    <scenes>
+      <scene id="0" name="my scene" discard="1" bbox="    -4 4 -4.137 4 -4 4">
+        <remap_lists>
+          <remap_list id="0" size="2" val="0 4 " />
+        </remap_lists>
+        <instance id="0" mesh_id="1" rmap_id="0" scn_id="0" scn_sid="0" matrix="3 0 0 0   0 3 0 -1.4   0 0 -3 0   0 0 0 1 " />
+        <instance id="1" mesh_id="0" rmap_id="-1" scn_id="0" scn_sid="0" matrix="-1 0 -8.74228e-08 0 0 1 0 0 8.74228e-08 0 -1 0 0 0 0 1 " />
+        <instance_light id="0" light_id="0" matrix="1 0 0 0 0 1 0 3.85 0 0 1 0 0 0 0 1 " lgroup_id="-1" />
+        <instance id="2" mesh_id="2" rmap_id="-1" matrix="1 0 0 0 0 1 0 3.85 0 0 1 0 0 0 0 1 " light_id="0" linst_id="0" />
+      </scene>
+    </scenes>
+    )"""",
+    geom_info_str.c_str());
+
+    return std::string(buf, strlen(buf));
+}
+
+std::string get_xml_string_model_demo_scene(std::string bin_file_name, ModelInfo info, int mat_id)
+{
+  constexpr unsigned MAX_BUF_SIZE = 1024;
+  char buf[MAX_BUF_SIZE];
+
+    snprintf(buf, MAX_BUF_SIZE, R""""(
+    <%s id="1" name="demo_model" type="%s" bytesize="%d" loc="%s" num_primitives="%d" mat_id="%d">
+    </%s>
+    )"""",
+    info.name.c_str(), info.name.c_str(), info.bytesize, bin_file_name.c_str(), info.num_primitives, mat_id, info.name.c_str());
+  
+  std::string geom_info_str = std::string(buf, strlen(buf));
+
+  return insert_in_demo_scene(geom_info_str);
+}
+
+std::string get_xml_string_model_demo_scene(std::string bin_file_name, const cmesh4::SimpleMesh &mesh)
+{
+  constexpr unsigned MAX_BUF_SIZE = 1024;
+  char buf[MAX_BUF_SIZE];
+
+  unsigned bytesize = mesh.SizeInBytes();
+  unsigned vertNum = mesh.VerticesNum();
+  unsigned triNum = mesh.TrianglesNum();
+  float3 bbox_min, bbox_max;
+  cmesh4::get_bbox(mesh, &bbox_min, &bbox_max);
+  unsigned positions_bytesize = 4*sizeof(float)*vertNum;
+  unsigned normals_bytesize = 4*sizeof(float)*vertNum;
+  unsigned tangents_bytesize = 4*sizeof(float)*vertNum;
+  unsigned texcoords_bytesize = 2*sizeof(float)*vertNum;
+  unsigned indices_bytesize = sizeof(unsigned)*triNum*3;
+  unsigned matIndices_bytesize = sizeof(unsigned)*triNum;
+
+  unsigned base_offset = 6*sizeof(unsigned);
+
+    snprintf(buf, MAX_BUF_SIZE, R""""(
+      <mesh id="1" name="demo_mesh" type="vsgf" bytesize="%d" loc="%s" offset="0" vertNum="%d" triNum="%d" dl="0" path="" bbox="%f %f %f %f %f %f">
+        <positions type="array4f" bytesize="%d" offset="%d" apply="vertex" />
+        <normals type="array4f" bytesize="%d" offset="%d" apply="vertex" />
+        <tangents type="array4f" bytesize="%d" offset="%d" apply="vertex" />
+        <texcoords type="array2f" bytesize="%d" offset="%d" apply="vertex" />
+        <indices type="array1i" bytesize="%d" offset="%d" apply="tlist" />
+        <matindices type="array1i" bytesize="%d" offset="%d" apply="primitive" />
+      </mesh>
+    )"""",
+    bytesize, bin_file_name.c_str(), vertNum, triNum, bbox_min.x, bbox_max.x, bbox_min.y, bbox_max.y, bbox_min.z, bbox_max.z,
+    positions_bytesize, base_offset, 
+    normals_bytesize, base_offset+positions_bytesize,
+    tangents_bytesize, base_offset+positions_bytesize+normals_bytesize,
+    texcoords_bytesize, base_offset+positions_bytesize+normals_bytesize+tangents_bytesize,
+    indices_bytesize, base_offset+positions_bytesize+normals_bytesize+tangents_bytesize+texcoords_bytesize,
+    matIndices_bytesize, base_offset+positions_bytesize+normals_bytesize+tangents_bytesize+texcoords_bytesize+indices_bytesize
+    );
+  
+  std::string geom_info_str = std::string(buf, strlen(buf));
+
+  return insert_in_demo_scene(geom_info_str);
+}
+
+void save_xml_string(const std::string xml_string, const std::string &path)
+{
+  std::ofstream xml_file(path);
+  xml_file << xml_string;
+  xml_file.close();
 }
 
 SdfSBSAdaptView convert_sbs_to_adapt(SdfSBSAdapt &adapt_scene, const SdfSBSView &scene)

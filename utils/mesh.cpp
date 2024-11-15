@@ -68,6 +68,11 @@ namespace cmesh4
     }
   }
 
+  void set_mat_id(cmesh4::SimpleMesh &mesh, int mat_id)
+  {
+    std::fill(mesh.matIndices.begin(), mesh.matIndices.end(), mat_id);
+  }
+
   bool triangle_aabb_intersect_SAT(const float3 &a, const float3 &b, const float3 &c, 
                                    const float3 &aabb_half_size, float3 axis)
   {
