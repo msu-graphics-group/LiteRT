@@ -363,7 +363,7 @@ void save_sdf_scene_hydra(const SdfScene &scene, const std::string &folder, cons
   fs.close();
 }
 
-std::string insert_in_demo_scene(const std::string &geom_info_str)
+std::string insert_in_demo_scene_cornell_box(const std::string &geom_info_str)
 {
 constexpr unsigned MAX_BUF_SIZE = 8192;
   char buf[MAX_BUF_SIZE];
@@ -496,7 +496,140 @@ constexpr unsigned MAX_BUF_SIZE = 8192;
     return std::string(buf, strlen(buf));
 }
 
-std::string get_xml_string_model_demo_scene(std::string bin_file_name, ModelInfo info, int mat_id)
+std::string insert_in_demo_scene_single_object(std::string geom_info_str)
+{
+constexpr unsigned MAX_BUF_SIZE = 8192;
+  char buf[MAX_BUF_SIZE];
+
+  snprintf(buf, MAX_BUF_SIZE, R""""(
+<?xml version="1.0"?>
+<textures_lib total_chunks="4">
+  <texture id="0" name="Map#0" loc="data/chunk_00000.image4ub" offset="8" bytesize="16" width="2" height="2" dl="0" />
+</textures_lib>
+<materials_lib>
+  <material id="0" name="mysimplemat" type="hydra_material">
+    <diffuse brdf_type="lambert">
+      <color val="0.5 0.5 0.5" />
+    </diffuse>
+  </material>
+  <material id="1" name="red" type="hydra_material">
+    <diffuse brdf_type="lambert">
+      <color val="0.5 0.0 0.0" />
+    </diffuse>
+  </material>
+  <material id="2" name="green" type="hydra_material">
+    <diffuse brdf_type="lambert">
+      <color val="0.0 0.5 0.0" />
+    </diffuse>
+  </material>
+  <material id="3" name="white" type="hydra_material">
+    <diffuse brdf_type="lambert">
+      <color val="0.5 0.5 0.5" />
+    </diffuse>
+  </material>
+  <material id="4" name="gold" type="hydra_material">
+    <diffuse brdf_type="lambert">
+      <color val="0.40 0.4 0" />
+    </diffuse>
+    <reflectivity brdf_type="torranse_sparrow">
+      <color val="0.10 0.10 0" />
+      <glossiness val="0.850000024" />
+    </reflectivity>
+  </material>
+  <material id="5" name="my_area_light_material" type="hydra_material" light_id="0" visible="1">
+    <emission>
+      <color val="25 25 25" />
+    </emission>
+  </material>
+  <material id="6" name="Silver2_SG" type="hydra_material">
+    <emission>
+      <color val="0 0 0" />
+      <cast_gi val="1" />
+      <multiplier val="1" />
+    </emission>
+    <diffuse brdf_type="lambert">
+      <color val="0.27 0.29 0.29" />
+      <roughness val="0" />
+    </diffuse>
+    <reflectivity brdf_type="phong">
+      <extrusion val="maxcolor" />
+      <color val="0.85 0.85 0.85" />
+      <glossiness val="1" />
+      <fresnel val="1" />
+      <fresnel_ior val="1.5" />
+    </reflectivity>
+  </material>
+</materials_lib>
+<geometry_lib total_chunks="4">
+  %s
+</geometry_lib>
+<lights_lib>
+  <light id="0" name="my_area_light" type="area" shape="rect" distribution="diffuse" visible="1" mat_id="5" mesh_id="2">
+    <size half_length="1" half_width="1" />
+    <intensity>
+      <color val="1 1 1" />
+      <multiplier val="25" />
+    </intensity>
+  </light>
+</lights_lib>
+<cam_lib>
+  <camera id="0" name="my camera" type="uvn">
+    <fov>60</fov>
+    <nearClipPlane>0.01</nearClipPlane>
+    <farClipPlane>100.0</farClipPlane>
+    <up>0 1 0</up>
+    <position>0 0 3</position>
+    <look_at>0 0 0</look_at>
+  </camera>
+</cam_lib>
+<render_lib>
+  <render_settings type="HydraModern" id="0">
+    <width>512</width>
+    <height>512</height>
+    <method_primary>pathtracing</method_primary>
+    <method_secondary>pathtracing</method_secondary>
+    <method_tertiary>pathtracing</method_tertiary>
+    <method_caustic>pathtracing</method_caustic>
+    <trace_depth>6</trace_depth>
+    <diff_trace_depth>3</diff_trace_depth>
+    <maxRaysPerPixel>1024</maxRaysPerPixel>
+    <qmc_variant>7</qmc_variant>
+  </render_settings>
+</render_lib>
+<scenes>
+  <scene id="0" name="my scene" discard="1" bbox="   -10 10 -4.137 0.7254 -10 10">
+    <remap_lists>
+      <remap_list id="0" size="2" val="0 4 " />
+    </remap_lists>
+    <instance id="0" mesh_id="0" rmap_id="0" scn_id="0" scn_sid="0" matrix="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 " />
+    <instance_light id="0" light_id="0" matrix="1 0 0 0 0 1 0 3.85 0 0 1 0 0 0 0 1 " lgroup_id="-1" />
+  </scene>
+</scenes>
+    )"""",
+           geom_info_str.c_str());
+
+  return std::string(buf, strlen(buf));
+}
+
+std::string insert_in_demo_scene(std::string geom_info_str, DemoScene scene_type)
+{
+  switch (scene_type)
+  {
+  case DemoScene::CORNELL_BOX:
+    return insert_in_demo_scene_cornell_box(geom_info_str);
+    break;
+  case DemoScene::SINGLE_OBJECT:
+    return insert_in_demo_scene_single_object(geom_info_str);
+    break;
+  
+  default:
+    assert("false");
+    return "";
+    break;
+  }
+}
+
+std::string get_xml_string_model_demo_scene(std::string bin_file_name, ModelInfo info, int mat_id, DemoScene scene)
 {
   constexpr unsigned MAX_BUF_SIZE = 1024;
   char buf[MAX_BUF_SIZE];
@@ -509,10 +642,10 @@ std::string get_xml_string_model_demo_scene(std::string bin_file_name, ModelInfo
   
   std::string geom_info_str = std::string(buf, strlen(buf));
 
-  return insert_in_demo_scene(geom_info_str);
+  return insert_in_demo_scene(geom_info_str, scene);
 }
 
-std::string get_xml_string_model_demo_scene(std::string bin_file_name, const cmesh4::SimpleMesh &mesh)
+std::string get_xml_string_model_demo_scene(std::string bin_file_name, const cmesh4::SimpleMesh &mesh, DemoScene scene)
 {
   constexpr unsigned MAX_BUF_SIZE = 1024;
   char buf[MAX_BUF_SIZE];
@@ -552,7 +685,7 @@ std::string get_xml_string_model_demo_scene(std::string bin_file_name, const cme
   
   std::string geom_info_str = std::string(buf, strlen(buf));
 
-  return insert_in_demo_scene(geom_info_str);
+  return insert_in_demo_scene(geom_info_str, scene);
 }
 
 void save_xml_string(const std::string xml_string, const std::string &path)
