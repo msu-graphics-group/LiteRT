@@ -3521,7 +3521,48 @@ void litert_test_42_mesh_lods()
 void litert_test_43_hydra_integration()
 {
   //hydra_integration_example(DEVICE_CPU, "scenes/02_sdf_scenes/test_10.xml");
-  hydra_integration_example(DEVICE_GPU, "scenes/02_sdf_scenes/bunny_svs.xml");
+  //hydra_integration_example(DEVICE_GPU, "scenes/02_sdf_scenes/bunny_svs.xml");
+  
+  int WIDTH  = 256;
+  int HEIGHT = 256;
+  LiteImage::Image2D<uint32_t> ref_image(WIDTH, HEIGHT);
+  LiteImage::Image2D<uint32_t> image(WIDTH, HEIGHT);
+
+  HydraRenderPreset preset = getDefaultHydraRenderPreset();
+  preset.spp = 64;
+
+  {
+    HydraRenderer renderer(DEVICE_CPU);
+    renderer.SetPreset(WIDTH, HEIGHT, preset);
+    renderer.LoadScene("scenes/02_sdf_scenes/test_10.xml");
+    renderer.SetViewport(0,0, WIDTH, HEIGHT);
+    //renderer.UpdateCamera(a_worldView, a_proj);
+    renderer.CommitDeviceData();
+    renderer.Clear(WIDTH, HEIGHT, "color");
+    renderer.Render(ref_image.data(), WIDTH, HEIGHT, "color", 1); 
+  }
+
+  {
+    HydraRenderer renderer(DEVICE_GPU);
+    renderer.SetPreset(WIDTH, HEIGHT, preset);
+    renderer.LoadScene("scenes/02_sdf_scenes/test_10.xml");
+    renderer.SetViewport(0,0, WIDTH, HEIGHT);
+    //renderer.UpdateCamera(a_worldView, a_proj);
+    renderer.CommitDeviceData();
+    renderer.Clear(WIDTH, HEIGHT, "color");
+    renderer.Render(image.data(), WIDTH, HEIGHT, "color", 1); 
+  }
+
+  LiteImage::SaveImage<uint32_t>("saves/test_43_res.png", image); 
+  LiteImage::SaveImage<uint32_t>("saves/test_43_ref.png", ref_image);
+
+  float psnr = image_metrics::PSNR(ref_image, image);
+  printf("TEST 43. Rendering with Hydra\n");
+  printf(" 43.1. %-64s", "CPU and GPU render image_metrics::PSNR > 45 ");
+  if (psnr >= 45)
+    printf("passed    (%.2f)\n", psnr);
+  else
+    printf("FAILED, psnr = %f\n", psnr);
 }
 
 void perform_tests_litert(const std::vector<int> &test_ids)
