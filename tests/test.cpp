@@ -1,270 +1,151 @@
 #include "test.h"
 #include <iostream>
-#include <map>
-#include <optional>
-#include "args.h"
-#include "help.h"
-#include <iomanip>
+#include <unistd.h>
+#include <sys/wait.h>
+#include <string.h>
+#include <sys/prctl.h>
 
 namespace test
 {
 
-    enum class COLOR
-    {
-        RED,
-        GREEN
-    };
+    // std::vector<const Test*> Test::tests_;
 
-    const char* color_begin(COLOR c)
+    Test::Test(std::string run_name) :
+        run_name_(std::move(run_name))
     {
-        switch(c)
-        {
-            case COLOR::RED:
-                return "\33[31m";
-            case COLOR::GREEN:
-                return "\33[32m";
-            default:
-                return "\33[97m"; // white
-        }
+        tests().push_back(this);
     }
 
-    const char* color_end()
+    std::vector<const Test*>& Test::tests()
     {
-        return "\33[0m";
+        static std::vector<const Test*> tests_;
+        return tests_;
     }
 
-    template<typename Test>
-    std::optional<std::vector<const Test*>> collect_tests(const std::vector<std::string_view>&names)
+    std::string_view Test::run_name() const 
     {
-        if (names.size() == 0)
-        {
-            return Test::all();
-        }
-
-        std::map<std::string_view, const Test*> tests;
-
-        for (auto i : Test::all())
-        {
-            tests[i->name()] = i;
-        }
-
-        std::vector<const Test*> out;
-        for (auto name : names)
-        {
-            auto it  = tests.find(name);
-            if (it == tests.end())
-            {
-                std::cerr << "Unrecognized test name '" << name << "'" << std::endl;
-                return std::nullopt;
-            }
-            out.push_back(it->second);
-        }
-
-        return out;
+        return run_name_;
     }
 
-    template<typename Test>
-    bool list_tests(const std::vector<const Test*>& tests)
+    const std::vector<const Test*> Test::all()
+    {
+        return tests();
+    }
+
+    void Test::list()
     {
 
+    }
+
+    bool Test::run(const std::vector<const Test*>&tests)
+    {
         for (auto i : tests)
         {
-            std::cout << "[" << i->name() << "]" << " \"" << i->description() << "\"" << std::endl;
+            test_execution_info info;
+            bool res = i->supervised_execute(info);
+            if (!res)
+            {
+                return false;
+            }
         }
-
         return true;
     }
-
-    template<typename Test>
-    bool run_tests(const std::vector<const Test*>& tests, size_t&total)
+    
+    void Test::unsafe_run(test_execution_context ctx) const
     {
-        total = 0;
-        for (auto i : tests)
+        auto res = unsafe_execute(ctx);
+
+        std::cout << res.passed_checks << " " << res.failed_checks<< " " << res.was_skipped << std::endl;
+        
+    }
+
+    bool Test::supervised_execute(test_execution_info&info) const
+    {
+        int p[2];
+        if (pipe(p))
         {
-            std::cout << "[RUN   ] [" << i->name() << "] \"" << i->description() << "\"" << std::endl;
-            bool res = i->execute();
-            if (res)
+            std::cerr << "Failed to pipe: " << strerror(errno) << std::endl;
+            return false;
+        }
+
+        pid_t pid = fork();
+        if (pid == -1)
+        {
+            std::cerr << "Failed to fork: " << strerror(errno) << std::endl;
+            return false;
+        }
+        if (pid) // parent
+        {
+            close(p[1]);
+            return supervised_parent(pid, p[0], info);
+        } else // child
+        {
+            prctl(PR_SET_PDEATHSIG, SIGKILL); // child is killed after parent dies
+            close(p[0]);
+            dup2(p[1], 1);
+            close(p[1]);
+            supervised_child();
+            return false; // never be here
+        }
+
+    }
+
+    bool Test::supervised_parent(int child, int out, test_execution_info&info) const
+    {
+        std::string prev_line;
+        std::string curr_line;
+        while (true)
+        {
+            char x;
+            int res = read(out, &x, 1);
+            if (res == -1)
             {
-                std::cout << color_begin(COLOR::GREEN) << "[PASSED]" << color_end();
-                total += 1;
+                if (errno == EINTR)
+                {
+                    continue;
+                }
+                else
+                {
+                    kill(child, SIGKILL);
+                    wait(NULL);
+                    std::cerr << "Failed to read: " << strerror(errno) << std::endl;
+                    return false;
+                }
+            }
+            else if(res == 1)
+            {
+                std::cout << x;
+                curr_line.push_back(x);
+                if (x == '\n')
+                {
+                    prev_line = curr_line;
+                    curr_line = "";
+                }
             }
             else
             {
-                std::cout << color_begin(COLOR::RED) <<  "[FAILED]" << color_end();
+                break;
             }
-            std::cout << " [" << i->name() << "]" << std::endl;
         }
-        return true;
-    }
-
-    bool rewrite_regression(const Regression*test)
-    {
-        return true;
-    }
-
-    static bool handle_args(size_t argc, char**argv)
-    {
-        auto args = Args::parse(argc, argv);
-        if (!args)
-        {
-            return false;
-        }
-
-        bool run, list, all, rewrite, help;
-        std::optional<std::vector<std::string_view>> unittest, regression;
-
-        if (!(
-            args->check_only({
-                "--help",
-                "--run",
-                "--list",
-                "--rewrite",
-                "--all",
-                "--unittest",
-                "--regression"
-            }) &&
-            args->get("--help", help) &&
-            args->get("--run", run) &&
-            args->get("--list", list) &&
-            args->get("--rewrite", rewrite) &&
-            args->get("--all", all) &&
-            args->get("--unittest", unittest) &&
-            args->get("--regression", regression)
-        )) return false;
-
-        if (help)
-        {
-            std::cout << help_message;
-            return true;
-        }
-
-        if (run + list + rewrite > 1)
-        {
-            std::cerr << "More than one command is specified. " << std::endl;
-            std::cerr << read_help_message << std::endl;
-            return false;
-        }
-        if (run + list + rewrite == 0)
-        {
-            run = true;
-        }
-
-        if (!unittest && !regression)
-        {
-            all = true;
-        }
-
-        if (all)
-        {
-            unittest = std::vector<std::string_view>{};
-            regression = std::vector<std::string_view>{};
-        }
-
-        auto wanted_unittests = (unittest ? collect_tests<Unittest>(*unittest) : std::vector<const Unittest*>{});
-        if (!wanted_unittests)
-        {
-            return false;
-        }
+        close(out);
+        std::string last_line = curr_line == "" ? prev_line : curr_line;
+        std::cout << "Child last line: '" << last_line << "'" << std::endl;
         
-        auto wanted_regressions = regression ? collect_tests<Regression>(*regression) : std::vector<const Regression*>{};
-        if (!wanted_regressions)
-        {
-            return false;
-        }
-
-        bool has_unittests = wanted_unittests->size() > 0;
-        bool has_regressions = wanted_regressions->size() > 0;
-
-        if (run)
-        {
-            if (has_unittests) {
-                std::cout << "###################" << std::endl;
-                std::cout << " Running unittests" << std::endl;
-                std::cout << "###################" << std::endl;
-                size_t passed_unittests = 0;
-                if (!run_tests(*wanted_unittests, passed_unittests))
-                {
-                    return false;
-                }
-                std::cout << "Total: " << passed_unittests << "/" << wanted_unittests->size() << " passed." << std::endl;
-            }
-
-            if (has_unittests && has_regressions)
-                std::cout << std::endl;
-            
-            if (has_regressions) {
-                std::cout << "##########################" << std::endl;
-                std::cout << " Running regression tests" << std::endl;
-                std::cout << "##########################" << std::endl;
-                size_t passed_regressions = 0;
-                if (!run_tests(*wanted_regressions, passed_regressions))
-                {
-                    return false;
-                }
-                std::cout << "Total: " << passed_regressions << "/" << wanted_regressions->size() << " passed." << std::endl;
-            }
-
-            return true;
-        }
-        else if(list)
-        {
-            if (has_unittests) {
-            std::cout << "###########" << std::endl;
-            std::cout << " Unittests" << std::endl;
-            std::cout << "###########" << std::endl;
-            if (!list_tests(*wanted_unittests))
-            {
-                return false;
-            }
-            }
-
-            if (has_unittests && has_regressions)
-                std::cout << std::endl;
-            
-            if (has_regressions) {
-                std::cout << "##################" << std::endl;
-                std::cout << " Regression tests" << std::endl;
-                std::cout << "##################" << std::endl;
-                if (!list_tests(*wanted_regressions))
-                {
-                    return false;
-                }
-            }
-
-            return true;
-        }
-        else if(rewrite)
-        {
-            if (!(wanted_unittests->size() == 0) && !(wanted_regressions->size() == 1))
-            {
-                std::cerr << "To do rewrite only one regression test must be specified" << std::endl;
-                std::cerr << read_help_message << std::endl;
-                return false;
-            }
-            if (!rewrite_regression((*wanted_regressions)[0]))
-            {
-                return false;
-            }
-            return true;
-        }
-
-        // Should never be here
         return true;
     }
 
-}
+    void Test::supervised_child() const
+    {
+        std::cout << "Some text" << std::endl;
+        std::cout << "123" << std::endl;
+        std::cout << 4546 << std::endl;
+        sleep(2);
+        exit(0);
+    }
 
-ADD_UNITTEST(1, 01, "test 1")
-{
-    return true;
-}
+    test_execution_info Test::unsafe_execute(test_execution_context) const
+    {
 
-ADD_REGRESSION(2, 10, "reg test 10")
-{
-    return false;
-}
+    }
 
-int main(int argc, char**argv)
-{
-    return !test::handle_args(argc-1, argv + 1);
 }
