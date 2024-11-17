@@ -1,10 +1,11 @@
 #include <filesystem>
-#include <chrono>
 
 #include <stp_parser.hpp>
 #include <LiteMath.h>
+#include "Timer.h"
 
 using namespace STEP;
+using namespace profiling;
 
 int main(int argc, const char **argv) {
   if (argc != 3) {
@@ -15,16 +16,14 @@ int main(int argc, const char **argv) {
   uint id = std::stoi(argv[2]);  
 
   std::cout << "Parsing started..." << std::endl;
-  auto tick_start = std::chrono::high_resolution_clock::now();
+  auto timer = Timer();
 
   STEP::Parser parser(stp_path);
   Entity entity = parser.getEntity(id);
 
-  auto tick_end = std::chrono::high_resolution_clock::now();
+  auto time = timer.getElapsedTime();
   std::cout << "Parsing finished successfully." << std::endl;
-  float time = 
-      std::chrono::duration_cast<std::chrono::milliseconds>(tick_end-tick_start).count()/1000.0f;
-  std::cout << "Parsing time: " << time << "s." << std::endl;
+  std::cout << "Parsing time: " << time.asSeconds() << "s." << std::endl;
 
   std::cout << "#" << entity.id << " = " << STEP::type2str(entity.type) << std::endl;
   for (auto arg : entity.args) {

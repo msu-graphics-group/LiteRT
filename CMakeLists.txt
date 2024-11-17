@@ -12,27 +12,34 @@ add_library(
 target_include_directories(${PROJECT_NAME} PUBLIC ${PROJECT_SOURCE_DIR}/include/) 
 target_include_directories(${PROJECT_NAME} PRIVATE ${PROJECT_SOURCE_DIR}/external/) 
 
+add_library(
+  Timer
+     ${PROJECT_SOURCE_DIR}/src/Timer.cpp
+     ${PROJECT_SOURCE_DIR}/include/Timer.h 
+)
+target_include_directories(Timer PUBLIC ${PROJECT_SOURCE_DIR}/include/)
+
 option(COMPILE_EXAMPLES ON)
 if (${COMPILE_EXAMPLES})
   add_executable(
-    parse_and_print
-      examples/example_print.cpp
+    nurbss_stdout
+      examples/nurbss_stdout.cpp
   )
-  target_link_libraries(parse_and_print ${PROJECT_NAME})
+  target_link_libraries(nurbss_stdout ${PROJECT_NAME} Timer)
   target_include_directories(${PROJECT_NAME} PUBLIC ${PROJECT_SOURCE_DIR}/external/)
 
   add_executable(
-    parse_and_div
-      examples/example_div_individual.cpp
+    nurbss_tofile
+      examples/nurbss_tofile.cpp
   )
-  target_link_libraries(parse_and_div ${PROJECT_NAME})
+  target_link_libraries(nurbss_tofile ${PROJECT_NAME} Timer)
   target_include_directories(${PROJECT_NAME} PUBLIC ${PROJECT_SOURCE_DIR}/external/)
 
   add_executable(
     argsplit
       examples/argsplit.cpp
   )
-  target_link_libraries(argsplit ${PROJECT_NAME})
+  target_link_libraries(argsplit ${PROJECT_NAME} Timer)
   target_include_directories(${PROJECT_NAME} PUBLIC ${PROJECT_SOURCE_DIR}/external/)
 endif()
 

@@ -1,13 +1,13 @@
 #include <fstream>
-#include <chrono>
 #include <filesystem>
 #include <sstream>
-#include <map>
 
 #include <stp_parser.hpp>
 #include <LiteMath.h>
+#include "Timer.h"
 
 using namespace STEP;
+using namespace profiling;
 
 int main(int argc, const char **argv) {
   if (argc != 2) {
@@ -16,16 +16,14 @@ int main(int argc, const char **argv) {
   }
   std::filesystem::path stp_path = argv[1];
   std::cout << "Parsing started..." << std::endl;
-  auto tick_start = std::chrono::high_resolution_clock::now();
+  auto timer = Timer();
 
   STEP::Parser parser(stp_path);
   auto nurbsTable = parser.allIDNurbs();
 
-  auto tick_end = std::chrono::high_resolution_clock::now();
+  auto time = timer.getElapsedTime();
   std::cout << "Parsing finished successfully." << std::endl;
-  float time = 
-      std::chrono::duration_cast<std::chrono::milliseconds>(tick_end-tick_start).count()/1000.0f;
-  std::cout << "Parsing time: " << time << "s." << std::endl;
+  std::cout << "Parsing time: " << time.asSeconds() << "s." << std::endl;
 
   for (auto &entry: nurbsTable) {
     uint ID = entry.first;
