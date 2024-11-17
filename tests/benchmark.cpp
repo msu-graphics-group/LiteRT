@@ -255,6 +255,7 @@ void main_benchmark(const std::string &path, const std::string &mesh_name, unsig
   unsigned W = 2048, H = 2048;
   unsigned hydra_spp = 256;
   const std::string mesh_path = path + "/mesh.vsgf";
+
   auto mesh = cmesh4::LoadMeshFromVSGF(mesh_path.c_str());
   cmesh4::normalize_mesh(mesh);
   MeshBVH mesh_bvh;
@@ -424,10 +425,14 @@ void main_benchmark(const std::string &path, const std::string &mesh_name, unsig
 
           save_sdf_SBS(scene, filename);
         }
+        else if (structure == "OpenVDB")
+        {
+          
+        }
 
-        fprintf(log_fd, "%20s, %20s, %6s, %8u, %8u, %5.1f\n", 
-                mesh_name.c_str(), structure.c_str(), size_limit.c_str(), 
-                res.nodes, res.memory / 1000, res.build_time_ms/1000.0f);
+        fprintf(log_fd, "%20s, %20s, %6s, %8u, %8u, %5.1f\n",
+                mesh_name.c_str(), structure.c_str(), size_limit.c_str(),
+                res.nodes, res.memory / 1000, res.build_time_ms / 1000.0f);
         fflush(log_fd);
       }
     }
@@ -651,6 +656,16 @@ void SBS_benchmark(const std::string &path, const std::string &mesh_name, unsign
                  std::vector<std::string>{"16Mb"},
                  std::vector<std::string>{"bvh_analytic"},
                  25, 10);
+}
+
+void openvdb_benchmark(const std::string& path, const std::string &mesh_name, unsigned flags)
+{
+  std::vector<std::string> types = {"mesh", "sdf_grid", "sdf_SVS", "sdf_SBS-2-1", "sdf_SBS-2-2", "OpenVDB"};
+  main_benchmark(path, mesh_name, flags, "image",
+                 types,
+                 std::vector<std::string>{"4Mb", "16Mb", "64Mb"},
+                 std::vector<std::string>{"bvh_sphere_tracing"},
+                 1, 10, DEVICE_CPU);
 }
 
 void rtx_benchmark(const std::string &path, const std::string &mesh_name, unsigned flags, const std::string &supported_type, unsigned device)

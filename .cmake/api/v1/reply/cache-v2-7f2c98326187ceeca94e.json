@@ -2,6 +2,18 @@
 	"entries" : 
 	[
 		{
+			"name" : "CAM_PLUGIN",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : "Enable Cam Plugin Demo"
+				}
+			],
+			"type" : "BOOL",
+			"value" : "OFF"
+		},
+		{
 			"name" : "CMAKE_ADDR2LINE",
 			"properties" : 
 			[
@@ -39,11 +51,11 @@
 			[
 				{
 					"name" : "HELPSTRING",
-					"value" : "No help, variable specified on the command line."
+					"value" : "Choose the type of build, options are: None Debug Release RelWithDebInfo MinSizeRel ..."
 				}
 			],
 			"type" : "STRING",
-			"value" : "Debug"
+			"value" : "Release"
 		},
 		{
 			"name" : "CMAKE_CACHEFILE_DIR",
@@ -55,7 +67,7 @@
 				}
 			],
 			"type" : "INTERNAL",
-			"value" : "/home/james/Desktop/LiteRT/LiteRT"
+			"value" : "/home/sergei/Desktop/science/LiteRT"
 		},
 		{
 			"name" : "CMAKE_CACHE_MAJOR_VERSION",
@@ -92,6 +104,22 @@
 			],
 			"type" : "INTERNAL",
 			"value" : "1"
+		},
+		{
+			"name" : "CMAKE_COLOR_MAKEFILE",
+			"properties" : 
+			[
+				{
+					"name" : "ADVANCED",
+					"value" : "1"
+				},
+				{
+					"name" : "HELPSTRING",
+					"value" : "Enable/Disable color output during build."
+				}
+			],
+			"type" : "BOOL",
+			"value" : "ON"
 		},
 		{
 			"name" : "CMAKE_COMMAND",
@@ -139,11 +167,11 @@
 				},
 				{
 					"name" : "HELPSTRING",
-					"value" : "No help, variable specified on the command line."
+					"value" : "CXX compiler"
 				}
 			],
 			"type" : "FILEPATH",
-			"value" : "/usr/bin/g++-12"
+			"value" : "/usr/bin/c++"
 		},
 		{
 			"name" : "CMAKE_CXX_COMPILER_AR",
@@ -159,7 +187,7 @@
 				}
 			],
 			"type" : "FILEPATH",
-			"value" : "/usr/bin/gcc-ar-12"
+			"value" : "/usr/bin/gcc-ar-11"
 		},
 		{
 			"name" : "CMAKE_CXX_COMPILER_RANLIB",
@@ -175,7 +203,7 @@
 				}
 			],
 			"type" : "FILEPATH",
-			"value" : "/usr/bin/gcc-ranlib-12"
+			"value" : "/usr/bin/gcc-ranlib-11"
 		},
 		{
 			"name" : "CMAKE_CXX_FLAGS",
@@ -267,11 +295,11 @@
 				},
 				{
 					"name" : "HELPSTRING",
-					"value" : "No help, variable specified on the command line."
+					"value" : "C compiler"
 				}
 			],
 			"type" : "FILEPATH",
-			"value" : "/usr/bin/gcc-12"
+			"value" : "/usr/bin/cc"
 		},
 		{
 			"name" : "CMAKE_C_COMPILER_AR",
@@ -287,7 +315,7 @@
 				}
 			],
 			"type" : "FILEPATH",
-			"value" : "/usr/bin/gcc-ar-12"
+			"value" : "/usr/bin/gcc-ar-11"
 		},
 		{
 			"name" : "CMAKE_C_COMPILER_RANLIB",
@@ -303,7 +331,7 @@
 				}
 			],
 			"type" : "FILEPATH",
-			"value" : "/usr/bin/gcc-ranlib-12"
+			"value" : "/usr/bin/gcc-ranlib-11"
 		},
 		{
 			"name" : "CMAKE_C_FLAGS",
@@ -498,12 +526,16 @@
 			"properties" : 
 			[
 				{
+					"name" : "ADVANCED",
+					"value" : "1"
+				},
+				{
 					"name" : "HELPSTRING",
-					"value" : "No help, variable specified on the command line."
+					"value" : "Enable/Disable output of compile commands during generation."
 				}
 			],
 			"type" : "BOOL",
-			"value" : "TRUE"
+			"value" : ""
 		},
 		{
 			"name" : "CMAKE_EXTRA_GENERATOR",
@@ -527,7 +559,7 @@
 				}
 			],
 			"type" : "INTERNAL",
-			"value" : "Ninja"
+			"value" : "Unix Makefiles"
 		},
 		{
 			"name" : "CMAKE_GENERATOR_INSTANCE",
@@ -599,7 +631,7 @@
 				}
 			],
 			"type" : "INTERNAL",
-			"value" : "/home/james/Desktop/LiteRT/LiteRT"
+			"value" : "/home/sergei/Desktop/science/LiteRT"
 		},
 		{
 			"name" : "CMAKE_INSTALL_PREFIX",
@@ -651,11 +683,11 @@
 				},
 				{
 					"name" : "HELPSTRING",
-					"value" : "Program used to build from build.ninja files."
+					"value" : "Path to a program."
 				}
 			],
 			"type" : "FILEPATH",
-			"value" : "/usr/bin/ninja"
+			"value" : "/usr/bin/gmake"
 		},
 		{
 			"name" : "CMAKE_MODULE_LINKER_FLAGS",
@@ -763,7 +795,7 @@
 				}
 			],
 			"type" : "INTERNAL",
-			"value" : "2"
+			"value" : "1"
 		},
 		{
 			"name" : "CMAKE_OBJCOPY",
@@ -1198,6 +1230,66 @@
 			"value" : "OFF"
 		},
 		{
+			"name" : "ENABLE_COVERAGE",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : "Enable coverage reporting for gcc/clang"
+				}
+			],
+			"type" : "BOOL",
+			"value" : "OFF"
+		},
+		{
+			"name" : "ENABLE_SANITIZER_ADDRESS",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : "Enable address sanitizer"
+				}
+			],
+			"type" : "BOOL",
+			"value" : "OFF"
+		},
+		{
+			"name" : "ENABLE_SANITIZER_MEMORY",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : "Enable memory sanitizer"
+				}
+			],
+			"type" : "BOOL",
+			"value" : "OFF"
+		},
+		{
+			"name" : "ENABLE_SANITIZER_THREAD",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : "Enable thread sanitizer"
+				}
+			],
+			"type" : "BOOL",
+			"value" : "OFF"
+		},
+		{
+			"name" : "ENABLE_SANITIZER_UNDEFINED_BEHAVIOR",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : "Enable undefined behavior sanitizer"
+				}
+			],
+			"type" : "BOOL",
+			"value" : "OFF"
+		},
+		{
 			"name" : "FIND_PACKAGE_MESSAGE_DETAILS_OpenMP",
 			"properties" : 
 			[
@@ -1210,6 +1302,18 @@
 			"value" : "[TRUE][c ][v4.5()]"
 		},
 		{
+			"name" : "FIND_PACKAGE_MESSAGE_DETAILS_OpenMP_C",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : "Details about finding OpenMP_C"
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : "[-fopenmp][/usr/lib/gcc/x86_64-linux-gnu/11/libgomp.so][/usr/lib/x86_64-linux-gnu/libpthread.a][/usr/lib/gcc/x86_64-linux-gnu/11/libgomp.so][/usr/lib/x86_64-linux-gnu/libpthread.a][v4.5()]"
+		},
+		{
 			"name" : "FIND_PACKAGE_MESSAGE_DETAILS_OpenMP_CXX",
 			"properties" : 
 			[
@@ -1219,7 +1323,7 @@
 				}
 			],
 			"type" : "INTERNAL",
-			"value" : "[-fopenmp][/usr/lib/gcc/x86_64-linux-gnu/12/libgomp.so][/usr/lib/x86_64-linux-gnu/libpthread.a][v4.5()]"
+			"value" : "[-fopenmp][/usr/lib/gcc/x86_64-linux-gnu/11/libgomp.so][/usr/lib/x86_64-linux-gnu/libpthread.a][v4.5()]"
 		},
 		{
 			"name" : "FIND_PACKAGE_MESSAGE_DETAILS_Threads",
@@ -1234,7 +1338,67 @@
 			"value" : "[TRUE][v()]"
 		},
 		{
+			"name" : "GENERATOR_OUTPUT_DIRECTORY",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : "Root output directory for all artifacts"
+				}
+			],
+			"type" : "PATH",
+			"value" : "/home/sergei/Desktop/science/LiteRT/dependencies/HydraCore3"
+		},
+		{
+			"name" : "HydraCore3_BINARY_DIR",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : "Value Computed by CMake"
+				}
+			],
+			"type" : "STATIC",
+			"value" : "/home/sergei/Desktop/science/LiteRT/dependencies/HydraCore3"
+		},
+		{
+			"name" : "HydraCore3_IS_TOP_LEVEL",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : "Value Computed by CMake"
+				}
+			],
+			"type" : "STATIC",
+			"value" : "OFF"
+		},
+		{
+			"name" : "HydraCore3_SOURCE_DIR",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : "Value Computed by CMake"
+				}
+			],
+			"type" : "STATIC",
+			"value" : "/home/sergei/Desktop/science/LiteRT/dependencies/HydraCore3"
+		},
+		{
 			"name" : "OpenMP_COMPILE_RESULT_CXX_fopenmp",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : "Result of TRY_COMPILE"
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : "TRUE"
+		},
+		{
+			"name" : "OpenMP_COMPILE_RESULT_C_fopenmp",
 			"properties" : 
 			[
 				{
@@ -1290,7 +1454,63 @@
 			"value" : "201511"
 		},
 		{
+			"name" : "OpenMP_C_FLAGS",
+			"properties" : 
+			[
+				{
+					"name" : "ADVANCED",
+					"value" : "1"
+				},
+				{
+					"name" : "HELPSTRING",
+					"value" : "C compiler flags for OpenMP parallelization"
+				}
+			],
+			"type" : "STRING",
+			"value" : "-fopenmp"
+		},
+		{
+			"name" : "OpenMP_C_LIB_NAMES",
+			"properties" : 
+			[
+				{
+					"name" : "ADVANCED",
+					"value" : "1"
+				},
+				{
+					"name" : "HELPSTRING",
+					"value" : "C compiler libraries for OpenMP parallelization"
+				}
+			],
+			"type" : "STRING",
+			"value" : "gomp;pthread"
+		},
+		{
+			"name" : "OpenMP_C_SPEC_DATE",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : "C compiler's OpenMP specification date"
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : "201511"
+		},
+		{
 			"name" : "OpenMP_SPECTEST_CXX_",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : "Result of TRY_COMPILE"
+				}
+			],
+			"type" : "INTERNAL",
+			"value" : "TRUE"
+		},
+		{
+			"name" : "OpenMP_SPECTEST_C_",
 			"properties" : 
 			[
 				{
@@ -1315,7 +1535,7 @@
 				}
 			],
 			"type" : "FILEPATH",
-			"value" : "/usr/lib/gcc/x86_64-linux-gnu/12/libgomp.so"
+			"value" : "/usr/lib/gcc/x86_64-linux-gnu/11/libgomp.so"
 		},
 		{
 			"name" : "OpenMP_pthread_LIBRARY",
@@ -1346,6 +1566,66 @@
 			"value" : "/home/sammael/kernel_slicer"
 		},
 		{
+			"name" : "SPECTRAL_DISABLE_PROGRESS_BAR",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : "Disable progress printing"
+				}
+			],
+			"type" : "BOOL",
+			"value" : "OFF"
+		},
+		{
+			"name" : "SPECTRAL_NO_PRECOMPUTERS",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : "Disable precompute modules"
+				}
+			],
+			"type" : "BOOL",
+			"value" : "OFF"
+		},
+		{
+			"name" : "Spectral_BINARY_DIR",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : "Value Computed by CMake"
+				}
+			],
+			"type" : "STATIC",
+			"value" : "/home/sergei/Desktop/science/LiteRT/dependencies/HydraCore3/external/spectral"
+		},
+		{
+			"name" : "Spectral_IS_TOP_LEVEL",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : "Value Computed by CMake"
+				}
+			],
+			"type" : "STATIC",
+			"value" : "OFF"
+		},
+		{
+			"name" : "Spectral_SOURCE_DIR",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : "Value Computed by CMake"
+				}
+			],
+			"type" : "STATIC",
+			"value" : "/home/sergei/Desktop/science/LiteRT/dependencies/HydraCore3/external/spectral"
+		},
+		{
 			"name" : "USE_ENZYME",
 			"properties" : 
 			[
@@ -1355,7 +1635,19 @@
 				}
 			],
 			"type" : "BOOL",
-			"value" : "FALSE"
+			"value" : "OFF"
+		},
+		{
+			"name" : "USE_OPENVDB",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : "Enable OpenVDB"
+				}
+			],
+			"type" : "BOOL",
+			"value" : "ON"
 		},
 		{
 			"name" : "USE_RTX",
@@ -1367,7 +1659,7 @@
 				}
 			],
 			"type" : "BOOL",
-			"value" : "TRUE"
+			"value" : "OFF"
 		},
 		{
 			"name" : "USE_STB_IMAGE",
@@ -1379,7 +1671,7 @@
 				}
 			],
 			"type" : "BOOL",
-			"value" : "TRUE"
+			"value" : "ON"
 		},
 		{
 			"name" : "USE_TRICUBIC",
@@ -1403,7 +1695,7 @@
 				}
 			],
 			"type" : "BOOL",
-			"value" : "TRUE"
+			"value" : "OFF"
 		},
 		{
 			"name" : "VOLK_HEADERS_ONLY",
@@ -1440,18 +1732,6 @@
 			],
 			"type" : "BOOL",
 			"value" : "ON"
-		},
-		{
-			"name" : "VOLK_STATIC_DEFINES",
-			"properties" : 
-			[
-				{
-					"name" : "HELPSTRING",
-					"value" : "Additional defines for building the volk static library, e.g. Vulkan platform defines"
-				}
-			],
-			"type" : "STRING",
-			"value" : ""
 		},
 		{
 			"name" : "VULKAN_HEADERS_INSTALL_DIR",
@@ -1495,7 +1775,7 @@
 				}
 			],
 			"type" : "FILEPATH",
-			"value" : "/bin/glslc"
+			"value" : "/usr/local/bin/glslc"
 		},
 		{
 			"name" : "Vulkan_INCLUDE_DIR",
@@ -1551,7 +1831,7 @@
 				}
 			],
 			"type" : "STATIC",
-			"value" : "/home/james/Desktop/LiteRT/LiteRT"
+			"value" : "/home/sergei/Desktop/science/LiteRT"
 		},
 		{
 			"name" : "loader_app_IS_TOP_LEVEL",
@@ -1575,7 +1855,7 @@
 				}
 			],
 			"type" : "STATIC",
-			"value" : "/home/james/Desktop/LiteRT/LiteRT"
+			"value" : "/home/sergei/Desktop/science/LiteRT"
 		},
 		{
 			"name" : "volk_BINARY_DIR",
@@ -1587,7 +1867,7 @@
 				}
 			],
 			"type" : "STATIC",
-			"value" : "/home/james/Desktop/LiteRT/LiteRT/dependencies/HydraCore3/external/volk/build"
+			"value" : "/home/sergei/Desktop/science/LiteRT/dependencies/HydraCore3/external/volk/build"
 		},
 		{
 			"name" : "volk_IS_TOP_LEVEL",
@@ -1623,7 +1903,7 @@
 				}
 			],
 			"type" : "STATIC",
-			"value" : "/home/james/Desktop/LiteRT/LiteRT/dependencies/HydraCore3/external/volk"
+			"value" : "/home/sergei/Desktop/science/LiteRT/dependencies/HydraCore3/external/volk"
 		}
 	],
 	"kind" : "cache",

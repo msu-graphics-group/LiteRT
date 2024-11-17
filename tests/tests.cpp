@@ -3166,7 +3166,7 @@ void litert_test_41_openvdb()
 
   uint32_t voxels_vdb = 0;
   
-  unsigned W = 1000, H = 1000;
+  unsigned W = 2048, H = 2048;
   LiteImage::Image2D<uint32_t> ref_image(W, H), vdb_image(W, H), sbs_image(W, H), svs_image(W, H);
 
   //  Render reference (mesh)
@@ -3191,8 +3191,8 @@ void litert_test_41_openvdb()
 
   //  Render object by OpenVDB
   {
-    float voxel_size = 0.01;
-    float w = 5;
+    float voxel_size = 0.0042;
+    float w = 10;
 
     OpenVDB_Grid grid;
     grid.mesh2sdf(mesh, voxel_size, w);
@@ -3298,6 +3298,57 @@ void litert_test_41_openvdb()
   printf("\nMemory usage:\nVDB: %.2f Mb\nSBS: %.2f Mb\nSVS: %.2f Mb\n", bytes_vdb, bytes_sbs, bytes_svs);
 }
 
+void 
+litert_test_42_openvdb_benchmark()
+{
+  printf("TEST 42. FIND OPENVDB PARAMS FOR BENCHMARK\n");
+
+  /*
+  /,    CPU,      lambert, OpenVDB, 4Mb,  bvh_sphere_tracing, 28.97, 2280, 2280
+  /,    CPU,      lambert, OpenVDB, 16Mb,  bvh_sphere_tracing, 37.82, 2316, 2316
+  /,    CPU,      lambert, OpenVDB, 64Mb, bvh_sphere_tracing, 38.16, 3098, 3098
+  */
+
+  auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "scenes/01_simple_scenes/data/bunny.vsgf").c_str());
+  cmesh4::rescale_mesh(mesh, float3(-0.95, -0.95, -0.95), float3(0.95, 0.95, 0.95));
+
+  // for 64 Mb: 0.0042
+  // for 16 Mb: 0.0085
+  // for 4  Mb: 0.027
+  float voxel_size = 0.03;
+  float w = 2;
+
+  OpenVDB_Grid grid;
+  grid.mesh2sdf(mesh, voxel_size, w);
+
+  auto mem = grid.sdfGrid->memUsage();
+
+  unsigned W = 2048, H = 2048;
+  LiteImage::Image2D<uint32_t> vdb_image(W, H);
+
+  MultiRenderPreset preset = getDefaultPreset();
+  preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
+  preset.spp = 1;
+
+  auto pRender = CreateMultiRenderer(DEVICE_CPU);
+  preset.normal_mode = NORMAL_MODE_GEOMETRY;
+  pRender->SetPreset(preset);
+  pRender->SetViewport(0, 0, W, H);
+  pRender->SetScene(grid);
+  auto t1 = std::chrono::steady_clock::now();
+  render(vdb_image, pRender, float3(0, 0, 2), float3(0, 0, 0), float3(0, 1, 0), preset);
+  auto t2 = std::chrono::steady_clock::now();
+
+  float time_vdb = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+  LiteImage::SaveImage<uint32_t>("saves/test_42_openvdb.bmp", vdb_image);
+
+  // psnr_vdb = image_metrics::PSNR(ref_image, vdb_image);
+  float bytes_vdb = (float)grid.sdfGrid->memUsage() / 1024 / 1024;
+  float voxels_vdb = grid.sdfGrid->tree().activeVoxelCount();
+
+  printf("%f %f\n", bytes_vdb, voxels_vdb);
+}
+
 void perform_tests_litert(const std::vector<int> &test_ids)
 {
   std::vector<int> tests = test_ids;
@@ -3316,7 +3367,7 @@ void perform_tests_litert(const std::vector<int> &test_ids)
       litert_test_31_fake_nurbs_render, litert_test_32_smooth_sbs_normals, litert_test_33_verify_SBS_SBSAdapt_split, 
       litert_test_34_tricubic_sbs, litert_test_35_SBSAdapt_greed_creating, litert_test_36_primitive_visualization,
       litert_test_37_sbs_adapt_comparison, litert_test_38_direct_octree_traversal, litert_test_39_visualize_sbs_bricks,
-      litert_test_40_psdf_framed_octree, litert_test_41_openvdb};
+      litert_test_40_psdf_framed_octree, litert_test_41_openvdb, litert_test_42_openvdb_benchmark};
 
   if (tests.empty())
   {

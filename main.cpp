@@ -54,6 +54,13 @@ int main(int argc, const char** argv)
       SBS_benchmark("saves/"+mesh_name, mesh_name, flags);
       return 0;
     }
+    else if (std::string(argv[1]) == "-openvdb_benchmark" && argc > 2)
+    {
+      std::string mesh_name = argv[2];
+      unsigned flags = BENCHMARK_FLAG_RENDER_RT;
+      openvdb_benchmark("saves/" + mesh_name, mesh_name, flags);
+      return 0;
+    }
     else if (std::string(argv[1]) == "-tests_dr")
     {
       std::vector<int> test_ids = {};
