@@ -101,8 +101,11 @@ std::string Parser::readEntry(const std::string &text, size_t &offset) {
     return entry;
 }
 
-Parser::Parser(const std::string &filename) {
+Parser::Parser(const std::string &filename, bool &exists) {
     std::ifstream file(filename);
+    exists = file.good();
+    if (!exists) return;    
+
     std::stringstream stream;
 
     // Add whitespaces for always accessing

@@ -1,7 +1,7 @@
 # Vim files
 *.swp
 
-# MacOS files
+# MacOS users lore
 .DS_Store
 
 # Runtime files

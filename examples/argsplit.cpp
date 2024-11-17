@@ -12,13 +12,19 @@ int main(int argc, const char **argv) {
     std::cout << "Usage: parse_and_print <path_to_stp_file> <entity_ID>" << std::endl;
     return 0;
   }
-  std::filesystem::path stp_path = argv[1];
+  std::filesystem::path path = argv[1];
   uint id = std::stoi(argv[2]);  
 
   std::cout << "Parsing started..." << std::endl;
   auto timer = Timer();
 
-  STEP::Parser parser(stp_path);
+  bool exists;
+  STEP::Parser parser(path, exists);
+  if (!exists) {
+      std::cout << "[Error] Parsing failed. File does not exist." << std::endl;
+      return 1;
+  }
+
   Entity entity = parser.getEntity(id);
 
   auto time = timer.getElapsedTime();

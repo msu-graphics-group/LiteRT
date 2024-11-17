@@ -14,11 +14,17 @@ int main(int argc, const char **argv) {
     std::cout << "Usage: parse_and_div <path_to_stp_file>" << std::endl;
     return 0;
   }
-  std::filesystem::path stp_path = argv[1];
+  std::filesystem::path path = argv[1];
   std::cout << "Parsing started..." << std::endl;
   auto timer = Timer();
 
-  STEP::Parser parser(stp_path);
+  bool exists;
+  STEP::Parser parser(path, exists);
+  if (!exists) {
+      std::cout << "[Error] Parsing failed. File does not exist." << std::endl;
+      return 1;
+  }
+
   auto nurbsTable = parser.allIDNurbs();
 
   auto time = timer.getElapsedTime();
@@ -30,7 +36,7 @@ int main(int argc, const char **argv) {
     auto nurbs = entry.second;
 
     std::stringstream ss;
-    ss << stp_path.filename().replace_extension("").c_str() << ID << ".nurbss";
+    ss << path.filename().replace_extension("").c_str() << ID << ".nurbss";
     std::ofstream cout(ss.str());
     cout << nurbs;
   }

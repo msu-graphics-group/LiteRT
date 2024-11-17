@@ -69,7 +69,7 @@ struct Entity {
 
 class Parser {
 public:
-    Parser(const std::string &filename);
+    Parser(const std::string &filename, bool &exists);
     LiteMath::float3 tofloat3(uint id);
     
     RawNURBS RationalBSplineSurfaceToNURBS(uint id);
