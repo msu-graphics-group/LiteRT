@@ -2,7 +2,7 @@
 #include <filesystem>
 #include <sstream>
 
-#include <stp_parser.hpp>
+#include <step.h>
 #include <LiteMath.h>
 #include "Timer.h"
 

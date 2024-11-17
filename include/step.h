@@ -109,8 +109,11 @@ std::string type2str(Type type);
 std::vector<std::string> argsplit(const std::string &rawargs, bool bycomma = true);
 std::vector<float> decompressKnots(
         std::vector<float> &knots_comp,
-        std::vector<uint> &knots_mult);
-void trimKnots(std::vector<float> &knots, const std::vector<uint> &knots_mult, uint degree);
+        std::vector<uint> &knots_mult,
+        uint degree);
+void trimKnots(std::vector<float> &knots,
+        const std::vector<uint> &knots_mult,
+        uint degree);
 
 std::ostream& operator<<(std::ostream& cout, const RawNURBS &nurbs);
 

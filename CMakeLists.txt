@@ -1,11 +1,11 @@
 cmake_minimum_required(VERSION 3.8)
-project(stp_parser)
+project(step)
 set(CMAKE_CXX_STANDARD 17)
 
 add_library(
   ${PROJECT_NAME} # library name
-    ${PROJECT_SOURCE_DIR}/src/stp_parser.cpp #sources...
-    ${PROJECT_SOURCE_DIR}/include/stp_parser.hpp #just for vscode intellisence
+    ${PROJECT_SOURCE_DIR}/src/step.cpp #sources...
+    ${PROJECT_SOURCE_DIR}/include/step.h #just for vscode intellisence
 )
 #passing -Iinclude/ to compiler
 #PUBLIC will be added to all dependent targets

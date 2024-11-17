@@ -9,8 +9,7 @@
 #include <cctype>
 
 #include <LiteMath.h>
-
-#include <stp_parser.hpp>
+#include <step.h>
 
 using namespace LiteMath;
 
@@ -267,7 +266,8 @@ Entity Parser::getEntity(uint id) {
 /**************************************************************************/
 std::vector<float> decompressKnots(
         std::vector<float> &knots_comp,
-        std::vector<uint> &knots_mult) {
+        std::vector<uint> &knots_mult,
+        uint degree) {
     assert(knots_comp.size() == knots_mult.size());
 
     std::vector<float> knots;
@@ -276,6 +276,9 @@ std::vector<float> decompressKnots(
             knots.push_back(knots_comp[i]);
         }
     }
+
+    trimKnots(knots, knots_mult, degree);
+
     return knots;
 }
 
@@ -330,12 +333,8 @@ void Parser::storeBSplineSurfaceWithKnots(Entity &entity, RawNURBS &nurbs) {
     // Parse knots
     std::vector<float> u_knots_comp = this->parseFVector1D(u_knots_arg);
     std::vector<float> v_knots_comp = this->parseFVector1D(v_knots_arg);
-    nurbs.u_knots = decompressKnots(u_knots_comp, u_knots_mult);
-    nurbs.v_knots = decompressKnots(v_knots_comp, v_knots_mult);
-
-    // Trim knots
-    trimKnots(nurbs.u_knots, u_knots_mult, nurbs.u_degree);
-    trimKnots(nurbs.v_knots, v_knots_mult, nurbs.v_degree);
+    nurbs.u_knots = decompressKnots(u_knots_comp, u_knots_mult, nurbs.u_degree);
+    nurbs.v_knots = decompressKnots(v_knots_comp, v_knots_mult, nurbs.v_degree);
 }
 
 void Parser::storeRationalBSplineSurface(Entity &entity, RawNURBS &nurbs) {
@@ -373,12 +372,8 @@ RawNURBS Parser::BSplineSurfaceWithKnotsToNURBS(uint id) {
     // Parse knots
     std::vector<float> u_knots_comp = this->parseFVector1D(u_knots_arg);
     std::vector<float> v_knots_comp = this->parseFVector1D(v_knots_arg);
-    nurbs.u_knots = decompressKnots(u_knots_comp, u_knots_mult);
-    nurbs.v_knots = decompressKnots(v_knots_comp, v_knots_mult);
-
-    // Trim knots
-    trimKnots(nurbs.u_knots, u_knots_mult, nurbs.u_degree);
-    trimKnots(nurbs.v_knots, v_knots_mult, nurbs.v_degree);
+    nurbs.u_knots = decompressKnots(u_knots_comp, u_knots_mult, nurbs.u_degree);
+    nurbs.v_knots = decompressKnots(v_knots_comp, v_knots_mult, nurbs.v_degree);
 
     // Make default weights
     size_t rows = nurbs.points.rows_count(), cols = nurbs.points.cols_count();
