@@ -1,12 +1,13 @@
 #include <iostream>
 #include <map>
+#include <optional>
 #include "help.h"
-#include "test.h"
+#include "actions.h"
 
-namespace test
+namespace testing
 {
 
-    std::vector<const Test*> collect_tests(char**names, size_t count)
+    std::optional<std::vector<const Test*>> collect_tests(char**names, size_t count)
     {
         std::map<std::string_view, const Test*> tests;
         if (count == 0)
@@ -15,7 +16,7 @@ namespace test
         }
         for (auto i : Test::all())
         {
-            tests[i->run_name()] = i;
+            tests[i->name()] = i;
         }
         std::vector<const Test*> out;
         for (size_t i = 0; i < count; i++)
@@ -24,8 +25,8 @@ namespace test
             if (it == tests.end())
             {
                 std::cerr << "Unrecognized test name '" << names[i] << "'." << std::endl;
-                std::cerr << "Run 'test list' to list all tests" << std::endl;
-                return {};
+                std::cerr << help::read_list_message() << std::endl;
+                return std::nullopt;
             }
             out.push_back(it->second);
         }
@@ -37,21 +38,22 @@ namespace test
         if (argc > 0)
         {
             std::cerr << "Command 'list' must have no arguments." << std::endl;
-            std::cerr << read_help_message << std::endl;
+            std::cerr << help::read_help_message() << std::endl;
             return false;
         }
-        Test::list();
-        return true;
+        return actions::list();
     }
 
     bool handle_run(int argc, char**argv)
     {
         auto tests = collect_tests(argv, argc);
-        if (tests.size() == 0)
+        if (!tests)
         {
             return false;
         }
-        return Test::run(tests);
+        actions::ExecutionContext ctx;
+        ctx.rewrite = false;
+        return actions::run(*tests, ctx);
     }
 
     bool handle_rewrite(int argc, char **argv)
@@ -59,25 +61,24 @@ namespace test
         if (argc == 0)
         {
             std::cerr << "Name of test to rewrite must be specified." << std::endl;
-            std::cerr << read_help_message << std::endl;
+            std::cerr << help::read_help_message() << std::endl;
             return false;
         }
         if (argc > 1)
         {
-            std::cerr << "Only one test references can be rewritten at a time, but several were specified." << std::endl;
-            std::cerr << read_help_message << std::endl;
+            std::cerr << "Only one test's references can be rewritten at a time, but several tests were specified." << std::endl;
+            std::cerr << help::read_help_message() << std::endl;
             return false;
         }
 
         auto tests = collect_tests(argv, 1);
-        if (tests.size() == 0)
+        if (!tests)
         {
             return false;
         }
-        test_execution_context ctx;
+        actions::ExecutionContext ctx;
         ctx.rewrite = true;
-        tests[0]->unsafe_run(ctx);
-        return true;
+        return actions::unsafe((*tests)[0], ctx);
     }
 
     bool handle_unsafe(int argc, char**argv)
@@ -85,63 +86,62 @@ namespace test
         if (argc == 0)
         {
             std::cerr << "Name of test to run must be specified." << std::endl;
-            std::cerr << read_help_message << std::endl;
+            std::cerr << help::read_help_message() << std::endl;
             return false;
         }
         if (argc > 1)
         {
-            std::cerr << "Only one test can be run unsafe at a time, but several were specified." << std::endl;
-            std::cerr << read_help_message << std::endl;
+            std::cerr << "Only one test can be run unsafe at a time, but several tests were specified." << std::endl;
+            std::cerr << help::read_help_message() << std::endl;
             return false;
         }
 
         auto tests = collect_tests(argv, 1);
-        if (tests.size() == 0)
+        if (!tests)
         {
             return false;
         }
-        test_execution_context ctx;
+        actions::ExecutionContext ctx;
         ctx.rewrite = false;
-        tests[0]->unsafe_run(ctx);
-        return true;
+        return actions::unsafe((*tests)[0], ctx);
     }
 
     bool handle_args(int argc, char**argv)
     {
         
-        if (argc < 2)
+        if (argc < 1)
         {
-            std::cout << read_help_message << std::endl;
+            std::cerr << help::read_help_message() << std::endl;
             return false;
         }
 
-        std::string_view cmd = argv[1];
+        std::string_view cmd = argv[0];
 
         if (cmd == "help")
         {
-            std::cout << help_message;
+            std::cout << help::help_message();
             return true;
         }
         else if (cmd == "list")
         {
-            return handle_list(argc - 2, argv + 2);
+            return handle_list(argc - 1, argv + 1);
         }
         else if(cmd == "run")
         {
-            return handle_run(argc-2, argv + 2);
+            return handle_run(argc-1, argv + 1);
         }
         else if(cmd == "rewrite")
         {
-            return handle_rewrite(argc-2, argv + 2);
+            return handle_rewrite(argc-1, argv + 1);
         }
         else if(cmd == "unsafe")
         {
-            return handle_unsafe(argc-2, argv + 2);
+            return handle_unsafe(argc-1, argv + 1);
         }
         else
         {
             std::cerr << "Unrecognized command '" << cmd << "'." << std::endl;
-            std::cerr << read_help_message << std::endl;
+            std::cerr << help::read_help_message() << std::endl;
             return false;
         }
 
@@ -149,12 +149,8 @@ namespace test
 
 }
 
-ADD_TEST(x, "x")
-{
-
-}
 
 int main(int argc, char**argv)
 {
-    return !test::handle_args(argc, argv);
+    return !testing::handle_args(argc - 1, argv + 1);
 }

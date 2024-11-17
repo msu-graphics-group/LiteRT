@@ -1,6 +1,6 @@
 #pragma once
 
-namespace test::colors
+namespace testing::colors
 {
 
     constexpr const char red[] = "\33[31m";

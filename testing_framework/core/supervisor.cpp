@@ -5,7 +5,7 @@
 #include <string.h>
 #include <sys/prctl.h>
 
-namespace test
+namespace testing
 {
 
     Supervisor::Supervisor() :

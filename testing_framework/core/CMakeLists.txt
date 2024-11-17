@@ -4,10 +4,15 @@ add_library(
 
     main.cpp
 
+    actions.h
+    actions.cpp
+
     colors.h
 
     help.h
     help.cpp
+    exe.h
+    exe.cpp
 
     test.h
     test.cpp

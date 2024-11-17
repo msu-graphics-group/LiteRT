@@ -1,10 +1,11 @@
 #pragma once
 #include <string>
 
-namespace test
+namespace testing::help
 {
 
-    extern std::string help_message;
-    extern std::string read_help_message;
+    std::string help_message();
+    std::string read_help_message();
+    std::string read_list_message();
 
 }
