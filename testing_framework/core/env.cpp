@@ -23,6 +23,12 @@ namespace testing
             std::cout << "Please, answer [y/n]";
             std::string line;
             std::getline(std::cin, line);
+            if (std::cin.eof())
+            {
+                // clear exit
+                std::cout << std::endl;
+                skip();
+            }
             if (line.back() == '\n')
             {
                 line.resize(line.size() - 1);
