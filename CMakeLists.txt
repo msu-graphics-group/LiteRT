@@ -12,8 +12,8 @@ add_library(
 target_include_directories(${PROJECT_NAME} PUBLIC ${PROJECT_SOURCE_DIR}/include/) 
 target_include_directories(${PROJECT_NAME} PRIVATE ${PROJECT_SOURCE_DIR}/external/) 
 
-option(compile_examples ON)
-if (${compile_examples})
+option(COMPILE_EXAMPLES ON)
+if (${COMPILE_EXAMPLES})
   add_executable(
     parse_and_print
       examples/example_print.cpp

@@ -348,7 +348,7 @@ void Parser::storeRationalBSplineSurface(Entity &entity, RawNURBS &nurbs) {
 }
 
 RawNURBS Parser::BSplineSurfaceWithKnotsToNURBS(uint id) {
-    Entity entity = this->getEntity(id);
+    Entity &entity = this->entities[id];
     RawNURBS nurbs;
 
     std::string u_degree_arg     = entity.args[1];
@@ -389,11 +389,11 @@ RawNURBS Parser::BSplineSurfaceWithKnotsToNURBS(uint id) {
             nurbs.weights[index] = 1;
         }
 
-    return std::move(nurbs);
+    return nurbs;
 }
 
 RawNURBS Parser::RationalBSplineSurfaceToNURBS(uint id) {
-    Entity entity = this->getEntity(id);
+    Entity &entity = this->entities[id];
 
     Entity BSplineSurface = this->parseEntity(entity.args[1], false);
     Entity BSplineSurfaceWithKnots = this->parseEntity(entity.args[2], false);
@@ -408,7 +408,7 @@ RawNURBS Parser::RationalBSplineSurfaceToNURBS(uint id) {
 
 RawNURBS Parser::toNURBS(uint id) {
     // Call this function iff the nurbs is passed
-    Entity entity = this->getEntity(id);
+    Entity &entity = this->entities[id];
     if (isBSplineWithKnots(id)) return this->BSplineSurfaceWithKnotsToNURBS(id);
     else if (isRationalBSpline(id)) return this->RationalBSplineSurfaceToNURBS(id);
 
@@ -417,12 +417,12 @@ RawNURBS Parser::toNURBS(uint id) {
 }
 
 bool Parser::isBSplineWithKnots(uint id) {
-    Entity entity = this->getEntity(id);
+    Entity &entity = this->entities[id];
     return entity.type == Type::BSPLINE_SURFACE_WITH_KNOTS;
 }
 
 bool Parser::isRationalBSpline(uint id) {
-    Entity entity = this->getEntity(id);
+    Entity &entity = this->entities[id];
 
     bool result = false;
     if (entity.type == Type::COMPLEX && entity.args.size() == 7) {
