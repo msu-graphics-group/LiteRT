@@ -41,7 +41,7 @@ namespace testing
             std::cerr << help::read_help_message() << std::endl;
             return false;
         }
-        return actions::list();
+        return list();
     }
 
     bool handle_run(int argc, char**argv)
@@ -51,9 +51,9 @@ namespace testing
         {
             return false;
         }
-        actions::ExecutionContext ctx;
+        ExecutionContext ctx;
         ctx.rewrite = false;
-        return actions::run(*tests, ctx);
+        return run(*tests, ctx);
     }
 
     bool handle_rewrite(int argc, char **argv)
@@ -76,9 +76,9 @@ namespace testing
         {
             return false;
         }
-        actions::ExecutionContext ctx;
+        ExecutionContext ctx;
         ctx.rewrite = true;
-        return actions::unsafe((*tests)[0], ctx);
+        return unsafe((*tests)[0], ctx);
     }
 
     bool handle_unsafe(int argc, char**argv)
@@ -101,9 +101,9 @@ namespace testing
         {
             return false;
         }
-        actions::ExecutionContext ctx;
+        ExecutionContext ctx;
         ctx.rewrite = false;
-        return actions::unsafe((*tests)[0], ctx);
+        return unsafe((*tests)[0], ctx);
     }
 
     bool handle_args(int argc, char**argv)

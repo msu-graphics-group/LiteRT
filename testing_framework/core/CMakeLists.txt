@@ -20,6 +20,9 @@ add_library(
     supervisor.h
     supervisor.cpp
 
+    env.h
+    env.cpp
+
 )
 
 target_include_directories(testing_framework_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/../../)

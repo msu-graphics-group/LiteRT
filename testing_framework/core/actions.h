@@ -1,7 +1,7 @@
 #pragma once
 #include "test.h"
 
-namespace testing::actions
+namespace testing
 {
 
     struct ExecutionContext
