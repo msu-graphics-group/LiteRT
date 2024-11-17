@@ -249,6 +249,7 @@ target_link_libraries(render_lib PUBLIC hydra OpenMP::OpenMP_CXX)
 add_executable(render_app main.cpp)
 target_link_libraries(render_app PRIVATE render_lib)
 
+add_subdirectory(testing_framework)
 add_subdirectory(tests)
 
 if (USE_VULKAN)

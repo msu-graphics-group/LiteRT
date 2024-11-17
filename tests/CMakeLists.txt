@@ -2,19 +2,7 @@
 
 add_executable(
     test
-
-    main.cpp
-
-    colors.h
-
-    help.h
-    help.cpp
-
-    test.h
-    test.cpp
-
-    supervisor.h
-    supervisor.cpp
+    example_tests.cpp
 )
 
-target_link_libraries(test PRIVATE render_lib)
+target_link_libraries(test PRIVATE testing_framework)
