@@ -19,6 +19,12 @@ add_library(
 )
 target_include_directories(Timer PUBLIC ${PROJECT_SOURCE_DIR}/include/)
 
+#add_library(
+#  stl
+#    ${PROJECT_SOURCE_DIR}/include/stl.h
+#)
+#target_include_directories(stl PUBLIC ${PROJECT_SOURCE_DIR}/include/)
+
 option(COMPILE_EXAMPLES ON)
 if (${COMPILE_EXAMPLES})
   add_executable(
@@ -41,5 +47,12 @@ if (${COMPILE_EXAMPLES})
   )
   target_link_libraries(argsplit ${PROJECT_NAME} Timer)
   target_include_directories(${PROJECT_NAME} PUBLIC ${PROJECT_SOURCE_DIR}/external/)
+
+  add_executable(
+    stl
+      examples/stl.cpp
+  )
+  target_link_libraries(stl ${PROJECT_NAME} Timer)
+
 endif()
 

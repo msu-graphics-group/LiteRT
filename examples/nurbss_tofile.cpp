@@ -1,6 +1,7 @@
 #include <fstream>
 #include <filesystem>
 #include <sstream>
+#include <iostream>
 
 #include <step.h>
 #include <LiteMath.h>
@@ -11,7 +12,7 @@ using namespace profiling;
 
 int main(int argc, const char **argv) {
   if (argc != 2) {
-    std::cout << "Usage: parse_and_div <path_to_stp_file>" << std::endl;
+    std::cout << "Usage: nurbss_tofile <path_to_step>" << std::endl;
     return 0;
   }
   std::filesystem::path path = argv[1];

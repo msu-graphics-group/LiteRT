@@ -1,4 +1,5 @@
 #include <filesystem>
+#include <iostream>
 
 #include <step.h>
 #include <LiteMath.h>
@@ -9,7 +10,7 @@ using namespace profiling;
 
 int main(int argc, const char **argv) {
   if (argc != 3) {
-    std::cout << "Usage: parse_and_print <path_to_stp_file> <entity_ID>" << std::endl;
+    std::cout << "Usage: argsplit <path_to_step> <entity_ID>" << std::endl;
     return 0;
   }
   std::filesystem::path path = argv[1];
