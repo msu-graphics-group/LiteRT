@@ -29,7 +29,7 @@ namespace testing
                 std::cout << std::endl;
                 skip();
             }
-            if (line.back() == '\n')
+            if (line.size() > 0 && line.back() == '\n')
             {
                 line.resize(line.size() - 1);
             }
