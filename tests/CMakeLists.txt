@@ -12,6 +12,9 @@ add_executable(
 
     test.h
     test.cpp
+
+    supervisor.h
+    supervisor.cpp
 )
 
 target_link_libraries(test PRIVATE render_lib)

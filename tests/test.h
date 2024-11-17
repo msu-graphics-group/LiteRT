@@ -67,9 +67,6 @@ namespace test
         test_execution_info unsafe_execute(test_execution_context) const;
         bool supervised_execute(test_execution_info&info) const;
 
-        void supervised_child() const;
-        bool supervised_parent(int child_pid, int child_output, test_execution_info&info) const;
-
         /*
             Method that contains test code
             Needs to be overwritten in every test
