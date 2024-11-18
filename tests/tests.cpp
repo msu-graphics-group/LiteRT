@@ -3195,10 +3195,8 @@ void litert_test_41_openvdb()
     float w = 10;
 
     OpenVDB_Grid grid;
-    void* mesh_ptr = reinterpret_cast<void*>(&mesh);
+    grid.mesh2sdf(mesh, voxel_size, w);
 
-    grid.mesh2sdf(mesh_ptr, voxel_size, w);
-    
     auto mem = grid.mem_usage();
 
     unsigned W = 1000, H = 1000;
@@ -3220,7 +3218,7 @@ void litert_test_41_openvdb()
     LiteImage::SaveImage<uint32_t>("saves/test_41_openvdb.bmp", vdb_image);
 
     psnr_vdb = image_metrics::PSNR(ref_image, vdb_image);
-    bytes_vdb = mem / 1024 / 1024;
+    bytes_vdb = (float)mem / 1024 / 1024;
     voxels_vdb = grid.get_voxels_count();
   }
 
@@ -3321,8 +3319,7 @@ litert_test_42_openvdb_benchmark()
   float w = 2;
 
   OpenVDB_Grid grid;
-  void* mesh_ptr = reinterpret_cast<void*>(&mesh);
-  grid.mesh2sdf(mesh_ptr, voxel_size, w);
+  grid.mesh2sdf(mesh, voxel_size, w);
 
   auto mem = grid.mem_usage();
 
@@ -3346,7 +3343,7 @@ litert_test_42_openvdb_benchmark()
   LiteImage::SaveImage<uint32_t>("saves/test_42_openvdb.bmp", vdb_image);
 
   // psnr_vdb = image_metrics::PSNR(ref_image, vdb_image);
-  float bytes_vdb = mem / 1024 / 1024;
+  float bytes_vdb = (float)mem / 1024 / 1024;
   float voxels_vdb = grid.get_voxels_count();
 
   printf("%f %f\n", bytes_vdb, voxels_vdb);

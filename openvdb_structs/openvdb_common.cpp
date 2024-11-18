@@ -1,8 +1,5 @@
 #include "openvdb_common.h"
 
-#ifndef KERNEL_SLICER
-#ifndef DISABLE_OPENVDB
-
 #include <openvdb/openvdb.h>
 #include <openvdb/Grid.h>
 #include <openvdb/Types.h>
@@ -12,24 +9,20 @@
 #include <openvdb/tools/VolumeToMesh.h>
 #include <openvdb/tools/Interpolation.h>
 
-#include "../utils/mesh.h"
-
 void
-OpenVDB_Grid::mesh2sdf(void* mesh_ptr, const float voxel_size, const float w)
+OpenVDB_Grid::mesh2sdf(const cmesh4::SimpleMesh& mesh, const float voxel_size, const float w)
 {
     std::vector<openvdb::Vec3s> points;
     std::vector<openvdb::Vec3I> indices;
 
-    auto mesh = (*reinterpret_cast<std::shared_ptr<cmesh4::SimpleMesh> *>(mesh_ptr)).get(); 
-
-    for (auto point: mesh->vPos4f)
+    for (auto point: mesh.vPos4f)
     {
         points.push_back(openvdb::Vec3s(point.x, point.y, point.z));
     }
 
-    for (int i = 0; i < mesh->IndicesNum(); i += 3)
+    for (int i = 0; i < mesh.IndicesNum(); i += 3)
     {
-        indices.push_back(openvdb::Vec3I(mesh->indices[i], mesh->indices[i + 1], mesh->indices[i + 2]));
+        indices.push_back(openvdb::Vec3I(mesh.indices[i], mesh.indices[i + 1], mesh.indices[i + 2]));
     }
 
     openvdb::math::Transform::Ptr transform = openvdb::math::Transform::createLinearTransform(voxel_size);
@@ -80,6 +73,3 @@ OpenVDB_Grid::get_voxels_count() const
     auto grid = *reinterpret_cast<std::shared_ptr<openvdb::FloatGrid> *>(grid_ptr);
     return grid->tree().activeVoxelCount();
 }
-
-#endif
-#endif

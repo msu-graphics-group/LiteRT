@@ -42,12 +42,6 @@
 				"parent" : 0
 			},
 			{
-				"command" : 1,
-				"file" : 0,
-				"line" : 141,
-				"parent" : 0
-			},
-			{
 				"command" : 2,
 				"file" : 0,
 				"line" : 199,
@@ -56,13 +50,13 @@
 			{
 				"command" : 2,
 				"file" : 0,
-				"line" : 204,
+				"line" : 213,
 				"parent" : 0
 			},
 			{
-				"command" : 3,
+				"command" : 2,
 				"file" : 0,
-				"line" : 228,
+				"line" : 200,
 				"parent" : 0
 			},
 			{
@@ -72,27 +66,9 @@
 				"parent" : 0
 			},
 			{
-				"command" : 3,
-				"file" : 0,
-				"line" : 146,
-				"parent" : 0
-			},
-			{
-				"command" : 3,
-				"file" : 0,
-				"line" : 176,
-				"parent" : 0
-			},
-			{
 				"command" : 4,
 				"file" : 0,
 				"line" : 98,
-				"parent" : 0
-			},
-			{
-				"command" : 3,
-				"file" : 0,
-				"line" : 147,
 				"parent" : 0
 			},
 			{
@@ -202,7 +178,7 @@
 					"fragment" : " -fopenmp -std=c++17 -O3 -Wall -Wno-unused-function                      -Wno-unused-variable -Wno-unused-but-set-variable -Wno-unused-parameter -Wno-unused-result                      -Wno-int-to-pointer-cast -Wno-register -Wreturn-type -Wdisabled-optimization                      -Wno-narrowing -Wno-attributes -Wno-sign-compare -g"
 				},
 				{
-					"backtrace" : 4,
+					"backtrace" : 5,
 					"fragment" : "-fopenmp"
 				}
 			],
@@ -210,94 +186,70 @@
 			[
 				{
 					"backtrace" : 6,
-					"define" : "IMGUI_USER_CONFIG=\"/home/james/Desktop/LiteRT/LiteRT/render_engine/my_imgui_config.h\""
-				},
-				{
-					"backtrace" : 7,
 					"define" : "ON_CPU=1"
 				},
 				{
-					"backtrace" : 8,
-					"define" : "USE_GPU"
-				},
-				{
-					"backtrace" : 9,
-					"define" : "USE_RTX"
-				},
-				{
-					"backtrace" : 10,
+					"backtrace" : 7,
 					"define" : "USE_STB_IMAGE"
 				},
 				{
-					"backtrace" : 11,
-					"define" : "USE_VOLK"
-				},
-				{
-					"backtrace" : 12,
+					"backtrace" : 8,
 					"define" : "_DEBUG"
 				}
 			],
 			"includes" : 
 			[
 				{
-					"backtrace" : 13,
+					"backtrace" : 9,
 					"path" : "/home/james/Desktop/LiteRT/LiteRT/dependencies/HydraCore3/external/LiteMath/external"
 				},
 				{
-					"backtrace" : 14,
+					"backtrace" : 10,
 					"path" : "/home/james/Desktop/LiteRT/LiteRT"
 				},
 				{
-					"backtrace" : 15,
+					"backtrace" : 11,
 					"path" : "/home/james/Desktop/LiteRT/LiteRT/dependencies"
 				},
 				{
-					"backtrace" : 16,
+					"backtrace" : 12,
 					"path" : "/home/james/Desktop/LiteRT/LiteRT/dependencies/HydraCore3/external"
 				},
 				{
-					"backtrace" : 17,
+					"backtrace" : 13,
 					"path" : "/home/james/Desktop/LiteRT/LiteRT/dependencies/HydraCore3/external/LiteMath"
 				},
 				{
-					"backtrace" : 18,
+					"backtrace" : 14,
 					"path" : "/home/james/Desktop/LiteRT/LiteRT/dependencies/HydraCore3/external/LiteScene"
 				},
 				{
-					"backtrace" : 19,
+					"backtrace" : 15,
 					"path" : "/home/james/Desktop/LiteRT/LiteRT/dependencies/HydraCore3/external/CrossRT"
 				},
 				{
-					"backtrace" : 20,
+					"backtrace" : 16,
 					"path" : "/home/james/Desktop/LiteRT/LiteRT/dependencies/embree"
 				},
 				{
-					"backtrace" : 21,
+					"backtrace" : 17,
 					"path" : "/home/james/Desktop/LiteRT/LiteRT/sdfScene"
 				},
 				{
-					"backtrace" : 22,
+					"backtrace" : 18,
 					"path" : "/home/james/Desktop/LiteRT/LiteRT/BVH"
 				},
 				{
-					"backtrace" : 23,
+					"backtrace" : 19,
 					"path" : "/home/james/Desktop/LiteRT/LiteRT/Render"
 				},
 				{
-					"backtrace" : 24,
+					"backtrace" : 20,
 					"path" : "/home/james/Desktop/LiteRT/LiteRT/openvdb_structs"
 				},
 				{
-					"backtrace" : 25,
+					"backtrace" : 21,
 					"path" : "/home/james/Desktop/LiteRT/LiteRT/modules"
-				},
-				{
-					"backtrace" : 25,
-					"path" : "/home/james/Desktop/LiteRT/LiteRT/dependencies/HydraCore3/external/vkutils"
-				},
-				{
-					"backtrace" : 25,
-					"path" : "/home/james/Desktop/LiteRT/LiteRT/dependencies/HydraCore3/external/volk"
 				}
 			],
 			"language" : "CXX",
@@ -305,7 +257,7 @@
 			{
 				"backtraces" : 
 				[
-					26
+					22
 				],
 				"standard" : "17"
 			},
@@ -346,38 +298,8 @@
 				32,
 				33,
 				34,
-				35,
-				36,
-				37,
-				38,
-				39,
-				40,
-				41,
-				42,
-				43,
-				44,
-				45,
-				46,
-				47,
-				48,
-				49,
-				50,
-				51,
-				52,
-				53,
-				54,
-				55,
-				56,
-				57,
-				58
+				35
 			]
-		}
-	],
-	"dependencies" : 
-	[
-		{
-			"backtrace" : 4,
-			"id" : "volk::@cfec7ca195f67bfdf8cd"
 		}
 	],
 	"id" : "render_app::@6890427a1f51a3e7e1df",
@@ -399,80 +321,50 @@
 				"role" : "libraryPath"
 			},
 			{
-				"backtrace" : 3,
-				"fragment" : "-L/home/james/Desktop/LiteRT/LiteRT/dependencies/HydraCore3/external/volk",
-				"role" : "libraryPath"
-			},
-			{
-				"fragment" : "-Wl,-rpath,/home/james/Desktop/LiteRT/LiteRT/dependencies/embree/lib:/home/james/Desktop/LiteRT/LiteRT/dependencies/HydraCore3/external/volk:/usr/local/lib",
+				"fragment" : "-Wl,-rpath,/home/james/Desktop/LiteRT/LiteRT/dependencies/embree/lib:/usr/local/lib",
 				"role" : "libraries"
 			},
 			{
-				"backtrace" : 4,
+				"backtrace" : 3,
 				"fragment" : "-ldl",
 				"role" : "libraries"
 			},
 			{
-				"backtrace" : 4,
+				"backtrace" : 3,
 				"fragment" : "-lembree4",
 				"role" : "libraries"
 			},
 			{
-				"backtrace" : 4,
+				"backtrace" : 3,
 				"fragment" : "-ltbb",
 				"role" : "libraries"
 			},
 			{
-				"backtrace" : 4,
+				"backtrace" : 3,
 				"fragment" : "-ltbbmalloc",
 				"role" : "libraries"
 			},
 			{
-				"backtrace" : 4,
-				"fragment" : "/usr/lib/x86_64-linux-gnu/libvulkan.so",
-				"role" : "libraries"
-			},
-			{
-				"backtrace" : 4,
-				"fragment" : "libvolk.a",
-				"role" : "libraries"
-			},
-			{
-				"backtrace" : 4,
-				"fragment" : "-ldl",
-				"role" : "libraries"
-			},
-			{
-				"backtrace" : 4,
+				"backtrace" : 3,
 				"fragment" : "-ltbb",
 				"role" : "libraries"
 			},
 			{
-				"backtrace" : 5,
+				"backtrace" : 4,
 				"fragment" : "/usr/local/lib/libopenvdb.so.11.0",
 				"role" : "libraries"
 			},
 			{
-				"backtrace" : 4,
+				"backtrace" : 3,
 				"fragment" : "-ltbbmalloc",
 				"role" : "libraries"
 			},
 			{
-				"backtrace" : 4,
-				"fragment" : "/usr/lib/x86_64-linux-gnu/libvulkan.so",
-				"role" : "libraries"
-			},
-			{
-				"fragment" : "/usr/lib/gcc/x86_64-linux-gnu/12/libgomp.so",
+				"fragment" : "/usr/lib/gcc/x86_64-linux-gnu/11/libgomp.so",
 				"role" : "libraries"
 			},
 			{
 				"fragment" : "/usr/lib/x86_64-linux-gnu/libpthread.a",
-				"role" : "libraries"
-			},
-			{
-				"backtrace" : 4,
-				"fragment" : "-ldl",
 				"role" : "libraries"
 			}
 		],
@@ -526,385 +418,224 @@
 				32,
 				33,
 				34,
-				35,
-				36,
-				37,
-				38,
-				39,
-				40,
-				41,
-				42,
-				43,
-				44,
-				45,
-				46,
-				47,
-				48,
-				49,
-				50,
-				51,
-				52,
-				53,
-				54,
-				55,
-				56,
-				57,
-				58
+				35
 			]
 		}
 	],
 	"sources" : 
 	[
 		{
-			"backtrace" : 27,
+			"backtrace" : 23,
 			"compileGroupIndex" : 0,
 			"path" : "main.cpp",
 			"sourceGroupIndex" : 0
 		},
 		{
-			"backtrace" : 27,
-			"compileGroupIndex" : 0,
-			"path" : "Renderer/eye_ray_gpu.cpp",
-			"sourceGroupIndex" : 0
-		},
-		{
-			"backtrace" : 27,
-			"compileGroupIndex" : 0,
-			"path" : "Renderer/eye_ray_gpu_ds.cpp",
-			"sourceGroupIndex" : 0
-		},
-		{
-			"backtrace" : 27,
-			"compileGroupIndex" : 0,
-			"path" : "Renderer/eye_ray_gpu_init.cpp",
-			"sourceGroupIndex" : 0
-		},
-		{
-			"backtrace" : 27,
-			"compileGroupIndex" : 0,
-			"path" : "dependencies/HydraCore3/external/vkutils/vk_utils.cpp",
-			"sourceGroupIndex" : 0
-		},
-		{
-			"backtrace" : 27,
-			"compileGroupIndex" : 0,
-			"path" : "dependencies/HydraCore3/external/vkutils/vk_copy.cpp",
-			"sourceGroupIndex" : 0
-		},
-		{
-			"backtrace" : 27,
-			"compileGroupIndex" : 0,
-			"path" : "dependencies/HydraCore3/external/vkutils/vk_buffers.cpp",
-			"sourceGroupIndex" : 0
-		},
-		{
-			"backtrace" : 27,
-			"compileGroupIndex" : 0,
-			"path" : "dependencies/HydraCore3/external/vkutils/vk_images.cpp",
-			"sourceGroupIndex" : 0
-		},
-		{
-			"backtrace" : 27,
-			"compileGroupIndex" : 0,
-			"path" : "dependencies/HydraCore3/external/vkutils/vk_context.cpp",
-			"sourceGroupIndex" : 0
-		},
-		{
-			"backtrace" : 27,
-			"compileGroupIndex" : 0,
-			"path" : "dependencies/HydraCore3/external/vkutils/vk_alloc_simple.cpp",
-			"sourceGroupIndex" : 0
-		},
-		{
-			"backtrace" : 27,
-			"compileGroupIndex" : 0,
-			"path" : "dependencies/HydraCore3/external/vkutils/vk_pipeline.cpp",
-			"sourceGroupIndex" : 0
-		},
-		{
-			"backtrace" : 27,
-			"compileGroupIndex" : 0,
-			"path" : "dependencies/HydraCore3/external/vkutils/vk_descriptor_sets.cpp",
-			"sourceGroupIndex" : 0
-		},
-		{
-			"backtrace" : 27,
-			"compileGroupIndex" : 0,
-			"path" : "dependencies/HydraCore3/external/vkutils/vk_swapchain.cpp",
-			"sourceGroupIndex" : 0
-		},
-		{
-			"backtrace" : 27,
-			"compileGroupIndex" : 0,
-			"path" : "dependencies/HydraCore3/external/vkutils/vk_quad.cpp",
-			"sourceGroupIndex" : 0
-		},
-		{
-			"backtrace" : 27,
-			"compileGroupIndex" : 0,
-			"path" : "dependencies/HydraCore3/external/vkutils/vk_fbuf_attachment.cpp",
-			"sourceGroupIndex" : 0
-		},
-		{
-			"backtrace" : 27,
-			"compileGroupIndex" : 0,
-			"path" : "dependencies/HydraCore3/external/vkutils/ray_tracing/vk_rt_utils.cpp",
-			"sourceGroupIndex" : 0
-		},
-		{
-			"backtrace" : 27,
-			"compileGroupIndex" : 0,
-			"path" : "dependencies/HydraCore3/external/CrossRT/EmbreeRT.cpp",
-			"sourceGroupIndex" : 0
-		},
-		{
-			"backtrace" : 27,
-			"compileGroupIndex" : 0,
-			"path" : "dependencies/HydraCore3/external/CrossRT/VulkanRTX.cpp",
-			"sourceGroupIndex" : 0
-		},
-		{
-			"backtrace" : 27,
-			"compileGroupIndex" : 0,
-			"path" : "dependencies/HydraCore3/external/LiteScene/scene_mgr.cpp",
-			"sourceGroupIndex" : 0
-		},
-		{
-			"backtrace" : 27,
-			"compileGroupIndex" : 0,
-			"path" : "dependencies/HydraCore3/external/vkutils/geom/cmesh.cpp",
-			"sourceGroupIndex" : 0
-		},
-		{
-			"backtrace" : 27,
-			"compileGroupIndex" : 0,
-			"path" : "dependencies/HydraCore3/external/vkutils/geom/vk_mesh.cpp",
-			"sourceGroupIndex" : 0
-		},
-		{
-			"backtrace" : 27,
-			"compileGroupIndex" : 0,
-			"path" : "Renderer/eye_ray_rtx.cpp",
-			"sourceGroupIndex" : 0
-		},
-		{
-			"backtrace" : 27,
-			"compileGroupIndex" : 0,
-			"path" : "Renderer/eye_ray_rtx_ds.cpp",
-			"sourceGroupIndex" : 0
-		},
-		{
-			"backtrace" : 27,
-			"compileGroupIndex" : 0,
-			"path" : "Renderer/eye_ray_rtx_init.cpp",
-			"sourceGroupIndex" : 0
-		},
-		{
-			"backtrace" : 27,
+			"backtrace" : 23,
 			"compileGroupIndex" : 0,
 			"path" : "dependencies/HydraCore3/external/LiteScene/pugixml.cpp",
 			"sourceGroupIndex" : 0
 		},
 		{
-			"backtrace" : 27,
+			"backtrace" : 23,
 			"compileGroupIndex" : 0,
 			"path" : "dependencies/HydraCore3/external/LiteScene/hydraxml.cpp",
 			"sourceGroupIndex" : 0
 		},
 		{
-			"backtrace" : 27,
+			"backtrace" : 23,
 			"compileGroupIndex" : 0,
 			"path" : "dependencies/HydraCore3/external/LiteScene/cmesh4.cpp",
 			"sourceGroupIndex" : 0
 		},
 		{
-			"backtrace" : 27,
+			"backtrace" : 23,
 			"compileGroupIndex" : 0,
 			"path" : "sdfScene/sdf_scene.cpp",
 			"sourceGroupIndex" : 0
 		},
 		{
-			"backtrace" : 27,
+			"backtrace" : 23,
 			"compileGroupIndex" : 0,
 			"path" : "utils/mesh_bvh.cpp",
 			"sourceGroupIndex" : 0
 		},
 		{
-			"backtrace" : 27,
+			"backtrace" : 23,
 			"compileGroupIndex" : 0,
 			"path" : "utils/mesh.cpp",
 			"sourceGroupIndex" : 0
 		},
 		{
-			"backtrace" : 27,
+			"backtrace" : 23,
 			"compileGroupIndex" : 0,
 			"path" : "utils/sparse_octree_builder.cpp",
 			"sourceGroupIndex" : 0
 		},
 		{
-			"backtrace" : 27,
+			"backtrace" : 23,
 			"compileGroupIndex" : 0,
 			"path" : "utils/radiance_field.cpp",
 			"sourceGroupIndex" : 0
 		},
 		{
-			"backtrace" : 27,
+			"backtrace" : 23,
 			"compileGroupIndex" : 0,
 			"path" : "utils/gaussian_field.cpp",
 			"sourceGroupIndex" : 0
 		},
 		{
-			"backtrace" : 27,
+			"backtrace" : 23,
 			"compileGroupIndex" : 0,
 			"path" : "utils/watertight_mesh.cpp",
 			"sourceGroupIndex" : 0
 		},
 		{
-			"backtrace" : 27,
+			"backtrace" : 23,
 			"compileGroupIndex" : 0,
 			"path" : "utils/sdf_converter.cpp",
 			"sourceGroupIndex" : 0
 		},
 		{
-			"backtrace" : 27,
+			"backtrace" : 23,
 			"compileGroupIndex" : 0,
 			"path" : "utils/hydra_stub.cpp",
 			"sourceGroupIndex" : 0
 		},
 		{
-			"backtrace" : 27,
+			"backtrace" : 23,
 			"compileGroupIndex" : 0,
 			"path" : "utils/marching_cubes.cpp",
 			"sourceGroupIndex" : 0
 		},
 		{
-			"backtrace" : 27,
+			"backtrace" : 23,
 			"compileGroupIndex" : 0,
 			"path" : "utils/sdf_smoother.cpp",
 			"sourceGroupIndex" : 0
 		},
 		{
-			"backtrace" : 27,
+			"backtrace" : 23,
 			"compileGroupIndex" : 0,
 			"path" : "utils/demo_meshes.cpp",
 			"sourceGroupIndex" : 0
 		},
 		{
-			"backtrace" : 27,
+			"backtrace" : 23,
 			"compileGroupIndex" : 0,
 			"path" : "utils/image_metrics.cpp",
 			"sourceGroupIndex" : 0
 		},
 		{
-			"backtrace" : 27,
+			"backtrace" : 23,
 			"compileGroupIndex" : 0,
 			"path" : "utils/iou.cpp",
 			"sourceGroupIndex" : 0
 		},
 		{
-			"backtrace" : 27,
+			"backtrace" : 23,
 			"compileGroupIndex" : 0,
 			"path" : "utils/points_visualizer.cpp",
 			"sourceGroupIndex" : 0
 		},
 		{
-			"backtrace" : 27,
+			"backtrace" : 23,
 			"compileGroupIndex" : 0,
 			"path" : "tests/tests.cpp",
 			"sourceGroupIndex" : 0
 		},
 		{
-			"backtrace" : 27,
+			"backtrace" : 23,
 			"compileGroupIndex" : 0,
 			"path" : "tests/benchmark.cpp",
 			"sourceGroupIndex" : 0
 		},
 		{
-			"backtrace" : 27,
+			"backtrace" : 23,
 			"compileGroupIndex" : 0,
 			"path" : "openvdb_structs/openvdb_common.cpp",
 			"sourceGroupIndex" : 0
 		},
 		{
-			"backtrace" : 27,
+			"backtrace" : 23,
 			"compileGroupIndex" : 0,
 			"path" : "diff_render/DR_common.cpp",
 			"sourceGroupIndex" : 0
 		},
 		{
-			"backtrace" : 27,
+			"backtrace" : 23,
 			"compileGroupIndex" : 0,
 			"path" : "diff_render/BVH2DR.cpp",
 			"sourceGroupIndex" : 0
 		},
 		{
-			"backtrace" : 27,
+			"backtrace" : 23,
 			"compileGroupIndex" : 0,
 			"path" : "diff_render/MultiRendererDR.cpp",
 			"sourceGroupIndex" : 0
 		},
 		{
-			"backtrace" : 27,
+			"backtrace" : 23,
 			"compileGroupIndex" : 0,
 			"path" : "diff_render/benchmark_diff_render.cpp",
 			"sourceGroupIndex" : 0
 		},
 		{
-			"backtrace" : 27,
+			"backtrace" : 23,
 			"compileGroupIndex" : 0,
 			"path" : "diff_render/tests_diff_render.cpp",
 			"sourceGroupIndex" : 0
 		},
 		{
-			"backtrace" : 27,
+			"backtrace" : 23,
 			"compileGroupIndex" : 0,
 			"path" : "dependencies/HydraCore3/external/LiteMath/Image2d.cpp",
 			"sourceGroupIndex" : 0
 		},
 		{
-			"backtrace" : 27,
+			"backtrace" : 23,
 			"compileGroupIndex" : 0,
 			"path" : "Timer.cpp",
 			"sourceGroupIndex" : 0
 		},
 		{
-			"backtrace" : 27,
+			"backtrace" : 23,
 			"compileGroupIndex" : 0,
 			"path" : "Renderer/eye_ray.cpp",
 			"sourceGroupIndex" : 0
 		},
 		{
-			"backtrace" : 27,
+			"backtrace" : 23,
 			"compileGroupIndex" : 0,
 			"path" : "Renderer/eye_ray_host.cpp",
 			"sourceGroupIndex" : 0
 		},
 		{
-			"backtrace" : 27,
+			"backtrace" : 23,
 			"compileGroupIndex" : 0,
 			"path" : "BVH/BVH2Common.cpp",
 			"sourceGroupIndex" : 0
 		},
 		{
-			"backtrace" : 27,
+			"backtrace" : 23,
 			"compileGroupIndex" : 0,
 			"path" : "BVH/BVH2Common_host.cpp",
 			"sourceGroupIndex" : 0
 		},
 		{
-			"backtrace" : 27,
+			"backtrace" : 23,
 			"compileGroupIndex" : 0,
 			"path" : "BVH/cbvh.cpp",
 			"sourceGroupIndex" : 0
 		},
 		{
-			"backtrace" : 27,
+			"backtrace" : 23,
 			"compileGroupIndex" : 0,
 			"path" : "BVH/cbvh_fat.cpp",
 			"sourceGroupIndex" : 0
 		},
 		{
-			"backtrace" : 27,
+			"backtrace" : 23,
 			"compileGroupIndex" : 0,
 			"path" : "BVH/cbvh_embree2.cpp",
 			"sourceGroupIndex" : 0

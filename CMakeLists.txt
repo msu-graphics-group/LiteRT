@@ -199,6 +199,15 @@ set_property(TARGET render_app PROPERTY CXX_STANDARD 17)
 target_link_libraries(render_app PRIVATE Threads::Threads dl ${RAYTRACING_EMBREE_LIBS} ${MODULES_LIBRARIES})
 target_link_libraries(render_app PUBLIC OpenMP::OpenMP_CXX)
 
+# Turn on/off OpenVDB
+option(USE_OPENVDB "Enable OpenVDB" OFF)
+if(USE_OPENVDB)
+  message("-- OpenVDB is ON")
+else()
+  message("-- OpenVDB is OFF")
+  add_definitions(-DDISABLE_OPENVDB)
+endif()
+
 add_library(openvdb SHARED IMPORTED)
 set_property(TARGET openvdb PROPERTY IMPORTED_LOCATION "/usr/local/lib/libopenvdb.so.11.0")
 target_link_libraries(render_app PUBLIC tbb openvdb)

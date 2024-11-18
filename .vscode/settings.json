@@ -108,6 +108,6 @@
         "USE_RTX": false,
         "USE_STB_IMAGE": true,
         "USE_ENZYME": false,
-        
+        "USE_OPENVDB": true,
     }
 }
