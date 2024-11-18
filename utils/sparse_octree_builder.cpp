@@ -224,14 +224,14 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
 
 std::chrono::steady_clock::time_point t4 = std::chrono::steady_clock::now();
   
-    unsigned nn = count_and_mark_active_nodes_rec(res_nodes, 0);
-    assert(!is_leaf(res_nodes[0].offset));
+    // unsigned nn = count_and_mark_active_nodes_rec(res_nodes, 0);
+    // assert(!is_leaf(res_nodes[0].offset));
 
-    std::vector<SdfFrameOctreeNode> frame_3;
-    frame_3.reserve(res_nodes.size());
-    frame_3.push_back(res_nodes[0]);
-    frame_octree_eliminate_invalid_rec(res_nodes, 0, frame_3, 0);
-    frame_3.shrink_to_fit();
+    // std::vector<SdfFrameOctreeNode> frame_3;
+    // frame_3.reserve(res_nodes.size());
+    // frame_3.push_back(res_nodes[0]);
+    // frame_octree_eliminate_invalid_rec(res_nodes, 0, frame_3, 0);
+    // frame_3.shrink_to_fit();
 
     //printf("%u/%u nodes are active\n", nn, (unsigned)res_nodes.size());
     //printf("%u/%u nodes are left after elimination\n", (unsigned)frame_3.size(), (unsigned)res_nodes.size());
@@ -248,7 +248,7 @@ std::chrono::steady_clock::time_point t5 = std::chrono::steady_clock::now();
 
     omp_set_num_threads(omp_get_max_threads());
 
-    return frame_3;
+    return res_nodes;
   }
 
   struct PositionHasher
