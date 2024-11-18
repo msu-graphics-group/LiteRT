@@ -284,6 +284,9 @@ struct BVHRT : public ISceneObject
 #ifndef DISABLE_SDF_GRID
   virtual float eval_distance_sdf_grid(unsigned grid_id, float3 p);
 #endif 
+#ifndef DISABLE_SDF_SVS
+  virtual float eval_distance_sdf_svs(unsigned svs_id, float3 p);
+#endif 
 #ifndef DISABLE_SDF_SBS
   virtual float eval_distance_sdf_sbs(unsigned sbs_id, float3 p);
 #endif 
