@@ -1,6 +1,5 @@
 #include "hydra_integration.h"
 #include "HydraCore3/integrator_pt.h"
-#define USE_GPU 1
 #ifdef USE_GPU
   #include "HydraCore3/integrator_pt_generated.h"
   #include "vk_context.h"
