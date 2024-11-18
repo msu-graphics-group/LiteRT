@@ -409,6 +409,10 @@ void main_benchmark(const std::string &path, const std::string &mesh_name, unsig
           printf("Picked tricubic interpolation, but did not build prj with it\n");
           #endif
         }
+        else if (structure == "openVDB")
+        {
+          
+        }
         else if (structure == "sdf_SBS-2-2")
         {
           SdfSBSHeader header;
@@ -578,6 +582,14 @@ void main_benchmark(const std::string &path, const std::string &mesh_name, unsig
                   pRender = CreateMultiRenderer(render_device, svs_nodes.size() + 1);
                   pRender->SetPreset(preset);                  
                   pRender->SetScene(svs_nodes);
+                }
+                else if (structure == "openVDB")
+                {
+                    /*
+                    /,    CPU,      lambert, OpenVDB, 4Mb,  bvh_sphere_tracing, 28.97, 2280, 2280
+                    /,    CPU,      lambert, OpenVDB, 16Mb,  bvh_sphere_tracing, 37.82, 2316, 2316
+                    /,    CPU,      lambert, OpenVDB, 64Mb, bvh_sphere_tracing, 38.16, 3098, 3098
+                    */
                 }
                 else if (structure == "sdf_SBS_tricubic")
                 {
