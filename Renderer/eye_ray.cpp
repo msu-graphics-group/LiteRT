@@ -89,6 +89,11 @@ void MultiRenderer::CastRaySingle(uint32_t tidX, uint32_t* out_color)
   const uint x  = (XY & 0x0000FFFF);
   const uint y  = (XY & 0xFFFF0000) >> 16;
 
+  //if (x == 500 && y == 500)
+  //  ((BVHRT*)(m_pAccelStruct->UnderlyingImpl(0)))->debug_cur_pixel = true;
+  //else
+  //  ((BVHRT*)(m_pAccelStruct->UnderlyingImpl(0)))->debug_cur_pixel = false;
+
   if (x >= m_width || y >= m_height)
     return;
 
@@ -105,6 +110,8 @@ void MultiRenderer::CastRaySingle(uint32_t tidX, uint32_t* out_color)
   }
   res_color /= float4(m_preset.spp);
   uint4 col = uint4(255 * clamp(res_color, float4(0,0,0,0), float4(1,1,1,1)));
+  //if (((BVHRT*)(m_pAccelStruct->UnderlyingImpl(0)))->debug_cur_pixel)
+  //  col = uint4(255,0,0,255);
   out_color[y * m_width + x] = (col.w<<24) | (col.z<<16) | (col.y<<8) | col.x;
 }
 

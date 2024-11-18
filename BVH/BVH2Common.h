@@ -479,6 +479,7 @@ struct GeomDataTriangle : public AbstractObject
     float3 ray_pos = to_float3(rayPosAndNear);
     float3 ray_dir = to_float3(rayDirAndFar);
     float tNear    = rayPosAndNear.w;
+    float tPrev     = pHit->t;
     uint32_t geometryId = geomId;
     uint32_t globalAABBId = bvhrt->startEnd[geometryId].x + info.aabbId;
     uint32_t start_count_packed = bvhrt->m_primIdCount[globalAABBId];
@@ -486,7 +487,7 @@ struct GeomDataTriangle : public AbstractObject
     uint32_t a_count = EXTRACT_COUNT(start_count_packed);
 
     bvhrt->IntersectAllTrianglesInLeaf(ray_pos, ray_dir, tNear, info.instId, geometryId, a_start, a_count, pHit);
-    return pHit->primId == 0xFFFFFFFF ? TAG_NONE : TAG_TRIANGLE;
+    return pHit->t >= tPrev  ? TAG_NONE : TAG_TRIANGLE;
   }  
 };
 
@@ -501,6 +502,7 @@ struct GeomDataSdfGrid : public AbstractObject
     float3 ray_pos = to_float3(rayPosAndNear);
     float3 ray_dir = to_float3(rayDirAndFar);
     float tNear    = rayPosAndNear.w;
+    float tPrev     = pHit->t;
     uint32_t geometryId = geomId;
     uint32_t globalAABBId = bvhrt->startEnd[geometryId].x + info.aabbId;
     uint32_t start_count_packed = bvhrt->m_primIdCount[globalAABBId];
@@ -508,7 +510,7 @@ struct GeomDataSdfGrid : public AbstractObject
     uint32_t a_count = EXTRACT_COUNT(start_count_packed);
 
     bvhrt->IntersectAllSdfsInLeaf(ray_pos, ray_dir, tNear, info.instId, geometryId, a_start, a_count, pHit);
-    return pHit->primId == 0xFFFFFFFF ? TAG_NONE : TAG_SDF_GRID;
+    return pHit->t >= tPrev  ? TAG_NONE : TAG_SDF_GRID;
   }
 };
 
@@ -523,6 +525,7 @@ struct GeomDataSdfNode : public AbstractObject
     float3 ray_pos = to_float3(rayPosAndNear);
     float3 ray_dir = to_float3(rayDirAndFar);
     float tNear    = rayPosAndNear.w;
+    float tPrev     = pHit->t;
     uint32_t geometryId = geomId;
     uint32_t globalAABBId = bvhrt->startEnd[geometryId].x + info.aabbId;
     uint32_t start_count_packed = bvhrt->m_primIdCount[globalAABBId];
@@ -531,7 +534,7 @@ struct GeomDataSdfNode : public AbstractObject
     uint32_t type = bvhrt->m_geomData[geometryId].type;
 
     bvhrt->OctreeNodeIntersect(type, ray_pos, ray_dir, tNear, info.instId, geometryId, a_start, a_count, pHit);
-    return pHit->primId == 0xFFFFFFFF ? TAG_NONE : TAG_SDF_NODE;
+    return pHit->t >= tPrev  ? TAG_NONE : TAG_SDF_NODE;
   }
 };
 
@@ -546,6 +549,7 @@ struct GeomDataSdfBrick : public AbstractObject
     float3 ray_pos = to_float3(rayPosAndNear);
     float3 ray_dir = to_float3(rayDirAndFar);
     float tNear    = rayPosAndNear.w;
+    float tPrev     = pHit->t;
     uint32_t geometryId = geomId;
     uint32_t globalAABBId = bvhrt->startEnd[geometryId].x + info.aabbId;
     uint32_t start_count_packed = bvhrt->m_primIdCount[globalAABBId];
@@ -554,7 +558,7 @@ struct GeomDataSdfBrick : public AbstractObject
     uint32_t type = bvhrt->m_geomData[geometryId].type;
 
     bvhrt->OctreeBrickIntersect(type, ray_pos, ray_dir, tNear, info.instId, geometryId, a_start, a_count, pHit);
-    return pHit->primId == 0xFFFFFFFF ? TAG_NONE : TAG_SDF_BRICK;
+    return pHit->t >= tPrev  ? TAG_NONE : TAG_SDF_BRICK;
   }
 };
 
@@ -569,6 +573,7 @@ struct GeomDataSdfAdaptBrick : public AbstractObject
     float3 ray_pos = to_float3(rayPosAndNear);
     float3 ray_dir = to_float3(rayDirAndFar);
     float tNear    = rayPosAndNear.w;
+    float tPrev     = pHit->t;
     uint32_t geometryId = geomId;
     uint32_t globalAABBId = bvhrt->startEnd[geometryId].x + info.aabbId;
     uint32_t start_count_packed = bvhrt->m_primIdCount[globalAABBId];
@@ -577,7 +582,7 @@ struct GeomDataSdfAdaptBrick : public AbstractObject
     uint32_t type = bvhrt->m_geomData[geometryId].type;
 
     bvhrt->OctreeAdaptBrickIntersect(type, ray_pos, ray_dir, tNear, info.instId, geometryId, a_start, a_count, pHit);
-    return pHit->primId == 0xFFFFFFFF ? TAG_NONE : TAG_SDF_ADAPT_BRICK;
+    return pHit->t >= tPrev  ? TAG_NONE : TAG_SDF_ADAPT_BRICK;
   }
 };
 
@@ -589,6 +594,7 @@ struct GeomDataRF : public AbstractObject
   uint32_t Intersect(float4 rayPosAndNear, float4 rayDirAndFar, CRT_LeafInfo info, 
                      CRT_Hit* pHit, BVHRT* bvhrt)   const override
   {
+    float tPrev     = pHit->t;
 #ifndef DISABLE_RF_GRID
     float3 ray_pos = to_float3(rayPosAndNear);
     float3 ray_dir = to_float3(rayDirAndFar);
@@ -601,7 +607,7 @@ struct GeomDataRF : public AbstractObject
 
     bvhrt->IntersectRFInLeaf(ray_pos, ray_dir, tNear, info.instId, geometryId, a_start, a_count, pHit);
 #endif
-    return pHit->primId == 0xFFFFFFFF ? TAG_NONE : TAG_RF;
+    return pHit->t >= tPrev  ? TAG_NONE : TAG_RF;
   }
 };
 
@@ -613,6 +619,7 @@ struct GeomDataGS : public AbstractObject
   uint32_t Intersect(float4 rayPosAndNear, float4 rayDirAndFar, CRT_LeafInfo info, 
                      CRT_Hit* pHit, BVHRT* bvhrt)   const override
   {
+    float tPrev     = pHit->t;
 #ifndef DISABLE_GS_PRIMITIVE
     float3 ray_pos = to_float3(rayPosAndNear);
     float3 ray_dir = to_float3(rayDirAndFar);
@@ -625,7 +632,7 @@ struct GeomDataGS : public AbstractObject
 
     bvhrt->IntersectGSInLeaf(ray_pos, ray_dir, tNear, info.instId, geometryId, a_start, a_count, pHit);
 #endif
-    return pHit->primId == 0xFFFFFFFF ? TAG_NONE : TAG_GS;
+    return pHit->t >= tPrev  ? TAG_NONE : TAG_GS;
   }
 };
 
@@ -640,13 +647,14 @@ struct GeomDataNURBS : public AbstractObject
     float3 ray_pos = to_float3(rayPosAndNear);
     float3 ray_dir = to_float3(rayDirAndFar);
     float tNear    = rayPosAndNear.w;
+    float tPrev     = pHit->t;
     uint32_t geometryId = geomId;
     uint32_t globalAABBId = bvhrt->startEnd[geometryId].x + info.aabbId;
     uint32_t start_count_packed = bvhrt->m_primIdCount[globalAABBId];
     uint32_t offset = EXTRACT_START(start_count_packed) * 2;
 
     bvhrt->IntersectNURBS(ray_pos, ray_dir, tNear, offset, info.instId, geometryId, pHit);
-    return pHit->primId == 0xFFFFFFFF ? TAG_NONE : TAG_GS;
+    return pHit->t >= tPrev  ? TAG_NONE : TAG_GS;
   }
 };
 
@@ -661,6 +669,7 @@ struct GeomDataGraphicsPrim : public AbstractObject
     float3 ray_pos = to_float3(rayPosAndNear);
     float3 ray_dir = to_float3(rayDirAndFar);
     float tNear    = rayPosAndNear.w;
+    float tPrev     = pHit->t;
     uint32_t geometryId = geomId;
     uint32_t globalAABBId = bvhrt->startEnd[geometryId].x + info.aabbId;
     uint32_t start_count_packed = bvhrt->m_primIdCount[globalAABBId];
@@ -668,7 +677,7 @@ struct GeomDataGraphicsPrim : public AbstractObject
     uint32_t a_count = EXTRACT_COUNT(start_count_packed);
 
     bvhrt->IntersectGraphicPrims(ray_pos, ray_dir, tNear, info.instId, geometryId, a_start, a_count, pHit);
-    return pHit->primId == 0xFFFFFFFF ? TAG_NONE : TAG_GRAPHICS_PRIM;
+    return pHit->t >= tPrev  ? TAG_NONE : TAG_GRAPHICS_PRIM;
   }
 };
 
@@ -683,6 +692,7 @@ struct GeomDataCOctreeSimple : public AbstractObject
     float3 ray_pos = to_float3(rayPosAndNear);
     float3 ray_dir = to_float3(rayDirAndFar);
     float tNear    = rayPosAndNear.w;
+    float tPrev     = pHit->t;
     uint32_t geometryId = geomId;
     uint32_t globalAABBId = bvhrt->startEnd[geometryId].x + info.aabbId;
     uint32_t start_count_packed = bvhrt->m_primIdCount[globalAABBId];
@@ -691,7 +701,7 @@ struct GeomDataCOctreeSimple : public AbstractObject
     uint32_t type = bvhrt->m_geomData[geometryId].type;
 
     bvhrt->OctreeIntersect(type, ray_pos, ray_dir, tNear, info.instId, geometryId, a_start, a_count, pHit);
-    return pHit->primId == 0xFFFFFFFF ? TAG_NONE : TAG_COCTREE_SIMPLE;
+    return pHit->t >= tPrev  ? TAG_NONE : TAG_COCTREE_SIMPLE;
   }
 };
 
@@ -706,6 +716,7 @@ struct GeomDataCOctreeBricked : public AbstractObject
     float3 ray_pos = to_float3(rayPosAndNear);
     float3 ray_dir = to_float3(rayDirAndFar);
     float tNear    = rayPosAndNear.w;
+    float tPrev     = pHit->t;
     uint32_t geometryId = geomId;
     uint32_t globalAABBId = bvhrt->startEnd[geometryId].x + info.aabbId;
     uint32_t start_count_packed = bvhrt->m_primIdCount[globalAABBId];
@@ -714,6 +725,6 @@ struct GeomDataCOctreeBricked : public AbstractObject
     uint32_t type = bvhrt->m_geomData[geometryId].type;
 
     bvhrt->OctreeIntersectV3(type, ray_pos, ray_dir, tNear, info.instId, geometryId, a_start, a_count, pHit);
-    return pHit->primId == 0xFFFFFFFF ? TAG_NONE : TAG_COCTREE_BRICKED;
+    return pHit->t >= tPrev  ? TAG_NONE : TAG_COCTREE_BRICKED;
   }
 };

@@ -3138,14 +3138,14 @@ void litert_test_41_coctree_v3()
   preset.spp = 4;
   preset.normal_mode = NORMAL_MODE_VERTEX;
 
-  unsigned base_depth = 9;
+  unsigned base_depth = 6;
 
-  float fov_degrees = 30;
+  float fov_degrees = 45;
   float z_near = 0.1f;
   float z_far = 100.0f;
   float aspect   = 1.0f;
   auto proj      = LiteMath::perspectiveMatrix(fov_degrees, aspect, z_near, z_far);
-  auto worldView = LiteMath::lookAt(float3(-0.5,0.5,2), float3(-0.5,0.5,0), float3(0,1,0));
+  auto worldView = LiteMath::lookAt(float3(-0.1,0.1,2), float3(-0.1,0.1,0), float3(0,1,0));
 
   LiteImage::Image2D<uint32_t> image_ref(W, H);
   LiteImage::Image2D<uint32_t> image_res(W, H);
@@ -3165,7 +3165,7 @@ void litert_test_41_coctree_v3()
     auto pRender = CreateMultiRenderer(DEVICE_GPU);
     pRender->SetPreset(preset);
     pRender->SetScene(mesh);
-    pRender->Render(image_ref.data(), W, H, worldView, proj, preset, 1);
+    pRender->Render(image_ref.data(), W, H, worldView, proj, preset, 10);
     LiteImage::SaveImage<uint32_t>("saves/test_41_ref.bmp", image_ref);
     
     MultiRenderPreset preset_tex = preset;

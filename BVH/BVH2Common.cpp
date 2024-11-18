@@ -2367,6 +2367,7 @@ void BVHRT::OctreeIntersect(uint32_t type, const float3 ray_pos, const float3 ra
   float2 fNearFar;
   float3 start_q;
   float values[8];
+  float old_t = pHit->t;
 
   stack[top].nodeId = 0;
   stack[top].curChildId = 0;
@@ -2424,7 +2425,7 @@ void BVHRT::OctreeIntersect(uint32_t type, const float3 ray_pos, const float3 ra
         LocalSurfaceIntersection(TYPE_SDF_FRAME_OCTREE, ray_dir, 0, 0, values, nodeId, nodeId, d, 0.0f, qFar, fNearFar, start_q, /*in */
                                  pHit); /*out*/
 
-        if (pHit->primId != 0xFFFFFFFF)
+        if (pHit->t < old_t)
           top = -1;
         else
           top--;
@@ -2597,7 +2598,7 @@ void BVHRT::COctreeV3_BrickIntersect(uint32_t type, const float3 ray_pos, const 
       LocalSurfaceIntersection(type, ray_dir, instId, geomId, values, brickOffset, brickOffset, d, 0.0f, qFar, fNearFar, start_q, /*in */
                                pHit); /*out*/
     
-      if (m_preset.normal_mode == NORMAL_MODE_SDF_SMOOTHED && need_normal() && pHit->t != old_t)
+      if (m_preset.normal_mode == NORMAL_MODE_SDF_SMOOTHED && need_normal() && pHit->t < old_t)
       {
         const float beta = 0.5f;
         float3 dp = start_q + ((pHit->t - fNearFar.x)/d)*ray_dir; //linear interpolation coefficients in voxels
@@ -2631,7 +2632,7 @@ void BVHRT::COctreeV3_BrickIntersect(uint32_t type, const float3 ray_pos, const 
                                (  nmq.x)*(1-nmq.y)*(  nmq.z)*normals[5] + 
                                (  nmq.x)*(  nmq.y)*(1-nmq.z)*normals[6] + 
                                (  nmq.x)*(  nmq.y)*(  nmq.z)*normals[7];
-        smoothed_norm = normalize(smoothed_norm);
+        smoothed_norm = normalize(matmul4x3(m_instanceData[instId].transformInvTransposed, smoothed_norm));
         float2 encoded_norm = encode_normal(smoothed_norm);
 
         pHit->coords[2] = encoded_norm.x;
@@ -2763,6 +2764,7 @@ void BVHRT::OctreeIntersectV3(uint32_t type, const float3 ray_pos, const float3 
   float2 fNearFar;
   float3 start_q;
   float values[8];
+  float old_t = pHit->t;
 
   stack[top].nodeId = startNodeOffset;
   stack[top].curChildId = 0;
@@ -2783,6 +2785,8 @@ void BVHRT::OctreeIntersectV3(uint32_t type, const float3 ray_pos, const float3 
       //  printf("node %u, p = (%u %u %u) d = %f\n", stack[top].nodeId, p.x, p.y, p.z, d);
       //  counter++;
       //}
+      // if (debug_cur_pixel)
+      //   printf("node %u, p = (%u %u %u) d = %f\n", stack[top].nodeId, p.x, p.y, p.z, d);
 
       if(stack[top].curChildId > 0) //leaf node
       {
@@ -2791,12 +2795,14 @@ void BVHRT::OctreeIntersectV3(uint32_t type, const float3 ray_pos, const float3 
                              ((a & 2) > 0) ? (~p.y & p_mask) : p.y,
                              ((a & 1) > 0) ? (~p.z & p_mask) : p.z);
 
-        COctreeV3_BrickIntersect(TYPE_SDF_FRAME_OCTREE, ray_pos, ray_dir, tNear, 0u, 0u, coctree_v3_header, stack[top].nodeId, float3(real_p), float(level_sz), pHit);
+        COctreeV3_BrickIntersect(TYPE_SDF_FRAME_OCTREE, ray_pos, ray_dir, tNear, instId, geomId, coctree_v3_header, stack[top].nodeId, float3(real_p), float(level_sz), pHit);
 
-        if (pHit->primId != 0xFFFFFFFF)
+        if (pHit->t < old_t)
           top = -1;
         else
           top--;
+        // if (debug_cur_pixel)
+        //   printf("leaf node %f %f\n", pHit->t, old_t);
       }
       else
       { 
@@ -2908,6 +2914,8 @@ void BVHRT::BVH2TraverseF32(const float3 ray_pos, const float3 ray_dir, float tN
       const float SDF_BIAS = 0.1f;
       const float tNearSdf = std::max(tNear, SDF_BIAS);
   
+      // if (debug_cur_pixel)
+      //  printf("intersecting with leaf %u, inst %u\n", leafInfo.aabbId, leafInfo.instId);
       uint32_t hitTag = m_abstractObjectPtrs[geomId]->Intersect(to_float4(ray_pos, tNearSdf), to_float4(ray_dir, 1e9f), leafInfo, pHit, this);
       hitFound = (hitTag != 0 /*TAG_NONE*/) && (first_hit_is_closest(hitTag) || stopOnFirstHit);
     }
@@ -2971,6 +2979,11 @@ CRT_Hit BVHRT::RayQuery_NearestHit(float4 posAndNear, float4 dirAndFar)
         const float3 ray_pos = matmul4x3(m_instanceData[instId].transformInv, to_float3(posAndNear));
         const float3 ray_dir = matmul3x3(m_instanceData[instId].transformInv, to_float3(dirAndFar)); // DON'float NORMALIZE IT !!!! When we transform to local space of node, ray_dir must be unnormalized!!!
     
+        // if (debug_cur_pixel)
+        // {
+        //   printf("intersect %u %u (stopOnFirstHit = %u)\n", instId, geomId, (unsigned)stopOnFirstHit);
+        //   printf("ray_pos before = %f %f %f, after = %f %f %f\n", posAndNear.x, posAndNear.y, posAndNear.z, ray_pos.x, ray_pos.y, ray_pos.z);
+        // }
         BVH2TraverseF32(ray_pos, ray_dir, posAndNear.w, instId, geomId, stopOnFirstHit, &hit);
       }
     } while (nodeIdx < 0xFFFFFFFE && !(stopOnFirstHit && hit.primId != uint32_t(-1))); //
