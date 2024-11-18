@@ -174,7 +174,12 @@ void BVHRT::LocalSurfaceIntersection(uint32_t type, const float3 ray_dir, uint32
     start_dist = tricubicInterpolation(values, point);
   #else
     start_dist = eval_dist_trilinear(values, start_q + t * ray_dir);
-    start_sign = sign(start_dist);
+    /*If we want to represent thin surfaces, we should find rays that reach 
+    //zero distance regardless of what thww sign of initial distance is.
+    //However, it can lead to visual artifacts and disabled by default
+    */
+    if (m_preset.representation_mode == REPRESENTATION_MODE_SURFACE)
+      start_sign = sign(start_dist);
     start_dist *= start_sign;
   #endif
 
@@ -749,7 +754,7 @@ void BVHRT::OctreeBrickIntersect(uint32_t type, const float3 ray_pos, const floa
       LocalSurfaceIntersection(type, ray_dir, instId, geomId, values, nodeId, primId, d, 0.0f, qFar, fNearFar, start_q, /*in */
                                pHit); /*out*/
     
-      if (m_preset.interpolation_type == TRILINEAR_INTERPOLATION_MODE && header.aux_data == SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F_IN &&
+      if (m_preset.interpolation_mode == INTERPOLATION_MODE_TRILINEAR && header.aux_data == SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F_IN &&
           m_preset.normal_mode == NORMAL_MODE_SDF_SMOOTHED && 
           need_normal() && pHit->t != old_t)
       {
@@ -2044,7 +2049,7 @@ float BVHRT::eval_distance_sdf_grid(uint32_t grid_id, float3 pos)
 
   //trilinear sampling
   float res = 0.0;
-  if (m_preset.interpolation_type == TRILINEAR_INTERPOLATION_MODE)
+  if (m_preset.interpolation_mode == INTERPOLATION_MODE_TRILINEAR)
   {
     if (vox_u.x < size.x-1 && vox_u.y < size.y-1 && vox_u.z < size.z-1)
     {
@@ -2067,7 +2072,7 @@ float BVHRT::eval_distance_sdf_grid(uint32_t grid_id, float3 pos)
       res += m_SdfGridData[off + (vox_u.z)*size.x*size.y + (vox_u.y)*size.x + (vox_u.x)]; 
     }
   } // tricubic interpolation
-  else if (m_preset.interpolation_type == TRICUBIC_INTERPOLATION_MODE)
+  else if (m_preset.interpolation_mode == INTERPOLATION_MODE_TRICUBIC)
   {
     if (vox_u.x < size.x-2 && vox_u.y < size.y-2 && vox_u.z < size.z-2 && vox_u.x > 0 && vox_u.y > 0 && vox_u.z > 0)
     {

@@ -2510,7 +2510,7 @@ litert_test_34_tricubic_sbs()
 
     MultiRenderPreset preset = getDefaultPreset();
     preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
-    preset.interpolation_type = TRICUBIC_INTERPOLATION_MODE;
+    preset.interpolation_mode = INTERPOLATION_MODE_TRICUBIC;
     preset.normal_mode = NORMAL_MODE_GEOMETRY;
     SparseOctreeSettings settings(SparseOctreeBuildType::MESH_TLO, 5);
 
@@ -2534,7 +2534,7 @@ litert_test_34_tricubic_sbs()
     }
 
     {
-      preset.interpolation_type = TRICUBIC_INTERPOLATION_MODE;
+      preset.interpolation_mode = INTERPOLATION_MODE_TRICUBIC;
       auto pRender = CreateMultiRenderer(DEVICE_CPU);
       pRender->SetPreset(preset);
       pRender->SetViewport(0,0,W,H);
@@ -2558,7 +2558,7 @@ litert_test_34_tricubic_sbs()
 
       MultiRenderPreset preset = getDefaultPreset();
       preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
-      preset.interpolation_type = TRILINEAR_INTERPOLATION_MODE;
+      preset.interpolation_mode = INTERPOLATION_MODE_TRILINEAR;
       SparseOctreeSettings settings(SparseOctreeBuildType::MESH_TLO, 5);
 
       SdfSBSHeader header;
