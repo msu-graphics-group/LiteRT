@@ -2122,6 +2122,64 @@ float BVHRT::eval_distance_sdf_grid(uint32_t grid_id, float3 pos)
 }
 #endif
 
+#ifndef DISABLE_SDF_SVS
+float BVHRT::eval_distance_sdf_svs(uint32_t svs_id, float3 pos)
+{
+  uint32_t type = m_geomData[svs_id].type;
+  // assert (type == TYPE_SDF_SBS); // || type == TYPE_SDF_SBS_COL || type == TYPE_SDF_SBS_TEX
+  uint32_t leftNodeOffset = eval_distance_traverse_bvh(svs_id, pos);
+
+  if (leftNodeOffset == 0xFFFFFFFF)
+    return 11.f; // cannot be used for ST
+  // printf("NodeOffset: %d\n", leftNodeOffset);
+
+  uint32_t globalAABBId = startEnd[svs_id].x + EXTRACT_START(leftNodeOffset); // + aabbId
+  uint32_t start_count_packed = m_primIdCount[globalAABBId];
+  uint32_t a_start = EXTRACT_START(start_count_packed);
+  uint32_t a_count = EXTRACT_COUNT(start_count_packed);
+
+  float values[8];
+
+  uint32_t nodeId, primId;
+  float d, qNear, qFar;
+  float2 fNearFar;
+  float3 start_q;
+
+  qNear = 1.0f;
+
+  uint32_t sdfId =  m_geomData[svs_id].offset.x;
+  primId = a_start;
+  nodeId = primId + m_SdfSVSRoots[sdfId];
+
+  float px = m_SdfSVSNodes[nodeId].pos_xy >> 16;
+  float py = m_SdfSVSNodes[nodeId].pos_xy & 0x0000FFFF;
+  float pz = m_SdfSVSNodes[nodeId].pos_z_lod_size >> 16;
+  float sz = m_SdfSVSNodes[nodeId].pos_z_lod_size & 0x0000FFFF;
+  float d_max = 2*1.73205081f/sz;
+
+  float3 min_pos = float3(-1,-1,-1) + 2.0f*float3(px,py,pz)/sz;
+  float3 max_pos = min_pos + 2.0f*float3(1,1,1)/sz;
+  float3 size = max_pos - min_pos;
+
+  float res_dist = 10.0f;
+  if (pos.x >= min_pos.x && pos.x <= max_pos.x &&
+      pos.y >= min_pos.y && pos.y <= max_pos.y &&
+      pos.z >= min_pos.z && pos.z <= max_pos.z)
+  {
+    // hit
+
+    for (int i=0;i<8;i++)
+      values[i] = -d_max + 2*d_max*(1.0/255.0f)*((m_SdfSVSNodes[nodeId].values[i/4] >> (8*(i%4))) & 0xFF);
+
+    d = std::max(size.x, std::max(size.y, size.z));
+    start_q = (pos - min_pos) / d;
+
+    res_dist = eval_dist_trilinear(values, start_q);
+  }
+  return res_dist;
+}
+#endif
+
 #ifndef DISABLE_SDF_SBS
 float BVHRT::eval_distance_sdf_sbs(uint32_t sbs_id, float3 pos)
 {

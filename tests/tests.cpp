@@ -3138,14 +3138,14 @@ void litert_test_41_coctree_v3()
   preset.spp = 4;
   preset.normal_mode = NORMAL_MODE_VERTEX;
 
-  unsigned base_depth = 6;
+  unsigned base_depth = 9;
 
-  float fov_degrees = 45;
+  float fov_degrees = 30;
   float z_near = 0.1f;
   float z_far = 100.0f;
   float aspect   = 1.0f;
   auto proj      = LiteMath::perspectiveMatrix(fov_degrees, aspect, z_near, z_far);
-  auto worldView = LiteMath::lookAt(float3(-0.1,0.1,2), float3(-0.1,0.1,0), float3(0,1,0));
+  auto worldView = LiteMath::lookAt(float3(-0.5,0.5,2), float3(-0.5,0.5,0), float3(0,1,0));
 
   LiteImage::Image2D<uint32_t> image_ref(W, H);
   LiteImage::Image2D<uint32_t> image_res(W, H);
@@ -3165,7 +3165,7 @@ void litert_test_41_coctree_v3()
     auto pRender = CreateMultiRenderer(DEVICE_GPU);
     pRender->SetPreset(preset);
     pRender->SetScene(mesh);
-    pRender->Render(image_ref.data(), W, H, worldView, proj, preset, 10);
+    pRender->Render(image_ref.data(), W, H, worldView, proj, preset, 1);
     LiteImage::SaveImage<uint32_t>("saves/test_41_ref.bmp", image_ref);
     
     MultiRenderPreset preset_tex = preset;
@@ -3631,12 +3631,32 @@ void litert_test_44_point_query()
     pRender->SetScene(sbs);
     auto *bvhrt = dynamic_cast<BVHRT*>(pRender->GetAccelStruct().get());
     render(image, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset);
-    LiteImage::SaveImage<uint32_t>("saves/test_44.png", image);
+    LiteImage::SaveImage<uint32_t>("saves/test_44_SBS.png", image);
 
+    printf("SBS:\n");
     for (uint32_t i = 0u; i < 27u; ++i)
     {
       float3 pt{ 0.25f * (i / 9 + 1), 0.25f * ((i/3%3) + 1), 0.25f * ((i % 3) + 1) };
       printf("Point: [%f, %f, %f], value = %f, ref = %f\n", pt.x, pt.y, pt.z, bvhrt->eval_distance_sdf_sbs(0, pt), circle_sdf(pt));
+    }
+  }
+
+  std::vector<SdfSVSNode> svs = sdf_converter::create_sdf_SVS(settings, circle_sdf);
+
+  {
+    auto pRender = CreateMultiRenderer(DEVICE_CPU);
+    pRender->SetPreset(preset);
+    pRender->SetViewport(0,0,W,H);
+    pRender->SetScene(svs);
+    auto *bvhrt = dynamic_cast<BVHRT*>(pRender->GetAccelStruct().get());
+    render(image, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset);
+    LiteImage::SaveImage<uint32_t>("saves/test_44_SVS.png", image);
+
+    printf("SVS:\n");
+    for (uint32_t i = 0u; i < 27u; ++i)
+    {
+      float3 pt{ 0.25f * (i / 9 + 1), 0.25f * ((i/3%3) + 1), 0.25f * ((i % 3) + 1) };
+      printf("Point: [%f, %f, %f], value = %f, ref = %f\n", pt.x, pt.y, pt.z, bvhrt->eval_distance_sdf_svs(0, pt), circle_sdf(pt));
     }
   }
 }
