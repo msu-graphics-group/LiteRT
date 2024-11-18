@@ -493,6 +493,46 @@ void litert_test_7_global_octree()
   sdf_converter::mesh_octree_to_global_octree(mesh, tlo, g_octree);
   sdf_converter::global_octree_to_frame_octree(g_octree, frame_octree);
 
+  int dist_count = g_octree.header.brick_size + 2 * g_octree.header.brick_pad + 1;
+  dist_count = dist_count * dist_count * dist_count;
+  std::vector<float> closest_dist(g_octree.nodes.size(), 1e9f);
+  std::vector<int> closest_idx(g_octree.nodes.size(), -1);
+
+  //#pragma omp parallel for
+  for (int i=0; i<g_octree.nodes.size(); i++)
+  {
+    int off_a = g_octree.nodes[i].val_off;
+    for (int j=0; j<g_octree.nodes.size(); j++)
+    {
+      if (i == j || g_octree.nodes[i].offset != 0 || g_octree.nodes[j].offset != 0)
+        continue;
+      int off_b = g_octree.nodes[j].val_off;
+      double loss = 0;
+      float min_a = 1000;
+      float max_a = -1000;
+      float min_b = 1000;
+      float max_b = -1000;
+      for (int k=0; k<dist_count; k++)
+      {
+        min_a = std::min(min_a, g_octree.values_f[off_a+k]);
+        max_a = std::max(max_a, g_octree.values_f[off_a+k]);
+        min_b = std::min(min_b, g_octree.values_f[off_b+k]);
+        max_b = std::max(max_b, g_octree.values_f[off_b+k]);
+        loss += (g_octree.values_f[off_a+k] - g_octree.values_f[off_b+k]) * (g_octree.values_f[off_a+k] - g_octree.values_f[off_b+k]);
+      }
+      float dist = loss / dist_count;
+      if (dist < closest_dist[i] && (min_a < 0 && max_a > 0) || (min_b < 0 && max_b > 0))
+      {
+        closest_dist[i] = dist;
+        closest_idx[i] = j;
+      }
+    }
+    if (closest_dist[i] < 1)
+    printf("closest_dist[%d] = %f (idx = %d), values = %f %f %f %f %f %f %f %f\n", i, closest_dist[i], closest_idx[i],
+           g_octree.values_f[off_a], g_octree.values_f[off_a+1], g_octree.values_f[off_a+2], g_octree.values_f[off_a+3],
+           g_octree.values_f[off_a+4], g_octree.values_f[off_a+5], g_octree.values_f[off_a+6], g_octree.values_f[off_a+7]);
+  }
+
   unsigned W = 2048, H = 2048;
   MultiRenderPreset preset = getDefaultPreset();
   preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;

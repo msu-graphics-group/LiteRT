@@ -1029,7 +1029,11 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
       }
     }
     
-    if (!is_leaf(ofs)) 
+    if (is_leaf(ofs)) 
+    {
+      out_octree.nodes[idx].offset = 0;
+    }
+    else
     {
       for (int i = 0; i < 8; i++)
       {
