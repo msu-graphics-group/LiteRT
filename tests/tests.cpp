@@ -478,9 +478,32 @@ auto t4 = std::chrono::steady_clock::now();
     printf("FAILED, psnr = %f\n", psnr_1);
 }
 
-void litert_test_7_stub()
+void litert_test_7_global_octree()
 {
+  auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "scenes/01_simple_scenes/data/bunny.vsgf").c_str());
+  cmesh4::normalize_mesh(mesh);
 
+  SparseOctreeSettings settings = SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, 6);
+  sdf_converter::GlobalOctree g_octree;
+  std::vector<SdfFrameOctreeNode> frame_octree;
+  g_octree.header.brick_size = 1;
+  g_octree.header.brick_pad  = 0;
+
+  auto tlo = cmesh4::create_triangle_list_octree(mesh, settings.depth, 0, 1.0f);
+  sdf_converter::mesh_octree_to_global_octree(mesh, tlo, g_octree);
+  sdf_converter::global_octree_to_frame_octree(g_octree, frame_octree);
+
+  unsigned W = 2048, H = 2048;
+  MultiRenderPreset preset = getDefaultPreset();
+  preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
+  preset.representation_mode = REPRESENTATION_MODE_SURFACE;
+  LiteImage::Image2D<uint32_t> image(W, H);
+
+  auto pRender = CreateMultiRenderer(DEVICE_GPU);
+  pRender->SetPreset(preset);
+  pRender->SetScene(frame_octree);
+  render(image, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+  LiteImage::SaveImage<uint32_t>("saves/test_7.png", image);
 }
 
 void litert_test_8_SDF_grid()
@@ -3649,7 +3672,7 @@ void perform_tests_litert(const std::vector<int> &test_ids)
   std::vector<std::function<void(void)>> test_functions = {
       litert_test_1_framed_octree, litert_test_2_SVS, litert_test_3_SBS_verify,
       litert_test_4_hydra_scene, litert_test_5_interval_tracing, litert_test_6_faster_bvh_build,
-      litert_test_7_stub, litert_test_8_SDF_grid, litert_test_9_mesh, 
+      litert_test_7_global_octree, litert_test_8_SDF_grid, litert_test_9_mesh, 
       litert_test_10_save_load, litert_test_11_stub, litert_test_12_stub,
       litert_test_13_stub, litert_test_14_octree_nodes_removal, litert_test_15_frame_octree_nodes_removal, 
       litert_test_16_SVS_nodes_removal, litert_test_17_all_types_sanity_check, litert_test_18_mesh_normalization,

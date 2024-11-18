@@ -102,16 +102,15 @@ namespace sdf_converter
 
   struct GlobalOctreeNode
   {
-    float tex_coords[8]; //texture coordinates on corners
-    unsigned val_off;    //offset on values and values_f vectors
-    unsigned offset;     //offset on nodes vector for next child (0 if its leaf)
+    float2 tex_coords[8]; //texture coordinates on corners
+    unsigned val_off;    //offset in values_f vectors
+    unsigned offset;     //offset in nodes vector for next child (0 if its leaf)
   };
 
   struct GlobalOctree
   {
     GlobalOctreeHeader header;
     std::vector<GlobalOctreeNode> nodes;
-    std::vector<uint32_t> values;
     std::vector<float> values_f;
   };
 }
