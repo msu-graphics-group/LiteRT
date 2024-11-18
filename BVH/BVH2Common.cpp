@@ -2028,6 +2028,11 @@ float BVHRT::eval_distance_sdf(uint32_t type, uint32_t sdf_id, float3 pos)
     val = eval_distance_sdf_grid(sdf_id, pos);
     break;
 #endif
+#ifndef DISABLE_SDF_SBS
+  case TYPE_SDF_SBS:
+    val = eval_distance_sdf_sbs(sdf_id, pos);
+    break;
+#endif
   default:
     break;
   }
@@ -2116,6 +2121,142 @@ float BVHRT::eval_distance_sdf_grid(uint32_t grid_id, float3 pos)
   return res;
 }
 #endif
+
+#ifndef DISABLE_SDF_SBS
+float BVHRT::eval_distance_sdf_sbs(uint32_t sbs_id, float3 pos)
+{
+  uint32_t type = m_geomData[sbs_id].type;
+  // assert (type == TYPE_SDF_SBS); // || type == TYPE_SDF_SBS_COL || type == TYPE_SDF_SBS_TEX
+  uint32_t leftNodeOffset = eval_distance_traverse_bvh(sbs_id, pos);
+
+  if (leftNodeOffset == 0xFFFFFFFF)
+    return 11.f; // cannot be used for ST
+  // printf("NodeOffset: %d\n", leftNodeOffset);
+
+  uint32_t globalAABBId = startEnd[sbs_id].x + EXTRACT_START(leftNodeOffset); // + aabbId
+  uint32_t start_count_packed = m_primIdCount[globalAABBId];
+  uint32_t a_start = EXTRACT_START(start_count_packed);
+  uint32_t a_count = EXTRACT_COUNT(start_count_packed);
+
+  #ifdef USE_TRICUBIC
+  float values[64];
+  #else
+  float values[8];
+  #endif
+
+  uint32_t nodeId, primId;
+  float d, qNear, qFar;
+  float2 fNearFar;
+  float3 start_q;
+
+  qNear = 1.0f;
+
+  uint32_t sdfId =  m_geomData[sbs_id].offset.x;
+  primId = a_start; //id of bbox in BLAS
+  nodeId = primId + m_SdfSBSRoots[sdfId];
+  SdfSBSHeader header = m_SdfSBSHeaders[sdfId];
+  uint32_t v_size = header.brick_size + 2*header.brick_pad + 1;
+
+  float px = m_SdfSBSNodes[nodeId].pos_xy >> 16;
+  float py = m_SdfSBSNodes[nodeId].pos_xy & 0x0000FFFF;
+  float pz = m_SdfSBSNodes[nodeId].pos_z_lod_size >> 16;
+  float sz = m_SdfSBSNodes[nodeId].pos_z_lod_size & 0x0000FFFF;
+  float sz_inv = 2.0f/sz;
+  
+  d = 2.0f/(sz*header.brick_size);
+
+  float3 brick_min_pos = float3(-1,-1,-1) + sz_inv*float3(px,py,pz);
+  float3 brick_max_pos = brick_min_pos + sz_inv*float3(1,1,1);
+
+  float res_dist = 10.0f;
+  if (pos.x >= brick_min_pos.x && pos.x <= brick_max_pos.x &&
+      pos.y >= brick_min_pos.y && pos.y <= brick_max_pos.y &&
+      pos.z >= brick_min_pos.z && pos.z <= brick_max_pos.z)
+  {
+    // hit
+
+    float3 local_pos = (pos - brick_min_pos) * (0.5f*sz*header.brick_size);
+    float3 voxelPos = floor(clamp(local_pos, 1e-6f, header.brick_size-1e-6f));
+
+    float3 min_pos = brick_min_pos + d*voxelPos;
+    float3 max_pos = min_pos + d*float3(1,1,1);
+    start_q = (pos - min_pos) * (0.5f*sz*header.brick_size);
+
+    load_distance_values(nodeId, voxelPos, v_size, sz_inv, header, values);
+
+#ifdef USE_TRICUBIC
+    float point[3] = {start_q.x, start_q.y, start_q.z};
+    res_dist = tricubicInterpolation(values, point);
+#else
+    res_dist = eval_dist_trilinear(values, start_q);
+#endif
+  }
+  return res_dist;
+}
+#endif
+
+uint32_t BVHRT::eval_distance_traverse_bvh(uint32_t geomId, float3 pos)
+{
+  const uint32_t bvhOffset = m_geomData[geomId].bvhOffset;
+
+  // TODO: not needed if there are no intersections
+  uint32_t stack[STACK_SIZE];
+  int top = 0;
+  uint32_t leftNodeOffset = 0;
+
+  while (top >= 0)
+  {
+#ifndef DISABLE_RF_GRID
+    // if (m_RFGridFlags.size() > 0 && pHit->coords[0] <= 0.01f)
+    //   break;
+#endif
+
+    while (top >= 0 && ((leftNodeOffset & LEAF_BIT) == 0))
+    {
+      const BVHNodePair fatNode = m_allNodePairs[bvhOffset + leftNodeOffset];
+      const uint32_t node0_leftOffset = fatNode.left.leftOffset;
+      const uint32_t node1_leftOffset = fatNode.right.leftOffset;
+
+      const bool hitChild0 = (pos.x >= fatNode.left.boxMin.x) && (pos.x <= fatNode.left.boxMax.x) &&
+                             (pos.y >= fatNode.left.boxMin.y) && (pos.y <= fatNode.left.boxMax.y) &&
+                             (pos.z >= fatNode.left.boxMin.z) && (pos.z <= fatNode.left.boxMax.z);
+      const bool hitChild1 = (pos.x >= fatNode.right.boxMin.x) && (pos.x <= fatNode.right.boxMax.x) &&
+                             (pos.y >= fatNode.right.boxMin.y) && (pos.y <= fatNode.right.boxMax.y) &&
+                             (pos.z >= fatNode.right.boxMin.z) && (pos.z <= fatNode.right.boxMax.z);
+
+      // traversal decision
+      leftNodeOffset = hitChild0 ? node0_leftOffset : node1_leftOffset;
+
+      if (hitChild0 && hitChild1)
+      {
+        leftNodeOffset = node0_leftOffset;
+        stack[top]     = node1_leftOffset;
+        top++;
+      }
+
+      if (!hitChild0 && !hitChild1) // both miss, stack.pop()
+      {
+        top--;
+        // return leftNodeOffset;
+        if (top >= 0)
+          leftNodeOffset = stack[top];
+      }
+
+    } // end while (searchingForLeaf)
+
+    // leaf node, intersect triangles
+    if (top >= 0 && leftNodeOffset != 0xFFFFFFFF)
+    {
+      return leftNodeOffset;
+    }
+
+    // continue BVH traversal
+    top--;
+    leftNodeOffset = stack[std::max(top,0)];
+
+  } // end while (top >= 0)
+  return leftNodeOffset;
+}
 
 float tricubic_spline(float p0, float p1, float p2, float p3, float x)
 {

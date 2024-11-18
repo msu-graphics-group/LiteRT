@@ -3608,6 +3608,39 @@ void litert_test_43_hydra_integration()
     printf("FAILED, psnr = %f\n", psnr_1);
 }
 
+void litert_test_44_point_query()
+{
+  int W  = 256;
+  int H = 256;
+  LiteImage::Image2D<uint32_t> image(W, H);
+
+  MultiRenderPreset preset = getDefaultPreset();
+  preset.spp = 4;
+
+  SparseOctreeSettings settings(SparseOctreeBuildType::DEFAULT, 6);
+  SdfSBSHeader header{};
+  header.bytes_per_value = 2;
+  header.brick_size = 2;
+  sdf_converter::DistanceFunction circle_sdf = [&](float3 p){return length(p) - 0.8f;};
+  SdfSBS sbs = sdf_converter::create_sdf_SBS(settings, header, circle_sdf);
+
+  {
+    auto pRender = CreateMultiRenderer(DEVICE_CPU);
+    pRender->SetPreset(preset);
+    pRender->SetViewport(0,0,W,H);
+    pRender->SetScene(sbs);
+    auto *bvhrt = dynamic_cast<BVHRT*>(pRender->GetAccelStruct().get());
+    render(image, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset);
+    LiteImage::SaveImage<uint32_t>("saves/test_44.png", image);
+
+    for (uint32_t i = 0u; i < 27u; ++i)
+    {
+      float3 pt{ 0.25f * (i / 9 + 1), 0.25f * ((i/3%3) + 1), 0.25f * ((i % 3) + 1) };
+      printf("Point: [%f, %f, %f], value = %f, ref = %f\n", pt.x, pt.y, pt.z, bvhrt->eval_distance_sdf_sbs(0, pt), circle_sdf(pt));
+    }
+  }
+}
+
 void perform_tests_litert(const std::vector<int> &test_ids)
 {
   std::vector<int> tests = test_ids;
@@ -3627,7 +3660,7 @@ void perform_tests_litert(const std::vector<int> &test_ids)
       litert_test_34_tricubic_sbs, litert_test_35_SBSAdapt_greed_creating, litert_test_36_primitive_visualization,
       litert_test_37_sbs_adapt_comparison, litert_test_38_direct_octree_traversal, litert_test_39_visualize_sbs_bricks,
       litert_test_40_psdf_framed_octree, litert_test_41_coctree_v3, litert_test_42_mesh_lods,
-      litert_test_43_hydra_integration};
+      litert_test_43_hydra_integration, litert_test_44_point_query};
 
   if (tests.empty())
   {
