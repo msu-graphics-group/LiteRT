@@ -3166,6 +3166,7 @@ void litert_test_41_coctree_v3()
     pRender->SetPreset(preset);
     pRender->SetScene(mesh);
     pRender->Render(image_ref.data(), W, H, worldView, proj, preset, 10);
+    pRender->GetExecutionTime("CastRaySingleBlock", timings);
     LiteImage::SaveImage<uint32_t>("saves/test_41_ref.bmp", image_ref);
     
     MultiRenderPreset preset_tex = preset;
