@@ -375,9 +375,13 @@ struct BVHRT : public ISceneObject
   //end NURBS functions
 #endif
 
+#ifndef KERNEL_SLICER
+#ifndef DISABLE_OPENVDB
 OpenVDB_Grid openvdb_grid;
 std::vector<OpenVDBHeader> m_VDBHeaders;
 std::vector<OpenVDB_Grid> m_VDBData;
+#endif
+#endif
 
   // Graphic primitives data
 #ifndef DISABLE_GRAPHICS_PRIM

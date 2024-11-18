@@ -1,0 +1,14 @@
+{
+	"backtraceGraph" : 
+	{
+		"commands" : [],
+		"files" : [],
+		"nodes" : []
+	},
+	"installers" : [],
+	"paths" : 
+	{
+		"build" : "dependencies/HydraCore3/external/volk/build",
+		"source" : "dependencies/HydraCore3/external/volk"
+	}
+}

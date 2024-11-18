@@ -98,7 +98,7 @@
     "cmake.debugConfig": {
         "args": [
             "-tests_litert",
-            "41"
+            "42"
         ],
         "cwd": "${workspaceFolder}"
     },
@@ -107,6 +107,7 @@
         "USE_VULKAN": false,
         "USE_RTX": false,
         "USE_STB_IMAGE": true,
-        "USE_ENZYME": false
+        "USE_ENZYME": false,
+        
     }
 }

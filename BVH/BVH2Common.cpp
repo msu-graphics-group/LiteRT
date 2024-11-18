@@ -1684,6 +1684,9 @@ void BVHRT::IntersectOpenVDB_Grid(const float3& ray_pos, const float3& ray_dir,
                            float tNear, uint32_t instId,
                            uint32_t geomId, CRT_Hit* pHit)
 {
+  #ifndef KERNEL_SLICER
+  #ifndef DISABLE_OPENVDB
+
   uint openvdbId = m_geomData[geomId].offset.x;
   uint type = m_geomData[geomId].type;
   OpenVDBHeader header = m_VDBHeaders[openvdbId];
@@ -1701,21 +1704,17 @@ void BVHRT::IntersectOpenVDB_Grid(const float3& ray_pos, const float3& ray_dir,
   int iter = 0;
   const uint32_t ST_max_iters = 256;
 
-  openvdb::Vec3f rayOrigin(ray_pos.x, ray_pos.y, ray_pos.z), rayDirection(ray_dir.x, ray_dir.y, ray_dir.z);
-  openvdb::Vec3f point = rayOrigin + t * rayDirection;
-
-  openvdb::FloatGrid::ConstAccessor accessor = grid.sdfGrid->getConstAccessor();
-  openvdb::tools::GridSampler<openvdb::FloatGrid::ConstAccessor, openvdb::tools::BoxSampler> sampler(accessor, grid.sdfGrid->transform());
+  float3 point = ray_pos + t * ray_dir;
   
-  dist = sampler.wsSample(point);
+  dist = grid.get_distance(point);
   start_sign = sign(dist);
   dist *= start_sign;
 
   while (t < tFar && dist > EPS && iter < ST_max_iters)
   {
     t += dist + EPS;
-    point = rayOrigin + t * rayDirection;
-    dist = start_sign * sampler.wsSample(point);
+    point = ray_pos + t * ray_dir;
+    dist = start_sign * grid.get_distance(point);
     iter++;  
   }
   
@@ -1737,17 +1736,17 @@ void BVHRT::IntersectOpenVDB_Grid(const float3& ray_pos, const float3& ray_dir,
   float3 norm = float3(0, 0, 1);
   if (need_normal())
   {
-    point = rayOrigin + t * rayDirection;
+    point = ray_pos + t * ray_dir;
 
     const float h = 0.001;
-    float ddx = (start_sign * sampler.wsSample(point + openvdb::Vec3f(h, 0, 0)) -
-                  sampler.wsSample(point + openvdb::Vec3f(-h, 0, 0))) /
+    float ddx = (start_sign * grid.get_distance(point + float3(h, 0, 0)) -
+                  grid.get_distance(point + float3(-h, 0, 0))) /
                 (2 * h);
-    float ddy = (sampler.wsSample(point + openvdb::Vec3f(0, h, 0)) -
-                  sampler.wsSample(point + openvdb::Vec3f(0, -h, 0))) /
+    float ddy = (grid.get_distance(point + float3(0, h, 0)) -
+                  grid.get_distance(point + float3(0, -h, 0))) /
                 (2 * h);
-    float ddz = (sampler.wsSample(point + openvdb::Vec3f(0, 0, h)) -
-                  sampler.wsSample(point + openvdb::Vec3f(0, 0, -h))) /
+    float ddz = (grid.get_distance(point + float3(0, 0, h)) -
+                  grid.get_distance(point + float3(0, 0, -h))) /
                 (2 * h);
 
     norm = start_sign * normalize(matmul4x3(m_instanceData[instId].transformInvTransposed, float3(ddx, ddy, ddz)));
@@ -1755,6 +1754,9 @@ void BVHRT::IntersectOpenVDB_Grid(const float3& ray_pos, const float3& ray_dir,
     pHit->coords[2] = encoded_norm.x;
     pHit->coords[3] = encoded_norm.y;
   }
+  
+  #endif
+  #endif
 }
 
 

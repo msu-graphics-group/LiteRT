@@ -3,22 +3,29 @@
 #include <iostream>
 #include <string>
 
-#include <openvdb/openvdb.h>
-#include <openvdb/Grid.h>
-#include <openvdb/Types.h>
-#include <openvdb/tools/ChangeBackground.h>
-#include <openvdb/tools/FastSweeping.h>
-#include <openvdb/tools/MeshToVolume.h>
-#include <openvdb/tools/VolumeToMesh.h>
-#include <openvdb/tools/Interpolation.h>
+#ifndef KERNEL_SLICER
+#ifndef DISABLE_OPENVDB
 
-#include "../utils/mesh.h"
+#include <LiteMath.h>
+using LiteMath::float3;
 
 struct OpenVDB_Grid
 {
 public:
-    openvdb::FloatGrid::Ptr sdfGrid;
+    void* grid_ptr;
 public:
-    OpenVDB_Grid() { openvdb::initialize(); }
-    void mesh2sdf(const cmesh4::SimpleMesh& mesh, const float& voxel_size, const float& w);
+    OpenVDB_Grid();
+    ~OpenVDB_Grid();
+    float get_distance(LiteMath::float3 point);
+    void mesh2sdf(void* mesh_ptr, const float voxel_size, const float w);
+    float mem_usage() const;
+    uint32_t get_voxels_count() const; 
 };
+
+#endif
+#else
+struct OpenVDB_Grid
+{
+    bool foo;
+};
+#endif
