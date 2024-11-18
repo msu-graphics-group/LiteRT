@@ -130,6 +130,118 @@ namespace testing
             parse_number_before(text.begin(), second_slash, failed);
     }
 
+    /*
+        Reads stdout of supervised process line by line with \n
+        Empty string means eof
+        Returns false if error happend
+    */
+    bool get_line(Supervisor&s, std::string&line)
+    {
+        line = "";
+        while (true)
+        {
+            auto x = s.get_char();
+            if (!x) // read error
+            {
+                return false;
+            }
+            if (*x == EOF)
+            {
+                break;
+            }
+            char c = *x;
+            line.push_back(c);
+            if (c == '\n')
+            {
+                break;
+            }
+        }
+        return true;
+    }
+
+    bool run_and_get_last_line(Supervisor&supervisor, std::string&last_line)
+    {
+        std::string prev_line, curr_line;
+        while (true)
+        {
+            prev_line = curr_line;
+            if (!get_line(supervisor, curr_line))
+            {
+                return false;
+            }
+            if (curr_line == "")
+            {
+                break;
+            }
+            else
+            {
+                if (curr_line.back() != '\n')
+                {
+                    curr_line.push_back('\n');
+                }
+                std::cout << curr_line;
+            }
+        }
+        last_line = (curr_line == "" ? prev_line : curr_line);
+        return true;
+    }
+
+    bool parse_last_line(std::string_view line, TEST_RESULT&result, size_t&passed, size_t&failed)
+    {
+        bool res = parse_test_summary(line, passed, failed);
+        if (line.find("PASSED") != std::string::npos && res)
+        {
+            result = TEST_RESULT::PASSED;
+            return true;
+        }
+        if (line.find("FAILED") != std::string::npos && res)
+        {
+            result = TEST_RESULT::FAILED;
+            return true;
+        }
+        if (line.find("SKIPPED") != std::string::npos)
+        {
+            result = TEST_RESULT::SKIPPED;
+            return true;
+        }
+        return false;
+    }
+
+    bool run_supervised(const Test*test, TEST_RESULT&result, size_t&passed, size_t&failed)
+    {
+
+        auto supervisor = Supervisor::spawn({
+            current_executable_path(),
+            "unsafe",
+            std::string{test->name()}
+        });
+
+        if (!supervisor)
+        {
+            return false;
+        }
+        std::string last_line;
+        if (!run_and_get_last_line(*supervisor, last_line))
+        {
+            return false;
+        }
+
+        if (!supervisor->exited() || supervisor->exit_status() != 0)
+        {
+            result = TEST_RESULT::CRASHED;
+            return true;
+        }
+
+        if (!parse_last_line(last_line, result, passed, failed))
+        {
+            std::cout << "[ERROR] Failed to parse test output. Assuming runtime error." << std::endl;
+            result = TEST_RESULT::CRASHED;
+            return true;
+        }
+        
+        return true;
+    }
+
     bool run(const std::vector<const Test*>&tests, ExecutionContext ctx)
     {
 
@@ -139,78 +251,23 @@ namespace testing
 
         for (auto i : tests)
         {
-            auto supervisor = Supervisor::spawn({
-                current_executable_path(),
-                "unsafe",
-                std::string{i->name()}
-            });
-            if (!supervisor)
+            TEST_RESULT result;
+            size_t passed;
+            size_t failed;
+            if(!run_supervised(i, result, passed, failed))
             {
                 return false;
             }
-            std::string prev_line, curr_line;
-            char last_char = '\n';
-            while (true)
+            results[result].push_back(i);
+            if (result == TEST_RESULT::PASSED || result == TEST_RESULT::FAILED) 
             {
-                auto x = supervisor->get_char();
-                if (!x)break;
-                if (*x == EOF) break;
-                char c = *x;
-                std::cout << c;
-                last_char = c;
-                if (c == '\n')
-                {
-                    prev_line = curr_line;
-                    curr_line = "";
-                }
-                else
-                {
-                    curr_line.push_back(c);
-                }
+                passed_checks += passed;
+                failed_checks += failed;
             }
-
-            if (last_char != '\n')
+            if (result == TEST_RESULT::CRASHED)
             {
-                std::cout << std::endl;
-            }
-
-            if (!supervisor->exited() || supervisor->exit_status() != 0) // killed or crashed
-            {
-                results[TEST_RESULT::CRASHED].push_back(i);
                 std::cout << "[CRASHED] " << i->name() << std::endl;
             }
-            else
-            {
-
-                std::string last_line = curr_line == "" ? prev_line : curr_line;
-                
-                // parsing last line to get results
-                size_t passed, failed;
-                bool res = parse_test_summary(last_line, passed, failed);
-                if (last_line.find("PASSED") != std::string::npos && res)
-                {
-                    results[TEST_RESULT::PASSED].push_back(i);
-                    passed_checks += passed;
-                    failed_checks += failed;
-                }
-                else if (last_line.find("FAILED") != std::string::npos && res)
-                {
-                    results[TEST_RESULT::FAILED].push_back(i);
-                    passed_checks += passed;
-                    failed_checks += failed;
-                }
-                else if(last_line.find("SKIPPED") != std::string::npos)
-                {
-                    results[TEST_RESULT::SKIPPED].push_back(i);
-                }
-                else
-                {
-                    std::cout << "[ERROR] Failed to parse test output. Assuming runtime error." << std::endl;
-                    results[TEST_RESULT::CRASHED].push_back(i);
-                    std::cout << "[CRASHED] " << i->name() << std::endl;
-                }
-            }
-
         }
 
         size_t total_checks = passed_checks + failed_checks;
