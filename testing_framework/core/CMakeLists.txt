@@ -7,8 +7,6 @@ add_library(
     actions.h
     actions.cpp
 
-    colors.h
-
     help.h
     help.cpp
     exe.h
@@ -25,9 +23,7 @@ add_library(
 
 )
 
-target_include_directories(testing_framework_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/../../)
-
-target_compile_features(testing_framework_core PUBLIC cxx_std_17)
+target_link_libraries(testing_framework_core PUBLIC testing_framework::logging)
 
 add_library(testing_framework::core ALIAS testing_framework_core)
 

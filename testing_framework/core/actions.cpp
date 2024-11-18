@@ -4,6 +4,7 @@
 #include "exe.h"
 #include "supervisor.h"
 #include <map>
+#include <testing_framework/logging/colored_ostream.h>
 
 namespace testing
 {
@@ -266,7 +267,10 @@ namespace testing
             }
             if (result == TEST_RESULT::CRASHED)
             {
-                std::cout << "[CRASHED] " << i->name() << std::endl;
+                //std::cout << "[CRASHED] " << i->name() << std::endl;
+                Color red{COLOR_HUE::RED, false};
+                Color black{COLOR_HUE::BLACK, false};
+                basic_colored_ostream{std::cout, red, black} << "[CRASHED] " << i->name() << "\n";
             }
         }
 
