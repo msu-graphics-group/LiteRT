@@ -50,7 +50,7 @@ namespace testing
 
     }
 
-    bool should_rewrite(std::string_view comment)
+    bool should_rewrite_saved_reference(std::string_view comment)
     {
         return rewrite_is_enabled() && ask_rewrite(comment);
     }

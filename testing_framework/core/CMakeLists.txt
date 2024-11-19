@@ -24,7 +24,15 @@ add_library(
     colors.h
     colors.cpp
 
+    execution.h
+    execution.cpp
+
+    commands.h
+    commands.cpp
+
+    cli.h
+    cli.cpp
+
 )
 
 add_library(testing_framework::core ALIAS testing_framework_core)
-

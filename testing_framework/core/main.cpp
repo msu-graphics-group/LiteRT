@@ -3,7 +3,8 @@
 #include <optional>
 #include "help.h"
 #include "actions.h"
-
+#include <testing_framework/core/cli.h>
+/*
 namespace testing
 {
 
@@ -153,4 +154,9 @@ namespace testing
 int main(int argc, char**argv)
 {
     return !testing::handle_args(argc - 1, argv + 1);
+}
+*/
+int main(int argc, char**argv)
+{
+    return !testing::handle_args(argc, argv);
 }

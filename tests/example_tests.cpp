@@ -25,7 +25,7 @@ namespace litert_tests
     ADD_TEST(test3, "Example of rewrite")
     {
         std::cout << "Do smth" << std::endl;
-        if (testing::should_rewrite("rewrite VERY IMPORTANT files"))
+        if (testing::should_rewrite_saved_reference("rewrite VERY IMPORTANT files"))
         {
             std::cout << "Files are rewritten!!!" << std::endl;
         }
