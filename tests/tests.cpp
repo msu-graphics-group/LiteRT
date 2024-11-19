@@ -483,12 +483,18 @@ void litert_test_7_global_octree()
   auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "scenes/01_simple_scenes/data/bunny.vsgf").c_str());
   cmesh4::normalize_mesh(mesh);
 
-  SparseOctreeSettings settings = SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, 7);
+  SparseOctreeSettings settings = SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, 6);
   sdf_converter::GlobalOctree g_octree;
   std::vector<SdfFrameOctreeNode> frame_octree;
   std::vector<SdfFrameOctreeNode> frame_octree_ref;
-  g_octree.header.brick_size = 1;
+  SdfSBS sbs;
+  g_octree.header.brick_size = 4;
   g_octree.header.brick_pad  = 0;
+
+  sbs.header.brick_size = g_octree.header.brick_size;
+  sbs.header.brick_pad = g_octree.header.brick_pad;
+  sbs.header.aux_data = SDF_SBS_NODE_LAYOUT_DX;
+  sbs.header.bytes_per_value = 2;
 
   auto tlo = cmesh4::create_triangle_list_octree(mesh, settings.depth, 0, 1.0f);
   sdf_converter::mesh_octree_to_global_octree(mesh, tlo, g_octree);
@@ -498,7 +504,7 @@ void litert_test_7_global_octree()
   float max_val = 0.01f;
   int valid_nodes = 0;
   int surface_nodes = 0;
-  const float dist_thr = (1.0/64)*sqrtf(3)*pow(2, 1.0f - settings.depth)/g_octree.header.brick_size;
+  float dist_thr = (1.0/20)*sqrtf(3)*pow(2, 1.0f - settings.depth)/g_octree.header.brick_size;
   printf("dist thr = %f\n", dist_thr);
 
   int dist_count = g_octree.header.brick_size + 2 * g_octree.header.brick_pad + 1;
@@ -565,7 +571,7 @@ void litert_test_7_global_octree()
 
     printf("remapped %d/%d nodes\n", remapped, surface_nodes);
   }
-  else //calculate statistics
+  else if (false)//calculate statistics
   {
     #pragma omp parallel for
     for (int i=0; i<g_octree.nodes.size(); i++)
@@ -637,20 +643,6 @@ void litert_test_7_global_octree()
     return;
   }
 
-  sdf_converter::global_octree_to_frame_octree(g_octree, frame_octree_ref);
-  {
-    assert(g_octree.header.brick_size == 1);
-    assert(g_octree.header.brick_pad == 0);
-
-    frame_octree.resize(g_octree.nodes.size());
-    for (int i = 0; i < g_octree.nodes.size(); ++i)
-    {
-      frame_octree[i].offset = g_octree.nodes[remap[i]].offset;
-      for (int j=0;j<8;j++)
-        frame_octree[i].values[j] = g_octree.values_f[g_octree.nodes[remap[i]].val_off + j];
-    }
-  }
-
   unsigned W = 2048, H = 2048;
   MultiRenderPreset preset = getDefaultPreset();
   preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
@@ -658,22 +650,73 @@ void litert_test_7_global_octree()
   LiteImage::Image2D<uint32_t> image(W, H);
   LiteImage::Image2D<uint32_t> image_ref(W, H);
 
+  if (g_octree.header.brick_size == 1)
   {
-  auto pRender = CreateMultiRenderer(DEVICE_GPU);
-  pRender->SetPreset(preset);
-  pRender->SetScene(frame_octree_ref);
-  render(image_ref, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
-  LiteImage::SaveImage<uint32_t>("saves/test_7_ref.png", image_ref);
+    sdf_converter::global_octree_to_frame_octree(g_octree, frame_octree_ref);
+    {
+      assert(g_octree.header.brick_size == 1);
+      assert(g_octree.header.brick_pad == 0);
+
+      frame_octree.resize(g_octree.nodes.size());
+      for (int i = 0; i < g_octree.nodes.size(); ++i)
+      {
+        frame_octree[i].offset = g_octree.nodes[remap[i]].offset;
+        for (int j=0;j<8;j++)
+          frame_octree[i].values[j] = g_octree.values_f[g_octree.nodes[remap[i]].val_off + j];
+      }
+    }
+    {
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
+    pRender->SetPreset(preset);
+    pRender->SetScene(frame_octree_ref);
+    render(image_ref, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+    LiteImage::SaveImage<uint32_t>("saves/test_7_ref.png", image_ref);
+    }
+    {
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
+    pRender->SetPreset(preset);
+    pRender->SetScene(frame_octree);
+    render(image, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+    LiteImage::SaveImage<uint32_t>("saves/test_7_res.png", image);
+    }
   }
+  else
   {
-  auto pRender = CreateMultiRenderer(DEVICE_GPU);
-  pRender->SetPreset(preset);
-  pRender->SetScene(frame_octree);
-  render(image, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
-  LiteImage::SaveImage<uint32_t>("saves/test_7_res.png", image);
+    sdf_converter::global_octree_to_SBS(g_octree, sbs);
+
+    {
+      auto pRender = CreateMultiRenderer(DEVICE_GPU);
+      pRender->SetPreset(preset);
+      pRender->SetScene(sbs);
+      render(image_ref, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+      LiteImage::SaveImage<uint32_t>("saves/test_7_sbs_ref.png", image_ref);
+    }
+
+
+    int v_size = sbs.header.brick_size + 2*sbs.header.brick_pad + 1;
+    int v_count = v_size*v_size*v_size;
+    for (int i=0;i<remap.size();i++)
+    {
+      int off_1 = g_octree.nodes[i].val_off;
+      int off_2 = g_octree.nodes[remap[i]].val_off;
+      for (int j=0;j<v_count;j++)
+      {
+        g_octree.values_f[off_2+j] = g_octree.values_f[off_1 + j];
+      }
+    }
+    sdf_converter::global_octree_to_SBS(g_octree, sbs);
+
+    {
+      auto pRender = CreateMultiRenderer(DEVICE_GPU);
+      pRender->SetPreset(preset);
+      pRender->SetScene(sbs);
+      render(image, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+      LiteImage::SaveImage<uint32_t>("saves/test_7_sbs_res.png", image);
+    }
   }
 
   float psnr = image_metrics::PSNR(image_ref, image);
+
   printf("TEST 7. SDF clustering compression\n");
   printf("  7.1. %-64s", "mild compression PSNR > 30 ");
   if (psnr >= 30)
