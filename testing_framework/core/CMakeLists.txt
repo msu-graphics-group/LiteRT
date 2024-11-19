@@ -21,9 +21,10 @@ add_library(
     env.h
     env.cpp
 
-)
+    colors.h
+    colors.cpp
 
-target_link_libraries(testing_framework_core PUBLIC testing_framework::logging)
+)
 
 add_library(testing_framework::core ALIAS testing_framework_core)
 

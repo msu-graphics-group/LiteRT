@@ -4,7 +4,7 @@
 #include "exe.h"
 #include "supervisor.h"
 #include <map>
-#include <testing_framework/logging/colored_ostream.h>
+#include <testing_framework/core/colors.h>
 
 namespace testing
 {
@@ -235,7 +235,7 @@ namespace testing
 
         if (!parse_last_line(last_line, result, passed, failed))
         {
-            std::cout << "[ERROR] Failed to parse test output. Assuming runtime error." << std::endl;
+            std::cout << foreground(red) << "[ERROR]" << default_color << " Failed to parse test output. Assuming runtime error." << std::endl;
             result = TEST_RESULT::CRASHED;
             return true;
         }
@@ -267,10 +267,7 @@ namespace testing
             }
             if (result == TEST_RESULT::CRASHED)
             {
-                //std::cout << "[CRASHED] " << i->name() << std::endl;
-                Color red{COLOR_HUE::RED, false};
-                Color black{COLOR_HUE::BLACK, false};
-                basic_colored_ostream{std::cout, red, black} << "[CRASHED] " << i->name() << "\n";
+                std::cout << foreground(red) << "[CRASHED]" << default_color << " " << i->name() << std::endl;
             }
         }
 
