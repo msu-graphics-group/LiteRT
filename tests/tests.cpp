@@ -483,67 +483,203 @@ void litert_test_7_global_octree()
   auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "scenes/01_simple_scenes/data/bunny.vsgf").c_str());
   cmesh4::normalize_mesh(mesh);
 
-  SparseOctreeSettings settings = SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, 6);
+  SparseOctreeSettings settings = SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, 7);
   sdf_converter::GlobalOctree g_octree;
   std::vector<SdfFrameOctreeNode> frame_octree;
+  std::vector<SdfFrameOctreeNode> frame_octree_ref;
   g_octree.header.brick_size = 1;
   g_octree.header.brick_pad  = 0;
 
   auto tlo = cmesh4::create_triangle_list_octree(mesh, settings.depth, 0, 1.0f);
   sdf_converter::mesh_octree_to_global_octree(mesh, tlo, g_octree);
-  sdf_converter::global_octree_to_frame_octree(g_octree, frame_octree);
+
+  float invalid_dist = 1000;
+  int num_bins = 100;
+  float max_val = 0.01f;
+  int valid_nodes = 0;
+  int surface_nodes = 0;
+  const float dist_thr = (1.0/64)*sqrtf(3)*pow(2, 1.0f - settings.depth)/g_octree.header.brick_size;
+  printf("dist thr = %f\n", dist_thr);
 
   int dist_count = g_octree.header.brick_size + 2 * g_octree.header.brick_pad + 1;
   dist_count = dist_count * dist_count * dist_count;
-  std::vector<float> closest_dist(g_octree.nodes.size(), 1e9f);
+  std::vector<float> closest_dist(g_octree.nodes.size(), invalid_dist);
   std::vector<int> closest_idx(g_octree.nodes.size(), -1);
+  std::vector<unsigned> remap(g_octree.nodes.size(), 0);
+  std::vector<bool> surface_node(g_octree.nodes.size(), false);
+  std::vector<int> hist(num_bins+1, 0);
 
-  //#pragma omp parallel for
+  for (int i=0; i<g_octree.nodes.size(); i++)
+    remap[i] = i;
+  
   for (int i=0; i<g_octree.nodes.size(); i++)
   {
-    int off_a = g_octree.nodes[i].val_off;
-    for (int j=0; j<g_octree.nodes.size(); j++)
+    int off = g_octree.nodes[i].val_off;
+    float min_val = 1000;
+    float max_val = -1000;
+    for (int k=0; k<dist_count; k++)
     {
-      if (i == j || g_octree.nodes[i].offset != 0 || g_octree.nodes[j].offset != 0)
+      min_val = std::min(min_val, g_octree.values_f[off+k]);
+      max_val = std::max(max_val, g_octree.values_f[off+k]);
+    }
+
+    if (g_octree.nodes[i].offset == 0 && min_val <= 0 && max_val >= 0)
+    {
+      surface_node[i] = true;
+      surface_nodes++;
+    }
+  }
+
+  if (dist_thr >= 0)  //replace with remap
+  {
+    int remapped = 0;
+    for (int i=0; i<g_octree.nodes.size(); i++)
+    {
+      int off_a = g_octree.nodes[i].val_off;
+      if (surface_node[i] == false || remap[i] != i)
         continue;
-      int off_b = g_octree.nodes[j].val_off;
-      double loss = 0;
-      float min_a = 1000;
-      float max_a = -1000;
-      float min_b = 1000;
-      float max_b = -1000;
-      for (int k=0; k<dist_count; k++)
+      
+      #pragma omp parallel for schedule(static)
+      for (int j=i+1; j<g_octree.nodes.size(); j++)
       {
-        min_a = std::min(min_a, g_octree.values_f[off_a+k]);
-        max_a = std::max(max_a, g_octree.values_f[off_a+k]);
-        min_b = std::min(min_b, g_octree.values_f[off_b+k]);
-        max_b = std::max(max_b, g_octree.values_f[off_b+k]);
-        loss += (g_octree.values_f[off_a+k] - g_octree.values_f[off_b+k]) * (g_octree.values_f[off_a+k] - g_octree.values_f[off_b+k]);
-      }
-      float dist = loss / dist_count;
-      if (dist < closest_dist[i] && (min_a < 0 && max_a > 0) || (min_b < 0 && max_b > 0))
-      {
-        closest_dist[i] = dist;
-        closest_idx[i] = j;
+        if (surface_node[j] == false)
+          continue;
+        int off_b = g_octree.nodes[j].val_off;
+        float dist = 0;
+        for (int k=0; k<dist_count; k++)
+        {
+          dist += std::abs(g_octree.values_f[off_a+k] - g_octree.values_f[off_b+k]);
+        }
+        dist = dist / dist_count;
+        if (dist < dist_thr)
+        {
+          #pragma omp critical
+          {
+            remapped += remap[j] == j;
+            remap[j] = i;
+            closest_dist[j] = dist;
+          }
+        }
       }
     }
-    if (closest_dist[i] < 1)
-    printf("closest_dist[%d] = %f (idx = %d), values = %f %f %f %f %f %f %f %f\n", i, closest_dist[i], closest_idx[i],
-           g_octree.values_f[off_a], g_octree.values_f[off_a+1], g_octree.values_f[off_a+2], g_octree.values_f[off_a+3],
-           g_octree.values_f[off_a+4], g_octree.values_f[off_a+5], g_octree.values_f[off_a+6], g_octree.values_f[off_a+7]);
+
+    printf("remapped %d/%d nodes\n", remapped, surface_nodes);
+  }
+  else //calculate statistics
+  {
+    #pragma omp parallel for
+    for (int i=0; i<g_octree.nodes.size(); i++)
+    {
+      int off_a = g_octree.nodes[i].val_off;
+      for (int j=0; j<g_octree.nodes.size(); j++)
+      {
+        if (i == j || g_octree.nodes[i].offset != 0 || g_octree.nodes[j].offset != 0)
+          continue;
+        int off_b = g_octree.nodes[j].val_off;
+        double loss = 0;
+        double loss_abs = 0;
+        float loss_max = 0;
+        float min_a = 1000;
+        float max_a = -1000;
+        float min_b = 1000;
+        float max_b = -1000;
+        for (int k=0; k<dist_count; k++)
+        {
+          min_a = std::min(min_a, g_octree.values_f[off_a+k]);
+          max_a = std::max(max_a, g_octree.values_f[off_a+k]);
+          min_b = std::min(min_b, g_octree.values_f[off_b+k]);
+          max_b = std::max(max_b, g_octree.values_f[off_b+k]);
+          loss += (g_octree.values_f[off_a+k] - g_octree.values_f[off_b+k]) * (g_octree.values_f[off_a+k] - g_octree.values_f[off_b+k]);
+          loss_max = std::max(loss_max, std::abs(g_octree.values_f[off_a+k] - g_octree.values_f[off_b+k]));
+          loss_abs += std::abs(g_octree.values_f[off_a+k] - g_octree.values_f[off_b+k]);
+        }
+        float dist = loss / dist_count;
+        dist = loss_max;
+        dist = loss_abs / dist_count;
+        if (dist < closest_dist[i] && ((min_a < 0 && max_a > 0) || (min_b < 0 && max_b > 0)))
+        {
+          closest_dist[i] = dist;
+          closest_idx[i] = j;
+        }
+      }
+
+      unsigned bin_num = unsigned(closest_dist[i] / max_val * num_bins);
+      if (bin_num >= num_bins)
+        bin_num = num_bins;
+      
+      #pragma omp critical
+      {
+        if (closest_dist[i] < invalid_dist)
+        {
+          hist[bin_num]++;
+          valid_nodes++;
+        }
+      }
+
+      if (closest_dist[i] < 0.0005 && false)
+      {
+        int off_b = g_octree.nodes[closest_idx[i]].val_off;
+      printf("closest_dist[%d] = %f (idx = %d), values = %f %f %f %f %f %f %f %f\n", i, closest_dist[i], closest_idx[i],
+            g_octree.values_f[off_a], g_octree.values_f[off_a+1], g_octree.values_f[off_a+2], g_octree.values_f[off_a+3],
+            g_octree.values_f[off_a+4], g_octree.values_f[off_a+5], g_octree.values_f[off_a+6], g_octree.values_f[off_a+7]);
+      printf("                                                    %f %f %f %f %f %f %f %f\n", 
+            g_octree.values_f[off_b], g_octree.values_f[off_a+1], g_octree.values_f[off_a+2], g_octree.values_f[off_a+3],
+            g_octree.values_f[off_a+4], g_octree.values_f[off_a+5], g_octree.values_f[off_a+6], g_octree.values_f[off_a+7]);
+      }
+    }
+
+    float acc = 0;
+    for (int i=0; i<hist.size(); i++)
+    {
+      acc += hist[i];
+      printf("[%d] %d (%.2f%%)\n", i, hist[i], 100*acc/(float)valid_nodes);
+    }
+    return;
+  }
+
+  sdf_converter::global_octree_to_frame_octree(g_octree, frame_octree_ref);
+  {
+    assert(g_octree.header.brick_size == 1);
+    assert(g_octree.header.brick_pad == 0);
+
+    frame_octree.resize(g_octree.nodes.size());
+    for (int i = 0; i < g_octree.nodes.size(); ++i)
+    {
+      frame_octree[i].offset = g_octree.nodes[remap[i]].offset;
+      for (int j=0;j<8;j++)
+        frame_octree[i].values[j] = g_octree.values_f[g_octree.nodes[remap[i]].val_off + j];
+    }
   }
 
   unsigned W = 2048, H = 2048;
   MultiRenderPreset preset = getDefaultPreset();
   preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
-  preset.representation_mode = REPRESENTATION_MODE_SURFACE;
+  preset.spp = 16;
   LiteImage::Image2D<uint32_t> image(W, H);
+  LiteImage::Image2D<uint32_t> image_ref(W, H);
 
+  {
+  auto pRender = CreateMultiRenderer(DEVICE_GPU);
+  pRender->SetPreset(preset);
+  pRender->SetScene(frame_octree_ref);
+  render(image_ref, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+  LiteImage::SaveImage<uint32_t>("saves/test_7_ref.png", image_ref);
+  }
+  {
   auto pRender = CreateMultiRenderer(DEVICE_GPU);
   pRender->SetPreset(preset);
   pRender->SetScene(frame_octree);
   render(image, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
-  LiteImage::SaveImage<uint32_t>("saves/test_7.png", image);
+  LiteImage::SaveImage<uint32_t>("saves/test_7_res.png", image);
+  }
+
+  float psnr = image_metrics::PSNR(image_ref, image);
+  printf("TEST 7. SDF clustering compression\n");
+  printf("  7.1. %-64s", "mild compression PSNR > 30 ");
+  if (psnr >= 30)
+    printf("passed    (%.2f)\n", psnr);
+  else
+    printf("FAILED, psnr = %f\n", psnr);
 }
 
 void litert_test_8_SDF_grid()
