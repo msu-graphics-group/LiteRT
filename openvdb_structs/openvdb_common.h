@@ -14,14 +14,16 @@ using cmesh4::SimpleMesh;
 struct OpenVDB_Grid
 {
 public:
-    void* grid_ptr;
-public:
     OpenVDB_Grid();
     ~OpenVDB_Grid();
-    float get_distance(float3 point);
+    void* create_samler();
+    float get_distance(float3 point, void* sampler_ptr);
     void mesh2sdf(const cmesh4::SimpleMesh& mesh, const float voxel_size, const float w);
     float mem_usage() const;
     uint32_t get_voxels_count() const; 
+
+private:
+    void* grid_ptr;
 };
 
 #endif

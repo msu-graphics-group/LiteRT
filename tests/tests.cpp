@@ -3321,8 +3321,6 @@ litert_test_42_openvdb_benchmark()
   OpenVDB_Grid grid;
   grid.mesh2sdf(mesh, voxel_size, w);
 
-  auto mem = grid.mem_usage();
-
   unsigned W = 2048, H = 2048;
   LiteImage::Image2D<uint32_t> vdb_image(W, H);
 
@@ -3342,11 +3340,10 @@ litert_test_42_openvdb_benchmark()
   float time_vdb = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
   LiteImage::SaveImage<uint32_t>("saves/test_42_openvdb.bmp", vdb_image);
 
-  // psnr_vdb = image_metrics::PSNR(ref_image, vdb_image);
-  float bytes_vdb = (float)mem / 1024 / 1024;
   float voxels_vdb = grid.get_voxels_count();
+  auto mem_vdb = grid.mem_usage() / 1024 / 1024;
 
-  printf("%f %f\n", bytes_vdb, voxels_vdb);
+  printf("%f %f\n", mem_vdb, voxels_vdb);
 }
 
 void perform_tests_litert(const std::vector<int> &test_ids)

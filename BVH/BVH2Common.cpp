@@ -1705,8 +1705,10 @@ void BVHRT::IntersectOpenVDB_Grid(const float3& ray_pos, const float3& ray_dir,
   const uint32_t ST_max_iters = 256;
 
   float3 point = ray_pos + t * ray_dir;
+
+  void* sampler_ptr = grid.create_samler();
   
-  dist = grid.get_distance(point);
+  dist = grid.get_distance(point, sampler_ptr);
   start_sign = sign(dist);
   dist *= start_sign;
 
@@ -1714,7 +1716,7 @@ void BVHRT::IntersectOpenVDB_Grid(const float3& ray_pos, const float3& ray_dir,
   {
     t += dist + EPS;
     point = ray_pos + t * ray_dir;
-    dist = start_sign * grid.get_distance(point);
+    dist = start_sign * grid.get_distance(point, sampler_ptr);
     iter++;  
   }
   
@@ -1739,14 +1741,14 @@ void BVHRT::IntersectOpenVDB_Grid(const float3& ray_pos, const float3& ray_dir,
     point = ray_pos + t * ray_dir;
 
     const float h = 0.001;
-    float ddx = (start_sign * grid.get_distance(point + float3(h, 0, 0)) -
-                  grid.get_distance(point + float3(-h, 0, 0))) /
+    float ddx = (start_sign * grid.get_distance(point + float3(h, 0, 0), sampler_ptr) -
+                  grid.get_distance(point + float3(-h, 0, 0), sampler_ptr)) /
                 (2 * h);
-    float ddy = (grid.get_distance(point + float3(0, h, 0)) -
-                  grid.get_distance(point + float3(0, -h, 0))) /
+    float ddy = (grid.get_distance(point + float3(0, h, 0), sampler_ptr) -
+                  grid.get_distance(point + float3(0, -h, 0), sampler_ptr)) /
                 (2 * h);
-    float ddz = (grid.get_distance(point + float3(0, 0, h)) -
-                  grid.get_distance(point + float3(0, 0, -h))) /
+    float ddz = (grid.get_distance(point + float3(0, 0, h), sampler_ptr) -
+                  grid.get_distance(point + float3(0, 0, -h), sampler_ptr)) /
                 (2 * h);
 
     norm = start_sign * normalize(matmul4x3(m_instanceData[instId].transformInvTransposed, float3(ddx, ddy, ddz)));

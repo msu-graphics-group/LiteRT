@@ -33,7 +33,8 @@ OpenVDB_Grid::mesh2sdf(const cmesh4::SimpleMesh& mesh, const float voxel_size, c
         w
     );
 
-    grid_ptr = reinterpret_cast<void*>(&grid);
+    openvdb::FloatGrid::Ptr* ptr = new decltype(grid)(grid);
+    grid_ptr = (void*)(ptr);
 }
 
 
@@ -44,16 +45,30 @@ OpenVDB_Grid::OpenVDB_Grid()
 
 OpenVDB_Grid::~OpenVDB_Grid()
 {
-    // if (grid_ptr != nullptr)
+    // auto *ptr = (openvdb::FloatGrid::Ptr*)(grid_ptr);
+
+    // if (ptr != nullptr)
     // {
-    //     delete grid_ptr;
+    //     delete ptr;
     // }
 }
 
-float 
-OpenVDB_Grid::get_distance(LiteMath::float3 point)
+void* 
+OpenVDB_Grid::create_samler()
 {
-    auto grid = *reinterpret_cast<std::shared_ptr<openvdb::FloatGrid> *>(grid_ptr);
+    auto grid = *(openvdb::FloatGrid::Ptr*)(grid_ptr);
+    openvdb::FloatGrid::ConstAccessor accessor = grid->getConstAccessor();
+    openvdb::tools::GridSampler<openvdb::FloatGrid::ConstAccessor, openvdb::tools::BoxSampler> sampler(accessor, grid->transform());
+
+    openvdb::tools::GridSampler<openvdb::FloatGrid::ConstAccessor, openvdb::tools::BoxSampler>* ptr = new decltype(sampler)(sampler);
+    return (void*)(ptr);
+}
+
+float 
+OpenVDB_Grid::get_distance(LiteMath::float3 point, void* sampler_ptr)
+{
+    auto grid = *(openvdb::FloatGrid::Ptr*)(grid_ptr);
+    // auto sampler = *(openvdb::tools::GridSampler<openvdb::FloatGrid::ConstAccessor, openvdb::tools::BoxSampler>*)(sampler_ptr);
     openvdb::FloatGrid::ConstAccessor accessor = grid->getConstAccessor();
     openvdb::tools::GridSampler<openvdb::FloatGrid::ConstAccessor, openvdb::tools::BoxSampler> sampler(accessor, grid->transform());
 
@@ -63,13 +78,13 @@ OpenVDB_Grid::get_distance(LiteMath::float3 point)
 float 
 OpenVDB_Grid::mem_usage() const
 {
-    auto grid = *reinterpret_cast<std::shared_ptr<openvdb::FloatGrid> *>(grid_ptr);
+    auto grid = *(openvdb::FloatGrid::Ptr*)(grid_ptr);
     return grid->memUsage();
 }
 
 uint32_t 
 OpenVDB_Grid::get_voxels_count() const
 {
-    auto grid = *reinterpret_cast<std::shared_ptr<openvdb::FloatGrid> *>(grid_ptr);
+    auto grid = *(openvdb::FloatGrid::Ptr*)(grid_ptr);
     return grid->tree().activeVoxelCount();
 }
