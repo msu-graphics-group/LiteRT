@@ -293,6 +293,9 @@ struct BVHRT : public ISceneObject
 #ifndef DISABLE_SDF_FRAME_OCTREE
   virtual float eval_distance_sdf_frame_octree(unsigned octree_id, float3 p);
 #endif
+#ifndef DISABLE_SDF_FRAME_OCTREE_COMPACT
+  virtual float eval_distance_sdf_coctree_v3(unsigned octree_id, float3 p);
+#endif
   virtual uint32_t eval_distance_traverse_bvh(uint32_t geom_id, float3 pos);
   virtual float eval_distance_sdf(unsigned type, unsigned prim_id, float3 p);
   virtual SdfHit sdf_sphere_tracing(unsigned type, unsigned prim_id, const float3 &min_pos, const float3 &max_pos,

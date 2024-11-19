@@ -3698,9 +3698,9 @@ void litert_test_44_point_query()
     LiteImage::SaveImage<uint32_t>("saves/test_44_SBS.png", image);
 
     printf("SBS:\n");
-    for (uint32_t i = 0u; i < 27u; ++i)
+    for (int i = 0; i < 27; ++i)
     {
-      float3 pt{ 0.25f * (i / 9 + 1), 0.25f * ((i/3%3) + 1), 0.25f * ((i % 3) + 1) };
+      float3 pt{ -0.5f * (i / 9 - 1), -0.5f * ((i/3%3) - 1), -0.5f * ((i % 3) - 1) };
       printf("Point: [%f, %f, %f], value = %f, ref = %f\n", pt.x, pt.y, pt.z, bvhrt->eval_distance_sdf_sbs(0, pt), circle_sdf(pt));
     }
   }
@@ -3717,9 +3717,9 @@ void litert_test_44_point_query()
     LiteImage::SaveImage<uint32_t>("saves/test_44_SVS.png", image);
 
     printf("SVS:\n");
-    for (uint32_t i = 0u; i < 27u; ++i)
+    for (int i = 0; i < 27; ++i)
     {
-      float3 pt{ 0.25f * (i / 9 + 1), 0.25f * ((i/3%3) + 1), 0.25f * ((i % 3) + 1) };
+      float3 pt{ -0.5f * (i / 9 - 1), -0.5f * ((i/3%3) - 1), -0.5f * ((i % 3) - 1) };
       printf("Point: [%f, %f, %f], value = %f, ref = %f\n", pt.x, pt.y, pt.z, bvhrt->eval_distance_sdf_svs(0, pt), circle_sdf(pt));
     }
   }

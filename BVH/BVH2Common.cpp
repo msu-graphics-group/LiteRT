@@ -2253,6 +2253,110 @@ float BVHRT::eval_distance_sdf_sbs(uint32_t sbs_id, float3 pos)
 }
 #endif
 
+#ifndef DISABLE_SDF_FRAME_OCTREE_COMPACT
+float BVHRT::eval_distance_sdf_coctree_v3(uint32_t octree_id, float3 pos)
+{
+  uint32_t type = m_geomData[octree_id].type;
+  // assert (type == TYPE_COCTREE_V3);
+  uint32_t leftNodeOffset = eval_distance_traverse_bvh(octree_id, pos);
+
+  if (leftNodeOffset == 0xFFFFFFFF)
+    return 11.f; // cannot be used for ST
+
+  uint32_t geometryId = octree_id;
+  uint32_t globalAABBId = startEnd[geometryId].x + EXTRACT_START(leftNodeOffset);
+  uint32_t start_count_packed = m_primIdCount[globalAABBId];
+  uint32_t a_start = EXTRACT_START(start_count_packed);
+  uint32_t a_count = EXTRACT_COUNT(start_count_packed);
+
+  OTStackElement curr_node{};
+
+  float3 min_pos = m_origNodes[a_start].boxMin;
+  float3 max_pos = m_origNodes[a_start].boxMax;
+  float3 center = 0.5f * (min_pos + max_pos);
+
+  uint32_t start_sz = uint32_t(2.0f / (max_pos.x - min_pos.x));
+  uint3 start_p_orig = uint3(float(start_sz)*0.5f*(min_pos - float3(-1,-1,-1)));
+
+  uint3 p;
+  float3 p_f;
+  int currNode;
+  uint32_t nodeId;
+  uint32_t level_sz;
+  float d;
+  float3 start_q;
+  float values[8];
+
+  curr_node.nodeId = leftNodeOffset;
+  curr_node.curChildId = 0;
+  curr_node.p_size = uint2((start_p_orig.x << 16) | start_p_orig.y, (start_p_orig.z << 16) | start_sz);
+
+  while (true)
+  {
+    level_sz = curr_node.p_size.y & 0xFFFF;
+    p = uint3(curr_node.p_size.x >> 16, curr_node.p_size.x & 0xFFFF, curr_node.p_size.y >> 16);
+    d = 1.0f/float(level_sz);
+    p_f = float3(p);
+
+    if(curr_node.curChildId > 0) //leaf node
+    {
+      // COctreeV3_BrickIntersect(TYPE_SDF_FRAME_OCTREE, ray_pos, ray_dir, tNear, instId, geomId, coctree_v3_header, curr_node.nodeId, float3(p), float(level_sz), pHit);
+
+      COctreeV3Header header = coctree_v3_header;
+      uint32_t v_size = header.brick_size + 2*header.brick_pad + 1;
+
+      float sz = m_SdfSBSNodes[nodeId].pos_z_lod_size & 0x0000FFFF;
+      float sz_inv = 2.0f/sz;
+      
+      d = 2.0f/(sz*header.brick_size);
+
+      float3 brick_min_pos = float3(-1,-1,-1) + sz_inv*p_f;
+      float3 brick_max_pos = brick_min_pos + sz_inv*float3(1,1,1);
+
+      float res_dist = 10.0f;
+      if (pos.x >= brick_min_pos.x && pos.x <= brick_max_pos.x &&
+          pos.y >= brick_min_pos.y && pos.y <= brick_max_pos.y &&
+          pos.z >= brick_min_pos.z && pos.z <= brick_max_pos.z)
+      {
+        // hit
+        float3 local_pos = (pos - brick_min_pos) * (0.5f*sz*header.brick_size);
+        float3 voxelPos = floor(clamp(local_pos, 1e-6f, header.brick_size-1e-6f));
+
+        float3 min_pos = brick_min_pos + d*voxelPos;
+        float3 max_pos = min_pos + d*float3(1,1,1);
+        start_q = (pos - min_pos) * (0.5f*sz*header.brick_size);
+
+        COctreeV3_LoadDistanceValues(nodeId, voxelPos, v_size, sz_inv, header, values);
+
+        res_dist = eval_dist_trilinear(values, start_q);
+      }
+      return res_dist;
+    }
+    else
+    {
+      float3 c0 = 0.5f * level_sz * (pos + 1.f) + p_f;
+      currNode = (uint32_t(c0.x >= 0.5f) << 2u) | (uint32_t(c0.y >= 0.5f) << 1u) | uint32_t(c0.z >= 0.5f);
+
+      uint32_t childrenInfo = m_SdfCompactOctreeV3Data[curr_node.nodeId + 8];
+
+      // if child is active
+      if ((childrenInfo & (1u << currNode)) > 0)
+      {
+        uint32_t childOffset = m_SdfCompactOctreeV3Data[curr_node.nodeId + currNode];
+        curr_node.nodeId = childOffset;
+        curr_node.curChildId = childrenInfo & (1u << (currNode + 8)); // > 0 is child is leaf
+        curr_node.p_size = (curr_node.p_size << 1) | uint2(((currNode & 4) << (16-2)) | ((currNode & 2) >> 1), (currNode & 1) << 16);
+      }
+      else
+      {
+        // missed coctree
+        return 10.f;
+      }
+    }
+  }
+}
+#endif
+
 uint32_t BVHRT::eval_distance_traverse_bvh(uint32_t geomId, float3 pos)
 {
   const uint32_t bvhOffset = m_geomData[geomId].bvhOffset;
