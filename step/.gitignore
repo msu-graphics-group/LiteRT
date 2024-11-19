@@ -1,0 +1,17 @@
+# Vim files
+*.swp
+
+# MacOS users lore
+.DS_Store
+
+# Runtime files
+obj/*
+
+# Keep essential folders
+!.gitkeep
+
+# TODO list
+TODO.txt
+
+.vscode
+build
