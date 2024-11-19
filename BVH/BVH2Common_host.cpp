@@ -813,6 +813,7 @@ std::vector<BVHNode> getBoxes_OpenVDB_Grid(const OpenVDB_Grid& grid)
 
 uint32_t BVHRT::AddGeom_OpenVDB_Grid(const OpenVDB_Grid &grid, ISceneObject *fake_this, BuildOptions a_qualityLevel)
 {
+  #ifndef DISABLE_OPENVDB
   //SDF grid is always a unit cube
   float4 mn = float4(-1,-1,-1,1);
   float4 mx = float4( 1, 1, 1,1);
@@ -843,6 +844,9 @@ uint32_t BVHRT::AddGeom_OpenVDB_Grid(const OpenVDB_Grid &grid, ISceneObject *fak
   orig_nodes[0].boxMax = to_float3(mx);
   
   return fake_this->AddGeom_AABB(AbstractObject::TAG_OPENVDB_GRID, (const CRT_AABB*)orig_nodes.data(), orig_nodes.size(), nullptr, 1); // &pPointer, 1);
+  #else
+  return 0;
+  #endif
 }
 
 uint32_t BVHRT::AddGeom_NURBS(const RawNURBS &nurbs, ISceneObject *fake_this, BuildOptions a_qualityLevel)

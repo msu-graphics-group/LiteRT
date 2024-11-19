@@ -15,9 +15,9 @@ struct OpenVDB_Grid
 {
 public:
     OpenVDB_Grid();
+    // OpenVDB_Grid(const OpenVDB_Grid& obj);
     ~OpenVDB_Grid();
-    void* create_samler();
-    float get_distance(float3 point, void* sampler_ptr);
+    float get_distance(float3 point);
     void mesh2sdf(const cmesh4::SimpleMesh& mesh, const float voxel_size, const float w);
     float mem_usage() const;
     uint32_t get_voxels_count() const; 
@@ -25,11 +25,10 @@ public:
 private:
     void* grid_ptr;
 };
-
-#endif
 #else
 struct OpenVDB_Grid
 {
     bool foo;
 };
+#endif
 #endif

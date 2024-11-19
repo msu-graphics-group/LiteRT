@@ -3157,6 +3157,8 @@ void litert_test_41_openvdb()
 {
   printf("TEST 41. COMPARISON BETWEEN OPENVDB AND LITERT RENDER\n");
 
+  #ifndef DISABLE_OPENVDB
+
   auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "scenes/01_simple_scenes/data/bunny.vsgf").c_str());
   cmesh4::rescale_mesh(mesh, float3(-0.95, -0.95, -0.95), float3(0.95, 0.95, 0.95));
 
@@ -3191,8 +3193,8 @@ void litert_test_41_openvdb()
 
   //  Render object by OpenVDB
   {
-    float voxel_size = 0.0042;
-    float w = 10;
+    float voxel_size = 0.01;
+    float w = 5;
 
     OpenVDB_Grid grid;
     grid.mesh2sdf(mesh, voxel_size, w);
@@ -3296,11 +3298,14 @@ void litert_test_41_openvdb()
   printf("\nMesh render time: %f ms\nVDB  render time: %f ms\nSBS  render time: %f ms\nSVS  render time: %f ms\n", time_ref, time_vdb, time_sbs, time_svs);
   printf("\nPSNR metrics: \nVDB: %.2f \nSBS: %.2f \nSVS: %.2f \n", psnr_vdb, psnr_sbs, psnr_svs);
   printf("\nMemory usage:\nVDB: %.2f Mb\nSBS: %.2f Mb\nSVS: %.2f Mb\n", bytes_vdb, bytes_sbs, bytes_svs);
+
+  #endif
 }
 
 void 
 litert_test_42_openvdb_benchmark()
 {
+  #ifndef DISABLE_OPENVDB
   printf("TEST 42. FIND OPENVDB PARAMS FOR BENCHMARK\n");
 
   /*
@@ -3315,8 +3320,8 @@ litert_test_42_openvdb_benchmark()
   // for 64 Mb: 0.0042
   // for 16 Mb: 0.0085
   // for 4  Mb: 0.027
-  float voxel_size = 0.03;
-  float w = 2;
+  float voxel_size = 0.003;
+  float w = 10;
 
   OpenVDB_Grid grid;
   grid.mesh2sdf(mesh, voxel_size, w);
@@ -3344,6 +3349,8 @@ litert_test_42_openvdb_benchmark()
   auto mem_vdb = grid.mem_usage() / 1024 / 1024;
 
   printf("%f %f\n", mem_vdb, voxels_vdb);
+  
+  #endif
 }
 
 void perform_tests_litert(const std::vector<int> &test_ids)

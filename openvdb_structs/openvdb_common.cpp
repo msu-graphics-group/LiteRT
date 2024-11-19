@@ -1,5 +1,7 @@
 #include "openvdb_common.h"
 
+#ifndef DISABLE_OPENVDB
+
 #include <openvdb/openvdb.h>
 #include <openvdb/Grid.h>
 #include <openvdb/Types.h>
@@ -45,7 +47,7 @@ OpenVDB_Grid::OpenVDB_Grid()
 
 OpenVDB_Grid::~OpenVDB_Grid()
 {
-    // auto *ptr = (openvdb::FloatGrid::Ptr*)(grid_ptr);
+    // auto ptr = (openvdb::FloatGrid::Ptr*)(grid_ptr);
 
     // if (ptr != nullptr)
     // {
@@ -53,26 +55,15 @@ OpenVDB_Grid::~OpenVDB_Grid()
     // }
 }
 
-void* 
-OpenVDB_Grid::create_samler()
-{
-    auto grid = *(openvdb::FloatGrid::Ptr*)(grid_ptr);
-    openvdb::FloatGrid::ConstAccessor accessor = grid->getConstAccessor();
-    openvdb::tools::GridSampler<openvdb::FloatGrid::ConstAccessor, openvdb::tools::BoxSampler> sampler(accessor, grid->transform());
-
-    openvdb::tools::GridSampler<openvdb::FloatGrid::ConstAccessor, openvdb::tools::BoxSampler>* ptr = new decltype(sampler)(sampler);
-    return (void*)(ptr);
-}
-
 float 
-OpenVDB_Grid::get_distance(LiteMath::float3 point, void* sampler_ptr)
+OpenVDB_Grid::get_distance(LiteMath::float3 point)
 {
     auto grid = *(openvdb::FloatGrid::Ptr*)(grid_ptr);
-    // auto sampler = *(openvdb::tools::GridSampler<openvdb::FloatGrid::ConstAccessor, openvdb::tools::BoxSampler>*)(sampler_ptr);
-    openvdb::FloatGrid::ConstAccessor accessor = grid->getConstAccessor();
-    openvdb::tools::GridSampler<openvdb::FloatGrid::ConstAccessor, openvdb::tools::BoxSampler> sampler(accessor, grid->transform());
 
-    return sampler.wsSample(openvdb::Vec3f(point.x, point.y, point.z));
+    openvdb::math::Transform& transform = grid->transform();
+    openvdb::Vec3f indexPoint = transform.worldToIndex(openvdb::Vec3f(point.x, point.y, point.z));
+    
+    return openvdb::tools::BoxSampler::sample(grid->tree(), indexPoint);
 }
 
 float 
@@ -88,3 +79,5 @@ OpenVDB_Grid::get_voxels_count() const
     auto grid = *(openvdb::FloatGrid::Ptr*)(grid_ptr);
     return grid->tree().activeVoxelCount();
 }
+
+#endif

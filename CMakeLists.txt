@@ -203,14 +203,13 @@ target_link_libraries(render_app PUBLIC OpenMP::OpenMP_CXX)
 option(USE_OPENVDB "Enable OpenVDB" OFF)
 if(USE_OPENVDB)
   message("-- OpenVDB is ON")
+  add_library(openvdb SHARED IMPORTED)
+  set_property(TARGET openvdb PROPERTY IMPORTED_LOCATION "/usr/local/lib/libopenvdb.so.11.0")
+  target_link_libraries(render_app PUBLIC tbb openvdb)
 else()
   message("-- OpenVDB is OFF")
   add_definitions(-DDISABLE_OPENVDB)
 endif()
-
-add_library(openvdb SHARED IMPORTED)
-set_property(TARGET openvdb PROPERTY IMPORTED_LOCATION "/usr/local/lib/libopenvdb.so.11.0")
-target_link_libraries(render_app PUBLIC tbb openvdb)
 
 if (USE_VULKAN)
   set(IMGUI_SRC
