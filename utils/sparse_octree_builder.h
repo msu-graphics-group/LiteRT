@@ -41,6 +41,7 @@ namespace sdf_converter
                                     GlobalOctree &out_octree);
 
   void global_octree_to_frame_octree(const GlobalOctree &octree, std::vector<SdfFrameOctreeNode> &out_frame); 
+  void global_octree_to_SBS(const GlobalOctree &octree, SdfSBS &sbs);
 
   void mesh_octree_to_sdf_frame_octree_tex(const cmesh4::SimpleMesh &mesh,
                                            const cmesh4::TriangleListOctree &tl_octree, 

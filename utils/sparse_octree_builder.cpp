@@ -1069,6 +1069,66 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
     }
   }
 
+  void global_octree_to_SBS_rec(const GlobalOctree &octree, SdfSBS &sbs,
+                                unsigned node_idx, unsigned lod_size, uint3 p)
+  {
+    if (octree.nodes[node_idx].offset == 0)
+    {
+      unsigned v_size = sbs.header.brick_size + 2 * sbs.header.brick_pad + 1;
+      unsigned v_off = octree.nodes[node_idx].val_off;
+
+      float min_val = 1000;
+      float max_val = -1000;
+      for (int i = 0; i < v_size * v_size * v_size; i++)
+      {
+        min_val = std::min(min_val, octree.values_f[v_off + i]);
+        max_val = std::max(max_val, octree.values_f[v_off + i]);
+      }
+
+      if (min_val <= 0 && max_val >= 0)
+      {
+        unsigned off = sbs.values.size();
+        unsigned n_off = sbs.nodes.size();
+        float d_max = 2 * sqrt(3) / lod_size;
+        unsigned bits = 8 * sbs.header.bytes_per_value;
+        unsigned max_val = sbs.header.bytes_per_value == 4 ? 0xFFFFFFFF : ((1 << bits) - 1);
+        unsigned vals_per_int = 4 / sbs.header.bytes_per_value;
+
+        sbs.nodes.emplace_back();
+        sbs.values.resize(sbs.values.size() + (v_size * v_size * v_size + vals_per_int - 1) / vals_per_int);
+
+        sbs.nodes[n_off].data_offset = off;
+        sbs.nodes[n_off].pos_xy = (p.x << 16) | p.y;
+        sbs.nodes[n_off].pos_z_lod_size = (p.z << 16) | lod_size;
+
+        for (int i = 0; i < v_size * v_size * v_size; i++)
+        {
+          unsigned d_compressed = std::max(0.0f, max_val * ((octree.values_f[v_off + i] + d_max) / (2 * d_max)));
+          d_compressed = std::min(d_compressed, max_val);
+          sbs.values[off + i / vals_per_int] |= d_compressed << (bits * (i % vals_per_int));
+        }
+      }
+    }
+    else
+    {
+      for (int i = 0; i < 8; i++)
+      {
+        float ch_d = lod_size / 2;
+        uint3 ch_p = 2 * p + uint3((i & 4) >> 2, (i & 2) >> 1, i & 1);
+        global_octree_to_SBS_rec(octree, sbs, octree.nodes[node_idx].offset + i, 2*lod_size, ch_p);
+      }
+    }
+  }
+
+  void global_octree_to_SBS(const GlobalOctree &octree, SdfSBS &sbs)
+  {
+    assert(sbs.header.brick_size == octree.header.brick_size);
+    assert(sbs.header.brick_pad == octree.header.brick_pad);
+    assert((sbs.header.aux_data & SDF_SBS_NODE_LAYOUT_MASK) == SDF_SBS_NODE_LAYOUT_DX);
+
+    global_octree_to_SBS_rec(octree, sbs, 0, 1, uint3(0,0,0));
+  }
+
   struct LayerFrameNodeInfo
   {
     unsigned idx;
