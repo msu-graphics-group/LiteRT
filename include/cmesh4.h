@@ -7,7 +7,7 @@
 #include <memory>
 #include <cassert>
 
-#include "LiteMath.h"
+#include <LiteMath.h>
 //using namespace LiteMath;
 
 namespace cmesh4
@@ -64,6 +64,7 @@ namespace cmesh4
     std::vector<unsigned int>     matIndices;  // size = 1*TrianglesNum()
   };
 
+  SimpleMesh LoadMeshFromSTL(const char *filepath, bool &success);
 #if defined(__ANDROID__)
   SimpleMesh LoadMeshFromVSGF(AAssetManager* mgr, const char* a_fileName);
 #else
