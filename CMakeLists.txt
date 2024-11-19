@@ -220,8 +220,11 @@ set(
     nurbs/nurbs_common_host.cpp
 )
 
+add_subdirectory(step)
+
 add_executable(render_app)
 target_include_directories(render_app PUBLIC ${MODULES_INCLUDE_DIRS})
+target_link_directories(render_app PRIVATE step)
 
 target_sources(render_app PRIVATE main.cpp
                ${MODULES_SRC}
@@ -264,6 +267,7 @@ if (USE_VULKAN)
   add_executable(engine)
   target_include_directories(engine PUBLIC ${MODULES_INCLUDE_DIRS})
   target_include_directories(engine PUBLIC ${CMAKE_SOURCE_DIR}/dependencies/imgui)
+  target_link_directories(engine PRIVATE step)
   find_package(glfw3 REQUIRED)
 
   target_sources(engine PRIVATE                
