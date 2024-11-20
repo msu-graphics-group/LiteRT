@@ -215,7 +215,6 @@ if (USE_VULKAN)
   endif()
 
   if (USE_GPU_RQ)
-    message("GPU_RQ")
     add_compile_definitions(USE_GPU_RQ)
     set(VKGEN_SOURCE_GPU_RQ
         ${CMAKE_SOURCE_DIR}/Renderer/eye_ray_gpu_rq.cpp 
@@ -224,8 +223,6 @@ if (USE_VULKAN)
   endif()
 
   set(MODULES_SRC ${MODULES_SRC} ${VKGEN_SOURCE} ${VKUTILS_SOURCE} ${VKGEN_SOURCE_RTX} ${VKGEN_SOURCE_GPU_RQ})
-
-  message(${MODULES_SRC})
 
   set(MODULES_LIBRARIES ${MODULES_LIBRARIES} ${Vulkan_LIBRARY} OpenMP::OpenMP_CXX volk dl)
 endif()
