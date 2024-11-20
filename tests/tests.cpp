@@ -4073,7 +4073,7 @@ void litert_test_45_global_octree_to_COctreeV3()
 
 //////////////////// CATMUL_CLARK SECTION /////////////////////////////////////////////////////
 void litert_test_46_catmul_clark() {
-  std::cout << "TEST 45: Catmul-Clark" << std::endl;
+  std::cout << "TEST 46: Catmul-Clark" << std::endl;
 
   unsigned W = 1024, H = 1024;
 
