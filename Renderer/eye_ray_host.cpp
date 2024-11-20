@@ -649,6 +649,26 @@ uint32_t MultiRenderer::AddInstance(uint32_t a_geomId, const LiteMath::float4x4&
       else
         return std::shared_ptr<MultiRenderer>(new MultiRenderer(maxPrimitives));
     }
+  #elif defined(USE_GPU_RQ)
+    #include "eye_ray_gpu_rq.h"
+    #include "vk_context.h"
+    std::shared_ptr<MultiRenderer> CreateMultiRenderer_gpu_rq(uint32_t maxPrimitives, vk_utils::VulkanContext a_ctx, size_t a_maxThreadsGenerated);
+    std::shared_ptr<MultiRenderer> CreateMultiRenderer(unsigned /*enum RenderDevice*/ device, uint32_t maxPrimitives) 
+    {
+      static vk_utils::VulkanContext context;
+      if (device == DEVICE_GPU || device == DEVICE_GPU_RTX)
+      {
+        if(context.instance == VK_NULL_HANDLE)
+        {
+          std::vector<const char*> requiredExtensions;
+          auto deviceFeatures = MultiRenderer_gpu_rq::ListRequiredDeviceFeatures(requiredExtensions);
+          context = vk_utils::globalContextInit(requiredExtensions, true, 0, &deviceFeatures);
+        }
+        return CreateMultiRenderer_gpu_rq(maxPrimitives, context, 256);
+      }
+      else
+        return std::shared_ptr<MultiRenderer>(new MultiRenderer(maxPrimitives));
+    }
   #else
     #include "eye_ray_gpu.h"
     #include "vk_context.h"
