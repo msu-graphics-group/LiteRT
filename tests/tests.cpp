@@ -2072,7 +2072,7 @@ void litert_test_24_demo_meshes()
           auto sdf_SVS = sdf_converter::create_sdf_frame_octree_tex(SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, 8), mesh);
           auto BVH_RT = dynamic_cast<BVHRT*>(pRender->GetAccelStruct()->UnderlyingImpl(0));
           assert(BVH_RT);
-          unsigned geomId = BVH_RT->AddGeom_SdfFrameOctreeTex(sdf_SVS, pRender->GetAccelStruct().get());
+          unsigned geomId = BVH_RT->AddGeom_SdfFrameOctreeTex(sdf_SVS, pRender->GetAccelStruct()->UnderlyingImpl(0));
           pRender->add_SdfFrameOctreeTex_internal(sdf_SVS, geomId);
         }
         pRender->GetAccelStruct()->ClearScene();
@@ -3210,7 +3210,7 @@ void litert_test_38_direct_octree_traversal()
     float time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
     LiteImage::SaveImage<uint32_t>("saves/test_38_mesh.bmp", image_ref);
 
-    BVHRT *bvh = dynamic_cast<BVHRT*>(pRender->GetAccelStruct().get());
+    BVHRT *bvh = dynamic_cast<BVHRT*>(pRender->GetAccelStruct()->UnderlyingImpl(0));
     mesh_total_bytes = bvh->m_allNodePairs.size()*sizeof(BVHNodePair) + 
                        bvh->m_primIdCount.size()* sizeof(uint32_t) +
                        bvh->m_vertPos.size()* sizeof(float4) +
@@ -3236,7 +3236,7 @@ void litert_test_38_direct_octree_traversal()
     float time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
     LiteImage::SaveImage<uint32_t>("saves/test_38_SVS.bmp", image_SVS);
 
-    BVHRT *bvh = dynamic_cast<BVHRT*>(pRender->GetAccelStruct().get());
+    BVHRT *bvh = dynamic_cast<BVHRT*>(pRender->GetAccelStruct()->UnderlyingImpl(0));
     SVS_total_bytes = bvh->m_allNodePairs.size()*sizeof(BVHNodePair) + 
                       bvh->m_primIdCount.size()* sizeof(uint32_t) +
                       bvh->m_SdfSVSNodes.size()* sizeof(SdfSVSNode);
@@ -3260,7 +3260,7 @@ void litert_test_38_direct_octree_traversal()
     float time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
     LiteImage::SaveImage<uint32_t>("saves/test_38_SBS.bmp", image_SBS);
 
-    BVHRT *bvh = dynamic_cast<BVHRT*>(pRender->GetAccelStruct().get());
+    BVHRT *bvh = dynamic_cast<BVHRT*>(pRender->GetAccelStruct()->UnderlyingImpl(0));
     SBS_total_bytes = bvh->m_allNodePairs.size()*sizeof(BVHNodePair) + 
                       bvh->m_primIdCount.size()* sizeof(uint32_t) +
                       bvh->m_SdfSBSNodes.size()* sizeof(SdfSBSNode) +
@@ -3286,7 +3286,7 @@ void litert_test_38_direct_octree_traversal()
     float time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
     LiteImage::SaveImage<uint32_t>("saves/test_38_BVH.bmp", image_BVH);
 
-    BVHRT *bvh = dynamic_cast<BVHRT*>(pRender->GetAccelStruct().get());
+    BVHRT *bvh = dynamic_cast<BVHRT*>(pRender->GetAccelStruct()->UnderlyingImpl(0));
     octree_total_bytes = bvh->m_allNodePairs.size()*sizeof(BVHNodePair) + 
                          bvh->m_primIdCount.size()* sizeof(uint32_t) +
                          bvh->m_SdfFrameOctreeNodes.size() * sizeof(SdfFrameOctreeNode);
@@ -3310,7 +3310,7 @@ void litert_test_38_direct_octree_traversal()
     float time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
     LiteImage::SaveImage<uint32_t>("saves/test_38_traverse.bmp", image_direct);
     
-    BVHRT *bvh = dynamic_cast<BVHRT*>(pRender->GetAccelStruct().get());
+    BVHRT *bvh = dynamic_cast<BVHRT*>(pRender->GetAccelStruct()->UnderlyingImpl(0));
     coctree_total_bytes = bvh->m_SdfCompactOctreeV2Data.size()*sizeof(uint32_t); 
 
     float psnr = image_metrics::PSNR(image_ref, image_direct);
@@ -3518,7 +3518,7 @@ void litert_test_41_coctree_v3()
     pRender->Render(image_ref_tex.data(), W, H, worldView, proj, preset_tex, 1);
     LiteImage::SaveImage<uint32_t>("saves/test_41_ref_tex.bmp", image_ref_tex);
 
-    BVHRT *bvh = dynamic_cast<BVHRT*>(pRender->GetAccelStruct().get());
+    BVHRT *bvh = dynamic_cast<BVHRT*>(pRender->GetAccelStruct()->UnderlyingImpl(0));
     mesh_total_bytes = bvh->m_allNodePairs.size()*sizeof(BVHNodePair) + 
                        bvh->m_primIdCount.size()* sizeof(uint32_t) +
                        bvh->m_vertPos.size()* sizeof(float4) +
@@ -3578,7 +3578,7 @@ void litert_test_41_coctree_v3()
     float time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
     LiteImage::SaveImage<uint32_t>(("saves/test_41_sbs_"+std::to_string(b)+"_bit.bmp").c_str(), image_res);
 
-    BVHRT *bvh = dynamic_cast<BVHRT*>(pRender->GetAccelStruct().get());
+    BVHRT *bvh = dynamic_cast<BVHRT*>(pRender->GetAccelStruct()->UnderlyingImpl(0));
     SBS_total_bytes = bvh->m_allNodePairs.size()*sizeof(BVHNodePair) + 
                       bvh->m_primIdCount.size()* sizeof(uint32_t) +
                       bvh->m_SdfSBSNodes.size()* sizeof(SdfSBSNode) +
@@ -3607,7 +3607,7 @@ void litert_test_41_coctree_v3()
     float time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
     LiteImage::SaveImage<uint32_t>("saves/test_41_coctree_v2.bmp", image_res);
     
-    BVHRT *bvh = dynamic_cast<BVHRT*>(pRender->GetAccelStruct().get());
+    BVHRT *bvh = dynamic_cast<BVHRT*>(pRender->GetAccelStruct()->UnderlyingImpl(0));
     coctree_total_bytes = bvh->m_SdfCompactOctreeV2Data.size()*sizeof(uint32_t); 
 
     float psnr = image_metrics::PSNR(image_ref, image_res);
@@ -3667,7 +3667,7 @@ void litert_test_41_coctree_v3()
     //pRender->Render(image_res_tex.data(), W, H, worldView, proj, preset_tex, 1);
     LiteImage::SaveImage<uint32_t>(("saves/test_41_coctree_v3_"+std::to_string(b)+"_bits_tex.bmp").c_str(), image_res_tex); 
 
-    BVHRT *bvhrt = dynamic_cast<BVHRT*>(pRender->GetAccelStruct().get());
+    BVHRT *bvhrt = dynamic_cast<BVHRT*>(pRender->GetAccelStruct()->UnderlyingImpl(0));
     coctree_total_bytes = bvhrt->m_SdfCompactOctreeV3Data.size()*sizeof(uint32_t) + 
                           bvhrt->m_allNodePairs.size()*sizeof(BVHNodePair) + 
                           bvhrt->m_primIdCount.size()* sizeof(uint32_t) +
@@ -3708,7 +3708,7 @@ void litert_test_41_coctree_v3()
     float time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
     LiteImage::SaveImage<uint32_t>("saves/test_41_framed_octree_tex.bmp", image_res_tex);
     
-    BVHRT *bvh = dynamic_cast<BVHRT*>(pRender->GetAccelStruct().get());
+    BVHRT *bvh = dynamic_cast<BVHRT*>(pRender->GetAccelStruct()->UnderlyingImpl(0));
     coctree_total_bytes = bvh->m_SdfCompactOctreeV2Data.size()*sizeof(uint32_t); 
 
     float psnr = image_metrics::PSNR(image_ref_tex, image_res_tex);
@@ -3771,7 +3771,7 @@ void litert_test_42_mesh_lods()
 		Info info{std::move(image)};
 		info.time = timings[0] / RENDERINGS;
 		info.file_size = std::filesystem::file_size(path);
-		BVHRT *bvh = dynamic_cast<BVHRT*>(renderer->GetAccelStruct().get());
+		BVHRT *bvh = dynamic_cast<BVHRT*>(renderer->GetAccelStruct()->UnderlyingImpl(0));
     	info.complete_size = bvh->m_allNodePairs.size()*sizeof(BVHNodePair) + 
                        bvh->m_primIdCount.size()* sizeof(uint32_t) +
                        bvh->m_vertPos.size()* sizeof(float4) +
@@ -3967,7 +3967,7 @@ void litert_test_44_point_query()
     pRender->SetPreset(preset);
     pRender->SetViewport(0,0,W,H);
     pRender->SetScene(sbs);
-    auto *bvhrt = dynamic_cast<BVHRT*>(pRender->GetAccelStruct().get());
+    auto *bvhrt = dynamic_cast<BVHRT*>(pRender->GetAccelStruct()->UnderlyingImpl(0));
     render(image, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset);
     LiteImage::SaveImage<uint32_t>("saves/test_44_SBS.png", image);
 
@@ -3986,7 +3986,7 @@ void litert_test_44_point_query()
     pRender->SetPreset(preset);
     pRender->SetViewport(0,0,W,H);
     pRender->SetScene(svs);
-    auto *bvhrt = dynamic_cast<BVHRT*>(pRender->GetAccelStruct().get());
+    auto *bvhrt = dynamic_cast<BVHRT*>(pRender->GetAccelStruct()->UnderlyingImpl(0));
     render(image, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset);
     LiteImage::SaveImage<uint32_t>("saves/test_44_SVS.png", image);
 
