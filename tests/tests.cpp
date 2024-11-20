@@ -507,7 +507,7 @@ static Transform rotate_transform(unsigned x, unsigned y, unsigned z)
 static Transform inverse_transform(const Transform& t)
 {
   Transform t_inv;
-  t_inv.rot = 4 - t.rot;
+  t_inv.rot = int3((4 - t.rot.x) % 4, (4 - t.rot.y) % 4, (4 - t.rot.z) % 4);
   t_inv.mul = 1.0f / t.mul;
   t_inv.add = -t.add;
   return t_inv;
@@ -548,12 +548,13 @@ void litert_test_7_global_octree()
   auto tlo = cmesh4::create_triangle_list_octree(mesh, settings.depth, 0, 1.0f);
   sdf_converter::mesh_octree_to_global_octree(mesh, tlo, g_octree);
 
-  float invalid_dist = 1000;
-  int num_bins = 100;
+  constexpr int ROT_COUNT = 4*4*4;
+  constexpr float invalid_dist = 1000;
+  constexpr int num_bins = 100;
   float max_val = 0.01f;
   int valid_nodes = 0;
   int surface_nodes = 0;
-  float dist_thr = (1.0/32)*sqrtf(3)*pow(2, 1.0f - settings.depth)/g_octree.header.brick_size;
+  float dist_thr = (1.0/24)*sqrtf(3)*pow(2, 1.0f - settings.depth)/g_octree.header.brick_size;
   printf("dist thr = %f\n", dist_thr);
 
   int v_size = g_octree.header.brick_size + 2 * g_octree.header.brick_pad + 1;
@@ -564,6 +565,14 @@ void litert_test_7_global_octree()
   std::vector<Transform> remap_transforms(g_octree.nodes.size());
   std::vector<bool> surface_node(g_octree.nodes.size(), false);
   std::vector<int> hist(num_bins+1, 0);
+  std::array<std::vector<float>, ROT_COUNT> brick_rotations; 
+  std::array<float4x4, ROT_COUNT> rotations;
+  
+  for (int i=0; i<ROT_COUNT; i++)
+  {
+    brick_rotations[i] = std::vector<float>(dist_count, 0);
+    rotations[i] = get_rotation_matrix(rotate_transform(i / 16, (i / 4) % 4, i % 4));
+  }
 
   for (int i=0; i<g_octree.nodes.size(); i++)
   {
@@ -592,15 +601,6 @@ void litert_test_7_global_octree()
   if (dist_thr >= 0)  //replace with remap
   {
     int remapped = 0;
-
-    constexpr int ROT_COUNT = 4*4*4;
-    std::array<std::vector<float>, ROT_COUNT> brick_rotations; 
-    std::array<float4x4, ROT_COUNT> rotations;
-    for (int i=0; i<ROT_COUNT; i++)
-    {
-      brick_rotations[i] = std::vector<float>(dist_count, 0);
-      rotations[i] = get_rotation_matrix(rotate_transform(i / 16, (i / 4) % 4, i % 4));
-    }
 
     for (int i=0; i<g_octree.nodes.size(); i++)
     {
@@ -656,19 +656,31 @@ void litert_test_7_global_octree()
         if (surface_node[j] == false)
           continue;
         int off_b = g_octree.nodes[j].val_off;
-        float dist = 0;
-        for (int k=0; k<dist_count; k++)
+        float min_dist = 1000;
+        int min_r_id = 0;
+        for (int r_id=0; r_id<ROT_COUNT; r_id++)
         {
-          dist += std::abs(g_octree.values_f[off_a+k] - g_octree.values_f[off_b+k]);
+          float dist = 0;
+          for (int k=0; k<dist_count; k++)
+          {
+            dist += std::abs(brick_rotations[r_id][k] - g_octree.values_f[off_b+k]);
+          }
+          dist = dist / dist_count;
+          if (dist < min_dist)
+          {
+            min_dist = dist;
+            min_r_id = r_id;
+          }
         }
-        dist = dist / dist_count;
-        if (dist < dist_thr)
+        if (min_dist < dist_thr)
         {
           #pragma omp critical
           {
+            //printf("min_r_id = %d\n", min_r_id);
             remapped += remap[j] == j;
             remap[j] = i;
-            closest_dist[j] = dist;
+            remap_transforms[j] = rotate_transform(min_r_id / 16, (min_r_id / 4) % 4, min_r_id % 4);
+            closest_dist[j] = min_dist;
           }
         }
       }
@@ -748,28 +760,52 @@ void litert_test_7_global_octree()
     return;
   }
 
-  unsigned W = 2048, H = 2048;
+  unsigned W = 4096, H = 4096;
   MultiRenderPreset preset = getDefaultPreset();
   preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
   preset.spp = 16;
   LiteImage::Image2D<uint32_t> image(W, H);
   LiteImage::Image2D<uint32_t> image_ref(W, H);
 
+  sdf_converter::GlobalOctree g_octree_remapped = g_octree;
+  for (int i = 0; i < g_octree.nodes.size(); ++i)
+  {
+    g_octree_remapped.nodes[i].offset = g_octree.nodes[remap[i]].offset;
+
+    for (int x = 0; x < v_size; x++)
+    {
+      for (int y = 0; y < v_size; y++)
+      {
+        for (int z = 0; z < v_size; z++)
+        {
+          int idx = x * v_size * v_size + y * v_size + z;
+          int r_id = remap_transforms[i].rot.x * 16 + remap_transforms[i].rot.y * 4 + remap_transforms[i].rot.z;
+          int3 rot_vec = int3(LiteMath::mul3x3(rotations[r_id], float3(x, y, z) - float3(v_size / 2 - 0.5f)) + float3(v_size / 2 - 0.5f + 1e-3f));
+          int rot_idx = rot_vec.x * v_size * v_size + rot_vec.y * v_size + rot_vec.z;
+
+          g_octree_remapped.values_f[g_octree_remapped.nodes[i].val_off + idx] = 
+                   g_octree.values_f[g_octree.nodes[remap[i]].val_off + rot_idx];
+        }
+      }
+    }
+  }
+
   if (g_octree.header.brick_size == 1)
   {
     sdf_converter::global_octree_to_frame_octree(g_octree, frame_octree_ref);
-    {
-      assert(g_octree.header.brick_size == 1);
-      assert(g_octree.header.brick_pad == 0);
+    sdf_converter::global_octree_to_frame_octree(g_octree_remapped, frame_octree);
+    // {
+    //   assert(g_octree.header.brick_size == 1);
+    //   assert(g_octree.header.brick_pad == 0);
 
-      frame_octree.resize(g_octree.nodes.size());
-      for (int i = 0; i < g_octree.nodes.size(); ++i)
-      {
-        frame_octree[i].offset = g_octree.nodes[remap[i]].offset;
-        for (int j=0;j<8;j++)
-          frame_octree[i].values[j] = g_octree.values_f[g_octree.nodes[remap[i]].val_off + j];
-      }
-    }
+    //   frame_octree.resize(g_octree.nodes.size());
+    //   for (int i = 0; i < g_octree.nodes.size(); ++i)
+    //   {
+    //     frame_octree[i].offset = g_octree.nodes[remap[i]].offset;
+    //     for (int j=0;j<8;j++)
+    //       frame_octree[i].values[j] = g_octree.values_f[g_octree.nodes[remap[i]].val_off + j];
+    //   }
+    // }
     {
     auto pRender = CreateMultiRenderer(DEVICE_GPU);
     pRender->SetPreset(preset);
@@ -797,16 +833,16 @@ void litert_test_7_global_octree()
       LiteImage::SaveImage<uint32_t>("saves/test_7_sbs_ref.png", image_ref);
     }
 
-    for (int i=0;i<remap.size();i++)
-    {
-      int off_1 = g_octree.nodes[i].val_off;
-      int off_2 = g_octree.nodes[remap[i]].val_off;
-      for (int j=0;j<dist_count;j++)
-      {
-        g_octree.values_f[off_2+j] = g_octree.values_f[off_1 + j];
-      }
-    }
-    sdf_converter::global_octree_to_SBS(g_octree, sbs);
+    // for (int i=0;i<remap.size();i++)
+    // {
+    //   int off_1 = g_octree.nodes[i].val_off;
+    //   int off_2 = g_octree.nodes[remap[i]].val_off;
+    //   for (int j=0;j<dist_count;j++)
+    //   {
+    //     g_octree.values_f[off_2+j] = g_octree.values_f[off_1 + j];
+    //   }
+    // }
+    sdf_converter::global_octree_to_SBS(g_octree_remapped, sbs);
 
     {
       auto pRender = CreateMultiRenderer(DEVICE_GPU);
