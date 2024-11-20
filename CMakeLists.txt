@@ -232,6 +232,11 @@ set(
     nurbs/nurbs_common_host.cpp
 )
 
+set(
+  CATMUL_CLARK_SRC
+    catmul_clark/catmul_clark_host.cpp
+)
+
 add_subdirectory(step)
 
 add_executable(render_app)
@@ -246,7 +251,8 @@ target_sources(render_app PRIVATE main.cpp
                ${NURBS_SRC}
                ${TESTS_SRC}
                ${DR_SRC}
-               ${HYDRA_SRC})
+               ${HYDRA_SRC}
+               ${CATMUL_CLARK_SRC})
 
 set_property(TARGET render_app PROPERTY CXX_STANDARD 17)
 target_link_libraries(render_app PRIVATE Threads::Threads dl ${RAYTRACING_EMBREE_LIBS} ${MODULES_LIBRARIES})
@@ -289,7 +295,8 @@ if (USE_VULKAN)
                 ${BUILDERS_SRC} 
                 ${ENGINE_SOURCE} 
                 ${IMGUI_SRC}
-                ${NURBS_SRC})
+                ${NURBS_SRC}
+                ${CATMUL_CLARK_SRC})
 
   set_property(TARGET engine PROPERTY CXX_STANDARD 17)
   target_link_libraries(engine PRIVATE Threads::Threads dl glfw ${RAYTRACING_EMBREE_LIBS} ${MODULES_LIBRARIES})

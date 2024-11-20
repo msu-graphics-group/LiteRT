@@ -30,6 +30,7 @@ using LiteMath::Box4f;
 #include "cbvh.h"
 #include "nurbs/nurbs_common.h"
 #include "graphics_primitive/graphics_primitive_common.h"
+#include "catmul_clark/catmul_clark.h"
 
 // #define USE_TRICUBIC 0
 
@@ -61,6 +62,7 @@ struct AbstractObject
   static constexpr uint32_t TAG_GRAPHICS_PRIM    = 9;
   static constexpr uint32_t TAG_COCTREE_SIMPLE   = 10; //V1 and V2
   static constexpr uint32_t TAG_COCTREE_BRICKED  = 11; //V3
+  static constexpr uint32_t TAG_CATMUL_CLARK     = 12;
 
   AbstractObject(){}  // Dispatching on GPU hierarchy must not have destructors, especially virtual   
   virtual uint32_t GetTag()   const  { return TAG_NONE; }; // !!! #REQUIRED by kernel slicer
@@ -129,6 +131,7 @@ struct BVHRT : public ISceneObject
   uint32_t AddGeom_COctreeV1(const std::vector<SdfCompactOctreeNode> &nodes, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
   uint32_t AddGeom_COctreeV2(const std::vector<uint32_t> &data, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
   uint32_t AddGeom_COctreeV3(COctreeV3View octree, unsigned bvh_level, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
+  uint32_t AddGeom_CatmulClark(const CatmulClark &surface, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
 
   void set_debug_mode(bool enable);
 #endif
@@ -187,6 +190,10 @@ struct BVHRT : public ISceneObject
 
   void IntersectNURBS(const float3& ray_pos, const float3& ray_dir,
                       float tNear, uint32_t approx_offset, uint32_t instId,
+                      uint32_t geomId, CRT_Hit* pHit);
+  
+  void IntersectCatmulClark(const float3& ray_pos, const float3& ray_dir,
+                      float tNear, uint32_t instId,
                       uint32_t geomId, CRT_Hit* pHit);
 
   void IntersectGraphicPrims(const float3& ray_pos, const float3& ray_dir,
@@ -400,6 +407,13 @@ struct BVHRT : public ISceneObject
     float2 uv,
     NURBSHeader h);
   //end NURBS functions
+#endif
+#ifndef DISABLE_CATMUL_CLARK
+  //CatmulClark data
+  std::vector<CatmulClarkHeader> m_CatmulClarkHeaders;
+  std::vector<
+      float // float or any trivial type
+  > m_CatmulClarkData;
 #endif
   // Graphic primitives data
 #ifndef DISABLE_GRAPHICS_PRIM
@@ -664,6 +678,41 @@ struct GeomDataNURBS : public AbstractObject
     uint32_t offset = EXTRACT_START(start_count_packed) * 2;
 
     bvhrt->IntersectNURBS(ray_pos, ray_dir, tNear, offset, info.instId, geometryId, pHit);
+    return pHit->t >= tPrev  ? TAG_NONE : TAG_GS;
+  }
+};
+
+struct GeomDataCatmulClark : public AbstractObject
+{
+  GeomDataCatmulClark() {m_tag = GetTag();} 
+
+  uint32_t GetTag() const override { return TAG_CATMUL_CLARK; }  
+  uint32_t Intersect(float4 rayPosAndNear, float4 rayDirAndFar, CRT_LeafInfo info, 
+                     CRT_Hit* pHit, BVHRT* bvhrt)   const override
+  {
+    float3 ray_pos = to_float3(rayPosAndNear);
+    float3 ray_dir = to_float3(rayDirAndFar);
+    float tNear    = rayPosAndNear.w;
+    float tPrev     = pHit->t;
+    uint32_t geometryId = geomId;
+    uint32_t globalAABBId = bvhrt->startEnd[geometryId].x + info.aabbId;
+
+    /* 
+    * OPTIONAL
+    * If you write some data for bvh leave, you need to get offset of this data from m_primIdCount
+    * So, when you add geometry (AddGeom_CatmulClark), you have to write offset to m_primIdCount
+    * 
+    * You can access this offset form IntersectCatmulClark by passing it as parameter 
+    * To do this change IntersectCatmulClark signature
+    * 
+    * You can use this offset in any array you've defined as member in BVHRT
+    * 
+    * Example of getting offset:
+    *   uint32_t start_count_packed = bvhrt->m_primIdCount[globalAABBId];
+    *   uint32_t offset = EXTRACT_START(start_count_packed);
+    */
+
+    bvhrt->IntersectCatmulClark(ray_pos, ray_dir, tNear, info.instId, geometryId, pHit);
     return pHit->t >= tPrev  ? TAG_NONE : TAG_GS;
   }
 };
