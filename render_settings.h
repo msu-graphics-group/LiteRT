@@ -24,6 +24,7 @@ static constexpr unsigned TYPE_COCTREE_V2                 = 19;
 static constexpr unsigned TYPE_COCTREE_V3                 = 20;
 
 static constexpr unsigned TYPE_CATMUL_CLARK               = 21;
+static constexpr unsigned TYPE_RIBBON                     = 22;
 
 static constexpr unsigned SH_TYPE = 24;              //8 bits for type
 static constexpr unsigned GEOM_ID_MASK = 0x00FFFFFFu;

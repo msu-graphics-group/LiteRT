@@ -89,6 +89,7 @@ public:
   void SetScene(SdfFrameOctreeTexView scene);
   void SetScene(const RBezierGrid &rbeziers);
   void SetScene(const CatmulClark &surface);
+  void SetScene(const Ribbon &rib);
   void SetScene(GraphicsPrimView scene);
   void SetScene(COctreeV3View scene, unsigned bvh_level);
 
