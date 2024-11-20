@@ -15,6 +15,7 @@
 #include "../utils/iou.h"
 #include "../nurbs/nurbs_common_host.h"
 #include "../catmul_clark/catmul_clark_host.h"
+#include "../ribbon/ribbon_host.h"
 
 #include <functional>
 #include <cassert>
@@ -4134,6 +4135,33 @@ void litert_test_46_catmul_clark() {
 }
 //////////////////// END CATMUL_CLARK SECTION /////////////////////////////////////////////////////
 
+//////////////////// RIBBON SECTION /////////////////////////////////////////////////////
+void litert_test_47_ribbon() {
+  std::cout << "TEST 47: Ribbon" << std::endl;
+
+  unsigned W = 1024, H = 1024;
+
+  MultiRenderPreset preset = getDefaultPreset();
+  LiteImage::Image2D<uint32_t> image(W, H);
+
+  Ribbon surface;
+  //TODO: surface = load_ribbon("example.txt");
+
+  auto pRender = CreateMultiRenderer(DEVICE_GPU);
+  pRender->SetPreset(preset);
+  pRender->SetViewport(0,0,W,H);
+  pRender->SetScene(surface);
+  std::cout << "Rendering started...";
+  auto b = std::chrono::high_resolution_clock::now();
+  render(image, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+  auto e = std::chrono::high_resolution_clock::now();
+  float ms = std::chrono::duration_cast<std::chrono::microseconds>(e-b).count()/1000.0f;
+  std::cout << "Ended. Time: " << ms << "ms" << std::endl;
+
+  LiteImage::SaveImage<uint32_t>("saves/test_47.bmp", image); 
+}
+//////////////////// END RIBBON SECTION /////////////////////////////////////////////////////
+
 void perform_tests_litert(const std::vector<int> &test_ids)
 {
   std::vector<int> tests = test_ids;
@@ -4153,7 +4181,8 @@ void perform_tests_litert(const std::vector<int> &test_ids)
       litert_test_34_tricubic_sbs, litert_test_35_SBSAdapt_greed_creating, litert_test_36_primitive_visualization,
       litert_test_37_sbs_adapt_comparison, litert_test_38_direct_octree_traversal, litert_test_39_visualize_sbs_bricks,
       litert_test_40_psdf_framed_octree, litert_test_41_coctree_v3, litert_test_42_mesh_lods,
-      litert_test_43_hydra_integration, litert_test_44_point_query, litert_test_45_global_octree_to_COctreeV3, litert_test_46_catmul_clark};
+      litert_test_43_hydra_integration, litert_test_44_point_query, litert_test_45_global_octree_to_COctreeV3, 
+      litert_test_46_catmul_clark, litert_test_47_ribbon};
 
   if (tests.empty())
   {

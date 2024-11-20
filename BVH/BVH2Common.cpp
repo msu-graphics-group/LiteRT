@@ -1742,6 +1742,41 @@ void BVHRT::IntersectCatmulClark(const float3& ray_pos, const float3& ray_dir,
 }
 //////////////////////// END CATMUL CLARK SECTION ///////////////////////////////////////////////
 
+//////////////////// RIBBON SECTION /////////////////////////////////////////////////////
+void BVHRT::IntersectRibbon(const float3& ray_pos, const float3& ray_dir,
+                      float tNear, uint32_t instId,
+                      uint32_t geomId, CRT_Hit* pHit) {
+#ifndef DISABLE_RIBBON
+  // offset of ribbon object in headers array
+  uint32_t offset = m_geomData[geomId].offset.x;
+  // object header
+  RibbonHeader header = m_RibbonHeaders[offset];
+  // object type <=> catmul_clark
+  uint32_t type = m_geomData[geomId].type;
+
+  // you can access your box of entire object (this is not box of bvh leave)
+  float3 min_pos = to_float3(m_geomData[geomId].boxMin);
+  float3 max_pos = to_float3(m_geomData[geomId].boxMax);
+  float2 tNear_tFar = box_intersects(min_pos, max_pos, ray_pos, ray_dir);
+
+  // you can pass bvh leave information to this function in GeomDataRibbon::Intersect 
+  // ...
+
+  float3 norm = normalize(ray_pos + tNear_tFar.x * ray_dir);
+  float2 encoded_norm = encode_normal(norm); // compress 3dim normal vector to 2dim vector
+  
+  pHit->t = tNear_tFar.x;
+  pHit->primId = 0;
+  pHit->geomId = geomId | (type << SH_TYPE);
+  pHit->instId = instId;
+  pHit->coords[0] = 0; // u texture coordinate
+  pHit->coords[1] = 0; // v texture coordinate
+  pHit->coords[2] = encoded_norm.x;
+  pHit->coords[3] = encoded_norm.y;
+#endif
+}
+//////////////////////// END RIBBON SECTION ///////////////////////////////////////////////
+
 float4 rayCapsuleIntersect(const float3& ray_pos, const float3& ray_dir,
                            const float3& pa, const float3& pb, float ra)
 {

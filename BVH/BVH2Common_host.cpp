@@ -13,6 +13,7 @@
 #include "../nurbs/nurbs_common_host.h"
 #include "../utils/sparse_octree_builder.h"
 #include "../catmul_clark/catmul_clark_host.h"
+#include "../ribbon/ribbon_host.h"
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -56,6 +57,9 @@ uint32_t type_to_tag(uint32_t type)
   
   case TYPE_CATMUL_CLARK:
     return AbstractObject::TAG_CATMUL_CLARK;
+  
+  case TYPE_RIBBON:
+    return AbstractObject::TAG_RIBBON;
 
   case TYPE_GRAPHICS_PRIM:
     return AbstractObject::TAG_GRAPHICS_PRIM;
@@ -891,7 +895,7 @@ uint32_t BVHRT::AddGeom_CatmulClark(const CatmulClark &surface, ISceneObject *fa
   m_geomData.back().boxMax = mx;
 
   // this offset is used in BVHRT::IntersectCatmulClark function
-  m_geomData.back().offset = uint2(m_NURBSHeaders.size(), 0);
+  m_geomData.back().offset = uint2(m_CatmulClarkHeaders.size(), 0);
   m_geomData.back().bvhOffset = m_allNodePairs.size();
   m_geomData.back().type = TYPE_CATMUL_CLARK;
 
@@ -907,6 +911,44 @@ uint32_t BVHRT::AddGeom_CatmulClark(const CatmulClark &surface, ISceneObject *fa
   return fake_this->AddGeom_AABB(AbstractObject::TAG_CATMUL_CLARK, (const CRT_AABB*)orig_nodes.data(), orig_nodes.size());
 }
 //////////////////// END CATMUL_CLARK SECTION /////////////////////////////////////////////////////
+
+//////////////////// RIBBON SECTION /////////////////////////////////////////////////////
+uint32_t BVHRT::AddGeom_Ribbon(const Ribbon &rib, ISceneObject *fake_this, BuildOptions a_qualityLevel)
+{
+  float4 mn = float4(-0.5,-0.5,-0.5,0.5);
+  float4 mx = float4( 0.5, 0.5, 0.5,0.5);
+  //TODO: find right BBox for given Ribbon
+
+  //fill geom data array
+  m_abstractObjects.resize(m_abstractObjects.size() + 1); 
+  new (m_abstractObjects.data() + m_abstractObjects.size() - 1) GeomDataRibbon();
+
+  m_abstractObjects.back().geomId = m_abstractObjects.size() - 1;
+  m_abstractObjects.back().m_tag = type_to_tag(TYPE_RIBBON);
+
+  //geomData of current Ribbon
+  m_geomData.emplace_back();
+
+  m_geomData.back().boxMin = mn;
+  m_geomData.back().boxMax = mx;
+
+  // this offset is used in BVHRT::Ribbon function
+  m_geomData.back().offset = uint2(m_RibbonHeaders.size(), 0);
+  m_geomData.back().bvhOffset = m_allNodePairs.size();
+  m_geomData.back().type = TYPE_RIBBON;
+
+  //create list of bboxes for BLAS
+  std::vector<BVHNode> orig_nodes(2);
+  orig_nodes[0].boxMin = to_float3(mn);
+  orig_nodes[0].boxMin = to_float3(mx);
+  //BVH can process only 2+ leaves, not one
+  //So we need to add a small dummy box (it's a crutch)
+  orig_nodes[1].boxMin = to_float3(mx);
+  orig_nodes[1].boxMax = to_float3(mx+0.0001f);
+
+  return fake_this->AddGeom_AABB(AbstractObject::TAG_RIBBON, (const CRT_AABB*)orig_nodes.data(), orig_nodes.size());
+}
+//////////////////// END RIBBON SECTION /////////////////////////////////////////////////////
 
 
 BVHNode getDiskAABB(float3 pt, float3 norm, float rad)
