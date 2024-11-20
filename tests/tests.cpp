@@ -536,7 +536,7 @@ void litert_test_7_global_octree()
   std::vector<SdfFrameOctreeNode> frame_octree;
   std::vector<SdfFrameOctreeNode> frame_octree_ref;
   SdfSBS sbs;
-  g_octree.header.brick_size = 1;
+  g_octree.header.brick_size = 2;
   g_octree.header.brick_pad  = 0;
 
   sbs.header.brick_size = g_octree.header.brick_size;
@@ -552,19 +552,23 @@ void litert_test_7_global_octree()
   float max_val = 0.01f;
   int valid_nodes = 0;
   int surface_nodes = 0;
-  float dist_thr = (1.0/64)*sqrtf(3)*pow(2, 1.0f - settings.depth)/g_octree.header.brick_size;
+  float dist_thr = (1.0/32)*sqrtf(3)*pow(2, 1.0f - settings.depth)/g_octree.header.brick_size;
   printf("dist thr = %f\n", dist_thr);
 
   int v_size = g_octree.header.brick_size + 2 * g_octree.header.brick_pad + 1;
   int dist_count = v_size * v_size * v_size;
   std::vector<float> closest_dist(g_octree.nodes.size(), invalid_dist);
   std::vector<int> closest_idx(g_octree.nodes.size(), -1);
-  std::vector<unsigned> remap(g_octree.nodes.size(), 0);
+  std::vector<unsigned> remap(g_octree.nodes.size());
+  std::vector<Transform> remap_transforms(g_octree.nodes.size());
   std::vector<bool> surface_node(g_octree.nodes.size(), false);
   std::vector<int> hist(num_bins+1, 0);
 
   for (int i=0; i<g_octree.nodes.size(); i++)
+  {
     remap[i] = i;
+    remap_transforms[i] = identity_transform();
+  }
   
   for (int i=0; i<g_octree.nodes.size(); i++)
   {
@@ -601,44 +605,46 @@ void litert_test_7_global_octree()
     {
       int off_a = g_octree.nodes[i].val_off;
       
-        for (int i=0;i<8;i++)
-          g_octree.values_f[off_a + i] = i;
-        for (int i=0; i<v_size; i++)
-        {
-          for (int j=0; j<v_size; j++)
-          {
-            for (int k=0; k<v_size; k++)
-            {
-              int idx = i*v_size*v_size + j*v_size + k;
-              printf("%f ", g_octree.values_f[off_a + idx]);
-            }
-            printf("\n");
-          }
-          printf("\n");
-        }
+        // for (int i=0;i<8;i++)
+        //   g_octree.values_f[off_a + i] = i;
+        // for (int i=0; i<v_size; i++)
+        // {
+        //   for (int j=0; j<v_size; j++)
+        //   {
+        //     for (int k=0; k<v_size; k++)
+        //     {
+        //       int idx = i*v_size*v_size + j*v_size + k;
+        //       printf("%f ", g_octree.values_f[off_a + idx]);
+        //     }
+        //     printf("\n");
+        //   }
+        //   printf("\n");
+        // }
 
       for (int r_id=0; r_id<ROT_COUNT; r_id++)
       {
-        printf("ROT = %d %d %d\n", i / 16, (i / 4) % 4, i % 4);
-        for (int i=0; i<v_size; i++)
+        //printf("ROT = %d %d %d\n", r_id / 16, (r_id / 4) % 4, r_id % 4);
+        for (int x=0; x<v_size; x++)
         {
-          for (int j=0; j<v_size; j++)
+          for (int y=0; y<v_size; y++)
           {
-            for (int k=0; k<v_size; k++)
+            for (int z=0; z<v_size; z++)
             {
-              int idx = i*v_size*v_size + j*v_size + k;
-              int3 rot_vec = int3(LiteMath::mul3x3(rotations[r_id], float3(i,j,k)));
+              int idx = x*v_size*v_size + y*v_size + z;
+              int3 rot_vec = int3(LiteMath::mul3x3(rotations[r_id], float3(x,y,z) - float3(v_size/2 - 0.5f)) + float3(v_size/2 - 0.5f + 1e-3f));
+              //printf("%d %d %d ", rot_vec.x, rot_vec.y, rot_vec.z);
+              //rot_vec = int3((rot_vec.x + v_size)%v_size, (rot_vec.y + v_size)%v_size, (rot_vec.z + v_size)%v_size);
               int rot_idx = rot_vec.x * v_size*v_size + rot_vec.y * v_size + rot_vec.z;
               brick_rotations[r_id][idx] = g_octree.values_f[off_a + rot_idx];
-              printf("%f ", g_octree.values_f[off_a + rot_idx]);
+              //printf("%f ", g_octree.values_f[off_a + rot_idx]);
             }
-            printf("\n");
+            //printf("\n");
           }
-          printf("\n");
+          //printf("\n");
         }
       }
 
-      return;
+      //return;
 
       if (surface_node[i] == false || remap[i] != i)
         continue;
