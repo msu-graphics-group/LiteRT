@@ -33,6 +33,12 @@ add_library(
     cli.h
     cli.cpp
 
+    param_parsers.h
+
+    param_validators.h
+
+    cmdline_parser.h
+
 )
 
 add_library(testing_framework::core ALIAS testing_framework_core)
