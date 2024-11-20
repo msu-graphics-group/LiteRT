@@ -3475,7 +3475,7 @@ void litert_test_41_coctree_v3()
   preset.spp = 4;
   preset.normal_mode = NORMAL_MODE_VERTEX;
 
-  unsigned base_depth = 9;
+  unsigned base_depth = 7;
 
   float fov_degrees = 30;
   float z_near = 0.1f;
@@ -3491,6 +3491,7 @@ void litert_test_41_coctree_v3()
   LiteImage::Image2D<uint32_t> image_res_tex(W, H);
 
   float timings[4] = {0,0,0,0};
+  float timings_2[4] = {0,0,0,0};
 
   size_t mesh_total_bytes    = 0;
   size_t SVS_total_bytes     = 0;
@@ -3504,6 +3505,7 @@ void litert_test_41_coctree_v3()
     pRender->SetScene(mesh);
     pRender->Render(image_ref.data(), W, H, worldView, proj, preset, 10);
     pRender->GetExecutionTime("CastRaySingleBlock", timings);
+    pRender->GetExecutionTime("CastRaySingleMega", timings_2);
     LiteImage::SaveImage<uint32_t>("saves/test_41_ref.bmp", image_ref);
     
     MultiRenderPreset preset_tex = preset;
@@ -3527,6 +3529,7 @@ void litert_test_41_coctree_v3()
                        bvh->m_primIndices.size()* sizeof(uint32_t);
   
     printf("mesh        %4.1f ms %.1f Kb\n", timings[0]/10, mesh_total_bytes/1024.0f);
+    printf("       avg: %4.1f ms, min: %4.1f ms, max: %4.1f ms\n", timings_2[0], timings_2[1], timings_2[2]);
   }
 
   std::vector<int> bpp = {8,16,32};
@@ -3573,6 +3576,7 @@ void litert_test_41_coctree_v3()
     auto t1 = std::chrono::steady_clock::now();
     pRender->Render(image_res.data(), W, H, worldView, proj, preset, 10);
     pRender->GetExecutionTime("CastRaySingleBlock", timings);
+    pRender->GetExecutionTime("CastRaySingleMega", timings_2);
     auto t2 = std::chrono::steady_clock::now();
 
     float time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
@@ -3588,6 +3592,7 @@ void litert_test_41_coctree_v3()
     float psnr = image_metrics::PSNR(image_ref, image_res);
     float flip = image_metrics::FLIP(image_ref, image_res);
     printf("SBS %2d bits/distance: %4.1f ms %6.1f Kb %.2f PSNR %.4f FLIP\n", b, timings[0]/10, SBS_total_bytes/(1024.0f), psnr, flip);
+    printf("                 avg: %4.1f ms, min: %4.1f ms, max: %4.1f ms\n", timings_2[0], timings_2[1], timings_2[2]);
   }
 
   {
@@ -3602,6 +3607,7 @@ void litert_test_41_coctree_v3()
     auto t1 = std::chrono::steady_clock::now();
     pRender->Render(image_res.data(), W, H, worldView, proj, preset, 10);
     pRender->GetExecutionTime("CastRaySingleBlock", timings);
+    pRender->GetExecutionTime("CastRaySingleMega", timings_2);
     auto t2 = std::chrono::steady_clock::now();
 
     float time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
@@ -3613,6 +3619,7 @@ void litert_test_41_coctree_v3()
     float psnr = image_metrics::PSNR(image_ref, image_res);
     float flip = image_metrics::FLIP(image_ref, image_res);
     printf("octree v2             %4.1f ms %6.1f Kb %.2f PSNR %.4f FLIP\n", timings[0]/10, coctree_total_bytes/(1024.0f), psnr, flip);
+    printf("                 avg: %4.1f ms, min: %4.1f ms, max: %4.1f ms\n", timings_2[0], timings_2[1], timings_2[2]);
   }
 
   unsigned max_threads = 16;
@@ -3656,6 +3663,7 @@ void litert_test_41_coctree_v3()
     t1 = std::chrono::steady_clock::now();
     pRender->Render(image_res.data(), W, H, worldView, proj, preset, 10);
     pRender->GetExecutionTime("CastRaySingleBlock", timings);
+    pRender->GetExecutionTime("CastRaySingleMega", timings_2);
     t2 = std::chrono::steady_clock::now();
 
     time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
@@ -3676,7 +3684,7 @@ void litert_test_41_coctree_v3()
     float psnr = image_metrics::PSNR(image_ref, image_res);
     float flip = image_metrics::FLIP(image_ref, image_res);
     printf("octree v3 bvh=%d       %4.1f ms %6.1f Kb %.2f PSNR %.4f FLIP\n", bvh_level, timings[0]/10, coctree_total_bytes/(1024.0f), psnr, flip);
-
+    printf("                 avg: %4.1f ms, min: %4.1f ms, max: %4.1f ms\n", timings_2[0], timings_2[1], timings_2[2]);
     //float psnr_tex = image_metrics::PSNR(image_ref_tex, image_res_tex);
     //float flip_tex = image_metrics::FLIP(image_ref_tex, image_res_tex);
     //printf("            textured                    %.2f PSNR %.4f FLIP\n", psnr_tex, flip_tex);
@@ -3703,6 +3711,7 @@ void litert_test_41_coctree_v3()
     auto t1 = std::chrono::steady_clock::now();
     pRender->Render(image_res_tex.data(), W, H, worldView, proj, preset_tex, 10);
     pRender->GetExecutionTime("CastRaySingleBlock", timings);
+    pRender->GetExecutionTime("CastRaySingleMega", timings_2);
     auto t2 = std::chrono::steady_clock::now();
 
     float time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();

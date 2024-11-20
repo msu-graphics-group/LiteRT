@@ -9,6 +9,7 @@ $2 $start_dir/Renderer/eye_ray.cpp $start_dir/BVH/BVH2Common.cpp \
 -composImplementation BVHRT \
 -stdlibfolder $PWD/TINYSTL \
 -pattern rtv \
+-timestamps 1 \
 -I$PWD/TINYSTL                     ignore  \
 -I$start_dir/dependencies          ignore  \
 -I$start_dir/dependencies/HydraCore3/external          ignore  \
