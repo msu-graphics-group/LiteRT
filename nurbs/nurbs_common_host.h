@@ -20,3 +20,16 @@ get_nurbs_bvh_leaves(const RBezierGrid &rbezier);
 
 cmesh4::SimpleMesh
 get_nurbs_control_mesh(const RBezierGrid &rbezier);
+
+struct RBCurve2D
+{
+public:
+  int degree() const;
+public:
+  LiteMath::float3 get_point(float u) const;
+  LiteMath::float3 der(float u, int order) const;
+  LiteMath::float3 non_rat_der(float u, int order) const;
+  LiteMath::float3 der(float u) const;
+public:
+  std::vector<LiteMath::float3> pw;
+};
