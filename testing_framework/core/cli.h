@@ -24,7 +24,7 @@ namespace testing
         size_t logging_level,
         std::string test_name,
         bool rewrite,
-        std::map<std::string, std::pair<const std::type_info*, std::string>> params
+        std::map<std::string, std::pair<const std::type_info*, std::string>> test_options
     );
 
     bool handle_args(size_t argc, char**argv);

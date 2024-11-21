@@ -1,5 +1,5 @@
 #include <testing_framework/core/add_test.h>
-#include <testing_framework/core/env.h>
+#include <testing_framework/core/environment.h>
 #include <iostream>
 
 namespace litert_tests
@@ -25,7 +25,7 @@ namespace litert_tests
     ADD_TEST(test3, "Example of rewrite")
     {
         std::cout << "Do smth" << std::endl;
-        if (testing::should_rewrite_saved_reference("rewrite VERY IMPORTANT files"))
+        if (testing::should_rewrite_saved_reference("VERY IMPORTANT FILE", "./file.txt"))
         {
             std::cout << "Files are rewritten!!!" << std::endl;
         }

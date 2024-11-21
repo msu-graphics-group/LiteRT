@@ -256,8 +256,7 @@ namespace testing
         {
             std::cerr << "exec command accepts only one test, but many where specified" << std::endl;
         }
-        // return exec(logging_level, rewrite, tests[0], test_options);
-        return true;
+        return exec(logging_level, rewrite, tests[0], test_options);
     }
 
     bool handle_args(size_t argc, char**argv)
@@ -297,6 +296,42 @@ namespace testing
             return false;
         }
 
+    }
+
+    bool yes_or_no_dialogue(bool&result)
+    {
+        static std::string yes[] = {"yes", "Y", "y"};
+        static std::string no[] = {"no", "N", "n"};
+        
+        while (true)
+        {
+            std::cout << "Please, answer [Y/N]";
+            std::string line;
+            std::getline(std::cin, line);
+            if (std::cin.eof())
+            {
+                std::cout << std::endl;
+                return false;
+            }
+            if (line.size() > 0 && line.back() == '\n')
+            {
+                line.resize(line.size() - 1);
+            }
+            auto y = std::find(std::begin(yes), std::end(yes), line);
+            auto n = std::find(std::begin(no), std::end(no), line);
+
+            if (y != std::end(yes))
+            {
+                result = true;
+                return true;
+            }
+            else if(n != std::end(no))
+            {
+                result = false;
+                return true;
+            }
+
+        }
     }
 
 }

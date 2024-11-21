@@ -1,21 +1,33 @@
 #pragma once
-#include <filesystem>
+#include <testing_framework/core/test.h>
+#include <string>
+#include <map>
+#include <typeinfo>
 
 namespace testing
 {
 
-    struct SkipTestException{};
+    void skip_current_test();
+    void add_current_test_check_result(bool passed);
 
-    extern size_t passed_checks_, failed_checks_;
+    bool rewrite();
 
-    extern bool rewrite_mode_;
+    /*
+        Skip test if types are mismatched
+    */
+    bool get_test_flag(std::string name);
+    std::string get_test_param(std::string name, const std::type_info*parsing_type);
 
-    extern bool ignore_saved_references_;
-
-    extern std::filesystem::path saves_, refs_;
-
-    extern size_t width_, height_;
-
-    extern size_t renderings_count_;
+    /*
+        Returns true, if test was executed successfully
+        Returns false, if test was skipped
+    */
+    bool execute_test(
+        const Test*test,
+        bool rewrite,
+        std::map<std::string, std::pair<const std::type_info*, std::string>> test_options,
+        size_t&passed_checks,
+        size_t&failed_checks
+    );
 
 }

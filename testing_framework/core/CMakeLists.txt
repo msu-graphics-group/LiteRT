@@ -18,9 +18,6 @@ add_library(
     supervisor.h
     supervisor.cpp
 
-    env.h
-    env.cpp
-
     colors.h
     colors.cpp
 
@@ -43,6 +40,9 @@ add_library(
 
     test_options.h
     test_options.cpp
+
+    environment.h
+    environment.cpp
 
 )
 

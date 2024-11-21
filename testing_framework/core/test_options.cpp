@@ -84,7 +84,7 @@ namespace testing
         {
             if (opt.type == nullptr && (name == opt.short_name || name == opt.long_name))
             {
-                out[name] = {nullptr, ""};
+                out[name] = {nullptr, "1"};
                 return true;
             }
         }
@@ -117,14 +117,18 @@ namespace testing
     {
         for (const auto&opt : registered_options)
         {
-           if (opt.type != nullptr)
-           {
-                auto it = out.find(opt.name);
-                if (it == out.end())
+            auto it = out.find(opt.name);
+            if (it == out.end())
+            {
+                if (opt.type == nullptr)
+                {
+                    out[opt.name] = {nullptr, ""};
+                }
+                else
                 {
                     out[opt.name] = {opt.type, opt.default_value};
                 }
-           }
+            }
         }
     }
 

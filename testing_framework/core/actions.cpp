@@ -15,7 +15,7 @@ namespace testing
     static size_t failed_checks = 0;
 
     struct TestSkipException{};
-
+    /*
     // Declared in env.cpp
     bool rewrite_is_enabled()
     {
@@ -39,7 +39,7 @@ namespace testing
         {
             failed_checks++;
         }
-    }
+    }*/
 
     enum class TEST_RESULT
     {
