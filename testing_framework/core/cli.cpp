@@ -2,6 +2,7 @@
 #include <testing_framework/core/commands.h>
 #include <testing_framework/core/cmdline_parser.h>
 #include <testing_framework/core/test_options.h>
+#include <testing_framework/core/exe.h>
 #include <iostream>
 #include <regex>
 
@@ -187,8 +188,7 @@ namespace testing
             return false;
         }
         collect_default_test_param_values(test_options);
-        //return run(logging_level, jobs, tests, test_options);
-        return true;
+        return run(logging_level, jobs, tests, test_options);
     }
 
     bool handle_exec(size_t argc, char**argv)
@@ -332,6 +332,47 @@ namespace testing
             }
 
         }
+    }
+
+    std::vector<std::string> cmdline_to_exec(
+        bool enable_colors,
+        size_t logging_level,
+        std::string test_name,
+        bool rewrite,
+        std::map<std::string, std::pair<const std::type_info*, std::string>> test_options
+    )
+    {
+        std::vector<std::string> out;
+        out.push_back(current_executable_path().string());
+        out.push_back("exec");
+        if (enable_colors)
+        {
+            out.push_back("-c");
+        }
+        else
+        {
+            out.push_back("-nc");
+        }
+        out.push_back("-l");
+        out.push_back(std::to_string(logging_level));
+        out.push_back(test_name);
+        for (const auto& [name, p] : test_options)
+        {
+            const auto&[type, value] = p;
+            if (type == nullptr)
+            {
+                if (value.length() > 0)
+                {
+                    out.push_back(get_test_option_short_name(name));
+                }
+            }
+            else
+            {
+                out.push_back(get_test_option_short_name(name));
+                out.push_back(value);
+            }
+        }       
+        return out;
     }
 
 }

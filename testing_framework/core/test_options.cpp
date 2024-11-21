@@ -63,7 +63,7 @@ namespace testing
         return names;
     }
 
-    std::string get_option_short_name(std::string name)
+    std::string get_test_option_short_name(std::string name)
     {
         for (const auto&opt : registered_options)
         {

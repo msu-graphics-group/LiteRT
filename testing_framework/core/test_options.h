@@ -65,7 +65,7 @@ namespace testing
     std::vector<std::string> get_test_flag_names();
     std::vector<std::string> get_test_param_names();
 
-    std::string get_option_short_name(std::string name);
+    std::string get_test_option_short_name(std::string name);
 
     /*
         If <name> is flag name, adds option in <out> and returns true
