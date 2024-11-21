@@ -482,8 +482,7 @@ auto t4 = std::chrono::steady_clock::now();
 
 struct Transform
 {
-   int3 rot; //values 0-3, each for 90 degree rotation
-  float mul;
+  int3 rot; //values 0-3, each for 90 degree rotation
   float add;
 };
 
@@ -491,7 +490,6 @@ static Transform identity_transform()
 {
   Transform t;
   t.rot = int3(0,0,0);
-  t.mul = 1.0f;
   t.add = 0.0f;
   return t;
 }
@@ -500,7 +498,6 @@ static Transform rotate_transform(unsigned x, unsigned y, unsigned z)
 {
   Transform t;
   t.rot = int3(x,y,z);
-  t.mul = 1.0f;
   t.add = 0.0f;
   return t;
 }
@@ -509,7 +506,6 @@ static Transform inverse_transform(const Transform& t)
 {
   Transform t_inv;
   t_inv.rot = int3((4 - t.rot.x) % 4, (4 - t.rot.y) % 4, (4 - t.rot.z) % 4);
-  t_inv.mul = 1.0f / t.mul;
   t_inv.add = -t.add;
   return t_inv;
 }
@@ -518,7 +514,6 @@ static Transform mul(const Transform& t1, const Transform& t2)
 {
   Transform t;
   t.rot = int3((t1.rot.x + t2.rot.x) % 4, (t1.rot.y + t2.rot.y) % 4, (t1.rot.z + t2.rot.z) % 4);
-  t.mul = t1.mul * t2.mul;
   t.add = t1.add + t2.add;
   return t;
 }
@@ -538,7 +533,7 @@ void litert_test_7_global_octree()
   std::vector<SdfFrameOctreeNode> frame_octree;
   std::vector<SdfFrameOctreeNode> frame_octree_ref;
   SdfSBS sbs;
-  g_octree.header.brick_size = 2;
+  g_octree.header.brick_size = 1;
   g_octree.header.brick_pad  = 0;
 
   sbs.header.brick_size = g_octree.header.brick_size;
@@ -555,11 +550,12 @@ void litert_test_7_global_octree()
   float max_val = 0.01f;
   int valid_nodes = 0;
   int surface_nodes = 0;
-  float dist_thr = (1.0/24)*sqrtf(3)*pow(2, 1.0f - settings.depth)/g_octree.header.brick_size;
-  printf("dist thr = %f\n", dist_thr);
+  float dist_thr = 0.0005f;
+  //printf("dist thr = %f\n", dist_thr);
 
   int v_size = g_octree.header.brick_size + 2 * g_octree.header.brick_pad + 1;
   int dist_count = v_size * v_size * v_size;
+  std::vector<float> average_brick_val(g_octree.nodes.size(), 0);
   std::vector<float> closest_dist(g_octree.nodes.size(), invalid_dist);
   std::vector<int> closest_idx(g_octree.nodes.size(), -1);
   std::vector<unsigned> remap(g_octree.nodes.size());
@@ -586,14 +582,25 @@ void litert_test_7_global_octree()
     int off = g_octree.nodes[i].val_off;
     float min_val = 1000;
     float max_val = -1000;
+
+    double sum_sq = 0;
+    double sum = 0;
     for (int k=0; k<dist_count; k++)
     {
       min_val = std::min(min_val, g_octree.values_f[off+k]);
       max_val = std::max(max_val, g_octree.values_f[off+k]);
+      sum_sq += g_octree.values_f[off+k]*g_octree.values_f[off+k];
+      sum += g_octree.values_f[off+k];
     }
 
+    average_brick_val[i] = sum/dist_count;
+
+    float mult = 1.0/sqrt(sum_sq);
     if (g_octree.nodes[i].offset == 0 && min_val <= 0 && max_val >= 0)
     {
+      for (int k=0; k<dist_count; k++)
+        g_octree.values_f[off+k] *= mult;
+
       surface_node[i] = true;
       surface_nodes++;
     }
@@ -606,26 +613,8 @@ void litert_test_7_global_octree()
     for (int i=0; i<g_octree.nodes.size(); i++)
     {
       int off_a = g_octree.nodes[i].val_off;
-      
-        // for (int i=0;i<8;i++)
-        //   g_octree.values_f[off_a + i] = i;
-        // for (int i=0; i<v_size; i++)
-        // {
-        //   for (int j=0; j<v_size; j++)
-        //   {
-        //     for (int k=0; k<v_size; k++)
-        //     {
-        //       int idx = i*v_size*v_size + j*v_size + k;
-        //       printf("%f ", g_octree.values_f[off_a + idx]);
-        //     }
-        //     printf("\n");
-        //   }
-        //   printf("\n");
-        // }
-
       for (int r_id=0; r_id<ROT_COUNT; r_id++)
       {
-        //printf("ROT = %d %d %d\n", r_id / 16, (r_id / 4) % 4, r_id % 4);
         for (int x=0; x<v_size; x++)
         {
           for (int y=0; y<v_size; y++)
@@ -634,19 +623,12 @@ void litert_test_7_global_octree()
             {
               int idx = x*v_size*v_size + y*v_size + z;
               int3 rot_vec = int3(LiteMath::mul3x3(rotations[r_id], float3(x,y,z) - float3(v_size/2 - 0.5f)) + float3(v_size/2 - 0.5f + 1e-3f));
-              //printf("%d %d %d ", rot_vec.x, rot_vec.y, rot_vec.z);
-              //rot_vec = int3((rot_vec.x + v_size)%v_size, (rot_vec.y + v_size)%v_size, (rot_vec.z + v_size)%v_size);
               int rot_idx = rot_vec.x * v_size*v_size + rot_vec.y * v_size + rot_vec.z;
               brick_rotations[r_id][idx] = g_octree.values_f[off_a + rot_idx];
-              //printf("%f ", g_octree.values_f[off_a + rot_idx]);
             }
-            //printf("\n");
           }
-          //printf("\n");
         }
       }
-
-      //return;
 
       if (surface_node[i] == false || remap[i] != i)
         continue;
@@ -656,15 +638,19 @@ void litert_test_7_global_octree()
       {
         if (surface_node[j] == false)
           continue;
+          
         int off_b = g_octree.nodes[j].val_off;
+        float add = average_brick_val[j] - average_brick_val[i];
         float min_dist = 1000;
         int min_r_id = 0;
         for (int r_id=0; r_id<ROT_COUNT; r_id++)
         {
+          float diff = 0;
           float dist = 0;
           for (int k=0; k<dist_count; k++)
           {
-            dist += std::abs(brick_rotations[r_id][k] - g_octree.values_f[off_b+k]);
+            diff = brick_rotations[r_id][k] + add - g_octree.values_f[off_b+k];
+            dist += diff*diff;
           }
           dist = dist / dist_count;
           if (dist < min_dist)
@@ -680,7 +666,8 @@ void litert_test_7_global_octree()
             //printf("min_r_id = %d\n", min_r_id);
             remapped += remap[j] == j;
             remap[j] = i;
-            remap_transforms[j] = rotate_transform(min_r_id / 16, (min_r_id / 4) % 4, min_r_id % 4);
+            remap_transforms[j].rot = int3(min_r_id / 16, (min_r_id / 4) % 4, min_r_id % 4);
+            remap_transforms[j].add = add;
             closest_dist[j] = min_dist;
           }
         }
@@ -764,6 +751,7 @@ void litert_test_7_global_octree()
   unsigned W = 4096, H = 4096;
   MultiRenderPreset preset = getDefaultPreset();
   preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
+  preset.sdf_node_intersect = SDF_OCTREE_NODE_INTERSECT_NEWTON;
   preset.spp = 16;
   LiteImage::Image2D<uint32_t> image(W, H);
   LiteImage::Image2D<uint32_t> image_ref(W, H);
@@ -785,7 +773,7 @@ void litert_test_7_global_octree()
           int rot_idx = rot_vec.x * v_size * v_size + rot_vec.y * v_size + rot_vec.z;
 
           g_octree_remapped.values_f[g_octree_remapped.nodes[i].val_off + idx] = 
-                   g_octree.values_f[g_octree.nodes[remap[i]].val_off + rot_idx];
+                   g_octree.values_f[g_octree.nodes[remap[i]].val_off + rot_idx] + remap_transforms[i].add;
         }
       }
     }
