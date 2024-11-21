@@ -523,17 +523,78 @@ static float4x4 get_rotation_matrix(const Transform& t)
   return LiteMath::rotate4x4X(M_PI_2 * t.rot.x) * LiteMath::rotate4x4Y(M_PI_2 * t.rot.y) * LiteMath::rotate4x4Z(M_PI_2 * t.rot.z);
 }
 
+  static inline float3 eval_dist_trilinear_diff(const float *brick_data, unsigned v_size, unsigned off, float3 dp)
+  {
+    float ddist_dx = -(1-dp.y)*(1-dp.z)*brick_data[off + 0] + 
+                     -(1-dp.y)*(  dp.z)*brick_data[off + 1] + 
+                     -(  dp.y)*(1-dp.z)*brick_data[off + v_size] + 
+                     -(  dp.y)*(  dp.z)*brick_data[off + v_size + 1] + 
+                      (1-dp.y)*(1-dp.z)*brick_data[off + v_size*v_size] + 
+                      (1-dp.y)*(  dp.z)*brick_data[off + v_size*v_size + 1] + 
+                      (  dp.y)*(1-dp.z)*brick_data[off + v_size*v_size + v_size] + 
+                      (  dp.y)*(  dp.z)*brick_data[off + v_size*v_size + v_size + 1];
+    
+    float ddist_dy = -(1-dp.x)*(1-dp.z)*brick_data[off + 0] + 
+                     -(1-dp.x)*(  dp.z)*brick_data[off + 1] + 
+                      (1-dp.x)*(1-dp.z)*brick_data[off + v_size] + 
+                      (1-dp.x)*(  dp.z)*brick_data[off + v_size + 1] + 
+                     -(  dp.x)*(1-dp.z)*brick_data[off + v_size*v_size] + 
+                     -(  dp.x)*(  dp.z)*brick_data[off + v_size*v_size + 1] + 
+                      (  dp.x)*(1-dp.z)*brick_data[off + v_size*v_size + v_size] + 
+                      (  dp.x)*(  dp.z)*brick_data[off + v_size*v_size + v_size + 1];
+
+    float ddist_dz = -(1-dp.x)*(1-dp.y)*brick_data[off + 0] + 
+                      (1-dp.x)*(1-dp.y)*brick_data[off + 1] + 
+                     -(1-dp.x)*(  dp.y)*brick_data[off + v_size] + 
+                      (1-dp.x)*(  dp.y)*brick_data[off + v_size + 1] + 
+                     -(  dp.x)*(1-dp.y)*brick_data[off + v_size*v_size] + 
+                      (  dp.x)*(1-dp.y)*brick_data[off + v_size*v_size + 1] + 
+                     -(  dp.x)*(  dp.y)*brick_data[off + v_size*v_size + v_size] + 
+                      (  dp.x)*(  dp.y)*brick_data[off + v_size*v_size + v_size + 1];
+  
+    return float3(ddist_dx, ddist_dy, ddist_dz);
+  }
+
+void calculate_brick_grad_histogram(const float *brick_data, unsigned v_size, unsigned pad, unsigned *out_hist, unsigned intervals = 3)
+{
+  for (int i=0;i<intervals*intervals*intervals;i++)
+    out_hist[i] = 0;
+  for (int i=pad;i<v_size-pad-1;i++)
+  {
+    for (int j=pad;j<v_size-pad-1;j++)
+    {
+      for (int k=pad;k<v_size-pad-1;k++)
+      {
+        unsigned off = i*v_size*v_size + j*v_size + k;
+        float3 grad = eval_dist_trilinear_diff(brick_data, v_size, off, float3(0.5f, 0.5f, 0.5f));
+        float glad_length = LiteMath::length(grad) + 1e-9f;
+        grad /= glad_length; //grad cannot reach -1 or 1 in each direction
+        //printf("n = %f %f %f\n", grad.x, grad.y, grad.z);
+        int3 grad_q = int3(intervals*0.5f*(grad + 1.0f));
+        assert(grad_q.x < intervals && grad_q.y < intervals && grad_q.z < intervals &&
+               grad_q.x >= 0 && grad_q.y >= 0 && grad_q.z >= 0);
+        out_hist[grad_q.x*intervals*intervals + grad_q.y*intervals + grad_q.z]++;
+      }
+    }
+  }
+
+  printf("Histogram: [  ");
+  for (int i=0;i<intervals*intervals*intervals;i++)
+    printf("%u ", out_hist[i]);
+  printf("]\n");
+}
+
 void litert_test_7_global_octree()
 {
   auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "scenes/01_simple_scenes/data/bunny.vsgf").c_str());
   cmesh4::normalize_mesh(mesh);
 
-  SparseOctreeSettings settings = SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, 6);
+  SparseOctreeSettings settings = SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, 5);
   sdf_converter::GlobalOctree g_octree;
   std::vector<SdfFrameOctreeNode> frame_octree;
   std::vector<SdfFrameOctreeNode> frame_octree_ref;
   SdfSBS sbs;
-  g_octree.header.brick_size = 1;
+  g_octree.header.brick_size = 4;
   g_octree.header.brick_pad  = 0;
 
   sbs.header.brick_size = g_octree.header.brick_size;
@@ -550,7 +611,7 @@ void litert_test_7_global_octree()
   float max_val = 0.01f;
   int valid_nodes = 0;
   int surface_nodes = 0;
-  float dist_thr = 0.0005f;
+  float dist_thr = 0.00005f;
   //printf("dist thr = %f\n", dist_thr);
 
   int v_size = g_octree.header.brick_size + 2 * g_octree.header.brick_pad + 1;
@@ -564,6 +625,9 @@ void litert_test_7_global_octree()
   std::vector<int> hist(num_bins+1, 0);
   std::array<std::vector<float>, ROT_COUNT> brick_rotations; 
   std::array<float4x4, ROT_COUNT> rotations;
+
+  constexpr unsigned HIST_INTERVALS = 3;
+  std::vector<std::array<unsigned, HIST_INTERVALS*HIST_INTERVALS*HIST_INTERVALS>> histograms(g_octree.nodes.size());
   
   for (int i=0; i<ROT_COUNT; i++)
   {
@@ -604,6 +668,13 @@ void litert_test_7_global_octree()
       surface_node[i] = true;
       surface_nodes++;
     }
+  }
+
+  for (int i=0; i<g_octree.nodes.size(); i++)
+  {
+    if (surface_node[i])
+      calculate_brick_grad_histogram(g_octree.values_f.data() + g_octree.nodes[i].val_off, 
+                                    v_size, g_octree.header.brick_pad, histograms[i].data(), HIST_INTERVALS);
   }
 
   if (dist_thr >= 0)  //replace with remap
@@ -669,6 +740,15 @@ void litert_test_7_global_octree()
             remap_transforms[j].rot = int3(min_r_id / 16, (min_r_id / 4) % 4, min_r_id % 4);
             remap_transforms[j].add = add;
             closest_dist[j] = min_dist;
+            printf("similar %f \n", min_dist);
+            printf("H1: [  ");
+            for (int k=0;k<27;k++)
+              printf("%2u ", histograms[i][k]);
+            printf("]\n");
+            printf("H2: [  ");
+            for (int k=0;k<27;k++)
+              printf("%2u ", histograms[j][k]);
+            printf("]\n\n");
           }
         }
       }
