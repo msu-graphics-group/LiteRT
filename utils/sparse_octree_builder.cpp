@@ -462,7 +462,7 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
         for (int j=0; j<tl_octree.nodes[idx].tid_count; j++)
         {
           int t_i = tl_octree.triangle_ids[tl_octree.nodes[idx].tid_offset+j];
-
+          
           float3 a = to_float3(mesh.vPos4f[mesh.indices[3*t_i+0]]);
           float3 b = to_float3(mesh.vPos4f[mesh.indices[3*t_i+1]]);
           float3 c = to_float3(mesh.vPos4f[mesh.indices[3*t_i+2]]);
@@ -858,22 +858,29 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
     mesh_octree_to_vmpdf_rec(mesh, tl_octree, lambda, 0, float3(0,0,0), 1);
   }
 
-  void mesh_octree_to_global_octree_rec(const cmesh4::SimpleMesh &mesh,
+  bool mesh_octree_to_global_octree_rec(const cmesh4::SimpleMesh &mesh,
                                          const cmesh4::TriangleListOctree &tl_octree,
                                          GlobalOctree &out_octree,
-                                         unsigned idx, float3 p, float d)
+                                         unsigned idx, float3 p, float d,
+                                         unsigned real_idx, unsigned &usefull_nodes)
   {
-    unsigned ofs = tl_octree.nodes[idx].offset;
-    out_octree.nodes[idx].offset = ofs;
+    //printf("%u\n", usefull_nodes);
+    const unsigned ofs = tl_octree.nodes[idx].offset;
+    unsigned num = real_idx;
+    out_octree.nodes[num].offset = (ofs == 0) ? 0 : usefull_nodes;
     std::vector<std::vector<float3>> groups;
     bool norm_broken = false;
 
+    unsigned v_size = out_octree.header.brick_size + 2*out_octree.header.brick_pad + 1;
+    if (ofs == 0)
     {
       float3 pos = 2.0f*(d*p) - 1.0f;
       groups.push_back(std::vector<float3>());
       for (int j=0; j<tl_octree.nodes[idx].tid_count; j++)
       {
         int t_i = tl_octree.triangle_ids[tl_octree.nodes[idx].tid_offset+j];
+        //printf("%u %u %u -- %u %u\n", 3*t_i+0, tl_octree.nodes[idx].tid_offset, j, tl_octree.triangle_ids.size(), tl_octree.nodes[idx].tid_count);
+        //printf("%u, %u, %u\n", mesh.indices.size(), mesh.indices[3*t_i+0], mesh.vPos4f.size());
         float3 a = to_float3(mesh.vPos4f[mesh.indices[3*t_i+0]]);
         float3 b = to_float3(mesh.vPos4f[mesh.indices[3*t_i+1]]);
         float3 c = to_float3(mesh.vPos4f[mesh.indices[3*t_i+2]]);
@@ -979,10 +986,10 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
       // }
 
       //fill global octree leaf
-      unsigned v_size = out_octree.header.brick_size + 2*out_octree.header.brick_pad + 1;
       unsigned cur_values_off = out_octree.values_f.size();
-      out_octree.nodes[idx].val_off = cur_values_off;
+      out_octree.nodes[num].val_off = cur_values_off;
       out_octree.values_f.resize(cur_values_off + v_size*v_size*v_size);
+      //printf("%f - %f %d\n", 2*(d/out_octree.header.brick_size), d, out_octree.header.brick_size);
       for (int i = -out_octree.header.brick_pad; i <= out_octree.header.brick_size + out_octree.header.brick_pad; ++i)
       {
         for (int j = -out_octree.header.brick_pad; j <= out_octree.header.brick_size + out_octree.header.brick_pad; ++j)
@@ -1025,26 +1032,55 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
       //tex coords
       for (int i = 0; i < 8; ++i)
       {
-        out_octree.nodes[idx].tex_coords[i] = float2(0,0);//temp stubs
+        out_octree.nodes[num].tex_coords[i] = float2(0,0);//temp stubs
       }
     }
     
-    if (is_leaf(ofs)) 
+    if (ofs == 0) 
     {
-      out_octree.nodes[idx].offset = 0;
+      out_octree.nodes[num].offset = 0;
+      out_octree.nodes[num].is_not_void = (tl_octree.nodes[idx].tid_count != 0);
+      //printf("leaf - %u\n", tl_octree.nodes[idx].tid_count);
+      return tl_octree.nodes[idx].tid_count != 0;
     }
     else
     {
+      bool chk = false, is_not_void = false;
+      //if (tl_octree.nodes[idx].tid_count == 0) {printf("AAA\n"); chk = true;}
+      //printf("{");
+      unsigned real_child = usefull_nodes;
+      usefull_nodes += 8;
       for (int i = 0; i < 8; i++)
       {
         float ch_d = d / 2;
         float3 ch_p = 2 * p + float3((i & 4) >> 2, (i & 2) >> 1, i & 1);
-
-        mesh_octree_to_global_octree_rec(mesh, tl_octree, out_octree, ofs + i, ch_p, ch_d);
-
-        //TODO maybe fill not leaf nodes
+        bool x = mesh_octree_to_global_octree_rec(mesh, tl_octree, out_octree, ofs + i, ch_p, ch_d, real_child + i, usefull_nodes);
+        //if (chk && x) {printf("BBB\n"); chk = false;}
+        is_not_void |= x;
       }
+      //printf("}");
+      out_octree.nodes[num].is_not_void = is_not_void;
+      if (!is_not_void)
+      {
+        //printf("CCC %u\n", tl_octree.nodes[idx].tid_count);
+        usefull_nodes -= 8;
+        out_octree.nodes[num].offset = 0;
+        for (int i = -out_octree.header.brick_pad; i <= out_octree.header.brick_size + out_octree.header.brick_pad; ++i)
+        {
+          for (int j = -out_octree.header.brick_pad; j <= out_octree.header.brick_size + out_octree.header.brick_pad; ++j)
+          {
+            for (int k = -out_octree.header.brick_pad; k <= out_octree.header.brick_size + out_octree.header.brick_pad; ++k)
+            {
+              out_octree.values_f[out_octree.nodes[num].val_off + (i+out_octree.header.brick_pad)*v_size*v_size + 
+                                                  (j+out_octree.header.brick_pad)*v_size + 
+                                                  (k+out_octree.header.brick_pad)] = sqrt(1000.0f);
+            }
+          }
+        }
+      }
+      return is_not_void;
     }
+    return false;
   }
 
   void mesh_octree_to_global_octree(const cmesh4::SimpleMesh &mesh,
@@ -1052,7 +1088,24 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
                                     GlobalOctree &out_octree)
   {
     out_octree.nodes.resize(tl_octree.nodes.size());
-    mesh_octree_to_global_octree_rec(mesh, tl_octree, out_octree, 0, float3(0,0,0), 1);
+    unsigned nodes_cnt = 1;
+    for (auto i : tl_octree.nodes)
+    {
+      assert(!(i.offset != 0 && i.tid_count == 0));
+    }
+    mesh_octree_to_global_octree_rec(mesh, tl_octree, out_octree, 0, float3(0,0,0), 1, 0, nodes_cnt);
+    out_octree.nodes.resize(nodes_cnt);
+    /*unsigned v_s = out_octree.header.brick_size + 2 * out_octree.header.brick_pad + 1;
+    for (int i = 0; i < out_octree.nodes.size(); ++i)
+    {
+      printf("%u -|-", out_octree.nodes[i].offset);
+      for (int j = 0; j < v_s * v_s * v_s; ++j)
+      {
+        printf(" %f", out_octree.values_f[out_octree.nodes[i].val_off + j]);
+      }
+      printf("\n\n");
+
+    }*/
   }
 
   void global_octree_to_frame_octree(const GlobalOctree &octree, std::vector<SdfFrameOctreeNode> &out_frame)
