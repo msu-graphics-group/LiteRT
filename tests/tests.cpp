@@ -4001,9 +4001,9 @@ void litert_test_44_point_query()
   header.bytes_per_value = 2;
   header.brick_size = 2;
   sdf_converter::DistanceFunction circle_sdf = [&](float3 p){return length(p) - 0.8f;};
-  SdfSBS sbs = sdf_converter::create_sdf_SBS(settings, header, circle_sdf);
 
   {
+    SdfSBS sbs = sdf_converter::create_sdf_SBS(settings, header, circle_sdf);
     auto pRender = CreateMultiRenderer(DEVICE_CPU);
     pRender->SetPreset(preset);
     pRender->SetViewport(0,0,W,H);
@@ -4013,16 +4013,23 @@ void litert_test_44_point_query()
     LiteImage::SaveImage<uint32_t>("saves/test_44_SBS.png", image);
 
     printf("SBS:\n");
-    for (int i = 0; i < 27; ++i)
+    for (uint32_t i = 0u; i < 100; ++i)
     {
-      float3 pt{ -0.5f * (i / 9 - 1), -0.5f * ((i/3%3) - 1), -0.5f * ((i % 3) - 1) };
-      printf("Point: [%f, %f, %f], value = %f, ref = %f\n", pt.x, pt.y, pt.z, bvhrt->eval_distance_sdf_sbs(0, pt), circle_sdf(pt));
+      float3 pt{double(rand()) / (RAND_MAX * 0.5) - 1.,
+                double(rand()) / (RAND_MAX * 0.5) - 1.,
+                double(rand()) / (RAND_MAX * 0.5) - 1.};
+
+      float val = bvhrt->eval_distance_sdf_sbs(0, pt);
+      if (val < 10.f)
+      {
+        printf("Point: [%f, %f, %f], value = %f, ref = %f\n", pt.x, pt.y, pt.z, val, circle_sdf(pt));
+      }
     }
   }
 
-  std::vector<SdfSVSNode> svs = sdf_converter::create_sdf_SVS(settings, circle_sdf);
 
   {
+    std::vector<SdfSVSNode> svs = sdf_converter::create_sdf_SVS(settings, circle_sdf);
     auto pRender = CreateMultiRenderer(DEVICE_CPU);
     pRender->SetPreset(preset);
     pRender->SetViewport(0,0,W,H);
@@ -4032,10 +4039,81 @@ void litert_test_44_point_query()
     LiteImage::SaveImage<uint32_t>("saves/test_44_SVS.png", image);
 
     printf("SVS:\n");
-    for (int i = 0; i < 27; ++i)
+    for (uint32_t i = 0u; i < 100; ++i)
     {
-      float3 pt{ -0.5f * (i / 9 - 1), -0.5f * ((i/3%3) - 1), -0.5f * ((i % 3) - 1) };
-      printf("Point: [%f, %f, %f], value = %f, ref = %f\n", pt.x, pt.y, pt.z, bvhrt->eval_distance_sdf_svs(0, pt), circle_sdf(pt));
+      float3 pt{double(rand()) / (RAND_MAX * 0.5) - 1.,
+                double(rand()) / (RAND_MAX * 0.5) - 1.,
+                double(rand()) / (RAND_MAX * 0.5) - 1.};
+
+      float val = bvhrt->eval_distance_sdf_svs(0, pt);
+      if (val < 10.f) // was in SVS
+      {
+        printf("Point: [%f, %f, %f], value = %f, ref = %f\n", pt.x, pt.y, pt.z, val, circle_sdf(pt));
+      }
+    }
+  }
+
+  {
+    auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "scenes/01_simple_scenes/data/bunny.vsgf").c_str());
+    cmesh4::normalize_mesh(mesh);
+
+
+    std::vector<float3> points;
+    std::vector<float> vals;
+
+    {
+      printf("Mesh SBS...\n");
+      SdfSBS sbs = sdf_converter::create_sdf_SBS(SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, 6, 2 << 28), header, mesh);
+      auto pRender = CreateMultiRenderer(DEVICE_CPU);
+      pRender->SetPreset(preset);
+      pRender->SetViewport(0,0,W,H);
+      pRender->SetScene(sbs);
+      auto *bvhrt = dynamic_cast<BVHRT*>(pRender->GetAccelStruct()->UnderlyingImpl(0));
+      render(image, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset);
+      LiteImage::SaveImage<uint32_t>("saves/test_44_mesh_SBS.png", image);
+
+      printf("Traversing SBS...\n");
+      for (uint32_t i = 0u; i < 1000; ++i)
+      {
+        float3 pt{double(rand()) / (RAND_MAX * 0.5) - 1.,
+                  double(rand()) / (RAND_MAX * 0.5) - 1.,
+                  double(rand()) / (RAND_MAX * 0.5) - 1.};
+
+        float val = bvhrt->eval_distance_sdf_sbs(0, pt);
+        if (val < 10.f)
+        {
+          points.push_back(pt);
+          vals.push_back(val);
+        }
+      }
+    }
+
+    {
+      printf("Mesh COctreeV3...\n");
+      COctreeV3 coctree{};
+      coctree.header.brick_size = 4;
+      coctree.header.brick_pad = 0;
+      coctree.header.bits_per_value = 8;
+      coctree.header.uv_size = 0;
+      coctree.data = sdf_converter::create_COctree_v3(SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, 6, 2 << 28), coctree.header, mesh);
+      COctreeV3View coctree_view = coctree;
+
+      auto pRender = CreateMultiRenderer(DEVICE_CPU);
+      pRender->SetPreset(preset);
+      pRender->SetViewport(0,0,W,H);
+      pRender->SetScene(coctree_view, 0);
+      auto *bvhrt = dynamic_cast<BVHRT*>(pRender->GetAccelStruct()->UnderlyingImpl(0));
+      render(image, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset);
+      LiteImage::SaveImage<uint32_t>("saves/test_44_mesh_COctreeV3.png", image);
+
+      printf("Traversing COctreeV3...\n");
+      for (uint32_t i = 0u; i < points.size(); ++i)
+      {
+        float3 pt = points[i];
+        float val = bvhrt->eval_distance_sdf_coctree_v3(0, pt);
+        if (val < 10.f)
+          printf("pt: [%f, %f, %f], SBS val: %f, COctreeV3 val: %f\n", pt.x, pt.y, pt.z, vals[i], val);
+      }
     }
   }
 }
