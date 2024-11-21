@@ -3,6 +3,7 @@
 #include <testing_framework/core/supervisor.h>
 #include <testing_framework/core/cli.h>
 #include <testing_framework/core/colors.h>
+#include <testing_framework/core/logging.h>
 #include <iostream>
 #include <algorithm>
 
@@ -15,14 +16,16 @@ namespace testing
         SKIPPED,
         CRASHED
     };
-
-    std::string make_test_summary(size_t passed, size_t failed)
+    /*
+    std::string test_summary(std::ostream&out, size_t passed, size_t failed)
     {
         size_t total = passed + failed;
 
+        out << 
+
         return std::to_string(passed) + "/" + std::to_string(total) + " checks passed, " +
         std::to_string(failed) + "/" + std::to_string(total) + " checks failed";
-    }
+    }*/
 
     bool parse_test_summary(std::string_view text, size_t&passed, size_t&failed)
     {
@@ -104,6 +107,125 @@ namespace testing
         return true;
     }
 
+
+    /*
+        Finds
+        \33[<n>;...;<n>m
+        in line from offset
+    */
+    bool str_to_esc(std::string_view str, size_t&offset)
+    {
+        
+        if (str.length() - offset < 2)
+        {
+            return false;
+        }
+        if (str[offset] != '\33')
+        {
+            return false;
+        }
+        offset++;
+        if (str[offset] != '[')
+        {
+            return false;
+        }
+        offset++;
+
+        while (true)
+        {
+            while (offset < str.length() && std::isdigit(str[offset]))
+            {
+                offset++;
+            }
+            if (offset == str.length())
+            {
+                return false;
+            }
+            if (str[offset] == ';')
+            {
+                offset++;
+            }
+            else if (str[offset] == 'm')
+            {
+                offset++;
+                return true;
+            }
+            else
+            {
+                return false;
+            }
+        }
+    }
+
+    /*
+        Finds
+        <ESC>...<ESC>[<inside>]...
+        where <ESC> is \33[<n>;...;<n>m
+    */
+    bool find_bar(std::string_view line, size_t&inside_begin, size_t& inside_end)
+    {
+
+        size_t offset = 0;
+
+        while (offset < line.length())
+        {
+            if (str_to_esc(line, offset))
+            {
+                continue;
+            }
+            else // no more color escape sequences
+            {
+                break;
+            }
+        }
+
+        if (offset == line.length() || line[offset] != '[')
+        {
+            return false;
+        }
+        inside_begin = offset + 1;
+        offset++;
+        while (offset < line.length() && line[offset] != ']')
+        {
+            offset++;
+        }
+        if (offset == line.length())
+        {
+            return false;
+        }
+        inside_end = offset;
+        return true;
+    }
+
+    void reformat_output(std::string_view line)
+    {
+        size_t begin, end;
+        if (find_bar(line, begin, end))
+        {
+            std::string_view bar_inside(line.begin() + begin, end - begin);
+            auto has = [&](std::string_view str)->bool{ return bar_inside.find(str) != std::string::npos; };
+           
+            size_t level = has("RUN") || has("PASSED") || has("FAILED") || has("SKIPPED") ? TEST_RESULT_LOGGING_LEVEL :
+                has("INFO")? INFO_LOGGING_LEVEL :
+                has("WARNING") ? WARNING_LOGGING_LEVEL :
+                has("ERROR") ? ERROR_LOGGING_LEVEL : 
+                INFO_LOGGING_LEVEL;
+            log(level) << foreground(gray)
+                << std::string_view(line.begin(), begin-1)  // without '['
+                << '[' << begin_aligned(BAR_WIDTH, 0, 0)
+                << bar_inside << end_aligned
+                << ']' << default_color
+                << std::string_view(line.begin() + end + 1, line.length() - end - 1);
+        }
+        else
+        {
+            std::string lowercase(line);
+            std::transform(lowercase.begin(), lowercase.end(), lowercase.begin(), [](char x)->char{ return std::tolower(x); });
+            auto has = [&](std::string_view str)->bool{ return lowercase.find(str) != std::string::npos; };
+            log(has("warning") ? bar_warning : has("error") ? bar_error : bar_info) << line;
+        }
+    }
+
     bool run_and_get_last_line(Supervisor&supervisor, std::string&last_line)
     {
         std::string prev_line, curr_line;
@@ -124,7 +246,7 @@ namespace testing
                 {
                     curr_line.push_back('\n');
                 }
-                std::cout << curr_line;
+                reformat_output(curr_line);
             }
         }
         last_line = (curr_line == "" ? prev_line : curr_line);
@@ -169,7 +291,7 @@ namespace testing
 
         if (!parse_last_line(last_line, result, passed, failed))
         {
-            std::cout << "[ERROR]" << " Failed to parse test output. Assuming runtime error." << std::endl;
+            log(bar_error) << "Failed to parse test output. Assuming runtime error." << std::endl;
             result = TEST_RESULT::CRASHED;
             return true;
         }
@@ -184,12 +306,14 @@ namespace testing
         std::map<std::string, std::pair<const std::type_info*, std::string>> test_options
     )
     {
-        for (auto i : tests)
+        set_logging_level(logging_level);
+        log(bar_bold_line) << "running " << tests.size() << " tests" << std::endl;
+        for (size_t i = 0; i < tests.size(); i++)
         {
             auto args = cmdline_to_exec(
                 colors_are_enabled(),
                 logging_level,
-                std::string(i->name()),
+                std::string(tests[i]->name()),
                 false,
                 test_options
             );
@@ -198,6 +322,8 @@ namespace testing
             {
                 return false;
             }
+            
+            log(bar_line) << "starting test " << i + 1 << "/" << tests.size() << std::endl;
             TEST_RESULT result;
             size_t passed, failed;
             if (!run_supervised(*supervisor, result, passed, failed))
@@ -206,9 +332,11 @@ namespace testing
             }
             if (result == TEST_RESULT::CRASHED)
             {
-                std::cout << "[CRASHED] " << i->name() << std::endl;
+                log(bar_crashed) << tests[i]->name() << std::endl;
             }
+            log(bar_line) << "ended test " << i + 1 << "/" << tests.size() << std::endl;
         }
+        log(bar_bold_line) << "finished running" << std::endl;
 
         return true;
     }
@@ -220,27 +348,24 @@ namespace testing
         std::map<std::string, std::pair<const std::type_info*, std::string>> test_options
     )
     {
-        size_t passed_checks = 0;
-        size_t failed_checks = 0;
+        set_logging_level(logging_level);
+        size_t passed = 0;
+        size_t failed = 0;
 
-        std::cout << "[RUN] " << test->name() << std::endl;
-        bool was_skipped = !execute_test(test, rewrite, test_options, passed_checks, failed_checks);
+        log(bar_run) << test->name() << std::endl;
+        bool was_skipped = !execute_test(test, rewrite, test_options, passed, failed);
 
         if (was_skipped)
         {
-            std::cout << "[SKIPPED] " << test->name() << std::endl;
+            log(bar_skipped) << test->name() << std::endl;
         }
         else
         {
-            if (failed_checks > 0)
-            {
-                std::cout << "[FAILED]";
-            }
-            else
-            {
-                std::cout << "[PASSED]";
-            }
-            std::cout << " (" << make_test_summary(passed_checks, failed_checks) << ")" << std::endl;
+            size_t total = passed + failed;
+            log(failed > 0 ? bar_failed : bar_passed) 
+                << test->name() << " "
+                << "(" << foreground(bright_green) << passed << "/" <<  total << " passed " << default_color << "checks, "
+                <<  foreground(red) << failed << "/" << total << " failed " << default_color << "checks" << ")" << std::endl;
         }
 
         return true;

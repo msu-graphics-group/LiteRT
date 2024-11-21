@@ -60,4 +60,13 @@ namespace litert_tests
         exit(0);
     }
 
+    ADD_TEST(test6, "Custom bar inside test")
+    {
+
+        std::cout << "[TEST6::LOG] " << "Important data: " << 123 << "!" << std::endl;
+        printf("[TEST6::LOG] some other data: %d\n", 42);
+        printf("error reading from file %s\n", "<path-to-file>");
+        printf("warning something went wrong!\n");
+    }
+
 }

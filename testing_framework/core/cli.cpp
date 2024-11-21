@@ -3,11 +3,14 @@
 #include <testing_framework/core/cmdline_parser.h>
 #include <testing_framework/core/test_options.h>
 #include <testing_framework/core/exe.h>
+#include <testing_framework/core/colors.h>
 #include <iostream>
 #include <regex>
 
 namespace testing
 {
+    constexpr size_t DEFAULT_LOGGING_LEVEL = 10;
+    constexpr size_t DEFAULT_JOBS = 1;
 
     static std::string skipped_options[] = {
         "-c",
@@ -137,8 +140,8 @@ namespace testing
     {
         std::vector<const Test*> tests;
         std::map<std::string, std::pair<const std::type_info*, std::string>> test_options;
-        int64_t logging_level = 0;
-        int64_t jobs = 1;
+        int64_t logging_level = DEFAULT_LOGGING_LEVEL;
+        int64_t jobs = DEFAULT_JOBS;
 
         if (!parse_args(
             argc,
@@ -195,7 +198,7 @@ namespace testing
     {
         std::vector<const Test*> tests;
         std::map<std::string, std::pair<const std::type_info*, std::string>> test_options;
-        int64_t logging_level = 0;
+        int64_t logging_level = DEFAULT_LOGGING_LEVEL;
         bool rewrite = false;
 
         if (!parse_args(
@@ -269,8 +272,20 @@ namespace testing
         argc--;
         argv++;
 
+        for (size_t i = 0; i < argc; i++)
+        {
+            std::string_view arg = argv[i];
+            if (arg == "-c")
+            {
+                set_colors_enabled(true);
+            }
+            else if (arg == "-nc")
+            {
+                set_colors_enabled(false);
+            }
+        }
+
         std::string_view cmd = argv[0];
-        
         argc--;
         argv++;
 
