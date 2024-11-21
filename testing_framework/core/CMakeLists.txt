@@ -34,10 +34,15 @@ add_library(
     cli.cpp
 
     param_parsers.h
+    param_parsers.cpp
 
     param_validators.h
+    param_validators.cpp
 
     cmdline_parser.h
+
+    test_options.h
+    test_options.cpp
 
 )
 

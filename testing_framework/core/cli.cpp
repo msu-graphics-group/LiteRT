@@ -1,49 +1,12 @@
 #include <testing_framework/core/cli.h>
 #include <testing_framework/core/commands.h>
 #include <testing_framework/core/cmdline_parser.h>
+#include <testing_framework/core/test_options.h>
 #include <iostream>
 #include <regex>
 
 namespace testing
 {
-
-    struct UserParam
-    {
-        const std::type_info*type;
-        std::function<bool(std::string)> validator;
-        std::string short_name, long_name;
-        std::string default_value;
-    };
-
-    std::map<std::string, UserParam> user_params;
-
-    static std::vector<std::string> get_test_flags()
-    {
-        std::vector<std::string> fs;
-        for (const auto&[name, p] : user_params)
-        {
-            if (p.type == nullptr)
-            {
-                fs.push_back(p.short_name);
-                fs.push_back(p.long_name);
-            }
-        }
-        return fs;
-    }
-
-    static std::vector<std::string> get_test_params()
-    {
-        std::vector<std::string> ps;
-        for (const auto&[name, p] : user_params)
-        {
-            if (p.type != nullptr)
-            {
-                ps.push_back(p.short_name);
-                ps.push_back(p.long_name);
-            }
-        }
-        return ps;
-    }
 
     static std::string skipped_options[] = {
         "-c",
@@ -65,14 +28,14 @@ namespace testing
 
     static std::vector<std::string> get_all_flags()
     {
-        auto fs = get_test_flags();
+        auto fs = get_test_flag_names();
         std::copy(std::begin(flag_names), std::end(flag_names), std::back_inserter(fs));
         return fs;
     }
 
     static std::vector<std::string> get_all_params()
     {
-        auto ps = get_test_params();
+        auto ps = get_test_param_names();
         std::copy(std::begin(param_names), std::end(param_names), std::back_inserter(ps));
         return ps;
     }
@@ -115,51 +78,6 @@ namespace testing
         {
             std::cerr << "Invaid regular expression: " << e.what() << "." << std::endl;
             return false;
-        }
-    }
-
-
-    bool collect_user_flag(std::string flag, std::map<std::string, std::pair<const std::type_info*, std::string>>&out)
-    {
-        for (const auto&[name, p] : user_params)
-        {
-            if (flag == p.short_name || flag == p.long_name)
-            {
-                out[name] = {nullptr, ""};
-                return true;
-            }
-        }
-        return false;
-    }
-
-    bool collect_user_param(
-        std::string param,
-        std::string value,
-        std::map<std::string, std::pair<const std::type_info*, std::string>>&out,
-        bool&valid
-    )
-    {
-        for (const auto&[name, p] : user_params)
-        {
-            if (param == p.short_name || param == p.long_name)
-            {
-                valid = p.validator(value);
-                out[name] = {p.type, value};
-                return true;
-            }
-        }
-        return false;
-    }
-
-    void fill_default_user_params(std::map<std::string, std::pair<const std::type_info*, std::string>>&out)
-    {
-        for (const auto&[name, p] : user_params)
-        {
-            auto it = out.find(name);
-            if (it == out.end())
-            {
-                out[name] = {p.type, p.default_value};
-            }
         }
     }
 
@@ -217,9 +135,9 @@ namespace testing
     bool handle_run(size_t argc, char**argv)
     {
         std::vector<const Test*> tests;
-        std::map<std::string, std::pair<const std::type_info*, std::string>> user_params;
-        size_t logging_level = 0;
-        size_t jobs = 1;
+        std::map<std::string, std::pair<const std::type_info*, std::string>> test_options;
+        int64_t logging_level = 0;
+        int64_t jobs = 1;
 
         if (!parse_args(
             argc,
@@ -228,7 +146,7 @@ namespace testing
             get_all_flags(),
             get_all_params(),
             [&](std::string_view flag)->bool{
-                if (collect_user_flag(std::string(flag), user_params)) {
+                if (collect_test_flag(std::string(flag), test_options)) {
                     return true;
                 } else {
                     std::cerr << "Flag '" << flag << "' is not applicable to run command." << std::endl;
@@ -239,19 +157,19 @@ namespace testing
                 bool valid  = false;
                 if (name == "-l")
                 {
-                    // validate somehow
-                    return true;
+                    return validate_param(std::string{name}, std::string{value}, logging_level)
+                        && validate_is_non_negative_param(std::string{name}, logging_level);
                 }
                 else if (name == "-j")
                 {
-                    // validate somehow
-                    return true;
+                    return validate_param(std::string{name}, std::string{value}, jobs)
+                        && validate_is_positive_param(std::string{name}, jobs);
                 }
                 else if(name == "-r")
                 {
                     return collect_tests_by_regex(value, tests);
                 }
-                else if(collect_user_param(std::string(name), std::string(value), user_params, valid))
+                else if(collect_test_param(std::string(name), std::string(value), test_options, valid))
                 {
                     return valid;
                 }
@@ -268,18 +186,77 @@ namespace testing
         {
             return false;
         }
-        fill_default_user_params(user_params);
-        //return run(logging_level, jobs, tests, user_params);
+        collect_default_test_param_values(test_options);
+        //return run(logging_level, jobs, tests, test_options);
         return true;
     }
 
-    bool handle_rewrite(size_t argc, char**argv)
+    bool handle_exec(size_t argc, char**argv)
     {
-        return true;
-    }
+        std::vector<const Test*> tests;
+        std::map<std::string, std::pair<const std::type_info*, std::string>> test_options;
+        int64_t logging_level = 0;
+        bool rewrite = false;
 
-    bool handle_unsafe(size_t argc, char**argv)
-    {
+        if (!parse_args(
+            argc,
+            argv,
+            skipped_options,
+            get_all_flags(),
+            get_all_params(),
+            [&](std::string_view flag)->bool{
+                if (flag == "-R")
+                {
+                    rewrite = true;
+                    return true;
+                }
+                else if (collect_test_flag(std::string(flag), test_options)) {
+                    return true;
+                } else {
+                    std::cerr << "Flag '" << flag << "' is not applicable to exec command." << std::endl;
+                    return false;
+                }
+            }, 
+            [&](std::string_view name, std::string_view value)->bool{
+                bool valid  = false;
+                if (name == "-l")
+                {
+                    return validate_param(std::string{name}, std::string{value}, logging_level)
+                        && validate_is_non_negative_param(std::string{name}, logging_level);
+                }
+                else if(name == "-r")
+                {
+                    return collect_tests_by_regex(value, tests);
+                }
+                else if(collect_test_param(std::string(name), std::string(value), test_options, valid))
+                {
+                    return valid;
+                }
+                else
+                {
+                    std::cerr << "Param '" << name << "' is not applicable to run command." << std::endl;
+                    return false;
+                }
+            },
+            [&](std::string_view other)->bool{
+                return collect_test_by_name(other, tests);
+            }
+        ))
+        {
+            return false;
+        }
+        collect_default_test_param_values(test_options);
+
+        if (tests.size() == 0)
+        {
+            std::cerr << "test must be specified for exec command" << std::endl;
+            return false;
+        }
+        else if(tests.size() > 1)
+        {
+            std::cerr << "exec command accepts only one test, but many where specified" << std::endl;
+        }
+        // return exec(logging_level, rewrite, tests[0], test_options);
         return true;
     }
 
@@ -310,13 +287,9 @@ namespace testing
         {
             return handle_run(argc, argv);
         }
-        else if(cmd == "rewrite")
+        else if(cmd == "exec")
         {
-            return handle_rewrite(argc, argv);
-        }
-        else if(cmd == "unsafe")
-        {
-            return handle_unsafe(argc, argv);
+            return handle_exec(argc, argv);
         }
         else
         {

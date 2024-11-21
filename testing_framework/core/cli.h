@@ -27,29 +27,6 @@ namespace testing
         std::map<std::string, std::pair<const std::type_info*, std::string>> params
     );
 
-    void add_test_param(
-        std::string name,
-        std::string default_value,
-        const std::type_info*type,
-        std::function<bool(std::string_view)> validator,
-        std::string short_name,
-        std::string long_name
-    );
-
-    inline void add_test_flag(std::string name, std::string short_name, std::string long_name)
-    {
-        add_test_param(name, "", nullptr, {}, short_name, long_name);
-    }
-    
-    template<typename T>
-    void add_test_param(std::string name, std::string default_value, std::string short_name, std::string long_name)
-    {
-        add_test_param(name, default_value, &typeid(T), [](std::string_view text){
-            T tmp;
-            return validate_param(text, tmp);
-        }, short_name, long_name);
-    }
-
     bool handle_args(size_t argc, char**argv);
 
 }
