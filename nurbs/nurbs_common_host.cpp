@@ -213,7 +213,7 @@ de_casteljau_divide_curve(
   return res;
 }
 
-constexpr float div_constant = 1.0f;
+constexpr float div_constant = 3.0f;
 int flatteing_div_count(
     int p,
     StrideView<const float4> Pw) {
@@ -226,9 +226,8 @@ int flatteing_div_count(
   for (int i = 0; i <= p-1; ++i) {
     float3 p0 = to_float3(Pw[i]/Pw[i].w);
     float3 p1 = to_float3(Pw[i+1]/Pw[i+1].w);
-    avg_v += p * length(p1-p0);
+    avg_v += length(p1-p0);
   }
-  avg_v /= p;
 
   for (int i = 0; i <= p-2; ++i) {
     float3 p0 = to_float3(Pw[i]/Pw[i].w);
@@ -238,7 +237,8 @@ int flatteing_div_count(
     mx_a = std::max(mx_a, length(res_p) * p * (p-1));
   }
 
-  return static_cast<int>(div_constant * mx_a / std::sqrt(avg_v));
+  return static_cast<int>(
+      std::ceil(div_constant * mx_a / std::sqrt(avg_v)));
 }
 
 std::vector<std::vector<float4>>
