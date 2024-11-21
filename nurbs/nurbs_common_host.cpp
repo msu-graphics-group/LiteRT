@@ -763,7 +763,7 @@ LiteMath::float3 RBCurve2D::der(float u, int order) const {
 
   float3 right = non_rat_der(u, order);
 
-  float3 res = (right - left) / bc;
+  float3 res = (right - left) / (bc * get_point(u).z);
   assert(res.z == 0.0f);
 
   return res;
