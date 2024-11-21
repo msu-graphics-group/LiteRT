@@ -4,11 +4,6 @@ add_library(
 
     main.cpp
 
-    actions.h
-    actions.cpp
-
-    help.h
-    help.cpp
     exe.h
     exe.cpp
 

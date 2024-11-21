@@ -1,6 +1,7 @@
 #include <testing_framework/core/environment.h>
 #include <testing_framework/core/execution.h>
 #include <testing_framework/core/cli.h>
+#include <testing_framework/core/logging.h>
 
 namespace testing
 {
@@ -19,6 +20,10 @@ namespace testing
     {
         if (rewrite())
         {
+
+            log(bar_warning) << "Are you sure you want rewrite " << foreground(bright_cyan) << what << default_color
+                << " in file " << foreground(bright_majenta) << "'" << path << "'" << default_color << "?" << std::endl;
+
             bool res = false;
             if (yes_or_no_dialogue(res))
             {

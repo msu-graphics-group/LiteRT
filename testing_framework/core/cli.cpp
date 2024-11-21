@@ -320,12 +320,13 @@ namespace testing
         
         while (true)
         {
-            std::cout << "Please, answer [Y/N]";
+            std::cout << "Please, answer [Y/N]:";
             std::string line;
             std::getline(std::cin, line);
             if (std::cin.eof())
             {
                 std::cout << std::endl;
+                std::cout << "Encountered end of input." << std::endl;
                 return false;
             }
             if (line.size() > 0 && line.back() == '\n')

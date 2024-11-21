@@ -16,16 +16,6 @@ namespace testing
         SKIPPED,
         CRASHED
     };
-    /*
-    std::string test_summary(std::ostream&out, size_t passed, size_t failed)
-    {
-        size_t total = passed + failed;
-
-        out << 
-
-        return std::to_string(passed) + "/" + std::to_string(total) + " checks passed, " +
-        std::to_string(failed) + "/" + std::to_string(total) + " checks failed";
-    }*/
 
     bool parse_test_summary(std::string_view text, size_t&passed, size_t&failed)
     {
