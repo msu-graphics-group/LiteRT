@@ -333,6 +333,7 @@ namespace cmesh4
       for (int i=0;i<8;i++)
         nodes.emplace_back();
       
+      //printf("created %u-branch %u on p=(%f %f %f) with %d tris\n", level, idx, p.x, p.y, p.z, (int)node_tri_ids.size());
       std::vector<uint32_t> child_tri_ids;
       for (int i=0;i<8;i++)
       {
@@ -393,6 +394,8 @@ namespace cmesh4
     octree.nodes.resize(octree_total_nodes);
     octree.triangle_ids.resize(octree_total_tri_ids);
     octree.nodes[0].offset = 1;
+    octree.nodes[0].tid_count = all_tri_ids.size()/3;
+    octree.nodes[0].tid_offset = 0;
 
     unsigned node_ofs = 9;
     unsigned tri_ids_ofs = 0;
@@ -400,8 +403,8 @@ namespace cmesh4
     {
       bool empty_root = thread_local_nodes[i][0].offset == 0;
       octree.nodes[i+1].offset = empty_root ? 0 : node_ofs;
-      octree.nodes[i+1].tid_count = empty_root ? thread_local_nodes[i][0].tid_count : 0;
-      octree.nodes[i+1].tid_offset = empty_root ? thread_local_nodes[i][0].tid_offset + tri_ids_ofs : 0;
+      octree.nodes[i+1].tid_count = empty_root ? 0 : thread_local_nodes[i][0].tid_count;
+      octree.nodes[i+1].tid_offset = empty_root ? 0 : thread_local_nodes[i][0].tid_offset + tri_ids_ofs;
 
       for (int j=1;j<thread_local_nodes[i].size();j++)
       {
@@ -418,6 +421,10 @@ namespace cmesh4
       node_ofs += thread_local_nodes[i].size() - 1;
       tri_ids_ofs += thread_local_tri_ids[i].size();
     }
+    // for (auto i : octree.nodes)
+    // {
+    //   assert(!(i.offset != 0 && i.tid_count == 0));
+    // }
     //printf("created octee with %d nodes and %d tri ids\n", (int)octree.nodes.size(), (int)octree.triangle_ids.size());
     return octree;
   }
