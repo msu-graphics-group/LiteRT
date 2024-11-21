@@ -4,6 +4,7 @@
 #include <cinttypes>
 #include <string_view>
 #include <cstdio>
+#include <random>
 
 #include "imgui.h"
 #include "imgui_impl_sdl2.h"
@@ -18,6 +19,7 @@
 #include "utils.hpp"
 #include "embree_adaptors.hpp"
 #include "gui.hpp"
+#include "curve.hpp"
 
 using namespace LiteMath;
 using namespace LiteImage;
@@ -27,6 +29,20 @@ int main(int, char** argv)
   std::filesystem::path exec_path = std::filesystem::canonical(argv[0]);
   std::filesystem::current_path(exec_path.parent_path().parent_path());
   auto proj_path = std::filesystem::current_path();
+
+  RBCurve2D rbcurve;
+  rbcurve.pw = {
+    { -1, -1, 1},
+    { -1, 1, 1},
+    { 1, 1, 1},
+    { 1, -1, 1}
+  };
+  srand(time(NULL));
+  float u = rand() * 1.0f / RAND_MAX;
+  auto res1 = rbcurve.der(u);
+  auto res2 = rbcurve.der(u, 1);
+  std::cout << res1.x << " " << res1.y << " " << res1.z << std::endl;
+  std::cout << res2.x << " " << res2.y << " " << res2.z << std::endl;
 
   int WIDTH = 1200;
   int HEIGHT = 800;

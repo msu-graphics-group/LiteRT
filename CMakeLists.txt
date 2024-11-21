@@ -60,6 +60,8 @@ add_executable(
     src/embree_adaptors.cpp
     src/gui.hpp 
     src/gui.cpp
+    src/curve.hpp
+    src/curve.cpp
 )
 target_include_directories(${PROJECT_NAME} PUBLIC ${SDL_INCLUDE_DIR})
 target_link_libraries(
