@@ -9,7 +9,9 @@ $2 $start_dir/Renderer/eye_ray.cpp $start_dir/BVH/BVH2Common.cpp \
 -composImplementation BVHRT \
 -options $start_dir/options.json \
 -intersectionShader AbstractObject::Intersect \
--intersectionTriangle AbstractObject::GeomDataTriangle \
+-intersectionTriangle GeomDataTriangle \
+-intersectionBlackList GeomDataRF \
+-intersectionBlackList GeomDataGS \
 -enable_ray_tracing_pipeline 0 \
 -stdlibfolder $PWD/TINYSTL \
 -pattern rtv \
@@ -26,7 +28,6 @@ $2 $start_dir/Renderer/eye_ray.cpp $start_dir/BVH/BVH2Common.cpp \
 -suffix _gpu_rq \
 -megakernel 1 \
 -DPUGIXML_NO_EXCEPTIONS -DKERNEL_SLICER -v \
--DDISABLE_SDF_HP \
 -DDISABLE_RF_GRID \
 -DDISABLE_GS_PRIMITIVE
 
