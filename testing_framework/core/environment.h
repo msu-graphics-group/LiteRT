@@ -12,17 +12,17 @@ namespace testing
     /*
         In rewrite mode asks user, does he want to rewrite <what> in file <path>
     */
-    bool should_rewrite_saved_reference(std::string what, std::string path);
+    bool should_rewrite_saved_reference(std::string_view what, std::string_view path);
 
-    bool get_flag(std::string name);
+    bool get_flag(std::string_view name);
 
-    std::string get_param(std::string name, const std::type_info*parsing_type);
+    std::string_view get_param(std::string_view name, const std::type_info*parsing_type);
 
     template<typename T>
-    T get_param(std::string name)
+    T get_param(std::string_view name)
     {
         T out;
-        std::string value = get_param(name, &typeid(T));
+        std::string_view value = get_param(name, &typeid(T));
         parse_param(value, out); // always success
         return out;
     }

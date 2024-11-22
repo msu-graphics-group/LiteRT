@@ -1,4 +1,4 @@
-#include "supervisor.h"
+#include <testing_framework/core/supervisor.h>
 #include <iostream>
 #include <unistd.h>
 #include <sys/wait.h>

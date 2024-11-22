@@ -38,9 +38,9 @@ namespace testing
     /*
         Skip test if types are mismatched
     */
-    bool get_test_flag(std::string name)
+    bool get_test_flag(std::string_view name)
     {
-        auto it = test_options_.find(name);
+        auto it = test_options_.find(std::string(name));
         if (it == test_options_.end())
         {
             std::cerr << "Trying to access non-existing test option '" << name << "'" << std::endl;
@@ -54,9 +54,9 @@ namespace testing
         return it->second.second.length() > 0;
     }
 
-    std::string get_test_param(std::string name, const std::type_info*parsing_type)
+    std::string_view get_test_param(std::string_view name, const std::type_info*parsing_type)
     {
-        auto it = test_options_.find(name);
+        auto it = test_options_.find(std::string(name));
         if (it == test_options_.end())
         {
             std::cerr << "Trying to access non-existing test option '" << name << "'" << std::endl;
@@ -91,7 +91,7 @@ namespace testing
         passed_ = 0;
         failed_ = 0;
         rewrite_ = rewrite;
-        test_options_ = test_options;
+        test_options_ = std::move(test_options);
         try 
         {
             test->run();

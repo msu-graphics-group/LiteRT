@@ -371,10 +371,10 @@ namespace testing
         }
         out.push_back("-l");
         out.push_back(std::to_string(logging_level));
-        out.push_back(test_name);
-        for (const auto& [name, p] : test_options)
+        out.push_back(std::move(test_name));
+        for (auto& [name, p] : test_options)
         {
-            const auto&[type, value] = p;
+            auto&[type, value] = p;
             if (type == nullptr)
             {
                 if (value.length() > 0)
@@ -385,7 +385,7 @@ namespace testing
             else
             {
                 out.push_back(get_test_option_short_name(name));
-                out.push_back(value);
+                out.push_back(std::move(value));
             }
         }       
         return out;

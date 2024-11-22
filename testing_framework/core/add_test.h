@@ -1,5 +1,5 @@
 #pragma once
-#include "test.h"
+#include <testing_framework/core/test.h>
 
 #define __ADD_TEST(id, name, description, file, line)   \
     class id : public ::testing::Test {                 \

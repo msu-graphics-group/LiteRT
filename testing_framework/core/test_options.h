@@ -3,6 +3,7 @@
 #include <map>
 #include <functional>
 #include <typeinfo>
+#include <tuple>
 
 namespace testing
 {
@@ -19,19 +20,21 @@ namespace testing
     void add_test_option(
         std::string name,
         const std::type_info*type,
-        std::function<bool(std::string, std::string)> validator,
+        std::function<bool(std::string_view, std::string_view)> validator,
         std::string short_name,
         std::string long_name,
-        std::string default_value
+        std::string default_value,
+        std::string description
     );
 
     inline void add_test_flag(
         std::string name,           // "flag"
         std::string short_name,     // "-f"
-        std::string long_name       // --flag
+        std::string long_name,       // --flag
+        std::string description
     )
     {
-        add_test_option(name, nullptr, {}, short_name, long_name, "");
+        add_test_option(std::move(name), nullptr, {}, std::move(short_name), std::move(long_name), "", std::move(description));
     }
     
     template<typename T, typename CustomValidator>
@@ -40,14 +43,15 @@ namespace testing
         std::string short_name,
         std::string long_name,
         std::string default_value,
-        CustomValidator&&custom_validator = [](std::string&, const T&)->bool{ return true; }
+        std::string description,
+        CustomValidator&&custom_validator = [](std::string_view&, const T&)->bool{ return true; }
     )
     {
         add_test_option(
-            name,
+            std::move(name),
             &typeid(T),
             [custom_validator = std::forward<CustomValidator>(custom_validator)]
-            (std::string name, std::string value)
+            (std::string_view name, std::string_view value)
             {
                 T tmp;
                 if (!validate_param(name, value, tmp))
@@ -56,23 +60,29 @@ namespace testing
                 }
                 return custom_validator(name, tmp);
             },
-            short_name,
-            long_name,
-            default_value
+            std::move(short_name),
+            std::move(long_name),
+            std::move(default_value),
+            std::move(description)
         );
     }
 
     std::vector<std::string> get_test_flag_names();
     std::vector<std::string> get_test_param_names();
 
-    std::string get_test_option_short_name(std::string name);
+    std::string get_test_option_short_name(std::string_view name);
+
+    /*
+        Returrns list of short_name, long_name and description for every option
+    */
+    std::vector<std::tuple<std::string, std::string, std::string>> get_options_info();
 
     /*
         If <name> is flag name, adds option in <out> and returns true
         Otherwise returns false
     */
     bool collect_test_flag(
-        std::string name, 
+        std::string_view name, 
         std::map<std::string, std::pair<const std::type_info*, std::string>>&out
     );
 
@@ -82,8 +92,8 @@ namespace testing
             returns validation result in <valid>; returns true
     */
     bool collect_test_param(
-        std::string name,
-        std::string value,
+        std::string_view name,
+        std::string_view value,
         std::map<std::string, std::pair<const std::type_info*, std::string>>&out,
         bool&valid
     );

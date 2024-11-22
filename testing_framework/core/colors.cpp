@@ -4,11 +4,27 @@
 namespace testing
 {
 
-    static bool enabled = true;
+    constexpr bool COLORS_ENABLED_DEFAULT = true;
+
+    static bool enabled = COLORS_ENABLED_DEFAULT;
+
+    bool get_colors_enabled_default()
+    {
+        return COLORS_ENABLED_DEFAULT;
+    }
+
+    static void enable_colors()
+    {
+        
+    }
 
     void set_colors_enabled(bool e)
     {
         enabled = e;
+        if (e)
+        {
+            enable_colors();
+        }
     }
 
     bool colors_are_enabled()

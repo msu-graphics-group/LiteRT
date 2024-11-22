@@ -7,9 +7,10 @@ namespace testing
     {
         std::string name;
         const std::type_info*type;
-        std::function<bool(std::string, std::string)> validator;
+        std::function<bool(std::string_view, std::string_view)> validator;
         std::string short_name, long_name;
         std::string default_value;
+        std::string description;
     };
 
     static std::vector<TestOption> registered_options;
@@ -18,20 +19,22 @@ namespace testing
     void add_test_option(
         std::string name,
         const std::type_info*type,
-        std::function<bool(std::string, std::string)> validator,
+        std::function<bool(std::string_view, std::string_view)> validator,
         std::string short_name,
         std::string long_name,
-        std::string default_value
+        std::string default_value,
+        std::string description
     )
     {
         registered_options.push_back(
             {
-                name,
+                std::move(name),
                 type,
                 validator,
-                short_name,
-                long_name,
-                default_value
+                std::move(short_name),
+                std::move(long_name),
+                std::move(default_value),
+                std::move(description)
             }
         );
     }
@@ -63,7 +66,7 @@ namespace testing
         return names;
     }
 
-    std::string get_test_option_short_name(std::string name)
+    std::string get_test_option_short_name(std::string_view name)
     {
         for (const auto&opt : registered_options)
         {
@@ -75,8 +78,18 @@ namespace testing
         return "";
     }
 
+    std::vector<std::tuple<std::string, std::string, std::string>> get_options_info()
+    {
+        std::vector<std::tuple<std::string, std::string, std::string>> out;
+        for (const auto&opt : registered_options)
+        {
+            out.push_back({opt.short_name, opt.long_name, opt.description});
+        }
+        return out;
+    }
+
     bool collect_test_flag(
-        std::string name, 
+        std::string_view name, 
         std::map<std::string, std::pair<const std::type_info*, std::string>>&out
     )
     {
@@ -84,7 +97,7 @@ namespace testing
         {
             if (opt.type == nullptr && (name == opt.short_name || name == opt.long_name))
             {
-                out[name] = {nullptr, "1"};
+                out[opt.name] = {nullptr, "1"};
                 return true;
             }
         }
@@ -92,20 +105,20 @@ namespace testing
     }
 
     bool collect_test_param(
-        std::string name,
-        std::string value,
+        std::string_view name,
+        std::string_view value,
         std::map<std::string, std::pair<const std::type_info*, std::string>>&out,
         bool&valid
     )
     {
         for (const auto&opt : registered_options)
         {
-            if (opt.type != nullptr && (name != opt.short_name || name != opt.long_name))
+            if (opt.type != nullptr && (name == opt.short_name || name == opt.long_name))
             {
                 valid = opt.validator(name, value);
                 if (valid)
                 {
-                    out[opt.name] = {opt.type, value};
+                    out[opt.name] = {opt.type, std::string(value)};
                 }
                 return true;
             }

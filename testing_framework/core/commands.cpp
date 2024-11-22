@@ -300,14 +300,14 @@ namespace testing
         log(bar_bold_line) << "running " << tests.size() << " tests" << std::endl;
         for (size_t i = 0; i < tests.size(); i++)
         {
-            auto args = cmdline_to_exec(
+            auto supervisor = Supervisor::spawn(cmdline_to_exec(
                 colors_are_enabled(),
                 logging_level,
                 std::string(tests[i]->name()),
                 false,
-                test_options
-            );
-            auto supervisor = Supervisor::spawn(args);
+                std::move(test_options)
+            ));
+            
             if (!supervisor)
             {
                 return false;
@@ -343,7 +343,7 @@ namespace testing
         size_t failed = 0;
 
         log(bar_run) << test->name() << std::endl;
-        bool was_skipped = !execute_test(test, rewrite, test_options, passed, failed);
+        bool was_skipped = !execute_test(test, rewrite, std::move(test_options), passed, failed);
 
         if (was_skipped)
         {

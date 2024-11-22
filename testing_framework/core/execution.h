@@ -15,8 +15,8 @@ namespace testing
     /*
         Skip test if types are mismatched
     */
-    bool get_test_flag(std::string name);
-    std::string get_test_param(std::string name, const std::type_info*parsing_type);
+    bool get_test_flag(std::string_view name);
+    std::string_view get_test_param(std::string_view name, const std::type_info*parsing_type);
 
     /*
         Returns true, if test was executed successfully

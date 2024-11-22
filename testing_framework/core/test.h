@@ -11,9 +11,9 @@ namespace testing
         
         Test(std::string name, std::string description, std::string file, size_t line);
 
-        std::string_view name() const;
-        std::string_view description() const;
-        std::string_view file() const;
+        const std::string& name() const;
+        const std::string& description() const;
+        const std::string& file() const;
         size_t line() const;
 
         /*

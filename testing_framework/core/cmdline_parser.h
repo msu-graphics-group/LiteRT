@@ -137,7 +137,7 @@ namespace testing
         typename ParamHandler,
         typename OtherHandler
     >
-    bool parse_args(
+    static bool parse_args(
         size_t argc,
         char **argv,
         Skipped&&skipped,

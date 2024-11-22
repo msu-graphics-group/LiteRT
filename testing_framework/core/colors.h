@@ -4,7 +4,7 @@
 
 namespace testing
 {
-
+    bool get_colors_enabled_default();
     void set_colors_enabled(bool enabled);
     bool colors_are_enabled();
 

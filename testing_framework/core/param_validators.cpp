@@ -5,7 +5,7 @@
 namespace testing
 {
 
-    bool validate_param(std::string name ,std::string value, int64_t&out)
+    bool validate_param(std::string_view name ,std::string_view value, int64_t&out)
     {
         if (parse_param(value, out))
         {
@@ -15,12 +15,12 @@ namespace testing
         return false;
     }
 
-    bool validate_param(std::string name, std::string value, std::string&out)
+    bool validate_param(std::string_view name, std::string_view value, std::string&out)
     {
         return parse_param(value, out);
     }
 
-    bool validate_is_positive_param(std::string name, int64_t value)
+    bool validate_is_positive_param(std::string_view name, int64_t value)
     {
         if (value > 0)
         {
@@ -30,7 +30,7 @@ namespace testing
         return false;
     }
 
-    bool validate_is_non_negative_param(std::string name, int64_t value)
+    bool validate_is_non_negative_param(std::string_view name, int64_t value)
     {
         if (value >= 0)
         {
@@ -40,7 +40,7 @@ namespace testing
         return false;
     }
 
-    bool validate_is_not_empty_param(std::string name, const std::string&value)
+    bool validate_is_not_empty_param(std::string_view name, const std::string&value)
     {
         if (value.length() > 0)
         {

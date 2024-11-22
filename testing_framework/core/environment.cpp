@@ -16,7 +16,7 @@ namespace testing
         add_current_test_check_result(passed);
     }
 
-    bool should_rewrite_saved_reference(std::string what, std::string path)
+    bool should_rewrite_saved_reference(std::string_view what, std::string_view path)
     {
         if (rewrite())
         {
@@ -37,12 +37,12 @@ namespace testing
         return false;
     }
 
-    bool get_flag(std::string name)
+    bool get_flag(std::string_view name)
     {
         return get_test_flag(name);
     }
 
-    std::string get_param(std::string name, const std::type_info*parsing_type)
+    std::string_view get_param(std::string_view name, const std::type_info*parsing_type)
     {
         return get_test_param(name, parsing_type);
     }

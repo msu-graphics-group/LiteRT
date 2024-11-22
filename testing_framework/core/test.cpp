@@ -7,23 +7,23 @@ namespace testing
 {
 
     Test::Test(std::string name, std::string description, std::string file, size_t line) :
-        name_(name),
-        description_(description),
-        file_(file),
+        name_(std::move(name)),
+        description_(std::move(description)),
+        file_(std::move(file)),
         line_(line)
     {
         tests().push_back(this);
     }
 
-    std::string_view Test::name() const
+    const std::string& Test::name() const
     {
         return name_;
     }
-    std::string_view Test::description() const
+    const std::string& Test::description() const
     {
         return description_;
     }
-    std::string_view Test::file() const
+    const std::string& Test::file() const
     {
         return file_;
     }

@@ -4,8 +4,9 @@
 namespace testing
 {
 
-    bool parse_param(std::string text, int64_t&out)
+    bool parse_param(std::string_view t, int64_t&out)
     {
+        std::string text{t};
         if (text.length() == 0)
         {
             return false;
@@ -21,9 +22,9 @@ namespace testing
         return true;
     }
 
-    bool parse_param(std::string text, std::string&out)
+    bool parse_param(std::string_view text, std::string&out)
     {
-        out = text;
+        out = std::string(text);
         return true;
     }
 
