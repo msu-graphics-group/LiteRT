@@ -131,7 +131,7 @@ namespace testing
         print_opt("-c", "--colors", " - enable colors", padding);
         print_opt("-nc", "--no-colors", " - disable colors", padding);
         std::cout << padding << padding << "(colors are "
-        << foreground(bright_yellow) << (get_colors_enabled_default() ? "enabled" : "disabled") << default_color
+        << foreground(warning_color) << (get_colors_enabled_default() ? "enabled" : "disabled") << default_color
         << " by default)" << std::endl;
         std::cout << std::endl;
 
@@ -145,6 +145,9 @@ namespace testing
         std::cout << std::endl;
 
         print_cmd("run", " <tests> [-l] [-j] <test-options>", "runs specified tests in supervised mode.", padding);
+        std::cout << padding << padding << padding
+            << "Each test is runned in seperate process, which lets handle crashes and runtime errors." << std::endl;
+        std::cout << padding << padding << padding << "If no tests are specified, assuming all tests." << std::endl;
         print_opt("-l", "--logging-level", " <value> - only messages with logging level <value> and below are printed", padding + padding);
         print_opt("-j", "--jobs", " <value> - how many tests can be runned parallel", padding + padding);
         std::cout << std::endl;
@@ -225,8 +228,7 @@ namespace testing
             return false;
         }
 
-        //return list(tests, show_descriptions);
-        return true;
+        return list(tests.size() > 0 ? tests : Test::all(), show_descriptions);
     }
 
     bool handle_run(size_t argc, char**argv)
@@ -295,7 +297,7 @@ namespace testing
             return false;
         }
         collect_default_test_param_values(test_options);
-        return run(logging_level, jobs, tests, test_options);
+        return run(logging_level, jobs, tests.size() > 0 ? tests : Test::all(), test_options);
     }
 
     bool handle_exec(size_t argc, char**argv)

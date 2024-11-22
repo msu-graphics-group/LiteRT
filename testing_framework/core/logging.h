@@ -130,7 +130,8 @@ namespace testing
     constexpr auto skip_color = intense_bright_yellow;
 
     constexpr auto highlight_color_1 = intense_bright_cyan;
-    constexpr auto highlight_color_2 = intense_bright_majenta;
+    constexpr auto highlight_color_2 = intense_majenta;
+    constexpr auto highlight_color_3 = intense_bright_yellow;
 
     constexpr auto command_color = intense_bright_yellow;
     constexpr auto option_color = intense_bright_cyan;

@@ -4,7 +4,7 @@
 namespace testing
 {
 
-    static size_t level = 0;
+    static size_t level = 10;
     static size_t message_width = 50;
 
     size_t logging_level()

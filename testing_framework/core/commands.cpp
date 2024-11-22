@@ -289,6 +289,35 @@ namespace testing
         return true;
     }
 
+    bool list(
+        const std::vector<const Test*>& tests,
+        bool write_descriptions
+    )
+    {
+        auto line = bar_line;
+        auto bold_line = bar_bold_line;
+        line.color = info_color;
+        bold_line.color = info_color;
+        log(bold_line) << "Listing " << tests.size() << " tests." << std::endl;
+        for (size_t i = 0; i < tests.size(); i++)
+        {
+            log(line) <<
+                foreground(highlight_color_3) << i + 1 << default_color
+                << "/" << tests.size() << std::endl;
+            log(bar_info) << foreground(highlight_color_1) << tests[i]->name() << default_color
+                << " defined at "
+                << foreground(highlight_color_2) << tests[i]->file() << ":" << tests[i]->line() << default_color
+                <<  std::endl;
+            if (write_descriptions)
+            {
+                log(bar_info) << "\"" << tests[i]->description() << "\"" << std::endl;
+            }
+            log(line) << std::endl;
+        }
+        log(bold_line) << "Finished listing " << tests.size() << " tests" << std::endl;
+        return true;
+    }
+
     bool run(
         size_t logging_level,
         size_t jobs,
