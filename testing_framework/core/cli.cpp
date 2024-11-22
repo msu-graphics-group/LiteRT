@@ -55,8 +55,8 @@ namespace testing
                 return true;
             }
         }
-        std::cerr << foreground(red) << "Error: " << default_color
-            << "no test with name " << foreground(bright_cyan) << "'" << name << "'" << default_color << "." << std::endl;
+        std::cerr << foreground(error_color) << "Error: " << default_color
+            << "no test with name " << foreground(highlight_color_1) << "'" << name << "'" << default_color << "." << std::endl;
         std::cerr << "See '" << current_executable_name().string() << " list' for all tests." << std::endl;
         return false;
     }
@@ -77,9 +77,9 @@ namespace testing
             }
             if (!matched_any)
             {
-                std::cerr << foreground(red) << "Error: " << default_color
+                std::cerr << foreground(error_color) << "Error: " << default_color
                     << "no test matched regular expression "
-                    << foreground(bright_cyan) << "'" << text << "'" << default_color << "." << std::endl;
+                    << foreground(highlight_color_1) << "'" << text << "'" << default_color << "." << std::endl;
                 std::cerr << "See '" << current_executable_name().string() << " list' for all tests." << std::endl;
             }
             return matched_any;
@@ -87,9 +87,9 @@ namespace testing
         catch (const std::regex_error&e)
         {
             
-            std::cerr << foreground(red) << "Error: " << default_color
+            std::cerr << foreground(error_color) << "Error: " << default_color
                 << "invalid regular expression " 
-                << foreground(bright_cyan) << "'" << text << "'" << default_color
+                << foreground(highlight_color_1) << "'" << text << "'" << default_color
                 << ": " << e.what() << "." << std::endl;
             return false;
         }
@@ -106,12 +106,12 @@ namespace testing
                 std::string_view description,
                 std::string_view offset
             ){
-                std::cout << offset << foreground(bright_cyan) << long_name << default_color
+                std::cout << offset << foreground(option_color) << long_name << default_color
                     << description << "." << std::endl;
                 if (short_name != long_name && short_name != "") {
-                    std::cout << offset << foreground(bright_cyan) << short_name << default_color
+                    std::cout << offset << foreground(option_color) << short_name << default_color
                         << " - alias for "
-                        << foreground(bright_cyan) << long_name << "" << default_color
+                        << foreground(option_color) << long_name << "" << default_color
                         << "." << std::endl;
                 }
             };
@@ -122,8 +122,8 @@ namespace testing
             std::string_view desciption,
             std::string_view offset
             ){
-                std::cout << offset << foreground(bright_yellow) << cmd << default_color
-                << foreground(bright_cyan) << args << default_color
+                std::cout << offset << foreground(command_color) << cmd << default_color
+                << foreground(option_color) << args << default_color
                 << " - " << desciption << std::endl;
             };
         
@@ -191,11 +191,11 @@ namespace testing
                 else
                 {
                     
-                    std::cerr << foreground(red) << "Error: " << default_color
+                    std::cerr << foreground(error_color) << "Error: " << default_color
                         << "option " 
-                        << foreground(bright_cyan) << "'" << flag << "'" << default_color 
+                        << foreground(option_color) << "'" << flag << "'" << default_color 
                         << " is not applicable to "
-                        << foreground(bright_yellow) << "list" << default_color
+                        << foreground(command_color) << "list" << default_color
                         << " command." << std::endl;
                     return false;
                 }
@@ -207,11 +207,11 @@ namespace testing
                 }
                 else
                 {
-                    std::cerr << foreground(red) << "Error: " << default_color
+                    std::cerr << foreground(error_color) << "Error: " << default_color
                         << "option " 
-                        << foreground(bright_cyan) << "'" << name << "'" << default_color 
+                        << foreground(option_color) << "'" << name << "'" << default_color 
                         << " is not applicable to "
-                        << foreground(bright_yellow) << "list" << default_color
+                        << foreground(command_color) << "list" << default_color
                         << " command." << std::endl;
                     return false;
                 }
@@ -246,11 +246,11 @@ namespace testing
                 if (collect_test_flag(std::string(flag), test_options)) {
                     return true;
                 } else {
-                    std::cerr << foreground(red) << "Error: " << default_color
+                    std::cerr << foreground(error_color) << "Error: " << default_color
                         << "option " 
-                        << foreground(bright_cyan) << "'" << flag << "'" << default_color 
+                        << foreground(option_color) << "'" << flag << "'" << default_color 
                         << " is not applicable to "
-                        << foreground(bright_yellow) << "run" << default_color
+                        << foreground(command_color) << "run" << default_color
                         << " command." << std::endl;
                     return false;
                 }
@@ -277,11 +277,11 @@ namespace testing
                 }
                 else
                 {
-                    std::cerr << foreground(red) << "Error: " << default_color
+                    std::cerr << foreground(error_color) << "Error: " << default_color
                         << "option " 
-                        << foreground(bright_cyan) << "'" << name << "'" << default_color 
+                        << foreground(option_color) << "'" << name << "'" << default_color 
                         << " is not applicable to "
-                        << foreground(bright_yellow) << "run" << default_color
+                        << foreground(command_color) << "run" << default_color
                         << " command." << std::endl;
                     return false;
                 }
@@ -320,11 +320,11 @@ namespace testing
                 else if (collect_test_flag(std::string(flag), test_options)) {
                     return true;
                 } else {
-                   std::cerr << foreground(red) << "Error: " << default_color
+                   std::cerr << foreground(error_color) << "Error: " << default_color
                         << "option " 
-                        << foreground(bright_cyan) << "'" << flag << "'" << default_color 
+                        << foreground(option_color) << "'" << flag << "'" << default_color 
                         << " is not applicable to "
-                        << foreground(bright_yellow) << "exec" << default_color
+                        << foreground(command_color) << "exec" << default_color
                         << " command." << std::endl;
                     return false;
                 }
@@ -346,11 +346,11 @@ namespace testing
                 }
                 else
                 {
-                    std::cerr << foreground(red) << "Error: " << default_color
+                    std::cerr << foreground(error_color) << "Error: " << default_color
                         << "option " 
-                        << foreground(bright_cyan) << "'" << name << "'" << default_color 
+                        << foreground(option_color) << "'" << name << "'" << default_color 
                         << " is not applicable to "
-                        << foreground(bright_yellow) << "exec" << default_color
+                        << foreground(command_color) << "exec" << default_color
                         << " command." << std::endl;
                     return false;
                 }
@@ -367,18 +367,18 @@ namespace testing
 
         if (tests.size() == 0)
         {
-            std::cerr << foreground(red) << "Error: " << default_color
+            std::cerr << foreground(error_color) << "Error: " << default_color
                         << "test must be specified for "
-                        << foreground(bright_yellow) << "exec" << default_color
+                        << foreground(command_color) << "exec" << default_color
                         << " command." << std::endl;
             std::cerr << "See '" << current_executable_name().string() << " help'." << std::endl;
             return false;  
         }
         else if(tests.size() > 1)
         {
-            std::cerr << foreground(red) << "Error: " << default_color
+            std::cerr << foreground(error_color) << "Error: " << default_color
                         << "only one test can be specified for "
-                        << foreground(bright_yellow) << "exec" << default_color
+                        << foreground(command_color) << "exec" << default_color
                         << " command." << std::endl;
             std::cerr << "See '" << current_executable_name().string() << " help'." << std::endl;
             return false;  
@@ -433,8 +433,8 @@ namespace testing
         }
         else
         {
-            std::cerr << foreground(red) << "Error: " << default_color
-                        << foreground(bright_yellow)  << "'" << cmd << "'" << default_color
+            std::cerr << foreground(error_color) << "Error: " << default_color
+                        << foreground(command_color)  << "'" << cmd << "'" << default_color
                         << " is not a recognised command." << std::endl;
             std::cerr << "See '" << current_executable_name().string() << " help'." << std::endl;
             return false;

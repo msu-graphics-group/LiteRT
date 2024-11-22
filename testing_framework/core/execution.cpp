@@ -44,12 +44,12 @@ namespace testing
         auto it = test_options_.find(std::string(name));
         if (it == test_options_.end())
         {
-            log(bar_error) << "Trying to access non-existing option " << foreground(bright_cyan) << name << default_color << "." << std::endl;
+            log(bar_error) << "Trying to access non-existing option " << foreground(option_color) << name << default_color << "." << std::endl;
             skip_current_test();
         }
         if (it->second.first != nullptr)
         {
-            log(bar_error) << "Trying to access option " << foreground(bright_cyan) << name << default_color << " as a flag, but it is not." << std::endl;
+            log(bar_error) << "Trying to access option " << foreground(option_color) << name << default_color << " as a flag, but it is not." << std::endl;
             skip_current_test();
         }
         return it->second.second.length() > 0;
@@ -60,19 +60,19 @@ namespace testing
         auto it = test_options_.find(std::string(name));
         if (it == test_options_.end())
         {
-            log(bar_error) << "Trying to access non-existing option " << foreground(bright_cyan) << name << default_color << "." << std::endl;
+            log(bar_error) << "Trying to access non-existing option " << foreground(option_color) << name << default_color << "." << std::endl;
             skip_current_test();
         }
         if (it->second.first == nullptr)
         {
-            log(bar_error) << "Trying to access value of option " << foreground(bright_cyan) << name << default_color << ", but it is a flag." << std::endl;
+            log(bar_error) << "Trying to access value of option " << foreground(option_color) << name << default_color << ", but it is a flag." << std::endl;
             skip_current_test();
         }
         if (it->second.first != parsing_type)
         {
-            log(bar_error) << "Trying to access value of option " << foreground(bright_cyan) << name << default_color
-                << ", but with type '" << foreground(bright_majenta) << parsing_type->name() << default_color 
-                << "' instead of declared '" << foreground(bright_majenta) << it->second.first->name() << default_color << "'." << std::endl;
+            log(bar_error) << "Trying to access value of option " << foreground(option_color) << name << default_color
+                << ", but with type '" << foreground(highlight_color_2) << parsing_type->name() << default_color 
+                << "' instead of declared '" << foreground(highlight_color_2) << it->second.first->name() << default_color << "'." << std::endl;
             skip_current_test();
         }
         return it->second.second;

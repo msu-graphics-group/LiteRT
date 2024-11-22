@@ -2,7 +2,7 @@
 #include <string>
 #include <array>
 #include <iostream>
-#include <testing_framework/core/colors.h>
+#include <testing_framework/core/logging.h>
 
 namespace testing
 {
@@ -51,8 +51,8 @@ namespace testing
                     {
                         if (argc - offset == 0)
                         {
-                            std::cerr << foreground(red) << "Error: " << default_color
-                                << "expected value for " << foreground(bright_cyan) << "'" << cut << "'" << default_color << "." << std::endl;
+                            std::cerr << foreground(error_color) << "Error: " << default_color
+                                << "expected value for " << foreground(option_color) << "'" << cut << "'" << default_color << "." << std::endl;
                             return false;
                         }
                         else
@@ -66,8 +66,8 @@ namespace testing
                 }
             }
             offset++;
-            std::cerr << foreground(red) << "Error: " << default_color
-                 << foreground(bright_cyan) << "'" << arg << "'" << default_color << " is not a recognised option" << std::endl;
+            std::cerr << foreground(error_color) << "Error: " << default_color
+                 << foreground(option_color) << "'" << arg << "'" << default_color << " is not a recognised option" << std::endl;
             return false;
         }
         else

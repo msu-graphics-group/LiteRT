@@ -354,8 +354,8 @@ namespace testing
             size_t total = passed + failed;
             log(failed > 0 ? bar_failed : bar_passed) 
                 << test->name() << " "
-                << "(" << foreground(bright_green) << passed << "/" <<  total << " passed " << default_color << "checks, "
-                <<  foreground(red) << failed << "/" << total << " failed " << default_color << "checks" << ")" << std::endl;
+                << "(" << foreground(success_color) << passed << "/" <<  total << " passed " << default_color << "checks, "
+                <<  foreground(failure_color) << failed << "/" << total << " failed " << default_color << "checks" << ")" << std::endl;
         }
 
         return true;

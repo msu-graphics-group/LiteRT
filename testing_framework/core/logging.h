@@ -119,6 +119,23 @@ namespace testing
     }
 
     /*
+        Colors in messages
+    */
+    constexpr auto info_color = intense_gray;
+    constexpr auto warning_color = intense_bright_yellow;
+    constexpr auto error_color = intense_red;
+
+    constexpr auto success_color = intense_bright_green;
+    constexpr auto failure_color = intense_red;
+    constexpr auto skip_color = intense_bright_yellow;
+
+    constexpr auto highlight_color_1 = intense_bright_cyan;
+    constexpr auto highlight_color_2 = intense_bright_majenta;
+
+    constexpr auto command_color = intense_bright_yellow;
+    constexpr auto option_color = intense_bright_cyan;
+
+    /*
         Default logging levels
     */
     constexpr size_t TEST_RESULT_LOGGING_LEVEL = 0;
@@ -129,27 +146,27 @@ namespace testing
     /*
         Lines
     */
-   constexpr Bar bar_line{"", TEST_RESULT_LOGGING_LEVEL, 0, bright_green, '-'};
-   constexpr Bar bar_bold_line{"", TEST_RESULT_LOGGING_LEVEL, 0, bright_green, '='};
+   constexpr Bar bar_line{"", TEST_RESULT_LOGGING_LEVEL, 0, success_color, '-'};
+   constexpr Bar bar_bold_line{"", TEST_RESULT_LOGGING_LEVEL, 0, success_color, '='};
 
     /*
         Run
     */
-    constexpr Bar bar_run{"RUN", TEST_RESULT_LOGGING_LEVEL, -1, bright_green};
+    constexpr Bar bar_run{"RUN", TEST_RESULT_LOGGING_LEVEL, -1, success_color};
 
     /*
         Test results
     */
-    constexpr Bar bar_passed{"PASSED", TEST_RESULT_LOGGING_LEVEL, 1, bright_green};
-    constexpr Bar bar_failed{"FAILED", TEST_RESULT_LOGGING_LEVEL, 1, red};
-    constexpr Bar bar_skipped{"SKIPPED", TEST_RESULT_LOGGING_LEVEL, 1, bright_yellow};
-    constexpr Bar bar_crashed{"CRASHED", TEST_RESULT_LOGGING_LEVEL, 1, red};
+    constexpr Bar bar_passed{"PASSED", TEST_RESULT_LOGGING_LEVEL, 1, success_color};
+    constexpr Bar bar_failed{"FAILED", TEST_RESULT_LOGGING_LEVEL, 1, failure_color};
+    constexpr Bar bar_skipped{"SKIPPED", TEST_RESULT_LOGGING_LEVEL, 1, skip_color};
+    constexpr Bar bar_crashed{"CRASHED", TEST_RESULT_LOGGING_LEVEL, 1, failure_color};
 
     /*
         Messages
     */
-    constexpr Bar bar_info{"INFO", INFO_LOGGING_LEVEL, 0, gray};
-    constexpr Bar bar_warning{"WARNING", WARNING_LOGGING_LEVEL, 0, bright_yellow};
-    constexpr Bar bar_error{"ERROR", ERROR_LOGGING_LEVEL, 0, red};
+    constexpr Bar bar_info{"INFO", INFO_LOGGING_LEVEL, 0, info_color};
+    constexpr Bar bar_warning{"WARNING", WARNING_LOGGING_LEVEL, 0, warning_color};
+    constexpr Bar bar_error{"ERROR", ERROR_LOGGING_LEVEL, 0, error_color};
 
 }

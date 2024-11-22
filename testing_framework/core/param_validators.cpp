@@ -1,6 +1,6 @@
 #include <testing_framework/core/param_validators.h>
 #include <testing_framework/core/param_parsers.h>
-#include <testing_framework/core/colors.h>
+#include <testing_framework/core/logging.h>
 #include <iostream>
 
 namespace testing
@@ -12,8 +12,8 @@ namespace testing
         {
             return true;
         }
-        std::cerr << foreground(red) << "Error: " << default_color
-            << foreground(bright_cyan) << "'" << name << "'" << default_color <<  " must be 64-bit integer." << std::endl;
+        std::cerr << foreground(error_color) << "Error: " << default_color
+            << foreground(option_color) << "'" << name << "'" << default_color <<  " must be 64-bit integer." << std::endl;
         return false;
     }
 
@@ -28,8 +28,8 @@ namespace testing
         {
             return true;
         }
-        std::cerr << foreground(red) << "Error: " << default_color
-            << foreground(bright_cyan) << "'" << name << "'" << default_color <<  " must be positive." << std::endl;
+        std::cerr << foreground(error_color) << "Error: " << default_color
+            << foreground(option_color) << "'" << name << "'" << default_color <<  " must be positive." << std::endl;
         return false;
     }
 
@@ -39,8 +39,8 @@ namespace testing
         {
             return true;
         }
-        std::cerr << foreground(red) << "Error: " << default_color
-            << foreground(bright_cyan) << "'" << name << "'" << default_color <<  " must be non-negative." << std::endl;
+        std::cerr << foreground(error_color) << "Error: " << default_color
+            << foreground(option_color) << "'" << name << "'" << default_color <<  " must be non-negative." << std::endl;
         return false;
     }
 
@@ -50,8 +50,8 @@ namespace testing
         {
             return true;
         }
-        std::cerr << foreground(red) << "Error: " << default_color
-            << foreground(bright_cyan) << "'" << name << "'" << default_color <<  " must not be empty." << std::endl;
+        std::cerr << foreground(error_color) << "Error: " << default_color
+            << foreground(option_color) << "'" << name << "'" << default_color <<  " must not be empty." << std::endl;
         return false;
     }
 

@@ -10,7 +10,7 @@ namespace testing
 
     struct Color
     {
-        bool red, green, blue, bright;
+        bool red, green, blue, bright, bold_or_intense;
     };
 
     void set_output_color(std::ostream&out, std::optional<Color> foreground, std::optional<Color> background);
@@ -60,8 +60,12 @@ namespace testing
         return out;
     }
 
+#define DECL_COLOR_0(name,red, green, blue, bright, bold) \
+    constexpr Color name { red, green, blue, bright, bold}; 
+
 #define DECL_COLOR(name, r, g, b, br) \
-    constexpr Color name { r, g, b, br };
+    DECL_COLOR_0(name, r, g, b, br, 0) \
+    DECL_COLOR_0(intense_##name, r, g, b, br, 1)
 
 #define DECL_COLOR_2(name, r, g, b) \
     DECL_COLOR(name, r, g, b, 0) \
@@ -81,5 +85,6 @@ namespace testing
 
 #undef DECL_COLOR_2
 #undef DECL_COLOR
+#undef DECL_COLOR_0
 
 }

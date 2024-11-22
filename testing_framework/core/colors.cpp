@@ -70,8 +70,13 @@ namespace testing
             return "";
         }
         std::string out = "\33[";
+        
         if (foreground)
         {
+            if (foreground->bold_or_intense)
+            {
+                out += "1;";
+            }
             out += std::to_string(color_number(*foreground, false));
         }
         if (foreground && background)
