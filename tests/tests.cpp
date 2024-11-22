@@ -3581,7 +3581,7 @@ void litert_test_41_coctree_v3()
 
   LiteImage::Image2D<float4> texture = LiteImage::LoadImage<float4>("scenes/porcelain.png");
 
-  unsigned W = 2048, H = 2048;
+  unsigned W = 512, H = 512;
   MultiRenderPreset preset = getDefaultPreset();
   preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
   preset.spp = 16;
@@ -3706,7 +3706,7 @@ void litert_test_41_coctree_v3()
     printf("SBS %2d bits/distance: %4.1f ms %6.1f Kb %.2f PSNR %.4f FLIP\n", b, timings[0]/10, SBS_total_bytes/(1024.0f), psnr, flip);
     printf("                 avg: %4.1f ms, min: %4.1f ms, max: %4.1f ms\n", timings_2[0], timings_2[1], timings_2[2]);
   }
-if (false)
+  if (false)
   {
     auto octree = sdf_converter::create_sdf_frame_octree(SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, base_depth, 2<<28),
                                                          mesh);
@@ -3761,12 +3761,16 @@ if (false)
 
   for (int bvh_level : bvh_levels)
   {
-    std::vector<int> int_modes = {TRICUBIC_INTERPOLATION_MODE, TRILINEAR_INTERPOLATION_MODE};
+    std::vector<int> int_modes = { INTERPOLATION_MODE_TRILINEAR, INTERPOLATION_MODE_TRICUBIC };
     for (int int_mode : int_modes)
     {
+    if (int_mode == INTERPOLATION_MODE_TRILINEAR)
+    printf("New method\n");
+    else if (int_mode == INTERPOLATION_MODE_TRICUBIC)
+    printf("Existing method\n");
     auto pRender = CreateMultiRenderer(DEVICE_GPU);
-    preset.normal_mode = NORMAL_MODE_VERTEX;
-    preset.interpolation_type = int_mode;
+    preset.normal_mode = NORMAL_MODE_SDF_SMOOTHED;
+    preset.interpolation_mode = int_mode;
     pRender->SetPreset(preset);
     pRender->SetScene(coctree, bvh_level);
     uint32_t texId = pRender->AddTexture(texture);
@@ -3783,13 +3787,13 @@ if (false)
     t2 = std::chrono::steady_clock::now();
 
     time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
-    LiteImage::SaveImage<uint32_t>(("saves/test_41_coctree_v3_"+std::to_string(bvh_level)+"_bits.bmp").c_str(), image_res);
+    LiteImage::SaveImage<uint32_t>(("saves/test_41_coctree_v3_"+std::to_string(int_mode)+"_bits.bmp").c_str(), image_res);
     
     MultiRenderPreset preset_tex = preset;
     preset_tex.render_mode = MULTI_RENDER_MODE_LAMBERT;
     pRender->SetPreset(preset_tex);
     //pRender->Render(image_res_tex.data(), W, H, worldView, proj, preset_tex, 1);
-    LiteImage::SaveImage<uint32_t>(("saves/test_41_coctree_v3_"+std::to_string(bvh_level)+"_bits_tex.bmp").c_str(), image_res_tex); 
+    // LiteImage::SaveImage<uint32_t>(("saves/test_41_coctree_v3_"+std::to_string(bvh_level)+"_bits_tex.bmp").c_str(), image_res_tex); 
 
     BVHRT *bvhrt = dynamic_cast<BVHRT*>(pRender->GetAccelStruct()->UnderlyingImpl(0));
     coctree_total_bytes = bvhrt->m_SdfCompactOctreeV3Data.size()*sizeof(uint32_t) + 

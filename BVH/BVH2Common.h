@@ -225,6 +225,11 @@ struct BVHRT : public ISceneObject
                          uint32_t a_start, uint32_t a_count,
                          CRT_Hit *pHit);
 
+  void OctreeIntersectV3_2(uint32_t type, const float3 ray_pos, const float3 ray_dir,
+                           float tNear, uint32_t instId, uint32_t geomId,
+                           uint32_t a_start, uint32_t a_count,
+                           CRT_Hit *pHit);
+
   void OctreeNodeIntersect(uint32_t type, const float3 ray_pos, const float3 ray_dir,
                            float tNear, uint32_t instId, uint32_t geomId,
                            uint32_t a_start, uint32_t a_count,
@@ -832,7 +837,10 @@ struct GeomDataCOctreeBricked : public AbstractObject
     uint32_t a_count = EXTRACT_COUNT(start_count_packed);
     uint32_t type = bvhrt->m_geomData[geometryId].type;
 
+    if (bvhrt->GetPreset().interpolation_mode == INTERPOLATION_MODE_TRICUBIC)
     bvhrt->OctreeIntersectV3(type, ray_pos, ray_dir, tNear, info.instId, geometryId, a_start, a_count, pHit);
+    else if (bvhrt->GetPreset().interpolation_mode == INTERPOLATION_MODE_TRILINEAR)
+    bvhrt->OctreeIntersectV3_2(type, ray_pos, ray_dir, tNear, info.instId, geometryId, a_start, a_count, pHit);
     return pHit->t >= tPrev  ? TAG_NONE : TAG_COCTREE_BRICKED;
   }
 };

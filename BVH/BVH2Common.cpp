@@ -2347,7 +2347,7 @@ float BVHRT::eval_distance_sdf_coctree_v3(uint32_t octree_id, float3 pos)
   float3 max_pos = m_origNodes[a_start].boxMax;
 
   uint32_t start_sz = uint32_t(2.0f / (max_pos.x - min_pos.x));
-  uint3 start_p_orig = uint3(float(start_sz)*0.5f*(min_pos - float3(-1,-1,-1)));
+  uint3 start_p_orig = uint3(0.5f*start_sz*(min_pos - float3(-1,-1,-1)));
 
   uint3 p;
   float3 p_f;
@@ -3177,8 +3177,6 @@ void BVHRT::OctreeIntersectV3(uint32_t type, const float3 ray_pos, const float3 
       }
       else
       { 
-        if (m_preset.interpolation_type == TRICUBIC_INTERPOLATION_MODE)
-        {
         buf_top = 0;
         tm = 0.5f*(t0 + t1);
 
@@ -3209,76 +3207,184 @@ void BVHRT::OctreeIntersectV3(uint32_t type, const float3 ray_pos, const float3 
           stack[top+i] = tmp_buf[buf_top-i-1];
         }
         top += buf_top - 1;
-        }
-        else
-        {
-
-
-        //beg
-        const float level_sz_half = level_sz * 0.5f;
-        float3 real_p = p_f;
-        if ((a & 4) > 0) real_p.x = ~p.x & (level_sz - 1);
-        if ((a & 2) > 0) real_p.y = ~p.y & (level_sz - 1);
-        if ((a & 1) > 0) real_p.z = ~p.z & (level_sz - 1);
-        real_p = float3(level_sz_half) - real_p;
-
-        float3 c0 = level_sz_half * (ray_pos + std::max(std::max(t0.x, t0.y), t0.z) * ray_dir) + real_p;
-        float3 c1 = level_sz_half * (ray_pos + std::min(std::min(t1.x, t1.y), t1.z) * ray_dir) + real_p;
-        const float EPS = 1e-5f;
-
-        uint4 nodes = uint4(8u);
-
-        nodes[0] = (uint32_t(c0.x >= 0.5f) << 2u) | (uint32_t(c0.y >= 0.5f) << 1u) | uint32_t(c0.z >= 0.5f); // in
-        nodes[3] = (uint32_t(c1.x >= 0.5f) << 2u) | (uint32_t(c1.y >= 0.5f) << 1u) | uint32_t(c1.z >= 0.5f); // out
-
-        if (nodes[0] == nodes[3])
-        {
-          // same node
-          nodes[3] = 8u;
-        }
-        else if (((nodes[0] ^ nodes[3]) & ((nodes[0] ^ nodes[3]) - 1)) > 0) // neighbours ignored - we know them
-        {
-          float3 coefs = float3(1e20f);
-          int a1 = 2;
-          bool diagonal = (nodes[0] ^ nodes[3]) == 7u;
-
-          for (int i = 0; i < 3; ++i)
-          {
-            coefs[i] = (c0[i] - 0.5f) / (0.5f - c1[i]);
-            if (coefs[i] >= 0.f && coefs[i] < coefs[a1])
-              a1 = i;
-          }
-
-          nodes[1] = nodes[0] ^ (1 << (2 - a1));
-          if (diagonal)
-          {
-            int a2 = (a1 + 1) % 3;
-            int a3 = (a2 + 1) % 3;
-            if (coefs[a3] < coefs[a2])
-              a2 = a3;
-            nodes[2] = nodes[1] ^ (1 << (2 - a2));
-          }
-        }
-
-        uint32_t childrenInfo = m_SdfCompactOctreeV3Data[stack[top].nodeId + 8];
-        uint2 p_size = stack[top].p_size << 1;
-        uint32_t node_id = stack[top].nodeId;
-        for (int i = 3; i >= 0; --i)
-        {
-          if (nodes[i] < 8 && (childrenInfo & (1u << nodes[i])) > 0)
-          {
-            uint32_t curr_node = nodes[i] ^ a;
-            stack[top].nodeId = m_SdfCompactOctreeV3Data[node_id + nodes[i]];
-            stack[top].curChildId = childrenInfo & (1u << (nodes[i] + 8)); // > 0 is child is leaf
-            stack[top].p_size = p_size | uint2(((curr_node & 4) << (16-2)) | ((curr_node & 2) >> 1), (curr_node & 1) << 16);
-            ++top;
-          }
-        }
-        --top;
-        //end
-        }
       }
     }
+#endif
+}
+
+//Octree intersect for Compact Octrees V3
+//This is used with BVH (so it is a two-layer hierarchy)
+void BVHRT::OctreeIntersectV3_2(uint32_t type, const float3 ray_pos, const float3 ray_dir,
+                                float tNear, uint32_t instId, uint32_t geomId,
+                                uint32_t bvhNodeId, uint32_t a_count,
+                                CRT_Hit *pHit)
+{
+#ifndef DISABLE_SDF_FRAME_OCTREE_COMPACT
+  float3 pos_ray_pos = ray_pos;
+  float3 pos_ray_dir = ray_dir;
+  //assume octree is box [-1,1]^3
+  uint32_t a = 0;
+  if (ray_dir.x < 0)
+  {
+    pos_ray_pos.x *= -1;
+    pos_ray_dir.x *= -1;
+    a |= 4;
+  }
+
+  if (ray_dir.y < 0)
+  {
+    pos_ray_pos.y *= -1;
+    pos_ray_dir.y *= -1;
+    a |= 2;
+  }
+
+  if (ray_dir.z < 0)
+  {
+    pos_ray_pos.z *= -1;
+    pos_ray_dir.z *= -1;
+    a |= 1;
+  }
+
+  float3 min_pos = m_origNodes[bvhNodeId].boxMin;
+  float3 max_pos = m_origNodes[bvhNodeId].boxMax;
+
+  uint32_t start_sz = uint32_t(2.0f / (max_pos.x - min_pos.x));
+  uint32_t p_mask = start_sz - 1;
+  uint3 start_p_orig = uint3(0.5f*start_sz*(min_pos - float3(-1,-1,-1)));
+  uint3 start_p = uint3(((a & 4) > 0) ? (start_p_orig.x ^ p_mask) : start_p_orig.x,
+                        ((a & 2) > 0) ? (start_p_orig.y ^ p_mask) : start_p_orig.y,
+                        ((a & 1) > 0) ? (start_p_orig.z ^ p_mask) : start_p_orig.z);
+  start_p = start_p_orig; // THIS
+
+  uint32_t startNodeOffset = m_origNodes[bvhNodeId].leftOffset;
+
+  pos_ray_pos *= -1;
+  const float3 pos_ray_dir_inv = SafeInverse(pos_ray_dir);
+  float3 _t0 = pos_ray_pos * pos_ray_dir_inv - pos_ray_dir_inv;
+  float3 _t1 = pos_ray_pos * pos_ray_dir_inv + pos_ray_dir_inv;
+  float3 _l = _t1 - _t0;
+
+  {
+    // float3 t0_2, t1_2;
+    const float3 new_ray_dir_inv = SafeInverse(ray_dir);
+    // t0_2 = -ray_pos * new_ray_dir_inv - abs(new_ray_dir_inv);
+    // t1_2 = -ray_pos * new_ray_dir_inv + abs(new_ray_dir_inv);
+
+    // if (std::abs(t0_2.x - _t0.x) > 1e-5f || std::abs(t0_2.y - _t0.y) > 1e-5f || std::abs(t0_2.z - _t0.z) > 1e-5f)
+    //   printf("t0: [%f, %f, %f], t0_2: [%f, %f, %f]; t1: [%f, %f, %f], t1_2: [%f, %f, %f]\n", _t0.x, _t0.y, _t0.z, t0_2.x, t0_2.y, t0_2.z, _t1.x, _t1.y, _t1.z, t1_2.x, t1_2.y, t1_2.z);
+    
+
+    _t0 = -ray_pos * new_ray_dir_inv - abs(new_ray_dir_inv);
+    _t1 = -ray_pos * new_ray_dir_inv + abs(new_ray_dir_inv);
+    _l = _t1 - _t0;
+  }
+
+  OTStackElement stack[32];
+
+  int top = 0;
+  uint3 p;
+  float3 p_f, t0, t1;
+  uint32_t level_sz;
+  float d, old_t = pHit->t;
+
+  stack[top].nodeId = startNodeOffset;
+  stack[top].curChildId = 0;
+  stack[top].p_size = uint2((start_p.x << 16) | start_p.y, (start_p.z << 16) | start_sz);
+
+  while (top >= 0)
+  {
+    level_sz = stack[top].p_size.y & 0xFFFF;
+    p = uint3(stack[top].p_size.x >> 16, stack[top].p_size.x & 0xFFFF, stack[top].p_size.y >> 16);
+    d = 1.0f/float(level_sz);
+
+    p_f = float3(p);
+
+    uint3 tmp_p = p; // NOT THIS
+    if ((a & 4) > 0) tmp_p.x = p.x ^ (level_sz - 1);
+    if ((a & 2) > 0) tmp_p.y = p.y ^ (level_sz - 1);
+    if ((a & 1) > 0) tmp_p.z = p.z ^ (level_sz - 1);
+    t0 = _t0 + d* float3(tmp_p)      * _l;
+    t1 = _t0 + d*(float3(tmp_p) + 1) * _l;
+
+    if(stack[top].curChildId > 0) //leaf node
+    {
+      p_mask = level_sz - 1;
+      uint3 real_p = uint3(((a & 4) > 0) ? (p.x ^ p_mask) : p.x,
+                           ((a & 2) > 0) ? (p.y ^ p_mask) : p.y,
+                           ((a & 1) > 0) ? (p.z ^ p_mask) : p.z);
+      real_p = p; // THIS
+
+      COctreeV3_BrickIntersect(TYPE_SDF_FRAME_OCTREE, ray_pos, ray_dir, tNear, instId, geomId, coctree_v3_header, stack[top].nodeId, float3(real_p), float(level_sz), pHit);
+
+      if (pHit->t < old_t)
+        top = -1;
+      else
+        top--;
+    }
+    else
+    {
+      p_mask = level_sz - 1;
+      const float level_sz_half = level_sz * 0.5f;
+      float3 real_p = p_f;
+      if ((a & 4) > 0) real_p.x = p.x ^ p_mask;
+      if ((a & 2) > 0) real_p.y = p.y ^ p_mask;
+      if ((a & 1) > 0) real_p.z = p.z ^ p_mask;
+      real_p = p_f; // THIS
+
+      float3 c0 = level_sz_half * (ray_pos + std::max(std::max(t0.x, t0.y), t0.z) * ray_dir + 1.f) - real_p;
+      float3 c1 = level_sz_half * (ray_pos + std::min(std::min(t1.x, t1.y), t1.z) * ray_dir + 1.f) - real_p;
+
+      uint4 nodes = uint4(8u);
+
+      nodes[0] = (uint32_t(c0.x >= 0.5f) << 2u) | (uint32_t(c0.y >= 0.5f) << 1u) | uint32_t(c0.z >= 0.5f); // in
+      nodes[3] = (uint32_t(c1.x >= 0.5f) << 2u) | (uint32_t(c1.y >= 0.5f) << 1u) | uint32_t(c1.z >= 0.5f); // out
+
+      if (nodes[0] == nodes[3])
+      {
+        // same node
+        nodes[3] = 8u;
+      }
+      else if (((nodes[0] ^ nodes[3]) & ((nodes[0] ^ nodes[3]) - 1)) > 0) // neighbours ignored - we know them
+      {
+        float coefs[6] = {1e20f, 1e20f, 1e20f, 1e20f, 1e20f, 1e20f};
+        int a1 = 2;
+
+        for (int i = 0; i < 3; ++i)
+        {
+          coefs[i] = (c0[i] - 0.5f) / (0.5f - c1[i]);
+          coefs[i + 3] = coefs[i];
+          if (coefs[i] >= 0.f && coefs[i] < coefs[a1])
+            a1 = i;
+        }
+
+        nodes[1] = nodes[0] ^ (1 << (2 - a1));
+        if ((nodes[0] ^ nodes[3]) == 7u)
+        {
+          a1 += 1;
+          if (coefs[a1 + 1] < coefs[a1])
+            a1 += 1;
+          nodes[2] = nodes[1] ^ (1 << (2 - (a1 % 3)));
+        }
+      }
+
+      uint2 p_size = stack[top].p_size << 1;
+      uint32_t node_id = stack[top].nodeId;
+      uint32_t childrenInfo = m_SdfCompactOctreeV3Data[node_id + 8];
+      for (int i = 3; i >= 0; --i)
+      {
+        if (nodes[i] < 8 && (childrenInfo & (1u << nodes[i])) > 0)
+        {
+          uint32_t curr_node = nodes[i] ^ a;
+          curr_node = nodes[i]; // THIS
+          stack[top].nodeId = m_SdfCompactOctreeV3Data[node_id + nodes[i]];
+          stack[top].curChildId = childrenInfo & (1u << (nodes[i] + 8)); // > 0 is child is leaf
+          stack[top].p_size = p_size | uint2(((curr_node & 4) << (16-2)) | ((curr_node & 2) >> 1), (curr_node & 1) << 16);
+          ++top;
+        }
+      }
+      --top;
+    }
+  }
 #endif
 }
 
