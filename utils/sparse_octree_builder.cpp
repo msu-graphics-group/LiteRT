@@ -997,11 +997,11 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
           for (int k = -out_octree.header.brick_pad; k <= out_octree.header.brick_size + out_octree.header.brick_pad; ++k)
           {
             float3 ch_pos = pos + 2*(d/out_octree.header.brick_size)*float3(i,j,k);
-            float global_sign = 1, global_min_dist_sq = 1000;
+            float global_sign = 1, global_min_dist_sq = 1000000;
 
             for (auto group : groups)
             {
-              float local_sign = 1, local_min_dist_sq = 1000;
+              float local_sign = 1, local_min_dist_sq = 1000000;
               for (int t0 = 0; t0 < group.size(); t0 += 3)
               {
                 float3 a = group[t0+0], b = group[t0+1], c = group[t0+2];
@@ -1033,6 +1033,24 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
       for (int i = 0; i < 8; ++i)
       {
         out_octree.nodes[num].tex_coords[i] = float2(0,0);//temp stubs
+      }
+    }
+    else
+    {
+      unsigned cur_values_off = out_octree.values_f.size();
+      out_octree.nodes[num].val_off = cur_values_off;
+      out_octree.values_f.resize(cur_values_off + v_size*v_size*v_size);
+      for (int i = -out_octree.header.brick_pad; i <= out_octree.header.brick_size + out_octree.header.brick_pad; ++i)
+      {
+        for (int j = -out_octree.header.brick_pad; j <= out_octree.header.brick_size + out_octree.header.brick_pad; ++j)
+        {
+          for (int k = -out_octree.header.brick_pad; k <= out_octree.header.brick_size + out_octree.header.brick_pad; ++k)
+          {
+            out_octree.values_f[cur_values_off + (i+out_octree.header.brick_pad)*v_size*v_size + 
+                                                 (j+out_octree.header.brick_pad)*v_size + 
+                                                 (k+out_octree.header.brick_pad)] = 0;
+          }
+        }
       }
     }
     
@@ -1073,7 +1091,7 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
             {
               out_octree.values_f[out_octree.nodes[num].val_off + (i+out_octree.header.brick_pad)*v_size*v_size + 
                                                   (j+out_octree.header.brick_pad)*v_size + 
-                                                  (k+out_octree.header.brick_pad)] = sqrt(1000.0f);
+                                                  (k+out_octree.header.brick_pad)] = sqrt(1000000.0f);
             }
           }
         }
@@ -3908,7 +3926,7 @@ void frame_octree_to_compact_octree_v3_rec(const std::vector<SdfFrameOctreeTexNo
           {
             values_tmp[SBS_v_to_i(i, j, k, v_size, header.brick_pad)] = val;
             if (i >= 0 && j >= 0 && k >= 0 && 
-                i < (int)header.brick_size && j < (int)header.brick_size && k < (int)header.brick_size)
+                i <= (int)header.brick_size && j <= (int)header.brick_size && k <= (int)header.brick_size)
             {
               min_val = std::min(min_val, val);
               max_val = std::max(max_val, val);
