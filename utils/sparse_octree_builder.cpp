@@ -3257,7 +3257,7 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
       {
         for (int k=0;k<p_size;k++)
         {
-          if (presence_flags[i*p_size*p_size + j*p_size + k])
+          if (ctx.presence_flags[i*p_size*p_size + j*p_size + k])
             printf("#");
           else
             printf("_");
@@ -3295,8 +3295,7 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
 
 
     //empty all range that can be used later
-    unsigned max_size_uints = (v_size*v_size*v_size + vals_per_int - 1) / vals_per_int + 
-                              distance_flags_size_uints + presence_flags_size_uints + distance_offsets_size_uints;
+    unsigned max_size_uints = (v_size*v_size*v_size + vals_per_int - 1) / vals_per_int + off_5;
     for (int i = 0; i < max_size_uints; i++)
       ctx.u_values_tmp[i] = 0;
 
@@ -3366,7 +3365,7 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
       {
         unsigned d_compressed = max_val*((ctx.values_tmp[i] - min_active) / range_active);
         ctx.u_values_tmp[off_5 + active_distances / vals_per_int] |= d_compressed << (bits * (active_distances % vals_per_int));
-        //printf("distance %d put to %u\n", i, active_distances);
+        //printf("distance %u (%x) put to %u (%u)\n", d_compressed, d_compressed << (bits * (active_distances % vals_per_int)), active_distances, off_5 + active_distances / vals_per_int);
         active_distances++;
       }
     }
@@ -3375,6 +3374,13 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
     assert(distances_size_uint > 0);
     //printf("a leaf %u %u %u (%u/%u)\n", distances_size_uint, distance_flags_size_uints, presence_flags_size_uints, active_distances, v_size*v_size*v_size);
 
+
+    // printf("leaf %u %u %u %u %u %u\n", distances_size_uint, min_range_size_uints, distance_flags_size_uints, presence_flags_size_uints,
+    // distance_offsets_size_uints, 8*header.uv_size);
+    //printf("off = %u %u %u %u %u %u\n", off_0, off_1, off_2, off_3, off_4, off_5);
+    //printf("%x %x %x %x %x %x %x %x\n", ctx.u_values_tmp[0], ctx.u_values_tmp[1], ctx.u_values_tmp[2], ctx.u_values_tmp[3], 
+    //                                    ctx.u_values_tmp[4], ctx.u_values_tmp[5], ctx.u_values_tmp[6], ctx.u_values_tmp[7]);
+   //printf("total %u\n", distances_size_uint + min_range_size_uints + distance_flags_size_uints + presence_flags_size_uints + distance_offsets_size_uints + 8*header.uv_size);
     return distances_size_uint + min_range_size_uints + distance_flags_size_uints + presence_flags_size_uints + distance_offsets_size_uints
            + 8*header.uv_size;
   }
@@ -3792,8 +3798,7 @@ void frame_octree_to_compact_octree_v3_rec(const std::vector<SdfFrameOctreeTexNo
 
 
     //empty all range that can be used later
-    unsigned max_size_uints = (v_size*v_size*v_size + vals_per_int - 1) / vals_per_int + 
-                              distance_flags_size_uints + presence_flags_size_uints + distance_offsets_size_uints;
+    unsigned max_size_uints = (v_size*v_size*v_size + vals_per_int - 1) / vals_per_int + off_5;
     for (int i = 0; i < max_size_uints; i++)
       ctx.u_values_tmp[i] = 0;
 

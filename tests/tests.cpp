@@ -4406,9 +4406,11 @@ void litert_test_45_global_octree_to_COctreeV3()
   LiteImage::Image2D<uint32_t> image(W, H);
   LiteImage::Image2D<uint32_t> image_r(W, H);
 
-  SparseOctreeSettings settings = SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, 3);
+  int depth = 3;
+
+  SparseOctreeSettings settings = SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, depth);
   std::vector<SdfFrameOctreeNode> frame, fr_r;
-  fr_r = sdf_converter::create_sdf_frame_octree(SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, 3), mesh);
+  fr_r = sdf_converter::create_sdf_frame_octree(SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, depth), mesh);
 
   auto tlo = cmesh4::create_triangle_list_octree(mesh, settings.depth, 0, 1.0f);
   sdf_converter::GlobalOctree g;
@@ -4425,7 +4427,7 @@ void litert_test_45_global_octree_to_COctreeV3()
   ref.header = coctree.header;
 
   auto t1 = std::chrono::steady_clock::now();
-  ref.data = sdf_converter::create_COctree_v3(SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, 3),
+  ref.data = sdf_converter::create_COctree_v3(SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, depth),
                                                   ref.header, mesh);
   sdf_converter::global_octree_to_compact_octree_v3(g, coctree, 1);
   g.header.brick_size = 1;
