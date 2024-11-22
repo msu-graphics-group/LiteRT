@@ -557,8 +557,14 @@ static float4x4 get_rotation_matrix(const Transform& t)
 
 void calculate_brick_grad_histogram(const float *brick_data, unsigned v_size, unsigned pad, unsigned *out_hist, unsigned intervals = 3)
 {
+  constexpr unsigned MAX_INTERVALS = 8;
+  assert(intervals <= MAX_INTERVALS);
+  unsigned hist_tmp[MAX_INTERVALS*MAX_INTERVALS*MAX_INTERVALS];
+
   for (int i=0;i<intervals*intervals*intervals;i++)
-    out_hist[i] = 0;
+    hist_tmp[i] = 0;
+  
+  float3 average_dir = float3(0, 0, 0);
   for (int i=pad;i<v_size-pad-1;i++)
   {
     for (int j=pad;j<v_size-pad-1;j++)
@@ -567,21 +573,112 @@ void calculate_brick_grad_histogram(const float *brick_data, unsigned v_size, un
       {
         unsigned off = i*v_size*v_size + j*v_size + k;
         float3 grad = eval_dist_trilinear_diff(brick_data, v_size, off, float3(0.5f, 0.5f, 0.5f));
-        float glad_length = LiteMath::length(grad) + 1e-9f;
+        float glad_length = LiteMath::length(grad) + 1e-6f;
         grad /= glad_length; //grad cannot reach -1 or 1 in each direction
+        average_dir += grad;
+
+        float3 tang_1 = (1 - std::abs(dot(grad, float3(1,0,0))) > 1e-6f) ? cross(grad, float3(1,0,0)) : cross(grad, float3(0,1,0));
+        float3 tang_2 = cross(grad, tang_1);
+
+        const float grad_scatter = 0.1f/intervals;
+        tang_1 *= grad_scatter;
+        tang_2 *= grad_scatter;
+
         //printf("n = %f %f %f\n", grad.x, grad.y, grad.z);
-        int3 grad_q = int3(intervals*0.5f*(grad + 1.0f));
-        assert(grad_q.x < intervals && grad_q.y < intervals && grad_q.z < intervals &&
-               grad_q.x >= 0 && grad_q.y >= 0 && grad_q.z >= 0);
-        out_hist[grad_q.x*intervals*intervals + grad_q.y*intervals + grad_q.z]++;
+        for (int dx=-1; dx<=1;dx++)
+        {
+          for (int dy=-1; dy<=1;dy++)
+          {
+            float3 scattered_grad = grad + dx*tang_1 + dy*tang_2;
+            float scattered_grad_length = LiteMath::length(scattered_grad) + 1e-6f;
+            scattered_grad /= scattered_grad_length;
+
+            int3 grad_q = int3(intervals*0.5f*(scattered_grad + 1.0f));
+            assert(grad_q.x < intervals && grad_q.y < intervals && grad_q.z < intervals &&
+                  grad_q.x >= 0 && grad_q.y >= 0 && grad_q.z >= 0);
+            int idx = grad_q.x*intervals*intervals + grad_q.y*intervals + grad_q.z;
+            hist_tmp[idx]++;
+          }
+        }
       }
     }
   }
 
-  printf("Histogram: [  ");
-  for (int i=0;i<intervals*intervals*intervals;i++)
-    printf("%u ", out_hist[i]);
-  printf("]\n");
+  // printf("HistogramA: [  ");
+  // for (int i=0;i<intervals*intervals*intervals;i++)
+  //   printf("%u ", hist_tmp[i]);
+  // printf("]\n");
+
+  //find 1st and 2nd largest values in average_dir
+  unsigned l1 = 0, l2 = 0;
+  float3 abs_ad = abs(average_dir);
+  if (abs_ad.x >= abs_ad.y)
+  {
+    if (abs_ad.x >= abs_ad.z)
+    {
+      l1 = 0;
+      l2 = abs_ad.y >= abs_ad.z ? 1 : 2;
+    }
+    else
+    {
+      l1 = 2;
+      l2 = 0;
+    }
+  }
+  else //abs_ad.x < abs_ad.y
+  {
+    if (abs_ad.y >= abs_ad.z)
+    {
+      l1 = 1;
+      l2 = abs_ad.x >= abs_ad.z ? 0 : 2;
+    }
+    else //abs_ad.y < abs_ad.z
+    {
+      l1 = 2;
+      l2 = 1;
+    }
+  }
+
+  //if average dir is 0 vector, something probalby went wrong
+  assert(sign(average_dir[l1]) != 0);
+  //if second axis is 0 (e.g. average = (x,0,0)), assume it is positive
+  if (average_dir[l2] == 0)
+    average_dir[l2] = 1e6f;
+
+  //calculate new basis for histogram.
+  float3 e1 = float3(0,0,0);
+  e1[l1] = -sign(average_dir[l1]);
+  float3 e2 = float3(0,0,0);
+  e2[l2] = -sign(average_dir[l2]);
+  float3 e3 = cross(e1, e2);
+  float3x3 rotation = LiteMath::inverse3x3(LiteMath::make_float3x3_by_columns(e1,e2,e3));
+
+  // float3 e1_0 = rotation * e1;
+  // printf("e1 %f %f %f --> %f %f %f\n", e1.x, e1.y, e1.z, e1_0.x, e1_0.y, e1_0.z);
+  // float3 e2_0 = rotation * e2;
+  // printf("e2 %f %f %f --> %f %f %f\n", e2.x, e2.y, e2.z, e2_0.x, e2_0.y, e2_0.z);
+  // float3 e3_0 = rotation * e3;
+  // printf("e3 %f %f %f --> %f %f %f\n", e3.x, e3.y, e3.z, e3_0.x, e3_0.y, e3_0.z);
+
+  for (int x = 0; x < intervals; x++)
+  {
+    for (int y = 0; y < intervals; y++)
+    {
+      for (int z = 0; z < intervals; z++)
+      {
+        int idx = x * intervals * intervals + y * intervals + z;
+        int3 rot_vec = int3(rotation * (float3(x, y, z) - float3(intervals / 2.0f - 0.5f)) + float3(intervals / 2.0f - 0.5f + 1e-3f));
+        int rot_idx = rot_vec.x * intervals * intervals + rot_vec.y * intervals + rot_vec.z;
+        // printf("%d %d %d --> %d %d %d  %d --> %d\n", x,y,z, rot_vec.x, rot_vec.y, rot_vec.z, idx, rot_idx);
+        out_hist[rot_idx] = hist_tmp[idx];
+      }
+    }
+  }
+
+  // printf("HistogramB: [  ");
+  // for (int i=0;i<intervals*intervals*intervals;i++)
+  //   printf("%u ", out_hist[i]);
+  // printf("]\n");
 }
 
 void litert_test_7_global_octree()
@@ -611,7 +708,7 @@ void litert_test_7_global_octree()
   float max_val = 0.01f;
   int valid_nodes = 0;
   int surface_nodes = 0;
-  float dist_thr = 0.00005f;
+  float dist_thr = 0.000025f;
   //printf("dist thr = %f\n", dist_thr);
 
   int v_size = g_octree.header.brick_size + 2 * g_octree.header.brick_pad + 1;
@@ -673,8 +770,8 @@ void litert_test_7_global_octree()
   for (int i=0; i<g_octree.nodes.size(); i++)
   {
     if (surface_node[i])
-      calculate_brick_grad_histogram(g_octree.values_f.data() + g_octree.nodes[i].val_off, 
-                                    v_size, g_octree.header.brick_pad, histograms[i].data(), HIST_INTERVALS);
+     calculate_brick_grad_histogram(g_octree.values_f.data() + g_octree.nodes[i].val_off, 
+                                   v_size, g_octree.header.brick_pad, histograms[i].data(), HIST_INTERVALS);
   }
 
   if (dist_thr >= 0)  //replace with remap
