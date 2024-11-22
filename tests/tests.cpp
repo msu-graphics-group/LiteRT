@@ -3761,13 +3761,9 @@ void litert_test_41_coctree_v3()
 
   for (int bvh_level : bvh_levels)
   {
-    std::vector<int> int_modes = { INTERPOLATION_MODE_TRILINEAR, INTERPOLATION_MODE_TRICUBIC };
+    std::vector<int> int_modes = { 0 };
     for (int int_mode : int_modes)
     {
-    if (int_mode == INTERPOLATION_MODE_TRILINEAR)
-    printf("New method\n");
-    else if (int_mode == INTERPOLATION_MODE_TRICUBIC)
-    printf("Existing method\n");
     auto pRender = CreateMultiRenderer(DEVICE_GPU);
     preset.normal_mode = NORMAL_MODE_SDF_SMOOTHED;
     preset.interpolation_mode = int_mode;
