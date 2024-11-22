@@ -69,4 +69,20 @@ namespace litert_tests
         printf("warning something went wrong!\n");
     }
 
+    ADD_TEST(test7, "Some globals")
+    {
+        bool ignore = testing::get_flag("ignore_saved_references");
+        std::cout << "Ignore: " << ignore << std::endl;
+        auto w = testing::get_param<int64_t>("image_width");
+        std::cout << "Width: " << w << std::endl;
+         auto h = testing::get_param<std::string>("image_height");
+        std::cout << "Height: " << h << std::endl;
+    }
+
+    ADD_TEST(test8, "Some more globals")
+    {
+        auto some = testing::get_param<std::string>("some");
+        std::cout << "Some: " << some << std::endl;
+    }
+
 }

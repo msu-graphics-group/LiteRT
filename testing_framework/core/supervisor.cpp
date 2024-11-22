@@ -1,4 +1,5 @@
 #include <testing_framework/core/supervisor.h>
+#include <testing_framework/core/colors.h>
 #include <iostream>
 #include <unistd.h>
 #include <sys/wait.h>
@@ -63,14 +64,16 @@ namespace testing
         int fd[2];
         if (pipe(fd))
         {
-            std::cerr << "Failed to create pipe: " << strerror(errno) << "." << std::endl;
+            std::cerr << foreground(red) << "Error: " << default_color
+                << "failed to create pipe: " << strerror(errno) << "." << std::endl;
             return false;
         }
 
         auto close_read = [&]()->int{
             if (close(fd[0]))
             {
-                std::cerr << "Failed to close pipe read end: " << strerror(errno) << "." << std::endl;
+                std::cerr << foreground(red) << "Error: " << default_color
+                    << "failed to close pipe read end: " << strerror(errno) << "." << std::endl;
                 return 1;
             }
             return 0;
@@ -78,7 +81,8 @@ namespace testing
         auto close_write = [&]()->int{
             if (close(fd[1]))
             {
-                std::cerr << "Failed to close pipe write end: " << strerror(errno) << "." << std::endl;
+                std::cerr << foreground(red) << "Error: " << default_color
+                    << "failed to close pipe write end: " << strerror(errno) << "." << std::endl;
                 return 1;
             }
             return 0;
@@ -89,7 +93,8 @@ namespace testing
         pid_t res = fork();
         if (res == -1)
         {
-            std::cerr << "Failed to fork: " << strerror(errno) << "." << std::endl;
+            std::cerr << foreground(red) << "Error: " << default_color
+                 << "failed to fork: " << strerror(errno) << "." << std::endl;
             close_read();
             close_write();
             return false;
@@ -109,7 +114,8 @@ namespace testing
         {
             if (prctl(PR_SET_PDEATHSIG, SIGKILL)) // child is killed after parent dies
             {
-                std::cerr << "Failed syscall prctl(PR_SET_PDEATHSIG, SIGKILL): " << strerror(errno) << "." << std::endl;
+                std::cerr << foreground(red) << "Error: " << default_color
+                    << "failed syscall prctl(PR_SET_PDEATHSIG, SIGKILL): " << strerror(errno) << "." << std::endl;
                 close_read();
                 close_write();
                 exit(1);
@@ -124,7 +130,8 @@ namespace testing
             */
             if (parent_pid != getppid())
             {
-                std::cerr << "Fatal error: supervisor process has died." << std::endl;
+                std::cerr << foreground(red) << "Error: " << default_color
+                    << "supervisor process has died." << std::endl;
                 close_read();
                 close_write();
                 exit(1);
@@ -138,7 +145,8 @@ namespace testing
 
             if (dup2(fd[1], 1) == -1)
             {
-                std::cerr << "Failed to dup pipe write end to stdout: " << strerror(errno) << "." << std::endl;
+                std::cerr << foreground(red) << "Error: " << default_color
+                    << "failed to dup pipe write end to stdout: " << strerror(errno) << "." << std::endl;
                 close_write();
                 exit(1);
             }
@@ -178,8 +186,8 @@ namespace testing
             execvp(ptrs[0], ptrs.data());
 
             // failed to run
-
-            std::cerr << "Failed to exec '";
+            std::cerr << foreground(red) << "Error: " << default_color
+                << "failed to exec '";
             for (size_t i = 0; i < args.size(); i++)
             {
                 std::cerr << args[i];
@@ -207,15 +215,18 @@ namespace testing
             // Only way is to ignore them or exit
             if (close(out_))
             {
-                std::cerr << "Failed to close subprocess output: " << strerror(errno) << "." << std::endl;
+                std::cerr << foreground(red) << "Error: " << default_color
+                    << "failed to close subprocess output: " << strerror(errno) << "." << std::endl;
             }
             if (kill(pid_, SIGKILL))
             {
-                std::cerr << "Failed to kill subprocess: " << strerror(errno) << "." << std::endl;
+                std::cerr << foreground(red) << "Error: " << default_color
+                    << "failed to kill subprocess: " << strerror(errno) << "." << std::endl;
             }
             if (wait(&status_) == -1)
             {
-                std::cerr << "Failed to wait for subprocess: " << strerror(errno) << "." << std::endl;
+                std::cerr << foreground(red) << "Error: " << default_color
+                    << "failed to wait for subprocess: " << strerror(errno) << "." << std::endl;
             }
             pid_ = 0;
             out_ = -1;
@@ -241,7 +252,8 @@ namespace testing
                 }
                 else // really an error
                 {
-                    std::cerr << "Failed to read subprocess output: " << strerror(errno) << "." << std::endl;
+                    std::cerr << foreground(red) << "Error: " << default_color
+                        << "failed to read subprocess output: " << strerror(errno) << "." << std::endl;
                     clear();
                     return std::nullopt;
                 }

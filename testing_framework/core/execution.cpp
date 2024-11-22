@@ -1,4 +1,5 @@
 #include <testing_framework/core/execution.h>
+#include <testing_framework/core/logging.h>
 #include <iostream>
 
 namespace testing
@@ -43,12 +44,12 @@ namespace testing
         auto it = test_options_.find(std::string(name));
         if (it == test_options_.end())
         {
-            std::cerr << "Trying to access non-existing test option '" << name << "'" << std::endl;
+            log(bar_error) << "Trying to access non-existing option " << foreground(bright_cyan) << name << default_color << "." << std::endl;
             skip_current_test();
         }
         if (it->second.first != nullptr)
         {
-            std::cerr << "Trying to access option '" << name << "' as a flag, but it is not" << std::endl;
+            log(bar_error) << "Trying to access option " << foreground(bright_cyan) << name << default_color << " as a flag, but it is not." << std::endl;
             skip_current_test();
         }
         return it->second.second.length() > 0;
@@ -59,18 +60,19 @@ namespace testing
         auto it = test_options_.find(std::string(name));
         if (it == test_options_.end())
         {
-            std::cerr << "Trying to access non-existing test option '" << name << "'" << std::endl;
+            log(bar_error) << "Trying to access non-existing option " << foreground(bright_cyan) << name << default_color << "." << std::endl;
             skip_current_test();
         }
         if (it->second.first == nullptr)
         {
-            std::cerr << "Trying to access value of option '" << name << "', but it is a flag" << std::endl;
+            log(bar_error) << "Trying to access value of option " << foreground(bright_cyan) << name << default_color << ", but it is a flag." << std::endl;
             skip_current_test();
         }
         if (it->second.first != parsing_type)
         {
-            std::cerr << "Trrying to access value of option '" << name << "', but with type different type"
-                << "'" << parsing_type->name() << "' insted of declared '" << it->second.first->name() << "'" << std::endl;
+            log(bar_error) << "Trying to access value of option " << foreground(bright_cyan) << name << default_color
+                << ", but with type '" << foreground(bright_majenta) << parsing_type->name() << default_color 
+                << "' instead of declared '" << foreground(bright_majenta) << it->second.first->name() << default_color << "'." << std::endl;
             skip_current_test();
         }
         return it->second.second;

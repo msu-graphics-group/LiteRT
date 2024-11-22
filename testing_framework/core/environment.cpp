@@ -21,7 +21,7 @@ namespace testing
         if (rewrite())
         {
 
-            log(bar_warning) << "Are you sure you want rewrite " << foreground(bright_cyan) << what << default_color
+            log(bar_warning) << "Are you sure you want to rewrite " << foreground(bright_cyan) << what << default_color
                 << " in file " << foreground(bright_majenta) << "'" << path << "'" << default_color << "?" << std::endl;
 
             bool res = false;

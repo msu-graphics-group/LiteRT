@@ -70,12 +70,12 @@ namespace testing
     std::vector<std::string> get_test_flag_names();
     std::vector<std::string> get_test_param_names();
 
-    std::string get_test_option_short_name(std::string_view name);
+    std::string get_test_option_cli_name(std::string_view name);
 
     /*
         Returrns list of short_name, long_name and description for every option
     */
-    std::vector<std::tuple<std::string, std::string, std::string>> get_options_info();
+    std::vector<std::tuple<std::string, std::string, std::string>> get_test_options_info();
 
     /*
         If <name> is flag name, adds option in <out> and returns true

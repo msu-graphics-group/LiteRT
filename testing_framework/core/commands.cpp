@@ -305,7 +305,7 @@ namespace testing
                 logging_level,
                 std::string(tests[i]->name()),
                 false,
-                std::move(test_options)
+                test_options
             ));
             
             if (!supervisor)

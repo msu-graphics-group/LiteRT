@@ -4,6 +4,7 @@
 #include <testing_framework/core/test_options.h>
 #include <testing_framework/core/exe.h>
 #include <testing_framework/core/colors.h>
+#include <testing_framework/core/exe.h>
 #include <iostream>
 #include <regex>
 
@@ -13,21 +14,21 @@ namespace testing
     constexpr size_t DEFAULT_JOBS = 1;
 
     static std::string skipped_options[] = {
-        "-c",
-        "-nc"
+        "-c", "--colors",
+        "-nc", "--no-colors"
     };
 
     static std::string flag_names[] = {
-        "-c",
-        "-nc",
-        "-d",
-        "-R"
+        "-c", "--colors",
+        "-nc", "--no-colors",
+        "-d", "--description",
+        "-R", "--rewrite"
     };
 
     static std::string param_names[] = {
-        "-r",
-        "-l",
-        "-j"
+        "-r", "--regex",
+        "-l", "--logging-level",
+        "-j", "--jobs"
     };
 
     static std::vector<std::string> get_all_flags()
@@ -54,7 +55,9 @@ namespace testing
                 return true;
             }
         }
-        std::cerr << "Test with name '" << name << "' does not exist." << std::endl;
+        std::cerr << foreground(red) << "Error: " << default_color
+            << "no test with name " << foreground(bright_cyan) << "'" << name << "'" << default_color << "." << std::endl;
+        std::cerr << "See '" << current_executable_name().string() << " list' for all tests." << std::endl;
         return false;
     }
 
@@ -74,19 +77,97 @@ namespace testing
             }
             if (!matched_any)
             {
-                std::cerr << "No test name mached regular expression '" << text << "'." << std::endl;
+                std::cerr << foreground(red) << "Error: " << default_color
+                    << "no test matched regular expression "
+                    << foreground(bright_cyan) << "'" << text << "'" << default_color << "." << std::endl;
+                std::cerr << "See '" << current_executable_name().string() << " list' for all tests." << std::endl;
             }
             return matched_any;
         }
         catch (const std::regex_error&e)
         {
-            std::cerr << "Invaid regular expression: " << e.what() << "." << std::endl;
+            
+            std::cerr << foreground(red) << "Error: " << default_color
+                << "invalid regular expression " 
+                << foreground(bright_cyan) << "'" << text << "'" << default_color
+                << ": " << e.what() << "." << std::endl;
             return false;
         }
     }
 
     bool handle_help(size_t argc, char**argv)
     {
+
+        std::string padding = "    ";
+
+        auto print_opt = [&](
+                std::string_view short_name,
+                std::string_view long_name,
+                std::string_view description,
+                std::string_view offset
+            ){
+                std::cout << offset << foreground(bright_cyan) << long_name << default_color
+                    << description << "." << std::endl;
+                if (short_name != long_name && short_name != "") {
+                    std::cout << offset << foreground(bright_cyan) << short_name << default_color
+                        << " - alias for "
+                        << foreground(bright_cyan) << long_name << "" << default_color
+                        << "." << std::endl;
+                }
+            };
+
+        auto print_cmd = [&](
+            std::string_view cmd,
+            std::string_view args,
+            std::string_view desciption,
+            std::string_view offset
+            ){
+                std::cout << offset << foreground(bright_yellow) << cmd << default_color
+                << foreground(bright_cyan) << args << default_color
+                << " - " << desciption << std::endl;
+            };
+        
+        std::cout << "General options:" << std::endl;
+        print_opt("-c", "--colors", " - enable colors", padding);
+        print_opt("-nc", "--no-colors", " - disable colors", padding);
+        std::cout << padding << padding << "(colors are "
+        << foreground(bright_yellow) << (get_colors_enabled_default() ? "enabled" : "disabled") << default_color
+        << " by default)" << std::endl;
+        std::cout << std::endl;
+
+        std::cout << "Commands:" << std::endl;
+
+        print_cmd("help", "", "print this text.", padding);
+        std::cout << std::endl;
+
+        print_cmd("list", " <tests> [-d]", "prints tests' names. If no tests are specified, assuming all tests.", padding);
+        print_opt("-d", "--description", " - print descriptions of tests", padding + padding);
+        std::cout << std::endl;
+
+        print_cmd("run", " <tests> [-l] [-j] <test-options>", "runs specified tests in supervised mode.", padding);
+        print_opt("-l", "--logging-level", " <value> - only messages with logging level <value> and below are printed", padding + padding);
+        print_opt("-j", "--jobs", " <value> - how many tests can be runned parallel", padding + padding);
+        std::cout << std::endl;
+
+        print_cmd("exec", " <test> [-l] [-R] <test-options>", " runs speicified test.", padding);
+        print_opt("-R", "--rewrite", " - rewrites test's saved references", padding + padding);
+        std::cout << std::endl;
+
+        std::cout << "Tests list:" << std::endl;
+        std::cout << padding << "Tests are specified by name or by regular expressions using following option:" << std::endl;
+        print_opt("-r", "--regex", " <regexpr> - adds to <tests-list> all tests which are matched by <regex>", padding); 
+        std::cout << std::endl;
+
+        std::cout << "Test options:" << std::endl;
+        std::cout << padding << "Following options' values can be accessed inside tests:" << std::endl;
+
+        for (const auto&[short_name, long_name, description] : get_test_options_info())
+        {
+            print_opt(short_name, long_name, description, padding);
+        }
+
+        std::cout << std::endl;
+
         return true;
     }
     
@@ -102,25 +183,36 @@ namespace testing
             get_all_flags(),
             get_all_params(),
             [&](std::string_view flag)->bool{
-                if (flag == "-d")
+                if (flag == "-d" || flag == "--description")
                 {
                     show_descriptions = true;
                     return true;
                 }
                 else
                 {
-                    std::cerr << "Flag '" << flag << "' is not applicable to list command." << std::endl;
+                    
+                    std::cerr << foreground(red) << "Error: " << default_color
+                        << "option " 
+                        << foreground(bright_cyan) << "'" << flag << "'" << default_color 
+                        << " is not applicable to "
+                        << foreground(bright_yellow) << "list" << default_color
+                        << " command." << std::endl;
                     return false;
                 }
             }, 
             [&](std::string_view name, std::string_view value)->bool{
-                if (name == "-r")
+                if (name == "-r" || name == "--regex")
                 {
                     return collect_tests_by_regex(value, tests);
                 }
                 else
                 {
-                    std::cerr << "Param '" << name << "' is not applicable to list command." << std::endl;
+                    std::cerr << foreground(red) << "Error: " << default_color
+                        << "option " 
+                        << foreground(bright_cyan) << "'" << name << "'" << default_color 
+                        << " is not applicable to "
+                        << foreground(bright_yellow) << "list" << default_color
+                        << " command." << std::endl;
                     return false;
                 }
             },
@@ -129,6 +221,7 @@ namespace testing
             }
         ))
         {
+            std::cerr << "See '" << current_executable_name().string() << " help'." << std::endl;
             return false;
         }
 
@@ -153,23 +246,28 @@ namespace testing
                 if (collect_test_flag(std::string(flag), test_options)) {
                     return true;
                 } else {
-                    std::cerr << "Flag '" << flag << "' is not applicable to run command." << std::endl;
+                    std::cerr << foreground(red) << "Error: " << default_color
+                        << "option " 
+                        << foreground(bright_cyan) << "'" << flag << "'" << default_color 
+                        << " is not applicable to "
+                        << foreground(bright_yellow) << "run" << default_color
+                        << " command." << std::endl;
                     return false;
                 }
             }, 
             [&](std::string_view name, std::string_view value)->bool{
                 bool valid  = false;
-                if (name == "-l")
+                if (name == "-l" || name == "--logging-level")
                 {
                     return validate_param(std::string{name}, std::string{value}, logging_level)
                         && validate_is_non_negative_param(std::string{name}, logging_level);
                 }
-                else if (name == "-j")
+                else if (name == "-j" || name == "--jobs")
                 {
                     return validate_param(std::string{name}, std::string{value}, jobs)
                         && validate_is_positive_param(std::string{name}, jobs);
                 }
-                else if(name == "-r")
+                else if(name == "-r" || name == "--regex")
                 {
                     return collect_tests_by_regex(value, tests);
                 }
@@ -179,7 +277,12 @@ namespace testing
                 }
                 else
                 {
-                    std::cerr << "Param '" << name << "' is not applicable to run command." << std::endl;
+                    std::cerr << foreground(red) << "Error: " << default_color
+                        << "option " 
+                        << foreground(bright_cyan) << "'" << name << "'" << default_color 
+                        << " is not applicable to "
+                        << foreground(bright_yellow) << "run" << default_color
+                        << " command." << std::endl;
                     return false;
                 }
             },
@@ -188,6 +291,7 @@ namespace testing
             }
         ))
         {
+            std::cerr << "See '" << current_executable_name().string() << " help'." << std::endl;
             return false;
         }
         collect_default_test_param_values(test_options);
@@ -208,7 +312,7 @@ namespace testing
             get_all_flags(),
             get_all_params(),
             [&](std::string_view flag)->bool{
-                if (flag == "-R")
+                if (flag == "-R" || flag == "--rewrite")
                 {
                     rewrite = true;
                     return true;
@@ -216,18 +320,23 @@ namespace testing
                 else if (collect_test_flag(std::string(flag), test_options)) {
                     return true;
                 } else {
-                    std::cerr << "Flag '" << flag << "' is not applicable to exec command." << std::endl;
+                   std::cerr << foreground(red) << "Error: " << default_color
+                        << "option " 
+                        << foreground(bright_cyan) << "'" << flag << "'" << default_color 
+                        << " is not applicable to "
+                        << foreground(bright_yellow) << "exec" << default_color
+                        << " command." << std::endl;
                     return false;
                 }
             }, 
             [&](std::string_view name, std::string_view value)->bool{
                 bool valid  = false;
-                if (name == "-l")
+                if (name == "-l" || name == "--logging-level")
                 {
                     return validate_param(std::string{name}, std::string{value}, logging_level)
                         && validate_is_non_negative_param(std::string{name}, logging_level);
                 }
-                else if(name == "-r")
+                else if(name == "-r" || name == "--regex")
                 {
                     return collect_tests_by_regex(value, tests);
                 }
@@ -237,7 +346,12 @@ namespace testing
                 }
                 else
                 {
-                    std::cerr << "Param '" << name << "' is not applicable to run command." << std::endl;
+                    std::cerr << foreground(red) << "Error: " << default_color
+                        << "option " 
+                        << foreground(bright_cyan) << "'" << name << "'" << default_color 
+                        << " is not applicable to "
+                        << foreground(bright_yellow) << "exec" << default_color
+                        << " command." << std::endl;
                     return false;
                 }
             },
@@ -246,18 +360,28 @@ namespace testing
             }
         ))
         {
+            std::cerr << "See '" << current_executable_name().string() << " help'." << std::endl;
             return false;
         }
         collect_default_test_param_values(test_options);
 
         if (tests.size() == 0)
         {
-            std::cerr << "test must be specified for exec command" << std::endl;
-            return false;
+            std::cerr << foreground(red) << "Error: " << default_color
+                        << "test must be specified for "
+                        << foreground(bright_yellow) << "exec" << default_color
+                        << " command." << std::endl;
+            std::cerr << "See '" << current_executable_name().string() << " help'." << std::endl;
+            return false;  
         }
         else if(tests.size() > 1)
         {
-            std::cerr << "exec command accepts only one test, but many where specified" << std::endl;
+            std::cerr << foreground(red) << "Error: " << default_color
+                        << "only one test can be specified for "
+                        << foreground(bright_yellow) << "exec" << default_color
+                        << " command." << std::endl;
+            std::cerr << "See '" << current_executable_name().string() << " help'." << std::endl;
+            return false;  
         }
         return exec(logging_level, rewrite, tests[0], test_options);
     }
@@ -267,6 +391,8 @@ namespace testing
         
         if (argc < 2)
         {
+            std::cerr << "Use '" << current_executable_name().string() << " run' to run tests." << std::endl;
+            std::cerr << "See '" << current_executable_name().string() << " help' for more information." << std::endl;
             return false;
         }
         argc--;
@@ -275,11 +401,11 @@ namespace testing
         for (size_t i = 0; i < argc; i++)
         {
             std::string_view arg = argv[i];
-            if (arg == "-c")
+            if (arg == "-c" || arg == "--colors")
             {
                 set_colors_enabled(true);
             }
-            else if (arg == "-nc")
+            else if (arg == "-nc" || arg == "--no-colors")
             {
                 set_colors_enabled(false);
             }
@@ -307,7 +433,10 @@ namespace testing
         }
         else
         {
-            std::cerr << "Bad command" << std::endl;
+            std::cerr << foreground(red) << "Error: " << default_color
+                        << foreground(bright_yellow)  << "'" << cmd << "'" << default_color
+                        << " is not a recognised command." << std::endl;
+            std::cerr << "See '" << current_executable_name().string() << " help'." << std::endl;
             return false;
         }
 
@@ -379,12 +508,12 @@ namespace testing
             {
                 if (value.length() > 0)
                 {
-                    out.push_back(get_test_option_short_name(name));
+                    out.push_back(get_test_option_cli_name(name));
                 }
             }
             else
             {
-                out.push_back(get_test_option_short_name(name));
+                out.push_back(get_test_option_cli_name(name));
                 out.push_back(std::move(value));
             }
         }       

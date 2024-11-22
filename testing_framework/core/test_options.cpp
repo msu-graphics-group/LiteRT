@@ -66,19 +66,19 @@ namespace testing
         return names;
     }
 
-    std::string get_test_option_short_name(std::string_view name)
+    std::string get_test_option_cli_name(std::string_view name)
     {
         for (const auto&opt : registered_options)
         {
             if (opt.name == name)
             {
-                return opt.short_name;
+                return opt.long_name;
             }
         }
         return "";
     }
 
-    std::vector<std::tuple<std::string, std::string, std::string>> get_options_info()
+    std::vector<std::tuple<std::string, std::string, std::string>> get_test_options_info()
     {
         std::vector<std::tuple<std::string, std::string, std::string>> out;
         for (const auto&opt : registered_options)

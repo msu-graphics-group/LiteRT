@@ -2,6 +2,7 @@
 #include <string>
 #include <array>
 #include <iostream>
+#include <testing_framework/core/colors.h>
 
 namespace testing
 {
@@ -29,14 +30,14 @@ namespace testing
             return true;
         }
         std::string_view arg = argv[offset];
-        if (arg.length() >= 2 && arg[0] == '-')
+        if (arg.length() >= 1 && arg[0] == '-')
         {
             if (is_flag_name(arg))
             {
                 offset++;
                 return flag(arg);
             }
-            for (size_t len = 2; len <= arg.length(); len++)
+            for (size_t len = 1; len <= arg.length(); len++)
             {
                 std::string_view cut(arg.begin(), arg.begin() + len);
                 if (is_param_name(cut))
@@ -50,21 +51,23 @@ namespace testing
                     {
                         if (argc - offset == 0)
                         {
-                            std::cerr << "Expected value for '" << cut << "'" << std::endl;
+                            std::cerr << foreground(red) << "Error: " << default_color
+                                << "expected value for " << foreground(bright_cyan) << "'" << cut << "'" << default_color << "." << std::endl;
                             return false;
                         }
                         else
                         {
+                            std::string_view next = argv[offset];
                             offset++;
-                            return param(cut, argv[offset-1]);
+                            return param(cut, next);
                         }
                     }
 
                 }
             }
             offset++;
-            std::cerr << "'" << arg << "' is not a recognised option" << std::endl;
-            // failed to parse, but ok
+            std::cerr << foreground(red) << "Error: " << default_color
+                 << foreground(bright_cyan) << "'" << arg << "'" << default_color << " is not a recognised option" << std::endl;
             return false;
         }
         else
