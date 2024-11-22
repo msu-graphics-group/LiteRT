@@ -681,12 +681,57 @@ void calculate_brick_grad_histogram(const float *brick_data, unsigned v_size, un
   // printf("]\n");
 }
 
+unsigned histogram_to_class(const unsigned *hist, unsigned intervals)
+{
+  const unsigned max_directions = 2;
+  const float importance_thr = 0.9;
+  const unsigned unusual_hist_value = intervals*intervals;
+  const unsigned class_mult = unusual_hist_value + 1;
+  const unsigned unusual_class = 0;
+  const unsigned hist_size = intervals*intervals*intervals;
+
+  unsigned hist_sum = 0;
+  for (unsigned i = 0; i < hist_size; i++)
+    hist_sum += hist[i];
+  const unsigned hist_sum_thr = hist_sum * importance_thr;
+
+  unsigned cur_class_mult = 1;
+  unsigned cur_class = 0;
+  unsigned cur_sum = 0;
+  std::vector<unsigned> indices(hist_size, 0);
+  for (unsigned i = 0; i < hist_size; i++)
+    indices[i] = i;
+  
+  std::sort(indices.begin(), indices.end(), [&](unsigned a, unsigned b) { return hist[a] > hist[b]; });
+  //printf("%u %u %u %u\n", hist[indices[0]], hist[indices[1]], hist[indices[2]], hist[indices[3]]);
+
+  for (int i=0;i<max_directions;i++)
+  {
+    if (indices[i] < unusual_hist_value)
+    {
+      cur_class += cur_class_mult*(indices[i] + 1); //to distinct between one and two-directioned bricks
+      cur_sum   += hist[indices[i]];
+    }
+    else
+    {
+      cur_class = unusual_class;
+      cur_sum   = hist_sum_thr;
+    }
+    if (cur_sum >= hist_sum_thr)
+      break;
+    
+    cur_class_mult *= class_mult;
+  }
+
+  return cur_sum >= hist_sum_thr ? cur_class : unusual_class;
+}
+
 void litert_test_7_global_octree()
 {
   auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "scenes/01_simple_scenes/data/bunny.vsgf").c_str());
   cmesh4::normalize_mesh(mesh);
 
-  SparseOctreeSettings settings = SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, 5);
+  SparseOctreeSettings settings = SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, 6);
   sdf_converter::GlobalOctree g_octree;
   std::vector<SdfFrameOctreeNode> frame_octree;
   std::vector<SdfFrameOctreeNode> frame_octree_ref;
@@ -708,7 +753,7 @@ void litert_test_7_global_octree()
   float max_val = 0.01f;
   int valid_nodes = 0;
   int surface_nodes = 0;
-  float dist_thr = 0.000025f;
+  float dist_thr = 0.0001f;
   //printf("dist thr = %f\n", dist_thr);
 
   int v_size = g_octree.header.brick_size + 2 * g_octree.header.brick_pad + 1;
@@ -725,6 +770,8 @@ void litert_test_7_global_octree()
 
   constexpr unsigned HIST_INTERVALS = 3;
   std::vector<std::array<unsigned, HIST_INTERVALS*HIST_INTERVALS*HIST_INTERVALS>> histograms(g_octree.nodes.size());
+  std::vector<unsigned> hist_classes(g_octree.nodes.size());
+  std::vector<unsigned> hist_classes_stat;
   
   for (int i=0; i<ROT_COUNT; i++)
   {
@@ -770,9 +817,21 @@ void litert_test_7_global_octree()
   for (int i=0; i<g_octree.nodes.size(); i++)
   {
     if (surface_node[i])
+    {
      calculate_brick_grad_histogram(g_octree.values_f.data() + g_octree.nodes[i].val_off, 
                                    v_size, g_octree.header.brick_pad, histograms[i].data(), HIST_INTERVALS);
+      hist_classes[i] = histogram_to_class(histograms[i].data(), HIST_INTERVALS);
+      if (hist_classes[i] >= hist_classes_stat.size())
+        hist_classes_stat.resize(hist_classes[i]+1, 0);
+      hist_classes_stat[hist_classes[i]]++;
+    }
   }
+
+  unsigned class_count = hist_classes_stat.size();
+  std::vector<uint2> class_dist_pairs(class_count*class_count, uint2(0,0));
+
+  for (int i=0; i<hist_classes_stat.size(); i++)
+    printf("%d: %u\n", i, hist_classes_stat[i]);
 
   if (dist_thr >= 0)  //replace with remap
   {
@@ -832,26 +891,66 @@ void litert_test_7_global_octree()
           #pragma omp critical
           {
             //printf("min_r_id = %d\n", min_r_id);
+            unsigned class_i = hist_classes[i];
+            unsigned class_j = hist_classes[j];
+            if (remap[j] != j)
+            {
+              unsigned class_prev = hist_classes[remap[j]];
+              class_dist_pairs[class_prev*class_count + class_j].x--;
+            }
             remapped += remap[j] == j;
             remap[j] = i;
             remap_transforms[j].rot = int3(min_r_id / 16, (min_r_id / 4) % 4, min_r_id % 4);
             remap_transforms[j].add = add;
             closest_dist[j] = min_dist;
-            printf("similar %f \n", min_dist);
-            printf("H1: [  ");
-            for (int k=0;k<27;k++)
-              printf("%2u ", histograms[i][k]);
-            printf("]\n");
-            printf("H2: [  ");
-            for (int k=0;k<27;k++)
-              printf("%2u ", histograms[j][k]);
-            printf("]\n\n");
+            class_dist_pairs[class_i*class_count + class_j].x++;
+            // printf("similar %f \n", min_dist);
+            // printf("H1: [  ");
+            // for (int k=0;k<27;k++)
+            //   printf("%2u ", histograms[i][k]);
+            // printf("]\n");
+            // printf("H2: [  ");
+            // for (int k=0;k<27;k++)
+            //   printf("%2u ", histograms[j][k]);
+            // printf("]\n\n");
           }
         }
       }
     }
 
     printf("remapped %d/%d nodes\n", remapped, surface_nodes);
+    printf("TABLE |");
+    for (int i=0;i<class_count;i++)
+    {
+      if (hist_classes_stat[i] > 0)
+        printf("%5d ", i);
+    }
+    printf("\n");
+    printf("-------");
+    for (int i=0;i<class_count;i++)
+    {
+      if (hist_classes_stat[i] > 0)
+        printf("------");
+    }
+    printf("\n");
+    for (int i=0;i<class_count;i++)
+    {
+      if (hist_classes_stat[i] == 0)
+        continue;
+      printf("%5d |", i);
+      for (int j=0;j<class_count;j++)
+      {
+        if (hist_classes_stat[j] > 0)
+        {
+          float chance = class_dist_pairs[i*class_count + j].x / (float)(hist_classes_stat[i]*hist_classes_stat[j]);
+          if (chance > 0)
+            printf("%5d ", int(1e6*chance));
+          else
+            printf("    - ");
+        }
+      }
+      printf("\n");
+    }   
   }
   else if (false)//calculate statistics
   {
