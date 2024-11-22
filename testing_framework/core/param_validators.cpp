@@ -13,7 +13,8 @@ namespace testing
             return true;
         }
         std::cerr << foreground(error_color) << "Error: " << default_color
-            << foreground(option_color) << "'" << name << "'" << default_color <<  " must be 64-bit integer." << std::endl;
+            << foreground(option_color) << "'" << name << "'" << default_color <<  " must be 64-bit integer, but "
+            << foreground(highlight_color_2) << "'" << value << "'" << default_color << " is not." << std::endl;
         return false;
     }
 
@@ -29,7 +30,8 @@ namespace testing
             return true;
         }
         std::cerr << foreground(error_color) << "Error: " << default_color
-            << foreground(option_color) << "'" << name << "'" << default_color <<  " must be positive." << std::endl;
+            << foreground(option_color) << "'" << name << "'" << default_color <<  " must be positive, but "
+            << foreground(highlight_color_2) << value << default_color << " < 1." << std::endl;
         return false;
     }
 
@@ -40,7 +42,8 @@ namespace testing
             return true;
         }
         std::cerr << foreground(error_color) << "Error: " << default_color
-            << foreground(option_color) << "'" << name << "'" << default_color <<  " must be non-negative." << std::endl;
+            << foreground(option_color) << "'" << name << "'" << default_color <<  " must be non-negative, but "
+            << foreground(highlight_color_2) << value << default_color << " < 0." << std::endl;
         return false;
     }
 

@@ -43,7 +43,11 @@ namespace testing
                 if (is_param_name(cut))
                 {
                     offset++;
-                    if (cut.length() < arg.length()) // value is part of arg
+                    if (arg[len] == '=')
+                    {
+                        len++;
+                    }
+                    if (len < arg.length()) // value is part of arg
                     {
                         return param(cut, std::string_view(arg.begin() + len, arg.end()));
                     }
@@ -62,7 +66,6 @@ namespace testing
                             return param(cut, next);
                         }
                     }
-
                 }
             }
             offset++;
