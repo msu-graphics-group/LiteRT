@@ -12,6 +12,8 @@
 #include "BVH2Common.h"
 #include "../nurbs/nurbs_common_host.h"
 #include "../utils/sparse_octree_builder.h"
+#include "../catmul_clark/catmul_clark_host.h"
+#include "../ribbon/ribbon_host.h"
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -52,6 +54,12 @@ uint32_t type_to_tag(uint32_t type)
   
   case TYPE_NURBS:
     return AbstractObject::TAG_NURBS;
+  
+  case TYPE_CATMUL_CLARK:
+    return AbstractObject::TAG_CATMUL_CLARK;
+  
+  case TYPE_RIBBON:
+    return AbstractObject::TAG_RIBBON;
 
   case TYPE_GRAPHICS_PRIM:
     return AbstractObject::TAG_GRAPHICS_PRIM;
@@ -796,33 +804,12 @@ uint32_t BVHRT::AddGeom_SdfFrameOctreeTex(SdfFrameOctreeTexView octree, ISceneOb
   return fake_this->AddGeom_AABB(AbstractObject::TAG_SDF_NODE, (const CRT_AABB*)m_origNodes.data(), m_origNodes.size());
 }
 
-std::vector<BVHNode> GetBoxes_NURBS(const RawNURBS &nurbs)
+uint32_t BVHRT::AddGeom_NURBS(const RBezierGrid &rbeziers, ISceneObject *fake_this, BuildOptions a_qualityLevel)
 {
-  //TODO: find list of BVH leaf nodes for NURBS
-  std::vector<BVHNode> nodes;
-  nodes.resize(2);
-  nodes[0].boxMin = float3(-0.5,-0.5,-0.5);
-  nodes[0].boxMax = float3(0.5,0.5,0);
-  nodes[1].boxMin = float3(-0.5,-0.5,0);
-  nodes[1].boxMax = float3(0.5,0.5,0.5);
-  return nodes;
-}
-
-uint32_t BVHRT::AddGeom_NURBS(const RawNURBS &nurbs, ISceneObject *fake_this, BuildOptions a_qualityLevel)
-{
-  float4 mn = float4{std::numeric_limits<float>::infinity()};
-  float4 mx = -mn;
-
-  //find BBox for given NURBS
-  for (uint32_t i = 0; i <= nurbs.get_n(); ++i)
-  for (uint32_t j = 0; j <= nurbs.get_m(); ++j)
-  {
-    mn = LiteMath::min(mn, nurbs.points[{i, j}]);
-    mx = LiteMath::max(mx, nurbs.points[{i, j}]);
-  }
-  if (LiteMath::any_of(mn == mx)) {
-    mx += float4{1e-1f};
-    mn -= float4{1e-1f};
+  auto bbox = rbeziers.bbox;
+  if (LiteMath::any_of(to_float3(bbox.boxMin) == to_float3(bbox.boxMax))) {
+    bbox.boxMin -= 1e-4f;
+    bbox.boxMax += 1e-4f;
   }
 
   //fill geom data array
@@ -832,38 +819,137 @@ uint32_t BVHRT::AddGeom_NURBS(const RawNURBS &nurbs, ISceneObject *fake_this, Bu
   m_abstractObjects.back().m_tag = type_to_tag(TYPE_NURBS);
 
   m_geomData.emplace_back();
-  m_geomData.back().boxMin = mn;
-  m_geomData.back().boxMax = mx;
+  m_geomData.back().boxMin = bbox.boxMin;
+  m_geomData.back().boxMax = bbox.boxMax;
   m_geomData.back().offset = uint2(m_NURBSHeaders.size(), 0);
   m_geomData.back().bvhOffset = m_allNodePairs.size();
   m_geomData.back().type = TYPE_NURBS;
 
   //save NURBS to headers and data
   uint32_t offset = m_NURBSData.size();
-  uint32_t n = nurbs.get_n(), m = nurbs.get_m();
-  m_NURBSHeaders.push_back({offset, n, m, nurbs.get_p(), nurbs.get_q()});
+  auto [grid_rows, grid_cols] = rbeziers.grid.shape2D();
+  auto [surf_rows, surf_cols] = rbeziers.grid[{0, 0}].weighted_points.shape2D();
+  
+  m_NURBSHeaders.push_back(NURBSHeader{
+    static_cast<int>(offset), 
+    static_cast<int>(surf_rows-1), static_cast<int>(surf_cols-1), 
+    static_cast<int>(grid_rows+1), static_cast<int>(grid_cols+1)
+  });
+  
+  for (int i = 0; i < rbeziers.grid.rows_count(); ++i)
+  for (int j = 0; j < rbeziers.grid.cols_count(); ++j)
+  {
+    std::copy(
+      reinterpret_cast<const float*>(
+          rbeziers.grid[{i, j}].weighted_points.data()),
+      reinterpret_cast<const float*>(
+          rbeziers.grid[{i, j}].weighted_points.data()+surf_rows*surf_cols),
+      std::back_inserter(m_NURBSData));
+  }
+
   std::copy(
-    reinterpret_cast<const float*>(nurbs.points.data()),
-    reinterpret_cast<const float*>(nurbs.points.data()+(n+1)*(m+1)),
+    rbeziers.uniq_uknots.begin(), rbeziers.uniq_uknots.end(), 
     std::back_inserter(m_NURBSData));
   std::copy(
-    nurbs.weights.data(),
-    nurbs.weights.data()+(n+1)*(m+1),
+    rbeziers.uniq_vknots.begin(), rbeziers.uniq_vknots.end(),
     std::back_inserter(m_NURBSData));
-  std::copy(
-    nurbs.u_knots.begin(), nurbs.u_knots.end(), 
-    std::back_inserter(m_NURBSData));
-  std::copy(
-    nurbs.v_knots.begin(), nurbs.v_knots.end(),
-    std::back_inserter(m_NURBSData));
+
+  auto [bboxes, uvs] = get_nurbs_bvh_leaves(rbeziers);
+  std::vector<BVHNode> nodes(bboxes.size());
+  for (int i = 0; i < bboxes.size(); ++i) {
+    nodes[i].boxMin = to_float3(bboxes[i].boxMin);
+    nodes[i].boxMax = to_float3(bboxes[i].boxMax);
+    uint32_t approx_id = m_NURBS_approxes.size()/2;
+    uint32_t packed = PackOffsetAndSize(approx_id, 1);
+    m_primIdCount.push_back(packed);
+    m_NURBS_approxes.push_back(uvs[i][0]);
+    m_NURBS_approxes.push_back(uvs[i][1]);
+  }
+
+  if (bboxes.size() == 1) {
+    nodes.resize(2);
+    m_primIdCount.push_back(m_primIdCount.back());
+  }
+
+  return fake_this->AddGeom_AABB(AbstractObject::TAG_NURBS, (const CRT_AABB*)nodes.data(), nodes.size());
+}
+
+//////////////////// CATMUL_CLARK SECTION /////////////////////////////////////////////////////
+uint32_t BVHRT::AddGeom_CatmulClark(const CatmulClark &surface, ISceneObject *fake_this, BuildOptions a_qualityLevel)
+{
+  float4 mn = float4(-0.5,-0.5,-0.5,0.5);
+  float4 mx = float4( 0.5, 0.5, 0.5,0.5);
+  //TODO: find right BBox for given CatmulClark
+
+  //fill geom data array
+  m_abstractObjects.resize(m_abstractObjects.size() + 1); 
+  new (m_abstractObjects.data() + m_abstractObjects.size() - 1) GeomDataCatmulClark();
+
+  m_abstractObjects.back().geomId = m_abstractObjects.size() - 1;
+  m_abstractObjects.back().m_tag = type_to_tag(TYPE_CATMUL_CLARK);
+
+  //geomData of current CatmulClark
+  m_geomData.emplace_back();
+
+  m_geomData.back().boxMin = mn;
+  m_geomData.back().boxMax = mx;
+
+  // this offset is used in BVHRT::IntersectCatmulClark function
+  m_geomData.back().offset = uint2(m_CatmulClarkHeaders.size(), 0);
+  m_geomData.back().bvhOffset = m_allNodePairs.size();
+  m_geomData.back().type = TYPE_CATMUL_CLARK;
 
   //create list of bboxes for BLAS
   std::vector<BVHNode> orig_nodes(2);
   orig_nodes[0].boxMin = to_float3(mn);
-  orig_nodes[0].boxMax = to_float3(mx);
-  
-  return fake_this->AddGeom_AABB(AbstractObject::TAG_NURBS, (const CRT_AABB*)orig_nodes.data(), orig_nodes.size());
+  orig_nodes[0].boxMin = to_float3(mx);
+  //BVH can process only 2+ leaves, not one
+  //So we need to add a small dummy box (it's a crutch)
+  orig_nodes[1].boxMin = to_float3(mx);
+  orig_nodes[1].boxMax = to_float3(mx+0.0001f);
+
+  return fake_this->AddGeom_AABB(AbstractObject::TAG_CATMUL_CLARK, (const CRT_AABB*)orig_nodes.data(), orig_nodes.size());
 }
+//////////////////// END CATMUL_CLARK SECTION /////////////////////////////////////////////////////
+
+//////////////////// RIBBON SECTION /////////////////////////////////////////////////////
+uint32_t BVHRT::AddGeom_Ribbon(const Ribbon &rib, ISceneObject *fake_this, BuildOptions a_qualityLevel)
+{
+  float4 mn = float4(-0.5,-0.5,-0.5,0.5);
+  float4 mx = float4( 0.5, 0.5, 0.5,0.5);
+  //TODO: find right BBox for given Ribbon
+
+  //fill geom data array
+  m_abstractObjects.resize(m_abstractObjects.size() + 1); 
+  new (m_abstractObjects.data() + m_abstractObjects.size() - 1) GeomDataRibbon();
+
+  m_abstractObjects.back().geomId = m_abstractObjects.size() - 1;
+  m_abstractObjects.back().m_tag = type_to_tag(TYPE_RIBBON);
+
+  //geomData of current Ribbon
+  m_geomData.emplace_back();
+
+  m_geomData.back().boxMin = mn;
+  m_geomData.back().boxMax = mx;
+
+  // this offset is used in BVHRT::Ribbon function
+  m_geomData.back().offset = uint2(m_RibbonHeaders.size(), 0);
+  m_geomData.back().bvhOffset = m_allNodePairs.size();
+  m_geomData.back().type = TYPE_RIBBON;
+
+  //create list of bboxes for BLAS
+  std::vector<BVHNode> orig_nodes(2);
+  orig_nodes[0].boxMin = to_float3(mn);
+  orig_nodes[0].boxMin = to_float3(mx);
+  //BVH can process only 2+ leaves, not one
+  //So we need to add a small dummy box (it's a crutch)
+  orig_nodes[1].boxMin = to_float3(mx);
+  orig_nodes[1].boxMax = to_float3(mx+0.0001f);
+
+  return fake_this->AddGeom_AABB(AbstractObject::TAG_RIBBON, (const CRT_AABB*)orig_nodes.data(), orig_nodes.size());
+}
+//////////////////// END RIBBON SECTION /////////////////////////////////////////////////////
+
 
 BVHNode getDiskAABB(float3 pt, float3 norm, float rad)
 {

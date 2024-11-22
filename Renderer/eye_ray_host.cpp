@@ -255,9 +255,9 @@ void MultiRenderer::CastRaySingleBlock(uint32_t tidX, uint32_t * out_color, uint
 {
   //CPU version is mostly used by debug, so better make it single-threaded
   //also per-pixel debug does not work with multithreading
-  //#ifndef _DEBUG
-  #pragma omp parallel for default(shared)
-  //#endif
+  // #ifndef _DEBUG
+  // #pragma omp parallel for default(shared) schedule(dynamic)
+  // #endif
   for(int i=0;i<tidX;i++)
     CastRaySingle(i, out_color);
 }
@@ -409,7 +409,7 @@ void MultiRenderer::SetScene(SdfFrameOctreeTexView scene)
   m_pAccelStruct->CommitScene();
 }
 
-void MultiRenderer::SetScene(const RawNURBS &nurbs)
+void MultiRenderer::SetScene(const RBezierGrid &rbeziers)
 {
   BVHRT *bvhrt = dynamic_cast<BVHRT*>(m_pAccelStruct->UnderlyingImpl(0));
   if (!bvhrt)
@@ -420,7 +420,7 @@ void MultiRenderer::SetScene(const RawNURBS &nurbs)
 
   SetPreset(m_preset);
   m_pAccelStruct->ClearGeom();
-  auto geomId = bvhrt->AddGeom_NURBS(nurbs, m_pAccelStruct.get());
+  auto geomId = bvhrt->AddGeom_NURBS(rbeziers, m_pAccelStruct.get());
   m_pAccelStruct->ClearScene();
   AddInstance(geomId, LiteMath::float4x4());
   m_pAccelStruct->CommitScene();
@@ -488,6 +488,40 @@ void MultiRenderer::SetScene(COctreeV3View scene, unsigned bvh_level)
   SetPreset(m_preset);
   m_pAccelStruct->ClearGeom();
   auto geomId = bvhrt->AddGeom_COctreeV3(scene, bvh_level, m_pAccelStruct.get());
+  m_pAccelStruct->ClearScene();
+  AddInstance(geomId, LiteMath::float4x4());
+  m_pAccelStruct->CommitScene();
+}
+
+void MultiRenderer::SetScene(const CatmulClark &surface)
+{
+  BVHRT *bvhrt = dynamic_cast<BVHRT*>(m_pAccelStruct->UnderlyingImpl(0));
+  if (!bvhrt)
+  {
+    printf("only BVHRT supports Catmul Clark!\n");
+    return;
+  }
+
+  SetPreset(m_preset);
+  m_pAccelStruct->ClearGeom();
+  auto geomId = bvhrt->AddGeom_CatmulClark(surface, m_pAccelStruct.get());
+  m_pAccelStruct->ClearScene();
+  AddInstance(geomId, LiteMath::float4x4());
+  m_pAccelStruct->CommitScene();
+}
+
+void MultiRenderer::SetScene(const Ribbon &surface)
+{
+  BVHRT *bvhrt = dynamic_cast<BVHRT*>(m_pAccelStruct->UnderlyingImpl(0));
+  if (!bvhrt)
+  {
+    printf("only BVHRT supports Ribbon!\n");
+    return;
+  }
+
+  SetPreset(m_preset);
+  m_pAccelStruct->ClearGeom();
+  auto geomId = bvhrt->AddGeom_Ribbon(surface, m_pAccelStruct.get());
   m_pAccelStruct->ClearScene();
   AddInstance(geomId, LiteMath::float4x4());
   m_pAccelStruct->CommitScene();
@@ -645,6 +679,26 @@ uint32_t MultiRenderer::AddInstance(uint32_t a_geomId, const LiteMath::float4x4&
           context = vk_utils::globalContextInit(requiredExtensions, true, 0, &deviceFeatures);
         }
         return CreateMultiRenderer_RTX(maxPrimitives, context, 256);
+      }
+      else
+        return std::shared_ptr<MultiRenderer>(new MultiRenderer(maxPrimitives));
+    }
+  #elif defined(USE_GPU_RQ)
+    #include "eye_ray_gpu_rq.h"
+    #include "vk_context.h"
+    std::shared_ptr<MultiRenderer> CreateMultiRenderer_gpu_rq(uint32_t maxPrimitives, vk_utils::VulkanContext a_ctx, size_t a_maxThreadsGenerated);
+    std::shared_ptr<MultiRenderer> CreateMultiRenderer(unsigned /*enum RenderDevice*/ device, uint32_t maxPrimitives) 
+    {
+      static vk_utils::VulkanContext context;
+      if (device == DEVICE_GPU || device == DEVICE_GPU_RTX)
+      {
+        if(context.instance == VK_NULL_HANDLE)
+        {
+          std::vector<const char*> requiredExtensions;
+          auto deviceFeatures = MultiRenderer_gpu_rq::ListRequiredDeviceFeatures(requiredExtensions);
+          context = vk_utils::globalContextInit(requiredExtensions, true, 0, &deviceFeatures);
+        }
+        return CreateMultiRenderer_gpu_rq(maxPrimitives, context, 256);
       }
       else
         return std::shared_ptr<MultiRenderer>(new MultiRenderer(maxPrimitives));

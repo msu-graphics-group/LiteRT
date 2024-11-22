@@ -70,3 +70,7 @@ callgrind.out*
 
 engine
 imgui.ini
+
+.cmake/*
+
+step/CMakeFiles/**

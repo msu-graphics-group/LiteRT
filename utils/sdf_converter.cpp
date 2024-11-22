@@ -812,7 +812,7 @@ namespace sdf_converter
     return sbs;
   }
 
-  std::vector<SdfFrameOctreeNode> create_vmpdf_framed_octree(SparseOctreeSettings settings, 
+  std::vector<SdfFrameOctreeNode> create_vmpdf_frame_octree(SparseOctreeSettings settings, 
                                                                      const cmesh4::SimpleMesh &mesh)
   {
     if (settings.build_type != SparseOctreeBuildType::MESH_TLO)
@@ -825,5 +825,23 @@ namespace sdf_converter
     mesh_octree_to_vmpdf(mesh, tlo, frame);
     //frame_octree_limit_nodes(frame, settings.nodes_limit, true);
     return frame;
+  }
+
+  GlobalOctree create_global_octree_by_mesh(SparseOctreeSettings settings, const cmesh4::SimpleMesh &mesh, 
+                                            GlobalOctreeHeader &header)
+  {
+    assert(header.brick_size != 0);
+    if (settings.build_type != SparseOctreeBuildType::MESH_TLO)
+    {
+      printf("WRONG FUNCTION\n");
+      return {};
+    }
+    float mult = (float) (header.brick_pad * 2 + header.brick_size);
+    mult /= (float) header.brick_size;
+    auto tlo = cmesh4::create_triangle_list_octree(mesh, settings.depth, 0, mult);//change 1.0f to another mult depend of the pad
+    GlobalOctree glob;
+    glob.header = header;
+    mesh_octree_to_global_octree(mesh, tlo, glob);
+    return glob;
   }
 }

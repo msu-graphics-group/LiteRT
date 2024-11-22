@@ -23,6 +23,9 @@ static constexpr unsigned TYPE_COCTREE_V1                 = 18;
 static constexpr unsigned TYPE_COCTREE_V2                 = 19;
 static constexpr unsigned TYPE_COCTREE_V3                 = 20;
 
+static constexpr unsigned TYPE_CATMUL_CLARK               = 21;
+static constexpr unsigned TYPE_RIBBON                     = 22;
+
 static constexpr unsigned SH_TYPE = 24;              //8 bits for type
 static constexpr unsigned GEOM_ID_MASK = 0x00FFFFFFu;
 
@@ -71,9 +74,13 @@ static constexpr unsigned NORMAL_MODE_SDF_SMOOTHED = 2; //smoothed SDF normal, a
 static constexpr unsigned RAY_GEN_MODE_REGULAR = 0;
 static constexpr unsigned RAY_GEN_MODE_RANDOM  = 1;
 
-//enum interpolationMode
-static constexpr unsigned TRILINEAR_INTERPOLATION_MODE = 0;
-static constexpr unsigned TRICUBIC_INTERPOLATION_MODE = 1;
+//enum InterpolationMode
+static constexpr unsigned INTERPOLATION_MODE_TRILINEAR = 0;
+static constexpr unsigned INTERPOLATION_MODE_TRICUBIC  = 1;
+
+//enum RepresentationMode
+static constexpr unsigned REPRESENTATION_MODE_SURFACE = 0;
+static constexpr unsigned REPRESENTATION_MODE_VOLUME  = 1;
 
 struct MultiRenderPreset
 {
@@ -81,8 +88,9 @@ struct MultiRenderPreset
   unsigned sdf_node_intersect; //enum SdfNodeIntersect
   unsigned normal_mode;        //enum NormalMode
   unsigned ray_gen_mode;       //enum RayGenMode
+  unsigned interpolation_mode; //enum InterpolationMode
+  unsigned representation_mode;//enum RepresentationMode
   unsigned spp;                //samples per pixel
-  unsigned interpolation_type; //0 - trilinear, 1 - tricubic
 };
 
 static MultiRenderPreset getDefaultPreset()
@@ -92,8 +100,9 @@ static MultiRenderPreset getDefaultPreset()
   p.sdf_node_intersect = SDF_OCTREE_NODE_INTERSECT_ST;
   p.normal_mode = NORMAL_MODE_GEOMETRY;
   p.ray_gen_mode = RAY_GEN_MODE_REGULAR;
-  p.spp = 1;
-  p.interpolation_type = TRILINEAR_INTERPOLATION_MODE;
+  p.interpolation_mode = INTERPOLATION_MODE_TRILINEAR;
+  p.representation_mode = REPRESENTATION_MODE_VOLUME;
 
+  p.spp = 1;
   return p;
 }

@@ -174,7 +174,12 @@ void BVHRT::LocalSurfaceIntersection(uint32_t type, const float3 ray_dir, uint32
     start_dist = tricubicInterpolation(values, point);
   #else
     start_dist = eval_dist_trilinear(values, start_q + t * ray_dir);
-    start_sign = sign(start_dist);
+    /*If we want to represent thin surfaces, we should find rays that reach 
+    //zero distance regardless of what thww sign of initial distance is.
+    //However, it can lead to visual artifacts and disabled by default
+    */
+    if (m_preset.representation_mode == REPRESENTATION_MODE_SURFACE)
+      start_sign = sign(start_dist);
     start_dist *= start_sign;
   #endif
 
@@ -749,7 +754,7 @@ void BVHRT::OctreeBrickIntersect(uint32_t type, const float3 ray_pos, const floa
       LocalSurfaceIntersection(type, ray_dir, instId, geomId, values, nodeId, primId, d, 0.0f, qFar, fNearFar, start_q, /*in */
                                pHit); /*out*/
     
-      if (m_preset.interpolation_type == TRILINEAR_INTERPOLATION_MODE && header.aux_data == SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F_IN &&
+      if (m_preset.interpolation_mode == INTERPOLATION_MODE_TRILINEAR && header.aux_data == SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F_IN &&
           m_preset.normal_mode == NORMAL_MODE_SDF_SMOOTHED && 
           need_normal() && pHit->t != old_t)
       {
@@ -1382,240 +1387,242 @@ void BVHRT::IntersectGSInLeaf(const float3& ray_pos, const float3& ray_dir,
 #endif
 
 #ifndef DISABLE_NURBS
+
 //////////////////// NURBS SECTION /////////////////////////////////////////////////////
-float4 
-BVHRT::control_point(uint i, uint j, NURBSHeader h)
-{
-  return LiteMath::float4 { 
-      m_NURBSData[h.offset+(i*(h.m+1)+j)*4], 
-      m_NURBSData[h.offset+(i*(h.m+1)+j)*4+1],
-      m_NURBSData[h.offset+(i*(h.m+1)+j)*4+2],
-      m_NURBSData[h.offset+(i*(h.m+1)+j)*4+3] 
+float4 BVHRT::control_point(uint i, int offset) {
+  return float4 {
+    m_NURBSData[offset+i*4+0],
+    m_NURBSData[offset+i*4+1],
+    m_NURBSData[offset+i*4+2],
+    m_NURBSData[offset+i*4+3],
   };
-} 
-float 
-BVHRT::weight(uint i, uint j, NURBSHeader h)
-{
-  return m_NURBSData[weights_offset(h)+i*h.m+j];
 }
-float 
-BVHRT::uknot(uint i, NURBSHeader h)
-{
-  return m_NURBSData[u_knots_offset(h)+i];
-}
-float 
-BVHRT::vknot(uint i, NURBSHeader h)
-{
-  return m_NURBSData[v_knots_offset(h)+i];
-}
-int 
-BVHRT::find_uspan(float u, NURBSHeader h) {
-  int n = h.n;
-  int p = h.p;
 
-  if (u == uknot(n+1, h))
-    return n;
+float BVHRT::knot(uint i, int knots_offset) {
+  return m_NURBSData[knots_offset+i];
+}
 
-  int l = p-1;
-  int r = n+2;
+int BVHRT::find_span(float t, int knots_offset, int knots_count, NURBSHeader h) {
+  if (t == knot(knots_count-1, knots_offset))
+    return knots_count-2;
+
+  int l = 0;
+  int r = knots_count-1;
   while(r-l > 1) {
     int m = (l+r)/2;
-    if (u < uknot(m, h))
+    if (t < knot(m, knots_offset))
       r = m;
     else 
       l = m;
   }
-  //assert(uknot(l, h) <= u && u < uknot(l+1, h));
-  return l;
-}
-int 
-BVHRT::find_vspan(float v, NURBSHeader h) {
-  int n = h.m;
-  int p = h.q;
 
-  if (v == vknot(n+1, h))
-    return n;
-
-  int l = p-1;
-  int r = n+2;
-  while(r-l > 1) {
-    int m = (l+r)/2;
-    if (v < vknot(m, h))
-      r = m;
-    else 
-      l = m;
-  }
-  //assert(vknot(l, h) <= v && v < vknot(l+1, h));
+  //assert(knot(l, knots_offset) <= t && t < knot(l+1, knots_offset));
   return l;
 }
 
-void 
-BVHRT::ubasis_funs(int i, float u, NURBSHeader h, float N[NURBS_MAX_DEGREE+1]) {
-  int n = h.n;
-  int p = h.p;
-
-  N[0] = 1.0f;
-  float left[NURBS_MAX_DEGREE+1];
-  float right[NURBS_MAX_DEGREE+1];
-  for (int i = 0; i < p+1; ++i)
-    left[i] = right[i] = 0;
-
-  for (int j = 1; j <= p; ++j) {
-    left[j] = u - uknot(i+1-j, h);
-    right[j] = uknot(i+j, h)-u;
-    float saved = 0.0f;
-    for (int r = 0; r < j; ++r) {
-      float temp = N[r] / (right[r+1]+left[j-r]);
-      N[r] = saved + right[r+1] * temp;
-      saved = left[j-r] * temp;
-    }
-    N[j] = saved;
+float4 BVHRT::rbezier_curve_point(float u, int p, int offset) {
+  float u_n = 1.0f;
+  float _1_u = 1.0f - u;
+  int bc = 1;
+  float4 res = control_point(0, offset) * _1_u;
+  for (int i = 1; i <= p-1; ++i) {
+    u_n *= u;
+    bc = bc * (p-i+1)/i;
+    res = (res + u_n * bc * control_point(i, offset)) * _1_u;
   }
-}
-void 
-BVHRT::vbasis_funs(int i, float v, NURBSHeader h, float N[NURBS_MAX_DEGREE+1]) {
-  int n = h.m;
-  int p = h.q;
-  N[0] = 1.0f;
-  float left[NURBS_MAX_DEGREE+1];
-  float right[NURBS_MAX_DEGREE+1];
-  for (int i = 0; i < p+1; ++i)
-    left[i] = right[i] = 0;
-
-  for (int j = 1; j <= p; ++j) {
-    left[j] = v - vknot(i+1-j, h);
-    right[j] = vknot(i+j, h)-v;
-    float saved = 0.0f;
-    for (int r = 0; r < j; ++r) {
-      float temp = N[r] / (right[r+1]+left[j-r]);
-      N[r] = saved + right[r+1] * temp;
-      saved = left[j-r] * temp;
-    }
-    N[j] = saved;
-  }
+  res += (u_n * u) * control_point(p, offset);
+  return res;
 }
 
-float4 
-BVHRT::nurbs_point(float u, float v, NURBSHeader h) {
-  int n = h.n;
-  int m = h.m;
+float4 BVHRT::rbezier_surface_point(float u, float v, int points_offset, NURBSHeader h) {
   int p = h.p;
   int q = h.q;
-  //assert(p <= NURBS_MAX_DEGREE);
-  //assert(q <= NURBS_MAX_DEGREE);
+  float u_n = 1.0f;
+  float _1_u = 1.0f - u;
+  int bc = 1;
+  float4 res = rbezier_curve_point(v, q, points_offset+(q+1)*4*0) * _1_u;
+  for (int i = 1; i <= p-1; ++i) {
+    u_n *= u;
+    bc = bc * (p-i+1)/i;
+    res = (res + u_n * bc * rbezier_curve_point(v, q, points_offset+(q+1)*4*i)) * _1_u;
+  }
+  res += (u_n * u) * rbezier_curve_point(v, q, points_offset+(q+1)*4*p);
+  return res;
+}
 
-  int uspan = find_uspan(u, h);
-  float Nu[NURBS_MAX_DEGREE+1];
-  for (int i = 0; i < p+1; ++i)
-    Nu[i] = 0;
-  ubasis_funs(uspan, u, h, Nu);
-  
-  int vspan = find_vspan(v, h);
-  float Nv[NURBS_MAX_DEGREE+1];
-  for (int i = 0; i < q+1; ++i)
-    Nv[i] = 0;
-  vbasis_funs(vspan, v, h, Nv);
+float4 BVHRT::rbezier_grid_point(float u, float v, NURBSHeader h) {
+  int uoffset = uknots_offset(h);
+  int voffset = vknots_offset(h);
+  int uspan = find_span(u, uoffset, h.uknots_cnt, h);
+  int vspan = find_span(v, voffset, h.vknots_cnt, h);
+  float umin = knot(uspan, uoffset), umax = knot(uspan+1, uoffset);
+  float vmin = knot(vspan, voffset), vmax = knot(vspan+1, voffset);
+  u = (u-umin)/(umax-umin);
+  v = (v-vmin)/(vmax-vmin);
+  return rbezier_surface_point(u, v, pts_offset(h, uspan, vspan), h);
+}
 
-  float4 temp[NURBS_MAX_DEGREE+1];
-  for (int i = 0; i < q+1; ++i)
-    temp[i] = float4{ 0.0f, 0.0f, 0.0f, 0.0f };
-
-  for (int l = 0; l <= q; ++l) 
-  for (int k = 0; k <= p; ++k) 
-  {
-    temp[l] += Nu[k] 
-             * control_point(uspan-p+k, vspan-q+l, h) 
-             * weight(uspan-p+k, vspan-q+l, h);
+float4 BVHRT::rbezier_curve_der(float u, int p, int offset) {
+  if (p == 1) {
+    float4 cur_pnt = control_point(0, offset);
+    float4 next_pnt = control_point(1, offset);
+    float4 res = (next_pnt-cur_pnt) * p;
+    return res;
   }
 
-  float4 res = { 0.0f, 0.0f, 0.0f, 0.0f };
-  for (int l = 0; l <= q; ++l)
-    res += Nv[l] * temp[l];
+  float u_n = 1.0f;
+  float _1_u = 1.0f - u;
+  int bc = 1;
+
+  float4 cur_pnt = control_point(0, offset);
+  float4 next_pnt = control_point(1, offset);
+  float4 res = (next_pnt-cur_pnt) * _1_u;
+  cur_pnt = next_pnt;
+
+  for (int i = 1; i <= p-2; ++i) {
+    u_n *= u;
+    bc = bc * (p-i)/i;
+    next_pnt = control_point(i+1, offset);
+    res = (res + u_n * bc * (next_pnt-cur_pnt)) * _1_u;
+    cur_pnt = next_pnt;
+  }
+
+  next_pnt = control_point(p, offset);
+  res += (u_n * u) * (next_pnt-cur_pnt);
+
+  res *= p;
+
+  return res;
+}
+
+float4 BVHRT::rbezier_surface_vder(float u, float v, const float4 &Sw, int points_offset, NURBSHeader h) {
+  int p = h.p;
+  int q = h.q;
+  float u_n = 1.0f;
+  float _1_u = 1.0f - u;
+  int bc = 1;
+  float4 Sw_der = rbezier_curve_der(v, q, points_offset+(q+1)*4*0) * _1_u;
+  for (int i = 1; i <= p-1; ++i) {
+    u_n *= u;
+    bc = bc * (p-i+1)/i;
+    Sw_der = (Sw_der + u_n * bc * rbezier_curve_der(v, q, points_offset+(q+1)*4*i)) * _1_u;
+  }
+  Sw_der += (u_n * u) * rbezier_curve_der(v, q, points_offset+(q+1)*4*p);
+
+  float4 S_der = (Sw_der * Sw.w - Sw * Sw_der.w) / (Sw.w * Sw.w);
+  return S_der;
+}
+
+float4 BVHRT::rbezier_surface_uder(float u, float v, const float4 &Sw, int points_offset, NURBSHeader h) {
+  int p = h.p;
+  int q = h.q;
+  if (p == 1) {
+    float4 cur_point = rbezier_curve_point(v, q, points_offset+(q+1)*4*0);
+    float4 next_point = rbezier_curve_point(v, q, points_offset+(q+1)*4*1);
+    float4 Sw_der = (next_point - cur_point) * p;
+    float4 S_der = (Sw_der * Sw.w - Sw * Sw_der.w)/(Sw.w * Sw.w);
+    return S_der;
+  }
+
+  float u_n = 1.0f;
+  float _1_u = 1.0f - u;
+  int bc = 1;
+  float4 Sw_der = { 0.0f, 0.0f, 0.0f, 0.0f };
+
+  float4 cur_point = rbezier_curve_point(v, q, points_offset+(q+1)*4*0);
+  float4 next_point = rbezier_curve_point(v, q, points_offset+(q+1)*4*1);
+  Sw_der = (next_point - cur_point) * _1_u;
+  cur_point = next_point;
+
+  for (int i = 1; i <= p-2; ++i) {
+    u_n *= u;
+    bc = bc * (p-i)/i;
+    next_point = rbezier_curve_point(v, q, points_offset+(q+1)*4*(i+1));
+    Sw_der = (Sw_der + u_n * bc * (next_point-cur_point)) * _1_u;
+    cur_point = next_point;
+  }
+
+  next_point = rbezier_curve_point(v, q, points_offset+(q+1)*4*p);
+  Sw_der += (u_n * u) * (next_point-cur_point);
+
+  Sw_der *= p;
   
-  return res/res.w;
+  float4 S_der = (Sw_der * Sw.w - Sw * Sw_der.w)/(Sw.w * Sw.w);
+  return S_der;
 }
 
-float4 
-BVHRT::uder(float u, float v, NURBSHeader h) {
-  const float EPS = 1e-2f;
-  LiteMath::float4 res = { 0.0f, 0.0f, 0.0f, 0.0f };
-  res += (u+EPS > 1.0f) ? nurbs_point(u, v, h) : nurbs_point(u+EPS, v, h);
-  res -= (u-EPS < 0.0f) ? nurbs_point(u, v, h) : nurbs_point(u-EPS, v, h);
-
-  return res / (EPS * (1 + (int)((u+EPS <= 1.0f) && (u-EPS >= 0.0f))));
+float4 BVHRT::rbezier_grid_uder(float u, float v, const float4 &Sw, NURBSHeader h) {
+  int uoffset = uknots_offset(h);
+  int voffset = vknots_offset(h);
+  int uspan = find_span(u, uoffset, h.uknots_cnt, h);
+  int vspan = find_span(v, voffset, h.vknots_cnt, h);
+  float umin = knot(uspan, uoffset), umax = knot(uspan+1, uoffset);
+  float vmin = knot(vspan, voffset), vmax = knot(vspan+1, voffset);
+  u = (u-umin)/(umax-umin);
+  v = (v-vmin)/(vmax-vmin);
+  float4 surf_der = rbezier_surface_uder(u, v, Sw, pts_offset(h, uspan, vspan), h);
+  return surf_der * (1.0f/(umax-umin));
 }
 
-float4 
-BVHRT::vder(float u, float v, NURBSHeader h) {
-  const float EPS = 1e-2f;
-  LiteMath::float4 res = { 0.0f, 0.0f, 0.0f, 0.0f };
-  res += (v+EPS > 1.0f) ? nurbs_point(u, v, h) : nurbs_point(u, v+EPS, h);
-  res -= (v-EPS < 0.0f) ? nurbs_point(u, v, h) : nurbs_point(u, v-EPS, h);
-
-  return res / (EPS * (1 + (int)((v+EPS <= 1.0f) && (v-EPS >= 0.0f))));
+float4 BVHRT::rbezier_grid_vder(float u, float v, const float4 &Sw, NURBSHeader h) {
+  int uoffset = uknots_offset(h);
+  int voffset = vknots_offset(h);
+  int uspan = find_span(u, uoffset, h.uknots_cnt, h);
+  int vspan = find_span(v, voffset, h.vknots_cnt, h);
+  float umin = knot(uspan, uoffset), umax = knot(uspan+1, uoffset);
+  float vmin = knot(vspan, voffset), vmax = knot(vspan+1, voffset);
+  u = (u-umin)/(umax-umin);
+  v = (v-vmin)/(vmax-vmin);
+  float4 surf_der = rbezier_surface_vder(u, v, Sw, pts_offset(h, uspan, vspan), h);
+  return surf_der * (1.0f/(vmax-vmin));
 }
 
-bool 
-BVHRT::uclosed(NURBSHeader h) {
-  const float EPS = 1e-2f;
-  for (int j = 0; j <= h.m; ++j) 
-    if (length(control_point(0, j, h) - control_point(h.n, j, h)) > EPS)
-      return false;
-  return true;
+inline
+float2 project2planes(
+    const float4 &P1, 
+    const float4 &P2,
+    const float4 &point) {
+  return float2{ dot(P1, point), dot(P2, point) };
 }
 
-bool 
-BVHRT::vclosed(NURBSHeader h) {
-  const float EPS = 1e-2f;
-  for (int i = 0; i <= h.n; ++i) 
-    if (length(control_point(i, 0, h) - control_point(i, h.m, h)) > EPS)
-      return false;
-  return true;
-}
-
-float closed_clamp(float val) {
-  val -= int(val);
-  if (val < 0.0f)
-    return 1.0f+val;
-  if (val > 1.0f)
-    return val-1.0f;
-  return val;
-}
-
-NURBS_HitInfo 
-BVHRT::ray_nurbs_newton_intersection(
+NURBS_HitInfo BVHRT::ray_nurbs_newton_intersection(
     const LiteMath::float3 &pos,
     const LiteMath::float3 &ray,
+    float2 uv,
     NURBSHeader h) {
   const int max_steps = 16;
-  const float EPS = 0.001f;
+  const float EPS = 1e-3f;
 
-  bool u_closed = uclosed(h);
-  bool v_closed = vclosed(h);
-
-  float3 ortho_dir1 = (bool(ray.x) || bool(ray.z)) ? float3{ 0, 1, 0 } : float3{ 1, 0, 0 };
+  float3 ortho_dir1 = (abs(ray.x) > abs(ray.y) && abs(ray.x) > abs(ray.z)) 
+                    ? float3{ -ray.y, ray.x, 0 } 
+                    : float3{ 0, -ray.z, ray.y };
   float3 ortho_dir2 = normalize(cross(ortho_dir1, ray));
   ortho_dir1 = normalize(cross(ray, ortho_dir2));
-  // assert(dot(ortho_dir1, ortho_dir2) < EPS);
-  // assert(dot(ortho_dir1, ray) < EPS);
-  // assert(dot(ortho_dir2, ray) < EPS);
+  // assert(dot(ortho_dir1, ortho_dir2) < 1e-2f);
+  // assert(dot(ortho_dir1, ray) < 1e-2f);
+  // assert(dot(ortho_dir2, ray) < 1e-2f);
 
   float4 P1 = to_float4(ortho_dir1, -dot(ortho_dir1, pos));
   float4 P2 = to_float4(ortho_dir2, -dot(ortho_dir2, pos));
-  // assert(dot(P1, to_float4(pos, 1.0f)) < EPS);
-  // assert(dot(P2, to_float4(pos, 1.0f)) < EPS);
+  // assert(dot(P1, to_float4(pos, 1.0f)) < 1e-2);
+  // assert(dot(P2, to_float4(pos, 1.0f)) < 1e-2);
 
-  float2 uv = { 0.5f, 0.5f };
-  float2 D = { dot(P1, nurbs_point(uv.x, uv.y, h)), dot(P2, nurbs_point(uv.x, uv.y, h)) };
-  NURBS_HitInfo hit_info = { false, uv };
+  float4 Sw = rbezier_grid_point(uv.x, uv.y, h);
+  float4 surf_point = Sw;
+  surf_point /= surf_point.w;
+  float2 D = project2planes(P1, P2, surf_point); 
+
+  NURBS_HitInfo hit_info;
+  hit_info.hitten = false;
 
   int steps_left = max_steps-1;
-  while(length(D) > EPS && (steps_left!=0)) {
-    steps_left--;
+  while(length(D) > EPS && steps_left > 0) {
+    --steps_left;
+
     float2 J[2] = 
     { 
-      { dot(P1, uder(uv.x, uv.y, h)), dot(P2, uder(uv.x, uv.y, h)) }, //col1
-      { dot(P1, vder(uv.x, uv.y, h)), dot(P2, vder(uv.x, uv.y, h)) } //col2
+      project2planes(P1, P2, rbezier_grid_uder(uv.x, uv.y, Sw, h)), //col1
+      project2planes(P1, P2, rbezier_grid_vder(uv.x, uv.y, Sw, h)) //col2
     };
 
     float det = J[0][0]*J[1][1] - J[0][1] * J[1][0];
@@ -1627,29 +1634,38 @@ BVHRT::ray_nurbs_newton_intersection(
     };
 
     uv = uv - (J_inversed[0]*D[0]+J_inversed[1]*D[1]);
-    uv.x = u_closed ? closed_clamp(uv.x) : clamp(uv.x, 0.0f, 1.0f);
-    uv.y = v_closed ? closed_clamp(uv.y) : clamp(uv.y, 0.0f, 1.0f);
+    uv.x = clamp(uv.x, 0.0f, 1.0f);
+    uv.y = clamp(uv.y, 0.0f, 1.0f);
     // assert(0 <= uv.x && uv.x <= 1);
     // assert(0 <= uv.y && uv.y <= 1);
 
-    float2 new_D = { dot(P1, nurbs_point(uv.x, uv.y, h)), dot(P2, nurbs_point(uv.x, uv.y, h)) };
+    Sw = rbezier_grid_point(uv.x, uv.y, h);
+    surf_point = Sw;
+    surf_point /= surf_point.w;
+    float2 new_D = project2planes(P1, P2, surf_point);
     
     if (length(new_D) > length(D))
-      return hit_info;
+      return hit_info; // hitten = false
     
     D = new_D;
   }
 
   if (length(D) > EPS)
-    return hit_info;
+    return hit_info; // hitten = false;
   
+  float3 uder = to_float3(rbezier_grid_uder(uv.x, uv.y, Sw, h));
+  float3 vder = to_float3(rbezier_grid_vder(uv.x, uv.y, Sw, h));
+  float3 normal = normalize(cross(uder, vder));
+
   hit_info.hitten = true;
+  hit_info.point = to_float3(surf_point);
+  hit_info.normal = normal;
   hit_info.uv = uv;
   return hit_info;
 }
 
 void BVHRT::IntersectNURBS(const float3& ray_pos, const float3& ray_dir,
-                           float tNear, uint32_t instId,
+                           float tNear, uint32_t approx_offset, uint32_t instId,
                            uint32_t geomId, CRT_Hit* pHit) {
   uint nurbsId = m_geomData[geomId].offset.x;
   NURBSHeader header  = m_NURBSHeaders[nurbsId];
@@ -1659,10 +1675,14 @@ void BVHRT::IntersectNURBS(const float3& ray_pos, const float3& ray_dir,
   float3 max_pos = to_float3(m_geomData[geomId].boxMax);
   float2 tNear_tFar = box_intersects(min_pos, max_pos, ray_pos, ray_dir);
 
-  NURBS_HitInfo hit_pos = ray_nurbs_newton_intersection(ray_pos, ray_dir, header);
-  if (hit_pos.hitten) {
-    float2 uv = hit_pos.uv;
-    float3 point = to_float3(nurbs_point(uv.x, uv.y, header));
+  float u0 = m_NURBS_approxes[approx_offset];
+  float v0 = m_NURBS_approxes[approx_offset+1];
+
+  NURBS_HitInfo hit = ray_nurbs_newton_intersection(ray_pos, ray_dir, float2{u0, v0}, header);
+  if (hit.hitten) {
+    float2 uv = hit.uv;
+    float3 point = hit.point;
+    float3 normal = hit.normal;
     float t = dot(normalize(ray_dir), point-ray_pos);
     if (t < tNear_tFar.x || t > tNear_tFar.y)
       return;
@@ -1674,10 +1694,88 @@ void BVHRT::IntersectNURBS(const float3& ray_pos, const float3& ray_dir,
     pHit->coords[0] = uv.x;
     pHit->coords[1] = uv.y;
   } 
+  // pHit->geomId = geomId | (type << SH_TYPE);
+  // pHit->t = tNear;
+  // pHit->primId = 0;
+  // pHit->instId = instId;
+
+  // pHit->coords[0] = u0;
+  // pHit->coords[1] = v0;
 }
 //////////////////////// END NURBS SECTION ///////////////////////////////////////////////
 #endif
 
+
+
+//////////////////// CATMUL_CLARK SECTION /////////////////////////////////////////////////////
+void BVHRT::IntersectCatmulClark(const float3& ray_pos, const float3& ray_dir,
+                      float tNear, uint32_t instId,
+                      uint32_t geomId, CRT_Hit* pHit) {
+#ifndef DISABLE_CATMUL_CLARK
+  // offset of catmul clark object in headers array
+  uint32_t offset = m_geomData[geomId].offset.x;
+  // object header
+  CatmulClarkHeader header = m_CatmulClarkHeaders[offset];
+  // object type <=> catmul_clark
+  uint32_t type = m_geomData[geomId].type;
+
+  // you can access your box of entire object (this is not box of bvh leave)
+  float3 min_pos = to_float3(m_geomData[geomId].boxMin);
+  float3 max_pos = to_float3(m_geomData[geomId].boxMax);
+  float2 tNear_tFar = box_intersects(min_pos, max_pos, ray_pos, ray_dir);
+
+  // you can pass bvh leave information to this function in GeomDataCatmulClark::Intersect 
+  // ...
+
+  float3 norm = normalize(ray_pos + tNear_tFar.x * ray_dir);
+  float2 encoded_norm = encode_normal(norm); // compress 3dim normal vector to 2dim vector
+  
+  pHit->t = tNear_tFar.x;
+  pHit->primId = 0;
+  pHit->geomId = geomId | (type << SH_TYPE);
+  pHit->instId = instId;
+  pHit->coords[0] = 0; // u texture coordinate
+  pHit->coords[1] = 0; // v texture coordinate
+  pHit->coords[2] = encoded_norm.x;
+  pHit->coords[3] = encoded_norm.y;
+#endif
+}
+//////////////////////// END CATMUL CLARK SECTION ///////////////////////////////////////////////
+
+//////////////////// RIBBON SECTION /////////////////////////////////////////////////////
+void BVHRT::IntersectRibbon(const float3& ray_pos, const float3& ray_dir,
+                      float tNear, uint32_t instId,
+                      uint32_t geomId, CRT_Hit* pHit) {
+#ifndef DISABLE_RIBBON
+  // offset of ribbon object in headers array
+  uint32_t offset = m_geomData[geomId].offset.x;
+  // object header
+  RibbonHeader header = m_RibbonHeaders[offset];
+  // object type <=> catmul_clark
+  uint32_t type = m_geomData[geomId].type;
+
+  // you can access your box of entire object (this is not box of bvh leave)
+  float3 min_pos = to_float3(m_geomData[geomId].boxMin);
+  float3 max_pos = to_float3(m_geomData[geomId].boxMax);
+  float2 tNear_tFar = box_intersects(min_pos, max_pos, ray_pos, ray_dir);
+
+  // you can pass bvh leave information to this function in GeomDataRibbon::Intersect 
+  // ...
+
+  float3 norm = normalize(ray_pos + tNear_tFar.x * ray_dir);
+  float2 encoded_norm = encode_normal(norm); // compress 3dim normal vector to 2dim vector
+  
+  pHit->t = tNear_tFar.x;
+  pHit->primId = 0;
+  pHit->geomId = geomId | (type << SH_TYPE);
+  pHit->instId = instId;
+  pHit->coords[0] = 0; // u texture coordinate
+  pHit->coords[1] = 0; // v texture coordinate
+  pHit->coords[2] = encoded_norm.x;
+  pHit->coords[3] = encoded_norm.y;
+#endif
+}
+//////////////////////// END RIBBON SECTION ///////////////////////////////////////////////
 
 float4 rayCapsuleIntersect(const float3& ray_pos, const float3& ray_dir,
                            const float3& pa, const float3& pb, float ra)
@@ -1718,6 +1816,7 @@ float4 rayCapsuleIntersect(const float3& ray_pos, const float3& ray_dir,
   }
   return float4(2e15f);
 }
+
 
 void BVHRT::IntersectGraphicPrims(const float3& ray_pos, const float3& ray_dir,
                                   float tNear, uint32_t instId,
@@ -2001,6 +2100,11 @@ float BVHRT::eval_distance_sdf(uint32_t type, uint32_t sdf_id, float3 pos)
     val = eval_distance_sdf_grid(sdf_id, pos);
     break;
 #endif
+#ifndef DISABLE_SDF_SBS
+  case TYPE_SDF_SBS:
+    val = eval_distance_sdf_sbs(sdf_id, pos);
+    break;
+#endif
   default:
     break;
   }
@@ -2022,7 +2126,7 @@ float BVHRT::eval_distance_sdf_grid(uint32_t grid_id, float3 pos)
 
   //trilinear sampling
   float res = 0.0;
-  if (m_preset.interpolation_type == TRILINEAR_INTERPOLATION_MODE)
+  if (m_preset.interpolation_mode == INTERPOLATION_MODE_TRILINEAR)
   {
     if (vox_u.x < size.x-1 && vox_u.y < size.y-1 && vox_u.z < size.z-1)
     {
@@ -2045,7 +2149,7 @@ float BVHRT::eval_distance_sdf_grid(uint32_t grid_id, float3 pos)
       res += m_SdfGridData[off + (vox_u.z)*size.x*size.y + (vox_u.y)*size.x + (vox_u.x)]; 
     }
   } // tricubic interpolation
-  else if (m_preset.interpolation_type == TRICUBIC_INTERPOLATION_MODE)
+  else if (m_preset.interpolation_mode == INTERPOLATION_MODE_TRICUBIC)
   {
     if (vox_u.x < size.x-2 && vox_u.y < size.y-2 && vox_u.z < size.z-2 && vox_u.x > 0 && vox_u.y > 0 && vox_u.z > 0)
     {
@@ -2089,6 +2193,300 @@ float BVHRT::eval_distance_sdf_grid(uint32_t grid_id, float3 pos)
   return res;
 }
 #endif
+
+#ifndef DISABLE_SDF_SVS
+float BVHRT::eval_distance_sdf_svs(uint32_t svs_id, float3 pos)
+{
+  uint32_t type = m_geomData[svs_id].type;
+  // assert (type == TYPE_SDF_SBS); // || type == TYPE_SDF_SBS_COL || type == TYPE_SDF_SBS_TEX
+  uint32_t leftNodeOffset = eval_distance_traverse_bvh(svs_id, pos);
+
+  if (leftNodeOffset == 0xFFFFFFFF)
+    return 11.f; // cannot be used for ST
+  // printf("NodeOffset: %d\n", leftNodeOffset);
+
+  uint32_t globalAABBId = startEnd[svs_id].x + EXTRACT_START(leftNodeOffset); // + aabbId
+  uint32_t start_count_packed = m_primIdCount[globalAABBId];
+  uint32_t a_start = EXTRACT_START(start_count_packed);
+  uint32_t a_count = EXTRACT_COUNT(start_count_packed);
+
+  float values[8];
+
+  uint32_t nodeId, primId;
+  float d, qNear, qFar;
+  float2 fNearFar;
+  float3 start_q;
+
+  qNear = 1.0f;
+
+  uint32_t sdfId =  m_geomData[svs_id].offset.x;
+  primId = a_start;
+  nodeId = primId + m_SdfSVSRoots[sdfId];
+
+  float px = m_SdfSVSNodes[nodeId].pos_xy >> 16;
+  float py = m_SdfSVSNodes[nodeId].pos_xy & 0x0000FFFF;
+  float pz = m_SdfSVSNodes[nodeId].pos_z_lod_size >> 16;
+  float sz = m_SdfSVSNodes[nodeId].pos_z_lod_size & 0x0000FFFF;
+  float d_max = 2*1.73205081f/sz;
+
+  float3 min_pos = float3(-1,-1,-1) + 2.0f*float3(px,py,pz)/sz;
+  float3 max_pos = min_pos + 2.0f*float3(1,1,1)/sz;
+  float3 size = max_pos - min_pos;
+
+  float res_dist = 10.0f;
+  if (pos.x >= min_pos.x && pos.x <= max_pos.x &&
+      pos.y >= min_pos.y && pos.y <= max_pos.y &&
+      pos.z >= min_pos.z && pos.z <= max_pos.z)
+  {
+    // hit
+
+    for (int i=0;i<8;i++)
+      values[i] = -d_max + 2*d_max*(1.0/255.0f)*((m_SdfSVSNodes[nodeId].values[i/4] >> (8*(i%4))) & 0xFF);
+
+    d = std::max(size.x, std::max(size.y, size.z));
+    start_q = (pos - min_pos) / d;
+
+    res_dist = eval_dist_trilinear(values, start_q);
+  }
+  return res_dist;
+}
+#endif
+
+#ifndef DISABLE_SDF_SBS
+float BVHRT::eval_distance_sdf_sbs(uint32_t sbs_id, float3 pos)
+{
+  uint32_t type = m_geomData[sbs_id].type;
+  // assert (type == TYPE_SDF_SBS); // || type == TYPE_SDF_SBS_COL || type == TYPE_SDF_SBS_TEX
+  uint32_t leftNodeOffset = eval_distance_traverse_bvh(sbs_id, pos);
+
+  if (leftNodeOffset == 0xFFFFFFFF)
+    return 11.f; // cannot be used for ST
+  // printf("NodeOffset: %d\n", leftNodeOffset);
+
+  uint32_t globalAABBId = startEnd[sbs_id].x + EXTRACT_START(leftNodeOffset); // + aabbId
+  uint32_t start_count_packed = m_primIdCount[globalAABBId];
+  uint32_t a_start = EXTRACT_START(start_count_packed);
+  uint32_t a_count = EXTRACT_COUNT(start_count_packed);
+
+  #ifdef USE_TRICUBIC
+  float values[64];
+  #else
+  float values[8];
+  #endif
+
+  uint32_t nodeId, primId;
+  float d, qNear, qFar;
+  float2 fNearFar;
+  float3 start_q;
+
+  qNear = 1.0f;
+
+  uint32_t sdfId =  m_geomData[sbs_id].offset.x;
+  primId = a_start; //id of bbox in BLAS
+  nodeId = primId + m_SdfSBSRoots[sdfId];
+  SdfSBSHeader header = m_SdfSBSHeaders[sdfId];
+  uint32_t v_size = header.brick_size + 2*header.brick_pad + 1;
+
+  float px = m_SdfSBSNodes[nodeId].pos_xy >> 16;
+  float py = m_SdfSBSNodes[nodeId].pos_xy & 0x0000FFFF;
+  float pz = m_SdfSBSNodes[nodeId].pos_z_lod_size >> 16;
+  float sz = m_SdfSBSNodes[nodeId].pos_z_lod_size & 0x0000FFFF;
+  float sz_inv = 2.0f/sz;
+  
+  d = 2.0f/(sz*header.brick_size);
+
+  float3 brick_min_pos = float3(-1,-1,-1) + sz_inv*float3(px,py,pz);
+  float3 brick_max_pos = brick_min_pos + sz_inv*float3(1,1,1);
+
+  float res_dist = 10.0f;
+  if (pos.x >= brick_min_pos.x && pos.x <= brick_max_pos.x &&
+      pos.y >= brick_min_pos.y && pos.y <= brick_max_pos.y &&
+      pos.z >= brick_min_pos.z && pos.z <= brick_max_pos.z)
+  {
+    // hit
+
+    float3 local_pos = (pos - brick_min_pos) * (0.5f*sz*header.brick_size);
+    float3 voxelPos = floor(clamp(local_pos, 1e-6f, header.brick_size-1e-6f));
+
+    float3 min_pos = brick_min_pos + d*voxelPos;
+    float3 max_pos = min_pos + d*float3(1,1,1);
+    start_q = (pos - min_pos) * (0.5f*sz*header.brick_size);
+
+    load_distance_values(nodeId, voxelPos, v_size, sz_inv, header, values);
+
+#ifdef USE_TRICUBIC
+    float point[3] = {start_q.x, start_q.y, start_q.z};
+    res_dist = tricubicInterpolation(values, point);
+#else
+    res_dist = eval_dist_trilinear(values, start_q);
+#endif
+  }
+  return res_dist;
+}
+#endif
+
+#ifndef DISABLE_SDF_FRAME_OCTREE_COMPACT
+float BVHRT::eval_distance_sdf_coctree_v3(uint32_t octree_id, float3 pos)
+{
+  uint32_t type = m_geomData[octree_id].type;
+  // assert (type == TYPE_COCTREE_V3);
+  uint32_t leftNodeOffset = eval_distance_traverse_bvh(octree_id, pos);
+
+  if (leftNodeOffset == 0xFFFFFFFF)
+    return 11.f; // cannot be used for ST
+
+  uint32_t geometryId = octree_id;
+  uint32_t globalAABBId = startEnd[geometryId].x + EXTRACT_START(leftNodeOffset);
+  uint32_t start_count_packed = m_primIdCount[globalAABBId];
+  uint32_t a_start = EXTRACT_START(start_count_packed);
+  uint32_t a_count = EXTRACT_COUNT(start_count_packed);
+
+  OTStackElement curr_node{};
+
+  float3 min_pos = m_origNodes[a_start].boxMin;
+  float3 max_pos = m_origNodes[a_start].boxMax;
+
+  uint32_t start_sz = uint32_t(2.0f / (max_pos.x - min_pos.x));
+  uint3 start_p_orig = uint3(float(start_sz)*0.5f*(min_pos - float3(-1,-1,-1)));
+
+  uint3 p;
+  float3 p_f;
+  uint32_t level_sz;
+  float d;
+  float3 start_q;
+  float values[8];
+
+  curr_node.nodeId = m_origNodes[a_start].leftOffset;
+  curr_node.curChildId = 0;
+  curr_node.p_size = uint2((start_p_orig.x << 16) | start_p_orig.y, (start_p_orig.z << 16) | start_sz);
+
+  while (true)
+  {
+    level_sz = curr_node.p_size.y & 0xFFFF;
+    p = uint3(curr_node.p_size.x >> 16, curr_node.p_size.x & 0xFFFF, curr_node.p_size.y >> 16);
+    d = 1.0f/float(level_sz);
+    p_f = float3(p);
+
+    if(curr_node.curChildId > 0) //leaf node
+    {
+      float sz_inv = 2.0f/level_sz;
+
+      float3 brick_min_pos = float3(-1,-1,-1) + sz_inv*p_f;
+      float3 brick_max_pos = brick_min_pos + sz_inv*float3(1,1,1);
+
+      float res_dist = 10.0f;
+      if (pos.x >= brick_min_pos.x && pos.x <= brick_max_pos.x &&
+          pos.y >= brick_min_pos.y && pos.y <= brick_max_pos.y &&
+          pos.z >= brick_min_pos.z && pos.z <= brick_max_pos.z)
+      {
+        // hit
+        COctreeV3Header header = coctree_v3_header;
+        uint32_t v_size = header.brick_size + 2*header.brick_pad + 1;
+        d = 2.0f/(level_sz*header.brick_size);
+
+        float3 local_pos = (pos - brick_min_pos) * (0.5f*level_sz*header.brick_size);
+        float3 voxelPos = floor(clamp(local_pos, 1e-6f, header.brick_size-1e-6f));
+
+        float3 min_pos = brick_min_pos + d*voxelPos;
+        float3 max_pos = min_pos + d*float3(1,1,1);
+        start_q = (pos - min_pos) * (0.5f*level_sz*header.brick_size);
+
+        float vmin = COctreeV3_LoadDistanceValues(curr_node.nodeId, voxelPos, v_size, sz_inv, header, values);
+
+        if (vmin <= 0.f)
+          res_dist = eval_dist_trilinear(values, start_q);
+        else
+          res_dist = 13.f;
+      }
+      return res_dist;
+    }
+    else
+    {
+      float sz_inv = 2.0f/level_sz;
+
+      float3 c0 = 0.5f * level_sz * (pos + 1.f) - p_f;
+      int currNode = (uint32_t(c0.x >= 0.5f) << 2u) | (uint32_t(c0.y >= 0.5f) << 1u) | uint32_t(c0.z >= 0.5f);
+      uint32_t childrenInfo = m_SdfCompactOctreeV3Data[curr_node.nodeId + 8];
+
+      // if child is active
+      if ((childrenInfo & (1u << currNode)) > 0)
+      {
+        uint32_t childOffset = m_SdfCompactOctreeV3Data[curr_node.nodeId + currNode];
+        curr_node.nodeId = childOffset;
+        curr_node.curChildId = childrenInfo & (1u << (currNode + 8)); // > 0 is child is leaf
+        curr_node.p_size = (curr_node.p_size << 1) | uint2(((currNode & 4) << (16-2)) | ((currNode & 2) >> 1), (currNode & 1) << 16);
+      }
+      else
+      {
+        // missed coctree
+        return 12.f;
+      }
+    }
+  }
+}
+#endif
+
+uint32_t BVHRT::eval_distance_traverse_bvh(uint32_t geomId, float3 pos)
+{
+  const uint32_t bvhOffset = m_geomData[geomId].bvhOffset;
+
+  uint32_t stack[STACK_SIZE];
+  int top = 0;
+  uint32_t leftNodeOffset = 0;
+
+  while (top >= 0)
+  {
+#ifndef DISABLE_RF_GRID
+    // if (m_RFGridFlags.size() > 0 && pHit->coords[0] <= 0.01f)
+    //   break;
+#endif
+
+    while (top >= 0 && ((leftNodeOffset & LEAF_BIT) == 0))
+    {
+      const BVHNodePair fatNode = m_allNodePairs[bvhOffset + leftNodeOffset];
+      const uint32_t node0_leftOffset = fatNode.left.leftOffset;
+      const uint32_t node1_leftOffset = fatNode.right.leftOffset;
+
+      const bool hitChild0 = (pos.x >= fatNode.left.boxMin.x) && (pos.x <= fatNode.left.boxMax.x) &&
+                             (pos.y >= fatNode.left.boxMin.y) && (pos.y <= fatNode.left.boxMax.y) &&
+                             (pos.z >= fatNode.left.boxMin.z) && (pos.z <= fatNode.left.boxMax.z);
+      const bool hitChild1 = (pos.x >= fatNode.right.boxMin.x) && (pos.x <= fatNode.right.boxMax.x) &&
+                             (pos.y >= fatNode.right.boxMin.y) && (pos.y <= fatNode.right.boxMax.y) &&
+                             (pos.z >= fatNode.right.boxMin.z) && (pos.z <= fatNode.right.boxMax.z);
+
+      // traversal decision
+      if (hitChild0 && hitChild1)
+      {
+        leftNodeOffset = node0_leftOffset;
+        stack[top]     = node1_leftOffset;
+        top++;
+      }
+      else if (!hitChild0 && !hitChild1) // both miss, stack.pop()
+      {
+        leftNodeOffset = -1;
+        if (--top >= 0)
+          leftNodeOffset = stack[top];
+      }
+      else
+      {
+        leftNodeOffset = hitChild0 ? node0_leftOffset : node1_leftOffset;
+      }
+
+    } // end while (searchingForLeaf)
+
+    // leaf node, intersect triangles
+    if (top >= 0 && leftNodeOffset != 0xFFFFFFFF)
+    {
+      return leftNodeOffset;
+    }
+
+    // continue BVH traversal
+    leftNodeOffset = -1;
+    if (--top >= 0)
+      leftNodeOffset = stack[top];
+  } // end while (top >= 0)
+  return leftNodeOffset;
+}
 
 float tricubic_spline(float p0, float p1, float p2, float p3, float x)
 {
@@ -2340,6 +2738,7 @@ void BVHRT::OctreeIntersect(uint32_t type, const float3 ray_pos, const float3 ra
   float2 fNearFar;
   float3 start_q;
   float values[8];
+  float old_t = pHit->t;
 
   stack[top].nodeId = 0;
   stack[top].curChildId = 0;
@@ -2397,7 +2796,7 @@ void BVHRT::OctreeIntersect(uint32_t type, const float3 ray_pos, const float3 ra
         LocalSurfaceIntersection(TYPE_SDF_FRAME_OCTREE, ray_dir, 0, 0, values, nodeId, nodeId, d, 0.0f, qFar, fNearFar, start_q, /*in */
                                  pHit); /*out*/
 
-        if (pHit->primId != 0xFFFFFFFF)
+        if (pHit->t < old_t)
           top = -1;
         else
           top--;
@@ -2570,7 +2969,7 @@ void BVHRT::COctreeV3_BrickIntersect(uint32_t type, const float3 ray_pos, const 
       LocalSurfaceIntersection(type, ray_dir, instId, geomId, values, brickOffset, brickOffset, d, 0.0f, qFar, fNearFar, start_q, /*in */
                                pHit); /*out*/
     
-      if (m_preset.normal_mode == NORMAL_MODE_SDF_SMOOTHED && need_normal() && pHit->t != old_t)
+      if (m_preset.normal_mode == NORMAL_MODE_SDF_SMOOTHED && need_normal() && pHit->t < old_t)
       {
         const float beta = 0.5f;
         float3 dp = start_q + ((pHit->t - fNearFar.x)/d)*ray_dir; //linear interpolation coefficients in voxels
@@ -2604,7 +3003,7 @@ void BVHRT::COctreeV3_BrickIntersect(uint32_t type, const float3 ray_pos, const 
                                (  nmq.x)*(1-nmq.y)*(  nmq.z)*normals[5] + 
                                (  nmq.x)*(  nmq.y)*(1-nmq.z)*normals[6] + 
                                (  nmq.x)*(  nmq.y)*(  nmq.z)*normals[7];
-        smoothed_norm = normalize(smoothed_norm);
+        smoothed_norm = normalize(matmul4x3(m_instanceData[instId].transformInvTransposed, smoothed_norm));
         float2 encoded_norm = encode_normal(smoothed_norm);
 
         pHit->coords[2] = encoded_norm.x;
@@ -2736,6 +3135,7 @@ void BVHRT::OctreeIntersectV3(uint32_t type, const float3 ray_pos, const float3 
   float2 fNearFar;
   float3 start_q;
   float values[8];
+  float old_t = pHit->t;
 
   stack[top].nodeId = startNodeOffset;
   stack[top].curChildId = 0;
@@ -2756,6 +3156,8 @@ void BVHRT::OctreeIntersectV3(uint32_t type, const float3 ray_pos, const float3 
       //  printf("node %u, p = (%u %u %u) d = %f\n", stack[top].nodeId, p.x, p.y, p.z, d);
       //  counter++;
       //}
+      // if (debug_cur_pixel)
+      //   printf("node %u, p = (%u %u %u) d = %f\n", stack[top].nodeId, p.x, p.y, p.z, d);
 
       if(stack[top].curChildId > 0) //leaf node
       {
@@ -2764,12 +3166,14 @@ void BVHRT::OctreeIntersectV3(uint32_t type, const float3 ray_pos, const float3 
                              ((a & 2) > 0) ? (~p.y & p_mask) : p.y,
                              ((a & 1) > 0) ? (~p.z & p_mask) : p.z);
 
-        COctreeV3_BrickIntersect(TYPE_SDF_FRAME_OCTREE, ray_pos, ray_dir, tNear, 0u, 0u, coctree_v3_header, stack[top].nodeId, float3(real_p), float(level_sz), pHit);
+        COctreeV3_BrickIntersect(TYPE_SDF_FRAME_OCTREE, ray_pos, ray_dir, tNear, instId, geomId, coctree_v3_header, stack[top].nodeId, float3(real_p), float(level_sz), pHit);
 
-        if (pHit->primId != 0xFFFFFFFF)
+        if (pHit->t < old_t)
           top = -1;
         else
           top--;
+        // if (debug_cur_pixel)
+        //   printf("leaf node %f %f\n", pHit->t, old_t);
       }
       else
       { 
@@ -2878,6 +3282,11 @@ void BVHRT::OctreeIntersectV3(uint32_t type, const float3 ray_pos, const float3 
 #endif
 }
 
+static bool first_hit_is_closest(uint32_t tag)
+{
+  return tag != 1; /*TAG_TRIANGLE*/
+}
+
 void BVHRT::BVH2TraverseF32(const float3 ray_pos, const float3 ray_dir, float tNear,
                                 uint32_t instId, uint32_t geomId, bool stopOnFirstHit,
                                 CRT_Hit* pHit)
@@ -2887,9 +3296,13 @@ void BVHRT::BVH2TraverseF32(const float3 ray_pos, const float3 ray_dir, float tN
   uint32_t stack[STACK_SIZE];
   int top = 0;
   uint32_t leftNodeOffset = 0;
+  bool hitFound = false; //set to true if we found a hit with an opaque object
+                         //1) if stopOnFirstHit = true, it is some hit, not closest
+                         //2) if we hit and object of some specific type (i.e. octree)
+                         //   we can guarantee that the first hit will be the closest
 
   const float3 rayDirInv = SafeInverse(ray_dir);
-  while (top >= 0 && !(stopOnFirstHit && pHit->primId != uint32_t(-1)))
+  while (top >= 0 && !hitFound)
   {
 #ifndef DISABLE_RF_GRID
     if (m_RFGridFlags.size() > 0 && pHit->coords[0] <= 0.01f)
@@ -2942,7 +3355,10 @@ void BVHRT::BVH2TraverseF32(const float3 ray_pos, const float3 ray_dir, float tN
       const float SDF_BIAS = 0.1f;
       const float tNearSdf = std::max(tNear, SDF_BIAS);
   
-      m_abstractObjectPtrs[geomId]->Intersect( to_float4(ray_pos, tNearSdf), to_float4(ray_dir, 1e9f), leafInfo, pHit, this);
+      // if (debug_cur_pixel)
+      //  printf("intersecting with leaf %u, inst %u\n", leafInfo.aabbId, leafInfo.instId);
+      uint32_t hitTag = m_abstractObjectPtrs[geomId]->Intersect(to_float4(ray_pos, tNearSdf), to_float4(ray_dir, 1e9f), leafInfo, pHit, this);
+      hitFound = (hitTag != 0 /*TAG_NONE*/) && (first_hit_is_closest(hitTag) || stopOnFirstHit);
     }
 
     // continue BVH traversal
@@ -3003,7 +3419,12 @@ CRT_Hit BVHRT::RayQuery_NearestHit(float4 posAndNear, float4 dirAndFar)
         //
         const float3 ray_pos = matmul4x3(m_instanceData[instId].transformInv, to_float3(posAndNear));
         const float3 ray_dir = matmul3x3(m_instanceData[instId].transformInv, to_float3(dirAndFar)); // DON'float NORMALIZE IT !!!! When we transform to local space of node, ray_dir must be unnormalized!!!
-
+    
+        // if (debug_cur_pixel)
+        // {
+        //   printf("intersect %u %u (stopOnFirstHit = %u)\n", instId, geomId, (unsigned)stopOnFirstHit);
+        //   printf("ray_pos before = %f %f %f, after = %f %f %f\n", posAndNear.x, posAndNear.y, posAndNear.z, ray_pos.x, ray_pos.y, ray_pos.z);
+        // }
         BVH2TraverseF32(ray_pos, ray_dir, posAndNear.w, instId, geomId, stopOnFirstHit, &hit);
       }
     } while (nodeIdx < 0xFFFFFFFE && !(stopOnFirstHit && hit.primId != uint32_t(-1))); //

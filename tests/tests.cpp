@@ -13,11 +13,15 @@
 #include "../utils/image_metrics.h"
 #include "../diff_render/MultiRendererDR.h"
 #include "../utils/iou.h"
+#include "../nurbs/nurbs_common_host.h"
+#include "../catmul_clark/catmul_clark_host.h"
+#include "../ribbon/ribbon_host.h"
 
 #include <functional>
 #include <cassert>
 #include <chrono>
 #include <filesystem>
+#include <map>
 
 std::string scenes_folder_path = "./";
 
@@ -476,9 +480,456 @@ auto t4 = std::chrono::steady_clock::now();
     printf("FAILED, psnr = %f\n", psnr_1);
 }
 
-void litert_test_7_stub()
+struct Transform
 {
+  int3 rot; //values 0-3, each for 90 degree rotation
+  float add;
+};
 
+static Transform identity_transform()
+{
+  Transform t;
+  t.rot = int3(0,0,0);
+  t.add = 0.0f;
+  return t;
+}
+
+static Transform rotate_transform(unsigned x, unsigned y, unsigned z)
+{
+  Transform t;
+  t.rot = int3(x,y,z);
+  t.add = 0.0f;
+  return t;
+}
+
+static Transform inverse_transform(const Transform& t)
+{
+  Transform t_inv;
+  t_inv.rot = int3((4 - t.rot.x) % 4, (4 - t.rot.y) % 4, (4 - t.rot.z) % 4);
+  t_inv.add = -t.add;
+  return t_inv;
+}
+
+static Transform mul(const Transform& t1, const Transform& t2)
+{
+  Transform t;
+  t.rot = int3((t1.rot.x + t2.rot.x) % 4, (t1.rot.y + t2.rot.y) % 4, (t1.rot.z + t2.rot.z) % 4);
+  t.add = t1.add + t2.add;
+  return t;
+}
+
+static float4x4 get_rotation_matrix(const Transform& t)
+{
+  return LiteMath::rotate4x4X(M_PI_2 * t.rot.x) * LiteMath::rotate4x4Y(M_PI_2 * t.rot.y) * LiteMath::rotate4x4Z(M_PI_2 * t.rot.z);
+}
+
+  static inline float3 eval_dist_trilinear_diff(const float *brick_data, unsigned v_size, unsigned off, float3 dp)
+  {
+    float ddist_dx = -(1-dp.y)*(1-dp.z)*brick_data[off + 0] + 
+                     -(1-dp.y)*(  dp.z)*brick_data[off + 1] + 
+                     -(  dp.y)*(1-dp.z)*brick_data[off + v_size] + 
+                     -(  dp.y)*(  dp.z)*brick_data[off + v_size + 1] + 
+                      (1-dp.y)*(1-dp.z)*brick_data[off + v_size*v_size] + 
+                      (1-dp.y)*(  dp.z)*brick_data[off + v_size*v_size + 1] + 
+                      (  dp.y)*(1-dp.z)*brick_data[off + v_size*v_size + v_size] + 
+                      (  dp.y)*(  dp.z)*brick_data[off + v_size*v_size + v_size + 1];
+    
+    float ddist_dy = -(1-dp.x)*(1-dp.z)*brick_data[off + 0] + 
+                     -(1-dp.x)*(  dp.z)*brick_data[off + 1] + 
+                      (1-dp.x)*(1-dp.z)*brick_data[off + v_size] + 
+                      (1-dp.x)*(  dp.z)*brick_data[off + v_size + 1] + 
+                     -(  dp.x)*(1-dp.z)*brick_data[off + v_size*v_size] + 
+                     -(  dp.x)*(  dp.z)*brick_data[off + v_size*v_size + 1] + 
+                      (  dp.x)*(1-dp.z)*brick_data[off + v_size*v_size + v_size] + 
+                      (  dp.x)*(  dp.z)*brick_data[off + v_size*v_size + v_size + 1];
+
+    float ddist_dz = -(1-dp.x)*(1-dp.y)*brick_data[off + 0] + 
+                      (1-dp.x)*(1-dp.y)*brick_data[off + 1] + 
+                     -(1-dp.x)*(  dp.y)*brick_data[off + v_size] + 
+                      (1-dp.x)*(  dp.y)*brick_data[off + v_size + 1] + 
+                     -(  dp.x)*(1-dp.y)*brick_data[off + v_size*v_size] + 
+                      (  dp.x)*(1-dp.y)*brick_data[off + v_size*v_size + 1] + 
+                     -(  dp.x)*(  dp.y)*brick_data[off + v_size*v_size + v_size] + 
+                      (  dp.x)*(  dp.y)*brick_data[off + v_size*v_size + v_size + 1];
+  
+    return float3(ddist_dx, ddist_dy, ddist_dz);
+  }
+
+void calculate_brick_grad_histogram(const float *brick_data, unsigned v_size, unsigned pad, unsigned *out_hist, unsigned intervals = 3)
+{
+  for (int i=0;i<intervals*intervals*intervals;i++)
+    out_hist[i] = 0;
+  for (int i=pad;i<v_size-pad-1;i++)
+  {
+    for (int j=pad;j<v_size-pad-1;j++)
+    {
+      for (int k=pad;k<v_size-pad-1;k++)
+      {
+        unsigned off = i*v_size*v_size + j*v_size + k;
+        float3 grad = eval_dist_trilinear_diff(brick_data, v_size, off, float3(0.5f, 0.5f, 0.5f));
+        float glad_length = LiteMath::length(grad) + 1e-9f;
+        grad /= glad_length; //grad cannot reach -1 or 1 in each direction
+        //printf("n = %f %f %f\n", grad.x, grad.y, grad.z);
+        int3 grad_q = int3(intervals*0.5f*(grad + 1.0f));
+        assert(grad_q.x < intervals && grad_q.y < intervals && grad_q.z < intervals &&
+               grad_q.x >= 0 && grad_q.y >= 0 && grad_q.z >= 0);
+        out_hist[grad_q.x*intervals*intervals + grad_q.y*intervals + grad_q.z]++;
+      }
+    }
+  }
+
+  printf("Histogram: [  ");
+  for (int i=0;i<intervals*intervals*intervals;i++)
+    printf("%u ", out_hist[i]);
+  printf("]\n");
+}
+
+void litert_test_7_global_octree()
+{
+  auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "scenes/01_simple_scenes/data/bunny.vsgf").c_str());
+  cmesh4::normalize_mesh(mesh);
+
+  SparseOctreeSettings settings = SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, 5);
+  sdf_converter::GlobalOctree g_octree;
+  std::vector<SdfFrameOctreeNode> frame_octree;
+  std::vector<SdfFrameOctreeNode> frame_octree_ref;
+  SdfSBS sbs;
+  g_octree.header.brick_size = 4;
+  g_octree.header.brick_pad  = 0;
+
+  sbs.header.brick_size = g_octree.header.brick_size;
+  sbs.header.brick_pad = g_octree.header.brick_pad;
+  sbs.header.aux_data = SDF_SBS_NODE_LAYOUT_DX;
+  sbs.header.bytes_per_value = 2;
+
+  auto tlo = cmesh4::create_triangle_list_octree(mesh, settings.depth, 0, 1.0f);
+  sdf_converter::mesh_octree_to_global_octree(mesh, tlo, g_octree);
+
+  constexpr int ROT_COUNT = 4*4*4;
+  constexpr float invalid_dist = 1000;
+  constexpr int num_bins = 100;
+  float max_val = 0.01f;
+  int valid_nodes = 0;
+  int surface_nodes = 0;
+  float dist_thr = 0.00005f;
+  //printf("dist thr = %f\n", dist_thr);
+
+  int v_size = g_octree.header.brick_size + 2 * g_octree.header.brick_pad + 1;
+  int dist_count = v_size * v_size * v_size;
+  std::vector<float> average_brick_val(g_octree.nodes.size(), 0);
+  std::vector<float> closest_dist(g_octree.nodes.size(), invalid_dist);
+  std::vector<int> closest_idx(g_octree.nodes.size(), -1);
+  std::vector<unsigned> remap(g_octree.nodes.size());
+  std::vector<Transform> remap_transforms(g_octree.nodes.size());
+  std::vector<bool> surface_node(g_octree.nodes.size(), false);
+  std::vector<int> hist(num_bins+1, 0);
+  std::array<std::vector<float>, ROT_COUNT> brick_rotations; 
+  std::array<float4x4, ROT_COUNT> rotations;
+
+  constexpr unsigned HIST_INTERVALS = 3;
+  std::vector<std::array<unsigned, HIST_INTERVALS*HIST_INTERVALS*HIST_INTERVALS>> histograms(g_octree.nodes.size());
+  
+  for (int i=0; i<ROT_COUNT; i++)
+  {
+    brick_rotations[i] = std::vector<float>(dist_count, 0);
+    rotations[i] = get_rotation_matrix(rotate_transform(i / 16, (i / 4) % 4, i % 4));
+  }
+
+  for (int i=0; i<g_octree.nodes.size(); i++)
+  {
+    remap[i] = i;
+    remap_transforms[i] = identity_transform();
+  }
+  
+  for (int i=0; i<g_octree.nodes.size(); i++)
+  {
+    int off = g_octree.nodes[i].val_off;
+    float min_val = 1000;
+    float max_val = -1000;
+
+    double sum_sq = 0;
+    double sum = 0;
+    for (int k=0; k<dist_count; k++)
+    {
+      min_val = std::min(min_val, g_octree.values_f[off+k]);
+      max_val = std::max(max_val, g_octree.values_f[off+k]);
+      sum_sq += g_octree.values_f[off+k]*g_octree.values_f[off+k];
+      sum += g_octree.values_f[off+k];
+    }
+
+    average_brick_val[i] = sum/dist_count;
+
+    float mult = 1.0/sqrt(sum_sq);
+    if (g_octree.nodes[i].offset == 0 && min_val <= 0 && max_val >= 0)
+    {
+      for (int k=0; k<dist_count; k++)
+        g_octree.values_f[off+k] *= mult;
+
+      surface_node[i] = true;
+      surface_nodes++;
+    }
+  }
+
+  for (int i=0; i<g_octree.nodes.size(); i++)
+  {
+    if (surface_node[i])
+      calculate_brick_grad_histogram(g_octree.values_f.data() + g_octree.nodes[i].val_off, 
+                                    v_size, g_octree.header.brick_pad, histograms[i].data(), HIST_INTERVALS);
+  }
+
+  if (dist_thr >= 0)  //replace with remap
+  {
+    int remapped = 0;
+
+    for (int i=0; i<g_octree.nodes.size(); i++)
+    {
+      int off_a = g_octree.nodes[i].val_off;
+      for (int r_id=0; r_id<ROT_COUNT; r_id++)
+      {
+        for (int x=0; x<v_size; x++)
+        {
+          for (int y=0; y<v_size; y++)
+          {
+            for (int z=0; z<v_size; z++)
+            {
+              int idx = x*v_size*v_size + y*v_size + z;
+              int3 rot_vec = int3(LiteMath::mul3x3(rotations[r_id], float3(x,y,z) - float3(v_size/2 - 0.5f)) + float3(v_size/2 - 0.5f + 1e-3f));
+              int rot_idx = rot_vec.x * v_size*v_size + rot_vec.y * v_size + rot_vec.z;
+              brick_rotations[r_id][idx] = g_octree.values_f[off_a + rot_idx];
+            }
+          }
+        }
+      }
+
+      if (surface_node[i] == false || remap[i] != i)
+        continue;
+      
+      #pragma omp parallel for schedule(static)
+      for (int j=i+1; j<g_octree.nodes.size(); j++)
+      {
+        if (surface_node[j] == false)
+          continue;
+          
+        int off_b = g_octree.nodes[j].val_off;
+        float add = average_brick_val[j] - average_brick_val[i];
+        float min_dist = 1000;
+        int min_r_id = 0;
+        for (int r_id=0; r_id<ROT_COUNT; r_id++)
+        {
+          float diff = 0;
+          float dist = 0;
+          for (int k=0; k<dist_count; k++)
+          {
+            diff = brick_rotations[r_id][k] + add - g_octree.values_f[off_b+k];
+            dist += diff*diff;
+          }
+          dist = dist / dist_count;
+          if (dist < min_dist)
+          {
+            min_dist = dist;
+            min_r_id = r_id;
+          }
+        }
+        if (min_dist < dist_thr)
+        {
+          #pragma omp critical
+          {
+            //printf("min_r_id = %d\n", min_r_id);
+            remapped += remap[j] == j;
+            remap[j] = i;
+            remap_transforms[j].rot = int3(min_r_id / 16, (min_r_id / 4) % 4, min_r_id % 4);
+            remap_transforms[j].add = add;
+            closest_dist[j] = min_dist;
+            printf("similar %f \n", min_dist);
+            printf("H1: [  ");
+            for (int k=0;k<27;k++)
+              printf("%2u ", histograms[i][k]);
+            printf("]\n");
+            printf("H2: [  ");
+            for (int k=0;k<27;k++)
+              printf("%2u ", histograms[j][k]);
+            printf("]\n\n");
+          }
+        }
+      }
+    }
+
+    printf("remapped %d/%d nodes\n", remapped, surface_nodes);
+  }
+  else if (false)//calculate statistics
+  {
+    #pragma omp parallel for
+    for (int i=0; i<g_octree.nodes.size(); i++)
+    {
+      int off_a = g_octree.nodes[i].val_off;
+      for (int j=0; j<g_octree.nodes.size(); j++)
+      {
+        if (i == j || g_octree.nodes[i].offset != 0 || g_octree.nodes[j].offset != 0)
+          continue;
+        int off_b = g_octree.nodes[j].val_off;
+        double loss = 0;
+        double loss_abs = 0;
+        float loss_max = 0;
+        float min_a = 1000;
+        float max_a = -1000;
+        float min_b = 1000;
+        float max_b = -1000;
+        for (int k=0; k<dist_count; k++)
+        {
+          min_a = std::min(min_a, g_octree.values_f[off_a+k]);
+          max_a = std::max(max_a, g_octree.values_f[off_a+k]);
+          min_b = std::min(min_b, g_octree.values_f[off_b+k]);
+          max_b = std::max(max_b, g_octree.values_f[off_b+k]);
+          loss += (g_octree.values_f[off_a+k] - g_octree.values_f[off_b+k]) * (g_octree.values_f[off_a+k] - g_octree.values_f[off_b+k]);
+          loss_max = std::max(loss_max, std::abs(g_octree.values_f[off_a+k] - g_octree.values_f[off_b+k]));
+          loss_abs += std::abs(g_octree.values_f[off_a+k] - g_octree.values_f[off_b+k]);
+        }
+        float dist = loss / dist_count;
+        dist = loss_max;
+        dist = loss_abs / dist_count;
+        if (dist < closest_dist[i] && ((min_a < 0 && max_a > 0) || (min_b < 0 && max_b > 0)))
+        {
+          closest_dist[i] = dist;
+          closest_idx[i] = j;
+        }
+      }
+
+      unsigned bin_num = unsigned(closest_dist[i] / max_val * num_bins);
+      if (bin_num >= num_bins)
+        bin_num = num_bins;
+      
+      #pragma omp critical
+      {
+        if (closest_dist[i] < invalid_dist)
+        {
+          hist[bin_num]++;
+          valid_nodes++;
+        }
+      }
+
+      if (closest_dist[i] < 0.0005 && false)
+      {
+        int off_b = g_octree.nodes[closest_idx[i]].val_off;
+      printf("closest_dist[%d] = %f (idx = %d), values = %f %f %f %f %f %f %f %f\n", i, closest_dist[i], closest_idx[i],
+            g_octree.values_f[off_a], g_octree.values_f[off_a+1], g_octree.values_f[off_a+2], g_octree.values_f[off_a+3],
+            g_octree.values_f[off_a+4], g_octree.values_f[off_a+5], g_octree.values_f[off_a+6], g_octree.values_f[off_a+7]);
+      printf("                                                    %f %f %f %f %f %f %f %f\n", 
+            g_octree.values_f[off_b], g_octree.values_f[off_a+1], g_octree.values_f[off_a+2], g_octree.values_f[off_a+3],
+            g_octree.values_f[off_a+4], g_octree.values_f[off_a+5], g_octree.values_f[off_a+6], g_octree.values_f[off_a+7]);
+      }
+    }
+
+    float acc = 0;
+    for (int i=0; i<hist.size(); i++)
+    {
+      acc += hist[i];
+      printf("[%d] %d (%.2f%%)\n", i, hist[i], 100*acc/(float)valid_nodes);
+    }
+    return;
+  }
+
+  unsigned W = 4096, H = 4096;
+  MultiRenderPreset preset = getDefaultPreset();
+  preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
+  preset.sdf_node_intersect = SDF_OCTREE_NODE_INTERSECT_NEWTON;
+  preset.spp = 16;
+  LiteImage::Image2D<uint32_t> image(W, H);
+  LiteImage::Image2D<uint32_t> image_ref(W, H);
+
+  sdf_converter::GlobalOctree g_octree_remapped = g_octree;
+  for (int i = 0; i < g_octree.nodes.size(); ++i)
+  {
+    g_octree_remapped.nodes[i].offset = g_octree.nodes[remap[i]].offset;
+
+    for (int x = 0; x < v_size; x++)
+    {
+      for (int y = 0; y < v_size; y++)
+      {
+        for (int z = 0; z < v_size; z++)
+        {
+          int idx = x * v_size * v_size + y * v_size + z;
+          int r_id = remap_transforms[i].rot.x * 16 + remap_transforms[i].rot.y * 4 + remap_transforms[i].rot.z;
+          int3 rot_vec = int3(LiteMath::mul3x3(rotations[r_id], float3(x, y, z) - float3(v_size / 2 - 0.5f)) + float3(v_size / 2 - 0.5f + 1e-3f));
+          int rot_idx = rot_vec.x * v_size * v_size + rot_vec.y * v_size + rot_vec.z;
+
+          g_octree_remapped.values_f[g_octree_remapped.nodes[i].val_off + idx] = 
+                   g_octree.values_f[g_octree.nodes[remap[i]].val_off + rot_idx] + remap_transforms[i].add;
+        }
+      }
+    }
+  }
+
+  if (g_octree.header.brick_size == 1)
+  {
+    sdf_converter::global_octree_to_frame_octree(g_octree, frame_octree_ref);
+    sdf_converter::global_octree_to_frame_octree(g_octree_remapped, frame_octree);
+    // {
+    //   assert(g_octree.header.brick_size == 1);
+    //   assert(g_octree.header.brick_pad == 0);
+
+    //   frame_octree.resize(g_octree.nodes.size());
+    //   for (int i = 0; i < g_octree.nodes.size(); ++i)
+    //   {
+    //     frame_octree[i].offset = g_octree.nodes[remap[i]].offset;
+    //     for (int j=0;j<8;j++)
+    //       frame_octree[i].values[j] = g_octree.values_f[g_octree.nodes[remap[i]].val_off + j];
+    //   }
+    // }
+    {
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
+    pRender->SetPreset(preset);
+    pRender->SetScene(frame_octree_ref);
+    render(image_ref, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+    LiteImage::SaveImage<uint32_t>("saves/test_7_ref.png", image_ref);
+    }
+    {
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
+    pRender->SetPreset(preset);
+    pRender->SetScene(frame_octree);
+    render(image, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+    LiteImage::SaveImage<uint32_t>("saves/test_7_res.png", image);
+    }
+  }
+  else
+  {
+    sdf_converter::global_octree_to_SBS(g_octree, sbs);
+
+    {
+      auto pRender = CreateMultiRenderer(DEVICE_GPU);
+      pRender->SetPreset(preset);
+      pRender->SetScene(sbs);
+      render(image_ref, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+      LiteImage::SaveImage<uint32_t>("saves/test_7_sbs_ref.png", image_ref);
+    }
+
+    // for (int i=0;i<remap.size();i++)
+    // {
+    //   int off_1 = g_octree.nodes[i].val_off;
+    //   int off_2 = g_octree.nodes[remap[i]].val_off;
+    //   for (int j=0;j<dist_count;j++)
+    //   {
+    //     g_octree.values_f[off_2+j] = g_octree.values_f[off_1 + j];
+    //   }
+    // }
+    sdf_converter::global_octree_to_SBS(g_octree_remapped, sbs);
+
+    {
+      auto pRender = CreateMultiRenderer(DEVICE_GPU);
+      pRender->SetPreset(preset);
+      pRender->SetScene(sbs);
+      render(image, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+      LiteImage::SaveImage<uint32_t>("saves/test_7_sbs_res.png", image);
+    }
+  }
+
+  float psnr = image_metrics::PSNR(image_ref, image);
+
+  printf("TEST 7. SDF clustering compression\n");
+  printf("  7.1. %-64s", "mild compression PSNR > 30 ");
+  if (psnr >= 30)
+    printf("passed    (%.2f)\n", psnr);
+  else
+    printf("FAILED, psnr = %f\n", psnr);
 }
 
 void litert_test_8_SDF_grid()
@@ -1733,7 +2184,7 @@ void litert_test_24_demo_meshes()
           auto sdf_SVS = sdf_converter::create_sdf_frame_octree_tex(SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, 8), mesh);
           auto BVH_RT = dynamic_cast<BVHRT*>(pRender->GetAccelStruct()->UnderlyingImpl(0));
           assert(BVH_RT);
-          unsigned geomId = BVH_RT->AddGeom_SdfFrameOctreeTex(sdf_SVS, pRender->GetAccelStruct().get());
+          unsigned geomId = BVH_RT->AddGeom_SdfFrameOctreeTex(sdf_SVS, pRender->GetAccelStruct()->UnderlyingImpl(0));
           pRender->add_SdfFrameOctreeTex_internal(sdf_SVS, geomId);
         }
         pRender->GetAccelStruct()->ClearScene();
@@ -2258,73 +2709,15 @@ void litert_test_30_verify_SBS_SBSAdapt()
   }
 }
 
-
 ////////////////////////// NURBS SECTION ////////////////////////////////
-RawNURBS test_nurbs_loader(const std::filesystem::path &path) {
-  std::fstream fin(path);
-  fin.exceptions(std::ifstream::badbit|std::ifstream::failbit);
-  std::string tmp_str;
-  char tmp_chr;
-
-  RawNURBS surf;
-
-  int n, m, p, q;
-  fin >> tmp_chr >> tmp_chr >> n; // n = ...
-  fin >> tmp_chr >> tmp_chr >> m; // m = ...
-
-  surf.points = Vector2D<LiteMath::float4>(n+1, m+1, { 0, 0, 0, 1.0f });
-  surf.weights = Vector2D<float>(n+1, m+1, 1.0f);
-
-  fin >> tmp_str; // "points:"
-  for (int i = 0; i <= n; ++i)
-  for (int j = 0; j <= m; ++j)
-  {
-    auto &point = surf.points[{i, j}];
-    fin >> tmp_chr >> point.x >> tmp_chr >> point.y >> tmp_chr >> point.z >> tmp_chr; // { ..., ..., ... }
-  }
-
-  fin >> tmp_str; // "weights:"
-  for (int i = 0; i <= n; ++i)
-  for (int j = 0; j <= m; ++j)
-  {
-    fin >> surf.weights[{i, j}];
-  }
-
-  fin >> tmp_str; // "u_degree:"
-  fin >> p; 
-
-  fin >> tmp_str; // "v_degree:"
-  fin >> q;
-
-  surf.u_knots.resize(n+p+2);
-  fin >> tmp_str; // "u_knots:"
-  for (size_t i = 0; i < surf.u_knots.size(); ++i) {
-    fin >> surf.u_knots[i];
-  }
-  float u_min = surf.u_knots.front();
-  float u_max = surf.u_knots.back();
-  for (auto &elem: surf.u_knots)
-    elem = (elem-u_min)/u_max; // map to [0, 1]
-
-  surf.v_knots.resize(m+q+2);
-  fin >> tmp_str; // "v_knots:"
-  for (size_t i = 0; i < surf.v_knots.size(); ++i) {
-    fin >> surf.v_knots[i];
-  }
-  float v_min = surf.v_knots.front();
-  float v_max = surf.v_knots.back();
-  for (auto &elem: surf.v_knots)
-    elem = (elem-v_min)/v_max; // map to [0, 1]
-
-  return surf;
-}
-
-void litert_test_31_fake_nurbs_render()
+void litert_test_31_nurbs_render()
 {
-  std::cout << "TEST 31" << std::endl;
+  std::cout << "TEST 31: NURBS" << std::endl;
   unsigned W = 800, H = 600;
 
   MultiRenderPreset preset = getDefaultPreset();
+  // preset.render_mode = MULTI_RENDER_MODE_NORMAL;
+  // preset.normal_mode = NORMAL_MODE_VERTEX;
   preset.render_mode = MULTI_RENDER_MODE_TEX_COORDS;
   preset.ray_gen_mode = RAY_GEN_MODE_REGULAR;
   preset.spp = 1;
@@ -2332,48 +2725,72 @@ void litert_test_31_fake_nurbs_render()
 
   auto proj_path = std::filesystem::current_path();
   auto nurbs_path = proj_path / "scenes" / "04_nurbs_scenes";
-  RawNURBS vase = test_nurbs_loader(nurbs_path / "vase.nurbss");
-  RawNURBS square = test_nurbs_loader(nurbs_path / "square.nurbss");
-  RawNURBS cylinder = test_nurbs_loader(nurbs_path / "cylinder.nurbss");
 
-  // auto pRenderRef1 = CreateMultiRenderer(DEVICE_GPU);
-  // pRenderRef1->SetPreset(preset);
-  // pRenderRef1->SetViewport(0,0,W,H);
-  auto pRenderRef2 = CreateMultiRenderer(DEVICE_CPU);
-  pRenderRef2->SetPreset(preset);
-  pRenderRef2->SetViewport(0,0,W,H);
-  // auto pRenderRef3 = CreateMultiRenderer(DEVICE_GPU);
-  // pRenderRef3->SetPreset(preset);
-  // pRenderRef3->SetViewport(0,0,W,H);
+  std::cout << "Loading and preprocessing surfaces... ";
+  std::map<std::string, RBezierGrid> surfaces = {
+    { "vase", nurbs2rbezier(load_nurbs(nurbs_path / "vase.nurbss")) },
+    { "square", nurbs2rbezier(load_nurbs(nurbs_path/"square.nurbss")) },
+    { "cylinder", nurbs2rbezier(load_nurbs(nurbs_path/"cylinder.nurbss")) }
+  };
+  std::map<std::string, cmesh4::SimpleMesh> tesselated = {
+    { "vase", get_nurbs_control_mesh(surfaces["vase"]) },
+    { "square", get_nurbs_control_mesh(surfaces["square"]) },
+    { "cylinder", get_nurbs_control_mesh(surfaces["cylinder"]) }
+  };
+  std::cout << "Done." << std::endl;
 
-  float3 camera_pos = { 0, 1.276, 25.557 };
-  float3 camera_target = { 0.0f, 1.276f, 0.0f };
-  float3 camera_up = { 0.0f, 1.0f, 0.0f };
-  // pRenderRef1->SetScene(vase);
-  // std::cout << "Rendering started" << std::endl;
-  // pRenderRef1->Render(
-  //     ref_image.data(), W, H, 
-  //     lookAt(camera_pos, camera_target,camera_up),
-  //     perspectiveMatrix(45.0f, W*1.0f/H, 0.001f, 100.0f), preset);
-  // LiteImage::SaveImage<uint32_t>("saves/test_31_vase.bmp", ref_image);
+  auto create_renderer_f = [&]() {
+    auto res = CreateMultiRenderer(DEVICE_GPU);
+    res->SetPreset(preset);
+    res->SetViewport(0, 0, W, H);
+    return res;
+  };
 
-  camera_pos = { -0.52f, 1.991f, 3.049f };
-  camera_target = { 0.0f, 0.0f, 0.0f };
-  pRenderRef2->SetScene(square);
-  pRenderRef2->Render(
+  std::map<std::string, std::pair<float3, float3>> cameras = {
+    { "vase", { float3{ 0, 1.276, 25.557 }, float3{ 0.0f, 1.276f, 0.0f } } }, 
+    { "square", { float3{ -0.52f, 1.991f, 3.049f }, float3{ 0.0f, 0.0f, 0.0f } } },
+    { "cylinder", { float3{ 2.997f, 4.071f, 2.574f }, float3{ 0.0f, 1.506f, 0.0f } } }
+  };
+
+  for (auto &[name, surf]: surfaces) {
+    auto [camera_pos, target] = cameras[name];
+    float3 up{ 0.0f, 1.0f, 0.0f };
+    std::cout << "Setting up scene for " << name << "... ";
+    auto pRender = create_renderer_f();
+    pRender->SetScene(surf);
+    std::cout << "Done." << std::endl;
+    std::cout << "\"" << name << "\" rendering started... ";
+    auto b = std::chrono::high_resolution_clock::now();
+    pRender->Render(
       ref_image.data(), W, H, 
-      lookAt(camera_pos, camera_target,camera_up),
+      lookAt(camera_pos, target, up),
       perspectiveMatrix(45.0f, W*1.0f/H, 0.001f, 100.0f), preset);
-  LiteImage::SaveImage<uint32_t>("saves/test_31_square.bmp", ref_image);
+    auto e = std::chrono::high_resolution_clock::now();
+    auto ms = std::chrono::duration_cast<std::chrono::microseconds>(e-b).count()/1000.0f;
+    std::cout << "Ended. Time: " << ms << "ms (" << 1000.0f/ms << "fps)." <<std::endl;
+    auto save_name = std::string("saves/test_31_")+name+".bmp";
+    LiteImage::SaveImage<uint32_t>(save_name.c_str(), ref_image);
+  }
 
-  // camera_pos = { 2.997f, 4.071f, 2.574f };
-  // camera_target = { 0.0f, 1.506f, 0.0f };
-  // pRenderRef3->SetScene(cylinder);
-  // pRenderRef3->Render(
-  //     ref_image.data(), W, H, 
-  //     lookAt(camera_pos, camera_target,camera_up),
-  //     perspectiveMatrix(45.0f, W*1.0f/H, 0.001f, 100.0f), preset);
-  // LiteImage::SaveImage<uint32_t>("saves/test_31_cylinder.bmp", ref_image);
+  for (auto &[name, surf]: tesselated) {
+    auto [camera_pos, target] = cameras[name];
+    float3 up{ 0.0f, 1.0f, 0.0f };
+    std::cout << "Setting up scene for tesselated " << name << "... ";
+    auto pRender = create_renderer_f();
+    pRender->SetScene(surf);
+    std::cout << "Done." << std::endl;
+    std::cout << "tesellated \"" << name << "\" rendering started... ";
+    auto b = std::chrono::high_resolution_clock::now();
+    pRender->Render(
+      ref_image.data(), W, H, 
+      lookAt(camera_pos, target, up),
+      perspectiveMatrix(45.0f, W*1.0f/H, 0.001f, 100.0f), preset);
+    auto e = std::chrono::high_resolution_clock::now();
+    auto ms = std::chrono::duration_cast<std::chrono::microseconds>(e-b).count()/1000.0f;
+    std::cout << "Ended. Time: " << ms << "ms (" << 1000.0f/ms << "fps)." <<std::endl;
+    auto save_name = std::string("saves/test_31_tesselated_")+name+".bmp";
+    LiteImage::SaveImage<uint32_t>(save_name.c_str(), ref_image);
+  }
 }
 /////////////////////////// END NURBS //////////////////////////////////////////////////
 
@@ -2542,7 +2959,7 @@ litert_test_34_tricubic_sbs()
 
     MultiRenderPreset preset = getDefaultPreset();
     preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
-    preset.interpolation_type = TRICUBIC_INTERPOLATION_MODE;
+    preset.interpolation_mode = INTERPOLATION_MODE_TRICUBIC;
     preset.normal_mode = NORMAL_MODE_GEOMETRY;
     SparseOctreeSettings settings(SparseOctreeBuildType::MESH_TLO, 5);
 
@@ -2566,7 +2983,7 @@ litert_test_34_tricubic_sbs()
     }
 
     {
-      preset.interpolation_type = TRICUBIC_INTERPOLATION_MODE;
+      preset.interpolation_mode = INTERPOLATION_MODE_TRICUBIC;
       auto pRender = CreateMultiRenderer(DEVICE_CPU);
       pRender->SetPreset(preset);
       pRender->SetViewport(0,0,W,H);
@@ -2590,7 +3007,7 @@ litert_test_34_tricubic_sbs()
 
       MultiRenderPreset preset = getDefaultPreset();
       preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
-      preset.interpolation_type = TRILINEAR_INTERPOLATION_MODE;
+      preset.interpolation_mode = INTERPOLATION_MODE_TRILINEAR;
       SparseOctreeSettings settings(SparseOctreeBuildType::MESH_TLO, 5);
 
       SdfSBSHeader header;
@@ -2905,7 +3322,7 @@ void litert_test_38_direct_octree_traversal()
     float time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
     LiteImage::SaveImage<uint32_t>("saves/test_38_mesh.bmp", image_ref);
 
-    BVHRT *bvh = dynamic_cast<BVHRT*>(pRender->GetAccelStruct().get());
+    BVHRT *bvh = dynamic_cast<BVHRT*>(pRender->GetAccelStruct()->UnderlyingImpl(0));
     mesh_total_bytes = bvh->m_allNodePairs.size()*sizeof(BVHNodePair) + 
                        bvh->m_primIdCount.size()* sizeof(uint32_t) +
                        bvh->m_vertPos.size()* sizeof(float4) +
@@ -2931,7 +3348,7 @@ void litert_test_38_direct_octree_traversal()
     float time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
     LiteImage::SaveImage<uint32_t>("saves/test_38_SVS.bmp", image_SVS);
 
-    BVHRT *bvh = dynamic_cast<BVHRT*>(pRender->GetAccelStruct().get());
+    BVHRT *bvh = dynamic_cast<BVHRT*>(pRender->GetAccelStruct()->UnderlyingImpl(0));
     SVS_total_bytes = bvh->m_allNodePairs.size()*sizeof(BVHNodePair) + 
                       bvh->m_primIdCount.size()* sizeof(uint32_t) +
                       bvh->m_SdfSVSNodes.size()* sizeof(SdfSVSNode);
@@ -2955,7 +3372,7 @@ void litert_test_38_direct_octree_traversal()
     float time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
     LiteImage::SaveImage<uint32_t>("saves/test_38_SBS.bmp", image_SBS);
 
-    BVHRT *bvh = dynamic_cast<BVHRT*>(pRender->GetAccelStruct().get());
+    BVHRT *bvh = dynamic_cast<BVHRT*>(pRender->GetAccelStruct()->UnderlyingImpl(0));
     SBS_total_bytes = bvh->m_allNodePairs.size()*sizeof(BVHNodePair) + 
                       bvh->m_primIdCount.size()* sizeof(uint32_t) +
                       bvh->m_SdfSBSNodes.size()* sizeof(SdfSBSNode) +
@@ -2981,7 +3398,7 @@ void litert_test_38_direct_octree_traversal()
     float time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
     LiteImage::SaveImage<uint32_t>("saves/test_38_BVH.bmp", image_BVH);
 
-    BVHRT *bvh = dynamic_cast<BVHRT*>(pRender->GetAccelStruct().get());
+    BVHRT *bvh = dynamic_cast<BVHRT*>(pRender->GetAccelStruct()->UnderlyingImpl(0));
     octree_total_bytes = bvh->m_allNodePairs.size()*sizeof(BVHNodePair) + 
                          bvh->m_primIdCount.size()* sizeof(uint32_t) +
                          bvh->m_SdfFrameOctreeNodes.size() * sizeof(SdfFrameOctreeNode);
@@ -3005,7 +3422,7 @@ void litert_test_38_direct_octree_traversal()
     float time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
     LiteImage::SaveImage<uint32_t>("saves/test_38_traverse.bmp", image_direct);
     
-    BVHRT *bvh = dynamic_cast<BVHRT*>(pRender->GetAccelStruct().get());
+    BVHRT *bvh = dynamic_cast<BVHRT*>(pRender->GetAccelStruct()->UnderlyingImpl(0));
     coctree_total_bytes = bvh->m_SdfCompactOctreeV2Data.size()*sizeof(uint32_t); 
 
     float psnr = image_metrics::PSNR(image_ref, image_direct);
@@ -3186,6 +3603,7 @@ void litert_test_41_coctree_v3()
   LiteImage::Image2D<uint32_t> image_res_tex(W, H);
 
   float timings[4] = {0,0,0,0};
+  float timings_2[4] = {0,0,0,0};
 
   size_t mesh_total_bytes    = 0;
   size_t SVS_total_bytes     = 0;
@@ -3197,7 +3615,9 @@ void litert_test_41_coctree_v3()
     auto pRender = CreateMultiRenderer(DEVICE_GPU);
     pRender->SetPreset(preset);
     pRender->SetScene(mesh);
-    pRender->Render(image_ref.data(), W, H, worldView, proj, preset, 1);
+    pRender->Render(image_ref.data(), W, H, worldView, proj, preset, 10);
+    pRender->GetExecutionTime("CastRaySingleBlock", timings);
+    pRender->GetExecutionTime("CastRaySingleMega", timings_2);
     LiteImage::SaveImage<uint32_t>("saves/test_41_ref.bmp", image_ref);
     
     MultiRenderPreset preset_tex = preset;
@@ -3212,7 +3632,7 @@ void litert_test_41_coctree_v3()
     pRender->Render(image_ref_tex.data(), W, H, worldView, proj, preset_tex, 1);
     LiteImage::SaveImage<uint32_t>("saves/test_41_ref_tex.bmp", image_ref_tex);
 
-    BVHRT *bvh = dynamic_cast<BVHRT*>(pRender->GetAccelStruct().get());
+    BVHRT *bvh = dynamic_cast<BVHRT*>(pRender->GetAccelStruct()->UnderlyingImpl(0));
     mesh_total_bytes = bvh->m_allNodePairs.size()*sizeof(BVHNodePair) + 
                        bvh->m_primIdCount.size()* sizeof(uint32_t) +
                        bvh->m_vertPos.size()* sizeof(float4) +
@@ -3221,6 +3641,7 @@ void litert_test_41_coctree_v3()
                        bvh->m_primIndices.size()* sizeof(uint32_t);
   
     printf("mesh        %4.1f ms %.1f Kb\n", timings[0]/10, mesh_total_bytes/1024.0f);
+    printf("       avg: %4.1f ms, min: %4.1f ms, max: %4.1f ms\n", timings_2[0], timings_2[1], timings_2[2]);
   }
 
   std::vector<int> bpp = {};
@@ -3267,12 +3688,13 @@ void litert_test_41_coctree_v3()
     auto t1 = std::chrono::steady_clock::now();
     pRender->Render(image_res.data(), W, H, worldView, proj, preset, 10);
     pRender->GetExecutionTime("CastRaySingleBlock", timings);
+    pRender->GetExecutionTime("CastRaySingleMega", timings_2);
     auto t2 = std::chrono::steady_clock::now();
 
     float time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
     LiteImage::SaveImage<uint32_t>(("saves/test_41_sbs_"+std::to_string(b)+"_bit.bmp").c_str(), image_res);
 
-    BVHRT *bvh = dynamic_cast<BVHRT*>(pRender->GetAccelStruct().get());
+    BVHRT *bvh = dynamic_cast<BVHRT*>(pRender->GetAccelStruct()->UnderlyingImpl(0));
     SBS_total_bytes = bvh->m_allNodePairs.size()*sizeof(BVHNodePair) + 
                       bvh->m_primIdCount.size()* sizeof(uint32_t) +
                       bvh->m_SdfSBSNodes.size()* sizeof(SdfSBSNode) +
@@ -3282,6 +3704,7 @@ void litert_test_41_coctree_v3()
     float psnr = image_metrics::PSNR(image_ref, image_res);
     float flip = image_metrics::FLIP(image_ref, image_res);
     printf("SBS %2d bits/distance: %4.1f ms %6.1f Kb %.2f PSNR %.4f FLIP\n", b, timings[0]/10, SBS_total_bytes/(1024.0f), psnr, flip);
+    printf("                 avg: %4.1f ms, min: %4.1f ms, max: %4.1f ms\n", timings_2[0], timings_2[1], timings_2[2]);
   }
 if (false)
   {
@@ -3296,17 +3719,19 @@ if (false)
     auto t1 = std::chrono::steady_clock::now();
     pRender->Render(image_res.data(), W, H, worldView, proj, preset, 10);
     pRender->GetExecutionTime("CastRaySingleBlock", timings);
+    pRender->GetExecutionTime("CastRaySingleMega", timings_2);
     auto t2 = std::chrono::steady_clock::now();
 
     float time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
     LiteImage::SaveImage<uint32_t>("saves/test_41_coctree_v2.bmp", image_res);
     
-    BVHRT *bvh = dynamic_cast<BVHRT*>(pRender->GetAccelStruct().get());
+    BVHRT *bvh = dynamic_cast<BVHRT*>(pRender->GetAccelStruct()->UnderlyingImpl(0));
     coctree_total_bytes = bvh->m_SdfCompactOctreeV2Data.size()*sizeof(uint32_t); 
 
     float psnr = image_metrics::PSNR(image_ref, image_res);
     float flip = image_metrics::FLIP(image_ref, image_res);
     printf("octree v2             %4.1f ms %6.1f Kb %.2f PSNR %.4f FLIP\n", timings[0]/10, coctree_total_bytes/(1024.0f), psnr, flip);
+    printf("                 avg: %4.1f ms, min: %4.1f ms, max: %4.1f ms\n", timings_2[0], timings_2[1], timings_2[2]);
   }
 
   unsigned max_threads = 16;
@@ -3354,6 +3779,7 @@ if (false)
     t1 = std::chrono::steady_clock::now();
     pRender->Render(image_res.data(), W, H, worldView, proj, preset, 10);
     pRender->GetExecutionTime("CastRaySingleBlock", timings);
+    pRender->GetExecutionTime("CastRaySingleMega", timings_2);
     t2 = std::chrono::steady_clock::now();
 
     time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
@@ -3365,7 +3791,7 @@ if (false)
     //pRender->Render(image_res_tex.data(), W, H, worldView, proj, preset_tex, 1);
     LiteImage::SaveImage<uint32_t>(("saves/test_41_coctree_v3_"+std::to_string(bvh_level)+"_bits_tex.bmp").c_str(), image_res_tex); 
 
-    BVHRT *bvhrt = dynamic_cast<BVHRT*>(pRender->GetAccelStruct().get());
+    BVHRT *bvhrt = dynamic_cast<BVHRT*>(pRender->GetAccelStruct()->UnderlyingImpl(0));
     coctree_total_bytes = bvhrt->m_SdfCompactOctreeV3Data.size()*sizeof(uint32_t) + 
                           bvhrt->m_allNodePairs.size()*sizeof(BVHNodePair) + 
                           bvhrt->m_primIdCount.size()* sizeof(uint32_t) +
@@ -3374,7 +3800,7 @@ if (false)
     float psnr = image_metrics::PSNR(image_ref, image_res);
     float flip = image_metrics::FLIP(image_ref, image_res);
     printf("octree v3 bvh=%d       %4.1f ms %6.1f Kb %.2f PSNR %.4f FLIP\n", bvh_level, timings[0]/10, coctree_total_bytes/(1024.0f), psnr, flip);
-
+    printf("                 avg: %4.1f ms, min: %4.1f ms, max: %4.1f ms\n", timings_2[0], timings_2[1], timings_2[2]);
     //float psnr_tex = image_metrics::PSNR(image_ref_tex, image_res_tex);
     //float flip_tex = image_metrics::FLIP(image_ref_tex, image_res_tex);
     //printf("            textured                    %.2f PSNR %.4f FLIP\n", psnr_tex, flip_tex);
@@ -3402,12 +3828,13 @@ if (false)
     auto t1 = std::chrono::steady_clock::now();
     pRender->Render(image_res_tex.data(), W, H, worldView, proj, preset_tex, 10);
     pRender->GetExecutionTime("CastRaySingleBlock", timings);
+    pRender->GetExecutionTime("CastRaySingleMega", timings_2);
     auto t2 = std::chrono::steady_clock::now();
 
     float time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
     LiteImage::SaveImage<uint32_t>("saves/test_41_framed_octree_tex.bmp", image_res_tex);
     
-    BVHRT *bvh = dynamic_cast<BVHRT*>(pRender->GetAccelStruct().get());
+    BVHRT *bvh = dynamic_cast<BVHRT*>(pRender->GetAccelStruct()->UnderlyingImpl(0));
     coctree_total_bytes = bvh->m_SdfCompactOctreeV2Data.size()*sizeof(uint32_t); 
 
     float psnr = image_metrics::PSNR(image_ref_tex, image_res_tex);
@@ -3417,6 +3844,506 @@ if (false)
 
 }
 
+void litert_test_42_mesh_lods()
+{
+	std::cout << "TEST 42. LoDs\n";
+	std::string lod_maker_path = "../LodMaker/lod_maker";
+
+	constexpr int W = 2048, H = 2048;
+
+	std::string ref_path = "scenes/01_simple_scenes/data/teapot.vsgf";
+
+	constexpr int RENDERINGS = 10;
+	constexpr int LODS = 6;
+
+	auto create_lod = [&](const std::string&ref_path, const std::string&path, float factor){
+		std::cout << "Creating LoD of mesh '"<< ref_path <<"' with compression factor " << factor << "\n";
+		std::string cmd = lod_maker_path  + " " + ref_path + " " + path + " " + std::to_string(factor);
+		std::cout << "Running '" << cmd << "' to create LoD\n";
+		if (system(cmd.c_str())) {
+			perror("Failed to create mesh");
+			throw 1;
+		}
+		std::cout << "Successfully created LoD '" + path + "'\n";
+	};
+
+	struct Info
+	{
+		LiteImage::Image2D<uint32_t> image;
+		float time;
+		size_t file_size;
+		size_t complete_size;
+    	float factor;
+		float psnr;
+	};
+
+	auto get_info = [&](const std::string&path)->Info{
+		
+		LiteImage::Image2D<uint32_t> image(W, H);
+		auto mesh = cmesh4::LoadMeshFromVSGF(path.c_str());
+
+		MultiRenderPreset preset = getDefaultPreset();
+		preset.normal_mode = NORMAL_MODE_VERTEX;
+		auto renderer = CreateMultiRenderer(DEVICE_GPU);
+		renderer->SetPreset(preset);
+		renderer->SetViewport(0,0,W,H);
+		renderer->SetScene(mesh);	
+
+		render(image, renderer, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset, RENDERINGS);
+
+		float timings[4];
+		renderer->GetExecutionTime("CastRaySingleBlock", timings);
+		
+		Info info{std::move(image)};
+		info.time = timings[0] / RENDERINGS;
+		info.file_size = std::filesystem::file_size(path);
+		BVHRT *bvh = dynamic_cast<BVHRT*>(renderer->GetAccelStruct()->UnderlyingImpl(0));
+    	info.complete_size = bvh->m_allNodePairs.size()*sizeof(BVHNodePair) + 
+                       bvh->m_primIdCount.size()* sizeof(uint32_t) +
+                       bvh->m_vertPos.size()* sizeof(float4) +
+                       bvh->m_vertNorm.size()* sizeof(float4) +
+                       bvh->m_indices.size()* sizeof(uint32_t) +
+                       bvh->m_primIndices.size()* sizeof(uint32_t);
+
+		return info;
+	};
+
+	std::vector<Info> infos{get_info(ref_path)};
+
+	{
+		std::string ref_img_path = "saves/test_42_ref.png";
+		LiteImage::SaveImage<uint32_t>(ref_img_path.c_str(), infos[0].image);
+		std::cout << "Reference image saved to '" << ref_img_path << "'\n";
+    	infos[0].factor = 1.0f;
+  	}
+	
+	for (int i = 0; i < LODS; i++)
+	{
+		// Sorry for this
+		try {
+			float factor = pow(2, -(i + 1));
+			std::string lod_path = "saves/test_42_lod_" + std::to_string(i + 1) + ".vsgf";
+			std::string lod_img_path = "saves/test_42_lod_" + std::to_string(i + 1) + ".png";
+			create_lod(ref_path, lod_path, factor);
+			infos.push_back(get_info(lod_path));
+    		infos.back().factor = factor;
+			LiteImage::SaveImage<uint32_t>(lod_img_path.c_str(), infos.back().image);
+			std::cout << "LoD " << factor << " image saved to '" << lod_img_path << "'\n";
+		} catch(...)
+		{
+			std::cout << "Stopping test\n";
+			return;
+		}
+	}
+
+	for (auto&i :infos)
+	{
+		i.psnr = image_metrics::PSNR(infos[0].image, i.image);
+	}
+
+	constexpr int NAME_SIZE = 20;
+	constexpr int VALUE_SIZE = 10;
+	std::cout << std::setprecision(3);
+	std::cout << std::setw(NAME_SIZE) << "Compression factor|";
+	for (auto&i : infos)
+	{
+		std::cout << std::setw(VALUE_SIZE + 2) << i.factor << "|";
+	}
+	std::cout << "\n";
+
+	std::cout << std::setw(NAME_SIZE) << "File size|";
+	for (auto&i : infos)
+	{
+		std::cout << std::setw(VALUE_SIZE) << i.file_size / 1024.0f / 1024.0f << "MB|";
+	}
+	std::cout << "\n";
+
+	std::cout << std::setw(NAME_SIZE) << "Complete size|";
+	for (auto&i : infos)
+	{
+		std::cout << std::setw(VALUE_SIZE)  << i.complete_size / 1024.0f / 1024.0f<< "MB|";
+	}
+	std::cout << "\n";
+
+	std::cout << std::setw(NAME_SIZE) << "Rendering time|";
+	for (auto&i : infos)
+	{
+		std::cout << std::setw(VALUE_SIZE)<< i.time << "ms|";
+	}
+	std::cout << "\n";
+
+	std::cout << std::setw(NAME_SIZE) << "PSNR|";
+	for (auto&i : infos)
+	{
+		std::cout << std::setw(VALUE_SIZE + 2)  << i.psnr << "|";
+	}
+	std::cout << "\n";
+
+
+}
+
+void litert_test_43_hydra_integration()
+{
+  //hydra_integration_example(DEVICE_CPU, "scenes/02_sdf_scenes/test_10.xml");
+  //hydra_integration_example(DEVICE_GPU, "scenes/02_sdf_scenes/bunny_svs.xml");
+  
+  int WIDTH  = 256;
+  int HEIGHT = 256;
+  LiteImage::Image2D<uint32_t> ref_image(WIDTH, HEIGHT);
+  LiteImage::Image2D<uint32_t> image(WIDTH, HEIGHT);
+
+  HydraRenderPreset preset = getDefaultHydraRenderPreset();
+  preset.spp = 4;
+
+  {
+    HydraRenderer renderer(DEVICE_CPU);
+    renderer.SetPreset(WIDTH, HEIGHT, preset);
+    renderer.LoadScene("scenes/02_sdf_scenes/test_10.xml");
+    renderer.SetViewport(0,0, WIDTH, HEIGHT);
+    //renderer.UpdateCamera(a_worldView, a_proj);
+    renderer.CommitDeviceData();
+    renderer.Clear(WIDTH, HEIGHT, "color");
+    renderer.Render(ref_image.data(), WIDTH, HEIGHT, "color", 1); 
+  }
+
+  {
+    HydraRenderer renderer(DEVICE_GPU);
+    renderer.SetPreset(WIDTH, HEIGHT, preset);
+    renderer.LoadScene("scenes/02_sdf_scenes/test_10.xml");
+    renderer.SetViewport(0,0, WIDTH, HEIGHT);
+    //renderer.UpdateCamera(a_worldView, a_proj);
+    renderer.CommitDeviceData();
+    renderer.Clear(WIDTH, HEIGHT, "color");
+    renderer.Render(image.data(), WIDTH, HEIGHT, "color", 1); 
+  }
+
+  LiteImage::SaveImage<uint32_t>("saves/test_43_res.png", image); 
+  LiteImage::SaveImage<uint32_t>("saves/test_43_ref.png", ref_image);
+
+  float psnr_1 = image_metrics::PSNR(ref_image, image);
+
+  preset.spp = 64;
+
+  int mat_id = 6;
+  auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path+"scenes/01_simple_scenes/data/bunny.vsgf").c_str());
+  cmesh4::normalize_mesh(mesh);
+  cmesh4::set_mat_id(mesh, mat_id);
+
+  {
+    std::string bin_filename = "test_43_mesh.vsgf";
+    cmesh4::SaveMeshToVSGF(("saves/"+bin_filename).c_str(), mesh);
+    save_xml_string(get_xml_string_model_demo_scene(bin_filename, mesh), "saves/test_43_mesh.xml");
+
+    HydraRenderer renderer(DEVICE_GPU);
+    renderer.SetPreset(WIDTH, HEIGHT, preset);
+    renderer.LoadScene("saves/test_43_mesh.xml");
+    renderer.SetViewport(0,0, WIDTH, HEIGHT);
+    //renderer.UpdateCamera(a_worldView, a_proj);
+    renderer.CommitDeviceData();
+    renderer.Clear(WIDTH, HEIGHT, "color");
+    renderer.Render(ref_image.data(), WIDTH, HEIGHT, "color", 1); 
+  }
+
+  {
+    std::string bin_filename = "test_43_svs.bin";
+    auto sdf_SVS = sdf_converter::create_sdf_SVS(SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, 8), mesh);
+    auto info = get_info_sdf_SVS(sdf_SVS);
+    save_sdf_SVS(sdf_SVS, "saves/"+ bin_filename);
+    save_xml_string(get_xml_string_model_demo_scene(bin_filename, info, mat_id), "saves/test_43_svs.xml");
+
+    HydraRenderer renderer(DEVICE_GPU);
+    renderer.SetPreset(WIDTH, HEIGHT, preset);
+    renderer.LoadScene("saves/test_43_svs.xml");
+    renderer.SetViewport(0,0, WIDTH, HEIGHT);
+    //renderer.UpdateCamera(a_worldView, a_proj);
+    renderer.CommitDeviceData();
+    renderer.Clear(WIDTH, HEIGHT, "color");
+    renderer.Render(image.data(), WIDTH, HEIGHT, "color", 1); 
+  }
+
+  LiteImage::SaveImage<uint32_t>("saves/test_43_2_res.png", image); 
+  LiteImage::SaveImage<uint32_t>("saves/test_43_2_ref.png", ref_image);
+
+  printf("TEST 43. Rendering with Hydra\n");
+  printf(" 43.1. %-64s", "CPU and GPU render image_metrics::PSNR > 45 ");
+  if (psnr_1 >= 45)
+    printf("passed    (%.2f)\n", psnr_1);
+  else
+    printf("FAILED, psnr = %f\n", psnr_1);
+}
+
+void litert_test_44_point_query()
+{
+  int W  = 256;
+  int H = 256;
+  LiteImage::Image2D<uint32_t> image(W, H);
+
+  MultiRenderPreset preset = getDefaultPreset();
+  preset.spp = 4;
+
+  SparseOctreeSettings settings(SparseOctreeBuildType::DEFAULT, 6);
+  SdfSBSHeader header{};
+  header.bytes_per_value = 2;
+  header.brick_size = 2;
+  sdf_converter::DistanceFunction circle_sdf = [&](float3 p){return length(p) - 0.8f;};
+
+  {
+    SdfSBS sbs = sdf_converter::create_sdf_SBS(settings, header, circle_sdf);
+    auto pRender = CreateMultiRenderer(DEVICE_CPU);
+    pRender->SetPreset(preset);
+    pRender->SetViewport(0,0,W,H);
+    pRender->SetScene(sbs);
+    auto *bvhrt = dynamic_cast<BVHRT*>(pRender->GetAccelStruct()->UnderlyingImpl(0));
+    render(image, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset);
+    LiteImage::SaveImage<uint32_t>("saves/test_44_SBS.png", image);
+
+    printf("SBS:\n");
+    for (uint32_t i = 0u; i < 100; ++i)
+    {
+      float3 pt{double(rand()) / (RAND_MAX * 0.5) - 1.,
+                double(rand()) / (RAND_MAX * 0.5) - 1.,
+                double(rand()) / (RAND_MAX * 0.5) - 1.};
+
+      float val = bvhrt->eval_distance_sdf_sbs(0, pt);
+      if (val < 10.f)
+      {
+        printf("Point: [%f, %f, %f], value = %f, ref = %f\n", pt.x, pt.y, pt.z, val, circle_sdf(pt));
+      }
+    }
+  }
+
+
+  {
+    std::vector<SdfSVSNode> svs = sdf_converter::create_sdf_SVS(settings, circle_sdf);
+    auto pRender = CreateMultiRenderer(DEVICE_CPU);
+    pRender->SetPreset(preset);
+    pRender->SetViewport(0,0,W,H);
+    pRender->SetScene(svs);
+    auto *bvhrt = dynamic_cast<BVHRT*>(pRender->GetAccelStruct()->UnderlyingImpl(0));
+    render(image, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset);
+    LiteImage::SaveImage<uint32_t>("saves/test_44_SVS.png", image);
+
+    printf("SVS:\n");
+    for (uint32_t i = 0u; i < 100; ++i)
+    {
+      float3 pt{double(rand()) / (RAND_MAX * 0.5) - 1.,
+                double(rand()) / (RAND_MAX * 0.5) - 1.,
+                double(rand()) / (RAND_MAX * 0.5) - 1.};
+
+      float val = bvhrt->eval_distance_sdf_svs(0, pt);
+      if (val < 10.f) // was in SVS
+      {
+        printf("Point: [%f, %f, %f], value = %f, ref = %f\n", pt.x, pt.y, pt.z, val, circle_sdf(pt));
+      }
+    }
+  }
+
+  {
+    auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "scenes/01_simple_scenes/data/bunny.vsgf").c_str());
+    cmesh4::normalize_mesh(mesh);
+
+
+    std::vector<float3> points;
+    std::vector<float> vals;
+
+    {
+      printf("Mesh SBS...\n");
+      SdfSBS sbs = sdf_converter::create_sdf_SBS(SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, 6, 2 << 28), header, mesh);
+      auto pRender = CreateMultiRenderer(DEVICE_CPU);
+      pRender->SetPreset(preset);
+      pRender->SetViewport(0,0,W,H);
+      pRender->SetScene(sbs);
+      auto *bvhrt = dynamic_cast<BVHRT*>(pRender->GetAccelStruct()->UnderlyingImpl(0));
+      render(image, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset);
+      LiteImage::SaveImage<uint32_t>("saves/test_44_mesh_SBS.png", image);
+
+      printf("Traversing SBS...\n");
+      for (uint32_t i = 0u; i < 1000; ++i)
+      {
+        float3 pt{double(rand()) / (RAND_MAX * 0.5) - 1.,
+                  double(rand()) / (RAND_MAX * 0.5) - 1.,
+                  double(rand()) / (RAND_MAX * 0.5) - 1.};
+
+        float val = bvhrt->eval_distance_sdf_sbs(0, pt);
+        if (val < 10.f)
+        {
+          points.push_back(pt);
+          vals.push_back(val);
+        }
+      }
+    }
+
+    {
+      printf("Mesh COctreeV3...\n");
+      COctreeV3 coctree{};
+      coctree.header.brick_size = 4;
+      coctree.header.brick_pad = 0;
+      coctree.header.bits_per_value = 8;
+      coctree.header.uv_size = 0;
+      coctree.data = sdf_converter::create_COctree_v3(SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, 6, 2 << 28), coctree.header, mesh);
+      COctreeV3View coctree_view = coctree;
+
+      auto pRender = CreateMultiRenderer(DEVICE_CPU);
+      pRender->SetPreset(preset);
+      pRender->SetViewport(0,0,W,H);
+      pRender->SetScene(coctree_view, 0);
+      auto *bvhrt = dynamic_cast<BVHRT*>(pRender->GetAccelStruct()->UnderlyingImpl(0));
+      render(image, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset);
+      LiteImage::SaveImage<uint32_t>("saves/test_44_mesh_COctreeV3.png", image);
+
+      printf("Traversing COctreeV3...\n");
+      for (uint32_t i = 0u; i < points.size(); ++i)
+      {
+        float3 pt = points[i];
+        float val = bvhrt->eval_distance_sdf_coctree_v3(0, pt);
+        if (val < 10.f)
+          printf("pt: [%f, %f, %f], SBS val: %f, COctreeV3 val: %f\n", pt.x, pt.y, pt.z, vals[i], val);
+      }
+    }
+  }
+}
+
+void litert_test_45_global_octree_to_COctreeV3()
+{
+  printf("TEST 45. COMPACT OCTREE V3 USING GLOBAL OCTREE\n");
+  auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "scenes/01_simple_scenes/data/sphere.vsgf").c_str());
+
+  MultiRenderPreset preset = getDefaultPreset();
+  preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
+
+  unsigned W = 512, H = 512;
+  LiteImage::Image2D<uint32_t> image(W, H);
+  LiteImage::Image2D<uint32_t> image_r(W, H);
+
+  SparseOctreeSettings settings = SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, 3);
+  std::vector<SdfFrameOctreeNode> frame, fr_r;
+  fr_r = sdf_converter::create_sdf_frame_octree(SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, 3), mesh);
+
+  auto tlo = cmesh4::create_triangle_list_octree(mesh, settings.depth, 0, 1.0f);
+  sdf_converter::GlobalOctree g;
+  g.header.brick_size = 4;
+  g.header.brick_pad = 0;
+  printf("start creating\n");
+  sdf_converter::mesh_octree_to_global_octree(mesh, tlo, g);
+  printf("global\n");
+  COctreeV3 coctree, ref;
+  coctree.header.bits_per_value = 8;
+  coctree.header.brick_size = g.header.brick_size;
+  coctree.header.brick_pad = g.header.brick_pad;
+  coctree.header.uv_size = 0;
+  ref.header = coctree.header;
+
+  auto t1 = std::chrono::steady_clock::now();
+  ref.data = sdf_converter::create_COctree_v3(SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, 3),
+                                                  ref.header, mesh);
+  sdf_converter::global_octree_to_compact_octree_v3(g, coctree, 1);
+  g.header.brick_size = 1;
+  sdf_converter::mesh_octree_to_global_octree(mesh, tlo, g);
+  sdf_converter::global_octree_to_frame_octree(g, frame);
+  auto t2 = std::chrono::steady_clock::now();
+  {
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
+    pRender->SetPreset(preset);
+    pRender->SetScene(coctree, 0);
+    render(image, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset);
+    LiteImage::SaveImage<uint32_t>("saves/test_45_coctreeV3.bmp", image); 
+  }
+
+  {
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
+    pRender->SetPreset(preset);
+    pRender->SetScene(ref, 0);
+    render(image_r, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset);
+    LiteImage::SaveImage<uint32_t>("saves/test_45_coctreeV3_r.bmp", image_r); 
+  }
+
+  printf("  45.1 %-64s", "Global Octree to Compact Octree V3");
+  float psnr = image_metrics::PSNR(image_r, image);
+  if (psnr >= 30)
+    printf("passed    (%.9f)\n", psnr);
+  else
+    printf("FAILED, psnr = %f\n", psnr);
+
+  
+
+  {
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
+    pRender->SetPreset(preset);
+    pRender->SetScene(frame);
+    render(image, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset);
+    LiteImage::SaveImage<uint32_t>("saves/test_45_frame.bmp", image); 
+  }
+
+  {
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
+    pRender->SetPreset(preset);
+    pRender->SetScene(fr_r);
+    render(image_r, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset);
+    LiteImage::SaveImage<uint32_t>("saves/test_45_frame_r.bmp", image_r); 
+  }
+
+  printf("  45.2 %-64s", "Global Octree to Framed Octree");
+  psnr = image_metrics::PSNR(image_r, image);
+  if (psnr >= 30)
+    printf("passed    (%.9f)\n", psnr);
+  else
+    printf("FAILED, psnr = %f\n", psnr);
+}
+
+//////////////////// CATMUL_CLARK SECTION /////////////////////////////////////////////////////
+void litert_test_46_catmul_clark() {
+  std::cout << "TEST 46: Catmul-Clark" << std::endl;
+
+  unsigned W = 1024, H = 1024;
+
+  MultiRenderPreset preset = getDefaultPreset();
+  LiteImage::Image2D<uint32_t> image(W, H);
+
+  CatmulClark surface;
+  //TODO: surface = load_catmul_clark("example.txt");
+
+  auto pRender = CreateMultiRenderer(DEVICE_GPU);
+  pRender->SetPreset(preset);
+  pRender->SetViewport(0,0,W,H);
+  pRender->SetScene(surface);
+  std::cout << "Rendering started...";
+  auto b = std::chrono::high_resolution_clock::now();
+  render(image, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+  auto e = std::chrono::high_resolution_clock::now();
+  float ms = std::chrono::duration_cast<std::chrono::microseconds>(e-b).count()/1000.0f;
+  std::cout << "Ended. Time: " << ms << "ms" << std::endl;
+
+  LiteImage::SaveImage<uint32_t>("saves/test_46.bmp", image); 
+}
+//////////////////// END CATMUL_CLARK SECTION /////////////////////////////////////////////////////
+
+//////////////////// RIBBON SECTION /////////////////////////////////////////////////////
+void litert_test_47_ribbon() {
+  std::cout << "TEST 47: Ribbon" << std::endl;
+
+  unsigned W = 1024, H = 1024;
+
+  MultiRenderPreset preset = getDefaultPreset();
+  LiteImage::Image2D<uint32_t> image(W, H);
+
+  Ribbon surface;
+  //TODO: surface = load_ribbon("example.txt");
+
+  auto pRender = CreateMultiRenderer(DEVICE_GPU);
+  pRender->SetPreset(preset);
+  pRender->SetViewport(0,0,W,H);
+  pRender->SetScene(surface);
+  std::cout << "Rendering started...";
+  auto b = std::chrono::high_resolution_clock::now();
+  render(image, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
+  auto e = std::chrono::high_resolution_clock::now();
+  float ms = std::chrono::duration_cast<std::chrono::microseconds>(e-b).count()/1000.0f;
+  std::cout << "Ended. Time: " << ms << "ms" << std::endl;
+
+  LiteImage::SaveImage<uint32_t>("saves/test_47.bmp", image); 
+}
+//////////////////// END RIBBON SECTION /////////////////////////////////////////////////////
+
 void perform_tests_litert(const std::vector<int> &test_ids)
 {
   std::vector<int> tests = test_ids;
@@ -3424,7 +4351,7 @@ void perform_tests_litert(const std::vector<int> &test_ids)
   std::vector<std::function<void(void)>> test_functions = {
       litert_test_1_framed_octree, litert_test_2_SVS, litert_test_3_SBS_verify,
       litert_test_4_hydra_scene, litert_test_5_interval_tracing, litert_test_6_faster_bvh_build,
-      litert_test_7_stub, litert_test_8_SDF_grid, litert_test_9_mesh, 
+      litert_test_7_global_octree, litert_test_8_SDF_grid, litert_test_9_mesh, 
       litert_test_10_save_load, litert_test_11_stub, litert_test_12_stub,
       litert_test_13_stub, litert_test_14_octree_nodes_removal, litert_test_15_frame_octree_nodes_removal, 
       litert_test_16_SVS_nodes_removal, litert_test_17_all_types_sanity_check, litert_test_18_mesh_normalization,
@@ -3432,10 +4359,12 @@ void perform_tests_litert(const std::vector<int> &test_ids)
       litert_test_22_sdf_grid_smoothing, litert_test_23_textured_sdf, litert_test_24_demo_meshes,
       litert_test_25_float_images, litert_test_26_sbs_shallow_bvh, litert_test_27_textured_colored_SBS,
       litert_test_28_sbs_reg, litert_test_29_smoothed_frame_octree, litert_test_30_verify_SBS_SBSAdapt,
-      litert_test_31_fake_nurbs_render, litert_test_32_smooth_sbs_normals, litert_test_33_verify_SBS_SBSAdapt_split, 
+      litert_test_31_nurbs_render, litert_test_32_smooth_sbs_normals, litert_test_33_verify_SBS_SBSAdapt_split, 
       litert_test_34_tricubic_sbs, litert_test_35_SBSAdapt_greed_creating, litert_test_36_primitive_visualization,
       litert_test_37_sbs_adapt_comparison, litert_test_38_direct_octree_traversal, litert_test_39_visualize_sbs_bricks,
-      litert_test_40_psdf_framed_octree, litert_test_41_coctree_v3};
+      litert_test_40_psdf_framed_octree, litert_test_41_coctree_v3, litert_test_42_mesh_lods,
+      litert_test_43_hydra_integration, litert_test_44_point_query, litert_test_45_global_octree_to_COctreeV3, 
+      litert_test_46_catmul_clark, litert_test_47_ribbon};
 
   if (tests.empty())
   {

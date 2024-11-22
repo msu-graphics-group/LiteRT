@@ -25,11 +25,13 @@ using LiteMath::uint3;
 using LiteMath::uint4;
 using LiteMath::Box4f;
 
-#include "../ISceneObject.h"
-#include "../raytrace_common.h"
+#include "ISceneObject.h"
+#include "raytrace_common.h"
 #include "cbvh.h"
 #include "nurbs/nurbs_common.h"
 #include "graphics_primitive/graphics_primitive_common.h"
+#include "catmul_clark/catmul_clark.h"
+#include "ribbon/ribbon.h"
 
 // #define USE_TRICUBIC 0
 
@@ -61,6 +63,8 @@ struct AbstractObject
   static constexpr uint32_t TAG_GRAPHICS_PRIM    = 9;
   static constexpr uint32_t TAG_COCTREE_SIMPLE   = 10; //V1 and V2
   static constexpr uint32_t TAG_COCTREE_BRICKED  = 11; //V3
+  static constexpr uint32_t TAG_CATMUL_CLARK     = 12;
+  static constexpr uint32_t TAG_RIBBON           = 13;
 
   AbstractObject(){}  // Dispatching on GPU hierarchy must not have destructors, especially virtual   
   virtual uint32_t GetTag()   const  { return TAG_NONE; }; // !!! #REQUIRED by kernel slicer
@@ -124,11 +128,13 @@ struct BVHRT : public ISceneObject
   uint32_t AddGeom_SdfSBS(SdfSBSView octree, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
   uint32_t AddGeom_SdfSBSAdapt(SdfSBSAdaptView octree, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
   uint32_t AddGeom_SdfFrameOctreeTex(SdfFrameOctreeTexView octree, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
-  uint32_t AddGeom_NURBS(const RawNURBS &nurbs, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
+  uint32_t AddGeom_NURBS(const RBezierGrid &rbeziers, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
   uint32_t AddGeom_GraphicsPrim(const GraphicsPrimView &nurbs, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
   uint32_t AddGeom_COctreeV1(const std::vector<SdfCompactOctreeNode> &nodes, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
   uint32_t AddGeom_COctreeV2(const std::vector<uint32_t> &data, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
   uint32_t AddGeom_COctreeV3(COctreeV3View octree, unsigned bvh_level, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
+  uint32_t AddGeom_CatmulClark(const CatmulClark &surface, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
+  uint32_t AddGeom_Ribbon(const Ribbon &rib, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
 
   void set_debug_mode(bool enable);
 #endif
@@ -186,6 +192,14 @@ struct BVHRT : public ISceneObject
                          uint32_t a_count, CRT_Hit* pHit);
 
   void IntersectNURBS(const float3& ray_pos, const float3& ray_dir,
+                      float tNear, uint32_t approx_offset, uint32_t instId,
+                      uint32_t geomId, CRT_Hit* pHit);
+  
+  void IntersectCatmulClark(const float3& ray_pos, const float3& ray_dir,
+                      float tNear, uint32_t instId,
+                      uint32_t geomId, CRT_Hit* pHit);
+  
+  void IntersectRibbon(const float3& ray_pos, const float3& ray_dir,
                       float tNear, uint32_t instId,
                       uint32_t geomId, CRT_Hit* pHit);
 
@@ -284,9 +298,19 @@ struct BVHRT : public ISceneObject
 #ifndef DISABLE_SDF_GRID
   virtual float eval_distance_sdf_grid(unsigned grid_id, float3 p);
 #endif 
+#ifndef DISABLE_SDF_SVS
+  virtual float eval_distance_sdf_svs(unsigned svs_id, float3 p);
+#endif 
+#ifndef DISABLE_SDF_SBS
+  virtual float eval_distance_sdf_sbs(unsigned sbs_id, float3 p);
+#endif 
 #ifndef DISABLE_SDF_FRAME_OCTREE
   virtual float eval_distance_sdf_frame_octree(unsigned octree_id, float3 p);
 #endif
+#ifndef DISABLE_SDF_FRAME_OCTREE_COMPACT
+  virtual float eval_distance_sdf_coctree_v3(unsigned octree_id, float3 p);
+#endif
+  virtual uint32_t eval_distance_traverse_bvh(uint32_t geom_id, float3 pos);
   virtual float eval_distance_sdf(unsigned type, unsigned prim_id, float3 p);
   virtual SdfHit sdf_sphere_tracing(unsigned type, unsigned prim_id, const float3 &min_pos, const float3 &max_pos,
                                     float tNear, const float3 &pos, const float3 &dir, bool need_norm);    
@@ -370,28 +394,41 @@ struct BVHRT : public ISceneObject
 #ifndef DISABLE_NURBS
   //NURBS data
   std::vector<float> m_NURBSData;
+  std::vector<float> m_NURBS_approxes;
   std::vector<NURBSHeader> m_NURBSHeaders;
   //NURBS functions
-  virtual float4 control_point(uint i, uint j, NURBSHeader h);
-  virtual float weight(uint i, uint j, NURBSHeader h);
-  virtual float uknot(uint i, NURBSHeader h);
-  virtual float vknot(uint i, NURBSHeader h);
-  virtual int find_uspan(float u, NURBSHeader h);
-  virtual int find_vspan(float v, NURBSHeader h);
-  virtual void ubasis_funs(int i, float u, NURBSHeader h, float N[NURBS_MAX_DEGREE+1]);
-  virtual void vbasis_funs(int i, float v, NURBSHeader h, float N[NURBS_MAX_DEGREE+1]);
-  virtual float4 nurbs_point(float u, float v, NURBSHeader h);
-  virtual float4 uder(float u, float v, NURBSHeader h);
-  virtual float4 vder(float u, float v, NURBSHeader h);
-  virtual bool uclosed(NURBSHeader h);
-  virtual bool vclosed(NURBSHeader h);
+  virtual float4 control_point(uint i, int offset);
+  virtual float knot(uint i, int knots_offset);
+  virtual int find_span(float t, int knots_offset, int knots_count, NURBSHeader h);
+  virtual float4 rbezier_curve_point(float u, int p, int offset);
+  virtual float4 rbezier_surface_point(float u, float v, int points_offset, NURBSHeader h);
+  virtual float4 rbezier_grid_point(float u, float v, NURBSHeader h);
+  virtual float4 rbezier_curve_der(float u, int p, int offset);
+  virtual float4 rbezier_surface_uder(float u, float v, const float4 &Sw, int points_offset, NURBSHeader h);
+  virtual float4 rbezier_surface_vder(float u, float v, const float4 &Sw, int points_offset, NURBSHeader h);
+  virtual float4 rbezier_grid_uder(float u, float v, const float4 &Sw, NURBSHeader h);
+  virtual float4 rbezier_grid_vder(float u, float v, const float4 &Sw, NURBSHeader h);
   virtual NURBS_HitInfo ray_nurbs_newton_intersection(
     const LiteMath::float3 &pos,
     const LiteMath::float3 &ray,
+    float2 uv,
     NURBSHeader h);
   //end NURBS functions
 #endif
-
+#ifndef DISABLE_CATMUL_CLARK
+  //CatmulClark data
+  std::vector<CatmulClarkHeader> m_CatmulClarkHeaders;
+  std::vector<
+      float // float or any trivial type
+  > m_CatmulClarkData;
+#endif
+#ifndef DISABLE_RIBBON
+  //Ribbon data
+  std::vector<RibbonHeader> m_RibbonHeaders;
+  std::vector<
+      float // float or any trivial type
+  > m_RibbonData;
+#endif
   // Graphic primitives data
 #ifndef DISABLE_GRAPHICS_PRIM
   std::vector<float4> m_GraphicsPrimPoints;
@@ -480,6 +517,7 @@ struct GeomDataTriangle : public AbstractObject
     float3 ray_pos = to_float3(rayPosAndNear);
     float3 ray_dir = to_float3(rayDirAndFar);
     float tNear    = rayPosAndNear.w;
+    float tPrev     = pHit->t;
     uint32_t geometryId = geomId;
     uint32_t globalAABBId = bvhrt->startEnd[geometryId].x + info.aabbId;
     uint32_t start_count_packed = bvhrt->m_primIdCount[globalAABBId];
@@ -487,7 +525,7 @@ struct GeomDataTriangle : public AbstractObject
     uint32_t a_count = EXTRACT_COUNT(start_count_packed);
 
     bvhrt->IntersectAllTrianglesInLeaf(ray_pos, ray_dir, tNear, info.instId, geometryId, a_start, a_count, pHit);
-    return pHit->primId == 0xFFFFFFFF ? TAG_NONE : TAG_TRIANGLE;
+    return pHit->t >= tPrev  ? TAG_NONE : TAG_TRIANGLE;
   }  
 };
 
@@ -502,6 +540,7 @@ struct GeomDataSdfGrid : public AbstractObject
     float3 ray_pos = to_float3(rayPosAndNear);
     float3 ray_dir = to_float3(rayDirAndFar);
     float tNear    = rayPosAndNear.w;
+    float tPrev     = pHit->t;
     uint32_t geometryId = geomId;
     uint32_t globalAABBId = bvhrt->startEnd[geometryId].x + info.aabbId;
     uint32_t start_count_packed = bvhrt->m_primIdCount[globalAABBId];
@@ -509,7 +548,7 @@ struct GeomDataSdfGrid : public AbstractObject
     uint32_t a_count = EXTRACT_COUNT(start_count_packed);
 
     bvhrt->IntersectAllSdfsInLeaf(ray_pos, ray_dir, tNear, info.instId, geometryId, a_start, a_count, pHit);
-    return pHit->primId == 0xFFFFFFFF ? TAG_NONE : TAG_SDF_GRID;
+    return pHit->t >= tPrev  ? TAG_NONE : TAG_SDF_GRID;
   }
 };
 
@@ -524,6 +563,7 @@ struct GeomDataSdfNode : public AbstractObject
     float3 ray_pos = to_float3(rayPosAndNear);
     float3 ray_dir = to_float3(rayDirAndFar);
     float tNear    = rayPosAndNear.w;
+    float tPrev     = pHit->t;
     uint32_t geometryId = geomId;
     uint32_t globalAABBId = bvhrt->startEnd[geometryId].x + info.aabbId;
     uint32_t start_count_packed = bvhrt->m_primIdCount[globalAABBId];
@@ -532,7 +572,7 @@ struct GeomDataSdfNode : public AbstractObject
     uint32_t type = bvhrt->m_geomData[geometryId].type;
 
     bvhrt->OctreeNodeIntersect(type, ray_pos, ray_dir, tNear, info.instId, geometryId, a_start, a_count, pHit);
-    return pHit->primId == 0xFFFFFFFF ? TAG_NONE : TAG_SDF_NODE;
+    return pHit->t >= tPrev  ? TAG_NONE : TAG_SDF_NODE;
   }
 };
 
@@ -547,6 +587,7 @@ struct GeomDataSdfBrick : public AbstractObject
     float3 ray_pos = to_float3(rayPosAndNear);
     float3 ray_dir = to_float3(rayDirAndFar);
     float tNear    = rayPosAndNear.w;
+    float tPrev     = pHit->t;
     uint32_t geometryId = geomId;
     uint32_t globalAABBId = bvhrt->startEnd[geometryId].x + info.aabbId;
     uint32_t start_count_packed = bvhrt->m_primIdCount[globalAABBId];
@@ -555,7 +596,7 @@ struct GeomDataSdfBrick : public AbstractObject
     uint32_t type = bvhrt->m_geomData[geometryId].type;
 
     bvhrt->OctreeBrickIntersect(type, ray_pos, ray_dir, tNear, info.instId, geometryId, a_start, a_count, pHit);
-    return pHit->primId == 0xFFFFFFFF ? TAG_NONE : TAG_SDF_BRICK;
+    return pHit->t >= tPrev  ? TAG_NONE : TAG_SDF_BRICK;
   }
 };
 
@@ -570,6 +611,7 @@ struct GeomDataSdfAdaptBrick : public AbstractObject
     float3 ray_pos = to_float3(rayPosAndNear);
     float3 ray_dir = to_float3(rayDirAndFar);
     float tNear    = rayPosAndNear.w;
+    float tPrev     = pHit->t;
     uint32_t geometryId = geomId;
     uint32_t globalAABBId = bvhrt->startEnd[geometryId].x + info.aabbId;
     uint32_t start_count_packed = bvhrt->m_primIdCount[globalAABBId];
@@ -578,7 +620,7 @@ struct GeomDataSdfAdaptBrick : public AbstractObject
     uint32_t type = bvhrt->m_geomData[geometryId].type;
 
     bvhrt->OctreeAdaptBrickIntersect(type, ray_pos, ray_dir, tNear, info.instId, geometryId, a_start, a_count, pHit);
-    return pHit->primId == 0xFFFFFFFF ? TAG_NONE : TAG_SDF_ADAPT_BRICK;
+    return pHit->t >= tPrev  ? TAG_NONE : TAG_SDF_ADAPT_BRICK;
   }
 };
 
@@ -590,6 +632,7 @@ struct GeomDataRF : public AbstractObject
   uint32_t Intersect(float4 rayPosAndNear, float4 rayDirAndFar, CRT_LeafInfo info, 
                      CRT_Hit* pHit, BVHRT* bvhrt)   const override
   {
+    float tPrev     = pHit->t;
 #ifndef DISABLE_RF_GRID
     float3 ray_pos = to_float3(rayPosAndNear);
     float3 ray_dir = to_float3(rayDirAndFar);
@@ -602,7 +645,7 @@ struct GeomDataRF : public AbstractObject
 
     bvhrt->IntersectRFInLeaf(ray_pos, ray_dir, tNear, info.instId, geometryId, a_start, a_count, pHit);
 #endif
-    return pHit->primId == 0xFFFFFFFF ? TAG_NONE : TAG_RF;
+    return pHit->t >= tPrev  ? TAG_NONE : TAG_RF;
   }
 };
 
@@ -614,6 +657,7 @@ struct GeomDataGS : public AbstractObject
   uint32_t Intersect(float4 rayPosAndNear, float4 rayDirAndFar, CRT_LeafInfo info, 
                      CRT_Hit* pHit, BVHRT* bvhrt)   const override
   {
+    float tPrev     = pHit->t;
 #ifndef DISABLE_GS_PRIMITIVE
     float3 ray_pos = to_float3(rayPosAndNear);
     float3 ray_dir = to_float3(rayDirAndFar);
@@ -626,7 +670,7 @@ struct GeomDataGS : public AbstractObject
 
     bvhrt->IntersectGSInLeaf(ray_pos, ray_dir, tNear, info.instId, geometryId, a_start, a_count, pHit);
 #endif
-    return pHit->primId == 0xFFFFFFFF ? TAG_NONE : TAG_GS;
+    return pHit->t >= tPrev  ? TAG_NONE : TAG_GS;
   }
 };
 
@@ -641,17 +685,84 @@ struct GeomDataNURBS : public AbstractObject
     float3 ray_pos = to_float3(rayPosAndNear);
     float3 ray_dir = to_float3(rayDirAndFar);
     float tNear    = rayPosAndNear.w;
+    float tPrev     = pHit->t;
     uint32_t geometryId = geomId;
-    //uint32_t globalAABBId = bvhrt->startEnd[geometryId].x + info.aabbId;
-    //uint32_t start_count_packed = bvhrt->m_primIdCount[globalAABBId];
-    //uint32_t a_start = EXTRACT_START(start_count_packed);
-    //uint32_t a_count = EXTRACT_COUNT(start_count_packed);
+    uint32_t globalAABBId = bvhrt->startEnd[geometryId].x + info.aabbId;
+    uint32_t start_count_packed = bvhrt->m_primIdCount[globalAABBId];
+    uint32_t offset = EXTRACT_START(start_count_packed) * 2;
 
-    pHit->primId = 0xFFFFFFFF;
-#ifndef DISABLE_NURBS
-    bvhrt->IntersectNURBS(ray_pos, ray_dir, tNear, info.instId, geometryId, pHit);
-#endif
-    return pHit->primId == 0xFFFFFFFF ? TAG_NONE : TAG_GS;
+    bvhrt->IntersectNURBS(ray_pos, ray_dir, tNear, offset, info.instId, geometryId, pHit);
+    return pHit->t >= tPrev  ? TAG_NONE : TAG_GS;
+  }
+};
+
+struct GeomDataCatmulClark : public AbstractObject
+{
+  GeomDataCatmulClark() {m_tag = GetTag();} 
+
+  uint32_t GetTag() const override { return TAG_CATMUL_CLARK; }  
+  uint32_t Intersect(float4 rayPosAndNear, float4 rayDirAndFar, CRT_LeafInfo info, 
+                     CRT_Hit* pHit, BVHRT* bvhrt)   const override
+  {
+    float3 ray_pos = to_float3(rayPosAndNear);
+    float3 ray_dir = to_float3(rayDirAndFar);
+    float tNear    = rayPosAndNear.w;
+    float tPrev     = pHit->t;
+    uint32_t geometryId = geomId;
+    uint32_t globalAABBId = bvhrt->startEnd[geometryId].x + info.aabbId;
+
+    /* 
+    * OPTIONAL
+    * If you write some data for bvh leave, you need to get offset of this data from m_primIdCount
+    * So, when you add geometry (AddGeom_CatmulClark), you have to write offset to m_primIdCount
+    * 
+    * You can access this offset form IntersectCatmulClark by passing it as parameter 
+    * To do this change IntersectCatmulClark signature
+    * 
+    * You can use this offset in any array you've defined as member in BVHRT
+    * 
+    * Example of getting offset:
+    *   uint32_t start_count_packed = bvhrt->m_primIdCount[globalAABBId];
+    *   uint32_t offset = EXTRACT_START(start_count_packed);
+    */
+
+    bvhrt->IntersectCatmulClark(ray_pos, ray_dir, tNear, info.instId, geometryId, pHit);
+    return pHit->t >= tPrev  ? TAG_NONE : TAG_GS;
+  }
+};
+
+struct GeomDataRibbon : public AbstractObject
+{
+  GeomDataRibbon() {m_tag = GetTag();} 
+
+  uint32_t GetTag() const override { return TAG_RIBBON; }  
+  uint32_t Intersect(float4 rayPosAndNear, float4 rayDirAndFar, CRT_LeafInfo info, 
+                     CRT_Hit* pHit, BVHRT* bvhrt)   const override
+  {
+    float3 ray_pos = to_float3(rayPosAndNear);
+    float3 ray_dir = to_float3(rayDirAndFar);
+    float tNear    = rayPosAndNear.w;
+    float tPrev     = pHit->t;
+    uint32_t geometryId = geomId;
+    uint32_t globalAABBId = bvhrt->startEnd[geometryId].x + info.aabbId;
+
+    /* 
+    * OPTIONAL
+    * If you write some data for bvh leave, you need to get offset of this data from m_primIdCount
+    * So, when you add geometry (AddGeom_CatmulClark), you have to write offset to m_primIdCount
+    * 
+    * You can access this offset form IntersectRibbon by passing it as parameter 
+    * To do this change IntersectRibbon signature
+    * 
+    * You can use this offset in any array you've defined as member in BVHRT
+    * 
+    * Example of getting offset:
+    *   uint32_t start_count_packed = bvhrt->m_primIdCount[globalAABBId];
+    *   uint32_t offset = EXTRACT_START(start_count_packed);
+    */
+
+    bvhrt->IntersectRibbon(ray_pos, ray_dir, tNear, info.instId, geometryId, pHit);
+    return pHit->t >= tPrev  ? TAG_NONE : TAG_GS;
   }
 };
 
@@ -666,6 +777,7 @@ struct GeomDataGraphicsPrim : public AbstractObject
     float3 ray_pos = to_float3(rayPosAndNear);
     float3 ray_dir = to_float3(rayDirAndFar);
     float tNear    = rayPosAndNear.w;
+    float tPrev     = pHit->t;
     uint32_t geometryId = geomId;
     uint32_t globalAABBId = bvhrt->startEnd[geometryId].x + info.aabbId;
     uint32_t start_count_packed = bvhrt->m_primIdCount[globalAABBId];
@@ -673,7 +785,7 @@ struct GeomDataGraphicsPrim : public AbstractObject
     uint32_t a_count = EXTRACT_COUNT(start_count_packed);
 
     bvhrt->IntersectGraphicPrims(ray_pos, ray_dir, tNear, info.instId, geometryId, a_start, a_count, pHit);
-    return pHit->primId == 0xFFFFFFFF ? TAG_NONE : TAG_GRAPHICS_PRIM;
+    return pHit->t >= tPrev  ? TAG_NONE : TAG_GRAPHICS_PRIM;
   }
 };
 
@@ -688,6 +800,7 @@ struct GeomDataCOctreeSimple : public AbstractObject
     float3 ray_pos = to_float3(rayPosAndNear);
     float3 ray_dir = to_float3(rayDirAndFar);
     float tNear    = rayPosAndNear.w;
+    float tPrev     = pHit->t;
     uint32_t geometryId = geomId;
     uint32_t globalAABBId = bvhrt->startEnd[geometryId].x + info.aabbId;
     uint32_t start_count_packed = bvhrt->m_primIdCount[globalAABBId];
@@ -696,7 +809,7 @@ struct GeomDataCOctreeSimple : public AbstractObject
     uint32_t type = bvhrt->m_geomData[geometryId].type;
 
     bvhrt->OctreeIntersect(type, ray_pos, ray_dir, tNear, info.instId, geometryId, a_start, a_count, pHit);
-    return pHit->primId == 0xFFFFFFFF ? TAG_NONE : TAG_COCTREE_SIMPLE;
+    return pHit->t >= tPrev  ? TAG_NONE : TAG_COCTREE_SIMPLE;
   }
 };
 
@@ -711,6 +824,7 @@ struct GeomDataCOctreeBricked : public AbstractObject
     float3 ray_pos = to_float3(rayPosAndNear);
     float3 ray_dir = to_float3(rayDirAndFar);
     float tNear    = rayPosAndNear.w;
+    float tPrev     = pHit->t;
     uint32_t geometryId = geomId;
     uint32_t globalAABBId = bvhrt->startEnd[geometryId].x + info.aabbId;
     uint32_t start_count_packed = bvhrt->m_primIdCount[globalAABBId];
@@ -719,6 +833,6 @@ struct GeomDataCOctreeBricked : public AbstractObject
     uint32_t type = bvhrt->m_geomData[geometryId].type;
 
     bvhrt->OctreeIntersectV3(type, ray_pos, ray_dir, tNear, info.instId, geometryId, a_start, a_count, pHit);
-    return pHit->primId == 0xFFFFFFFF ? TAG_NONE : TAG_COCTREE_BRICKED;
+    return pHit->t >= tPrev  ? TAG_NONE : TAG_COCTREE_BRICKED;
   }
 };

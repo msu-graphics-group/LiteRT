@@ -9,6 +9,7 @@ $2 $start_dir/Renderer/eye_ray.cpp $start_dir/BVH/BVH2Common.cpp \
 -composImplementation BVHRT \
 -stdlibfolder $PWD/TINYSTL \
 -pattern rtv \
+-timestamps 1 \
 -I$PWD/TINYSTL                     ignore  \
 -I$start_dir/dependencies          ignore  \
 -I$start_dir/dependencies/HydraCore3/external          ignore  \
@@ -23,8 +24,9 @@ $2 $start_dir/Renderer/eye_ray.cpp $start_dir/BVH/BVH2Common.cpp \
 -DPUGIXML_NO_EXCEPTIONS -DKERNEL_SLICER -v \
 -DDISABLE_SDF_HP \
 -DDISABLE_RF_GRID \
--DDISABLE_NURBS \
 -DDISABLE_GS_PRIMITIVE \
+-DDISABLE_CATMUL_CLARK \
+-DDISABLE_RIBBON \
 #-DDISABLE_SDF_GRID \
 #-DDISABLE_SDF_SBS_ADAPT \
 #-DDISABLE_SDF_FRAME_OCTREE_TEX \

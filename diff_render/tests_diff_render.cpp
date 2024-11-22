@@ -2558,7 +2558,7 @@ diff_render_test_24_optimization_with_tricubic()
   
   {
     MultiRenderPreset preset = getDefaultPreset();
-    preset.interpolation_type = 0;
+    preset.interpolation_mode = 0;
     preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
     LiteImage::Image2D<float4> image_1(W, H);
 
@@ -2572,7 +2572,7 @@ diff_render_test_24_optimization_with_tricubic()
 
   {
     MultiRenderPreset preset = getDefaultPreset();
-    preset.interpolation_type = TRICUBIC_INTERPOLATION_MODE;
+    preset.interpolation_mode = INTERPOLATION_MODE_TRICUBIC;
     preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
     LiteImage::Image2D<float4> image_1(W, H);
 

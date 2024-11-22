@@ -267,9 +267,9 @@ void main_benchmark(const std::string &path, const std::string &mesh_name, unsig
   FILE* log_fd = fopen(results_file_path.c_str(), "a+");
 
   //different types of structures
-  std::vector<std::string> structures =          {           "mesh",        "mesh_lod", "sdf_grid", "sdf_octree", "sdf_frame_octree", "sdf_SVS", "sdf_SBS-2-1", "sdf_SBS-2-2", "sdf_SBS-3-1", "sdf_SBS-3-1_SN"};
-  std::vector<std::string> structure_types =     {"normalized_mesh", "normalized_mesh", "sdf_grid", "sdf_octree", "sdf_frame_octree", "sdf_svs",     "sdf_sbs",     "sdf_sbs",     "sdf_sbs",        "sdf_sbs"};
-  std::vector<unsigned> average_bytes_per_node = {                0,                 0,          4,            8,                 36,        16,            44,            72,            80,               80};
+  std::vector<std::string> structures =          {           "mesh",        "mesh_lod", "sdf_grid", "sdf_octree", "sdf_frame_octree", "sdf_SVS", "sdf_SBS_tricubic", "sdf_SBS-2-1", "sdf_SBS-2-2", "sdf_SBS-3-1", "sdf_SBS-3-1_SN"};
+  std::vector<std::string> structure_types =     {"normalized_mesh", "normalized_mesh", "sdf_grid", "sdf_octree", "sdf_frame_octree", "sdf_svs",          "sdf_sbs",     "sdf_sbs",     "sdf_sbs",     "sdf_sbs",        "sdf_sbs"};
+  std::vector<unsigned> average_bytes_per_node = {                0,                 0,          4,            8,                 36,        16,                44,             44,            72,            80,               80};
   
   //different sizes
   std::vector<unsigned> max_depths =          {      7,      7,      7,     8,     8,     9,     9,     10,     10,     11};
@@ -383,8 +383,35 @@ void main_benchmark(const std::string &path, const std::string &mesh_name, unsig
           res.nodes = scene.nodes.size();
           res.memory = sizeof(SdfSBSNode) * res.nodes + sizeof(uint32_t) * scene.values.size();
           res.valid = true;
+          
+          save_sdf_SBS(scene, filename);
+        }
+        else if (structure == "sdf_SBS_tricubic")
+        {
+          #ifdef USE_TRICUBIC
+          SdfSBSHeader header;
+          header.brick_size = 2;
+          header.brick_pad = 1;
+          header.bytes_per_value = 1;
+
+          t1 = std::chrono::steady_clock::now();
+          auto scene = sdf_converter::create_sdf_SBS(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, max_depth, nodes_limit), header, mesh);
+          t2 = std::chrono::steady_clock::now();
+          float build_time = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+
+          res.build_time_ms = build_time + mesh_bvh_build_time;
+          res.nodes = scene.nodes.size();
+          res.memory = sizeof(SdfSBSNode) * res.nodes + sizeof(uint32_t) * scene.values.size();
+          res.valid = true;
 
           save_sdf_SBS(scene, filename);
+          #else
+          printf("Picked tricubic interpolation, but did not build prj with it\n");
+          #endif
+        }
+        else if (structure == "openVDB")
+        {
+          
         }
         else if (structure == "sdf_SBS-2-2")
         {
@@ -556,6 +583,34 @@ void main_benchmark(const std::string &path, const std::string &mesh_name, unsig
                   pRender->SetPreset(preset);                  
                   pRender->SetScene(svs_nodes);
                 }
+                else if (structure == "openVDB")
+                {
+                    /*
+                    /,    CPU,      lambert, OpenVDB, 4Mb,  bvh_sphere_tracing, 28.97, 2280, 2280
+                    /,    CPU,      lambert, OpenVDB, 16Mb,  bvh_sphere_tracing, 37.82, 2316, 2316
+                    /,    CPU,      lambert, OpenVDB, 64Mb, bvh_sphere_tracing, 38.16, 3098, 3098
+                    */
+                }
+                else if (structure == "sdf_SBS_tricubic")
+                {
+                  #ifdef USE_TRICUBIC
+                  SdfSBS sbs;
+                  load_sdf_SBS(sbs, filename);
+
+                  SdfSBSHeader header;
+                  header.brick_size = 2;
+                  header.brick_pad = 1;
+                  header.bytes_per_value = 1;
+
+                  SparseOctreeSettings settings(SparseOctreeBuildType::MESH_TLO, 5);
+
+                  pRender = CreateMultiRenderer(render_device, sbs.nodes.size()*std::pow(sbs.header.brick_size, 3) + 1);
+                  auto indexed_SBS = sdf_converter::create_sdf_SBS_indexed_with_neighbors(settings, header, mesh, 0, pRender->getMaterials(), pRender->getTextures());
+                  pRender->SetScene(indexed_SBS);
+                  #else
+                  printf("Picked tricubic interpolation, but did not build prj with it\n");
+                  #endif
+                }
                 else if (structure == "sdf_SBS-2-1" || structure == "sdf_SBS-2-2"|| structure == "sdf_SBS-3-1")
                 {
                   SdfSBS sbs;
@@ -651,6 +706,15 @@ void SBS_benchmark(const std::string &path, const std::string &mesh_name, unsign
                  std::vector<std::string>{"16Mb"},
                  std::vector<std::string>{"bvh_analytic"},
                  25, 10);
+}
+
+void full_benchmark(const std::string &path, const std::string &mesh_name, unsigned flags)
+{
+  main_benchmark(path, mesh_name, flags, "image", 
+                 std::vector<std::string>{"mesh", "sdf_grid", "sdf_SVS", "sdf_SBS_tricubic", "sdf_SBS-3-1_SN", "sdf_SBS-3-1"},
+                 std::vector<std::string>{"4Mb","16Mb", "64Mb"},
+                 std::vector<std::string>{"bvh_sphere_tracing"},
+                 1, 10, DEVICE_CPU);
 }
 
 void rtx_benchmark(const std::string &path, const std::string &mesh_name, unsigned flags, const std::string &supported_type, unsigned device)
