@@ -693,7 +693,7 @@ void litert_test_7_global_octree()
             for (int z=0; z<v_size; z++)
             {
               int idx = x*v_size*v_size + y*v_size + z;
-              int3 rot_vec = int3(LiteMath::mul3x3(rotations[r_id], float3(x,y,z) - float3(v_size/2 - 0.5f)) + float3(v_size/2 - 0.5f + 1e-3f));
+              int3 rot_vec = int3(LiteMath::mul3x3(rotations[r_id], float3(x,y,z) - float3(v_size/2.0f - 0.5f)) + float3(v_size/2.0f - 0.5f + 1e-3f));
               int rot_idx = rot_vec.x * v_size*v_size + rot_vec.y * v_size + rot_vec.z;
               brick_rotations[r_id][idx] = g_octree.values_f[off_a + rot_idx];
             }
@@ -849,7 +849,7 @@ void litert_test_7_global_octree()
         {
           int idx = x * v_size * v_size + y * v_size + z;
           int r_id = remap_transforms[i].rot.x * 16 + remap_transforms[i].rot.y * 4 + remap_transforms[i].rot.z;
-          int3 rot_vec = int3(LiteMath::mul3x3(rotations[r_id], float3(x, y, z) - float3(v_size / 2 - 0.5f)) + float3(v_size / 2 - 0.5f + 1e-3f));
+          int3 rot_vec = int3(LiteMath::mul3x3(rotations[r_id], float3(x, y, z) - float3(v_size / 2.0f - 0.5f)) + float3(v_size / 2.0f - 0.5f + 1e-3f));
           int rot_idx = rot_vec.x * v_size * v_size + rot_vec.y * v_size + rot_vec.z;
 
           g_octree_remapped.values_f[g_octree_remapped.nodes[i].val_off + idx] = 
