@@ -1199,7 +1199,7 @@ void add_border_nodes_rec(COctreeV3View octree, uint32_t max_bvh_level,
                           std::vector<BVHNode> &nodes,
                           uint32_t nodeId, float3 p, float d, uint32_t level)
 {
-  unsigned childrenInfo = octree.data[nodeId + 8];
+  unsigned childrenInfo = octree.data[nodeId + 0];
   unsigned children_leaves = childrenInfo & 0xFF00u;
 
   if (children_leaves || max_bvh_level == level)
@@ -1213,6 +1213,7 @@ void add_border_nodes_rec(COctreeV3View octree, uint32_t max_bvh_level,
   }
   else
   {
+    int child_pos = 1;
     for (int i = 0; i < 8; i++)
     {
       // if child is active
@@ -1220,7 +1221,8 @@ void add_border_nodes_rec(COctreeV3View octree, uint32_t max_bvh_level,
       {
         float ch_d = d / 2;
         float3 ch_p = 2 * p + float3((i & 4) >> 2, (i & 2) >> 1, i & 1);
-        add_border_nodes_rec(octree, max_bvh_level, nodes, octree.data[nodeId + i], ch_p, ch_d, level+1);
+        add_border_nodes_rec(octree, max_bvh_level, nodes, octree.data[nodeId + child_pos], ch_p, ch_d, level+1);
+        child_pos++;
       }
     }
   }

@@ -3168,13 +3168,14 @@ void BVHRT::OctreeIntersectV3(uint32_t type, const float3 ray_pos, const float3 
         do
         {
           //0-7 bits are child_is_active flags, next 8-15 bits are child_is_leaf flags
-          uint32_t childrenInfo = m_SdfCompactOctreeV3Data[stack[top].nodeId + 8];
+          uint32_t childrenInfo = m_SdfCompactOctreeV3Data[stack[top].nodeId + 0];
           uint32_t childNode = currNode ^ a; //child node number, from 0 to 8
 
           // if child is active
           if ((childrenInfo & (1u << childNode)) > 0)
           {
-            uint32_t childOffset = m_SdfCompactOctreeV3Data[stack[top].nodeId + childNode];
+            uint32_t childPos = 1 + bitCount(childrenInfo & ((1u << childNode) - 1));
+            uint32_t childOffset = m_SdfCompactOctreeV3Data[stack[top].nodeId + childPos];
             tmp_buf[buf_top].nodeId = childOffset;
             tmp_buf[buf_top].curChildId = childrenInfo & (1u << (childNode + 8)); // > 0 is child is leaf
             tmp_buf[buf_top].p_size = (stack[top].p_size << 1) | uint2(((currNode & 4) << (16-2)) | ((currNode & 2) >> 1), (currNode & 1) << 16);

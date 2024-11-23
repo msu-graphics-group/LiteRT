@@ -3486,14 +3486,14 @@ void frame_octree_to_compact_octree_v3_rec(const std::vector<SdfFrameOctreeTexNo
   unsigned l_count = 0u;
   unsigned char ch_is_active = 0u; // one bit per child
   unsigned char ch_is_leaf = 0u;   // one bit per child
-  int is_leaf_arr[8];
+  int child_offset_pos[8];
 
   for (int i = 0; i < 8; i++)
   {
     unsigned child_info = ch_count;
     if (is_leaf(frame[ofs + i].offset))
     {
-      is_leaf_arr[i] = 1;
+      child_offset_pos[i] = 0;
 
       // process leaf, get values grid and check if we actually have a surface in it
       uint3 ch_p = 2 * task.p + uint3((i & 4) >> 2, (i & 2) >> 1, i & 1);
@@ -3592,7 +3592,7 @@ void frame_octree_to_compact_octree_v3_rec(const std::vector<SdfFrameOctreeTexNo
         #pragma omp critical
         {
           leaf_offset = global_ctx.compact.size();
-          global_ctx.compact[task.cNodeId + i] = leaf_offset; // offset to this leaf
+          global_ctx.compact[task.cNodeId + ch_count + 1] = leaf_offset; // offset to this leaf
           global_ctx.compact.resize(leaf_offset + leaf_size, 0u); // space for the leaf child
         }
         stat_leaf_bytes += leaf_size * sizeof(uint32_t);
@@ -3611,27 +3611,27 @@ void frame_octree_to_compact_octree_v3_rec(const std::vector<SdfFrameOctreeTexNo
       #pragma omp critical
       {
         unsigned child_offset = global_ctx.compact.size();
-        global_ctx.compact[task.cNodeId + i] = child_offset; // offset to this child
+        global_ctx.compact[task.cNodeId + ch_count + 1] = child_offset; // offset to this child
         global_ctx.compact.resize(global_ctx.compact.size() + 9, 0u); // space for non-leaf child
       }
       stat_nonleaf_bytes += 9 * sizeof(uint32_t);
 
-      is_leaf_arr[i] = 0;
+      child_offset_pos[i] = ch_count + 1;
       ch_count++;
       ch_is_active |= (1 << i);
     }
   }
-  global_ctx.compact[task.cNodeId + 8] = ch_is_active | (ch_is_leaf << 8u);
+  global_ctx.compact[task.cNodeId + 0] = ch_is_active | (ch_is_leaf << 8u);
 
   for (int i = 0; i < 8; i++)
   {
-    if (is_leaf_arr[i] == 0)
+    if (child_offset_pos[i] > 0)
     {
       uint3 ch_p = 2 * task.p + uint3((i & 4) >> 2, (i & 2) >> 1, i & 1);
       #pragma omp critical
       {
         global_ctx.tasks[global_ctx.tasks_count].nodeId = ofs + i;
-        global_ctx.tasks[global_ctx.tasks_count].cNodeId = global_ctx.compact[task.cNodeId + i];
+        global_ctx.tasks[global_ctx.tasks_count].cNodeId = global_ctx.compact[task.cNodeId + child_offset_pos[i]];
         global_ctx.tasks[global_ctx.tasks_count].lod_size = 2 * task.lod_size;
         global_ctx.tasks[global_ctx.tasks_count].p = ch_p;
         global_ctx.tasks_count++;
@@ -3950,14 +3950,6 @@ void frame_octree_to_compact_octree_v3_rec(const std::vector<SdfFrameOctreeTexNo
            + 8*header.uv_size;
   }
 
-  bool node_get_brick_values(const GlobalOctree &octree, COctreeV3Header header, 
-                             std::vector<float> &values_tmp, unsigned idx)
-  {
-    int v_size = header.brick_size + 2 * header.brick_pad + 1;
-    std::copy_n(octree.values_f.data() + octree.nodes[idx].val_off, v_size*v_size*v_size, values_tmp.begin());
-    return octree.nodes[idx].is_not_void;
-  }
-
   unsigned brick_values_compress_no_packing(COctreeV3Header header, COctreeV3ThreadCtx &ctx,
                                             unsigned idx, unsigned lod_size, uint3 p)
   {
@@ -4084,24 +4076,23 @@ void frame_octree_to_compact_octree_v3_rec(const std::vector<SdfFrameOctreeTexNo
   {
     const bool check_packing = false; //for debugging
     unsigned ofs = octree.nodes[task.nodeId].offset;
-    assert(!is_leaf(ofs));
+    assert(!is_leaf(ofs)); // octree must have at least two levels
 
-    unsigned ch_info = 0u;
     unsigned ch_count = 0u;
-    unsigned l_count = 0u;
     unsigned char ch_is_active = 0u; // one bit per child
     unsigned char ch_is_leaf = 0u;   // one bit per child
-    int is_leaf_arr[8];
+    int child_offset_pos[8];
 
     for (int i = 0; i < 8; i++)
     {
-      unsigned child_info = ch_count;
-      if (is_leaf(octree.nodes[ofs + i].offset))
+      if (is_leaf(octree.nodes[ofs + i].offset)) //process leaf
       {
-        is_leaf_arr[i] = 1;
+        child_offset_pos[i] = 0;
 
-        // process leaf, get values grid and check if we actually have a surface in it
-        bool is_border_leaf = node_get_brick_values(octree, header, thread_ctx.values_tmp,ofs + i);
+        // copy original values to temporary buffer and check if this leaf contain surface
+        int v_size = header.brick_size + 2 * header.brick_pad + 1;
+        std::copy_n(octree.values_f.data() + octree.nodes[ofs + i].val_off, v_size*v_size*v_size, thread_ctx.values_tmp.begin());
+        bool is_border_leaf = octree.nodes[ofs + i].is_not_void;
 
         if (is_border_leaf)
         {
@@ -4114,51 +4105,63 @@ void frame_octree_to_compact_octree_v3_rec(const std::vector<SdfFrameOctreeTexNo
           unsigned leaf_size = brick_values_compress(octree, header, thread_ctx, ofs + i, 2 * task.lod_size, ch_p);
           assert(leaf_size > 0);
 
-          unsigned leaf_offset = 1;
+          unsigned leaf_offset;
           #pragma omp critical
           {
             leaf_offset = global_ctx.compact.size();
-            global_ctx.compact[task.cNodeId + i] = leaf_offset; // offset to this leaf
+            global_ctx.compact[task.cNodeId + ch_count + 1] = leaf_offset; // offset to this leaf
             global_ctx.compact.resize(leaf_offset + leaf_size, 0u); // space for the leaf child
           }
-          stat_leaf_bytes += leaf_size * sizeof(uint32_t);
 
+          // copy leaf data to the compact octree
           for (int j = 0; j < leaf_size; j++)
             global_ctx.compact[leaf_offset + j] = thread_ctx.u_values_tmp[j];
 
-          ch_count++;
-          l_count++;
+          stat_leaf_bytes += leaf_size * sizeof(uint32_t);
           ch_is_active |= (1 << i);
           ch_is_leaf |= (1 << i);
+          ch_count++;
         }
       }
       else
       {
+        //non-leaf child, layout is <info><active_child_0><active_child_1>...<active_child_k>
+        //                          <info>: 0 - 8 bits - child activity bits
+        //                                  8 -16 bits - child is leaf bits
+        //                          <active_child_i> - 32 bit, child offset
+        //                          we store offsets only for active children
+        
+        //find how many active children this child node has (yep, we go 2 level deep here)
+        unsigned child_size = 1; 
+        unsigned child_ofs = octree.nodes[ofs + i].offset;
+        for (int j = 0; j < 8; j++)
+          child_size += octree.nodes[child_ofs + j].is_not_void;
+
         #pragma omp critical
         {
           unsigned child_offset = global_ctx.compact.size();
-          global_ctx.compact[task.cNodeId + i] = child_offset; // offset to this child
-          global_ctx.compact.resize(global_ctx.compact.size() + 9, 0u); // space for non-leaf child
+          global_ctx.compact[task.cNodeId + ch_count + 1] = child_offset; // offset to this child
+          global_ctx.compact.resize(global_ctx.compact.size() + child_size, 0u); // space for non-leaf child
         }
-        stat_nonleaf_bytes += 9 * sizeof(uint32_t);
+        stat_nonleaf_bytes += child_size * sizeof(uint32_t);
 
-        is_leaf_arr[i] = 0;
-        ch_count++;
+        child_offset_pos[i] = ch_count + 1;
         ch_is_active |= (1 << i);
+        ch_count++;
       }
     }
-    assert(ch_count > 0 && ch_count <= 8);
-    global_ctx.compact[task.cNodeId + 8] = ch_is_active | (ch_is_leaf << 8u);
+    assert(ch_is_active > 0); // we must have at least one active child
+    global_ctx.compact[task.cNodeId + 0] = ch_is_active | (ch_is_leaf << 8u);
 
     for (int i = 0; i < 8; i++)
     {
-      if (is_leaf_arr[i] == 0)
+      if (child_offset_pos[i] > 0)
       {
         uint3 ch_p = 2 * task.p + uint3((i & 4) >> 2, (i & 2) >> 1, i & 1);
         #pragma omp critical
         {
           global_ctx.tasks[global_ctx.tasks_count].nodeId = ofs + i;
-          global_ctx.tasks[global_ctx.tasks_count].cNodeId = global_ctx.compact[task.cNodeId + i];
+          global_ctx.tasks[global_ctx.tasks_count].cNodeId = global_ctx.compact[task.cNodeId + child_offset_pos[i]];
           global_ctx.tasks[global_ctx.tasks_count].lod_size = 2 * task.lod_size;
           global_ctx.tasks[global_ctx.tasks_count].p = ch_p;
           global_ctx.tasks_count++;
