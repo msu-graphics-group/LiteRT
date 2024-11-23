@@ -1111,29 +1111,79 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
     return false;
   }
 
+  unsigned global_octree_count_and_mark_active_nodes_rec(GlobalOctree &octree, unsigned nodeId)
+  {
+    unsigned ofs = octree.nodes[nodeId].offset;
+    if (is_leaf(ofs))
+    {
+      return (unsigned)octree.nodes[nodeId].is_not_void;
+    }   
+    else
+    {
+      unsigned sum = 0;
+      for (int i = 0; i < 8; i++)
+        sum += global_octree_count_and_mark_active_nodes_rec(octree, ofs + i);
+      if (sum == 0) //parent node has no active children
+      {
+        octree.nodes[nodeId].offset = INVALID_IDX;
+        octree.nodes[nodeId].is_not_void = false;
+      }
+      else  //parent node has active children so it is active too
+      {
+        sum++;
+      }
+
+      return sum;
+    }
+  }
+
+  void global_octree_eliminate_invalid_rec(const GlobalOctree &octree_old, unsigned oldNodeId, 
+                                                 GlobalOctree &octree_new, unsigned newNodeId)
+  {
+    unsigned ofs = octree_old.nodes[oldNodeId].offset;
+    if (!is_leaf(ofs))
+    {
+      unsigned new_ofs = octree_new.nodes.size();
+      octree_new.nodes[newNodeId].offset = new_ofs;
+      for (int i = 0; i < 8; i++)
+      {
+        octree_new.nodes.push_back(octree_old.nodes[ofs + i]);
+        if (octree_new.nodes.back().offset & INVALID_IDX)
+          octree_new.nodes.back().offset = 0;
+      }
+      for (int i = 0; i < 8; i++)
+        global_octree_eliminate_invalid_rec(octree_old, ofs + i, octree_new, new_ofs + i);
+    }
+  }
+
   void mesh_octree_to_global_octree(const cmesh4::SimpleMesh &mesh,
                                     const cmesh4::TriangleListOctree &tl_octree, 
                                     GlobalOctree &out_octree)
   {
-    out_octree.nodes.resize(tl_octree.nodes.size());
+    GlobalOctree tmp_octree;
+    tmp_octree.header = out_octree.header;
+    tmp_octree.nodes.resize(tl_octree.nodes.size());
+
     unsigned nodes_cnt = 1;
     for (auto i : tl_octree.nodes)
     {
       assert(!(i.offset != 0 && i.tid_count == 0));
     }
-    mesh_octree_to_global_octree_rec(mesh, tl_octree, out_octree, 0, float3(0,0,0), 1, 0, nodes_cnt);
-    out_octree.nodes.resize(nodes_cnt);
-    /*unsigned v_s = out_octree.header.brick_size + 2 * out_octree.header.brick_pad + 1;
-    for (int i = 0; i < out_octree.nodes.size(); ++i)
-    {
-      printf("%u -|-", out_octree.nodes[i].offset);
-      for (int j = 0; j < v_s * v_s * v_s; ++j)
-      {
-        printf(" %f", out_octree.values_f[out_octree.nodes[i].val_off + j]);
-      }
-      printf("\n\n");
+    mesh_octree_to_global_octree_rec(mesh, tl_octree, tmp_octree, 0, float3(0,0,0), 1, 0, nodes_cnt);
+    tmp_octree.nodes.resize(nodes_cnt);
+    
+    unsigned nn = global_octree_count_and_mark_active_nodes_rec(tmp_octree, 0);
+    assert(!is_leaf(tmp_octree.nodes[0].offset));
 
-    }*/
+    out_octree.nodes.clear();
+    out_octree.values_f = tmp_octree.values_f; //some data here is not used (no node points to it), but let it be for now.
+    out_octree.nodes.reserve(tmp_octree.nodes.size());
+    out_octree.nodes.push_back(tmp_octree.nodes[0]);
+    global_octree_eliminate_invalid_rec(tmp_octree, 0, out_octree, 0);
+    out_octree.nodes.shrink_to_fit();
+
+    printf("%u/%u nodes are active\n", nn, (unsigned)tmp_octree.nodes.size());
+    printf("%u/%u nodes are left after elimination\n", (unsigned)out_octree.nodes.size(), (unsigned)tmp_octree.nodes.size());
   }
 
   void global_octree_to_frame_octree(const GlobalOctree &octree, std::vector<SdfFrameOctreeNode> &out_frame)
@@ -4064,7 +4114,7 @@ void frame_octree_to_compact_octree_v3_rec(const std::vector<SdfFrameOctreeTexNo
         ch_is_active |= (1 << i);
       }
     }
-    //printf("ch_count = %u\n", ch_count);
+    assert(ch_count > 0 && ch_count <= 8);
     global_ctx.compact[task.cNodeId + 8] = ch_is_active | (ch_is_leaf << 8u);
 
     for (int i = 0; i < 8; i++)
