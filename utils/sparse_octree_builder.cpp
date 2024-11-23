@@ -1182,8 +1182,8 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
     global_octree_eliminate_invalid_rec(tmp_octree, 0, out_octree, 0);
     out_octree.nodes.shrink_to_fit();
 
-    printf("%u/%u nodes are active\n", nn, (unsigned)tmp_octree.nodes.size());
-    printf("%u/%u nodes are left after elimination\n", (unsigned)out_octree.nodes.size(), (unsigned)tmp_octree.nodes.size());
+    //printf("%u/%u nodes are active\n", nn, (unsigned)tmp_octree.nodes.size());
+    //printf("%u/%u nodes are left after elimination\n", (unsigned)out_octree.nodes.size(), (unsigned)tmp_octree.nodes.size());
   }
 
   void global_octree_to_frame_octree(const GlobalOctree &octree, std::vector<SdfFrameOctreeNode> &out_frame)

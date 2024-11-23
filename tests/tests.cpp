@@ -580,7 +580,7 @@ void calculate_brick_grad_histogram(const float *brick_data, unsigned v_size, un
         float3 tang_1 = (1 - std::abs(dot(grad, float3(1,0,0))) > 1e-6f) ? cross(grad, float3(1,0,0)) : cross(grad, float3(0,1,0));
         float3 tang_2 = cross(grad, tang_1);
 
-        const float grad_scatter = 0.1f/intervals;
+        const float grad_scatter = 0.0f/intervals;
         tang_1 *= grad_scatter;
         tang_2 *= grad_scatter;
 
@@ -726,17 +726,31 @@ unsigned histogram_to_class(const unsigned *hist, unsigned intervals)
   return cur_sum >= hist_sum_thr ? cur_class : unusual_class;
 }
 
+struct TransformCompact
+{
+  unsigned rotation_id;
+  float add;
+};
+
+TransformCompact get_identity_transform()
+{
+  TransformCompact t;
+  t.rotation_id = 0;
+  t.add = 0.0f;
+  return t;
+}
+
 void litert_test_7_global_octree()
 {
   auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "scenes/01_simple_scenes/data/bunny.vsgf").c_str());
   cmesh4::normalize_mesh(mesh);
 
-  SparseOctreeSettings settings = SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, 6);
+  SparseOctreeSettings settings = SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, 5);
   sdf_converter::GlobalOctree g_octree;
   std::vector<SdfFrameOctreeNode> frame_octree;
   std::vector<SdfFrameOctreeNode> frame_octree_ref;
   SdfSBS sbs;
-  g_octree.header.brick_size = 4;
+  g_octree.header.brick_size = 2;
   g_octree.header.brick_pad  = 0;
 
   sbs.header.brick_size = g_octree.header.brick_size;
@@ -747,7 +761,7 @@ void litert_test_7_global_octree()
   auto tlo = cmesh4::create_triangle_list_octree(mesh, settings.depth, 0, 1.0f);
   sdf_converter::mesh_octree_to_global_octree(mesh, tlo, g_octree);
 
-  constexpr int ROT_COUNT = 4*4*4;
+  constexpr int ROT_COUNT = 48;
   constexpr float invalid_dist = 1000;
   constexpr int num_bins = 100;
   float max_val = 0.01f;
@@ -762,11 +776,11 @@ void litert_test_7_global_octree()
   std::vector<float> closest_dist(g_octree.nodes.size(), invalid_dist);
   std::vector<int> closest_idx(g_octree.nodes.size(), -1);
   std::vector<unsigned> remap(g_octree.nodes.size());
-  std::vector<Transform> remap_transforms(g_octree.nodes.size());
+  std::vector<TransformCompact> remap_transforms(g_octree.nodes.size());
   std::vector<bool> surface_node(g_octree.nodes.size(), false);
   std::vector<int> hist(num_bins+1, 0);
   std::array<std::vector<float>, ROT_COUNT> brick_rotations; 
-  std::array<float4x4, ROT_COUNT> rotations;
+  std::array<float3x3, ROT_COUNT> rotations;
 
   constexpr unsigned HIST_INTERVALS = 3;
   std::vector<std::array<unsigned, HIST_INTERVALS*HIST_INTERVALS*HIST_INTERVALS>> histograms(g_octree.nodes.size());
@@ -775,14 +789,27 @@ void litert_test_7_global_octree()
   
   for (int i=0; i<ROT_COUNT; i++)
   {
+    int code = i;
+    int index_1 = code % 3; code /= 3;
+    int sign_1  = code % 2; code /= 2;
+    int index_2 = (index_1 + code % 2 + 1) % 3; 
+    int index_3 = (index_1 + (code+1) % 2 + 1) % 3; code /= 2;
+    int sign_2  = (code % 2) % 2; code /= 2;
+    int sign_3  = (code % 2) % 2; code /= 2;
+    float3 e1(0,0,0), e2(0,0,0), e3(0,0,0);
+    e1[index_1] = sign_1 ? -1 : 1;
+    e2[index_2] = sign_2 ? -1 : 1;
+    e3[index_3] = sign_3 ? -1 : 1;
+    assert(dot(e1, e2) < 1e-6f && dot(e1, e3) < 1e-6f && dot(e2, e3) < 1e-6f);
+
+    rotations[i] = LiteMath::make_float3x3_by_columns(e1, e2, e3);
     brick_rotations[i] = std::vector<float>(dist_count, 0);
-    rotations[i] = get_rotation_matrix(rotate_transform(i / 16, (i / 4) % 4, i % 4));
   }
 
   for (int i=0; i<g_octree.nodes.size(); i++)
   {
     remap[i] = i;
-    remap_transforms[i] = identity_transform();
+    remap_transforms[i] = get_identity_transform();
   }
   
   for (int i=0; i<g_octree.nodes.size(); i++)
@@ -814,24 +841,24 @@ void litert_test_7_global_octree()
     }
   }
 
-  for (int i=0; i<g_octree.nodes.size(); i++)
-  {
-    if (surface_node[i])
-    {
-     calculate_brick_grad_histogram(g_octree.values_f.data() + g_octree.nodes[i].val_off, 
-                                   v_size, g_octree.header.brick_pad, histograms[i].data(), HIST_INTERVALS);
-      hist_classes[i] = histogram_to_class(histograms[i].data(), HIST_INTERVALS);
-      if (hist_classes[i] >= hist_classes_stat.size())
-        hist_classes_stat.resize(hist_classes[i]+1, 0);
-      hist_classes_stat[hist_classes[i]]++;
-    }
-  }
+  // for (int i=0; i<g_octree.nodes.size(); i++)
+  // {
+  //   if (surface_node[i])
+  //   {
+  //    calculate_brick_grad_histogram(g_octree.values_f.data() + g_octree.nodes[i].val_off, 
+  //                                  v_size, g_octree.header.brick_pad, histograms[i].data(), HIST_INTERVALS);
+  //     hist_classes[i] = histogram_to_class(histograms[i].data(), HIST_INTERVALS);
+  //     if (hist_classes[i] >= hist_classes_stat.size())
+  //       hist_classes_stat.resize(hist_classes[i]+1, 0);
+  //     hist_classes_stat[hist_classes[i]]++;
+  //   }
+  // }
 
-  unsigned class_count = hist_classes_stat.size();
-  std::vector<uint2> class_dist_pairs(class_count*class_count, uint2(0,0));
+  // unsigned class_count = hist_classes_stat.size();
+  // std::vector<uint2> class_dist_pairs(class_count*class_count, uint2(0,0));
 
-  for (int i=0; i<hist_classes_stat.size(); i++)
-    printf("%d: %u\n", i, hist_classes_stat[i]);
+  // for (int i=0; i<hist_classes_stat.size(); i++)
+  //   printf("%d: %u\n", i, hist_classes_stat[i]);
 
   if (dist_thr >= 0)  //replace with remap
   {
@@ -849,7 +876,7 @@ void litert_test_7_global_octree()
             for (int z=0; z<v_size; z++)
             {
               int idx = x*v_size*v_size + y*v_size + z;
-              int3 rot_vec = int3(LiteMath::mul3x3(rotations[r_id], float3(x,y,z) - float3(v_size/2.0f - 0.5f)) + float3(v_size/2.0f - 0.5f + 1e-3f));
+              int3 rot_vec = int3(rotations[r_id] * (float3(x,y,z) - float3(v_size/2.0f - 0.5f)) + float3(v_size/2.0f - 0.5f + 1e-3f));
               int rot_idx = rot_vec.x * v_size*v_size + rot_vec.y * v_size + rot_vec.z;
               brick_rotations[r_id][idx] = g_octree.values_f[off_a + rot_idx];
             }
@@ -896,14 +923,14 @@ void litert_test_7_global_octree()
             if (remap[j] != j)
             {
               unsigned class_prev = hist_classes[remap[j]];
-              class_dist_pairs[class_prev*class_count + class_j].x--;
+              //class_dist_pairs[class_prev*class_count + class_j].x--;
             }
             remapped += remap[j] == j;
             remap[j] = i;
-            remap_transforms[j].rot = int3(min_r_id / 16, (min_r_id / 4) % 4, min_r_id % 4);
+            remap_transforms[j].rotation_id = min_r_id;
             remap_transforms[j].add = add;
             closest_dist[j] = min_dist;
-            class_dist_pairs[class_i*class_count + class_j].x++;
+            //class_dist_pairs[class_i*class_count + class_j].x++;
             // printf("similar %f \n", min_dist);
             // printf("H1: [  ");
             // for (int k=0;k<27;k++)
@@ -919,38 +946,38 @@ void litert_test_7_global_octree()
     }
 
     printf("remapped %d/%d nodes\n", remapped, surface_nodes);
-    printf("TABLE |");
-    for (int i=0;i<class_count;i++)
-    {
-      if (hist_classes_stat[i] > 0)
-        printf("%5d ", i);
-    }
-    printf("\n");
-    printf("-------");
-    for (int i=0;i<class_count;i++)
-    {
-      if (hist_classes_stat[i] > 0)
-        printf("------");
-    }
-    printf("\n");
-    for (int i=0;i<class_count;i++)
-    {
-      if (hist_classes_stat[i] == 0)
-        continue;
-      printf("%5d |", i);
-      for (int j=0;j<class_count;j++)
-      {
-        if (hist_classes_stat[j] > 0)
-        {
-          float chance = class_dist_pairs[i*class_count + j].x / (float)(hist_classes_stat[i]*hist_classes_stat[j]);
-          if (chance > 0)
-            printf("%5d ", int(1e6*chance));
-          else
-            printf("    - ");
-        }
-      }
-      printf("\n");
-    }   
+    // printf("TABLE |");
+    // for (int i=0;i<class_count;i++)
+    // {
+    //   if (hist_classes_stat[i] > 0)
+    //     printf("%5d ", i);
+    // }
+    // printf("\n");
+    // printf("-------");
+    // for (int i=0;i<class_count;i++)
+    // {
+    //   if (hist_classes_stat[i] > 0)
+    //     printf("------");
+    // }
+    // printf("\n");
+    // for (int i=0;i<class_count;i++)
+    // {
+    //   if (hist_classes_stat[i] == 0)
+    //     continue;
+    //   printf("%5d |", i);
+    //   for (int j=0;j<class_count;j++)
+    //   {
+    //     if (hist_classes_stat[j] > 0)
+    //     {
+    //       float chance = class_dist_pairs[i*class_count + j].x / (float)(hist_classes_stat[i]*hist_classes_stat[j]);
+    //       if (chance > 0)
+    //         printf("%5d ", int(1e6*chance));
+    //       else
+    //         printf("    - ");
+    //     }
+    //   }
+    //   printf("\n");
+    // }   
   }
   else if (false)//calculate statistics
   {
@@ -1044,8 +1071,8 @@ void litert_test_7_global_octree()
         for (int z = 0; z < v_size; z++)
         {
           int idx = x * v_size * v_size + y * v_size + z;
-          int r_id = remap_transforms[i].rot.x * 16 + remap_transforms[i].rot.y * 4 + remap_transforms[i].rot.z;
-          int3 rot_vec = int3(LiteMath::mul3x3(rotations[r_id], float3(x, y, z) - float3(v_size / 2.0f - 0.5f)) + float3(v_size / 2.0f - 0.5f + 1e-3f));
+          int r_id = remap_transforms[i].rotation_id;
+          int3 rot_vec = int3(rotations[r_id] * (float3(x,y,z) - float3(v_size/2.0f - 0.5f)) + float3(v_size/2.0f - 0.5f + 1e-3f));
           int rot_idx = rot_vec.x * v_size * v_size + rot_vec.y * v_size + rot_vec.z;
 
           g_octree_remapped.values_f[g_octree_remapped.nodes[i].val_off + idx] = 
