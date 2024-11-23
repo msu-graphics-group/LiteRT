@@ -8,7 +8,13 @@
 #include "imgui.h"
 #include "imgui_impl_sdl2.h"
 #include "imgui_impl_sdlrenderer2.h"
-#include <SDL2/SDL.h>
+
+#ifdef __APPLE__
+    #include <SDL.h>
+#else
+    #include <SDL2/SDL.h>
+#endif
+
 #include <Image2d.h>
 #include <LiteMath.h>
 
@@ -97,7 +103,7 @@ int main(int, char** argv)
   };
 
   auto resize_event_f = [&](SDL_Event event) {
-    if (event.type = SDL_EventType::SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_RESIZED 
+    if (event.type == SDL_EventType::SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_RESIZED 
         && event.window.windowID == SDL_GetWindowID(app.get_window())) {
       SDL_GetWindowSize(app.get_window(), &WIDTH, &HEIGHT);
       fb.col_buf.resize(WIDTH, HEIGHT);
@@ -242,11 +248,16 @@ int main(int, char** argv)
       embree_tesselated.clear_scene();
       embree_boxes.clear_scene();
 
-      FILE *f = popen("zenity --file-selection", "r");
       char path_to_surf[1000] = {};
-      [[maybe_unused]] auto _ = fgets(path_to_surf, sizeof(path_to_surf), f);
-      fclose(f);
-      path_to_surf[strlen(path_to_surf)-1] = '\0';
+      #ifdef __APPLE__
+        std::cout << "Path to surface: ";
+        std::cin >> path_to_surf;
+      #else
+        FILE *f = popen("zenity --file-selection", "r");
+        [[maybe_unused]] auto _ = fgets(path_to_surf, sizeof(path_to_surf), f);
+        fclose(f);
+        path_to_surf[strlen(path_to_surf)-1] = '\0';
+      #endif
       to_load_surface = false;
       surface_changed = true;
       try {
