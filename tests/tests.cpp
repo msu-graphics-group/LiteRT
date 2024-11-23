@@ -767,7 +767,7 @@ void litert_test_7_global_octree()
   float max_val = 0.01f;
   int valid_nodes = 0;
   int surface_nodes = 0;
-  float dist_thr = 0.0001f;
+  float dist_thr = 2e-6f;
   //printf("dist thr = %f\n", dist_thr);
 
   int v_size = g_octree.header.brick_size + 2 * g_octree.header.brick_pad + 1;
@@ -830,11 +830,12 @@ void litert_test_7_global_octree()
 
     average_brick_val[i] = sum/dist_count;
 
-    float mult = 1.0/sqrt(sum_sq);
-    if (g_octree.nodes[i].offset == 0 && min_val <= 0 && max_val >= 0)
+    float mult = 1.0/std::max(1e-6, sqrt(sum_sq));
+    if (g_octree.nodes[i].offset == 0 && g_octree.nodes[i].is_not_void)
     {
-      for (int k=0; k<dist_count; k++)
-        g_octree.values_f[off+k] *= mult;
+      //printf("mult = %f\n", mult);
+      //for (int k=0; k<dist_count; k++)
+      //  g_octree.values_f[off+k] *= mult;
 
       surface_node[i] = true;
       surface_nodes++;
