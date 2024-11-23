@@ -4,3 +4,4 @@ build
 perf*.data
 *.swp
 .DS_Store
+imgui.ini

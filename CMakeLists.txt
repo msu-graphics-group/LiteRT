@@ -14,27 +14,6 @@ find_package(embree 4.3.3)
 add_library(LiteMath external/LiteMath/Image2d.cpp)
 target_include_directories(LiteMath PUBLIC external/LiteMath)
 
-if (APPLE)
-    # math.h
-    #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Lm")
-
-    # SDL
-    #execute_process(
-    #    COMMAND bash -c "sdl2-config --cflags"
-    #    OUTPUT_VARIABLE SDL2_COMPILE_FLAGS)
-    #MESSAGE(STATUS ${SDL2_COMPILE_FLAGS})
-    #set(CMAKE_CXX_FLAGS
-    #    "${CMAKE_CXX_FLAGS} -I/usr/local/include/SDL2 -D_THREAD_SAFE")
-    #add_compile_options("-I/usr/local/include/SDL2 -D_THREAD_SAFE")
-    #add_link_options("-L/usr/local/lib")
-    add_link_options("-L/usr/local/Cellar/sdl2/2.30.9/lib")
-    #add_link_options("-lSDL2")
-    #add_link_options("-lSDL2main")
-
-    add_link_options("-L/usr/local/Cellar/glfw/3.4/lib")
-    #add_link_options("-lglfw")
-endif()
-
 add_library(
   ImGui 
     external/imgui/imgui_demo.cpp
@@ -46,16 +25,17 @@ add_library(
     external/imgui/backends/imgui_impl_sdl2.cpp
 )
 
+target_include_directories(ImGui PUBLIC external/imgui external/imgui/backends)
 if (APPLE)
-    #target_link_directories(ImGui PUBLIC /usr/local/Cellar/)
-    target_include_directories(ImGui PUBLIC external/imgui external/imgui/backends
-        /usr/local/include/SDL2)
-    target_link_libraries(ImGui glfw SDL2main SDL2 embree)
+    target_link_directories(ImGui PUBLIC
+        /usr/local/Cellar/sdl2/2.30.9/lib
+        /usr/local/Cellar/glfw/3.4/lib)
+    target_include_directories(ImGui PUBLIC /usr/local/include/SDL2)
 else()
-    target_link_libraries(ImGui glfw SDL2main SDL2 embree)
-    target_include_directories(ImGui PUBLIC external/imgui external/imgui/backends
-        /usr/include/SDL2)
+    target_include_directories(ImGui PUBLIC /usr/include/SDL2)
 endif()
+target_link_libraries(ImGui glfw SDL2main SDL2 embree)
+
 
 add_executable(
   ${PROJECT_NAME} 
@@ -75,7 +55,6 @@ add_executable(
 add_subdirectory(external/stp_parser)
 
 if(APPLE)
-    # OpenMP
     set(OpenMP_CXX_FLAGS
         "-Xpreprocessor -fopenmp -I/usr/local/opt/libomp/include")
     set(OpenMP_CXX_LIB_NAMES "omp")
