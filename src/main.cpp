@@ -249,14 +249,14 @@ int main(int, char** argv)
       embree_boxes.clear_scene();
 
       char path_to_surf[1000] = {};
-      #ifdef __APPLE__
+      #ifndef USE_ZENITY
         std::cout << "Path to surface: ";
         std::cin >> path_to_surf;
       #else
         FILE *f = popen("zenity --file-selection", "r");
         [[maybe_unused]] auto _ = fgets(path_to_surf, sizeof(path_to_surf), f);
-        fclose(f);
-        path_to_surf[strlen(path_to_surf)-1] = '\0';
+        pclose(f);
+        path_to_surf[strnlen(path_to_surf, sizeof(path_to_surf))-1] = '\0';
       #endif
       to_load_surface = false;
       surface_changed = true;

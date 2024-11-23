@@ -71,6 +71,11 @@ else()
     target_include_directories(ispc_ray_pack PUBLIC external/embree4/linux/include)
 endif()
 
+option(USE_ZENITY "Use zenity to browse step files" ON)
+if (${USE_ZENITY})
+    add_definitions(-DUSE_ZENITY)
+endif()
+
 target_link_libraries(
   ${PROJECT_NAME}
     LiteMath
