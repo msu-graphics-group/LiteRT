@@ -1207,16 +1207,8 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
     {
       unsigned v_size = sbs.header.brick_size + 2 * sbs.header.brick_pad + 1;
       unsigned v_off = octree.nodes[node_idx].val_off;
-
-      float min_val = 1000;
-      float max_val = -1000;
-      for (int i = 0; i < v_size * v_size * v_size; i++)
-      {
-        min_val = std::min(min_val, octree.values_f[v_off + i]);
-        max_val = std::max(max_val, octree.values_f[v_off + i]);
-      }
-
-      if (min_val <= 0 && max_val >= 0)
+      
+      if (octree.nodes[node_idx].is_not_void)
       {
         unsigned off = sbs.values.size();
         unsigned n_off = sbs.nodes.size();
