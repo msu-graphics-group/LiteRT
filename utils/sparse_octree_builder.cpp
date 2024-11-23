@@ -990,11 +990,11 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
       out_octree.nodes[num].val_off = cur_values_off;
       out_octree.values_f.resize(cur_values_off + v_size*v_size*v_size);
       //printf("%f - %f %d\n", 2*(d/out_octree.header.brick_size), d, out_octree.header.brick_size);
-      for (int i = -out_octree.header.brick_pad; i <= out_octree.header.brick_size + out_octree.header.brick_pad; ++i)
+      for (int i = -(int)out_octree.header.brick_pad; i <= (int)out_octree.header.brick_size + (int)out_octree.header.brick_pad; ++i)
       {
-        for (int j = -out_octree.header.brick_pad; j <= out_octree.header.brick_size + out_octree.header.brick_pad; ++j)
+        for (int j = -(int)out_octree.header.brick_pad; j <= (int)out_octree.header.brick_size + (int)out_octree.header.brick_pad; ++j)
         {
-          for (int k = -out_octree.header.brick_pad; k <= out_octree.header.brick_size + out_octree.header.brick_pad; ++k)
+          for (int k = -(int)out_octree.header.brick_pad; k <= (int)out_octree.header.brick_size + (int)out_octree.header.brick_pad; ++k)
           {
             float3 ch_pos = pos + 2*(d/out_octree.header.brick_size)*float3(i,j,k);
             float global_sign = 1, global_min_dist_sq = 1000000;

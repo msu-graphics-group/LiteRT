@@ -4415,7 +4415,7 @@ void litert_test_45_global_octree_to_COctreeV3()
   auto tlo = cmesh4::create_triangle_list_octree(mesh, settings.depth, 0, 1.0f);
   sdf_converter::GlobalOctree g;
   g.header.brick_size = 4;
-  g.header.brick_pad = 0;
+  g.header.brick_pad = 1;
   printf("start creating\n");
   sdf_converter::mesh_octree_to_global_octree(mesh, tlo, g);
   printf("global\n");
@@ -4429,8 +4429,10 @@ void litert_test_45_global_octree_to_COctreeV3()
   auto t1 = std::chrono::steady_clock::now();
   ref.data = sdf_converter::create_COctree_v3(SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, depth),
                                                   ref.header, mesh);
+  coctree.data = ref.data;
   sdf_converter::global_octree_to_compact_octree_v3(g, coctree, 1);
   g.header.brick_size = 1;
+  g.header.brick_pad = 0;
   sdf_converter::mesh_octree_to_global_octree(mesh, tlo, g);
   sdf_converter::global_octree_to_frame_octree(g, frame);
   auto t2 = std::chrono::steady_clock::now();
