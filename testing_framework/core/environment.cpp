@@ -37,6 +37,11 @@ namespace testing
         return false;
     }
 
+    std::string_view get_test_name()
+    {
+        return get_current_test_name();
+    }
+
     bool get_flag(std::string_view name)
     {
         return get_test_flag(name);

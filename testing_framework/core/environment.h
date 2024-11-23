@@ -14,6 +14,8 @@ namespace testing
     */
     bool should_rewrite_saved_reference(std::string_view what, std::string_view path);
 
+    std::string_view get_test_name();
+
     bool get_flag(std::string_view name);
 
     std::string_view get_param(std::string_view name, const std::type_info*parsing_type);

@@ -34,6 +34,13 @@ namespace testing
         return rewrite_;
     }
 
+    static std::string_view test_name_;
+
+    std::string_view get_current_test_name()
+    {
+        return test_name_;
+    }
+
     static std::map<std::string, std::pair<const std::type_info*, std::string>> test_options_;
 
     /*
@@ -93,6 +100,7 @@ namespace testing
         passed_ = 0;
         failed_ = 0;
         rewrite_ = rewrite;
+        test_name_ = test->name();
         test_options_ = std::move(test_options);
         try 
         {

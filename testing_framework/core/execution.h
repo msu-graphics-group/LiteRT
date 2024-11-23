@@ -12,6 +12,8 @@ namespace testing
 
     bool rewrite();
 
+    std::string_view get_current_test_name();
+
     /*
         Skip test if types are mismatched
     */
