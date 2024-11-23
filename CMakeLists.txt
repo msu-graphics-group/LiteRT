@@ -1,14 +1,39 @@
-cmake_minimum_required(VERSION 3.8)
+cmake_minimum_required(VERSION 3.13)
 
 project("NURBSViewer" CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native")
 
-set(embree_DIR external/embree4/lib/cmake/embree-4.3.3)
+if (APPLE)
+    set(embree_DIR external/embree4/osx/lib/cmake/embree-4.3.3)
+else()
+    set(embree_DIR external/embree4/linux/lib/cmake/embree-4.3.3)
+endif()
 find_package(embree 4.3.3)
 
 add_library(LiteMath external/LiteMath/Image2d.cpp)
 target_include_directories(LiteMath PUBLIC external/LiteMath)
+
+if (APPLE)
+    # math.h
+    #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Lm")
+
+    # SDL
+    #execute_process(
+    #    COMMAND bash -c "sdl2-config --cflags"
+    #    OUTPUT_VARIABLE SDL2_COMPILE_FLAGS)
+    #MESSAGE(STATUS ${SDL2_COMPILE_FLAGS})
+    #set(CMAKE_CXX_FLAGS
+    #    "${CMAKE_CXX_FLAGS} -I/usr/local/include/SDL2 -D_THREAD_SAFE")
+    #add_compile_options("-I/usr/local/include/SDL2 -D_THREAD_SAFE")
+    #add_link_options("-L/usr/local/lib")
+    add_link_options("-L/usr/local/Cellar/sdl2/2.30.9/lib")
+    #add_link_options("-lSDL2")
+    #add_link_options("-lSDL2main")
+
+    add_link_options("-L/usr/local/Cellar/glfw/3.4/lib")
+    #add_link_options("-lglfw")
+endif()
 
 add_library(
   ImGui 
@@ -20,8 +45,17 @@ add_library(
     external/imgui/backends/imgui_impl_sdlrenderer2.cpp 
     external/imgui/backends/imgui_impl_sdl2.cpp
 )
-target_link_libraries(ImGui glfw SDL2main SDL2 embree)
-target_include_directories(ImGui PUBLIC external/imgui external/imgui/backends /usr/include/SDL2)
+
+if (APPLE)
+    #target_link_directories(ImGui PUBLIC /usr/local/Cellar/)
+    target_include_directories(ImGui PUBLIC external/imgui external/imgui/backends
+        /usr/local/include/SDL2)
+    target_link_libraries(ImGui glfw SDL2main SDL2 embree)
+else()
+    target_link_libraries(ImGui glfw SDL2main SDL2 embree)
+    target_include_directories(ImGui PUBLIC external/imgui external/imgui/backends
+        /usr/include/SDL2)
+endif()
 
 add_executable(
   ${PROJECT_NAME} 
@@ -39,11 +73,24 @@ add_executable(
 )
 
 add_subdirectory(external/stp_parser)
+
+if(APPLE)
+    # OpenMP
+    set(OpenMP_CXX_FLAGS
+        "-Xpreprocessor -fopenmp -I/usr/local/opt/libomp/include")
+    set(OpenMP_CXX_LIB_NAMES "omp")
+    set(OpenMP_omp_LIBRARY "/usr/local/opt/libomp/lib/libomp.dylib")
+endif()
 find_package(OpenMP)
 
 enable_language(ISPC)
 add_library(ispc_ray_pack src/ispc_ray_pack.ispc)
-target_include_directories(ispc_ray_pack PUBLIC external/embree4/include)
+
+if (APPLE)
+    target_include_directories(ispc_ray_pack PUBLIC external/embree4/osx/include)
+else()
+    target_include_directories(ispc_ray_pack PUBLIC external/embree4/linux/include)
+endif()
 
 target_link_libraries(
   ${PROJECT_NAME}

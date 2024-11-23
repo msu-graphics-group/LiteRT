@@ -66,7 +66,7 @@ void Application::draw() {
 }
 
 void Application::default_resize_callback(SDL_Event event) {
-  if (event.type = SDL_EventType::SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_RESIZED 
+  if (event.type == SDL_EventType::SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_RESIZED 
       && event.window.windowID == SDL_GetWindowID(window_)) {
     SDL_GetWindowSize(window_, &scr_rect_.w, &scr_rect_.h);
     int WIDTH = scr_rect_.w;

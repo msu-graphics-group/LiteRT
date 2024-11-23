@@ -5,7 +5,12 @@
 #include <functional>
 #include <vector>
 
-#include <SDL2/SDL.h>
+#ifdef __APPLE__
+    #include <SDL.h>
+#else
+    #include <SDL2/SDL.h>
+#endif
+
 #include <imgui.h>
 #include <imgui_impl_sdl2.h>
 #include <imgui_impl_sdlrenderer2.h>

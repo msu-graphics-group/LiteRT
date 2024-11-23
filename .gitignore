@@ -3,3 +3,4 @@ build
 *.bmp
 perf*.data
 *.swp
+.DS_Store
