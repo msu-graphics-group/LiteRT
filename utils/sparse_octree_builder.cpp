@@ -3909,44 +3909,12 @@ void frame_octree_to_compact_octree_v3_rec(const std::vector<SdfFrameOctreeTexNo
            + 8*header.uv_size;
   }
 
-    bool node_get_brick_values(const GlobalOctree &octree, COctreeV3Header header, 
-                              unsigned thread_id, 
-                             std::vector<float> &values_tmp, unsigned idx, unsigned lod_size, uint3 p)
+  bool node_get_brick_values(const GlobalOctree &octree, COctreeV3Header header, 
+                             std::vector<float> &values_tmp, unsigned idx)
   {
     int v_size = header.brick_size + 2 * header.brick_pad + 1;
-    float min_val = 1000;
-    float max_val = -1000;
-    float d = 1.0f / lod_size;
-
-    float3 p0 = 2.0f * (d * float3(p)) - 1.0f;
-    float dp = 2.0f * d / header.brick_size;
-
-    bool is_broken = false;
-
-    for (int i = -(int)header.brick_pad; i <= (int)(header.brick_size + header.brick_pad); i++)
-    {
-      for (int j = -(int)header.brick_pad; j <= (int)(header.brick_size + header.brick_pad); j++)
-      {
-        for (int k = -(int)header.brick_pad; k <= (int)(header.brick_size + header.brick_pad); k++)
-        {
-          float val = octree.values_f[octree.nodes[idx].val_off + SBS_v_to_i(i, j, k, v_size, header.brick_pad)];
-          if (val > 10 || val < -10) //something went wrong
-            is_broken = true;
-          else
-          {
-            values_tmp[SBS_v_to_i(i, j, k, v_size, header.brick_pad)] = val;
-            if (i >= 0 && j >= 0 && k >= 0 && 
-                i <= (int)header.brick_size && j <= (int)header.brick_size && k <= (int)header.brick_size)
-            {
-              min_val = std::min(min_val, val);
-              max_val = std::max(max_val, val);
-            }
-          }
-        }
-      }
-    }
-
-    return (!is_broken) && max_val >= 0 && min_val <= 0;
+    std::copy_n(octree.values_f.data() + octree.nodes[idx].val_off, v_size*v_size*v_size, values_tmp.begin());
+    return octree.nodes[idx].is_not_void;
   }
 
   void global_octree_to_compact_octree_v3_rec(const GlobalOctree &octree, COctreeV3Header header,
@@ -3971,15 +3939,14 @@ void frame_octree_to_compact_octree_v3_rec(const std::vector<SdfFrameOctreeTexNo
         is_leaf_arr[i] = 1;
 
         // process leaf, get values grid and check if we actually have a surface in it
-        uint3 ch_p = 2 * task.p + uint3((i & 4) >> 2, (i & 2) >> 1, i & 1);
-        bool is_border_leaf = node_get_brick_values(octree, header, 0, thread_ctx.values_tmp,
-                                                    ofs + i, 2 * task.lod_size, ch_p);
+        bool is_border_leaf = node_get_brick_values(octree, header, thread_ctx.values_tmp,ofs + i);
 
         if (is_border_leaf)
         {
           // fill the compact octree with compressed leaf data
           if (false)
           {
+            uint3 ch_p = 2 * task.p + uint3((i & 4) >> 2, (i & 2) >> 1, i & 1);
             unsigned leaf_size = 0;//brick_values_compress_no_packing(frame, header, thread_ctx, ofs + i, 2 * task.lod_size, ch_p);
             std::vector<unsigned> u_values_tmp_2(thread_ctx.u_values_tmp.size(), 0u);
             unsigned a_leaf_size = brick_values_compress(octree, header, thread_ctx, ofs + i, 2 * task.lod_size, ch_p);
@@ -4060,6 +4027,7 @@ void frame_octree_to_compact_octree_v3_rec(const std::vector<SdfFrameOctreeTexNo
               }
             }
           }
+          uint3 ch_p = 2 * task.p + uint3((i & 4) >> 2, (i & 2) >> 1, i & 1);
           unsigned leaf_size = brick_values_compress(octree, header, thread_ctx, ofs + i, 2 * task.lod_size, ch_p);
           assert(leaf_size > 0);
 
@@ -4096,6 +4064,7 @@ void frame_octree_to_compact_octree_v3_rec(const std::vector<SdfFrameOctreeTexNo
         ch_is_active |= (1 << i);
       }
     }
+    //printf("ch_count = %u\n", ch_count);
     global_ctx.compact[task.cNodeId + 8] = ch_is_active | (ch_is_leaf << 8u);
 
     for (int i = 0; i < 8; i++)
