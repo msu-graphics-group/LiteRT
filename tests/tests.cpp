@@ -781,6 +781,7 @@ void litert_test_7_global_octree()
   std::vector<int> hist(num_bins+1, 0);
   std::array<std::vector<float>, ROT_COUNT> brick_rotations; 
   std::array<float3x3, ROT_COUNT> rotations;
+  std::array<int4, ROT_COUNT> iteration_modifiers;
 
   constexpr unsigned HIST_INTERVALS = 3;
   std::vector<std::array<unsigned, HIST_INTERVALS*HIST_INTERVALS*HIST_INTERVALS>> histograms(g_octree.nodes.size());
@@ -789,6 +790,9 @@ void litert_test_7_global_octree()
   
   for (int i=0; i<ROT_COUNT; i++)
   {
+    brick_rotations[i] = std::vector<float>(dist_count, 0);
+
+    // GENERATE ROTATIONS
     int code = i;
     int index_1 = code % 3; code /= 3;
     int sign_1  = code % 2; code /= 2;
@@ -801,9 +805,65 @@ void litert_test_7_global_octree()
     e2[index_2] = sign_2 ? -1 : 1;
     e3[index_3] = sign_3 ? -1 : 1;
     assert(dot(e1, e2) < 1e-6f && dot(e1, e3) < 1e-6f && dot(e2, e3) < 1e-6f);
-
     rotations[i] = LiteMath::make_float3x3_by_columns(e1, e2, e3);
-    brick_rotations[i] = std::vector<float>(dist_count, 0);
+
+    // GENERATE MODIFIERS
+    constexpr int possible_modifiers_count = (2*4)*(2*4)*(2*4) * (2*2*2*2);
+    std::vector<bool> modifier_possible(possible_modifiers_count, true);
+    std::vector<int4> modifiers(possible_modifiers_count, int4(-1));
+
+    for (int k=0; k<possible_modifiers_count; k++)
+    {
+      int j = k;
+      //printf("j  = %d\n", j);
+      int4 modifier(0,0,0,0);
+      int4 mults(1,v_size, v_size*v_size, v_size*v_size*v_size);
+      int4 mults2(1,v_size-1, v_size*(v_size-1), v_size*v_size*(v_size-1));
+      modifier.x = mults[j % 4]; j /= 4;
+      modifier.x *= (j%2) ? -1 : 1; j /= 2;
+      modifier.y = mults[j % 4]; j /= 4;
+      modifier.y *= (j%2) ? -1 : 1; j /= 2;
+      modifier.z = mults[j % 4]; j /= 4;
+      modifier.z *= (j%2) ? -1 : 1; j /= 2;
+
+      modifier.w += j%2 ? mults2[0] : 0; j /= 2;
+      modifier.w += j%2 ? mults2[1] : 0; j /= 2;
+      modifier.w += j%2 ? mults2[2] : 0; j /= 2;
+      modifier.w += j%2 ? mults2[3] : 0; j /= 2;
+
+      modifiers[k] = modifier;
+
+      int idx, idx_a, idx_b;
+      int3 rot_vec;
+      for (int x=-(int)g_octree.header.brick_pad; x <= (int)g_octree.header.brick_size+(int)g_octree.header.brick_pad; x++)
+      {
+        for (int y=-(int)g_octree.header.brick_pad; y <= (int)g_octree.header.brick_size+(int)g_octree.header.brick_pad; y++)
+        {
+          for (int z=-(int)g_octree.header.brick_pad; z <= (int)g_octree.header.brick_size+(int)g_octree.header.brick_pad; z++)
+          {
+            //printf("%d %d %d\n", x, y, z);
+            idx_a = dot(modifier, int4(x,y,z,1) + int4(g_octree.header.brick_pad,g_octree.header.brick_pad,g_octree.header.brick_pad,0));
+            
+            rot_vec = int3(rotations[i] * (float3(x,y,z) + float3(g_octree.header.brick_pad) - float3(v_size/2.0f - 0.5f)) + float3(v_size/2.0f - 0.5f + 1e-3f));
+            idx_b = rot_vec.x * v_size*v_size + rot_vec.y * v_size + rot_vec.z;
+
+            if (idx_a != idx_b)
+            {
+              modifier_possible[k] = false;
+            }
+          }
+        }
+      }
+    }
+
+    for (int j=0; j<possible_modifiers_count; j++)
+    {
+      if (modifier_possible[j])
+      {
+        iteration_modifiers[i] = modifiers[j];
+        //printf("int4(%d, %d, %d, %d),\n", modifiers[j].x, modifiers[j].y, modifiers[j].z, modifiers[j].w);
+      }
+    }
   }
 
   for (int i=0; i<g_octree.nodes.size(); i++)
@@ -877,8 +937,7 @@ void litert_test_7_global_octree()
             for (int z=0; z<v_size; z++)
             {
               int idx = x*v_size*v_size + y*v_size + z;
-              int3 rot_vec = int3(rotations[r_id] * (float3(x,y,z) - float3(v_size/2.0f - 0.5f)) + float3(v_size/2.0f - 0.5f + 1e-3f));
-              int rot_idx = rot_vec.x * v_size*v_size + rot_vec.y * v_size + rot_vec.z;
+              int rot_idx = dot(int4(x,y,z,1), iteration_modifiers[r_id]);
               brick_rotations[r_id][idx] = g_octree.values_f[off_a + rot_idx];
             }
           }
@@ -1073,8 +1132,7 @@ void litert_test_7_global_octree()
         {
           int idx = x * v_size * v_size + y * v_size + z;
           int r_id = remap_transforms[i].rotation_id;
-          int3 rot_vec = int3(rotations[r_id] * (float3(x,y,z) - float3(v_size/2.0f - 0.5f)) + float3(v_size/2.0f - 0.5f + 1e-3f));
-          int rot_idx = rot_vec.x * v_size * v_size + rot_vec.y * v_size + rot_vec.z;
+          int rot_idx = dot(int4(x,y,z,1), iteration_modifiers[r_id]);
 
           g_octree_remapped.values_f[g_octree_remapped.nodes[i].val_off + idx] = 
                    g_octree.values_f[g_octree.nodes[remap[i]].val_off + rot_idx] + remap_transforms[i].add;
