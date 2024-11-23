@@ -3780,6 +3780,7 @@ void litert_test_41_coctree_v3()
   unsigned W = 2048, H = 2048;
   MultiRenderPreset preset = getDefaultPreset();
   preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
+  preset.sdf_node_intersect = SDF_OCTREE_NODE_INTERSECT_NEWTON;
   preset.spp = 4;
   preset.normal_mode = NORMAL_MODE_VERTEX;
 
@@ -3944,8 +3945,17 @@ void litert_test_41_coctree_v3()
   coctree.header.uv_size = 0;
 
   auto t1 = std::chrono::steady_clock::now();
-  coctree.data = sdf_converter::create_COctree_v3(SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, base_depth - 2, 2 << 28),
-                                                  coctree.header, mesh);
+  {
+  auto settings = SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, base_depth - 2, 2 << 28);
+  sdf_converter::GlobalOctree g;
+  g.header.brick_size = coctree.header.brick_size;
+  g.header.brick_pad = coctree.header.brick_pad;
+  auto tlo = cmesh4::create_triangle_list_octree(mesh, settings.depth, 0, 1.0f);
+  sdf_converter::mesh_octree_to_global_octree(mesh, tlo, g);
+  sdf_converter::global_octree_to_compact_octree_v3(g, coctree, 1);
+  }
+  //coctree.data = sdf_converter::create_COctree_v3(SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, base_depth - 2, 2 << 28),
+  //                                                coctree.header, mesh);
   auto t2 = std::chrono::steady_clock::now();
 
   save_coctree_v3(coctree, "saves/test_41_coctree_v3.bin");
