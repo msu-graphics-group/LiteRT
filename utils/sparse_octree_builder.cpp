@@ -1207,7 +1207,7 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
     {
       unsigned v_size = sbs.header.brick_size + 2 * sbs.header.brick_pad + 1;
       unsigned v_off = octree.nodes[node_idx].val_off;
-      
+
       if (octree.nodes[node_idx].is_not_void)
       {
         unsigned off = sbs.values.size();
@@ -3470,7 +3470,6 @@ static std::atomic<unsigned> stat_nonleaf_bytes(0);
 
 static unsigned bitcount(uint32_t x)
 {
-  printf("bitcount of %o\n",x);
   return m_bitcount[x & 0xff] + m_bitcount[(x >> 8) & 0xff] + m_bitcount[(x >> 16) & 0xff] + m_bitcount[x >> 24];
 }
 
@@ -3959,10 +3958,131 @@ void frame_octree_to_compact_octree_v3_rec(const std::vector<SdfFrameOctreeTexNo
     return octree.nodes[idx].is_not_void;
   }
 
+  unsigned brick_values_compress_no_packing(COctreeV3Header header, COctreeV3ThreadCtx &ctx,
+                                            unsigned idx, unsigned lod_size, uint3 p)
+  {
+    int v_size = header.brick_size + 2 * header.brick_pad + 1;
+    float d = 1.0f / lod_size;
+
+    float d_max = 2 * sqrt(3) / lod_size;
+    unsigned bits = header.bits_per_value;
+    unsigned max_val = header.bits_per_value == 32 ? 0xFFFFFFFF : ((1 << bits) - 1);
+    unsigned vals_per_int = 32 / header.bits_per_value;
+    unsigned size_uints = (v_size * v_size * v_size + vals_per_int - 1) / vals_per_int;
+
+    for (int i = 0; i < size_uints; i++)
+      ctx.u_values_tmp[i] = 0;
+
+    for (int i = 0; i < v_size * v_size * v_size; i++)
+    {
+      unsigned d_compressed = std::max(0.0f, max_val * ((ctx.values_tmp[i] + d_max) / (2 * d_max)));
+      d_compressed = std::min(d_compressed, max_val);
+      ctx.u_values_tmp[i / vals_per_int] |= d_compressed << (bits * (i % vals_per_int));
+    }
+
+    return size_uints;
+  }
+
+  void check_compact_octree_v3_node_packing(const GlobalOctree &octree, COctreeV3Header header,
+                                            COctreeV3GlobalCtx &global_ctx, COctreeV3ThreadCtx &thread_ctx,
+                                            unsigned thread_id, const COctreeV3BuildTask &task, 
+                                            unsigned ofs, unsigned i)
+  {
+    uint3 ch_p = 2 * task.p + uint3((i & 4) >> 2, (i & 2) >> 1, i & 1);
+
+    unsigned leaf_size = brick_values_compress_no_packing(header, thread_ctx, ofs + i, 2 * task.lod_size, ch_p);
+    unsigned a_leaf_size = brick_values_compress(octree, header, thread_ctx, ofs + i, 2 * task.lod_size, ch_p);
+    //printf("compressed to %u uints, naive packing would be %u uints\n", a_leaf_size, leaf_size);
+
+    std::vector<unsigned> u_values_tmp_2(thread_ctx.u_values_tmp.size(), 0u);
+    std::copy_n(thread_ctx.u_values_tmp.data(), thread_ctx.u_values_tmp.size(), u_values_tmp_2.data());
+
+    int v_size = header.brick_size + 2 * header.brick_pad + 1;
+    int p_size = header.brick_size + 2 * header.brick_pad;
+    float d_max = 2 * sqrt(3) / (2 * task.lod_size);
+    unsigned bits = header.bits_per_value;
+    unsigned max_val = header.bits_per_value == 32 ? 0xFFFFFFFF : ((1 << bits) - 1);
+    unsigned vals_per_int = 32 / header.bits_per_value;
+
+    const unsigned line_distances_offset_bits = 16;
+    const unsigned line_distances_offsets_per_uint = 32 / line_distances_offset_bits;
+
+    unsigned slice_distance_flags_bits = v_size * v_size;
+    unsigned slice_distance_flags_uints = (slice_distance_flags_bits + 32 - 1) / 32;
+    unsigned distance_flags_size_uints = v_size * slice_distance_flags_uints;
+    unsigned presence_flags_size_uints = (p_size * p_size * p_size + 32 - 1) / 32;
+    unsigned distance_offsets_size_uints = (v_size + line_distances_offsets_per_uint - 1) / line_distances_offsets_per_uint; // 16 bits for offset, should be enough for all cases
+
+    const unsigned min_range_size_uints = 2;
+
+    assert(slice_distance_flags_uints <= 2); // if we want slices with more than 64 values, we should change rendering
+
+    //<presence_flags><distance_flags><distance_offsets><min value and range><distances>
+    unsigned off_0 = 0;                                   // presence flags
+    unsigned off_1 = off_0 + presence_flags_size_uints;   // distance flags
+    unsigned off_2 = off_1 + distance_flags_size_uints;   // distance offsets
+    unsigned off_3 = off_2 + distance_offsets_size_uints; // min value and range
+    unsigned off_4 = off_3 + min_range_size_uints;        // texture coordinates
+    unsigned off_5 = off_4 + 8 * header.uv_size;          // distances
+
+    float min_val = -float(u_values_tmp_2[off_3 + 0]) / float(0xFFFFFFFFu);
+    float range   =  (float(u_values_tmp_2[off_3 + 1]) / float(0xFFFFFFFFu)) / max_val;
+
+    for (int x = 0; x < header.brick_size; x++)
+    {
+      for (int y = 0; y < header.brick_size; y++)
+      {
+        for (int z = 0; z < header.brick_size; z++)
+        {
+          uint3 voxelPosU = uint3(x, y, z);
+          uint32_t p_size = header.brick_size + 2 * header.brick_pad;
+          uint32_t PFlagPos = (voxelPosU.x + header.brick_pad) * p_size * p_size + (voxelPosU.y + header.brick_pad) * p_size + voxelPosU.z + header.brick_pad;
+          if ((u_values_tmp_2[off_0 + PFlagPos / 32] & (1u << (PFlagPos % 32))) == 0)
+            continue;
+
+          for (int i = 0; i < 8; i++)
+          {
+            uint3 vPos = uint3(x, y, z) + uint3((i & 4) >> 2, (i & 2) >> 1, i & 1);
+            uint32_t sliceId = vPos.x + header.brick_pad;
+            uint32_t localId = (vPos.y + header.brick_pad) * v_size + vPos.z + header.brick_pad;
+
+            uint32_t b0 = u_values_tmp_2[off_1 + slice_distance_flags_uints * sliceId];
+            b0 = localId > 31 ? b0 : b0 & ((1u << localId) - 1);
+            b0 = bitcount(b0);
+
+            uint32_t b1 = localId > 32 ? bitcount(u_values_tmp_2[off_1 + slice_distance_flags_uints * sliceId + 1] & ((1u << (localId - 32)) - 1))
+                                       : 0;
+
+            uint32_t sliceOffset = (u_values_tmp_2[off_2 + sliceId / line_distances_offsets_per_uint] >>
+                                    (line_distances_offset_bits * (sliceId % line_distances_offsets_per_uint))) &
+                                   (((1u << line_distances_offset_bits) - 1));
+            uint32_t localOffset = b0 + b1;
+
+            uint32_t vId = sliceOffset + localOffset;
+            uint32_t dist = ((u_values_tmp_2[off_5 + vId / vals_per_int] >> (bits * (vId % vals_per_int))) & max_val);
+            uint32_t real_vId = SBS_v_to_i(vPos.x, vPos.y, vPos.z, v_size, header.brick_pad);
+
+            float real_d = thread_ctx.values_tmp[real_vId];
+            float d = min_val + range * dist;
+
+            if (std::abs(d - real_d) > 1.5f*range)
+            {
+              printf("error unpacking dist\n");
+              printf("reading distance %u from %u (%u %u - %u %u)\n", real_vId, vId, sliceOffset, localOffset, b0, b1);
+              printf("dist = %f, real dist = %f\n", d, real_d);
+              assert(false);
+            }
+          }
+        }
+      }
+    }
+  }
+
   void global_octree_to_compact_octree_v3_rec(const GlobalOctree &octree, COctreeV3Header header,
                                               COctreeV3GlobalCtx &global_ctx, COctreeV3ThreadCtx &thread_ctx,
                                               unsigned thread_id, const COctreeV3BuildTask &task)
   {
+    const bool check_packing = false; //for debugging
     unsigned ofs = octree.nodes[task.nodeId].offset;
     assert(!is_leaf(ofs));
 
@@ -3985,90 +4105,11 @@ void frame_octree_to_compact_octree_v3_rec(const std::vector<SdfFrameOctreeTexNo
 
         if (is_border_leaf)
         {
+          // we can check node packing for debug purposes.
+          if (check_packing)
+            check_compact_octree_v3_node_packing(octree, header, global_ctx, thread_ctx, thread_id, task, ofs, i);
+
           // fill the compact octree with compressed leaf data
-          if (false)
-          {
-            uint3 ch_p = 2 * task.p + uint3((i & 4) >> 2, (i & 2) >> 1, i & 1);
-            unsigned leaf_size = 0;//brick_values_compress_no_packing(frame, header, thread_ctx, ofs + i, 2 * task.lod_size, ch_p);
-            std::vector<unsigned> u_values_tmp_2(thread_ctx.u_values_tmp.size(), 0u);
-            unsigned a_leaf_size = brick_values_compress(octree, header, thread_ctx, ofs + i, 2 * task.lod_size, ch_p);
-            //if (a_leaf_size >= leaf_size)
-            printf("leaf %u %u\n", a_leaf_size, leaf_size);
-
-            int v_size = header.brick_size + 2 * header.brick_pad + 1;
-            int p_size = header.brick_size + 2 * header.brick_pad;
-            float d_max = 2 * sqrt(3) / (2 * task.lod_size);
-            unsigned bits = header.bits_per_value;
-            unsigned max_val = header.bits_per_value == 32 ? 0xFFFFFFFF : ((1 << bits) - 1);
-            unsigned vals_per_int = 32 / header.bits_per_value;
-
-            const unsigned line_distances_offset_bits = 16;
-            const unsigned line_distances_offsets_per_uint = 32 / line_distances_offset_bits;
-
-            unsigned slice_distance_flags_bits = v_size*v_size;
-            unsigned slice_distance_flags_uints = (slice_distance_flags_bits + 32 - 1) / 32;
-            unsigned distance_flags_size_uints = v_size*slice_distance_flags_uints;
-            unsigned presence_flags_size_uints = (p_size*p_size*p_size + 32 - 1) / 32;
-            unsigned distance_offsets_size_uints = (v_size + line_distances_offsets_per_uint - 1) / line_distances_offsets_per_uint; //16 bits for offset, should be enough for all cases
-
-            const unsigned min_range_size_uints = 2;
-
-            assert(slice_distance_flags_uints <= 2); //if we want slices with more than 64 values, we should change rendering
-
-            //<presence_flags><distance_flags><distance_offsets><min value and range><distances>
-            unsigned off_0 = 0;                                  //presence flags
-            unsigned off_1 = off_0 + presence_flags_size_uints;  //distance flags
-            unsigned off_2 = off_1 + distance_flags_size_uints;  //distance offsets
-            unsigned off_3 = off_2 + distance_offsets_size_uints;//min value and range
-            unsigned off_4 = off_3 + min_range_size_uints;       //texture coordinates
-            unsigned off_5 = off_4 + 8*header.uv_size;           //distances
-
-            for (int x=0;x<header.brick_size;x++)
-            {
-              for (int y=0;y<header.brick_size;y++)
-              {
-                for (int z=0;z<header.brick_size;z++)
-                {
-                  uint3 voxelPosU = uint3(x,y,z);
-                  uint32_t p_size = header.brick_size + 2 * header.brick_pad;
-                  uint32_t PFlagPos = (voxelPosU.x+header.brick_pad)*p_size*p_size + (voxelPosU.y+header.brick_pad)*p_size + voxelPosU.z+header.brick_pad;
-                  if ((u_values_tmp_2[off_0 + PFlagPos/32] & (1u << (PFlagPos%32))) == 0)
-                    continue;
-
-                  for (int i = 0; i < 8; i++)
-                  {
-                    uint3 vPos = uint3(x,y,z) + uint3((i & 4) >> 2, (i & 2) >> 1, i & 1);
-                    uint32_t sliceId = vPos.x + header.brick_pad;
-                    uint32_t localId = (vPos.y + header.brick_pad)*v_size + vPos.z + header.brick_pad;
-
-                    uint32_t b0 = u_values_tmp_2[off_1 + slice_distance_flags_uints*sliceId];
-                    b0 = localId > 31 ? b0 : b0 & ((1u << localId) - 1);
-                    b0 = bitcount(b0);
-
-                    uint32_t b1 = localId > 32 ? bitcount(u_values_tmp_2[off_1 + slice_distance_flags_uints*sliceId + 1] & ((1u << (localId - 32)) - 1)) 
-                                                : 0;
-                    
-                    uint32_t sliceOffset =  (u_values_tmp_2[off_2 + sliceId/line_distances_offsets_per_uint] >> 
-                                            (line_distances_offset_bits*(sliceId % line_distances_offsets_per_uint)))
-                                          & (((1u << line_distances_offset_bits) - 1));
-                    uint32_t localOffset = b0 + b1;
-
-                    uint32_t vId = sliceOffset + localOffset;
-                    uint32_t dist = ((u_values_tmp_2[off_5 + vId / vals_per_int] >> (bits * (vId % vals_per_int))) & max_val);
-
-                    uint32_t real_vId = SBS_v_to_i(vPos.x, vPos.y, vPos.z, v_size, header.brick_pad);
-                    uint32_t real_dist = ((thread_ctx.u_values_tmp[real_vId / vals_per_int] >> (bits * (real_vId % vals_per_int))) & max_val);
-
-                    printf("reading distance %u from %u (%u %u - %u %u)\n", real_vId, vId, sliceOffset, localOffset, b0, b1);
-                    printf("dist = %u\n", dist);
-                    //printf("%o\n",lineInfo);
-
-                    assert(dist == real_dist);
-                  }
-                }
-              }
-            }
-          }
           uint3 ch_p = 2 * task.p + uint3((i & 4) >> 2, (i & 2) >> 1, i & 1);
           unsigned leaf_size = brick_values_compress(octree, header, thread_ctx, ofs + i, 2 * task.lod_size, ch_p);
           assert(leaf_size > 0);
