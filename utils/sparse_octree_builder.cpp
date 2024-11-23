@@ -872,6 +872,8 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
     bool norm_broken = false;
 
     unsigned v_size = out_octree.header.brick_size + 2*out_octree.header.brick_pad + 1;
+    float min_val =  1000;
+    float max_val = -1000;
     if (ofs == 0)
     {
       float3 pos = 2.0f*(d*p) - 1.0f;
@@ -1023,9 +1025,17 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
               global_sign *= local_sign;
               if (global_min_dist_sq > local_min_dist_sq) global_min_dist_sq = local_min_dist_sq;
             }
+            float val = global_sign * sqrtf(global_min_dist_sq);
             out_octree.values_f[cur_values_off + (i+out_octree.header.brick_pad)*v_size*v_size + 
                                                  (j+out_octree.header.brick_pad)*v_size + 
-                                                 (k+out_octree.header.brick_pad)] = global_sign * sqrt(global_min_dist_sq);
+                                                 (k+out_octree.header.brick_pad)] = val;
+          
+            if (i >= 0 && j >= 0 && k >= 0 && i <= out_octree.header.brick_size && 
+                j <= out_octree.header.brick_size && k <= out_octree.header.brick_size)
+            {
+              min_val = std::min(min_val, val);
+              max_val = std::max(max_val, val);
+            }
           }
         }
       }
@@ -1040,11 +1050,11 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
       unsigned cur_values_off = out_octree.values_f.size();
       out_octree.nodes[num].val_off = cur_values_off;
       out_octree.values_f.resize(cur_values_off + v_size*v_size*v_size);
-      for (int i = -out_octree.header.brick_pad; i <= out_octree.header.brick_size + out_octree.header.brick_pad; ++i)
+      for (int i = -(int)out_octree.header.brick_pad; i <= (int)out_octree.header.brick_size + (int)out_octree.header.brick_pad; ++i)
       {
-        for (int j = -out_octree.header.brick_pad; j <= out_octree.header.brick_size + out_octree.header.brick_pad; ++j)
+        for (int j = -(int)out_octree.header.brick_pad; j <= (int)out_octree.header.brick_size + (int)out_octree.header.brick_pad; ++j)
         {
-          for (int k = -out_octree.header.brick_pad; k <= out_octree.header.brick_size + out_octree.header.brick_pad; ++k)
+          for (int k = -(int)out_octree.header.brick_pad; k <= (int)out_octree.header.brick_size + (int)out_octree.header.brick_pad; ++k)
           {
             out_octree.values_f[cur_values_off + (i+out_octree.header.brick_pad)*v_size*v_size + 
                                                  (j+out_octree.header.brick_pad)*v_size + 
@@ -1057,7 +1067,7 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
     if (ofs == 0) 
     {
       out_octree.nodes[num].offset = 0;
-      out_octree.nodes[num].is_not_void = (tl_octree.nodes[idx].tid_count != 0);
+      out_octree.nodes[num].is_not_void = (min_val <= 0 && max_val >= 0);
       //printf("leaf - %u\n", tl_octree.nodes[idx].tid_count);
       return tl_octree.nodes[idx].tid_count != 0;
     }
@@ -1083,11 +1093,11 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
         //printf("CCC %u\n", tl_octree.nodes[idx].tid_count);
         usefull_nodes -= 8;
         out_octree.nodes[num].offset = 0;
-        for (int i = -out_octree.header.brick_pad; i <= out_octree.header.brick_size + out_octree.header.brick_pad; ++i)
+        for (int i = -(int)out_octree.header.brick_pad; i <= (int)out_octree.header.brick_size + (int)out_octree.header.brick_pad; ++i)
         {
-          for (int j = -out_octree.header.brick_pad; j <= out_octree.header.brick_size + out_octree.header.brick_pad; ++j)
+          for (int j = -(int)out_octree.header.brick_pad; j <= (int)out_octree.header.brick_size + (int)out_octree.header.brick_pad; ++j)
           {
-            for (int k = -out_octree.header.brick_pad; k <= out_octree.header.brick_size + out_octree.header.brick_pad; ++k)
+            for (int k = -(int)out_octree.header.brick_pad; k <= (int)out_octree.header.brick_size + (int)out_octree.header.brick_pad; ++k)
             {
               out_octree.values_f[out_octree.nodes[num].val_off + (i+out_octree.header.brick_pad)*v_size*v_size + 
                                                   (j+out_octree.header.brick_pad)*v_size + 
