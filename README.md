@@ -8,8 +8,8 @@ Clone this repo with all its submodules:
 
 ### Build (CPU)
 
-    $ cmake CMakeLists.txt -DUSE_VULKAN=OFF -DUSE_RTX=OFF -DCMAKE_BUILD_TYPE=Debug -DUSE_STB_IMAGE=ON
-    $ make -j8
+    $ cmake -S . -B build -DUSE_VULKAN=OFF -DUSE_RTX=OFF -DCMAKE_BUILD_TYPE=Debug -DUSE_STB_IMAGE=ON
+    $ cmake --build build -j8
 
 ### Build (GPU)
 
@@ -25,15 +25,15 @@ Generate GPU-related code and shaders (use your path to slicer folder and execut
 
 For GPU with compute shaders:
 
-    $ cmake CMakeLists.txt -DUSE_VULKAN=ON -DUSE_RTX=OFF -DCMAKE_BUILD_TYPE=Debug -DUSE_STB_IMAGE=ON 
+    $ cmake -S . -B build -DUSE_VULKAN=ON -DUSE_RTX=OFF -DCMAKE_BUILD_TYPE=Debug -DUSE_STB_IMAGE=ON 
 
 For GPU with RTX (tested only on Nvidia RTX GPUs):
 
-    $ cmake CMakeLists.txt -DUSE_VULKAN=ON -DUSE_RTX=ON -DCMAKE_BUILD_TYPE=Debug -DUSE_STB_IMAGE=ON
+    $ cmake -S . -B build -DUSE_VULKAN=ON -DUSE_RTX=ON -DCMAKE_BUILD_TYPE=Debug -DUSE_STB_IMAGE=ON
 
 Then run:
 
-    make -j8
+    cmake --build build -j8
 
 ## Launch
 
