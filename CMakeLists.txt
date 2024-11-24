@@ -30,7 +30,7 @@ if (APPLE)
     target_link_directories(ImGui PUBLIC
         /usr/local/Cellar/sdl2/2.30.9/lib
         /usr/local/Cellar/glfw/3.4/lib)
-    target_include_directories(ImGui PUBLIC /usr/local/include/SDL2)
+    target_include_directories(ImGui PUBLIC /usr/local/include/ /usr/local/include/SDL2)
 else()
     target_include_directories(ImGui PUBLIC /usr/include/SDL2)
 endif()

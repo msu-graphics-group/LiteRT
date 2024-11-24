@@ -9,12 +9,7 @@
 #include "imgui_impl_sdl2.h"
 #include "imgui_impl_sdlrenderer2.h"
 
-#ifdef __APPLE__
-    #include <SDL.h>
-#else
-    #include <SDL2/SDL.h>
-#endif
-
+#include <SDL2/SDL.h>
 #include <Image2d.h>
 #include <LiteMath.h>
 
