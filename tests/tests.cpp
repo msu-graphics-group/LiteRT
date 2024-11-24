@@ -781,6 +781,7 @@ void litert_test_7_global_octree()
   std::vector<int> hist(num_bins+1, 0);
   std::array<std::vector<float>, ROT_COUNT> brick_rotations; 
   std::array<float3x3, ROT_COUNT> rotations;
+  std::array<float4x4, ROT_COUNT> rotations4;
   std::array<int4, ROT_COUNT> iteration_modifiers;
 
   constexpr unsigned HIST_INTERVALS = 3;
@@ -806,6 +807,11 @@ void litert_test_7_global_octree()
     e3[index_3] = sign_3 ? -1 : 1;
     assert(dot(e1, e2) < 1e-6f && dot(e1, e3) < 1e-6f && dot(e2, e3) < 1e-6f);
     rotations[i] = LiteMath::make_float3x3_by_columns(e1, e2, e3);
+    float4x4 rot = LiteMath::float4x4(e1.x, e2.x, e3.x, 0, 
+                                      e1.y, e2.y, e3.y, 0, 
+                                      e1.z, e2.z, e3.z, 0, 
+                                      0, 0, 0, 1);
+    rotations4[i] = LiteMath::translate4x4(float3(v_size/2.0f - 0.5f + 1e-3f)) * rot * LiteMath::translate4x4(-float3(v_size/2.0f - 0.5f));
 
     // GENERATE MODIFIERS
     constexpr int possible_modifiers_count = (2*4)*(2*4)*(2*4) * (2*2*2*2);
@@ -843,8 +849,12 @@ void litert_test_7_global_octree()
           {
             //printf("%d %d %d\n", x, y, z);
             idx_a = dot(modifier, int4(x,y,z,1) + int4(g_octree.header.brick_pad,g_octree.header.brick_pad,g_octree.header.brick_pad,0));
-            
-            rot_vec = int3(rotations[i] * (float3(x,y,z) + float3(g_octree.header.brick_pad) - float3(v_size/2.0f - 0.5f)) + float3(v_size/2.0f - 0.5f + 1e-3f));
+            float3 V = float3(x,y,z) + float3(g_octree.header.brick_pad);
+            rot_vec = int3(rotations[i] * (V - float3(v_size/2.0f - 0.5f)) + float3(v_size/2.0f - 0.5f + 1e-3f));
+            int3 rot_vec2 = int3(LiteMath::mul4x3(rotations4[i], V));
+            if (!(rot_vec.x == rot_vec2.x && rot_vec.y == rot_vec2.y && rot_vec.z == rot_vec2.z))
+              printf("%d %d %d, %d %d %d\n", rot_vec.x, rot_vec.y, rot_vec.z, rot_vec2.x, rot_vec2.y, rot_vec2.z);
+            assert(rot_vec.x == rot_vec2.x && rot_vec.y == rot_vec2.y && rot_vec.z == rot_vec2.z);
             idx_b = rot_vec.x * v_size*v_size + rot_vec.y * v_size + rot_vec.z;
 
             if (idx_a != idx_b)
@@ -1132,7 +1142,9 @@ void litert_test_7_global_octree()
         {
           int idx = x * v_size * v_size + y * v_size + z;
           int r_id = remap_transforms[i].rotation_id;
-          int rot_idx = dot(int4(x,y,z,1), iteration_modifiers[r_id]);
+          //we can use iteration_modifiers here, but want to test rotations4
+          int3 rot_vec2 = int3(LiteMath::mul4x3(rotations4[r_id], float3(x,y,z)));
+          int rot_idx = rot_vec2.x * v_size * v_size + rot_vec2.y * v_size + rot_vec2.z;
 
           g_octree_remapped.values_f[g_octree_remapped.nodes[i].val_off + idx] = 
                    g_octree.values_f[g_octree.nodes[remap[i]].val_off + rot_idx] + remap_transforms[i].add;
@@ -4541,7 +4553,7 @@ void litert_test_45_global_octree_to_COctreeV3()
   }
 
   {
-    auto pRender = CreateMultiRenderer(DEVICE_GPU);
+    auto pRender = CreateMultiRenderer(DEVICE_CPU);
     pRender->SetPreset(preset);
     pRender->SetScene(ref, 0);
     render(image_r, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset);
