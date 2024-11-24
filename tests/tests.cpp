@@ -3234,102 +3234,95 @@ void
 litert_test_34_tricubic_sbs()
 {
   printf("TEST 34 DRAW SBS STRUCTURE WITH TRICUBIC INTERPOLATION\n");
-  #ifdef USE_TRICUBIC
-    auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "scenes/01_simple_scenes/data/bunny.vsgf").c_str());
-    cmesh4::rescale_mesh(mesh, float3(-0.95, -0.95, -0.95), float3(0.95, 0.95, 0.95));
+  auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "scenes/01_simple_scenes/data/bunny.vsgf").c_str());
+  cmesh4::rescale_mesh(mesh, float3(-0.95, -0.95, -0.95), float3(0.95, 0.95, 0.95));
 
-    unsigned W = 540, H = 540;
+  unsigned W = 540, H = 540;
 
+  float tricubic_psnr = 0, trilinear_psnr = 0;
+  float ref_time = 0, tricubic_time = 0, trilinear_time = 0;
+
+  LiteImage::Image2D<uint32_t> image_mesh(W, H);
+  LiteImage::Image2D<uint32_t> image_SBS_trilinear(W, H);
+  LiteImage::Image2D<uint32_t> image_SBS_tricubic(W, H);
+
+  {
     MultiRenderPreset preset = getDefaultPreset();
     preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
-    preset.interpolation_mode = INTERPOLATION_MODE_TRICUBIC;
     preset.normal_mode = NORMAL_MODE_GEOMETRY;
-    SparseOctreeSettings settings(SparseOctreeBuildType::MESH_TLO, 5);
 
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
+    preset.normal_mode = NORMAL_MODE_VERTEX;
+    pRender->SetPreset(preset);
+    pRender->SetViewport(0,0,W,H);
+    pRender->SetScene(mesh);
+    auto t1 = std::chrono::high_resolution_clock::now();
+    render(image_mesh, pRender, float3(0, 1, 2), float3(0, 0, 0), float3(0, 1, 0), preset);
+    auto t2 = std::chrono::high_resolution_clock::now();
+
+    ref_time = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+
+    LiteImage::SaveImage<uint32_t>("saves/test_34_mesh_ref.bmp", image_mesh);
+  }
+
+  {
     SdfSBSHeader header;
     header.brick_size = 2;
     header.brick_pad = 1;
     header.bytes_per_value = 1;
 
-    LiteImage::Image2D<uint32_t> image_mesh(W, H);
-    LiteImage::Image2D<uint32_t> image_SBS(W, H);
-    LiteImage::Image2D<uint32_t> image_SBS_n(W, H);
+    SparseOctreeSettings settings(SparseOctreeBuildType::MESH_TLO, 5);
+    MultiRenderPreset preset = getDefaultPreset();
+    preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
+    preset.interpolation_mode = INTERPOLATION_MODE_TRICUBIC;
+    preset.normal_mode = NORMAL_MODE_GEOMETRY;
 
-    {
-      auto pRender = CreateMultiRenderer(DEVICE_GPU);
-      preset.normal_mode = NORMAL_MODE_VERTEX;
-      pRender->SetPreset(preset);
-      pRender->SetViewport(0,0,W,H);
-      pRender->SetScene(mesh);
-      render(image_mesh, pRender, float3(0, 1, 2), float3(0, 0, 0), float3(0, 1, 0), preset);
-      LiteImage::SaveImage<uint32_t>("saves/test_34_mesh_ref.bmp", image_mesh);
-    }
+    auto pRender = CreateMultiRenderer(DEVICE_CPU);
+    pRender->SetPreset(preset);
+    pRender->SetViewport(0,0,W,H);
+    auto indexed_SBS = sdf_converter::create_sdf_SBS_indexed_with_neighbors(settings, header, mesh, 0, pRender->getMaterials(), pRender->getTextures());
+    pRender->SetScene(indexed_SBS);
 
-    {
-      preset.interpolation_mode = INTERPOLATION_MODE_TRICUBIC;
-      auto pRender = CreateMultiRenderer(DEVICE_CPU);
-      pRender->SetPreset(preset);
-      pRender->SetViewport(0,0,W,H);
-      auto indexed_SBS = sdf_converter::create_sdf_SBS_indexed_with_neighbors(settings, header, mesh, 0, pRender->getMaterials(), pRender->getTextures());
-      pRender->SetScene(indexed_SBS);
+    preset.normal_mode = NORMAL_MODE_GEOMETRY;
+    auto t1 = std::chrono::high_resolution_clock::now();
+    render(image_SBS_tricubic, pRender, float3(0, 1, 2), float3(0, 0, 0), float3(0, 1, 0), preset);    
+    auto t2 = std::chrono::high_resolution_clock::now();
 
-      preset.normal_mode = NORMAL_MODE_GEOMETRY;
-      //auto t1 = std::chrono::high_resolution_clock::now();
-      render(image_SBS, pRender, float3(0, 1, 2), float3(0, 0, 0), float3(0, 1, 0), preset);    
-      //auto t2 = std::chrono::high_resolution_clock::now();
-      LiteImage::SaveImage<uint32_t>("saves/test_34_tricubic.bmp", image_SBS);
-      float psnr = image_metrics::PSNR(image_mesh, image_SBS);
-      printf("PSNR: %f\n", psnr);
-    }
-  #else
-    {
-      auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "scenes/01_simple_scenes/data/bunny.vsgf").c_str());
-      cmesh4::rescale_mesh(mesh, float3(-0.95, -0.95, -0.95), float3(0.95, 0.95, 0.95));
+    LiteImage::SaveImage<uint32_t>("saves/test_34_tricubic.bmp", image_SBS_tricubic);
+    
+    tricubic_psnr = image_metrics::PSNR(image_mesh, image_SBS_tricubic);
+    tricubic_time = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+  }
 
-      unsigned W = 540, H = 540;
+  {
+    SdfSBSHeader header;
+    header.brick_size = 2;
+    header.brick_pad = 1;
+    header.bytes_per_value = 1;
 
-      MultiRenderPreset preset = getDefaultPreset();
-      preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
-      preset.interpolation_mode = INTERPOLATION_MODE_TRILINEAR;
-      SparseOctreeSettings settings(SparseOctreeBuildType::MESH_TLO, 5);
+    SparseOctreeSettings settings(SparseOctreeBuildType::MESH_TLO, 5);
+    MultiRenderPreset preset = getDefaultPreset();
+    preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
+    preset.interpolation_mode = INTERPOLATION_MODE_TRILINEAR;
+    preset.normal_mode = NORMAL_MODE_GEOMETRY;
 
-      SdfSBSHeader header;
-      header.brick_size = 2;
-      header.brick_pad = 0;
-      header.bytes_per_value = 1;
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
+    pRender->SetPreset(preset);
+    pRender->SetViewport(0,0,W,H);
+    auto indexed_SBS = sdf_converter::create_sdf_SBS_indexed_with_neighbors(settings, header, mesh, 0, pRender->getMaterials(), pRender->getTextures());
+    pRender->SetScene(indexed_SBS);
 
-      LiteImage::Image2D<uint32_t> image_mesh(W, H);
-      LiteImage::Image2D<uint32_t> image_SBS(W, H);
-      LiteImage::Image2D<uint32_t> image_SBS_n(W, H);
+    preset.normal_mode = NORMAL_MODE_GEOMETRY;
+    auto t1 = std::chrono::high_resolution_clock::now();
+    render(image_SBS_trilinear, pRender, float3(0, 1, 2), float3(0, 0, 0), float3(0, 1, 0), preset);    
+    auto t2 = std::chrono::high_resolution_clock::now();
+    LiteImage::SaveImage<uint32_t>("saves/test_34_trilinear.bmp", image_SBS_trilinear);
 
-      {
-        auto pRender = CreateMultiRenderer(DEVICE_GPU);
-        preset.normal_mode = NORMAL_MODE_VERTEX;
-        pRender->SetPreset(preset);
-        pRender->SetViewport(0,0,W,H);
-        pRender->SetScene(mesh);
-        render(image_mesh, pRender, float3(0, 1, 2), float3(0, 0, 0), float3(0, 1, 0), preset);
-        LiteImage::SaveImage<uint32_t>("saves/test_34_mesh_ref.bmp", image_mesh);
-      }
+    trilinear_psnr = image_metrics::PSNR(image_mesh, image_SBS_trilinear);
+    trilinear_time = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+  }
 
-      {
-        auto pRender = CreateMultiRenderer(DEVICE_GPU);
-        pRender->SetPreset(preset);
-        pRender->SetViewport(0,0,W,H);
-        auto indexed_SBS = sdf_converter::create_sdf_SBS_indexed_with_neighbors(settings, header, mesh, 0, pRender->getMaterials(), pRender->getTextures());
-        pRender->SetScene(indexed_SBS);
-
-        preset.normal_mode = NORMAL_MODE_GEOMETRY;
-        //auto t1 = std::chrono::high_resolution_clock::now();
-        render(image_SBS, pRender, float3(0, 1, 2), float3(0, 0, 0), float3(0, 1, 0), preset);    
-        //auto t2 = std::chrono::high_resolution_clock::now();
-        LiteImage::SaveImage<uint32_t>("saves/test_34_trilinear.bmp", image_SBS);
-
-        float psnr = image_metrics::PSNR(image_mesh, image_SBS);
-        printf("PSNR: %f\n", psnr);
-      }
-    }
-  #endif
+  printf("\nMETRICS:\nTIME: REF: %f, TRILINEAR: %f, TRICUBIC: %f\nPSNR: TRILINEAR: %f, TRICUBIC: %f\n", ref_time, trilinear_time, tricubic_time, trilinear_psnr, tricubic_psnr);
 }
 
 void litert_test_35_SBSAdapt_greed_creating()

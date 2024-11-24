@@ -143,13 +143,6 @@ if(USE_STB_IMAGE)
   add_definitions(-DUSE_STB_IMAGE)
 endif()
 
-# Turn on/off tricubic interpolation
-option(USE_TRICUBIC "Enable tricubic interpolation" OFF)
-if(USE_TRICUBIC)
-  message("-- Tricubic interpolation is ON")
-  add_definitions(-DUSE_TRICUBIC)
-endif()
-
 option(DEBUG_PAYLOAD_STORE_SDF "Sdd a vector to store sdrf values along the ray to Payload struct" OFF)
 if(DEBUG_PAYLOAD_STORE_SDF)
   add_definitions(-DDEBUG_PAYLOAD_STORE_SDF)

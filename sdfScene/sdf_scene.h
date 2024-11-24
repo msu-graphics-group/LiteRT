@@ -198,9 +198,9 @@ struct OpenVDBHeader
 };
 
 //voxel position (i,j,k) to linear index
-static unsigned SBS_v_to_i(int i, int j, int k, unsigned v_size, unsigned pad)
+static unsigned SBS_v_to_i(float i, float j, float k, unsigned v_size, unsigned pad)
 {
-  return (i+pad)*v_size*v_size + (j+pad)*v_size + (k+pad);
+  return ((uint32_t)i+pad)*v_size*v_size + ((uint32_t)j+pad)*v_size + ((uint32_t)k+pad);
 }
 
 //################################################################################
