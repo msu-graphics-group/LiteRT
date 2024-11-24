@@ -32,6 +32,7 @@ using LiteMath::Box4f;
 #include "graphics_primitive/graphics_primitive_common.h"
 #include "catmul_clark/catmul_clark.h"
 #include "ribbon/ribbon.h"
+#include "openvdb_structs/openvdb_common.h"
 
 // #define USE_TRICUBIC 0
 
@@ -65,6 +66,7 @@ struct AbstractObject
   static constexpr uint32_t TAG_COCTREE_BRICKED  = 11; //V3
   static constexpr uint32_t TAG_CATMUL_CLARK     = 12;
   static constexpr uint32_t TAG_RIBBON           = 13;
+    static constexpr uint32_t TAG_OPENVDB_GRID   = 14;
 
   AbstractObject(){}  // Dispatching on GPU hierarchy must not have destructors, especially virtual   
   virtual uint32_t GetTag()   const  { return TAG_NONE; }; // !!! #REQUIRED by kernel slicer
@@ -135,6 +137,7 @@ struct BVHRT : public ISceneObject
   uint32_t AddGeom_COctreeV3(COctreeV3View octree, unsigned bvh_level, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
   uint32_t AddGeom_CatmulClark(const CatmulClark &surface, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
   uint32_t AddGeom_Ribbon(const Ribbon &rib, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
+  uint32_t AddGeom_OpenVDB_Grid(const OpenVDB_Grid& grid, ISceneObject *fake_this, BuildOptions a_qualityLevel = BUILD_HIGH);
 
   void set_debug_mode(bool enable);
 #endif
@@ -202,6 +205,13 @@ struct BVHRT : public ISceneObject
   void IntersectRibbon(const float3& ray_pos, const float3& ray_dir,
                       float tNear, uint32_t instId,
                       uint32_t geomId, CRT_Hit* pHit);
+  #ifndef KERNEL_SLICER
+  #ifndef DISABLE_OPENVDB
+  void IntersectOpenVDB_Grid(const float3& ray_pos, const float3& ray_dir,
+                      float tNear, uint32_t instId,
+                      uint32_t geomId, CRT_Hit* pHit);
+  #endif
+  #endif
 
   void IntersectGraphicPrims(const float3& ray_pos, const float3& ray_dir,
                              float tNear, uint32_t instId,
@@ -333,6 +343,13 @@ struct BVHRT : public ISceneObject
   #ifdef DISABLE_SDF_FRAME_OCTREE
     std::vector<BVHNode> m_origNodes;
   #endif
+#endif
+
+#ifndef KERNEL_SLICER
+#ifndef DISABLE_OPENVDB
+std::vector<OpenVDBHeader> m_VDBHeaders;
+std::vector<OpenVDB_Grid> m_VDBData;
+#endif
 #endif
 
   // GS data
@@ -767,6 +784,31 @@ struct GeomDataRibbon : public AbstractObject
     return pHit->t >= tPrev  ? TAG_NONE : TAG_GS;
   }
 };
+
+#ifndef KERNEL_SLICER
+#ifndef DISABLE_OPENVDB
+struct GeomDataOpenVDB_GRID : public AbstractObject
+{
+  GeomDataOpenVDB_GRID() {m_tag = GetTag();}
+
+  uint32_t GetTag() const override { return TAG_OPENVDB_GRID; }
+  uint32_t Intersect(float4 rayPosAndNear, float4 rayDirAndFar, CRT_LeafInfo info, 
+                     CRT_Hit* pHit, BVHRT* bvhrt) const override
+  {
+    float3 ray_pos = to_float3(rayPosAndNear);
+    float3 ray_dir = to_float3(rayDirAndFar);
+    float tNear    = rayPosAndNear.w;
+    uint32_t geometryId = geomId;
+    //uint32_t globalAABBId = bvhrt->startEnd[geometryId].x + info.aabbId;
+    //uint32_t start_count_packed = bvhrt->m_primIdCount[globalAABBId];
+    //uint32_t a_start = EXTRACT_START(start_count_packed);
+    //uint32_t a_count = EXTRACT_COUNT(start_count_packed);
+    bvhrt->IntersectOpenVDB_Grid(ray_pos, ray_dir, tNear, info.instId, geometryId, pHit);
+    return pHit->primId == 0xFFFFFFFF ? TAG_NONE : TAG_GS;
+  }
+};
+#endif
+#endif
 
 struct GeomDataGraphicsPrim : public AbstractObject
 {

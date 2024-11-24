@@ -527,6 +527,25 @@ void MultiRenderer::SetScene(const Ribbon &surface)
   m_pAccelStruct->CommitScene();
 }
 
+void MultiRenderer::SetScene(const OpenVDB_Grid& grid)
+{
+  #ifndef DISABLE_OPENVDB
+  BVHRT *bvhrt = dynamic_cast<BVHRT*>(m_pAccelStruct->UnderlyingImpl(0));
+  if (!bvhrt)
+  {
+    printf("only BVHRT supports NURBS\n");
+    return;
+  }
+
+  SetPreset(m_preset);
+  m_pAccelStruct->ClearGeom();
+  auto geomId = bvhrt->AddGeom_OpenVDB_Grid(grid, m_pAccelStruct.get());
+  m_pAccelStruct->ClearScene();
+  AddInstance(geomId, LiteMath::float4x4());
+  m_pAccelStruct->CommitScene();
+  #endif
+}
+
 void MultiRenderer::SetPreset(const MultiRenderPreset& a_preset)
 {
   m_preset = a_preset;

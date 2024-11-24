@@ -1780,6 +1780,84 @@ void BVHRT::IntersectRibbon(const float3& ray_pos, const float3& ray_dir,
 }
 //////////////////////// END RIBBON SECTION ///////////////////////////////////////////////
 
+#ifndef KERNEL_SLICER
+#ifndef DISABLE_OPENVDB
+void BVHRT::IntersectOpenVDB_Grid(const float3& ray_pos, const float3& ray_dir,
+                           float tNear, uint32_t instId,
+                           uint32_t geomId, CRT_Hit* pHit)
+{
+  uint32_t openvdbId = m_geomData[geomId].offset.x;
+  uint32_t type = m_geomData[geomId].type;
+  OpenVDBHeader header = m_VDBHeaders[openvdbId];
+  OpenVDB_Grid grid = m_VDBData[header.offset];
+
+  float3 min_pos = to_float3(m_geomData[geomId].boxMin);
+  float3 max_pos = to_float3(m_geomData[geomId].boxMax);
+  float2 tNear_tFar = box_intersects(min_pos, max_pos, ray_pos, ray_dir);
+  
+  float dist = 1000;
+  float t = std::max(tNear, tNear_tFar.x), tFar = tNear_tFar.y;
+  float start_sign = 1;
+  float EPS = 1e-6f;
+  bool hit = 0;
+  int iter = 0;
+  const uint32_t ST_max_iters = 256;
+
+  float3 point = ray_pos + t * ray_dir;
+  
+  dist = grid.get_distance(point);
+  start_sign = sign(dist);
+  dist *= start_sign;
+
+  while (t < tFar && dist > EPS && iter < ST_max_iters)
+  {
+    t += dist + EPS;
+    point = ray_pos + t * ray_dir;
+    dist = start_sign * grid.get_distance(point);
+    iter++;  
+  }
+  
+  hit = (dist <= EPS);
+
+  if (!hit || t < tNear || t > tFar)
+  {
+    return;
+  }
+
+  pHit->geomId = geomId | (type << SH_TYPE);
+  pHit->t = t;
+  pHit->primId = 0;
+  pHit->instId = instId;
+
+  pHit->coords[0] = 0;
+  pHit->coords[1] = 0;
+
+  float3 norm = float3(0, 0, 1);
+  if (need_normal())
+  {
+    point = ray_pos + t * ray_dir;
+
+    const float h = 0.001;
+    float ddx = (start_sign * grid.get_distance(point + float3(h, 0, 0)) -
+                  grid.get_distance(point + float3(-h, 0, 0))) /
+                (2 * h);
+    float ddy = (grid.get_distance(point + float3(0, h, 0)) -
+                  grid.get_distance(point + float3(0, -h, 0))) /
+                (2 * h);
+    float ddz = (grid.get_distance(point + float3(0, 0, h)) -
+                  grid.get_distance(point + float3(0, 0, -h))) /
+                (2 * h);
+
+    norm = start_sign * normalize(matmul4x3(m_instanceData[instId].transformInvTransposed, float3(ddx, ddy, ddz)));
+    float2 encoded_norm = encode_normal(norm);
+    pHit->coords[2] = encoded_norm.x;
+    pHit->coords[3] = encoded_norm.y;
+  }
+}
+
+#endif
+#endif
+
 float4 rayCapsuleIntersect(const float3& ray_pos, const float3& ray_dir,
                            const float3& pa, const float3& pb, float ra)
 {

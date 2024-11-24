@@ -192,6 +192,10 @@ struct COctreeV3Header
   uint32_t sim_compression; //0 or 1, indicates if similarity compression is used
 };
 
+struct OpenVDBHeader
+{
+  uint32_t offset;
+};
 
 //voxel position (i,j,k) to linear index
 static unsigned SBS_v_to_i(int i, int j, int k, unsigned v_size, unsigned pad)

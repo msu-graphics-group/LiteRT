@@ -29,5 +29,6 @@ $2 $start_dir/Renderer/eye_ray.cpp $start_dir/BVH/BVH2Common.cpp \
 -DDISABLE_GS_PRIMITIVE \
 -DDISABLE_RIBBON \
 -DDISABLE_CATMUL_CLARK \
+-DDISABLE_OPENVDB \
 
 cd $start_dir

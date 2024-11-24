@@ -31,6 +31,7 @@ include_directories(${CMAKE_SOURCE_DIR}/dependencies/embree)
 include_directories(${CMAKE_SOURCE_DIR}/sdfScene)
 include_directories(${CMAKE_SOURCE_DIR}/BVH)
 include_directories(${CMAKE_SOURCE_DIR}/Render)
+include_directories(${CMAKE_SOURCE_DIR}/openvdb_structs)
 
 #include_directories(SYSTEM ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/spectral/include)
 #set(SPECTRAL_LIB_ONLY ON)
@@ -89,6 +90,7 @@ set(SCENE_LOADER_SRC
     ${CMAKE_SOURCE_DIR}/utils/image_metrics.cpp
     ${CMAKE_SOURCE_DIR}/utils/iou.cpp
     ${CMAKE_SOURCE_DIR}/utils/points_visualizer.cpp
+    ${CMAKE_SOURCE_DIR}/openvdb_structs/openvdb_common.cpp
     )
 
 set(CORE_SRC
@@ -263,6 +265,16 @@ target_sources(render_app PRIVATE main.cpp
 set_property(TARGET render_app PROPERTY CXX_STANDARD 17)
 target_link_libraries(render_app PRIVATE Threads::Threads dl ${RAYTRACING_EMBREE_LIBS} ${MODULES_LIBRARIES})
 target_link_libraries(render_app PUBLIC hydra OpenMP::OpenMP_CXX)
+
+# Turn on/off OpenVDB
+option(USE_OPENVDB "Enable OpenVDB" OFF)
+if(USE_OPENVDB)
+  message("-- OpenVDB is ON")
+  target_link_libraries(render_app PUBLIC tbb openvdb)
+else()
+  message("-- OpenVDB is OFF")
+  add_definitions(-DDISABLE_OPENVDB)
+endif()
 
 if (USE_VULKAN)
   set(IMGUI_SRC
