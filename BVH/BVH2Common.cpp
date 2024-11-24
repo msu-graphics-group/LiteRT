@@ -13,6 +13,9 @@ using uvec3 = uint3;
 using LiteMath::M_PI;
 using LiteMath::clamp;
 
+#ifndef KERNEL_SLICER
+#define bitCount(x) __builtin_popcount(x)
+#endif
 
 bool BVHRT::need_normal()
 {
@@ -2328,6 +2331,7 @@ float BVHRT::eval_distance_sdf_sbs(uint32_t sbs_id, float3 pos)
 #ifndef DISABLE_SDF_FRAME_OCTREE_COMPACT
 float BVHRT::eval_distance_sdf_coctree_v3(uint32_t octree_id, float3 pos)
 {
+  const uint32_t uints_per_child = 1 + coctree_v3_header.sim_compression;
   uint32_t type = m_geomData[octree_id].type;
   // assert (type == TYPE_COCTREE_V3);
   uint32_t leftNodeOffset = eval_distance_traverse_bvh(octree_id, pos);
@@ -2406,14 +2410,18 @@ float BVHRT::eval_distance_sdf_coctree_v3(uint32_t octree_id, float3 pos)
 
       float3 c0 = 0.5f * level_sz * (pos + 1.f) - p_f;
       int currNode = (uint32_t(c0.x >= 0.5f) << 2u) | (uint32_t(c0.y >= 0.5f) << 1u) | uint32_t(c0.z >= 0.5f);
-      uint32_t childrenInfo = m_SdfCompactOctreeV3Data[curr_node.nodeId + 8];
+      uint32_t childrenInfo = m_SdfCompactOctreeV3Data[curr_node.nodeId + 0];
 
       // if child is active
       if ((childrenInfo & (1u << currNode)) > 0)
       {
-        uint32_t childOffset = m_SdfCompactOctreeV3Data[curr_node.nodeId + currNode];
+        uint32_t childPos = 1 + uints_per_child*bitCount(childrenInfo & ((1u << currNode) - 1));
+        uint32_t childOffset = m_SdfCompactOctreeV3Data[curr_node.nodeId + childPos];
+        uint32_t childInfo = coctree_v3_header.sim_compression > 0 ? 
+                             m_SdfCompactOctreeV3Data[curr_node.nodeId + childPos + 1] : 
+                             childrenInfo & (1u << (currNode + 8)); // > 0 <=> this child is leaf
         curr_node.nodeId = childOffset;
-        curr_node.info = childrenInfo & (1u << (currNode + 8)); // > 0 is child is leaf
+        curr_node.info = childInfo;
         curr_node.p_size = (curr_node.p_size << 1) | uint2(((currNode & 4) << (16-2)) | ((currNode & 2) >> 1), (currNode & 1) << 16);
       }
       else
@@ -2838,10 +2846,6 @@ void BVHRT::OctreeIntersect(uint32_t type, const float3 ray_pos, const float3 ra
     }
 #endif
 }
-
-#ifndef KERNEL_SLICER
-#define bitCount(x) __builtin_popcount(x)
-#endif
 
 float BVHRT::COctreeV3_LoadDistanceValues(uint32_t brickOffset, float3 voxelPos, uint32_t v_size, float sz_inv, 
                                           const COctreeV3Header &header, uint32_t transform_code,
