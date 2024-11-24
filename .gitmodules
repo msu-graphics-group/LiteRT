@@ -4,7 +4,6 @@
 [submodule "external/imgui"]
 	path = external/imgui
 	url = https://github.com/ocornut/imgui
-[submodule "external/stp_parser"]
-	path = external/stp_parser
-	url = https://github.com/RevelcoS/STEP-parser
-	branch = master
+[submodule "external/step"]
+	path = external/step
+	url = git@github.com:RevelcoS/STEP-parser.git

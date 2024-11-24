@@ -24,7 +24,7 @@ endif()
 
 find_package(OpenMP)
 find_package(embree 4.3.3)
-add_subdirectory(external/stp_parser)
+add_subdirectory(external/step)
 
 add_library(LiteMath external/LiteMath/Image2d.cpp)
 target_include_directories(LiteMath PUBLIC external/LiteMath)
@@ -67,7 +67,7 @@ target_link_libraries(
     LiteMath
     ImGui
     OpenMP::OpenMP_CXX
-    stp_parser
     ispc_ray_pack
     embree
+    step
 )

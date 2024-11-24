@@ -7,7 +7,7 @@
 #include <numeric>
 
 #include <Image2d.h>
-#include <stp_parser.hpp>
+#include <step.h>
 
 #include "Surface.hpp"
 
@@ -17,6 +17,8 @@ NURBS_Surface load_nurbs(const std::filesystem::path &path) {
   std::fstream fin;
   fin.exceptions(std::ios::failbit|std::ios::badbit);
   fin.open(path);
+  if (!fin.good()) throw std::runtime_error("Failed to open the file.");
+
   std::string tmp_str;
   char tmp_chr;
 
@@ -446,8 +448,12 @@ load_rbeziers(const std::filesystem::path &path) {
     return { nurbs2rbezier(load_nurbs(path)) };
   } 
 
+  bool exists;
+  auto parser = STEP::Parser(path, exists);
+  if (!exists) throw std::runtime_error("Failed to open the file.");
+
   std::vector<RBezierGrid> res;
-  auto parser = STEP::Parser(path);
+
   auto parsed_nurbs = parser.allNURBS();
 
   float max_abs_value = 0.0f;
