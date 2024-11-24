@@ -1,3 +1,4 @@
+#pragma once
 #include "LiteMath.h"
 #include "Image2d.h"
 
