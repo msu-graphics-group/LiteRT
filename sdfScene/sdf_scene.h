@@ -439,7 +439,7 @@ struct SdfFrameOctreeTexView
 
 struct COctreeV3
 {
-  static constexpr unsigned VERSION = 2; // change version if structure changes
+  static constexpr unsigned VERSION = 3; // change version if structure changes
   COctreeV3Header header = get_default_coctree_v3_header();
   std::vector<uint32_t> data;
 };

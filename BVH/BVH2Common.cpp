@@ -2331,6 +2331,9 @@ float BVHRT::eval_distance_sdf_sbs(uint32_t sbs_id, float3 pos)
 #ifndef DISABLE_SDF_FRAME_OCTREE_COMPACT
 float BVHRT::eval_distance_sdf_coctree_v3(uint32_t octree_id, float3 pos)
 {
+#if ON_CPU==1
+  assert(COctreeV3::VERSION == 3); //if version is changed, this function should be revisited, as some changes may be needed
+#endif
   const uint32_t uints_per_child = 1 + coctree_v3_header.sim_compression;
   uint32_t type = m_geomData[octree_id].type;
   // assert (type == TYPE_COCTREE_V3);
@@ -2851,6 +2854,10 @@ float BVHRT::COctreeV3_LoadDistanceValues(uint32_t brickOffset, float3 voxelPos,
                                           const COctreeV3Header &header, uint32_t transform_code,
                                           float values[8] /*out*/)
 {
+#if ON_CPU==1
+  assert(COctreeV3::VERSION == 3); //if version is changed, this function should be revisited, as some changes may be needed
+#endif
+
   float vmin = 1e6f;
 #ifndef DISABLE_SDF_FRAME_OCTREE_COMPACT
   float4x4 rot_transform = m_SdfCompactOctreeRotTransforms[transform_code & 0xFF];
@@ -2928,6 +2935,11 @@ void BVHRT::COctreeV3_BrickIntersect(uint32_t type, const float3 ray_pos, const 
                                      uint32_t brickOffset, float3 p, float sz, uint32_t transform_code,
                                      CRT_Hit *pHit)
 {
+
+#if ON_CPU==1
+  assert(COctreeV3::VERSION == 3); //if version is changed, this function should be revisited, as some changes may be needed
+#endif
+
 #ifndef DISABLE_SDF_FRAME_OCTREE_COMPACT
   float values[8];
 
@@ -3075,6 +3087,10 @@ void BVHRT::OctreeIntersectV3(uint32_t type, const float3 ray_pos, const float3 
                               uint32_t bvhNodeId, uint32_t a_count,
                               CRT_Hit *pHit)
 {
+#if ON_CPU==1
+  assert(COctreeV3::VERSION == 3); //if version is changed, this function should be revisited, as some changes may be needed
+#endif
+
 #ifndef DISABLE_SDF_FRAME_OCTREE_COMPACT
   float3 pos_ray_pos = ray_pos;
   float3 pos_ray_dir = ray_dir;

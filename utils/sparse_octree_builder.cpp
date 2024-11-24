@@ -3643,6 +3643,10 @@ void frame_octree_to_compact_octree_v3_rec(const std::vector<SdfFrameOctreeTexNo
   std::vector<uint32_t> frame_octree_to_compact_octree_v3(const std::vector<SdfFrameOctreeTexNode> &frame, COctreeV3Header header,
                                                           MultithreadedDistanceFunction sdf, unsigned max_threads)
   {
+    #if ON_CPU==1
+      assert(COctreeV3::VERSION == 3); //if version is changed, this function should be revisited, as some changes may be needed
+    #endif
+
     stat_leaf_bytes.store(0);
     stat_nonleaf_bytes.store(0);
 
@@ -4173,6 +4177,10 @@ void frame_octree_to_compact_octree_v3_rec(const std::vector<SdfFrameOctreeTexNo
 
   void global_octree_to_compact_octree_v3(const GlobalOctree &octree, COctreeV3 &compact_octree, unsigned max_threads)
   {
+  #if ON_CPU==1
+    assert(COctreeV3::VERSION == 3); //if version is changed, this function should be revisited, as some changes may be needed
+  #endif
+
     stat_leaf_bytes.store(0);
     stat_nonleaf_bytes.store(0);
 

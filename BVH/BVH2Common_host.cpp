@@ -1244,6 +1244,10 @@ void initialize_rot_transforms(std::vector<float4x4> &rot_transforms, int v_size
 
 uint32_t BVHRT::AddGeom_COctreeV3(COctreeV3View octree, unsigned bvh_level, ISceneObject *fake_this, BuildOptions a_qualityLevel)
 {
+#if ON_CPU==1
+  assert(COctreeV3::VERSION == 3); //if version is changed, this function should be revisited, as some changes may be needed
+#endif
+
   int v_size = octree.header.brick_size + 2 * octree.header.brick_pad + 1;
   initialize_rot_transforms(m_SdfCompactOctreeRotTransforms, v_size);
 
