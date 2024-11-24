@@ -4553,7 +4553,7 @@ void litert_test_45_global_octree_to_COctreeV3()
   }
 
   {
-    auto pRender = CreateMultiRenderer(DEVICE_CPU);
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
     pRender->SetPreset(preset);
     pRender->SetScene(ref, 0);
     render(image_r, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset);
