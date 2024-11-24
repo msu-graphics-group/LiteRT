@@ -1,5 +1,3 @@
-// Copyright 2009-2021 Intel Corporation
-// SPDX-License-Identifier: Apache-2.0
 #ifndef NURBS_SRC_EMBREE_ADAPTORS
 #define NURBS_SRC_EMBREE_ADAPTORS
 
