@@ -48,6 +48,7 @@ namespace testing
         std::ostream& operator<<(const EndAligned&)
         {
             aligned_output(*out_, data_.str(), width_, align_, padding_, fill_);
+            out_->flush();
             return *out_;
         }
 

@@ -4,6 +4,7 @@
 #include <functional>
 #include <typeinfo>
 #include <tuple>
+#include <testing_framework/core/param_validators.h>
 
 namespace testing
 {

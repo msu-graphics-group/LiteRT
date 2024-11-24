@@ -2,6 +2,7 @@
 #include <testing_framework/core/commands.h>
 #include <testing_framework/core/cmdline_parser.h>
 #include <testing_framework/core/test_options.h>
+#include <testing_framework/core/param_validators.h>
 #include <testing_framework/core/exe.h>
 #include <testing_framework/core/colors.h>
 #include <testing_framework/core/exe.h>

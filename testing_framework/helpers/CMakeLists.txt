@@ -1,6 +1,26 @@
 
 add_library(
-    testing_framework_helpers INTERFACE
+    testing_framework_helpers
+    
+    # accessing test options
+    options.h
+    options.cpp
+
+    # rendering helpers
+    render.h
+    render.cpp
+
+    # formatters
+    format.h
+
+    # timer
+    scoped_timer.h
+    scoped_timer.cpp
+
+    # checks
+    check.h
+    check.cpp
+
 )
 
 
@@ -9,7 +29,7 @@ add_library(
 )
 
 target_link_libraries(
-    testing_framework_helpers INTERFACE
+    testing_framework_helpers PUBLIC
     render_lib
     testing_framework::core
 )

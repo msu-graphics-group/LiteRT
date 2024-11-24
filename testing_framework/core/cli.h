@@ -4,7 +4,6 @@
 #include <functional>
 #include <map>
 #include <typeinfo>
-#include <testing_framework/core/param_validators.h>
 
 namespace testing
 {

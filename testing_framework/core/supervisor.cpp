@@ -223,7 +223,7 @@ namespace testing
                 std::cerr << foreground(error_color) << "Error: " << default_color
                     << "failed to kill subprocess: " << strerror(errno) << "." << std::endl;
             }
-            if (wait(&status_) == -1)
+            if (waitpid(pid_, &status_, 0) == -1)
             {
                 std::cerr << foreground(error_color) << "Error: " << default_color
                     << "failed to wait for subprocess: " << strerror(errno) << "." << std::endl;

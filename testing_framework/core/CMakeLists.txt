@@ -42,9 +42,6 @@ add_library(
     environment.h
     environment.cpp
 
-    # main function
-    main.cpp
-
 )
 
 add_library(testing_framework::core ALIAS testing_framework_core)
