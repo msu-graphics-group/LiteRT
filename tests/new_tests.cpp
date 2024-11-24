@@ -27,6 +27,7 @@
 namespace litert_tests
 {
     const char TEAPOT_MESH[] = "01_simple_scenes/data/teapot.vsgf";
+    const char BUNNY_MESH[] = "01_simple_scenes/data/bunny.vsgf";
 
     const char TEAPOT_HYDRA[] = "01_simple_scenes/teapot.xml";
 
@@ -44,6 +45,7 @@ namespace litert_tests
 
         auto image = testing::create_image();
 
+        // WTF? repeating
         std::vector<unsigned> presets_oi = {SDF_OCTREE_NODE_INTERSECT_ST, SDF_OCTREE_NODE_INTERSECT_ST,
                                             SDF_OCTREE_NODE_INTERSECT_ST, SDF_OCTREE_NODE_INTERSECT_ST};
 
@@ -263,6 +265,356 @@ namespace litert_tests
 
         testing::saved_reference_check_psnr(cpu_image, "CPU", "cpu", 90);
         testing::saved_reference_check_psnr(gpu_image, "GPU", "gpu", 90);
+    }
+
+    // former 15
+    ADD_TEST(FrameOctreeNodeRemoval, "Testing frame octree node removal")
+    {
+        // auto mesh = cmesh4::LoadMeshFromVSGF(std::string("./scenes/01_simple_scenes/data/teapot.vsgf").c_str());
+
+        auto mesh = testing::load_vsgf_mesh(
+            TEAPOT_MESH,
+            0.999 // heavily changes PSNR
+        );
+
+        // WTF?
+        // cmesh4::normalize_mesh(mesh);   // does nothing
+        // MeshBVH mesh_bvh;               // is not used
+        // mesh_bvh.init(mesh);            // is not used
+
+        std::vector<SdfFrameOctreeNode> octree_nodes_6;
+        std::vector<SdfFrameOctreeNode> octree_nodes_7;
+        std::vector<SdfFrameOctreeNode> octree_nodes_8;
+        const unsigned level_6_nodes = 21603;
+
+        {
+            testing::ScopedTimer timer("creating octree with depth-6, trimmed to " + std::to_string(level_6_nodes));
+            SparseOctreeSettings settings(SparseOctreeBuildType::DEFAULT, 6);
+            octree_nodes_6 = sdf_converter::create_sdf_frame_octree(settings, mesh);
+            sdf_converter::frame_octree_limit_nodes(octree_nodes_6, level_6_nodes, false);
+        }
+
+        {
+            testing::ScopedTimer timer("creating octree with depth-7, trimmed to " + std::to_string(level_6_nodes));
+            SparseOctreeSettings settings(SparseOctreeBuildType::DEFAULT, 7);
+            octree_nodes_7 = sdf_converter::create_sdf_frame_octree(settings, mesh);
+            sdf_converter::frame_octree_limit_nodes(octree_nodes_7, level_6_nodes, false);
+        }
+
+        {
+            testing::ScopedTimer timer("creating octree with depth-8, trimmed to " + std::to_string(level_6_nodes));
+            SparseOctreeSettings settings(SparseOctreeBuildType::DEFAULT, 8);
+            octree_nodes_8 = sdf_converter::create_sdf_frame_octree(settings, mesh);
+            sdf_converter::frame_octree_limit_nodes(octree_nodes_8, level_6_nodes, false);
+        }
+
+        MultiRenderPreset preset = getDefaultPreset();
+        preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
+
+        auto image_6 = testing::create_image();
+        auto image_7 = testing::create_image();
+        auto image_8 = testing::create_image();
+
+        testing::render_scene(image_6, DEVICE_GPU, preset, octree_nodes_6);
+        testing::save_image(image_6, "6");
+
+        testing::render_scene(image_7, DEVICE_GPU, preset, octree_nodes_7);
+        testing::save_image(image_7, "trimmed_7");
+
+        testing::render_scene(image_8, DEVICE_GPU, preset, octree_nodes_8);
+        testing::save_image(image_8, "trimmed_8");
+
+        testing::check_psnr(image_6, image_7, "octree-6", "octree-7", 45);
+        testing::check_psnr(image_6, image_8, "octree-6", "octree-8", 45);
+    }
+
+    // former 16
+    ADD_TEST(SVS_Nodes_Removal, "Testing removing nodes from SVS")
+    {
+
+        auto mesh = testing::load_vsgf_mesh(
+            TEAPOT_MESH, 0.999 // WTF? changing from 0.9 to 0.999, made PSNR 100 insdead of 47.2
+        );
+        /* WTF?
+        cmesh4::normalize_mesh(mesh);
+        MeshBVH mesh_bvh;
+        mesh_bvh.init(mesh);
+        */
+
+        std::vector<SdfSVSNode> octree_nodes_6;
+        std::vector<SdfSVSNode> octree_nodes_7;
+        std::vector<SdfSVSNode> octree_nodes_8;
+        const unsigned level_6_nodes = 11215;
+
+        {
+            testing::ScopedTimer timer("creating SVS from octree with depth-6, trimmed to " + std::to_string(level_6_nodes));
+            SparseOctreeSettings settings(SparseOctreeBuildType::DEFAULT, 6);
+            std::vector<SdfFrameOctreeNode> nodes = sdf_converter::create_sdf_frame_octree(settings, mesh);
+            sdf_converter::frame_octree_limit_nodes(nodes, level_6_nodes, true);
+            sdf_converter::frame_octree_to_SVS_rec(nodes, octree_nodes_6, 0, uint3(0, 0, 0), 1);
+        }
+
+        {
+            testing::ScopedTimer timer("creating SVS from octree with depth-7, trimmed to " + std::to_string(level_6_nodes));
+            SparseOctreeSettings settings(SparseOctreeBuildType::DEFAULT, 7);
+            std::vector<SdfFrameOctreeNode> nodes = sdf_converter::create_sdf_frame_octree(settings, mesh);
+            sdf_converter::frame_octree_limit_nodes(nodes, level_6_nodes, true);
+            sdf_converter::frame_octree_to_SVS_rec(nodes, octree_nodes_7, 0, uint3(0, 0, 0), 1);
+        }
+
+        {
+            testing::ScopedTimer timer("creating SVS from octree with depth-8, trimmed to " + std::to_string(level_6_nodes));
+            SparseOctreeSettings settings(SparseOctreeBuildType::DEFAULT, 8);
+            std::vector<SdfFrameOctreeNode> nodes = sdf_converter::create_sdf_frame_octree(settings, mesh);
+            sdf_converter::frame_octree_limit_nodes(nodes, level_6_nodes, true);
+            sdf_converter::frame_octree_to_SVS_rec(nodes, octree_nodes_8, 0, uint3(0, 0, 0), 1);
+        }
+
+        MultiRenderPreset preset = getDefaultPreset();
+        preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
+
+        auto image_6 = testing::create_image();
+        auto image_7 = testing::create_image();
+        auto image_8 = testing::create_image();
+
+        testing::render_scene(image_6, DEVICE_GPU, preset, octree_nodes_6);
+        testing::save_image(image_6, "6");
+
+        testing::render_scene(image_7, DEVICE_GPU, preset, octree_nodes_7);
+        testing::save_image(image_7, "trimmed_7");
+
+        testing::render_scene(image_8, DEVICE_GPU, preset, octree_nodes_8);
+        testing::save_image(image_8, "trimmed_8");
+
+        testing::check_psnr(image_6, image_7, "SVS octree-6", "SVS octree-7", 45);
+        testing::check_psnr(image_6, image_8, "SVS octree-6", "SVS octree-8", 45);
+    }
+
+    // former 17
+    ADD_TEST(AllTypesSanityCheck, "Testing all")
+    {
+        auto mesh = testing::load_vsgf_mesh(TEAPOT_MESH, 0.999);
+        // cmesh4::normalize_mesh(mesh);
+
+        // constexpr size_t WIDTH = 512;
+        // constexpr size_t HEIGHT = 512;
+
+        MultiRenderPreset preset = getDefaultPreset();
+        preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
+
+        testing::ScopedTimer timer("crearing SDF grid from mesh");
+        auto grid = sdf_converter::create_sdf_grid(GridSettings(64), mesh);
+        timer.end();
+
+        timer = testing::ScopedTimer("creating frame octree from mesh");
+        auto octree = sdf_converter::create_sdf_frame_octree(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 8, 64 * 64 * 64), mesh);
+        timer.end();
+
+        timer = testing::ScopedTimer("creating SVS from mesh");
+        auto svs = sdf_converter::create_sdf_SVS(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 8, 64 * 64 * 64), mesh);
+        timer.end();
+
+        SdfSBSHeader header;
+        header.brick_size = 2;
+        header.brick_pad = 0;
+        header.bytes_per_value = 1;
+        header.aux_data = SDF_SBS_NODE_LAYOUT_DX;
+        timer = testing::ScopedTimer("creating SDF SBS from mesh");
+        auto sbs = sdf_converter::create_sdf_SBS(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 8, 64 * 64 * 64), header, mesh);
+        timer.end();
+
+        std::vector<unsigned> modes = {DEVICE_CPU, DEVICE_GPU, DEVICE_GPU_RTX};
+        std::vector<std::string> render_device_names = {"cpu", "gpu", "rtx"};
+
+        std::vector image_mesh(3, testing::create_image());
+        std::vector image_grid(3, testing::create_image());
+        std::vector image_frame_octree(3, testing::create_image());
+        std::vector image_svs(3, testing::create_image());
+        std::vector image_sbs(3, testing::create_image());
+
+        for (int i = 0; i < 3; i++)
+        {
+            testing::render_scene(image_mesh[i], modes[i], preset, mesh);
+            testing::save_image(image_mesh[i], "mesh_" + render_device_names[i]);
+
+            testing::render_scene(image_grid[i], modes[i], preset, grid);
+            testing::save_image(image_grid[i], "grid_" + render_device_names[i]);
+
+            testing::render_scene(image_frame_octree[i], modes[i], preset, octree);
+            testing::save_image(image_frame_octree[i], "octree_" + render_device_names[i]);
+
+            testing::render_scene(image_svs[i], modes[i], preset, svs);
+            testing::save_image(image_svs[i], "SVS_" + render_device_names[i]);
+
+            testing::render_scene(image_sbs[i], modes[i], preset, sbs);
+            testing::save_image(image_sbs[i], "SBS_" + render_device_names[i]);
+        }
+
+        testing::check_psnr(image_mesh[0], image_mesh[1], "Mesh CPU", "Mesh GPU", 50);
+        testing::check_psnr(image_mesh[0], image_mesh[2], "Mesh CPU", "Mesh RTX", 50);
+
+        std::vector<std::string> method_names = {"Grid", "Framed Octree", "SVS", "SBS"};
+        std::vector images = {&image_grid, &image_frame_octree, &image_svs, &image_sbs};
+        std::vector mesh_threshold = {25, 30, 30, 30};
+        std::vector self_threshold = {50, 50, 50, 50};
+
+        for (int i = 0; i < images.size(); i++)
+        {
+            testing::check_psnr(image_mesh[0], (*images[i])[0], "Mesh CPU", method_names[i] + " CPU", mesh_threshold[i]);
+            testing::check_psnr(image_mesh[0], (*images[i])[1], "Mesh CPU", method_names[i] + " GPU", mesh_threshold[i]);
+            testing::check_psnr(image_mesh[0], (*images[i])[2], "Mesh CPU", method_names[i] + " RTX", mesh_threshold[i]);
+            testing::check_psnr((*images[i])[0], (*images[i])[1], method_names[i] + " CPU", method_names[i] + " GPU", self_threshold[i]);
+            testing::check_psnr((*images[i])[0], (*images[i])[2], method_names[i] + " CPU", method_names[i] + " RTX", self_threshold[i]);
+        }
+    }
+
+    // former 18
+    ADD_TEST(MeshNormalization, "Normalizing mesh")
+    {
+
+        MultiRenderPreset preset = getDefaultPreset();
+        auto mesh = testing::load_vsgf_mesh(TEAPOT_MESH, 0.999);
+
+        std::vector<std::string> mod_names = {"filled", "compressed", "fixed_normals", "normalized"};
+        std::vector<std::function<void(testing::Mesh &)>> mods = {};
+
+        mods.push_back([](testing::Mesh &mesh)
+                       {
+            testing::ScopedTimer timer("creating watertight mesh");
+            int ind = -1;
+            bool fl = false;
+            auto mesh_filled = cmesh4::check_watertight_mesh(mesh, true) ? mesh : cmesh4::removing_holes(mesh, ind, fl);
+            // WTF?
+            // mesh_filled = mesh; // why?!
+            mesh = std::move(mesh_filled); });
+        mods.push_back([](testing::Mesh &mesh)
+                       {
+                           testing::ScopedTimer timer("creating compressed mesh");
+
+                           cmesh4::compress_close_vertices(mesh, 1e-9f, true); });
+        mods.push_back([](testing::Mesh &mesh)
+                       {
+                           testing::ScopedTimer timer("creating mesh with fixed normals");
+
+                           cmesh4::fix_normals(mesh, true); });
+
+        std::vector<testing::Mesh> mod_meshes(mods.size());
+
+        auto ref = testing::create_image();
+        auto ref_svs = testing::create_image();
+
+        auto image = testing::create_image();
+
+        testing::render_scene(ref, DEVICE_GPU, preset, mesh, float3(2, 0, 2), float3(0, 0, 0), float3(0, 1, 0));
+        testing::save_image(ref, "ref");
+
+        testing::ScopedTimer timer("creating SDF SVS for Mesh");
+        auto svs = sdf_converter::create_sdf_SVS(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 9), mesh);
+        timer.end();
+
+        testing::render_scene(ref_svs, DEVICE_GPU, preset, svs, float3(2, 0, 2), float3(0, 0, 0), float3(0, 1, 0));
+        testing::save_image(ref_svs, "ref_svs");
+
+        for (size_t i = 0; i < mods.size(); i++)
+        {
+            /*
+                WTF?
+                Should be applied to original mesh or chained?
+            */
+            // doing chained as in original code
+            mod_meshes[i] = (i == 0 ? mesh : mod_meshes[i - 1]); // copy
+            mods[i](mod_meshes[i]);                              // apply modification
+            testing::log(testing::bar_info)
+                << "Triangles in " << mod_names[i] << " mesh: " << mod_meshes[i].TrianglesNum() << std::endl;
+            // WTF?
+            // may be make default camera?
+            testing::render_scene(image, DEVICE_GPU, preset, mod_meshes[i], float3(2, 0, 2), float3(0, 0, 0), float3(0, 1, 0));
+            testing::save_image(image, mod_names[i]);
+            testing::check_psnr(ref, image, "Mesh", mod_names[i] + " Mesh", 45);
+
+            testing::ScopedTimer timer("creating SDF SVS for " + mod_names[i] + " Mesh");
+            auto svs = sdf_converter::create_sdf_SVS(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 9), mod_meshes[i]);
+            timer.end();
+
+            testing::render_scene(image, DEVICE_GPU, preset, svs, float3(2, 0, 2), float3(0, 0, 0), float3(0, 1, 0));
+            testing::save_image(image, mod_names[i] + "_svs");
+            testing::check_psnr(ref_svs, image, "SVS", mod_names[i] + " SVS", 45);
+        }
+    }
+
+    // former 25
+    ADD_TEST(FloatImages, "Testing if float images are working")
+    {
+        auto scene = TEAPOT_HYDRA;
+
+        auto cpu = testing::create_image<float4>();
+        auto gpu = testing::create_image<float4>();
+
+        MultiRenderPreset preset = getDefaultPreset();
+
+        testing::render_hydra_scene(cpu, DEVICE_CPU, preset, scene);
+        testing::save_image(cpu, "cpu");
+
+        testing::render_hydra_scene(gpu, DEVICE_GPU, preset, scene);
+        testing::save_image(gpu, "gpu");
+
+        testing::check_psnr(cpu, gpu, "CPU", "GPU", 45);
+    }
+
+    // former 32
+    ADD_TEST(Smooth_SBS_normals, "Testing smooth SBS normals")
+    {
+
+        auto mesh = testing::load_vsgf_mesh(BUNNY_MESH, 0.95);
+
+        MultiRenderPreset preset = getDefaultPreset();
+        preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
+        SparseOctreeSettings settings(SparseOctreeBuildType::MESH_TLO, 5);
+
+        SdfSBSHeader header;
+        header.brick_size = 4;
+        header.brick_pad = 0;
+        header.bytes_per_value = 1;
+
+        auto image_mesh = testing::create_image();
+        auto image_sbs = testing::create_image();
+        auto image_smooth = testing::create_image();
+
+        preset.normal_mode = NORMAL_MODE_VERTEX;
+        testing::render_scene(image_mesh, DEVICE_GPU, preset, mesh);
+        testing::save_image(image_mesh, "mesh");
+
+        {
+            auto renderer = CreateMultiRenderer(DEVICE_GPU);
+
+            testing::ScopedTimer timer("creating SDF SBS indexed with neighbours");
+            auto indexed_SBS = sdf_converter::create_sdf_SBS_indexed_with_neighbors(
+                settings,
+                header,
+                mesh,
+                0,
+                renderer->getMaterials(),
+                renderer->getTextures());
+            timer.end();
+
+            /*
+                Can not SetScene twice
+            */
+            renderer->SetScene(indexed_SBS);
+
+            preset.normal_mode = NORMAL_MODE_GEOMETRY;
+            testing::render(image_sbs, renderer, preset);
+            testing::save_image(image_sbs, "sbs");
+
+            preset.normal_mode = NORMAL_MODE_SDF_SMOOTHED;
+            testing::render(image_smooth, renderer, preset);
+            testing::save_image(image_smooth, "smooth_normals");
+        }
+
+        
+        float psnr1 = testing::check_psnr(image_mesh, image_sbs, "Mesh", "SBS", 30);
+        float psnr2 = testing::check_psnr(image_mesh, image_smooth, "Mesh", "Smoothed normals", 30);
+        testing::check_greater(psnr2, psnr1, "PSNR SBS with smoothed normals", "PSNR default SBS", true);
     }
 
 }

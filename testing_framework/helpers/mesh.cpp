@@ -8,12 +8,12 @@ namespace testing
 {
 
    
-    Mesh load_vsgf_mesh_by_path(const std::string &path)
+    Mesh load_vsgf_mesh_by_path(const std::string &path, source_location loc)
     {
         log(bar_info) << "Loading VSGF mesh from "
                       << foreground(highlight_color_2) << path << default_color
                       << std::endl;
-        assert_file_existance(path);
+        assert_file_existance(path, true, loc);
         auto mesh = cmesh4::LoadMeshFromVSGF(path.c_str());
         log(bar_info) << "Mesh triangles count: "
                       << foreground(highlight_color_3) << mesh.TrianglesNum()
@@ -48,10 +48,10 @@ namespace testing
                       << "]" << std::endl;
     }
 
-    Mesh load_vsgf_mesh(const std::string &name, float box)
+    Mesh load_vsgf_mesh(const std::string &name, float box, source_location loc)
     {
         std::string path = scenes_directory() + "/" + name;
-        auto mesh = load_vsgf_mesh_by_path(path);
+        auto mesh = load_vsgf_mesh_by_path(path, loc);
         LiteMath::float3 v(1, 1, 1);
         fit_mesh(mesh, -v * box, v * box);
         return mesh;

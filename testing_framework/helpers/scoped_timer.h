@@ -13,7 +13,7 @@ namespace testing
     class ScopedTimer
     {
     public:
-
+        ScopedTimer();
         ScopedTimer(std::string action_name);
         ScopedTimer(const ScopedTimer&) = delete;
         ScopedTimer(ScopedTimer&&);

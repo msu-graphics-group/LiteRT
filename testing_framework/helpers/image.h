@@ -5,6 +5,7 @@
 #include <testing_framework/core/environment.h>
 #include <testing_framework/helpers/options.h>
 #include <testing_framework/helpers/files.h>
+#include <testing_framework/helpers/format.h>
 #include "LiteMath/Image2d.h"
 
 namespace testing
@@ -16,9 +17,9 @@ namespace testing
     using Image = LiteImage::Image2D<T>;
     
     template<typename T = DefaultImageType>
-    Image<T> create_image()
+    Image<T> create_image(size_t width = image_width(), size_t height = image_height())
     {
-        Image<T> image(image_width(), image_height());
+        Image<T> image(width, height);
         return image;
     }
 
@@ -29,7 +30,7 @@ namespace testing
         log(bar_info) << "Saving " << name << " to "
                       << foreground(highlight_color_2) << path << default_color
                       << std::endl;
-        LiteImage::SaveImage<uint32_t>(path.c_str(), image);
+        LiteImage::SaveImage<T>(path.c_str(), image);
     }
 
     template<typename T>
@@ -43,13 +44,14 @@ namespace testing
     std::optional<Image<T>> load_image_by_path(
         const std::string&path,
         std::string_view name  = "image",
-        bool treat_failure_as_error = true
+        bool treat_failure_as_error = true,
+        source_location loc = source_location::current()
     )
     {
         log(bar_info) << "Loading " << name <<  " from "
                           << foreground(highlight_color_2) << path << default_color
                           << std::endl;
-        if (!assert_file_existance(path, treat_failure_as_error))
+        if (!assert_file_existance(path, treat_failure_as_error, loc))
         {
             return std::nullopt;
         }
@@ -60,6 +62,7 @@ namespace testing
         }
         log(treat_failure_as_error ? bar_error : bar_warning) << "Failed to load image from "
             << foreground(highlight_color_2) << path << default_color
+            << " at " << loc
             << std::endl;
         if (treat_failure_as_error)
         {

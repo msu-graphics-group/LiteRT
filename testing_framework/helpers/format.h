@@ -1,6 +1,8 @@
 #pragma once
 #include <ostream>
 #include <iomanip>
+#include <testing_framework/helpers/source_location.h>
+#include <testing_framework/core/logging.h>
 
 #include "LiteMath/LiteMath.h"
 
@@ -64,6 +66,42 @@ namespace testing
             out << (float)bytes / 1000 / 1000 / 1000 << "GB";
         }
         return out;
+    }
+
+    inline std::ostream& operator<<(std::ostream&out, const source_location&loc)
+    {
+        #if TESTING_ENABLE_SOURCE_LOCATION
+            out
+                << foreground(highlight_color_2)
+                << "'" << loc.file_name() << ":" << loc.line()
+                << "'" << default_color;
+        #else
+            // print nothing
+        #endif
+        return out;
+    }
+
+    template<typename T>
+    struct ConditionalPrinter
+    {
+        T value;
+        bool print;
+    };
+
+    template<typename T>
+    std::ostream& operator<<(std::ostream&out, const ConditionalPrinter<T>&x)
+    {
+        if (x.print)
+        {
+            out << x.value;
+        }
+        return out;
+    }
+
+    template<typename T>
+    ConditionalPrinter<T> print_conditional(T value, bool print)
+    {
+        return {std::move(value), print};
     }
 
 }

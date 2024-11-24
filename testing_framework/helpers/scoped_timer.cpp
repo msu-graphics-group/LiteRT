@@ -4,6 +4,9 @@
 
 namespace testing
 {
+    ScopedTimer::ScopedTimer() :
+        ended_(true)
+    {}
 
     ScopedTimer::ScopedTimer(std::string action_name) :
         action_name_(std::move(action_name)),

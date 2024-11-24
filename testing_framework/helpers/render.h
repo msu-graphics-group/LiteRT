@@ -36,8 +36,6 @@ namespace testing
                       << foreground(highlight_color_1) << passes << default_color
                       << " times" << std::endl;
 
-        //pRender->Render(image.data(), image.width(), image.height(), world_view, proj, preset, passes);
-
         call_render(image, renderer, preset, world_view, proj, passes);
 
         renderer->GetExecutionTime("CastRaySingleBlock", timings);
@@ -68,6 +66,20 @@ namespace testing
         render(image, renderer, preset, worldView, proj);
     }
 
+    template <typename T, typename Scene>
+    void render_scene(
+        Image<T> &image,
+        std::shared_ptr<MultiRenderer> renderer,
+        MultiRenderPreset preset,
+        const Scene &scene,
+        float3 pos = float3(0, 0, 3),
+        float3 target = float3(0, 0, 0),
+        float3 up = float3(0, 1, 0))
+    {
+        renderer->SetScene(scene);
+        render(image, renderer, preset, pos, target, up);
+    }
+
     /*
         Creates renderer with given type and sets scene
     */
@@ -81,9 +93,7 @@ namespace testing
         float3 target = float3(0, 0, 0),
         float3 up = float3(0, 1, 0))
     {
-        auto renderer = CreateMultiRenderer(renderer_type);
-        renderer->SetScene(scene);
-        render(image, renderer, preset, pos, target, up);
+        return render_scene(image, CreateMultiRenderer(renderer_type), preset, scene, pos, target, up);
     }
 
     /*
@@ -94,13 +104,14 @@ namespace testing
         Image<T> &image,
         int renderer_type,
         MultiRenderPreset preset,
-        const std::string &scene_path)
+        const std::string &scene_path,
+        source_location loc = source_location::current())
     {
         std::string path = scenes_directory() + "/" + scene_path;
         log(bar_info) << "Loading Hydra Scene from "
                       << foreground(highlight_color_2) << path << default_color
                       << std::endl;
-        assert_file_existance(path);
+        assert_file_existance(path, true, loc);
 
         auto renderer = CreateMultiRenderer(renderer_type);
         renderer->SetPreset(preset);
@@ -122,13 +133,14 @@ namespace testing
         const std::string &scene_path,
         unsigned int type,
         SparseOctreeSettings settings,
-        std::string comment = "")
+        std::string comment = "",
+        source_location loc = source_location::current())
     {
         std::string path = scenes_directory() + "/" + scene_path;
         log(bar_info) << "Loading Hydra Scene from "
                       << foreground(highlight_color_2) << path << default_color
                       << std::endl;
-        assert_file_existance(path);
+        assert_file_existance(path, true, loc);
 
         auto renderer = CreateMultiRenderer(renderer_type);
         auto timer = comment.length() > 0 ? std::optional{ScopedTimer(comment)} : std::nullopt;

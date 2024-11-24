@@ -33,6 +33,8 @@ add_library(
     check.h
     check.cpp
 
+    source_location.h
+    source_location.cpp
 )
 
 
