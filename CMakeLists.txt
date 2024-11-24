@@ -229,6 +229,7 @@ set(
     nurbs/nurbs_common_host.cpp
 )
 
+
 set(
   CATMUL_CLARK_SRC
     catmul_clark/catmul_clark_host.cpp
@@ -241,11 +242,10 @@ set(
 
 add_subdirectory(step)
 
-add_executable(render_app)
-target_include_directories(render_app PUBLIC ${MODULES_INCLUDE_DIRS})
-target_link_directories(render_app PRIVATE step)
+add_library(render_lib)
+target_include_directories(render_lib PUBLIC ${MODULES_INCLUDE_DIRS})
 
-target_sources(render_app PRIVATE main.cpp
+target_sources(render_lib PRIVATE
                ${MODULES_SRC}
                ${SCENE_LOADER_SRC}
                ${CORE_SRC}
@@ -257,9 +257,15 @@ target_sources(render_app PRIVATE main.cpp
                ${CATMUL_CLARK_SRC}
                ${RIBBON_SRC})
 
-set_property(TARGET render_app PROPERTY CXX_STANDARD 17)
-target_link_libraries(render_app PRIVATE Threads::Threads dl ${RAYTRACING_EMBREE_LIBS} ${MODULES_LIBRARIES})
-target_link_libraries(render_app PUBLIC hydra OpenMP::OpenMP_CXX)
+set_property(TARGET render_lib PROPERTY CXX_STANDARD 17)
+target_link_libraries(render_lib PUBLIC Threads::Threads dl ${RAYTRACING_EMBREE_LIBS} ${MODULES_LIBRARIES} step)
+target_link_libraries(render_lib PUBLIC hydra OpenMP::OpenMP_CXX)
+
+add_executable(render_app main.cpp)
+target_link_libraries(render_app PRIVATE render_lib)
+
+add_subdirectory(testing_framework)
+add_subdirectory(tests)
 
 # Turn on/off OpenVDB
 option(USE_OPENVDB "Enable OpenVDB" OFF)
