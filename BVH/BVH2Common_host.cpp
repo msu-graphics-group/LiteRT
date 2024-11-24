@@ -72,6 +72,9 @@ uint32_t type_to_tag(uint32_t type)
   case TYPE_COCTREE_V3:
     return AbstractObject::TAG_COCTREE_BRICKED;
 
+  case TYPE_OPENVDB_GRID:
+    return AbstractObject::TAG_OPENVDB_GRID;
+
   default:
     return AbstractObject::TAG_NONE;
   }
@@ -912,6 +915,55 @@ uint32_t BVHRT::AddGeom_CatmulClark(const CatmulClark &surface, ISceneObject *fa
   return fake_this->AddGeom_AABB(AbstractObject::TAG_CATMUL_CLARK, (const CRT_AABB*)orig_nodes.data(), orig_nodes.size());
 }
 //////////////////// END CATMUL_CLARK SECTION /////////////////////////////////////////////////////
+
+std::vector<BVHNode> getBoxes_OpenVDB_Grid(const OpenVDB_Grid& grid)
+{
+  std::vector<BVHNode> nodes;
+  nodes.resize(2);
+  nodes[0].boxMin = float3(-1,-1,-1);
+  nodes[0].boxMax = float3(0.99,0.99,0.99);
+  nodes[1].boxMin = float3(0.99,0.99,0.99);
+  nodes[1].boxMax = float3(1,1,1);
+  return nodes;
+}
+
+uint32_t BVHRT::AddGeom_OpenVDB_Grid(const OpenVDB_Grid &grid, ISceneObject *fake_this, BuildOptions a_qualityLevel)
+{
+  #ifndef DISABLE_OPENVDB
+  //SDF grid is always a unit cube
+  float4 mn = float4(-1,-1,-1,1);
+  float4 mx = float4( 1, 1, 1,1);
+
+  //fill geom data array
+  m_abstractObjects.resize(m_abstractObjects.size() + 1); 
+  new (m_abstractObjects.data() + m_abstractObjects.size() - 1) GeomDataOpenVDB_GRID();
+  m_abstractObjects.back().geomId = m_abstractObjects.size() - 1;
+  m_abstractObjects.back().m_tag = type_to_tag(TYPE_OPENVDB_GRID);
+
+  m_geomData.emplace_back();
+  m_geomData.back().boxMin = mn;
+  m_geomData.back().boxMax = mx;
+  m_geomData.back().offset = uint2(m_VDBHeaders.size(), 0);
+  m_geomData.back().bvhOffset = m_allNodePairs.size();
+  m_geomData.back().type = TYPE_OPENVDB_GRID;
+
+  //m_abstractObjectPtrs.push_back(m_abstractObjects.data() + m_abstractObjects.size() - 1); // WARNING! THSI ASSUME WE DON't realloc m_abstractObjects array!!! 
+  //void* pPointer = m_abstractObjectPtrs.back();
+
+  uint32_t offset = m_VDBData.size();
+  m_VDBHeaders.push_back({ offset });
+  m_VDBData.push_back(grid);
+
+  //create list of bboxes for BLAS
+  std::vector<BVHNode> orig_nodes(2);
+  orig_nodes[0].boxMin = to_float3(mn);
+  orig_nodes[0].boxMax = to_float3(mx);
+  
+  return fake_this->AddGeom_AABB(AbstractObject::TAG_OPENVDB_GRID, (const CRT_AABB*)orig_nodes.data(), orig_nodes.size(), nullptr, 1); // &pPointer, 1);
+  #else
+  return 0;
+  #endif
+}
 
 //////////////////// RIBBON SECTION /////////////////////////////////////////////////////
 uint32_t BVHRT::AddGeom_Ribbon(const Ribbon &rib, ISceneObject *fake_this, BuildOptions a_qualityLevel)

@@ -31,6 +31,7 @@ include_directories(${CMAKE_SOURCE_DIR}/dependencies/embree)
 include_directories(${CMAKE_SOURCE_DIR}/sdfScene)
 include_directories(${CMAKE_SOURCE_DIR}/BVH)
 include_directories(${CMAKE_SOURCE_DIR}/Render)
+include_directories(${CMAKE_SOURCE_DIR}/openvdb_structs)
 
 #include_directories(SYSTEM ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/spectral/include)
 #set(SPECTRAL_LIB_ONLY ON)
@@ -91,6 +92,7 @@ set(SCENE_LOADER_SRC
     ${CMAKE_SOURCE_DIR}/utils/points_visualizer.cpp
     ${CMAKE_SOURCE_DIR}/utils/compact_octree_builder.cpp
     ${CMAKE_SOURCE_DIR}/utils/similarity_compression.cpp
+    ${CMAKE_SOURCE_DIR}/openvdb_structs/openvdb_common.cpp
     )
 
 set(CORE_SRC
@@ -141,13 +143,6 @@ option(USE_GPU_RQ "include RTX support using Ray Query in comnpute shader" OFF)
 option(USE_STB_IMAGE "Enable STB image " ON)
 if(USE_STB_IMAGE)
   add_definitions(-DUSE_STB_IMAGE)
-endif()
-
-# Turn on/off tricubic interpolation
-option(USE_TRICUBIC "Enable tricubic interpolation" OFF)
-if(USE_TRICUBIC)
-  message("-- Tricubic interpolation is ON")
-  add_definitions(-DUSE_TRICUBIC)
 endif()
 
 option(DEBUG_PAYLOAD_STORE_SDF "Sdd a vector to store sdrf values along the ray to Payload struct" OFF)
@@ -265,6 +260,16 @@ target_sources(render_app PRIVATE main.cpp
 set_property(TARGET render_app PROPERTY CXX_STANDARD 17)
 target_link_libraries(render_app PRIVATE Threads::Threads dl ${RAYTRACING_EMBREE_LIBS} ${MODULES_LIBRARIES})
 target_link_libraries(render_app PUBLIC hydra OpenMP::OpenMP_CXX)
+
+# Turn on/off OpenVDB
+option(USE_OPENVDB "Enable OpenVDB" OFF)
+if(USE_OPENVDB)
+  message("-- OpenVDB is ON")
+  target_link_libraries(render_app PUBLIC tbb openvdb)
+else()
+  message("-- OpenVDB is OFF")
+  add_definitions(-DDISABLE_OPENVDB)
+endif()
 
 if (USE_VULKAN)
   set(IMGUI_SRC
