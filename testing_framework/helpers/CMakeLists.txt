@@ -9,6 +9,18 @@ add_library(
     # rendering helpers
     render.h
     render.cpp
+    
+    # image helpers
+    image.h
+    image.cpp
+
+    # mesh helpers
+    mesh.h
+    mesh.cpp
+
+    # file helpers
+    files.h
+    files.cpp
 
     # formatters
     format.h

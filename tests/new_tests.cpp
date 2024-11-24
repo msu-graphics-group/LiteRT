@@ -4,6 +4,7 @@
 #include <testing_framework/helpers/render.h>
 #include <testing_framework/helpers/scoped_timer.h>
 #include <testing_framework/helpers/check.h>
+#include <testing_framework/helpers/mesh.h>
 /*
     Includes for code
 */
