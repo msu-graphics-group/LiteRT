@@ -947,7 +947,8 @@ void litert_test_7_global_octree()
             for (int z=0; z<v_size; z++)
             {
               int idx = x*v_size*v_size + y*v_size + z;
-              int rot_idx = dot(int4(x,y,z,1), iteration_modifiers[r_id]);
+              int3 rot_vec2 = int3(LiteMath::mul4x3(rotations4[r_id], float3(x,y,z)));
+              int rot_idx = rot_vec2.x * v_size * v_size + rot_vec2.y * v_size + rot_vec2.z;
               brick_rotations[r_id][idx] = g_octree.values_f[off_a + rot_idx];
             }
           }
@@ -4506,6 +4507,7 @@ void litert_test_45_global_octree_to_COctreeV3()
 {
   printf("TEST 45. COMPACT OCTREE V3 USING GLOBAL OCTREE\n");
   auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "scenes/01_simple_scenes/data/sphere.vsgf").c_str());
+  cmesh4::normalize_mesh(mesh);
 
   MultiRenderPreset preset = getDefaultPreset();
   preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
@@ -4514,7 +4516,7 @@ void litert_test_45_global_octree_to_COctreeV3()
   LiteImage::Image2D<uint32_t> image(W, H);
   LiteImage::Image2D<uint32_t> image_r(W, H);
 
-  int depth = 3;
+  int depth = 4;
 
   SparseOctreeSettings settings = SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, depth);
   std::vector<SdfFrameOctreeNode> frame, fr_r;
@@ -4532,7 +4534,11 @@ void litert_test_45_global_octree_to_COctreeV3()
   coctree.header.brick_size = g.header.brick_size;
   coctree.header.brick_pad = g.header.brick_pad;
   coctree.header.uv_size = 0;
+  coctree.header.sim_compression = 1;
   ref.header = coctree.header;
+  ref.header.sim_compression = 0;
+
+  preset.normal_mode = g.header.brick_pad == 1 ? NORMAL_MODE_SDF_SMOOTHED : NORMAL_MODE_VERTEX;
 
   auto t1 = std::chrono::steady_clock::now();
   ref.data = sdf_converter::create_COctree_v3(SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, depth),

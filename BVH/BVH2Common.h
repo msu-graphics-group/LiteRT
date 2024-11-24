@@ -355,7 +355,8 @@ struct BVHRT : public ISceneObject
 
   COctreeV3Header coctree_v3_header;
   static constexpr uint32_t ROT_COUNT = 48;
-  std::vector<float4x4> m_SdfCompactOctreeRotTransforms;
+  std::vector<float4x4> m_SdfCompactOctreeRotVTransforms;
+  std::vector<float4x4> m_SdfCompactOctreeRotPTransforms;
 #endif
 
   //SDF Sparse Voxel Sets

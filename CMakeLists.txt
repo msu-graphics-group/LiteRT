@@ -90,6 +90,7 @@ set(SCENE_LOADER_SRC
     ${CMAKE_SOURCE_DIR}/utils/iou.cpp
     ${CMAKE_SOURCE_DIR}/utils/points_visualizer.cpp
     ${CMAKE_SOURCE_DIR}/utils/compact_octree_builder.cpp
+    ${CMAKE_SOURCE_DIR}/utils/similarity_compression.cpp
     )
 
 set(CORE_SRC

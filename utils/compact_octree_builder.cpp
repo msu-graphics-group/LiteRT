@@ -1,4 +1,5 @@
 #include "sparse_octree_builder.h"
+#include "similarity_compression.h"
 #include "omp.h"
 #include <atomic>
 #include <cassert>
@@ -33,8 +34,6 @@ struct COctreeV3GlobalCtx
   unsigned tasks_count;
   std::vector<uint32_t> compact;
 };
-
-static constexpr uint32_t VALID_TRANSFORM_CODE_BIT = 0x80000000u;
 
 static std::atomic<unsigned> stat_leaf_bytes(0);
 static std::atomic<unsigned> stat_nonleaf_bytes(0);
@@ -593,11 +592,19 @@ namespace sdf_converter
     global_ctx.tasks_count = 1;
 
     //Performing similarity compression if needed
-    // if (compact_octree.header.sim_compression)
-    // {
-    //   printf("Similarity compression is not implemented yet\n");
-    // }
-    // else
+    if (compact_octree.header.sim_compression)
+    {
+      scom::CompressionOutput scom_output;
+      scom::Settings scom_settings;
+      scom::similarity_compression(octree, scom_settings, scom_output);
+
+      global_ctx.compressed_data = scom_output.compressed_data;
+      global_ctx.node_id_cleaf_id_remap = scom_output.node_id_cleaf_id_remap;
+      global_ctx.tranform_codes = scom_output.tranform_codes;
+
+      global_ctx.compact_leaf_offsets.resize(scom_output.leaf_count, 0);
+    }
+    else
     {
       //set default
       global_ctx.compressed_data.reserve(octree.values_f.size()); 
@@ -612,7 +619,7 @@ namespace sdf_converter
         if (is_leaf(octree.nodes[i].offset) && octree.nodes[i].is_not_void)
         {
           global_ctx.node_id_cleaf_id_remap[i] = global_ctx.compact_leaf_offsets.size();
-          global_ctx.tranform_codes[i] = VALID_TRANSFORM_CODE_BIT | 0u; //identity transform
+          global_ctx.tranform_codes[i] = scom::get_identity_transform_code(); //identity transform
 
           global_ctx.compact_leaf_offsets.push_back(0);
           global_ctx.compressed_data.insert(global_ctx.compressed_data.end(), 

@@ -14,6 +14,7 @@
 #include "../utils/sparse_octree_builder.h"
 #include "../catmul_clark/catmul_clark_host.h"
 #include "../ribbon/ribbon_host.h"
+#include "../utils/similarity_compression.h"
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1237,19 +1238,14 @@ std::vector<BVHNode> GetBoxes_COctreeV3(COctreeV3View octree, uint32_t max_bvh_l
   return nodes;
 }
 
-void initialize_rot_transforms(std::vector<float4x4> &rot_transforms, int v_size)
-{
-  rot_transforms.resize(BVHRT::ROT_COUNT, float4x4());
-}
-
 uint32_t BVHRT::AddGeom_COctreeV3(COctreeV3View octree, unsigned bvh_level, ISceneObject *fake_this, BuildOptions a_qualityLevel)
 {
 #if ON_CPU==1
   assert(COctreeV3::VERSION == 3); //if version is changed, this function should be revisited, as some changes may be needed
 #endif
 
-  int v_size = octree.header.brick_size + 2 * octree.header.brick_pad + 1;
-  initialize_rot_transforms(m_SdfCompactOctreeRotTransforms, v_size);
+  scom::initialize_rot_transforms(m_SdfCompactOctreeRotVTransforms, octree.header.brick_size + 2 * octree.header.brick_pad + 1);
+  scom::initialize_rot_transforms(m_SdfCompactOctreeRotPTransforms, octree.header.brick_size + 2 * octree.header.brick_pad);
 
   assert(m_SdfCompactOctreeV1Data.size() == 0); //only one compact octree per scene is supported
   assert(octree.size > 0);
