@@ -2861,9 +2861,9 @@ float BVHRT::COctreeV3_LoadDistanceValues(uint32_t brickOffset, float3 voxelPos,
   float vmin = 1e6f;
 #ifndef DISABLE_SDF_FRAME_OCTREE_COMPACT
   float4x4 rot_transform = m_SdfCompactOctreeRotTransforms[transform_code & 0xFF];
-  int3 voxelPosU = int3(to_float3(rot_transform * to_float4(voxelPos, 1.0f)));
+  int3 voxelPosU = int3(to_float3(rot_transform * to_float4(voxelPos + float3(header.brick_pad), 1.0f)));
   uint32_t p_size = header.brick_size + 2 * header.brick_pad;
-  uint32_t PFlagPos = (voxelPosU.x+header.brick_pad)*p_size*p_size + (voxelPosU.y+header.brick_pad)*p_size + voxelPosU.z+header.brick_pad;
+  uint32_t PFlagPos = voxelPosU.x*p_size*p_size + voxelPosU.y*p_size + voxelPosU.z;
   
   //early exit if voxel is not present
   if ((m_SdfCompactOctreeV3Data[brickOffset + PFlagPos/32] & (1u << (PFlagPos%32))) == 0)
@@ -2901,8 +2901,8 @@ float BVHRT::COctreeV3_LoadDistanceValues(uint32_t brickOffset, float3 voxelPos,
   for (int i = 0; i < 4; i++)
   {
     int3 vPos = voxelPosU + int3((i & 2) >> 1, i & 1, 0);
-    uint32_t sliceId = vPos.x + header.brick_pad;
-    uint32_t localId = (vPos.y + header.brick_pad) * v_size + vPos.z + header.brick_pad;
+    uint32_t sliceId = vPos.x;
+    uint32_t localId = vPos.y * v_size + vPos.z;
 
     uint32_t b0 = m_SdfCompactOctreeV3Data[brickOffset + off_1 + slice_distance_flags_uints * sliceId];
     b0 = localId > 31 ? b0 : b0 & ((1u << localId) - 1);
