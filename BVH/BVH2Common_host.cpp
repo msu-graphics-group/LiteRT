@@ -1237,8 +1237,16 @@ std::vector<BVHNode> GetBoxes_COctreeV3(COctreeV3View octree, uint32_t max_bvh_l
   return nodes;
 }
 
+void initialize_rot_transforms(std::vector<float4x4> &rot_transforms, int v_size)
+{
+  rot_transforms.resize(BVHRT::ROT_COUNT, float4x4());
+}
+
 uint32_t BVHRT::AddGeom_COctreeV3(COctreeV3View octree, unsigned bvh_level, ISceneObject *fake_this, BuildOptions a_qualityLevel)
 {
+  int v_size = octree.header.brick_size + 2 * octree.header.brick_pad + 1;
+  initialize_rot_transforms(m_SdfCompactOctreeRotTransforms, v_size);
+
   assert(m_SdfCompactOctreeV1Data.size() == 0); //only one compact octree per scene is supported
   assert(octree.size > 0);
   assert(octree.size < (1u<<28)); //huge grids shouldn't be here

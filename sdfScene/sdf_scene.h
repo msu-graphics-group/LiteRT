@@ -179,7 +179,7 @@ struct SdfFrameOctreeTexNode
 struct OTStackElement
 {
   uint32_t nodeId;
-  uint32_t curChildId;
+  uint32_t info;
   uint2 p_size;
 };
 
@@ -189,6 +189,7 @@ struct COctreeV3Header
   uint32_t brick_pad;       //how many additional voxels are stored on the borders, 0 is default, 1 is for tricubic filtration or normals smoothing
   uint32_t bits_per_value;  //6, 8, 10, 16, 32 bits per value is allowed
   uint32_t uv_size;         //0 if COctreeV3 is not textured, 1 for default (16 for u and v) and 2 for more precision (32 for u and v, not supported)
+  uint32_t sim_compression; //0 or 1, indicates if similarity compression is used
 };
 
 
@@ -202,6 +203,19 @@ static unsigned SBS_v_to_i(int i, int j, int k, unsigned v_size, unsigned pad)
 // CPU-specific functions and data structures
 //################################################################################
 #ifndef KERNEL_SLICER
+
+static COctreeV3Header get_default_coctree_v3_header()
+{
+  COctreeV3Header header;
+
+  header.brick_size = 1;
+  header.brick_pad = 0;
+  header.bits_per_value = 8;
+  header.uv_size = 0;
+  header.sim_compression = 0;
+
+  return header;
+}
 
 struct SdfGrid
 {
@@ -426,7 +440,7 @@ struct SdfFrameOctreeTexView
 struct COctreeV3
 {
   static constexpr unsigned VERSION = 2; // change version if structure changes
-  COctreeV3Header header;
+  COctreeV3Header header = get_default_coctree_v3_header();
   std::vector<uint32_t> data;
 };
 
