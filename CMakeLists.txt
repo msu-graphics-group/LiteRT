@@ -52,7 +52,7 @@ add_executable(
     src/gui.cpp
 )
 
-add_subdirectory(external/stp_parser)
+add_subdirectory(external/step)
 
 if(APPLE)
     set(OpenMP_CXX_FLAGS
@@ -76,6 +76,6 @@ target_link_libraries(
     LiteMath
     ImGui
     OpenMP::OpenMP_CXX
-    stp_parser
+    step
     ispc_ray_pack
 )
