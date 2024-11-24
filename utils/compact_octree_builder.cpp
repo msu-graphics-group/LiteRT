@@ -34,6 +34,8 @@ struct COctreeV3GlobalCtx
   std::vector<uint32_t> compact;
 };
 
+static constexpr uint32_t VALID_TRANSFORM_CODE_BIT = 0x80000000u;
+
 static std::atomic<unsigned> stat_leaf_bytes(0);
 static std::atomic<unsigned> stat_nonleaf_bytes(0);
 static constexpr uint32_t m_bitcount[256] = {
@@ -437,6 +439,7 @@ namespace sdf_converter
 
     const int v_size = header.brick_size + 2 * header.brick_pad + 1;
     const int vox_count = v_size*v_size*v_size;
+    const unsigned uints_per_child_offset = header.sim_compression ? 2 : 1;
     const unsigned ofs = octree.nodes[task.nodeId].offset;
     assert(!is_leaf(ofs)); // octree must have at least two levels
 
@@ -493,7 +496,9 @@ namespace sdf_converter
             leaf_offset = global_ctx.compact_leaf_offsets[compact_leaf_idx];
           }
 
-          global_ctx.compact[task.cNodeId + ch_count + 1] = leaf_offset; // offset to this leaf
+          global_ctx.compact[task.cNodeId + uints_per_child_offset*ch_count + 1] = leaf_offset; // offset to this leaf
+          if (uints_per_child_offset == 2) //if transform code is required, we save it here
+            global_ctx.compact[task.cNodeId + uints_per_child_offset*ch_count + 2] = global_ctx.tranform_codes[ofs + i];
           ch_is_active |= (1 << i);
           ch_is_leaf |= (1 << i);
           ch_count++;
@@ -511,23 +516,30 @@ namespace sdf_converter
         unsigned child_size = 1;
         unsigned child_ofs = octree.nodes[ofs + i].offset;
         for (int j = 0; j < 8; j++)
-          child_size += octree.nodes[child_ofs + j].is_not_void;
+          child_size += uints_per_child_offset*octree.nodes[child_ofs + j].is_not_void;
 
 #pragma omp critical
         {
           unsigned child_offset = global_ctx.compact.size();
-          global_ctx.compact[task.cNodeId + ch_count + 1] = child_offset;        // offset to this child
-          global_ctx.compact.resize(global_ctx.compact.size() + child_size, 0u); // space for non-leaf child
+          global_ctx.compact[task.cNodeId + uints_per_child_offset*ch_count + 1] = child_offset; // offset to this child
+          if (uints_per_child_offset == 2) //if transform code is required, always identity transform for non-leaf child
+            global_ctx.compact[task.cNodeId + uints_per_child_offset*ch_count + 2] = 0;
+          global_ctx.compact.resize(global_ctx.compact.size() + child_size, 0u);                 // space for non-leaf child
         }
         stat_nonleaf_bytes += child_size * sizeof(uint32_t);
 
-        child_offset_pos[i] = ch_count + 1;
+        child_offset_pos[i] = uints_per_child_offset * ch_count + 1;
         ch_is_active |= (1 << i);
         ch_count++;
       }
     }
     assert(ch_is_active > 0); // we must have at least one active child
     global_ctx.compact[task.cNodeId + 0] = ch_is_active | (ch_is_leaf << 8u);
+    // int total_uints = uints_per_child_offset * ch_count + 1;
+    // printf("Node = ");
+    // for (int i = 0; i < total_uints; i++)
+    //   printf("%x ", global_ctx.compact[task.cNodeId + i]);
+    // printf("\n");
 
     for (int i = 0; i < 8; i++)
     {
@@ -555,8 +567,9 @@ namespace sdf_converter
     stat_nonleaf_bytes.store(0);
 
     //Initialize thread contexts 
-    int v_size = octree.header.brick_size + 2 * octree.header.brick_pad + 1;
-    int p_size = octree.header.brick_size + 2 * octree.header.brick_pad;
+    const int v_size = octree.header.brick_size + 2 * octree.header.brick_pad + 1;
+    const int p_size = octree.header.brick_size + 2 * octree.header.brick_pad;
+    const unsigned uints_per_child_offset = compact_octree.header.sim_compression ? 2 : 1;
     std::vector<COctreeV3ThreadCtx> all_ctx(max_threads);
     for (int i = 0; i < max_threads; i++)
     {
@@ -569,8 +582,8 @@ namespace sdf_converter
 
     //Initialize global context
     COctreeV3GlobalCtx global_ctx;
-    global_ctx.compact.reserve(9 * octree.nodes.size());
-    global_ctx.compact.resize(9, 0u);
+    global_ctx.compact.reserve((1+8*uints_per_child_offset) * octree.nodes.size());
+    global_ctx.compact.resize((1+8*uints_per_child_offset), 0u);
     global_ctx.tasks = std::vector<COctreeV3BuildTask>(octree.nodes.size());
 
     global_ctx.tasks[0].nodeId = 0;
@@ -580,11 +593,11 @@ namespace sdf_converter
     global_ctx.tasks_count = 1;
 
     //Performing similarity compression if needed
-    if (compact_octree.header.sim_compression)
-    {
-      printf("Similarity compression is not implemented yet\n");
-    }
-    else
+    // if (compact_octree.header.sim_compression)
+    // {
+    //   printf("Similarity compression is not implemented yet\n");
+    // }
+    // else
     {
       //set default
       global_ctx.compressed_data.reserve(octree.values_f.size()); 
@@ -599,7 +612,7 @@ namespace sdf_converter
         if (is_leaf(octree.nodes[i].offset) && octree.nodes[i].is_not_void)
         {
           global_ctx.node_id_cleaf_id_remap[i] = global_ctx.compact_leaf_offsets.size();
-          global_ctx.tranform_codes[i] = 0u; //identity transform
+          global_ctx.tranform_codes[i] = VALID_TRANSFORM_CODE_BIT | 0u; //identity transform
 
           global_ctx.compact_leaf_offsets.push_back(0);
           global_ctx.compressed_data.insert(global_ctx.compressed_data.end(), 
