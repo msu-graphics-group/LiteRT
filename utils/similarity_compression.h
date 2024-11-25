@@ -24,6 +24,7 @@ namespace scom
     SearchAlgorithm search_algorithm = SearchAlgorithm::BRUTE_FORCE;
     float similarity_threshold = 0.0f; //set negative value to disable and use only target_leaf_count
     int   target_leaf_count = -1;      //set negative value to disable and use only similarity_threshold
+    float3 distance_importance = float3(1,1,1); // importance of padding, border, internal distances respectively
   };
 
   struct CompressionOutput

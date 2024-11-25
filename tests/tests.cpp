@@ -4832,7 +4832,7 @@ void litert_test_49_similarity_compression()
   coctree.header.sim_compression = 0;
 
   scom::Settings scom_settings;
-  scom_settings.similarity_threshold = 6*1e-6f;
+  scom_settings.similarity_threshold = 0.025f;
 
   coctree_comp.header = coctree.header;
   coctree_comp.header.sim_compression = 1;

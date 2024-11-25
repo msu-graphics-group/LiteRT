@@ -1,5 +1,6 @@
 #include "similarity_compression.h"
 #include <cassert>
+#include <atomic>
 
 namespace scom
 {
@@ -42,6 +43,20 @@ namespace scom
     t.add = 0.0f;
     return t;
   }
+
+  struct DataPoint
+  {
+    uint32_t original_id;
+    uint32_t data_offset;
+    uint32_t rotation_id;
+    float    average_val;
+  };
+
+  struct Dataset
+  {
+    std::vector<float> all_points; //R^n vector for each data point
+    std::vector<DataPoint> data_points;
+  };
 
   uint32_t get_transform_code(const TransformCompact &t)
   {
@@ -122,13 +137,60 @@ namespace scom
       }
     }
 
-    int remapped = 0;
+    std::vector<float> distance_mult_mask(dist_count, 1.0f);
+    float mult_sum = 0.0f;
+    for (int x = 0; x < v_size; x++)
+    {
+      for (int y = 0; y < v_size; y++)
+      {
+        for (int z = 0; z < v_size; z++)
+        {
+          float mult = 1.0f;
+          if (x < g_octree.header.brick_pad || x >= v_size - g_octree.header.brick_pad ||
+              y < g_octree.header.brick_pad || y >= v_size - g_octree.header.brick_pad ||
+              z < g_octree.header.brick_pad || z >= v_size - g_octree.header.brick_pad)
+          {
+            mult = settings.distance_importance.x; //padding distance
+          }
+          else if (x < g_octree.header.brick_pad + 1 || x >= v_size - g_octree.header.brick_pad - 1 ||
+                   y < g_octree.header.brick_pad + 1 || y >= v_size - g_octree.header.brick_pad - 1 ||
+                   z < g_octree.header.brick_pad + 1 || z >= v_size - g_octree.header.brick_pad - 1)
+          {
+            mult = settings.distance_importance.y; //border distance
+          }
+          else
+          {
+            mult = settings.distance_importance.z; //internal distance
+          }
 
+          mult_sum += mult;
+          distance_mult_mask[x*v_size*v_size + y*v_size + z] = mult;
+        }
+      }
+    }
+
+    Dataset dataset;
+    dataset.all_points.resize(dist_count * ROT_COUNT * surface_nodes);
+    dataset.data_points.resize(surface_nodes * ROT_COUNT);
+
+    float mask_norm = dist_count/mult_sum;
+    std::atomic<uint32_t> cur_point_group(0);
     for (int i = 0; i < g_octree.nodes.size(); i++)
     {
+      if (!surface_node[i])
+        continue;
+      
       int off_a = g_octree.nodes[i].val_off;
+      
+#pragma omp parallel for schedule(static)
       for (int r_id = 0; r_id < ROT_COUNT; r_id++)
       {
+        int off_dataset = (cur_point_group*ROT_COUNT + r_id)*dist_count;
+
+        dataset.data_points[cur_point_group*ROT_COUNT + r_id].average_val = average_brick_val[i];
+        dataset.data_points[cur_point_group*ROT_COUNT + r_id].data_offset = off_dataset;
+        dataset.data_points[cur_point_group*ROT_COUNT + r_id].original_id = i;
+        dataset.data_points[cur_point_group*ROT_COUNT + r_id].rotation_id = r_id;
         for (int x = 0; x < v_size; x++)
         {
           for (int y = 0; y < v_size; y++)
@@ -138,35 +200,46 @@ namespace scom
               int idx = x * v_size * v_size + y * v_size + z;
               int3 rot_vec2 = int3(LiteMath::mul4x3(rotations4[r_id], float3(x, y, z)));
               int rot_idx = rot_vec2.x * v_size * v_size + rot_vec2.y * v_size + rot_vec2.z;
-              brick_rotations[r_id][idx] = g_octree.values_f[off_a + rot_idx];
+              dataset.all_points[off_dataset + idx] = mask_norm * distance_mult_mask[idx] * g_octree.values_f[off_a + rot_idx];
             }
           }
         }
       }
+      cur_point_group++;
+    }
 
+    int remapped = 0;
+    for (int point_a = 0; point_a < dataset.data_points.size(); point_a+=ROT_COUNT)
+    {
+      int i  = dataset.data_points[point_a].original_id;
       if (surface_node[i] == false || remap[i] != i)
         continue;
 
 #pragma omp parallel for schedule(static)
-      for (int j = i + 1; j < g_octree.nodes.size(); j++)
+      for (int point_b = point_a + ROT_COUNT; point_b < dataset.data_points.size(); point_b+=ROT_COUNT)
       {
+        int j  = dataset.data_points[point_b].original_id;
+        float add = dataset.data_points[point_b].average_val - dataset.data_points[point_a].average_val;
+
         if (surface_node[j] == false)
           continue;
 
-        int off_b = g_octree.nodes[j].val_off;
-        float add = average_brick_val[j] - average_brick_val[i];
         float min_dist = 1000;
         int min_r_id = 0;
+
         for (int r_id = 0; r_id < ROT_COUNT; r_id++)
         {
+          int off_a = dataset.data_points[point_a + r_id].data_offset;
+          int off_b = dataset.data_points[point_b].data_offset;
+
           float diff = 0;
           float dist = 0;
           for (int k = 0; k < dist_count; k++)
           {
-            diff = brick_rotations[r_id][k] + add - g_octree.values_f[off_b + k];
+            diff = dataset.all_points[off_a + k] - dataset.all_points[off_b + k] + add;
             dist += diff * diff;
           }
-          dist = dist / dist_count;
+          dist = sqrtf(dist);
           if (dist < min_dist)
           {
             min_dist = dist;
