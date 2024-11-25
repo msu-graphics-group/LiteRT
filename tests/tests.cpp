@@ -4498,10 +4498,51 @@ void litert_test_44_point_query()
   }
 }
 
+void print_compare_trees_data(const std::vector<SdfFrameOctreeNode> &f_1, const std::vector<SdfFrameOctreeNode> &f_2, unsigned idx1, unsigned idx2, bool is_start, unsigned depth = 0)
+{
+  printf("%u - ", depth);
+  if (is_start || (idx1 > 0 && idx2 > 0))
+  {
+    for (int i = 0; i < 8; ++i)
+    {
+      printf("(%f -- %f) ", f_1[idx1].values[i], f_2[idx2].values[i]);
+    }
+    printf("\n\n");
+    if (f_1[idx1].offset > 0 || f_2[idx2].offset > 0) for (int i = 0; i < 8; ++i)
+    {
+      print_compare_trees_data(f_1, f_2, f_1[idx1].offset == 0 ? 0 : f_1[idx1].offset + i, f_2[idx2].offset == 0 ? 0 : f_2[idx2].offset + i, false, depth + 1);
+    }
+  }
+  else if (idx1 > 0)
+  {
+    for (int i = 0; i < 8; ++i)
+    {
+      printf("(%f -- X) ", f_1[idx1].values[i]);
+    }
+    printf("\n\n");
+    if (f_1[idx1].offset > 0) for (int i = 0; i < 8; ++i)
+    {
+      print_compare_trees_data(f_1, f_2, f_1[idx1].offset == 0 ? 0 : f_1[idx1].offset + i, 0, false, depth + 1);
+    }
+  }
+  else if (idx2 > 0)
+  {
+    for (int i = 0; i < 8; ++i)
+    {
+      printf("(X -- %f) ", f_2[idx2].values[i]);
+    }
+    printf("\n\n");
+    if (f_2[idx2].offset > 0) for (int i = 0; i < 8; ++i)
+    {
+      print_compare_trees_data(f_1, f_2, 0, f_2[idx2].offset == 0 ? 0 : f_2[idx2].offset + i, false, depth + 1);
+    }
+  }
+}
+
 void litert_test_45_global_octree_to_COctreeV3()
 {
   printf("TEST 45. COMPACT OCTREE V3 USING GLOBAL OCTREE\n");
-  auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "scenes/01_simple_scenes/data/sphere.vsgf").c_str());
+  auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "scenes/01_simple_scenes/data/bunny.vsgf").c_str());
   cmesh4::normalize_mesh(mesh);
 
   MultiRenderPreset preset = getDefaultPreset();
@@ -4544,6 +4585,7 @@ void litert_test_45_global_octree_to_COctreeV3()
   g.header.brick_pad = 0;
   sdf_converter::mesh_octree_to_global_octree(mesh, tlo, g);
   sdf_converter::global_octree_to_frame_octree(g, frame);
+  //print_compare_trees_data(frame, fr_r, 0, 0, true);
   auto t2 = std::chrono::steady_clock::now();
   {
     auto pRender = CreateMultiRenderer(DEVICE_GPU);
