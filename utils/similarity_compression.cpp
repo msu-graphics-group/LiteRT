@@ -154,7 +154,7 @@ namespace scom
           continue;
 
         int off_b = g_octree.nodes[j].val_off;
-        float add = 0; //TODO: fix addition
+        float add = average_brick_val[j] - average_brick_val[i];
         float min_dist = 1000;
         int min_r_id = 0;
         for (int r_id = 0; r_id < ROT_COUNT; r_id++)

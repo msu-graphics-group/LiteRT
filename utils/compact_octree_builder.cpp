@@ -21,6 +21,14 @@ struct COctreeV3BuildTask
   uint3 p;
 };
 
+struct CompressedClusterInfo
+{
+  std::vector<int> original_node_ids;
+  float add_min = 0.0f;
+  float add_max = 0.0f;
+  bool trivial_transform = true;
+};
+
 struct COctreeV3GlobalCtx
 {
   std::vector<float> compressed_data;         // data for all leaf nodes remained after similarity compression
@@ -29,7 +37,7 @@ struct COctreeV3GlobalCtx
   std::vector<uint32_t> node_id_cleaf_id_remap; // ids of leaf node in list of leaves left after similarity compression,
                                                 // for each node from global octree (0 for non-leaf nodes)
   std::vector<uint32_t> tranform_codes; // similarity compression transform codes for each node from global octree
-
+  std::vector<CompressedClusterInfo> cluster_infos;
   std::vector<COctreeV3BuildTask> tasks;
   unsigned tasks_count;
   std::vector<uint32_t> compact;
@@ -59,7 +67,8 @@ static bool is_leaf(unsigned offset)
 namespace sdf_converter
 {
   unsigned brick_values_compress(const GlobalOctree &octree, COctreeV3Header header,
-                                 COctreeV3ThreadCtx &ctx, unsigned idx, unsigned lod_size, uint3 p)
+                                 COctreeV3ThreadCtx &ctx, unsigned idx, unsigned lod_size, uint3 p,
+                                 float add_min, float add_max)
   {
     int v_size = header.brick_size + 2 * header.brick_pad + 1;
     int p_size = header.brick_size + 2 * header.brick_pad;
@@ -101,6 +110,9 @@ namespace sdf_converter
           max_val = std::max(max_val, ctx.values_tmp[V_OFF(off, 1, 0, 1)]);
           max_val = std::max(max_val, ctx.values_tmp[V_OFF(off, 1, 1, 0)]);
           max_val = std::max(max_val, ctx.values_tmp[V_OFF(off, 1, 1, 1)]);
+
+          min_val += add_min;
+          max_val += add_max;
 
           if (min_val <= 0 && max_val >= 0)
           {
@@ -340,10 +352,13 @@ namespace sdf_converter
                                             unsigned thread_id, const COctreeV3BuildTask &task,
                                             unsigned ofs, unsigned i)
   {
+    unsigned compact_leaf_idx = global_ctx.node_id_cleaf_id_remap[ofs + i];
+    float add_min = global_ctx.cluster_infos[compact_leaf_idx].add_min;
+    float add_max = global_ctx.cluster_infos[compact_leaf_idx].add_max;
     uint3 ch_p = 2 * task.p + uint3((i & 4) >> 2, (i & 2) >> 1, i & 1);
 
     unsigned leaf_size = brick_values_compress_no_packing(header, thread_ctx, ofs + i, 2 * task.lod_size, ch_p);
-    unsigned a_leaf_size = brick_values_compress(octree, header, thread_ctx, ofs + i, 2 * task.lod_size, ch_p);
+    unsigned a_leaf_size = brick_values_compress(octree, header, thread_ctx, ofs + i, 2 * task.lod_size, ch_p, add_min, add_max);
     // printf("compressed to %u uints, naive packing would be %u uints\n", a_leaf_size, leaf_size);
 
     std::vector<unsigned> u_values_tmp_2(thread_ctx.u_values_tmp.size(), 0u);
@@ -470,7 +485,9 @@ namespace sdf_converter
 
             // fill the compact octree with compressed leaf data
             uint3 ch_p = 2 * task.p + uint3((i & 4) >> 2, (i & 2) >> 1, i & 1);
-            unsigned leaf_size = brick_values_compress(octree, header, thread_ctx, ofs + i, 2 * task.lod_size, ch_p);
+            float add_min = global_ctx.cluster_infos[compact_leaf_idx].add_min;
+            float add_max = global_ctx.cluster_infos[compact_leaf_idx].add_max;
+            unsigned leaf_size = brick_values_compress(octree, header, thread_ctx, ofs + i, 2 * task.lod_size, ch_p, add_min, add_max);
 
             assert(leaf_size > 0);
 
@@ -603,12 +620,31 @@ namespace sdf_converter
       global_ctx.tranform_codes = scom_output.tranform_codes;
 
       global_ctx.compact_leaf_offsets.resize(scom_output.leaf_count, 0);
+
+      //fill cluster infos to use it for leaves compression
+      global_ctx.cluster_infos.resize(scom_output.leaf_count);
+      unsigned identity_transform_code = scom::get_identity_transform_code();
+      for (int i = 0; i < octree.nodes.size(); i++)
+      {
+        if (is_leaf(octree.nodes[i].offset) && octree.nodes[i].is_not_void)
+        {
+          float add = float(global_ctx.tranform_codes[i] & 0x7FFFFF00u) / float(0x7FFFFF00u) - 0.5f;
+
+          int cleaf_id = global_ctx.node_id_cleaf_id_remap[i];
+          global_ctx.cluster_infos[cleaf_id].original_node_ids.push_back(i);
+          global_ctx.cluster_infos[cleaf_id].trivial_transform &= (global_ctx.tranform_codes[i] == identity_transform_code);
+          global_ctx.cluster_infos[cleaf_id].add_min = std::min(global_ctx.cluster_infos[cleaf_id].add_min, add);
+          global_ctx.cluster_infos[cleaf_id].add_max = std::max(global_ctx.cluster_infos[cleaf_id].add_max, add);
+        }
+      }
+
     }
     else
     {
       //set default
       global_ctx.compressed_data.reserve(octree.values_f.size()); 
       global_ctx.compact_leaf_offsets.reserve(octree.nodes.size());
+      global_ctx.cluster_infos.reserve(octree.nodes.size());
 
       global_ctx.node_id_cleaf_id_remap = std::vector<unsigned>(octree.nodes.size(), 0u);
       global_ctx.tranform_codes = std::vector<unsigned>(octree.nodes.size(), 0u);
@@ -620,8 +656,13 @@ namespace sdf_converter
         {
           global_ctx.node_id_cleaf_id_remap[i] = global_ctx.compact_leaf_offsets.size();
           global_ctx.tranform_codes[i] = scom::get_identity_transform_code(); //identity transform
+          
+          CompressedClusterInfo info;
+          info.trivial_transform = true;
+          info.original_node_ids = {i};
 
           global_ctx.compact_leaf_offsets.push_back(0);
+          global_ctx.cluster_infos.push_back(info);
           global_ctx.compressed_data.insert(global_ctx.compressed_data.end(), 
                                             octree.values_f.data() + octree.nodes[i].val_off, 
                                             octree.values_f.data() + octree.nodes[i].val_off + vox_count);
