@@ -104,6 +104,8 @@ set(SCENE_LOADER_SRC
     ${CMAKE_SOURCE_DIR}/utils/compact_octree_builder.cpp
     ${CMAKE_SOURCE_DIR}/utils/similarity_compression.cpp
     ${CMAKE_SOURCE_DIR}/openvdb_structs/openvdb_common.cpp
+    ${CMAKE_SOURCE_DIR}/utils/csv.cpp
+    ${CMAKE_SOURCE_DIR}/utils/blk.cpp
     )
 
 set(CORE_SRC
