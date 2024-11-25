@@ -576,6 +576,11 @@ namespace sdf_converter
 
   void global_octree_to_compact_octree_v3(const GlobalOctree &octree, COctreeV3 &compact_octree, unsigned max_threads)
   {
+    global_octree_to_compact_octree_v3(octree, compact_octree, max_threads, scom::Settings());
+  }
+
+  void global_octree_to_compact_octree_v3(const GlobalOctree &octree, COctreeV3 &compact_octree, unsigned max_threads, const scom::Settings &settings)
+  {
 #if ON_CPU == 1
     assert(COctreeV3::VERSION == 3); // if version is changed, this function should be revisited, as some changes may be needed
 #endif
@@ -612,8 +617,7 @@ namespace sdf_converter
     if (compact_octree.header.sim_compression)
     {
       scom::CompressionOutput scom_output;
-      scom::Settings scom_settings;
-      scom::similarity_compression(octree, scom_settings, scom_output);
+      scom::similarity_compression(octree, settings, scom_output);
 
       global_ctx.compressed_data = scom_output.compressed_data;
       global_ctx.node_id_cleaf_id_remap = scom_output.node_id_cleaf_id_remap;

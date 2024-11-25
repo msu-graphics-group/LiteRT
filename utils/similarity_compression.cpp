@@ -70,7 +70,7 @@ namespace scom
     float max_val = 0.01f;
     int valid_nodes = 0;
     int surface_nodes = 0;
-    float dist_thr = 5e-6f;
+    float dist_thr = settings.similarity_threshold;
 
     int v_size = g_octree.header.brick_size + 2 * g_octree.header.brick_pad + 1;
     int dist_count = v_size * v_size * v_size;

@@ -14,6 +14,11 @@ It should have T+T and float*T operator and be POD of course.
 Octree always represents unit cube [-1,1]^3
 */
 
+namespace scom
+{
+  struct Settings;
+};
+
 namespace sdf_converter
 {
   SdfSBS frame_octree_to_SBS(MultithreadedDistanceFunction sdf, 
@@ -43,6 +48,7 @@ namespace sdf_converter
   void global_octree_to_frame_octree(const GlobalOctree &octree, std::vector<SdfFrameOctreeNode> &out_frame); 
   void global_octree_to_SBS(const GlobalOctree &octree, SdfSBS &sbs);
   void global_octree_to_compact_octree_v3(const GlobalOctree &octree, COctreeV3 &compact_octree, unsigned max_threads);
+  void global_octree_to_compact_octree_v3(const GlobalOctree &octree, COctreeV3 &compact_octree, unsigned max_threads, const scom::Settings &settings);
 
   void mesh_octree_to_sdf_frame_octree_tex(const cmesh4::SimpleMesh &mesh,
                                            const cmesh4::TriangleListOctree &tl_octree, 

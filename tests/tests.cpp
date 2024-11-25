@@ -17,6 +17,7 @@
 #include "../catmul_clark/catmul_clark_host.h"
 #include "../ribbon/ribbon_host.h"
 #include "../openvdb_structs/openvdb_common.h"
+#include "../utils/similarity_compression.h"
 
 #include <functional>
 #include <cassert>
@@ -4802,7 +4803,7 @@ void litert_test_48_openvdb()
 
 void litert_test_49_similarity_compression()
 {
-  auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "scenes/01_simple_scenes/data/sphere.vsgf").c_str());
+  auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "scenes/01_simple_scenes/data/bunny.vsgf").c_str());
   cmesh4::normalize_mesh(mesh);
 
   MultiRenderPreset preset = getDefaultPreset();
@@ -4814,11 +4815,11 @@ void litert_test_49_similarity_compression()
   LiteImage::Image2D<uint32_t> image_orig(W, H);
   LiteImage::Image2D<uint32_t> image_comp(W, H);
 
-  int depth = 4;
+  int depth = 5;
 
   SparseOctreeSettings settings = SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, depth);
   sdf_converter::GlobalOctree g;
-  g.header.brick_size = 4;
+  g.header.brick_size = 2;
   g.header.brick_pad = 1;
 
   auto tlo = cmesh4::create_triangle_list_octree(mesh, settings.depth, 0, 1.0f);
@@ -4830,11 +4831,14 @@ void litert_test_49_similarity_compression()
   coctree.header.uv_size = 0;
   coctree.header.sim_compression = 0;
 
+  scom::Settings scom_settings;
+  scom_settings.similarity_threshold = 6*1e-6f;
+
   coctree_comp.header = coctree.header;
   coctree_comp.header.sim_compression = 1;
 
   sdf_converter::global_octree_to_compact_octree_v3(g, coctree, 8);
-  sdf_converter::global_octree_to_compact_octree_v3(g, coctree_comp, 8);
+  sdf_converter::global_octree_to_compact_octree_v3(g, coctree_comp, 8, scom_settings);
 
   {
     auto pRender = CreateMultiRenderer(DEVICE_GPU);
