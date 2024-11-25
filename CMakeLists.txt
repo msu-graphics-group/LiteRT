@@ -12,6 +12,17 @@ else()
   set(CMAKE_CXX_COMPILER "/usr/bin/g++")
 endif()
 
+# Turn on/off OpenVDB
+option(USE_OPENVDB "Enable OpenVDB" OFF)
+if(USE_OPENVDB)
+  message("-- OpenVDB is ON")
+  target_link_libraries(render_app PUBLIC tbb openvdb)
+else()
+  message("-- OpenVDB is OFF")
+  add_definitions(-DDISABLE_OPENVDB)
+endif()
+
+
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
@@ -266,16 +277,6 @@ target_link_libraries(render_app PRIVATE render_lib)
 
 add_subdirectory(testing_framework)
 add_subdirectory(tests)
-
-# Turn on/off OpenVDB
-option(USE_OPENVDB "Enable OpenVDB" OFF)
-if(USE_OPENVDB)
-  message("-- OpenVDB is ON")
-  target_link_libraries(render_app PUBLIC tbb openvdb)
-else()
-  message("-- OpenVDB is OFF")
-  add_definitions(-DDISABLE_OPENVDB)
-endif()
 
 if (USE_VULKAN)
   set(IMGUI_SRC
