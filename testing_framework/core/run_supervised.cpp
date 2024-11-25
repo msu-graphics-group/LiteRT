@@ -1,5 +1,6 @@
 #include <testing_framework/core/run_supervised.h>
 #include <testing_framework/core/logging.h>
+#include <testing_framework/core/filters.h>
 #include <algorithm>
 
 namespace testing
@@ -204,7 +205,7 @@ namespace testing
         }
     }
 
-    bool run_and_get_last_line(Supervisor&supervisor, std::string&last_line)
+    bool run_and_get_last_line(Supervisor&supervisor, std::string&last_line, bool filter)
     {
         std::string prev_line, curr_line;
         while (true)
@@ -224,7 +225,10 @@ namespace testing
                 {
                     curr_line.push_back('\n');
                 }
-                reformat_output(curr_line);
+                if (!filter || filter && !should_filter(curr_line))
+                {
+                    reformat_output(curr_line);
+                }
             }
         }
         last_line = (curr_line == "" ? prev_line : curr_line);
@@ -255,6 +259,7 @@ namespace testing
     bool run_supervised(
         Supervisor&supervisor,
         std::string_view test_name,
+        bool filter,
         TEST_RESULT&result,
         size_t&passed,
         size_t&failed
@@ -262,7 +267,7 @@ namespace testing
     {
 
         std::string last_line;
-        if (!run_and_get_last_line(supervisor, last_line))
+        if (!run_and_get_last_line(supervisor, last_line, filter))
         {
             return false;
         }

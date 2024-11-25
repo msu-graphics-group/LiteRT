@@ -15,6 +15,7 @@ namespace testing
     bool run(
         size_t logging_level,
         size_t jobs,
+        bool filter,
         const std::vector<const Test*>& tests,
         std::map<std::string, std::pair<const std::type_info*, std::string>> test_options
     );

@@ -44,6 +44,7 @@ namespace testing
     bool run(
         size_t logging_level,
         size_t jobs,
+        bool filter,
         const std::vector<const Test*>& tests,
         std::map<std::string, std::pair<const std::type_info*, std::string>> test_options
     )
@@ -85,7 +86,7 @@ namespace testing
                 log(bar_line) << "Starting test " << test_index + 1 << "/" << tests.size() << std::endl;
                 TEST_RESULT result;
                 size_t passed, failed;
-                if (!run_supervised(supervisor, tests[test_index]->name(), result, passed, failed))
+                if (!run_supervised(supervisor, tests[test_index]->name(), filter, result, passed, failed))
                 {
                     return false;
                 }

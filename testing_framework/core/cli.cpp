@@ -23,7 +23,8 @@ namespace testing
         "-c", "--colors",
         "-nc", "--no-colors",
         "-d", "--description",
-        "-R", "--rewrite"
+        "-R", "--rewrite",
+        "-nf", "--no-filter"
     };
 
     static std::string param_names[] = {
@@ -145,12 +146,13 @@ namespace testing
         print_opt("-d", "--description", " - print descriptions of tests", padding + padding);
         std::cout << std::endl;
 
-        print_cmd("run", " <tests> [-l] [-j] <test-options>", "runs specified tests in supervised mode.", padding);
+        print_cmd("run", " <tests> [-l] [-j] [-nf] <test-options>", "runs specified tests in supervised mode.", padding);
         std::cout << padding << padding << padding
             << "Each test is runned in seperate process, which lets handle crashes and runtime errors." << std::endl;
         std::cout << padding << padding << padding << "If no tests are specified, assuming all tests." << std::endl;
         print_opt("-l", "--logging-level", " <value> - only messages with logging level <value> and below are printed", padding + padding);
         print_opt("-j", "--jobs", " <value> - how many tests can be runned parallel", padding + padding);
+        print_opt("-nf", "--no-filter", "- disables filtering of test's output", padding + padding);
         std::cout << std::endl;
 
         print_cmd("exec", " <test> [-l] [-R] <test-options>", " runs speicified test.", padding);
@@ -238,6 +240,7 @@ namespace testing
         std::map<std::string, std::pair<const std::type_info*, std::string>> test_options;
         int64_t logging_level = DEFAULT_LOGGING_LEVEL;
         int64_t jobs = DEFAULT_JOBS;
+        bool filter = true;
 
         if (!parse_args(
             argc,
@@ -246,7 +249,12 @@ namespace testing
             get_all_flags(),
             get_all_params(),
             [&](std::string_view flag)->bool{
-                if (collect_test_flag(std::string(flag), test_options)) {
+                if (flag == "-nf" || flag == "--no-filter")
+                {
+                    filter = false;
+                    return true;
+                }
+                else if (collect_test_flag(std::string(flag), test_options)) {
                     return true;
                 } else {
                     std::cerr << foreground(error_color) << "Error: " << default_color
@@ -298,7 +306,7 @@ namespace testing
             return false;
         }
         collect_default_test_param_values(test_options);
-        return run(logging_level, jobs, tests.size() > 0 ? tests : Test::all(), test_options);
+        return run(logging_level, jobs, filter, tests.size() > 0 ? tests : Test::all(), test_options);
     }
 
     bool handle_exec(size_t argc, char**argv)

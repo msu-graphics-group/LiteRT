@@ -143,13 +143,22 @@ namespace testing
                 exit(1);
             }
 
-            if (dup2(fd[1], 1) == -1)
+            if (dup2(fd[1], 1) == -1) // redirect stdout to pipe
             {
                 std::cerr << foreground(error_color) << "Error: " << default_color
                     << "failed to dup pipe write end to stdout: " << strerror(errno) << "." << std::endl;
                 close_write();
                 exit(1);
             }
+            
+            if (dup2(fd[1], 2) == -1) // redirect stderr to pipe
+            {
+                std::cerr << foreground(error_color) << "Error: " << default_color
+                    << "failed to dup pipe write end to stderr: " << strerror(errno) << "." << std::endl;
+                close_write();
+                exit(1);
+            }
+
             if (close_write())
             {
                 exit(1);

@@ -2,6 +2,10 @@
 add_library(
     testing_framework_helpers
     
+    # inits helpers
+    init.h
+    init.cpp
+
     # accessing test options
     options.h
     options.cpp

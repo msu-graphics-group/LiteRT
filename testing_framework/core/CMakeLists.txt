@@ -29,6 +29,10 @@ add_library(
     run_supervised.h
     run_supervised.cpp
 
+    # filters for supervised output
+    filters.h
+    filters.cpp
+
     # test options
     param_parsers.h
     param_parsers.cpp
