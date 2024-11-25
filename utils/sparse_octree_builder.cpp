@@ -861,6 +861,8 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
   bool mesh_octree_to_global_octree_rec(const cmesh4::SimpleMesh &mesh,
                                          const cmesh4::TriangleListOctree &tl_octree,
                                          GlobalOctree &out_octree,
+                                         std::unordered_map<float3, float, PositionHasher, PositionEqual> distances,
+                                         std::unordered_map<float3, float2, PositionHasher, PositionEqual> texs,
                                          unsigned idx, float3 p, float d,
                                          unsigned real_idx, unsigned &usefull_nodes)
   {
@@ -877,7 +879,7 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
     if (ofs == 0)
     {
       float3 pos = 2.0f*(d*p) - 1.0f;
-      groups.push_back(std::vector<float3>());
+      /*groups.push_back(std::vector<float3>());
       for (int j=0; j<tl_octree.nodes[idx].tid_count; j++)
       {
         int t_i = tl_octree.triangle_ids[tl_octree.nodes[idx].tid_offset+j];
@@ -889,7 +891,7 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
         groups[0].push_back(a);
         groups[0].push_back(b);
         groups[0].push_back(c);
-      }
+      }*/
       // for (int j=0; j<tl_octree.nodes[idx].tid_count; j++)
       // {
       //   int t_i = tl_octree.triangle_ids[tl_octree.nodes[idx].tid_offset+j];
@@ -999,42 +1001,43 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
           for (int k = -(int)out_octree.header.brick_pad; k <= (int)out_octree.header.brick_size + (int)out_octree.header.brick_pad; ++k)
           {
             float3 ch_pos = pos + 2*(d/out_octree.header.brick_size)*float3(i,j,k);
-            float global_sign = 1, global_min_dist_sq = 1000000;
+            float sign = 1, min_dist_sq = 1000000;
 
-            for (auto group : groups)
+            if (distances.find(ch_pos) == distances.end())
             {
-              float local_sign = 1, local_min_dist_sq = 1000000;
-              for (int t0 = 0; t0 < group.size(); t0 += 3)
+              for (int tri=0; tri<tl_octree.nodes[idx].tid_count; tri++)
               {
-                float3 a = group[t0+0], b = group[t0+1], c = group[t0+2];
+                int t_i = tl_octree.triangle_ids[tl_octree.nodes[idx].tid_offset+tri];
+                float3 a = to_float3(mesh.vPos4f[mesh.indices[3*t_i+0]]);
+                float3 b = to_float3(mesh.vPos4f[mesh.indices[3*t_i+1]]);
+                float3 c = to_float3(mesh.vPos4f[mesh.indices[3*t_i+2]]);
                 float3 vt = ch_pos - cmesh4::closest_point_triangle(ch_pos, a, b, c);
                 float dst_sq = LiteMath::dot(vt, vt);
-                if (local_min_dist_sq > dst_sq)
+                if (min_dist_sq > dst_sq)
                 {
-                  local_min_dist_sq = dst_sq;
+                  min_dist_sq = dst_sq;
                   if (LiteMath::dot(LiteMath::cross(a - b, a - c), vt) < 0)
                   {
-                    local_sign = -1;
+                    sign = -1;
                   }
                   else
                   {
-                    local_sign = 1;
+                    sign = 1;
                   }
                 }
               }
-              global_sign *= local_sign;
-              if (global_min_dist_sq > local_min_dist_sq) global_min_dist_sq = local_min_dist_sq;
+              distances[ch_pos] = sign * sqrtf(min_dist_sq);
             }
-            float val = global_sign * sqrtf(global_min_dist_sq);
+            
             out_octree.values_f[cur_values_off + (i+out_octree.header.brick_pad)*v_size*v_size + 
                                                  (j+out_octree.header.brick_pad)*v_size + 
-                                                 (k+out_octree.header.brick_pad)] = val;
+                                                 (k+out_octree.header.brick_pad)] = distances[ch_pos];
           
             if (i >= 0 && j >= 0 && k >= 0 && i <= out_octree.header.brick_size && 
                 j <= out_octree.header.brick_size && k <= out_octree.header.brick_size)
             {
-              min_val = std::min(min_val, val);
-              max_val = std::max(max_val, val);
+              min_val = std::min(min_val, distances[ch_pos]);
+              max_val = std::max(max_val, distances[ch_pos]);
             }
           }
         }
@@ -1042,10 +1045,15 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
       //tex coords
       for (int i = 0; i < 8; ++i)
       {
-        out_octree.nodes[num].tex_coords[i] = float2(0,0);//temp stubs
+        float3 ch_pos = pos + 2*d*float3((i >> 2) & 1, (i >> 1) & 1, i & 1);
+        if (texs.find(ch_pos) == texs.end())
+        {
+          texs[ch_pos] = float2(0, 0);//temp stubs
+        }
+        out_octree.nodes[num].tex_coords[i] = texs[ch_pos];
       }
     }
-    else
+    /*else
     {
       unsigned cur_values_off = out_octree.values_f.size();
       out_octree.nodes[num].val_off = cur_values_off;
@@ -1062,7 +1070,7 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
           }
         }
       }
-    }
+    }*/
     
     if (ofs == 0) 
     {
@@ -1082,7 +1090,7 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
       {
         float ch_d = d / 2;
         float3 ch_p = 2 * p + float3((i & 4) >> 2, (i & 2) >> 1, i & 1);
-        bool x = mesh_octree_to_global_octree_rec(mesh, tl_octree, out_octree, ofs + i, ch_p, ch_d, real_child + i, usefull_nodes);
+        bool x = mesh_octree_to_global_octree_rec(mesh, tl_octree, out_octree, distances, texs, ofs + i, ch_p, ch_d, real_child + i, usefull_nodes);
         //if (chk && x) {printf("BBB\n"); chk = false;}
         is_not_void |= x;
       }
@@ -1169,7 +1177,9 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
     {
       assert(!(i.offset != 0 && i.tid_count == 0));
     }
-    mesh_octree_to_global_octree_rec(mesh, tl_octree, tmp_octree, 0, float3(0,0,0), 1, 0, nodes_cnt);
+    std::unordered_map<float3, float, PositionHasher, PositionEqual> distances;
+    std::unordered_map<float3, float2, PositionHasher, PositionEqual> texs;
+    mesh_octree_to_global_octree_rec(mesh, tl_octree, tmp_octree, distances, texs, 0, float3(0,0,0), 1, 0, nodes_cnt);
     tmp_octree.nodes.resize(nodes_cnt);
     
     unsigned nn = global_octree_count_and_mark_active_nodes_rec(tmp_octree, 0);

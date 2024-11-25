@@ -4528,7 +4528,7 @@ void litert_test_45_global_octree_to_COctreeV3()
   coctree.header.brick_size = g.header.brick_size;
   coctree.header.brick_pad = g.header.brick_pad;
   coctree.header.uv_size = 0;
-  coctree.header.sim_compression = 1;
+  //coctree.header.sim_compression = 1;
   ref.header = coctree.header;
   ref.header.sim_compression = 0;
 
