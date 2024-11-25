@@ -4800,6 +4800,93 @@ void litert_test_48_openvdb()
   #endif
 }
 
+void litert_test_49_similarity_compression()
+{
+  auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "scenes/01_simple_scenes/data/sphere.vsgf").c_str());
+  cmesh4::normalize_mesh(mesh);
+
+  MultiRenderPreset preset = getDefaultPreset();
+  preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
+  preset.spp = 4;
+
+  unsigned W = 2048, H = 2048;
+  LiteImage::Image2D<uint32_t> image_ref(W, H);
+  LiteImage::Image2D<uint32_t> image_orig(W, H);
+  LiteImage::Image2D<uint32_t> image_comp(W, H);
+
+  int depth = 4;
+
+  SparseOctreeSettings settings = SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, depth);
+  sdf_converter::GlobalOctree g;
+  g.header.brick_size = 4;
+  g.header.brick_pad = 1;
+
+  auto tlo = cmesh4::create_triangle_list_octree(mesh, settings.depth, 0, 1.0f);
+  sdf_converter::mesh_octree_to_global_octree(mesh, tlo, g);
+  COctreeV3 coctree, coctree_comp;
+  coctree.header.bits_per_value = 8;
+  coctree.header.brick_size = g.header.brick_size;
+  coctree.header.brick_pad = g.header.brick_pad;
+  coctree.header.uv_size = 0;
+  coctree.header.sim_compression = 0;
+
+  coctree_comp.header = coctree.header;
+  coctree_comp.header.sim_compression = 1;
+
+  sdf_converter::global_octree_to_compact_octree_v3(g, coctree, 8);
+  sdf_converter::global_octree_to_compact_octree_v3(g, coctree_comp, 8);
+
+  {
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
+    preset.normal_mode = NORMAL_MODE_VERTEX;
+    pRender->SetPreset(preset);
+    pRender->SetScene(mesh);
+    render(image_ref, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset);
+    LiteImage::SaveImage<uint32_t>("saves/test_49_ref.png", image_ref); 
+  }
+  {
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
+    preset.normal_mode = g.header.brick_pad == 1 ? NORMAL_MODE_SDF_SMOOTHED : NORMAL_MODE_VERTEX;
+    pRender->SetPreset(preset);
+    pRender->SetScene(coctree, 0);
+    render(image_orig, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset);
+    LiteImage::SaveImage<uint32_t>("saves/test_49_coctree_orig.png", image_orig); 
+  }
+
+  {
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
+    preset.normal_mode = g.header.brick_pad == 1 ? NORMAL_MODE_SDF_SMOOTHED : NORMAL_MODE_VERTEX;
+    pRender->SetPreset(preset);
+    pRender->SetScene(coctree_comp, 0);
+    render(image_comp, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset);
+    LiteImage::SaveImage<uint32_t>("saves/test_49_coctree_comp.png", image_comp); 
+  }
+
+  float psnr1 = image_metrics::PSNR(image_orig, image_comp);
+  float psnr2 = image_metrics::PSNR(image_ref, image_comp);
+  float psnr3 = image_metrics::PSNR(image_ref, image_orig);
+
+  printf("TEST 49. COMPACT OCTREE V3 SIMILARITY COMPRESSION\n");
+
+  printf("  49.1 %-64s", "Compressed is similar to original");
+  if (psnr1 >= 35)
+    printf("passed    (%.2f)\n", psnr1);
+  else
+    printf("FAILED, psnr = %f\n", psnr1);
+
+  printf("  49.2 %-64s", "Compressed is similar to mesh");
+  if (psnr2 >= 35)
+    printf("passed    (%.2f)\n", psnr2);
+  else
+    printf("FAILED, psnr = %f\n", psnr2);
+
+  printf("  49.3 %-64s", "PSNR loss from compression is low");
+  if (psnr3-psnr2 < 1)
+    printf("passed    (%.2f)\n", psnr3-psnr2);
+  else
+    printf("FAILED, psnr = %f\n", psnr3-psnr2);
+}
+
 void perform_tests_litert(const std::vector<int> &test_ids)
 {
   std::vector<int> tests = test_ids;
@@ -4820,7 +4907,8 @@ void perform_tests_litert(const std::vector<int> &test_ids)
       litert_test_37_sbs_adapt_comparison, litert_test_38_direct_octree_traversal, litert_test_39_visualize_sbs_bricks,
       litert_test_40_psdf_framed_octree, litert_test_41_coctree_v3, litert_test_42_mesh_lods,
       litert_test_43_hydra_integration, litert_test_44_point_query, litert_test_45_global_octree_to_COctreeV3, 
-      litert_test_46_catmul_clark, litert_test_47_ribbon, litert_test_48_openvdb};
+      litert_test_46_catmul_clark, litert_test_47_ribbon, litert_test_48_openvdb,
+      litert_test_49_similarity_compression};
 
   if (tests.empty())
   {
