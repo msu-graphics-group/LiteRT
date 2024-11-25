@@ -28,21 +28,7 @@ int main(int, char** argv)
 {
   std::filesystem::path exec_path = std::filesystem::canonical(argv[0]);
   std::filesystem::current_path(exec_path.parent_path().parent_path());
-  auto proj_path = std::filesystem::current_path();
-
-  RBCurve2D rbcurve;
-  rbcurve.pw = {
-    { -1, -1, 1},
-    { -1, 1, 1},
-    { 1, 1, 1},
-    { 1, -1, 1}
-  };
-  srand(time(NULL));
-  float u = rand() * 1.0f / RAND_MAX;
-  auto res1 = rbcurve.der(u);
-  auto res2 = rbcurve.der(u, 1);
-  std::cout << res1.x << " " << res1.y << " " << res1.z << std::endl;
-  std::cout << res2.x << " " << res2.y << " " << res2.z << std::endl;
+  auto proj_path = std::filesystem::current_path(); 
 
   int WIDTH = 1200;
   int HEIGHT = 800;

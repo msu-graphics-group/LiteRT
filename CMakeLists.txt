@@ -64,6 +64,7 @@ add_executable(
     src/curve.cpp
 )
 target_include_directories(${PROJECT_NAME} PUBLIC ${SDL_INCLUDE_DIR})
+
 target_link_libraries(
   ${PROJECT_NAME}
     LiteMath
@@ -73,3 +74,14 @@ target_link_libraries(
     embree
     step
 )
+
+add_executable(
+  RBCurve2D_test
+  tests/RBCurve2D.cpp
+    src/utils.hpp
+    src/utils.cpp
+    src/curve.hpp
+    src/curve.cpp
+)
+target_link_libraries(RBCurve2D_test LiteMath)
+target_include_directories(RBCurve2D_test PUBLIC ${PROJECT_SOURCE_DIR}/src/)

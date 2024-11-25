@@ -5,73 +5,112 @@
 
 using namespace LiteMath;
 
-int RBCurve2D::degree() const {
-  return pw.size()-1;
+// *********************** Bezier curve 3D *********************** //
+uint BCurve3D::degree() const {
+  return points.size() - 1;
 }
 
-LiteMath::float3 RBCurve2D::get_point(float u) const {
-  int p = degree();
+LiteMath::float3 BCurve3D::operator()(float u) const {
+    return get_point(u);
+}
+
+LiteMath::float3 BCurve3D::get_point(float u) const {
+  uint p = degree();
 
   float u_n = 1.0f;
   float _1_u = 1.0f - u;
-  int bc = 1.0f;
 
-  float3 res = pw[0] * _1_u;
+  // Note: C(n, k) can store only up to n = 67 for 64-bit integer.
+  // Critical no-overflow value appears for C(67, 33).
+  unsigned long long comb = 1;
+
+  float3 res = points[0] * _1_u;
   for (int i = 1; i <= p-1; ++i) {
     u_n *= u;
-    bc = bc * (p-i+1)/i;
-    res = (res + u_n * bc * pw[i]) * _1_u;
+    comb *= (p-i+1) / i;
+    res = (res + u_n * comb * points[i]) * _1_u;
   }
-  res += (u_n * u) * pw[p];
+  res += (u_n * u) * points[p];
   return res;
 }
 
-LiteMath::float3 RBCurve2D::non_rat_der(float u, int order) const {
+LiteMath::float3 BCurve3D::der(float u, int order) const {
+  assert(order >= 0);
   if (order == 0)
     return get_point(u);
 
-  int p = degree();
+  uint p = degree();
 
-  RBCurve2D der = { std::vector<float3>(degree()+1) };
-  std::copy(pw.begin(), pw.end(), der.pw.begin());
+  BCurve3D der = { std::vector<float3>(p + 1) };
+  std::copy(points.begin(), points.end(), der.points.begin());
 
   for (int i = 0; i < order; ++i) {
     for (int j = 0; j < p-i; ++i) {
-      der.pw[j] = (der.pw[j+1] - der.pw[j]) * (p-i);
+      der.points[j] = (der.points[j+1] - der.points[j]) * (p-i);
     }
   }
 
-  der.pw.resize(p+1-order);
+  der.points.resize(p+1-order);
   return der.get_point(u);
 }
 
-LiteMath::float3 RBCurve2D::der(float u) const {
-  float3 p = get_point(u);
-  float3 d = non_rat_der(u, 1);
-  return (d*p.z - d.z*p)/(p.z * p.z);
+// *********************** RBezier curve 2D *********************** //
+uint RBCurve2D::degree() const {
+  return points.size() - 1;
+}
+
+LiteMath::float3 RBCurve2D::operator()(float u) const {
+    return get_point(u);
+}
+
+RBCurve2D::RBCurve2D(
+    std::vector<float2> points,
+    std::vector<float> weights) {
+  assert(points.size() == weights.size());
+
+  this->points.resize(points.size());
+  this->weights.resize(weights.size());
+
+  for (size_t i = 0; i < points.size(); i++)
+    this->points[i] = float3(points[i].x, points[i].y, 1);
+  this->weights = weights;
+
+  this->H.points.resize(points.size());
+  for (size_t i = 0; i < points.size(); i++)
+    this->H.points[i] = this->weights[i] * this->points[i];
+}
+
+LiteMath::float3 RBCurve2D::get_point(float u) const {
+  float3 p = H.get_point(u);
+  p /= p.z;
+  return p;
 }
 
 LiteMath::float3 RBCurve2D::der(float u, int order) const {
+  assert(order >= 0);
   if (order == 0) {
-    float3 res = get_point(u);
-    res /= res.z;
-    return res;
+    return get_point(u);
   }
 
-  int bc = 1;
-  float3 left = {};
+  if (order == 1) {
+    float3 p = get_point(u);
+    float3 d = H.der(u);
+    return (d*p.z - d.z*p) / (p.z * p.z);
+  }
+
+  unsigned long long comb = 1;
+  float3 left = float3(0.0f);
   for (int i = 0; i < order; ++i) {
     float3 a = der(u, i);
-    float b = non_rat_der(u, order-i).z;
-    left += bc * a * b;
-    bc = bc * (order-i) / (i+1);
+    float b = H.der(u, order-i).z;
+    left += comb * a * b;
+    comb *= (order-i) / (i+1);
   }
 
-  float3 right = non_rat_der(u, order);
+  float3 right = H.der(u, order);
 
-  float3 res = (right - left) / (get_point(u).z * bc);
+  float3 res = (right - left) / (H.get_point(u).z * comb);
   assert(res.z == 0.0f);
 
   return res;
 }
-
