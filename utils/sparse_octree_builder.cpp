@@ -1341,6 +1341,57 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
     }
   }
 
+  void global_octree_to_SVS_rec(const GlobalOctree &octree, std::vector<SdfSVSNode> &svs,
+                                unsigned node_idx, unsigned lod_size, uint3 p)
+  {
+    if (octree.nodes[node_idx].offset == 0)
+    {
+      //unsigned v_size = sbs.header.brick_size + 2 * sbs.header.brick_pad + 1;
+      unsigned v_off = octree.nodes[node_idx].val_off;
+
+      if (octree.nodes[node_idx].is_not_void)
+      {
+        unsigned n_off = svs.size();
+        float d_max = 2 * sqrt(3) / lod_size;
+        unsigned bits = 8;
+        unsigned max_val = ((1 << bits) - 1);
+        unsigned vals_per_int = 4;
+
+        svs.emplace_back();
+
+        svs[n_off].pos_xy = (p.x << 16) | p.y;
+        svs[n_off].pos_z_lod_size = (p.z << 16) | lod_size;
+
+        svs[n_off].values[0] = 0u;
+        svs[n_off].values[1] = 0u;
+
+        for (int i = 0; i < 8; i++)
+        {
+          unsigned d_compressed = std::max(0.0f, max_val * ((octree.values_f[v_off + i] + d_max) / (2 * d_max)) + 0.5f);
+          d_compressed = std::min(d_compressed, max_val);
+          svs[n_off].values[i / vals_per_int] |= d_compressed << (bits * (i % vals_per_int));
+        }
+      }
+    }
+    else
+    {
+      for (int i = 0; i < 8; i++)
+      {
+        float ch_d = lod_size / 2;
+        uint3 ch_p = 2 * p + uint3((i & 4) >> 2, (i & 2) >> 1, i & 1);
+        global_octree_to_SVS_rec(octree, svs, octree.nodes[node_idx].offset + i, 2*lod_size, ch_p);
+      }
+    }
+  }
+
+  void global_octree_to_SVS(const GlobalOctree &octree, std::vector<SdfSVSNode> &svs)
+  {
+    assert(1 == octree.header.brick_size);
+    assert(0 == octree.header.brick_pad);
+
+    global_octree_to_SVS_rec(octree, svs, 0, 1, uint3(0,0,0));
+  }
+
   void global_octree_to_SBS_rec(const GlobalOctree &octree, SdfSBS &sbs,
                                 unsigned node_idx, unsigned lod_size, uint3 p)
   {

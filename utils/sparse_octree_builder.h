@@ -46,6 +46,7 @@ namespace sdf_converter
                                     GlobalOctree &out_octree);
 
   void global_octree_to_frame_octree(const GlobalOctree &octree, std::vector<SdfFrameOctreeNode> &out_frame); 
+  void global_octree_to_SVS(const GlobalOctree &octree, std::vector<SdfSVSNode> &svs);
   void global_octree_to_SBS(const GlobalOctree &octree, SdfSBS &sbs);
   void global_octree_to_compact_octree_v3(const GlobalOctree &octree, COctreeV3 &compact_octree, unsigned max_threads);
   void global_octree_to_compact_octree_v3(const GlobalOctree &octree, COctreeV3 &compact_octree, unsigned max_threads, const scom::Settings &settings);

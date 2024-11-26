@@ -4556,7 +4556,9 @@ void litert_test_45_global_octree_to_COctreeV3()
 
   SparseOctreeSettings settings = SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, depth);
   std::vector<SdfFrameOctreeNode> frame, fr_r;
-  fr_r = sdf_converter::create_sdf_frame_octree(SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, depth), mesh);
+  std::vector<SdfSVSNode> svs, svs_r;
+  svs_r = sdf_converter::create_sdf_SVS(settings, mesh);
+  fr_r = sdf_converter::create_sdf_frame_octree(settings, mesh);
 
   auto tlo = cmesh4::create_triangle_list_octree(mesh, settings.depth, 0, 1.0f);
   sdf_converter::GlobalOctree g;
@@ -4577,14 +4579,14 @@ void litert_test_45_global_octree_to_COctreeV3()
   preset.normal_mode = g.header.brick_pad == 1 ? NORMAL_MODE_SDF_SMOOTHED : NORMAL_MODE_VERTEX;
 
   auto t1 = std::chrono::steady_clock::now();
-  ref.data = sdf_converter::create_COctree_v3(SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, depth),
-                                                  ref.header, mesh);
+  ref.data = sdf_converter::create_COctree_v3(settings, ref.header, mesh);
   coctree.data = ref.data;
   sdf_converter::global_octree_to_compact_octree_v3(g, coctree, 1);
   g.header.brick_size = 1;
   g.header.brick_pad = 0;
   sdf_converter::mesh_octree_to_global_octree(mesh, tlo, g);
   sdf_converter::global_octree_to_frame_octree(g, frame);
+  sdf_converter::global_octree_to_SVS(g, svs);
   //print_compare_trees_data(frame, fr_r, 0, 0, true);
   auto t2 = std::chrono::steady_clock::now();
   {
@@ -4610,8 +4612,6 @@ void litert_test_45_global_octree_to_COctreeV3()
   else
     printf("FAILED, psnr = %f\n", psnr);
 
-  
-
   {
     auto pRender = CreateMultiRenderer(DEVICE_GPU);
     pRender->SetPreset(preset);
@@ -4629,6 +4629,29 @@ void litert_test_45_global_octree_to_COctreeV3()
   }
 
   printf("  45.2 %-64s", "Global Octree to Framed Octree");
+  psnr = image_metrics::PSNR(image_r, image);
+  if (psnr >= 30)
+    printf("passed    (%.9f)\n", psnr);
+  else
+    printf("FAILED, psnr = %f\n", psnr);
+
+  {
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
+    pRender->SetPreset(preset);
+    pRender->SetScene(svs);
+    render(image, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset);
+    LiteImage::SaveImage<uint32_t>("saves/test_45_svs.bmp", image); 
+  }
+
+  {
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
+    pRender->SetPreset(preset);
+    pRender->SetScene(svs_r);
+    render(image_r, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset);
+    LiteImage::SaveImage<uint32_t>("saves/test_45_svs_r.bmp", image_r); 
+  }
+
+  printf("  45.3 %-64s", "Global Octree to SVS");
   psnr = image_metrics::PSNR(image_r, image);
   if (psnr >= 30)
     printf("passed    (%.9f)\n", psnr);
