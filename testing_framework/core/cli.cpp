@@ -8,6 +8,7 @@
 #include <testing_framework/core/exe.h>
 #include <iostream>
 #include <regex>
+#include <fstream>
 
 namespace testing
 {
@@ -389,6 +390,43 @@ namespace testing
         return exec(logging_level, rewrite, tests[0], test_options);
     }
 
+    bool handle_ctest(size_t argc, char**argv)
+    {
+        if (argc != 2)
+        {
+            std::cerr << foreground(error_color) << "Error: " << default_color
+                << "creating ctest files requires to arguments: "
+                << foreground(highlight_color_1) << "<ctest-include-file>" << " "
+                << "<test-working-directory>" << default_color
+                << std::endl;
+            return false;
+        }
+        std::string ctest_include = argv[0];
+        std::string working_dir = argv[1];
+        std::ofstream file(ctest_include);
+        if (!file)
+        {
+            std::cerr << foreground(error_color) << "Error: " << default_color 
+                << "failed to open file "
+                << foreground(highlight_color_2) << ctest_include << default_color
+                << std::endl;
+        }
+        for (auto test : Test::all())
+        {
+            
+            auto args = cmdline_to_exec(false, INFO_LOGGING_LEVEL, test->name(), false, {});
+            file << "add_test(" << test->name() << " ";
+            for (auto&i : args)
+            {
+                file << i << " ";
+            }
+            file << ")" << std::endl;
+            file << "set_tests_properties(" << test->name() << " PROPERTIES WORKING_DIRECTORY " << working_dir << ")" << std::endl;
+        }
+        std::cout << std::filesystem::current_path() << std::endl;
+        return true;
+    }
+
     bool handle_args(size_t argc, char**argv)
     {
         
@@ -433,6 +471,10 @@ namespace testing
         else if(cmd == "exec")
         {
             return handle_exec(argc, argv);
+        }
+        else if (cmd == "generate-ctest-files")
+        {
+            return handle_ctest(argc, argv);
         }
         else
         {
