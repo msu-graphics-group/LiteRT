@@ -107,6 +107,7 @@ set(SCENE_LOADER_SRC
     ${CMAKE_SOURCE_DIR}/openvdb_structs/openvdb_common.cpp
     ${CMAKE_SOURCE_DIR}/utils/csv.cpp
     ${CMAKE_SOURCE_DIR}/utils/blk.cpp
+    ${CMAKE_SOURCE_DIR}/utils/ball_tree.cpp
     )
 
 set(CORE_SRC
