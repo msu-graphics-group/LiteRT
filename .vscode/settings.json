@@ -102,5 +102,5 @@
       "visualizerFile": "${workspaceFolder}/.vscode/litemath.natvis",
       "showDisplayString": true
     },
-    "cmake.buildDirectory": "${workspaceFolder}/build"
+    "cmake.buildDirectory": "${workspaceFolder}/build/${buildType}"
 }

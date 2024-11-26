@@ -423,7 +423,6 @@ namespace testing
             file << ")" << std::endl;
             file << "set_tests_properties(" << test->name() << " PROPERTIES WORKING_DIRECTORY " << working_dir << ")" << std::endl;
         }
-        std::cout << std::filesystem::current_path() << std::endl;
         return true;
     }
 

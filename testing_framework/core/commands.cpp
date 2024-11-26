@@ -144,6 +144,7 @@ namespace testing
         if (was_skipped)
         {
             log(bar_skipped) << test->name() << std::endl;
+            return false; // mark as failed
         }
         else
         {
@@ -152,9 +153,8 @@ namespace testing
                 << test->name() << " "
                 << "(" << foreground(success_color) << passed << "/" <<  total << " passed " << default_color << "checks, "
                 <<  foreground(failure_color) << failed << "/" << total << " failed " << default_color << "checks" << ")" << std::endl;
+            return failed == 0;
         }
-
-        return true;
     }
 
 }
