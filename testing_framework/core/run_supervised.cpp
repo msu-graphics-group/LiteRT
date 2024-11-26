@@ -272,15 +272,24 @@ namespace testing
             return false;
         }
 
-        if (!supervisor.exited() || supervisor.exit_status() != 0)
+        if (!supervisor.exited())
         {
             result = TEST_RESULT::CRASHED;
         }
-        else if (!parse_last_line(last_line, result, passed, failed))
+        else if(parse_last_line(last_line, result, passed, failed))
+        {
+            // ok
+        }
+        else if(supervisor.exit_status() != 0)
+        {
+            result = TEST_RESULT::CRASHED;
+        }
+        else
         {
             log(bar_error) << "Failed to parse test output. Assuming runtime error." << std::endl;
             result = TEST_RESULT::CRASHED;
         }
+        
         if (result == TEST_RESULT::CRASHED)
         {
             log(bar_crashed) << test_name << std::endl;

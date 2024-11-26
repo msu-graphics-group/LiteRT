@@ -279,6 +279,7 @@ target_link_libraries(render_lib PUBLIC hydra OpenMP::OpenMP_CXX)
 add_executable(render_app main.cpp)
 target_link_libraries(render_app PRIVATE render_lib)
 
+include(CTest)
 add_subdirectory(testing_framework)
 add_subdirectory(tests)
 
