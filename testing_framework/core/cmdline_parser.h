@@ -2,6 +2,7 @@
 #include <string>
 #include <array>
 #include <iostream>
+#include <algorithm>
 #include <testing_framework/core/logging.h>
 
 namespace testing
