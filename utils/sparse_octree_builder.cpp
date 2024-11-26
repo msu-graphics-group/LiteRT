@@ -898,6 +898,7 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
       unsigned ofs = tl_octree.nodes[idx].offset;
       out_octree.nodes[idx].offset = ofs;
       out_octree.nodes[idx].val_off = idx*v_size*v_size*v_size;
+      out_octree.nodes[idx].is_not_void = true;
 
       if (ofs == 0)
       {
@@ -977,6 +978,7 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
           out_octree.nodes[idx].tex_coords[i] = float2(0, 0);//temp stubs
         }
         if (ofs == 0) out_octree.nodes[idx].is_not_void = (min_val <= 0 && max_val >= 0);
+        //else out_octree.nodes[idx].is_not_void = true;
       }
     }
   }
@@ -1307,8 +1309,8 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
     {
       assert(!(i.offset != 0 && i.tid_count == 0));
     }
-    std::unordered_map<float3, float, PositionHasher, PositionEqual> distances;
-    std::unordered_map<float3, float2, PositionHasher, PositionEqual> texs;
+    //std::unordered_map<float3, float, PositionHasher, PositionEqual> distances;
+    //std::unordered_map<float3, float2, PositionHasher, PositionEqual> texs;
     //mesh_octree_to_global_octree_rec(mesh, tl_octree, tmp_octree, /*distances, texs,*/ 0, float3(0,0,0), 1, 0, nodes_cnt);
     linear_mesh_octree_to_global_octree(mesh, tl_octree, tmp_octree, omp_get_max_threads());
     tmp_octree.nodes.resize(nodes_cnt);
@@ -1338,6 +1340,25 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
       out_frame[i].offset = octree.nodes[i].offset;
       for (int j=0;j<8;j++)
         out_frame[i].values[j] = octree.values_f[octree.nodes[i].val_off + j];
+    }
+  }
+
+  void global_octree_to_frame_octree_tex(const GlobalOctree &octree, std::vector<SdfFrameOctreeTexNode> &out_frame, unsigned material_id)
+  {
+    assert(octree.header.brick_size == 1);
+    assert(octree.header.brick_pad == 0);
+
+    out_frame.resize(octree.nodes.size());
+    for (int i = 0; i < octree.nodes.size(); ++i)
+    {
+      out_frame[i].offset = octree.nodes[i].offset;
+      out_frame[i].material_id = material_id;
+      for (int j=0;j<8;j++)
+      {
+        out_frame[i].values[j] = octree.values_f[octree.nodes[i].val_off + j];
+        out_frame[i].tex_coords[j * 2 + 0] = octree.nodes[i].tex_coords[j].x;
+        out_frame[i].tex_coords[j * 2 + 1] = octree.nodes[i].tex_coords[j].y;
+      }
     }
   }
 
