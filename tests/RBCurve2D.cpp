@@ -6,6 +6,10 @@
 
 using namespace LiteMath;
 
+std::ostream& operator<<(std::ostream& cout, float3 v) {
+  return cout << "(" << v.x << " " << v.y << " " << v.z << ")";
+}
+
 int main() {
   std::vector<float2> points = {
     {-1, -1},
@@ -20,8 +24,16 @@ int main() {
   float u = (float)(rand() % 100) / 100;
   auto val = curve(u);
   auto der = curve.der(u, 1);
+  auto fg_gf = curve.fg_gf(u);
+  auto fg_gf1 = curve.fg_gf(u, 1);
+  auto fg_gf2 = curve.fg_gf(u, 2);
+  auto fg_gf3 = curve.fg_gf(u, 3);
   std::cout << "u = " << u << std::endl;
-  std::cout << "C(u) = (" << val.x << " " << val.y << " " << val.z << ")" << std::endl;
-  std::cout << "C'(u) = (" << der.x << " " << der.y << " " << der.z << ")" << std::endl;
+  std::cout << "C(u) = " << val << std::endl;
+  std::cout << "C'(u) = " << der << std::endl;
+  std::cout << "(fg'-f'g)(u) = " << fg_gf << std::endl;
+  std::cout << "(fg'-f'g)(1)(u) = " << fg_gf1 << std::endl;
+  std::cout << "(fg'-f'g)(2)(u) = " << fg_gf2 << std::endl;
+  std::cout << "(fg'-f'g)(3)(u) = " << fg_gf3 << std::endl;
   return 0;
 }
