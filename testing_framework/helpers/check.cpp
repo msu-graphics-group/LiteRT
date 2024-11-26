@@ -51,6 +51,12 @@ namespace testing
         log_cmp(a, b, a_desc, b_desc, sign, neg, ok, loc);
     }
 
+    void check_equal(float a, float b, std::string_view a_desc, std::string_view b_desc, float threshold,source_location loc)
+    {
+        bool ok = std::abs(a - b) <= threshold;
+        log_cmp(a, b, a_desc, b_desc, "=", "!=", ok, loc);
+    } 
+
     void log_metric(
         std::string_view ref_desc,
         std::string_view other_desc,

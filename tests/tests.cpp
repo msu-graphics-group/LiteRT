@@ -4933,6 +4933,15 @@ void litert_test_49_similarity_compression()
     printf("FAILED, psnr = %f\n", psnr3-psnr2);
 }
 
+namespace scom 
+{
+  bool test_ball_tree();
+}
+void litert_test_50_ball_tree()
+{
+  scom::test_ball_tree();
+}
+
 void perform_tests_litert(const std::vector<int> &test_ids)
 {
   std::vector<int> tests = test_ids;
@@ -4954,7 +4963,7 @@ void perform_tests_litert(const std::vector<int> &test_ids)
       litert_test_40_psdf_framed_octree, litert_test_41_coctree_v3, litert_test_42_mesh_lods,
       litert_test_43_hydra_integration, litert_test_44_point_query, litert_test_45_global_octree_to_COctreeV3, 
       litert_test_46_catmul_clark, litert_test_47_ribbon, litert_test_48_openvdb,
-      litert_test_49_similarity_compression};
+      litert_test_49_similarity_compression, litert_test_50_ball_tree};
 
   if (tests.empty())
   {

@@ -23,6 +23,7 @@
 #include "../diff_render/MultiRendererDR.h"
 #include "../utils/iou.h"
 #include "../nurbs/nurbs_common_host.h"
+#include "../utils/ball_tree.h"
 
 namespace litert_tests
 {
@@ -617,4 +618,109 @@ namespace litert_tests
         testing::check_greater(psnr2, psnr1, "PSNR SBS with smoothed normals", "PSNR default SBS", true);
     }
 
+    ADD_TEST(BallTreeNN, "Testing Ball Tree nearest neighbors search")
+    {
+      srand(time(NULL));
+      int points_count = 100000;
+      constexpr int DIM = 8;
+      scom::Dataset dataset;
+      dataset.data_points.resize(points_count);
+      dataset.all_points.resize(points_count*DIM);
+
+      for (int i = 0; i < points_count; ++i) 
+      {
+        dataset.data_points[i].data_offset = i*DIM;
+        dataset.data_points[i].original_id = i;
+        dataset.data_points[i].rotation_id = 0;
+        for (int j = 0; j < DIM; ++j)
+          dataset.all_points[i*DIM + j] = 2*(float) rand() / (float) RAND_MAX + 1;
+      }
+
+      auto t1 = std::chrono::high_resolution_clock::now();
+      scom::BallTree tree;
+      tree.build(dataset, 8);
+      auto t2 = std::chrono::high_resolution_clock::now();
+      printf("build took %d us\n", (int)std::chrono::duration_cast<std::chrono::microseconds>(t2-t1).count());
+      
+      double search_time_naive = 0;
+      double search_time_tree = 0;
+
+      int tries = 1000;
+      int found_count = 0;
+
+      int error_count = 0;
+      for (int i = 0; i < tries; ++i) 
+      {
+        float point[DIM];
+        for (int j = 0; j < DIM; ++j)
+          point[j] = 2*(float) rand() / (float) RAND_MAX + 1;
+
+        float limit = 0.1f*DIM*((float)rand() / (float) RAND_MAX);
+        //limit = 10;
+
+        const float *min_point_naive = nullptr;
+        float min_distance_naive = limit;
+
+      auto t1 = std::chrono::high_resolution_clock::now();
+        for (int j = 0; j < points_count; ++j) 
+        {
+          float dist = 0;
+          for (int k = 0; k < DIM; ++k)
+            dist += (point[k] - dataset.all_points[j*DIM + k]) * (point[k] - dataset.all_points[j*DIM + k]);
+          dist = sqrt(dist);
+          //printf("data %f %f %f, dist = %f\n", data[j*DIM + 0], data[j*DIM + 1], data[j*DIM + 2], dist);
+          if (dist < min_distance_naive) 
+          {
+            min_distance_naive = dist;
+            min_point_naive = dataset.all_points.data() + j*DIM;
+          }
+        }
+      
+      auto t2 = std::chrono::high_resolution_clock::now();
+
+        float min_distance = 1000;
+        //const float *min_point = tree.find_nearest_neighbor(point, limit, &min_distance);
+        const float *min_point = tree.get_closest_point(point, limit, &min_distance);
+
+      auto t3 = std::chrono::high_resolution_clock::now();
+
+        search_time_naive += std::chrono::duration_cast<std::chrono::microseconds>(t2-t1).count();
+        search_time_tree += std::chrono::duration_cast<std::chrono::microseconds>(t3-t2).count();
+
+        bool found_naive = min_point_naive != nullptr;
+        bool found_tree = min_point != nullptr;
+
+        if (found_naive != found_tree)
+        {
+          error_count++;
+          printf("point %f %f %f, ", point[0], point[1], point[2]);
+          if (min_point_naive)
+            printf("naive %f %f %f, ", min_point_naive[0], min_point_naive[1], min_point_naive[2]);
+          if (min_point)
+            printf("tree %f %f %f", min_point[0], min_point[1], min_point[2]);
+          printf("\n");
+        }
+        else if (found_naive && found_tree && std::abs(min_distance - min_distance_naive) > 1e-6f)
+        {
+          error_count++;
+          printf("point %f %f %f, ", point[0], point[1], point[2]);
+          printf("naive %f %f %f, ", min_point_naive[0], min_point_naive[1], min_point_naive[2]);
+          printf("tree %f %f %f, ", min_point[0], min_point[1], min_point[2]);
+          printf("dist %f %f\n", min_distance, min_distance_naive);
+        }
+        else
+        {
+          found_count += (found_naive && found_tree);
+        }
+      }
+
+      search_time_naive /= tries;
+      search_time_tree /= tries;
+
+      printf("Search time naive = %.2f us\n", search_time_naive);
+      printf("Search time tree = %.2f us\n", search_time_tree);
+
+      testing::check_greater(search_time_naive, search_time_tree, "Linear search time (us)", "Ball tree search time (us)");
+      testing::check_equal(error_count, 0, "Search errors", "0");
+    }
 }
