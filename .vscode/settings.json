@@ -93,7 +93,8 @@
       "execution": "cpp",
       "*.ipp": "cpp",
       "any": "cpp",
-      "regex": "cpp"
+      "regex": "cpp",
+      "source_location": "cpp"
     },
     "C_Cpp.default.compilerPath": "/usr/bin/g++-11",
     "cmake.debugConfig": {

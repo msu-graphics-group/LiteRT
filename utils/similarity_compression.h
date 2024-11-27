@@ -15,7 +15,9 @@ namespace scom
 
   enum class SearchAlgorithm
   {
-    BRUTE_FORCE
+    BRUTE_FORCE,   //for cycle for all nodes
+    LINEAR_SEARCH, //even slower than BRUTE_FORCE, for debug only
+    BALL_TREE      //use ball tree acceleration structure
   };
 
   struct Settings

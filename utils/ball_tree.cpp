@@ -242,7 +242,7 @@ namespace scom
 
           if (dist_sq < max_dist_sq)
           {
-            callback(m_original_ids[cur_node.start_index + i], m_points[cur_node.start_index + i], point);
+            callback(sqrtf(dist_sq), m_original_ids[cur_node.start_index + i], m_points[cur_node.start_index + i], point);
             count++;
           }
         }

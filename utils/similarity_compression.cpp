@@ -1,7 +1,9 @@
 #include "similarity_compression.h"
 #include "similarity_compression_impl.h"
+#include "ball_tree.h"
 #include <cassert>
 #include <atomic>
+#include <chrono>
 
 namespace scom
 {
@@ -29,6 +31,35 @@ namespace scom
                                         0, 0, 0, 1);
       rot_transforms[i] = LiteMath::translate4x4(float3(v_size/2.0f - 0.5f + 1e-3f)) * rot * LiteMath::translate4x4(-float3(v_size/2.0f - 0.5f));
     }
+  }
+
+  std::vector<unsigned> generate_inverse_transform_indices(std::vector<float4x4> &rot_transforms)
+  {
+    std::vector<unsigned> inverse_indices(rot_transforms.size());
+    int inverses_found = 0;
+    for (int i=0; i<rot_transforms.size(); i++)
+    {
+      float4x4 inv = LiteMath::inverse4x4(rot_transforms[i]);
+      for (int j=0; j<rot_transforms.size(); j++)
+      {
+        float diff = 0;
+        for (int k=0; k<4; k++)
+          for (int l=0; l<4; l++)
+            diff += abs(rot_transforms[j][k][l] - inv[k][l]);
+        if (diff < 1e-6f)
+        {
+          inverse_indices[i] = j;
+          inverses_found++;
+          break;
+        }
+      }
+    }
+    printf("inverse indices = {");
+    for (int i=0; i<rot_transforms.size(); i++)
+      printf("%d, ", inverse_indices[i]);
+    printf("}\n");
+    assert(inverses_found == rot_transforms.size());
+    return inverse_indices;
   }
 
   struct TransformCompact
@@ -64,20 +95,18 @@ namespace scom
     return get_transform_code(get_identity_transform());
   }
 
-  //brute force + replacement
-  void similarity_compression_naive(const sdf_converter::GlobalOctree &g_octree, const Settings &settings, CompressionOutput &output)
+  //replacement
+  void similarity_compression_replacement(const sdf_converter::GlobalOctree &g_octree, const Settings &settings, CompressionOutput &output)
   {
-    constexpr float invalid_dist = 1000;
     constexpr int num_bins = 100;
     float max_val = 0.01f;
     int valid_nodes = 0;
     int surface_nodes = 0;
-    float dist_thr = settings.similarity_threshold;
 
     int v_size = g_octree.header.brick_size + 2 * g_octree.header.brick_pad + 1;
     int dist_count = v_size * v_size * v_size;
     std::vector<float> average_brick_val(g_octree.nodes.size(), 0);
-    std::vector<float> closest_dist(g_octree.nodes.size(), invalid_dist);
+    std::vector<float> closest_dist(g_octree.nodes.size(), settings.similarity_threshold);
     std::vector<int> closest_idx(g_octree.nodes.size(), -1);
     std::vector<unsigned> remap(g_octree.nodes.size());
     std::vector<TransformCompact> remap_transforms(g_octree.nodes.size());
@@ -87,6 +116,15 @@ namespace scom
     std::vector<float4x4> rotations4;
 
     initialize_rot_transforms(rotations4, v_size);
+
+    //if you need to regenerate them, call generate_inverse_transform_indices
+    //std::vector<unsigned> inverse_indices = generate_inverse_transform_indices(rotations4);
+    std::vector<unsigned> inverse_indices = {0, 2, 1, 3, 14, 25, 6, 7, 
+                                             8, 9, 19, 32, 12, 26, 4, 15, 
+                                             38, 28, 30, 10, 20, 33, 22, 44, 
+                                             24, 5, 13, 27, 17, 37, 18, 31, 
+                                             11, 21, 43, 35, 36, 29, 16, 39, 
+                                             41, 40, 42, 34, 23, 45, 46, 47, };
 
     for (int i=0; i<ROT_COUNT; i++)
      brick_rotations[i] = std::vector<float>(dist_count, 0);
@@ -187,7 +225,7 @@ namespace scom
               int idx = x * v_size * v_size + y * v_size + z;
               int3 rot_vec2 = int3(LiteMath::mul4x3(rotations4[r_id], float3(x, y, z)));
               int rot_idx = rot_vec2.x * v_size * v_size + rot_vec2.y * v_size + rot_vec2.z;
-              dataset.all_points[off_dataset + idx] = mask_norm * distance_mult_mask[idx] * g_octree.values_f[off_a + rot_idx];
+              dataset.all_points[off_dataset + idx] = mask_norm * distance_mult_mask[idx] * (g_octree.values_f[off_a + rot_idx] - average_brick_val[i]);
             }
           }
         }
@@ -195,60 +233,88 @@ namespace scom
       cur_point_group++;
     }
 
+    std::unique_ptr<INNSearchAS> NN_search_AS;
+
+    if (settings.search_algorithm == SearchAlgorithm::LINEAR_SEARCH)
+    {
+      NN_search_AS.reset(new LinearSearchAS());
+      NN_search_AS->build(dataset, 1);
+    }
+    else if (settings.search_algorithm == SearchAlgorithm::BALL_TREE)
+    {
+      NN_search_AS.reset(new BallTree());
+      NN_search_AS->build(dataset, 32);
+    }
+
     int remapped = 0;
+
+    auto t1 = std::chrono::high_resolution_clock::now();
     for (int point_a = 0; point_a < dataset.data_points.size(); point_a+=ROT_COUNT)
     {
       int i  = dataset.data_points[point_a].original_id;
       if (surface_node[i] == false || remap[i] != i)
         continue;
+      
+      int off_a = dataset.data_points[point_a].data_offset;
 
-#pragma omp parallel for schedule(static)
-      for (int point_b = point_a + ROT_COUNT; point_b < dataset.data_points.size(); point_b+=ROT_COUNT)
+      if (settings.search_algorithm == SearchAlgorithm::BRUTE_FORCE)
       {
-        int j  = dataset.data_points[point_b].original_id;
-        float add = dataset.data_points[point_b].average_val - dataset.data_points[point_a].average_val;
-
-        if (surface_node[j] == false)
-          continue;
-
-        float min_dist = 1000;
-        int min_r_id = 0;
-
-        for (int r_id = 0; r_id < ROT_COUNT; r_id++)
+        #pragma omp parallel for schedule(static)
+        for (int point_b = point_a + ROT_COUNT; point_b < dataset.data_points.size(); point_b++)
         {
-          int off_a = dataset.data_points[point_a + r_id].data_offset;
+          int j = dataset.data_points[point_b].original_id;
           int off_b = dataset.data_points[point_b].data_offset;
 
           float diff = 0;
           float dist = 0;
           for (int k = 0; k < dist_count; k++)
           {
-            diff = dataset.all_points[off_a + k] - dataset.all_points[off_b + k] + add;
+            diff = dataset.all_points[off_a + k] - dataset.all_points[off_b + k];
             dist += diff * diff;
           }
           dist = sqrtf(dist);
-          if (dist < min_dist)
+
+          if (dist < settings.similarity_threshold)
           {
-            min_dist = dist;
-            min_r_id = r_id;
-          }
-        }
-        if (min_dist < dist_thr)
-        {
-#pragma omp critical
-          {
-            //printf("min_dist = %f\n", min_dist);
-            // printf("min_r_id = %d\n", min_r_id);
-            remapped += remap[j] == j;
-            remap[j] = i;
-            remap_transforms[j].rotation_id = min_r_id;
-            remap_transforms[j].add = add;
-            closest_dist[j] = min_dist;
+            #pragma omp critical
+            if (dist < closest_dist[j])
+            {
+              remapped += remap[j] == j;
+              remap[j] = i;
+              remap_transforms[j].rotation_id = inverse_indices[dataset.data_points[point_b].rotation_id];
+              remap_transforms[j].add = dataset.data_points[point_b].average_val - dataset.data_points[point_a].average_val;
+              closest_dist[j] = dist;
+            }
           }
         }
       }
-    }
+      else
+      {
+        NN_search_AS->scan_near(dataset.all_points.data() + off_a, settings.similarity_threshold,
+          [&](float dist, unsigned point_b, const DataPoint &, const float *)
+          {
+            if (point_b < point_a + ROT_COUNT)
+              return;
+            int j = dataset.data_points[point_b].original_id;
 
+            #pragma omp critical
+            {
+              if (dist < closest_dist[j])
+              {
+                remapped += remap[j] == j;
+                remap[j] = i;
+                remap_transforms[j].rotation_id = inverse_indices[dataset.data_points[point_b].rotation_id];
+                remap_transforms[j].add = dataset.data_points[point_b].average_val - dataset.data_points[point_a].average_val;
+                closest_dist[j] = dist;
+              }
+            }
+          });
+      }
+    }
+    auto t2 = std::chrono::high_resolution_clock::now();
+
+    float time = std::chrono::duration_cast<std::chrono::microseconds>(t2-t1).count();
+    printf("remapping took %.1f s (%.1f ms/leaf)\n", 1e-6f*time, 1e-3f*time/surface_nodes);
     printf("remapped %d/%d nodes\n", remapped, surface_nodes);
 
     output.node_id_cleaf_id_remap.resize(g_octree.nodes.size(), 0);
@@ -288,14 +354,13 @@ namespace scom
 
   void similarity_compression(const sdf_converter::GlobalOctree &octree, const Settings &settings, CompressionOutput &output)
   {
-    if (settings.clustering_algorithm == ClusteringAlgorithm::REPLACEMENT &&
-        settings.search_algorithm == SearchAlgorithm::BRUTE_FORCE)
+    if (settings.clustering_algorithm == ClusteringAlgorithm::REPLACEMENT)
     {
-      similarity_compression_naive(octree, settings, output);
+      similarity_compression_replacement(octree, settings, output);
     }
     else
     {
-      printf("Only naive (brute force + replacement) similarity compression is supported\n");
+      printf("Only replacement similarity compression is supported\n");
     }
   }
 }

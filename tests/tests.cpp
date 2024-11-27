@@ -4900,6 +4900,7 @@ void litert_test_49_similarity_compression()
 
   scom::Settings scom_settings;
   scom_settings.similarity_threshold = 0.025f;
+  scom_settings.search_algorithm = scom::SearchAlgorithm::BALL_TREE;
 
   coctree_comp.header = coctree.header;
   coctree_comp.header.sim_compression = 1;

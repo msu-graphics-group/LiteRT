@@ -5,10 +5,11 @@
 namespace scom
 {
   /// Callback function for near neighbor search
+  /// @param dist distance to point
   /// @param idx index of point in dataset
   /// @param point point info
   /// @param data  N-dimensional vector
-  using ScanFunction = std::function<void(unsigned idx, const DataPoint &, const float *)>;
+  using ScanFunction = std::function<void(float dist, unsigned idx, const DataPoint &, const float *)>;
 
   //Interface for acceleration structure for near neighbor search
   class INNSearchAS
@@ -73,7 +74,7 @@ namespace scom
         
         if (dist_sq < max_dist_sq)
         {
-          callback(i, m_dataset.data_points[i], m_dataset.all_points.data() + i*m_dim);
+          callback(sqrtf(dist_sq), i, m_dataset.data_points[i], m_dataset.all_points.data() + i*m_dim);
           ++scan_count;
         }
       }

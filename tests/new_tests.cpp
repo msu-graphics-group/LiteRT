@@ -722,12 +722,12 @@ namespace litert_tests
         std::vector<bool> points_found_naive(points_count, false);
         std::vector<bool> points_found_tree(points_count, false);
 
-        naive.scan_near(point, limit, [&points_found_naive](unsigned idx, const scom::DataPoint &point, const float *data) 
+        naive.scan_near(point, limit, [&points_found_naive](float dist, unsigned idx, const scom::DataPoint &point, const float *data) 
         {
           points_found_naive[idx] = true;
         });
 
-        tree.scan_near(point, limit, [&points_found_tree](unsigned idx, const scom::DataPoint &point, const float *data) 
+        tree.scan_near(point, limit, [&points_found_tree](float dist, unsigned idx, const scom::DataPoint &point, const float *data) 
         {
           points_found_tree[idx] = true;
         });
