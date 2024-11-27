@@ -1710,7 +1710,7 @@ void add_border_nodes_rec(const SdfFrameOctreeTexView &octree, std::vector<BVHNo
         more = true;
     }
 
-    if (true)
+    if (less && more)
     {
       float3 min_pos = 2.0f*(d*p) - 1.0f;
       float3 max_pos = min_pos + 2.0f*d*float3(1,1,1);
