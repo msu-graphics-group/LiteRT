@@ -1,3 +1,4 @@
+#pragma once
 #include "similarity_compression.h"
 
 namespace scom

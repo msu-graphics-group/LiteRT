@@ -641,6 +641,9 @@ namespace litert_tests
       tree.build(dataset, 8);
       auto t2 = std::chrono::high_resolution_clock::now();
       printf("build took %d us\n", (int)std::chrono::duration_cast<std::chrono::microseconds>(t2-t1).count());
+
+      scom::LinearSearchAS naive;
+      naive.build(dataset, 8);
       
       double search_time_naive = 0;
       double search_time_tree = 0;
@@ -658,24 +661,11 @@ namespace litert_tests
         float limit = 0.1f*DIM*((float)rand() / (float) RAND_MAX);
         //limit = 10;
 
-        const float *min_point_naive = nullptr;
-        float min_distance_naive = limit;
-
       auto t1 = std::chrono::high_resolution_clock::now();
-        for (int j = 0; j < points_count; ++j) 
-        {
-          float dist = 0;
-          for (int k = 0; k < DIM; ++k)
-            dist += (point[k] - dataset.all_points[j*DIM + k]) * (point[k] - dataset.all_points[j*DIM + k]);
-          dist = sqrt(dist);
-          //printf("data %f %f %f, dist = %f\n", data[j*DIM + 0], data[j*DIM + 1], data[j*DIM + 2], dist);
-          if (dist < min_distance_naive) 
-          {
-            min_distance_naive = dist;
-            min_point_naive = dataset.all_points.data() + j*DIM;
-          }
-        }
-      
+     
+        float min_distance_naive = 1000;
+        const float *min_point_naive = naive.get_closest_point(point, limit, &min_distance_naive);
+
       auto t2 = std::chrono::high_resolution_clock::now();
 
         float min_distance = 1000;
@@ -717,10 +707,44 @@ namespace litert_tests
       search_time_naive /= tries;
       search_time_tree /= tries;
 
-      printf("Search time naive = %.2f us\n", search_time_naive);
-      printf("Search time tree = %.2f us\n", search_time_tree);
+      //printf("Search time naive = %.2f us\n", search_time_naive);
+      //printf("Search time tree = %.2f us\n", search_time_tree);
+
+      int scan_errors = 0;
+      for (int i = 0; i < tries; ++i) 
+      {
+        float point[DIM];
+        for (int j = 0; j < DIM; ++j)
+          point[j] = 2*(float) rand() / (float) RAND_MAX + 1;
+
+        float limit = 0.1f*DIM*((float)rand() / (float) RAND_MAX);
+
+        std::vector<bool> points_found_naive(points_count, false);
+        std::vector<bool> points_found_tree(points_count, false);
+
+        naive.scan_near(point, limit, [&points_found_naive](unsigned idx, const scom::DataPoint &point, const float *data) 
+        {
+          points_found_naive[idx] = true;
+        });
+
+        tree.scan_near(point, limit, [&points_found_tree](unsigned idx, const scom::DataPoint &point, const float *data) 
+        {
+          points_found_tree[idx] = true;
+        });
+
+        for (int j = 0; j < points_count; ++j)
+        {
+          if (points_found_naive[j] != points_found_tree[j])
+          {
+            scan_errors++;
+            printf("point %f %f %f, ", point[0], point[1], point[2]);
+            printf("found %d %d\n",(int)points_found_naive[j], (int)points_found_tree[j]);
+          }
+        }
+      }
 
       testing::check_greater(search_time_naive, search_time_tree, "Linear search time (us)", "Ball tree search time (us)");
       testing::check_equal(error_count, 0, "Search errors", "0");
+      testing::check_equal(scan_errors, 0, "Scan errors", "0");
     }
 }

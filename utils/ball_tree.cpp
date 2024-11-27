@@ -18,10 +18,12 @@ namespace scom
 
     m_points_data.clear();
     m_points.clear();
+    m_original_ids.clear();
     m_nodes.clear();
 
     m_points_data.reserve(dataset.all_points.size());
     m_points.reserve(dataset.data_points.size());
+    m_original_ids.reserve(dataset.data_points.size());
     m_nodes.reserve(2*dataset.data_points.size()/max_leaf_size);
     m_centroids_data.reserve(2*dataset.data_points.size() * m_dim / max_leaf_size);
 
@@ -33,6 +35,7 @@ namespace scom
   
     m_points_data.shrink_to_fit();
     m_points.shrink_to_fit();
+    m_original_ids.shrink_to_fit();
     m_nodes.shrink_to_fit();
   }
 
@@ -67,11 +70,13 @@ namespace scom
       // build leaf node
       unsigned start_id = m_points.size(); 
 
-      m_points.resize(m_points.size() + n);
+      m_points.resize(start_id + n);
+      m_original_ids.resize(start_id + n);
       m_points_data.resize(m_points_data.size() + n * m_dim);
       for (int i = 0; i < n; ++i)
       {
         m_points[start_id + i] = dataset.data_points[index[i]];
+        m_original_ids[start_id + i] = index[i];
         memcpy(m_points_data.data() + (start_id + i)* m_dim, dataset.all_points.data() + index[i] * m_dim, m_dim * sizeof(float));
       }
 
@@ -157,8 +162,6 @@ namespace scom
 
   const float *BallTree::get_closest_point(const float *query, float max_dist, float *dist_to_nearest) const
   {
-    int intersections = 0;
-    int nodes_traversed = 0;
     constexpr unsigned MAX_STACK_SIZE = 128;
     std::array<unsigned, MAX_STACK_SIZE> stack;
     int top = 0;
@@ -168,14 +171,12 @@ namespace scom
     float nearest_dist_sq = max_dist * max_dist;
     while (top > 0)
     {
-      nodes_traversed++;
       const Node &cur_node = m_nodes[stack[top - 1]];
       // printf("cur_node %p\n", cur_node);
       top--;
 
       if (cur_node.l_idx == 0) // is leaf
       {
-        intersections += cur_node.count;
         for (int i = 0; i < cur_node.count; ++i)
         {
           // compute the actual distance
@@ -209,11 +210,64 @@ namespace scom
       }
     }
 
-    if (cur_nearest != nullptr)
+    if (cur_nearest && dist_to_nearest)
     {
       *dist_to_nearest = sqrtf(nearest_dist_sq);
     }
     return cur_nearest;
+  }
+
+  int BallTree::scan_near(const float *query, float max_dist, ScanFunction callback) const
+  {
+    constexpr unsigned MAX_STACK_SIZE = 128;
+    std::array<unsigned, MAX_STACK_SIZE> stack;
+    int top = 0;
+    stack[top] = 0;
+    top = 1;
+    float max_dist_sq = max_dist * max_dist;
+    int count = 0;
+
+    while (top > 0)
+    {
+      const Node &cur_node = m_nodes[stack[top - 1]];
+      top--;
+
+      if (cur_node.l_idx == 0) // is leaf
+      {
+        for (int i = 0; i < cur_node.count; ++i)
+        {
+          // compute the actual distance
+          const float *point = m_points_data.data() + (cur_node.start_index + i) * m_dim;
+          float dist_sq = distance_sqr(query, point);
+
+          if (dist_sq < max_dist_sq)
+          {
+            callback(m_original_ids[cur_node.start_index + i], m_points[cur_node.start_index + i], point);
+            count++;
+          }
+        }
+      }
+      else
+      {
+        const Node &left_node = m_nodes[cur_node.l_idx];
+        float left_center_dist_sq = distance_sqr(query, m_centroids_data.data() + left_node.centroid_index * m_dim);
+        if (sqrtf(left_center_dist_sq) < left_node.radius + sqrtf(max_dist_sq))
+        {
+          stack[top] = cur_node.l_idx;
+          top++;
+        }
+
+        const Node &right_node = m_nodes[cur_node.r_idx];
+        float right_center_dist_sq = distance_sqr(query, m_centroids_data.data() + right_node.centroid_index * m_dim);
+        if (sqrtf(right_center_dist_sq) < right_node.radius + sqrtf(max_dist_sq))
+        {
+          stack[top] = cur_node.r_idx;
+          top++;
+        }
+      }
+    }
+
+    return count;
   }
 
   bool test_ball_tree()
