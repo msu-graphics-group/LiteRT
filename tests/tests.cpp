@@ -4498,7 +4498,7 @@ void litert_test_44_point_query()
   }
 }
 
-void print_compare_trees_data(const std::vector<SdfFrameOctreeTexNode> &f_1, const std::vector<SdfFrameOctreeTexNode> &f_2, unsigned idx1, unsigned idx2, bool is_start, unsigned depth = 0)
+void print_compare_trees_data(const std::vector<SdfFrameOctreeNode> &f_1, const std::vector<SdfFrameOctreeNode> &f_2, unsigned idx1, unsigned idx2, bool is_start, unsigned depth = 0)
 {
   printf("%u - ", depth);
   if (is_start || (idx1 > 0 && idx2 > 0))
@@ -4542,7 +4542,7 @@ void print_compare_trees_data(const std::vector<SdfFrameOctreeTexNode> &f_1, con
 void litert_test_45_global_octree_to_COctreeV3()
 {
   printf("TEST 45. COMPACT OCTREE V3 USING GLOBAL OCTREE\n");
-  auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "scenes/01_simple_scenes/data/sphere.vsgf").c_str());
+  auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "scenes/01_simple_scenes/data/bunny.vsgf").c_str());
   cmesh4::normalize_mesh(mesh);
 
   MultiRenderPreset preset = getDefaultPreset();
@@ -4555,11 +4555,12 @@ void litert_test_45_global_octree_to_COctreeV3()
   int depth = 4;
 
   SparseOctreeSettings settings = SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, depth);
-  std::vector<SdfFrameOctreeTexNode> frame, fr_r;
-  //std::vector<SdfFrameOctreeTexNode> frame;
+  std::vector<SdfFrameOctreeNode> frame, fr_r;
   std::vector<SdfSVSNode> svs, svs_r;
+  std::vector<uint32_t> coc2, coc2_r;
   svs_r = sdf_converter::create_sdf_SVS(settings, mesh);
-  fr_r = sdf_converter::create_sdf_frame_octree_tex(settings, mesh);
+  fr_r = sdf_converter::create_sdf_frame_octree(settings, mesh);
+  coc2_r = sdf_converter::frame_octree_to_compact_octree_v2(fr_r);
 
   auto tlo = cmesh4::create_triangle_list_octree(mesh, settings.depth, 0, 1.0f);
   sdf_converter::GlobalOctree g;
@@ -4586,8 +4587,9 @@ void litert_test_45_global_octree_to_COctreeV3()
   g.header.brick_size = 1;
   g.header.brick_pad = 0;
   sdf_converter::mesh_octree_to_global_octree(mesh, tlo, g);
-  sdf_converter::global_octree_to_frame_octree_tex(g, frame);
+  sdf_converter::global_octree_to_frame_octree(g, frame);
   sdf_converter::global_octree_to_SVS(g, svs);
+  sdf_converter::global_octree_to_compact_octree_v2(g, coc2);
   //print_compare_trees_data(frame, fr_r, 0, 0, true);
   float psnr = 100;
   auto t2 = std::chrono::steady_clock::now();
@@ -4654,6 +4656,29 @@ void litert_test_45_global_octree_to_COctreeV3()
   }
 
   printf("  45.3 %-64s", "Global Octree to SVS");
+  psnr = image_metrics::PSNR(image_r, image);
+  if (psnr >= 30)
+    printf("passed    (%.9f)\n", psnr);
+  else
+    printf("FAILED, psnr = %f\n", psnr);
+  
+  {
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
+    pRender->SetPreset(preset);
+    pRender->SetScene_COctreeV2(coc2);
+    render(image, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset);
+    LiteImage::SaveImage<uint32_t>("saves/test_45_cocv2.bmp", image); 
+  }
+
+  {
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
+    pRender->SetPreset(preset);
+    pRender->SetScene_COctreeV2(coc2_r);
+    render(image_r, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset);
+    LiteImage::SaveImage<uint32_t>("saves/test_45_cocv2_r.bmp", image_r); 
+  }
+
+  printf("  45.4 %-64s", "Global Octree to Compact Octree V2");
   psnr = image_metrics::PSNR(image_r, image);
   if (psnr >= 30)
     printf("passed    (%.9f)\n", psnr);
