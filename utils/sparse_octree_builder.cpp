@@ -1304,7 +1304,6 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
     tmp_octree.header = out_octree.header;
     tmp_octree.nodes.resize(tl_octree.nodes.size());
 
-    unsigned nodes_cnt = 1;
     for (auto i : tl_octree.nodes)
     {
       assert(!(i.offset != 0 && i.tid_count == 0));
@@ -1313,7 +1312,6 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
     //std::unordered_map<float3, float2, PositionHasher, PositionEqual> texs;
     //mesh_octree_to_global_octree_rec(mesh, tl_octree, tmp_octree, /*distances, texs,*/ 0, float3(0,0,0), 1, 0, nodes_cnt);
     linear_mesh_octree_to_global_octree(mesh, tl_octree, tmp_octree, omp_get_max_threads());
-    tmp_octree.nodes.resize(nodes_cnt);
     
     unsigned nn = global_octree_count_and_mark_active_nodes_rec(tmp_octree, 0);
     assert(!is_leaf(tmp_octree.nodes[0].offset));
