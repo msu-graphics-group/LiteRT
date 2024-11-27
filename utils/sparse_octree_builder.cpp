@@ -1463,6 +1463,105 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
     global_octree_to_SBS_rec(octree, sbs, 0, 1, uint3(0,0,0));
   }
 
+  bool is_empty_node(const float *values)
+  {
+    float min_val = 1000;
+    float max_val = -1000;
+    for (int i = 0; i < 8; i++)
+    {
+      min_val = std::min(min_val, values[i]);
+      max_val = std::max(max_val, values[i]);
+    }
+
+    return min_val > 0 || max_val < 0;
+  }
+
+  void global_octree_to_compact_octree_v2_rec(const GlobalOctree &octree, std::vector<uint32_t> &compact,
+                                             unsigned nodeId, unsigned cNodeId, unsigned lod_size, uint3 p)
+  {
+    assert(cNodeId % 2 == 0);
+    unsigned ofs = octree.nodes[nodeId].offset;
+    //printf("node p = (%u, %u, %u), lod_size = %u\n", p.x, p.y, p.z, lod_size);
+    unsigned v_off = octree.nodes[nodeId].val_off;
+    assert(!(is_leaf(ofs) && is_empty_node(octree.values_f.data() + v_off)));
+
+    if (is_leaf(ofs))
+    {
+      float d_max = 2 * sqrt(3) / lod_size;
+      unsigned v_off = octree.nodes[nodeId].val_off;
+      for (int i = 0; i < 8; i++)
+      {
+        unsigned d_compressed = std::max(0.0f, 255 * ((octree.values_f[v_off + i] + d_max) / (2 * d_max)) + 0.5f);
+        d_compressed = std::min(d_compressed, 255u);
+        compact[cNodeId + i / 4] |= d_compressed << (8 * (i % 4));
+      }
+    }
+    else
+    {
+      unsigned ch_info = 0u;
+      unsigned ch_count = 0u;
+      unsigned l_count  = 0u;
+      unsigned char ch_is_active = 0u; //one bit per child
+      unsigned char ch_is_leaf   = 0u;  //one bit per child
+      int ch_ofs[8];
+
+      for (int i = 0; i < 8; i++)
+      {
+        unsigned child_info = ch_count;
+        if (is_leaf(octree.nodes[ofs + i].offset))
+        {
+          unsigned v_off = octree.nodes[ofs + i].val_off;
+          if (is_empty_node(octree.values_f.data() + v_off))
+          {
+            ch_ofs[i] = -1;
+          }    
+          else
+          {
+            ch_ofs[i] = ch_count;
+            ch_count++;
+            l_count ++;        
+            ch_is_active |= (1 << i);    
+            ch_is_leaf   |= (1 << i);
+          }      
+        }
+        else
+        {
+          ch_ofs[i] = ch_count;
+          ch_count++;     
+          ch_is_active |= (1 << i);      
+        }
+      }
+      
+      compact[cNodeId + 0] = compact.size();
+      compact[cNodeId + 1] = ch_is_active | (ch_is_leaf << 8u);
+
+      unsigned base_ch_off = compact.size();
+      compact.resize(base_ch_off + 2*ch_count, 0u);
+
+      for (int i = 0; i < 8; i++)
+      {
+        if (ch_ofs[i] >= 0)
+        {
+          uint3 ch_p = 2 * p + uint3((i & 4) >> 2, (i & 2) >> 1, i & 1);
+          global_octree_to_compact_octree_v2_rec(octree, compact, ofs + i, base_ch_off + 2*ch_ofs[i], 2 * lod_size, ch_p);
+        }
+      }
+    }
+  }
+
+  void global_octree_to_compact_octree_v2(const GlobalOctree &octree, std::vector<uint32_t> &compact)
+  {
+    assert(octree.header.brick_size == 1);
+    assert(octree.header.brick_pad == 0);
+
+    compact.reserve(2*octree.nodes.size());
+    compact.resize(2, 0u);
+
+    global_octree_to_compact_octree_v2_rec(octree, compact, 0, 0, 1, uint3(0,0,0));
+
+    compact.shrink_to_fit();
+  }
+
   struct LayerFrameNodeInfo
   {
     unsigned idx;
@@ -3169,19 +3268,6 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
     frame_octree_to_compact_octree_rec(frame, compact, 0, 1, uint3(0,0,0));
 
     return compact;
-  }
-
-  bool is_empty_node(const float *values)
-  {
-    float min_val = 1000;
-    float max_val = -1000;
-    for (int i = 0; i < 8; i++)
-    {
-      min_val = std::min(min_val, values[i]);
-      max_val = std::max(max_val, values[i]);
-    }
-
-    return min_val > 0 || max_val < 0;
   }
 
   void frame_octree_to_compact_octree_v2_rec(const std::vector<SdfFrameOctreeNode> &frame, std::vector<uint32_t> &compact,
