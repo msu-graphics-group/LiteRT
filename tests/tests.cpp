@@ -4895,6 +4895,8 @@ void litert_test_48_openvdb()
 
 void litert_test_49_similarity_compression()
 {
+  //  auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "saves/buddha/mesh.vsgf").c_str());
+  //  cmesh4::transform_mesh(mesh, rotate4x4Y(M_PI));
   auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "scenes/01_simple_scenes/data/bunny.vsgf").c_str());
   cmesh4::normalize_mesh(mesh);
 

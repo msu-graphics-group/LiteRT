@@ -164,6 +164,7 @@ namespace scom
 
     std::vector<float> distance_mult_mask(dist_count, 1.0f);
     float mult_sum = 0.0f;
+    assert(settings.distance_importance.x == 1.0f || settings.distance_importance.y == 1.0f || settings.distance_importance.z == 1.0f);
     for (int x = 0; x < v_size; x++)
     {
       for (int y = 0; y < v_size; y++)
@@ -199,13 +200,15 @@ namespace scom
     dataset.data_points.resize(surface_nodes * ROT_COUNT);
 
     float mask_norm = dist_count/mult_sum;
-    std::atomic<uint32_t> cur_point_group(0);
+    uint32_t cur_point_group = 0;
+    std::vector<unsigned> remap_2(g_octree.nodes.size(), 0);
     for (int i = 0; i < g_octree.nodes.size(); i++)
     {
       if (!surface_node[i])
         continue;
       
       int off_a = g_octree.nodes[i].val_off;
+      remap_2[i] = cur_point_group;
       
 #pragma omp parallel for schedule(static)
       for (int r_id = 0; r_id < ROT_COUNT; r_id++)
@@ -255,6 +258,9 @@ namespace scom
       if (surface_node[i] == false || remap[i] != i)
         continue;
       
+      remap_transforms[i].rotation_id = 0;
+      remap_transforms[i].add = dataset.data_points[point_a].average_val;
+      
       int off_a = dataset.data_points[point_a].data_offset;
 
       if (settings.search_algorithm == SearchAlgorithm::BRUTE_FORCE)
@@ -282,7 +288,7 @@ namespace scom
               remapped += remap[j] == j;
               remap[j] = i;
               remap_transforms[j].rotation_id = inverse_indices[dataset.data_points[point_b].rotation_id];
-              remap_transforms[j].add = dataset.data_points[point_b].average_val - dataset.data_points[point_a].average_val;
+              remap_transforms[j].add = dataset.data_points[point_b].average_val;
               closest_dist[j] = dist;
             }
           }
@@ -304,7 +310,7 @@ namespace scom
                 remapped += remap[j] == j;
                 remap[j] = i;
                 remap_transforms[j].rotation_id = inverse_indices[dataset.data_points[point_b].rotation_id];
-                remap_transforms[j].add = dataset.data_points[point_b].average_val - dataset.data_points[point_a].average_val;
+                remap_transforms[j].add = dataset.data_points[point_b].average_val;
                 closest_dist[j] = dist;
               }
             }
@@ -321,31 +327,44 @@ namespace scom
     output.tranform_codes.resize(g_octree.nodes.size(), 0);
     output.compressed_data.reserve(surface_nodes * dist_count);
 
-    std::vector<unsigned> remap_2(g_octree.nodes.size(), 0);
     int unique_node_id = 0;
+
+    std::vector<int> group_indices(surface_nodes, -1);
+    std::vector<float> centroid(dist_count, 0);
     for (int i = 0; i < g_octree.nodes.size(); i++)
     {
       if (!surface_node[i])
         continue;
       if (remap[i] == i)
       {
-        unsigned offset = g_octree.nodes[i].val_off;
-        remap_2[i] = unique_node_id;
-        output.compressed_data.insert(output.compressed_data.end(), g_octree.values_f.begin() + offset, g_octree.values_f.begin() + offset + dist_count);
-        output.node_id_cleaf_id_remap[i] = unique_node_id;
-        output.tranform_codes[i] = get_identity_transform_code();
-        unique_node_id++;
-      }
-    }
+        int group_indices_size = 0;
+        std::fill_n(centroid.data(), dist_count, 0);
+        for (int j = i; j < g_octree.nodes.size(); j++)
+        {
+          if (remap[j] == i)
+          {
+            group_indices[group_indices_size] = j;
+            for (int k = 0; k < dist_count; k++)
+              centroid[k] += dataset.all_points[(remap_2[j]*ROT_COUNT + inverse_indices[remap_transforms[j].rotation_id])*dist_count + k];
+            group_indices_size++;
+          }
+        }
 
-    for (int i = 0; i < g_octree.nodes.size(); i++)
-    {
-      if (!surface_node[i])
-        continue;
-      if (remap[i] != i)
-      {
-        output.node_id_cleaf_id_remap[i] = remap_2[remap[i]];
-        output.tranform_codes[i] = get_transform_code(remap_transforms[i]);
+        for (int k = 0; k < dist_count; k++)
+          centroid[k] /= group_indices_size;
+        
+        int p_size = output.compressed_data.size();
+        output.compressed_data.resize(p_size + dist_count);
+        for (int k = 0; k < dist_count; k++)
+          output.compressed_data[p_size + k] = centroid[k];
+
+        for (int j = 0; j < group_indices_size; j++)
+        {
+          int k = group_indices[j];
+          output.node_id_cleaf_id_remap[k] = unique_node_id;
+          output.tranform_codes[k] = get_transform_code(remap_transforms[k]);
+        }
+        unique_node_id++;
       }
     }
     output.leaf_count = unique_node_id;
