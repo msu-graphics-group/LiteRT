@@ -1209,7 +1209,6 @@ uint32_t BVHRT::AddGeom_COctreeV1(COctreeV1View octree, ISceneObject *fake_this,
 
 uint32_t BVHRT::AddGeom_COctreeV2(COctreeV2View octree, ISceneObject *fake_this, BuildOptions a_qualityLevel)
 {
-  printf("add octree v2 %u\n", octree.size);
   assert(m_SdfCompactOctreeV1Data.size() == 0); //only one compact octree per scene is supported
   assert(octree.size > 0);
   assert(octree.size < (1u<<28)); //huge grids shouldn't be here

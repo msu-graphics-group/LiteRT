@@ -1700,7 +1700,7 @@ std::chrono::steady_clock::time_point t5 = std::chrono::steady_clock::now();
     unsigned ofs = octree.nodes[nodeId].offset;
     //printf("node p = (%u, %u, %u), lod_size = %u\n", p.x, p.y, p.z, lod_size);
     unsigned v_off = octree.nodes[nodeId].val_off;
-    assert(!(is_leaf(ofs) && is_empty_node(octree.values_f.data() + v_off)));
+    assert(!(is_leaf(ofs) && !octree.nodes[nodeId].is_not_void));
 
     if (is_leaf(ofs))
     {
@@ -1728,7 +1728,7 @@ std::chrono::steady_clock::time_point t5 = std::chrono::steady_clock::now();
         if (is_leaf(octree.nodes[ofs + i].offset))
         {
           unsigned v_off = octree.nodes[ofs + i].val_off;
-          if (is_empty_node(octree.values_f.data() + v_off))
+          if (!octree.nodes[ofs + i].is_not_void)
           {
             ch_ofs[i] = -1;
           }    
