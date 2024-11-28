@@ -41,6 +41,9 @@ namespace sdf_converter
                             const cmesh4::TriangleListOctree &tl_octree, 
                             std::vector<SdfFrameOctreeNode> &out_frame);
 
+  void sdf_to_global_octree(SparseOctreeSettings settings, MultithreadedDistanceFunction sdf, 
+                            unsigned max_threads, GlobalOctree &octree);
+
   void mesh_octree_to_global_octree(const cmesh4::SimpleMesh &mesh,
                                     const cmesh4::TriangleListOctree &tl_octree, 
                                     GlobalOctree &out_octree);

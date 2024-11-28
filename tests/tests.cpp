@@ -4552,14 +4552,27 @@ void litert_test_45_global_octree_to_COctreeV3()
   LiteImage::Image2D<uint32_t> image(W, H);
   LiteImage::Image2D<uint32_t> image_r(W, H);
 
-  int depth = 4;
+  int max_threads = 6;
 
-  SparseOctreeSettings settings = SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, depth);
-  std::vector<SdfFrameOctreeNode> frame, fr_r;
+  std::vector<MeshBVH> bvh(max_threads);
+  for (unsigned i = 0; i < max_threads; i++)
+    bvh[i].init(mesh);
+  auto real_sdf = [&](const float3 &p, unsigned idx) -> float 
+  /*{
+    return sdMengerSponge(1.5f*float3((p.x+p.z)/sqrt(2), p.y, (p.x-p.z)/sqrt(2)))/1.5f;
+  };*/
+  { return bvh[idx].get_signed_distance(p); /*return sqrt(p.x * p.x + p.y * p.y + p.z * p.z) - 0.3;*/ };
+
+  int depth = 6;
+
+  SparseOctreeSettings settings = SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, depth), 
+                       settings2 = SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, depth);
+  std::vector<SdfFrameOctreeNode> frame, fr_r, frame_sdf, fr_sdf_r;
   std::vector<SdfSVSNode> svs, svs_r;
   std::vector<uint32_t> coc2, coc2_r;
   svs_r = sdf_converter::create_sdf_SVS(settings, mesh);
   fr_r = sdf_converter::create_sdf_frame_octree(settings, mesh);
+  fr_sdf_r = sdf_converter::create_sdf_frame_octree(settings2, mesh);
   coc2_r = sdf_converter::frame_octree_to_compact_octree_v2(fr_r);
 
   auto tlo = cmesh4::create_triangle_list_octree(mesh, settings.depth, 0, 1.0f);
@@ -4586,10 +4599,13 @@ void litert_test_45_global_octree_to_COctreeV3()
   sdf_converter::global_octree_to_compact_octree_v3(g, coctree, 1);
   g.header.brick_size = 1;
   g.header.brick_pad = 0;
+  //sdf_converter::sdf_to_global_octree(settings, real_sdf, max_threads, g);
   sdf_converter::mesh_octree_to_global_octree(mesh, tlo, g);
   sdf_converter::global_octree_to_frame_octree(g, frame);
   sdf_converter::global_octree_to_SVS(g, svs);
   sdf_converter::global_octree_to_compact_octree_v2(g, coc2);
+  sdf_converter::sdf_to_global_octree(settings2, real_sdf, max_threads, g);
+  sdf_converter::global_octree_to_frame_octree(g, frame_sdf);
   //print_compare_trees_data(frame, fr_r, 0, 0, true);
   float psnr = 100;
   auto t2 = std::chrono::steady_clock::now();
@@ -4679,6 +4695,29 @@ void litert_test_45_global_octree_to_COctreeV3()
   }
 
   printf("  45.4 %-64s", "Global Octree to Compact Octree V2");
+  psnr = image_metrics::PSNR(image_r, image);
+  if (psnr >= 30)
+    printf("passed    (%.9f)\n", psnr);
+  else
+    printf("FAILED, psnr = %f\n", psnr);
+
+  {
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
+    pRender->SetPreset(preset);
+    pRender->SetScene(frame_sdf);
+    render(image, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset);
+    LiteImage::SaveImage<uint32_t>("saves/test_45_frame_sdf.bmp", image); 
+  }
+
+  {
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
+    pRender->SetPreset(preset);
+    pRender->SetScene(fr_sdf_r);
+    render(image_r, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset);
+    LiteImage::SaveImage<uint32_t>("saves/test_45_frame_sdf_r.bmp", image_r); 
+  }
+
+  printf("  45.5 %-64s", "SDF to Global Octree to Framed Octree");
   psnr = image_metrics::PSNR(image_r, image);
   if (psnr >= 30)
     printf("passed    (%.9f)\n", psnr);
