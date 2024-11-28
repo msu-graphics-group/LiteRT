@@ -3701,7 +3701,7 @@ void litert_test_38_direct_octree_traversal()
     auto pRender = CreateMultiRenderer(DEVICE_GPU);
     pRender->SetPreset(preset);
     auto coctree_v2 = sdf_converter::frame_octree_to_compact_octree_v2(octree);
-    pRender->SetScene_COctreeV2(coctree_v2);
+    pRender->SetScene(COctreeV2View(coctree_v2));
     pRender->SetLights({create_direct_light(float3(1,1,-1), float3(2.0f/3.0f)), create_ambient_light(float3(0.25, 0.25, 0.25))});
 
     auto t1 = std::chrono::steady_clock::now();
@@ -4005,7 +4005,7 @@ void litert_test_41_coctree_v3()
     
     auto pRender = CreateMultiRenderer(DEVICE_GPU);
     pRender->SetPreset(preset);
-    pRender->SetScene_COctreeV2(coctree_v2);
+    pRender->SetScene(COctreeV2View(coctree_v2));
 
     auto t1 = std::chrono::steady_clock::now();
     pRender->Render(image_res.data(), W, H, worldView, proj, preset, 10);
@@ -4569,7 +4569,8 @@ void litert_test_45_global_octree_to_COctreeV3()
                        settings2 = SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, depth);
   std::vector<SdfFrameOctreeNode> frame, fr_r, frame_sdf, fr_sdf_r;
   std::vector<SdfSVSNode> svs, svs_r;
-  std::vector<uint32_t> coc2, coc2_r;
+  std::vector<uint32_t> coc2_r;
+  COctreeV2 coc2;
   svs_r = sdf_converter::create_sdf_SVS(settings, mesh);
   fr_r = sdf_converter::create_sdf_frame_octree(settings, mesh);
   fr_sdf_r = sdf_converter::create_sdf_frame_octree(settings2, mesh);
@@ -4679,9 +4680,10 @@ void litert_test_45_global_octree_to_COctreeV3()
     printf("FAILED, psnr = %f\n", psnr);
   
   {
+    //coc2.data = coc2_r;
     auto pRender = CreateMultiRenderer(DEVICE_GPU);
     pRender->SetPreset(preset);
-    pRender->SetScene_COctreeV2(coc2);
+    pRender->SetScene(coc2);
     render(image, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset);
     LiteImage::SaveImage<uint32_t>("saves/test_45_cocv2.bmp", image); 
   }
@@ -4689,7 +4691,7 @@ void litert_test_45_global_octree_to_COctreeV3()
   {
     auto pRender = CreateMultiRenderer(DEVICE_GPU);
     pRender->SetPreset(preset);
-    pRender->SetScene_COctreeV2(coc2_r);
+    pRender->SetScene(COctreeV2View(coc2_r));
     render(image_r, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset);
     LiteImage::SaveImage<uint32_t>("saves/test_45_cocv2_r.bmp", image_r); 
   }

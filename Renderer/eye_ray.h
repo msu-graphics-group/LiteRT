@@ -94,8 +94,8 @@ public:
   void SetScene(GraphicsPrimView scene);
   void SetScene(COctreeV3View scene, unsigned bvh_level);
 
-  void SetScene_COctreeV1(const std::vector<SdfCompactOctreeNode> &scene);
-  void SetScene_COctreeV2(const std::vector<uint32_t> &scene);
+  void SetScene(COctreeV1View scene);
+  void SetScene(COctreeV2View scene);
 
 #endif
   void Render(uint32_t* imageData, uint32_t a_width, uint32_t a_height, 

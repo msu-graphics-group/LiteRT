@@ -1166,11 +1166,11 @@ uint32_t BVHRT::AddGeom_GraphicsPrim(const GraphicsPrimView &prim_view, ISceneOb
   return fake_this->AddGeom_AABB(AbstractObject::TAG_GRAPHICS_PRIM, (const CRT_AABB*)orig_nodes.data(), orig_nodes.size(), nullptr, 1);
 }
 
-uint32_t BVHRT::AddGeom_COctreeV1(const std::vector<SdfCompactOctreeNode> &octree, ISceneObject *fake_this, BuildOptions a_qualityLevel)
+uint32_t BVHRT::AddGeom_COctreeV1(COctreeV1View octree, ISceneObject *fake_this, BuildOptions a_qualityLevel)
 {
   assert(m_SdfCompactOctreeV1Data.size() == 0); //only one compact octree per scene is supported
-  assert(octree.size() > 0);
-  assert(octree.size() < (1u<<28)); //huge grids shouldn't be here
+  assert(octree.size > 0);
+  assert(octree.size < (1u<<28)); //huge grids shouldn't be here
   //SDF octree is always a unit cube
   float4 mn = float4(-1,-1,-1,1);
   float4 mx = float4( 1, 1, 1,1);
@@ -1189,7 +1189,7 @@ uint32_t BVHRT::AddGeom_COctreeV1(const std::vector<SdfCompactOctreeNode> &octre
   m_geomData.back().type = TYPE_COCTREE_V1;
 
   //fill octree-specific data arrays
-  m_SdfCompactOctreeV1Data = octree;
+  m_SdfCompactOctreeV1Data = std::vector<SdfCompactOctreeNode>(octree.nodes, octree.nodes + octree.size);
 
   //create smallest possible list of bboxes for BLAS
   std::vector<BVHNode> orig_nodes;
@@ -1207,11 +1207,12 @@ uint32_t BVHRT::AddGeom_COctreeV1(const std::vector<SdfCompactOctreeNode> &octre
   return fake_this->AddGeom_AABB(m_abstractObjects.back().m_tag, (const CRT_AABB*)orig_nodes.data(), orig_nodes.size(), nullptr, 1);
 }
 
-uint32_t BVHRT::AddGeom_COctreeV2(const std::vector<uint32_t> &octree, ISceneObject *fake_this, BuildOptions a_qualityLevel)
+uint32_t BVHRT::AddGeom_COctreeV2(COctreeV2View octree, ISceneObject *fake_this, BuildOptions a_qualityLevel)
 {
+  printf("add octree v2 %u\n", octree.size);
   assert(m_SdfCompactOctreeV1Data.size() == 0); //only one compact octree per scene is supported
-  assert(octree.size() > 0);
-  assert(octree.size() < (1u<<28)); //huge grids shouldn't be here
+  assert(octree.size > 0);
+  assert(octree.size < (1u<<28)); //huge grids shouldn't be here
   //SDF octree is always a unit cube
   float4 mn = float4(-1,-1,-1,1);
   float4 mx = float4( 1, 1, 1,1);
@@ -1230,7 +1231,7 @@ uint32_t BVHRT::AddGeom_COctreeV2(const std::vector<uint32_t> &octree, ISceneObj
   m_geomData.back().type = TYPE_COCTREE_V2;
 
   //fill octree-specific data arrays
-  m_SdfCompactOctreeV2Data = octree;
+  m_SdfCompactOctreeV2Data = std::vector<uint32_t>(octree.data, octree.data + octree.size);
 
   //create smallest possible list of bboxes for BLAS
   std::vector<BVHNode> orig_nodes;

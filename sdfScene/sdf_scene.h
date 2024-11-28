@@ -441,6 +441,40 @@ struct SdfFrameOctreeTexView
   const SdfFrameOctreeTexNode *nodes;
 };
 
+struct COctreeV1View
+{
+  COctreeV1View() = default;
+  COctreeV1View(const std::vector<SdfCompactOctreeNode> &a_nodes)
+  {
+    size = a_nodes.size();
+    nodes = a_nodes.data();
+  }
+  unsigned size;
+  const SdfCompactOctreeNode *nodes;
+};
+
+struct COctreeV2
+{
+  std::vector<uint32_t> data;
+};
+
+struct COctreeV2View
+{
+  COctreeV2View() = default;
+  COctreeV2View(const COctreeV2 &a_octree)
+  {
+    data = a_octree.data.data();
+    size = a_octree.data.size();
+  }
+  explicit COctreeV2View(const std::vector<uint32_t> &a_data)
+  {
+    data = a_data.data();
+    size = a_data.size();
+  }
+  const uint32_t *data = nullptr;
+  uint32_t size = 0;
+};
+
 struct COctreeV3
 {
   static constexpr unsigned VERSION = 3; // change version if structure changes

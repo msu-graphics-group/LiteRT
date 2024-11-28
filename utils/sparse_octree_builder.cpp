@@ -1766,17 +1766,18 @@ std::chrono::steady_clock::time_point t5 = std::chrono::steady_clock::now();
     }
   }
 
-  void global_octree_to_compact_octree_v2(const GlobalOctree &octree, std::vector<uint32_t> &compact)
+  void global_octree_to_compact_octree_v2(const GlobalOctree &octree, COctreeV2 &compact)
   {
     assert(octree.header.brick_size == 1);
     assert(octree.header.brick_pad == 0);
 
-    compact.reserve(2*octree.nodes.size());
-    compact.resize(2, 0u);
+    compact.data.clear();
+    compact.data.reserve(2*octree.nodes.size());
+    compact.data.resize(2, 0u);
 
-    global_octree_to_compact_octree_v2_rec(octree, compact, 0, 0, 1, uint3(0,0,0));
+    global_octree_to_compact_octree_v2_rec(octree, compact.data, 0, 0, 1, uint3(0,0,0));
 
-    compact.shrink_to_fit();
+    compact.data.shrink_to_fit();
   }
 
   struct LayerFrameNodeInfo

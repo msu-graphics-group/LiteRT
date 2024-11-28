@@ -443,7 +443,7 @@ void MultiRenderer::SetScene(GraphicsPrimView scene)
   m_pAccelStruct->CommitScene();
 }
 
-void MultiRenderer::SetScene_COctreeV1(const std::vector<SdfCompactOctreeNode> &scene)
+void MultiRenderer::SetScene(COctreeV1View scene)
 {
   BVHRT *bvhrt = dynamic_cast<BVHRT*>(m_pAccelStruct->UnderlyingImpl(0));
   if (!bvhrt)
@@ -459,7 +459,7 @@ void MultiRenderer::SetScene_COctreeV1(const std::vector<SdfCompactOctreeNode> &
   AddInstance(geomId, LiteMath::float4x4());
   m_pAccelStruct->CommitScene();
 }
-void MultiRenderer::SetScene_COctreeV2(const std::vector<uint32_t> &scene)
+void MultiRenderer::SetScene(COctreeV2View scene)
 {
   BVHRT *bvhrt = dynamic_cast<BVHRT*>(m_pAccelStruct->UnderlyingImpl(0));
   if (!bvhrt)

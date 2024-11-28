@@ -52,7 +52,7 @@ namespace sdf_converter
   void global_octree_to_frame_octree_tex(const GlobalOctree &octree, std::vector<SdfFrameOctreeTexNode> &out_frame, unsigned material_id = 0);
   void global_octree_to_SVS(const GlobalOctree &octree, std::vector<SdfSVSNode> &svs);
   void global_octree_to_SBS(const GlobalOctree &octree, SdfSBS &sbs);
-  void global_octree_to_compact_octree_v2(const GlobalOctree &octree, std::vector<uint32_t> &compact);
+  void global_octree_to_compact_octree_v2(const GlobalOctree &octree, COctreeV2 &compact);
   void global_octree_to_compact_octree_v3(const GlobalOctree &octree, COctreeV3 &compact_octree, unsigned max_threads);
   void global_octree_to_compact_octree_v3(const GlobalOctree &octree, COctreeV3 &compact_octree, unsigned max_threads, const scom::Settings &settings);
 
