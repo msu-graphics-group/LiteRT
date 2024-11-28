@@ -21,7 +21,7 @@ using LiteMath::normalize;
 using LiteMath::to_float4;
 using LiteMath::to_float3;
 
-std::string base_blk_path = "config/";
+std::string base_blk_path = "./";
 
 int cur_line = 0;
 bool in_comment_assume = false;
