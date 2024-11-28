@@ -921,6 +921,9 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
               float3 ch_pos = pos + 2*(d/out_octree.header.brick_size)*float3(i,j,k);
               float sign = 1, min_dist_sq = 1000000;
 
+              float3 surface_pos = float3(0, 0, 0), min_a = float3(0, 0, 0), min_b = float3(0, 0, 0), min_c = float3(0, 0, 0);
+              int min_ti = -1;
+
               //float val = 1000.0f;
 
               //if (distances.find(ch_pos) == distances.end())
@@ -936,6 +939,11 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
                 if (min_dist_sq > dst_sq)
                 {
                   min_dist_sq = dst_sq;
+                  min_ti = t_i;
+                  min_a = a;
+                  min_b = b;
+                  min_c = c;
+                  surface_pos = cmesh4::closest_point_triangle(ch_pos, a, b, c);
                   if (LiteMath::dot(LiteMath::cross(a - b, a - c), vt) < 0)
                   {
                     sign = -1;
@@ -958,6 +966,16 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
                 val = distances[ch_pos];
               }*/
 
+              if ((i == 0 || i == out_octree.header.brick_size) &&
+                  (j == 0 || j == out_octree.header.brick_size) &&
+                  (k == 0 || k == out_octree.header.brick_size))
+              {
+                int num = (int(i / out_octree.header.brick_size) << 2) + (int(j / out_octree.header.brick_size) << 1) + int(k / out_octree.header.brick_size);
+                float3 bc = cmesh4::barycentric(surface_pos, min_a, min_b, min_c);
+                float2 tc = bc.x*mesh.vTexCoord2f[mesh.indices[3*min_ti+0]] + bc.y*mesh.vTexCoord2f[mesh.indices[3*min_ti+1]] + bc.z*mesh.vTexCoord2f[mesh.indices[3*min_ti+2]];
+                out_octree.nodes[idx].tex_coords[num] = tc;
+              }
+
               out_octree.values_f[out_octree.nodes[idx].val_off + (i+out_octree.header.brick_pad)*v_size*v_size + 
                                                                     (j+out_octree.header.brick_pad)*v_size + 
                                                                     (k+out_octree.header.brick_pad)] = sign * sqrtf(min_dist_sq);//val;
@@ -971,12 +989,50 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
             }
           }
         }
+
+        if (mesh.matIndices.size() == mesh.TrianglesNum())
+        {
+          float3 center = pos + d*float3(1,1,1);
+          float sign = 1, min_dist_sq = 1000000;
+          int min_ti = -1;
+          for (int tri=0; tri<tl_octree.nodes[idx].tid_count; tri++)
+          {
+            int t_i = tl_octree.triangle_ids[tl_octree.nodes[idx].tid_offset+tri];
+            float3 a = to_float3(mesh.vPos4f[mesh.indices[3*t_i+0]]);
+            float3 b = to_float3(mesh.vPos4f[mesh.indices[3*t_i+1]]);
+            float3 c = to_float3(mesh.vPos4f[mesh.indices[3*t_i+2]]);
+            float3 vt = center - cmesh4::closest_point_triangle(center, a, b, c);
+            float dst_sq = LiteMath::dot(vt, vt);
+            if (min_dist_sq > dst_sq)
+            {
+              min_dist_sq = dst_sq;
+              min_ti = t_i;
+              if (LiteMath::dot(LiteMath::cross(a - b, a - c), vt) < 0)
+              {
+                sign = -1;
+              }
+              else
+              {
+                sign = 1;
+              }
+            }
+          }
+          if (min_ti >= 0)
+            out_octree.nodes[idx].material_id = mesh.matIndices[min_ti];
+          else
+            out_octree.nodes[idx].material_id = 0;
+          //printf("material id %u\n", frame[idx].material_id);
+        }
+        else
+        {
+          out_octree.nodes[idx].material_id = 0;
+        }
         //tex coords
-        for (int i = 0; i < 8; ++i)
+        /*for (int i = 0; i < 8; ++i)
         {
           //float3 ch_pos = pos + 2*d*float3((i >> 2) & 1, (i >> 1) & 1, i & 1);
           out_octree.nodes[idx].tex_coords[i] = float2(0, 0);//temp stubs
-        }
+        }*/
         if (ofs == 0) out_octree.nodes[idx].is_not_void = (min_val <= 0 && max_val >= 0);
         //else out_octree.nodes[idx].is_not_void = true;
       }
@@ -1558,7 +1614,7 @@ std::chrono::steady_clock::time_point t5 = std::chrono::steady_clock::now();
     }
   }
 
-  void global_octree_to_frame_octree_tex(const GlobalOctree &octree, std::vector<SdfFrameOctreeTexNode> &out_frame, unsigned material_id)
+  void global_octree_to_frame_octree_tex(const GlobalOctree &octree, std::vector<SdfFrameOctreeTexNode> &out_frame)
   {
     assert(octree.header.brick_size == 1);
     assert(octree.header.brick_pad == 0);
@@ -1567,7 +1623,7 @@ std::chrono::steady_clock::time_point t5 = std::chrono::steady_clock::now();
     for (int i = 0; i < octree.nodes.size(); ++i)
     {
       out_frame[i].offset = octree.nodes[i].offset;
-      out_frame[i].material_id = material_id;
+      out_frame[i].material_id = octree.nodes[i].material_id;
       for (int j=0;j<8;j++)
       {
         out_frame[i].values[j] = octree.values_f[octree.nodes[i].val_off + j];
@@ -1644,9 +1700,11 @@ std::chrono::steady_clock::time_point t5 = std::chrono::steady_clock::now();
         unsigned bits = 8 * sbs.header.bytes_per_value;
         unsigned max_val = sbs.header.bytes_per_value == 4 ? 0xFFFFFFFF : ((1 << bits) - 1);
         unsigned vals_per_int = 4 / sbs.header.bytes_per_value;
+        unsigned texs_size = (sbs.header.aux_data & SDF_SBS_NODE_LAYOUT_MASK) == SDF_SBS_NODE_LAYOUT_DX_UV16 ? 32 : 0;
+        unsigned dist_size = (v_size * v_size * v_size + vals_per_int - 1) / vals_per_int;
 
         sbs.nodes.emplace_back();
-        sbs.values.resize(sbs.values.size() + (v_size * v_size * v_size + vals_per_int - 1) / vals_per_int);
+        sbs.values.resize(sbs.values.size() + dist_size + texs_size);
 
         sbs.nodes[n_off].data_offset = off;
         sbs.nodes[n_off].pos_xy = (p.x << 16) | p.y;
@@ -1657,6 +1715,15 @@ std::chrono::steady_clock::time_point t5 = std::chrono::steady_clock::now();
           unsigned d_compressed = std::max(0.0f, max_val * ((octree.values_f[v_off + i] + d_max) / (2 * d_max)));
           d_compressed = std::min(d_compressed, max_val);
           sbs.values[off + i / vals_per_int] |= d_compressed << (bits * (i % vals_per_int));
+        }
+        if ((sbs.header.aux_data & SDF_SBS_NODE_LAYOUT_MASK) == SDF_SBS_NODE_LAYOUT_DX_UV16)
+        {
+          for (int i = 0; i < 8; ++i)
+          {
+            unsigned packed_u = ((1<<16) - 1)*LiteMath::clamp(octree.nodes[node_idx].tex_coords[i].x, 0.0f, 1.0f);
+            unsigned packed_v = ((1<<16) - 1)*LiteMath::clamp(octree.nodes[node_idx].tex_coords[i].y, 0.0f, 1.0f);
+            sbs.values[off + dist_size + i] = (packed_u << 16) | (packed_v & 0x0000FFFF);
+          }
         }
       }
     }
@@ -1675,7 +1742,8 @@ std::chrono::steady_clock::time_point t5 = std::chrono::steady_clock::now();
   {
     assert(sbs.header.brick_size == octree.header.brick_size);
     assert(sbs.header.brick_pad == octree.header.brick_pad);
-    assert((sbs.header.aux_data & SDF_SBS_NODE_LAYOUT_MASK) == SDF_SBS_NODE_LAYOUT_DX);
+    assert((sbs.header.aux_data & SDF_SBS_NODE_LAYOUT_MASK) == SDF_SBS_NODE_LAYOUT_DX ||
+           (sbs.header.aux_data & SDF_SBS_NODE_LAYOUT_MASK) == SDF_SBS_NODE_LAYOUT_DX_UV16);
 
     global_octree_to_SBS_rec(octree, sbs, 0, 1, uint3(0,0,0));
   }

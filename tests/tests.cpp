@@ -4563,11 +4563,12 @@ void litert_test_45_global_octree_to_COctreeV3()
   };*/
   { return bvh[idx].get_signed_distance(p); /*return sqrt(p.x * p.x + p.y * p.y + p.z * p.z) - 0.3;*/ };
 
-  int depth = 6;
+  int depth = 4;
 
   SparseOctreeSettings settings = SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, depth), 
                        settings2 = SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, depth);
   std::vector<SdfFrameOctreeNode> frame, fr_r, frame_sdf, fr_sdf_r;
+  std::vector<SdfFrameOctreeTexNode> frame_tex, fr_tex_r;
   std::vector<SdfSVSNode> svs, svs_r;
   std::vector<uint32_t> coc2_r;
   COctreeV2 coc2;
@@ -4575,11 +4576,22 @@ void litert_test_45_global_octree_to_COctreeV3()
   fr_r = sdf_converter::create_sdf_frame_octree(settings, mesh);
   fr_sdf_r = sdf_converter::create_sdf_frame_octree(settings2, mesh);
   coc2_r = sdf_converter::frame_octree_to_compact_octree_v2(fr_r);
+  fr_tex_r = sdf_converter::create_sdf_frame_octree_tex(settings, mesh);
 
   auto tlo = cmesh4::create_triangle_list_octree(mesh, settings.depth, 0, 1.0f);
   sdf_converter::GlobalOctree g;
   g.header.brick_size = 4;
   g.header.brick_pad = 1;
+
+  SdfSBS sbs, sbs_r;
+  sbs.header.aux_data = SDF_SBS_NODE_LAYOUT_DX_UV16;
+  sbs.header.brick_pad = g.header.brick_pad;
+  sbs.header.brick_size = g.header.brick_size;
+  sbs.header.bytes_per_value = 4;
+  sbs_r.header = sbs.header;
+
+  sbs_r = sdf_converter::create_sdf_SBS_tex(settings, sbs_r.header, mesh);
+
   printf("start creating\n");
   sdf_converter::mesh_octree_to_global_octree(mesh, tlo, g);
   printf("global\n");
@@ -4598,6 +4610,8 @@ void litert_test_45_global_octree_to_COctreeV3()
   ref.data = sdf_converter::create_COctree_v3(settings, ref.header, mesh);
   coctree.data = ref.data;
   sdf_converter::global_octree_to_compact_octree_v3(g, coctree, 1);
+  sdf_converter::global_octree_to_SBS(g, sbs);
+
   g.header.brick_size = 1;
   g.header.brick_pad = 0;
   //sdf_converter::sdf_to_global_octree(settings, real_sdf, max_threads, g);
@@ -4605,6 +4619,7 @@ void litert_test_45_global_octree_to_COctreeV3()
   sdf_converter::global_octree_to_frame_octree(g, frame);
   sdf_converter::global_octree_to_SVS(g, svs);
   sdf_converter::global_octree_to_compact_octree_v2(g, coc2);
+  sdf_converter::global_octree_to_frame_octree_tex(g, frame_tex);
   sdf_converter::sdf_to_global_octree(settings2, real_sdf, max_threads, g);
   sdf_converter::global_octree_to_frame_octree(g, frame_sdf);
   //print_compare_trees_data(frame, fr_r, 0, 0, true);
@@ -4720,6 +4735,54 @@ void litert_test_45_global_octree_to_COctreeV3()
   }
 
   printf("  45.5 %-64s", "SDF to Global Octree to Framed Octree");
+  psnr = image_metrics::PSNR(image_r, image);
+  if (psnr >= 30)
+    printf("passed    (%.9f)\n", psnr);
+  else
+    printf("FAILED, psnr = %f\n", psnr);
+
+  preset.render_mode = MULTI_RENDER_MODE_TEX_COORDS;
+
+  {
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
+    pRender->SetPreset(preset);
+    pRender->SetScene(frame_tex);
+    render(image, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset);
+    LiteImage::SaveImage<uint32_t>("saves/test_45_frame_tex.bmp", image); 
+  }
+
+  {
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
+    pRender->SetPreset(preset);
+    pRender->SetScene(fr_tex_r);
+    render(image_r, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset);
+    LiteImage::SaveImage<uint32_t>("saves/test_45_frame_tex_r.bmp", image_r); 
+  }
+
+  printf("  45.6 %-64s", "Global Octree to Framed Octree Textured");
+  psnr = image_metrics::PSNR(image_r, image);
+  if (psnr >= 30)
+    printf("passed    (%.9f)\n", psnr);
+  else
+    printf("FAILED, psnr = %f\n", psnr);
+  
+  {
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
+    pRender->SetPreset(preset);
+    pRender->SetScene(sbs);
+    render(image, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset);
+    LiteImage::SaveImage<uint32_t>("saves/test_45_sbs_tex.bmp", image); 
+  }
+
+  {
+    auto pRender = CreateMultiRenderer(DEVICE_GPU);
+    pRender->SetPreset(preset);
+    pRender->SetScene(sbs_r);
+    render(image_r, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset);
+    LiteImage::SaveImage<uint32_t>("saves/test_45_sbs_tex_r.bmp", image_r); 
+  }
+
+  printf("  45.7 %-64s", "Global Octree to SBS Textured");
   psnr = image_metrics::PSNR(image_r, image);
   if (psnr >= 30)
     printf("passed    (%.9f)\n", psnr);
