@@ -62,6 +62,21 @@ namespace scom
     return inverse_indices;
   }
 
+  std::vector<unsigned> get_inverse_transform_indices()
+  {
+    //if you need to regenerate them, call generate_inverse_transform_indices
+    //    std::vector<float4x4> rotations4;
+    // initialize_rot_transforms(rotations4, v_size); v_size can vbe arbitrary
+    //std::vector<unsigned> inverse_indices = generate_inverse_transform_indices(rotations4);
+    std::vector<unsigned> inverse_indices = {0, 2, 1, 3, 14, 25, 6, 7, 
+                                             8, 9, 19, 32, 12, 26, 4, 15, 
+                                             38, 28, 30, 10, 20, 33, 22, 44, 
+                                             24, 5, 13, 27, 17, 37, 18, 31, 
+                                             11, 21, 43, 35, 36, 29, 16, 39, 
+                                             41, 40, 42, 34, 23, 45, 46, 47, };
+    return inverse_indices;
+  }
+
   struct TransformCompact
   {
     unsigned rotation_id;
@@ -95,72 +110,15 @@ namespace scom
     return get_transform_code(get_identity_transform());
   }
 
-  //replacement
-  void similarity_compression_replacement(const sdf_converter::GlobalOctree &g_octree, const Settings &settings, CompressionOutput &output)
+  void create_dataset(const sdf_converter::GlobalOctree &g_octree, const Settings &settings, const std::vector<bool> &surface_node,
+                      unsigned surface_node_count, const std::vector<float> &average_brick_val,
+                      /*out*/ Dataset &dataset)
   {
-    constexpr int num_bins = 100;
-    float max_val = 0.01f;
-    int valid_nodes = 0;
-    int surface_nodes = 0;
-
     int v_size = g_octree.header.brick_size + 2 * g_octree.header.brick_pad + 1;
     int dist_count = v_size * v_size * v_size;
-    std::vector<float> average_brick_val(g_octree.nodes.size(), 0);
-    std::vector<float> closest_dist(g_octree.nodes.size(), settings.similarity_threshold);
-    std::vector<int> closest_idx(g_octree.nodes.size(), -1);
-    std::vector<unsigned> remap(g_octree.nodes.size());
-    std::vector<TransformCompact> remap_transforms(g_octree.nodes.size());
-    std::vector<bool> surface_node(g_octree.nodes.size(), false);
-    std::vector<int> hist(num_bins+1, 0);
-    std::array<std::vector<float>, ROT_COUNT> brick_rotations; 
+
     std::vector<float4x4> rotations4;
-
     initialize_rot_transforms(rotations4, v_size);
-
-    //if you need to regenerate them, call generate_inverse_transform_indices
-    //std::vector<unsigned> inverse_indices = generate_inverse_transform_indices(rotations4);
-    std::vector<unsigned> inverse_indices = {0, 2, 1, 3, 14, 25, 6, 7, 
-                                             8, 9, 19, 32, 12, 26, 4, 15, 
-                                             38, 28, 30, 10, 20, 33, 22, 44, 
-                                             24, 5, 13, 27, 17, 37, 18, 31, 
-                                             11, 21, 43, 35, 36, 29, 16, 39, 
-                                             41, 40, 42, 34, 23, 45, 46, 47, };
-
-    for (int i=0; i<ROT_COUNT; i++)
-     brick_rotations[i] = std::vector<float>(dist_count, 0);
-
-    for (int i=0; i<g_octree.nodes.size(); i++)
-    {
-      remap[i] = i;
-      remap_transforms[i] = get_identity_transform();
-    }
-    
-    for (int i=0; i<g_octree.nodes.size(); i++)
-    {
-      int off = g_octree.nodes[i].val_off;
-      float min_val = 1000;
-      float max_val = -1000;
-
-      double sum_sq = 0;
-      double sum = 0;
-
-      for (int k=0; k<dist_count; k++)
-      {
-        min_val = std::min(min_val, g_octree.values_f[off+k]);
-        max_val = std::max(max_val, g_octree.values_f[off+k]);
-        sum_sq += g_octree.values_f[off+k]*g_octree.values_f[off+k];
-        sum += g_octree.values_f[off+k];
-      }
-
-      average_brick_val[i] = sum/dist_count;
-
-      float mult = 1.0/std::max(1e-6, sqrt(sum_sq));
-      if (g_octree.nodes[i].offset == 0 && g_octree.nodes[i].is_not_void)
-      {
-        surface_node[i] = true;
-        surface_nodes++;
-      }
-    }
 
     std::vector<float> distance_mult_mask(dist_count, 1.0f);
     float mult_sum = 0.0f;
@@ -176,49 +134,46 @@ namespace scom
               y < g_octree.header.brick_pad || y >= v_size - g_octree.header.brick_pad ||
               z < g_octree.header.brick_pad || z >= v_size - g_octree.header.brick_pad)
           {
-            mult = settings.distance_importance.x; //padding distance
+            mult = settings.distance_importance.x; // padding distance
           }
           else if (x < g_octree.header.brick_pad + 1 || x >= v_size - g_octree.header.brick_pad - 1 ||
                    y < g_octree.header.brick_pad + 1 || y >= v_size - g_octree.header.brick_pad - 1 ||
                    z < g_octree.header.brick_pad + 1 || z >= v_size - g_octree.header.brick_pad - 1)
           {
-            mult = settings.distance_importance.y; //border distance
+            mult = settings.distance_importance.y; // border distance
           }
           else
           {
-            mult = settings.distance_importance.z; //internal distance
+            mult = settings.distance_importance.z; // internal distance
           }
 
           mult_sum += mult;
-          distance_mult_mask[x*v_size*v_size + y*v_size + z] = mult;
+          distance_mult_mask[x * v_size * v_size + y * v_size + z] = mult;
         }
       }
     }
 
-    Dataset dataset;
-    dataset.all_points.resize(dist_count * ROT_COUNT * surface_nodes);
-    dataset.data_points.resize(surface_nodes * ROT_COUNT);
+    dataset.all_points.resize(dist_count * ROT_COUNT * surface_node_count);
+    dataset.data_points.resize(surface_node_count * ROT_COUNT);
 
-    float mask_norm = dist_count/mult_sum;
+    float mask_norm = dist_count / mult_sum;
     uint32_t cur_point_group = 0;
-    std::vector<unsigned> remap_2(g_octree.nodes.size(), 0);
     for (int i = 0; i < g_octree.nodes.size(); i++)
     {
       if (!surface_node[i])
         continue;
-      
+
       int off_a = g_octree.nodes[i].val_off;
-      remap_2[i] = cur_point_group;
-      
+
 #pragma omp parallel for schedule(static)
       for (int r_id = 0; r_id < ROT_COUNT; r_id++)
       {
-        int off_dataset = (cur_point_group*ROT_COUNT + r_id)*dist_count;
+        int off_dataset = (cur_point_group * ROT_COUNT + r_id) * dist_count;
 
-        dataset.data_points[cur_point_group*ROT_COUNT + r_id].average_val = average_brick_val[i];
-        dataset.data_points[cur_point_group*ROT_COUNT + r_id].data_offset = off_dataset;
-        dataset.data_points[cur_point_group*ROT_COUNT + r_id].original_id = i;
-        dataset.data_points[cur_point_group*ROT_COUNT + r_id].rotation_id = r_id;
+        dataset.data_points[cur_point_group * ROT_COUNT + r_id].average_val = average_brick_val[i];
+        dataset.data_points[cur_point_group * ROT_COUNT + r_id].data_offset = off_dataset;
+        dataset.data_points[cur_point_group * ROT_COUNT + r_id].original_id = i;
+        dataset.data_points[cur_point_group * ROT_COUNT + r_id].rotation_id = r_id;
         for (int x = 0; x < v_size; x++)
         {
           for (int y = 0; y < v_size; y++)
@@ -235,6 +190,46 @@ namespace scom
       }
       cur_point_group++;
     }
+  }
+
+  //replacement
+  void similarity_compression_replacement(const sdf_converter::GlobalOctree &g_octree, const Settings &settings, CompressionOutput &output)
+  {
+    int surface_node_count = 0;
+
+    int v_size = g_octree.header.brick_size + 2 * g_octree.header.brick_pad + 1;
+    int dist_count = v_size * v_size * v_size;
+    std::vector<float> average_brick_val(g_octree.nodes.size(), 0);
+    std::vector<float> closest_dist(g_octree.nodes.size(), settings.similarity_threshold);
+    std::vector<unsigned> remap(g_octree.nodes.size());
+    std::vector<unsigned> remap_2(g_octree.nodes.size(), 0);
+    std::vector<TransformCompact> remap_transforms(g_octree.nodes.size());
+    std::vector<bool> surface_node(g_octree.nodes.size(), false);
+
+    auto inverse_indices = get_inverse_transform_indices();
+
+    for (int i=0; i<g_octree.nodes.size(); i++)
+    {
+      int off = g_octree.nodes[i].val_off;
+
+      remap[i] = i;
+      remap_transforms[i] = get_identity_transform();
+      remap_2[i] = surface_node_count;
+
+      if (g_octree.nodes[i].offset == 0 && g_octree.nodes[i].is_not_void)
+      {
+        surface_node[i] = true;
+        surface_node_count++;
+      }
+
+      double sum = 0;
+      for (int k=0; k<dist_count; k++)
+        sum += g_octree.values_f[off+k];
+      average_brick_val[i] = sum/dist_count;
+    }
+
+    Dataset dataset;
+    create_dataset(g_octree, settings, surface_node, surface_node_count, average_brick_val, dataset);
 
     std::unique_ptr<INNSearchAS> NN_search_AS;
 
@@ -320,16 +315,16 @@ namespace scom
     auto t2 = std::chrono::high_resolution_clock::now();
 
     float time = std::chrono::duration_cast<std::chrono::microseconds>(t2-t1).count();
-    printf("remapping took %.1f s (%.1f ms/leaf)\n", 1e-6f*time, 1e-3f*time/surface_nodes);
-    printf("remapped %d/%d nodes\n", remapped, surface_nodes);
+    printf("remapping took %.1f s (%.1f ms/leaf)\n", 1e-6f*time, 1e-3f*time/surface_node_count);
+    printf("remapped %d/%d nodes\n", remapped, surface_node_count);
 
     output.node_id_cleaf_id_remap.resize(g_octree.nodes.size(), 0);
     output.tranform_codes.resize(g_octree.nodes.size(), 0);
-    output.compressed_data.reserve(surface_nodes * dist_count);
+    output.compressed_data.reserve(surface_node_count * dist_count);
 
     int unique_node_id = 0;
 
-    std::vector<int> group_indices(surface_nodes, -1);
+    std::vector<int> group_indices(surface_node_count, -1);
     std::vector<float> centroid(dist_count, 0);
     for (int i = 0; i < g_octree.nodes.size(); i++)
     {
