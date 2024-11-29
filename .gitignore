@@ -76,3 +76,4 @@ imgui.ini
 step/CMakeFiles/**
 
 testrt
+benchmark_app
