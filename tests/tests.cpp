@@ -5030,7 +5030,7 @@ void litert_test_49_similarity_compression()
   coctree.header.sim_compression = 0;
 
   scom::Settings scom_settings;
-  scom_settings.clustering_algorithm = scom::ClusteringAlgorithm::REPLACEMENT;
+  scom_settings.clustering_algorithm = scom::ClusteringAlgorithm::HIERARCHICAL;
   scom_settings.similarity_threshold = 0.025f;
   scom_settings.search_algorithm = scom::SearchAlgorithm::BALL_TREE;
 

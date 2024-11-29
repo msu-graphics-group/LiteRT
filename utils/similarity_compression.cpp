@@ -7,6 +7,7 @@
 #include <atomic>
 #include <chrono>
 #include <algorithm>
+#include <set>
 
 namespace scom
 {
@@ -263,6 +264,29 @@ namespace scom
     output.compressed_data.shrink_to_fit();
   }
 
+  struct Link
+  {
+    int target = -1; // original node id (i.e. from global octree)
+    int rotation = -1;
+    float dist = 1e6f;
+  };
+
+  struct ComponentInfo
+  {
+    int lead_id = -1;
+    int count = 0;
+  };
+
+  struct Cluster
+  {
+    int lead_id = -1;
+    int count = 0;
+    std::vector<int> point_ids; // original node ids (i.e. from global octree)
+  };
+
+  static constexpr int LABEL_UNVISITED = -1;
+  static constexpr int LABEL_ISOLATED = -2;
+
   void similarity_compression_hierarchical(const sdf_converter::GlobalOctree &g_octree, const Settings &settings, CompressionOutput &output)
   {
     auto tt1 = std::chrono::high_resolution_clock::now();
@@ -318,29 +342,6 @@ namespace scom
 
     auto tt3 = std::chrono::high_resolution_clock::now();
     printf("build NN search AS %.2f ms\n", 1e-3f*std::chrono::duration_cast<std::chrono::microseconds>(tt3-tt2).count());  
-
-    struct Link
-    {
-      int target = -1; //original node id (i.e. from global octree)
-      int rotation = -1;
-      float dist = 1e6f;
-    };
-
-    struct ComponentInfo
-    {
-      int lead_id = -1;
-      int count = 0;
-    };
-
-    struct Cluster
-    {
-      int lead_id = -1;
-      int count = 0;
-      std::vector<int> point_ids; //original node ids (i.e. from global octree)
-    };
-
-    constexpr int LABEL_UNVISITED = -1;
-    constexpr int LABEL_ISOLATED  = -2;
 
     int max_threads = omp_get_max_threads();
     std::vector<std::vector<Link>> sim_graph(total_node_count); //sparse adjacency matrix
@@ -471,10 +472,10 @@ namespace scom
       for (int component_id=0;component_id<components.size();component_id++)
       {
         const Cluster &component = components[component_id];
-        if (component.count == 1)
+        if (component.count <= 2)
         {
           //printf("single cluster %d = [%d]\n", (int)final_clusters.size(), component.lead_id);
-          //components with 2 or less points are already guranteed to have distance < threshold
+          //components with 2 or less points are already guaranteed to have distance < threshold
           //between any of their points
           final_clusters.push_back(component);
         }
@@ -541,6 +542,323 @@ namespace scom
       }
 
       final_clusters.shrink_to_fit();
+    }
+    else if (settings.clustering_algorithm == ClusteringAlgorithm::HIERARCHICAL)
+    {
+      constexpr int HC_VALID  = 0x7fffffff;
+      constexpr int MAX_STEPS = HC_VALID - 1;
+      constexpr float MAX_DISTANCE = 1.0f;
+      struct HCluster
+      {
+        HCluster() = default;
+        HCluster(int _U, int _V, int _invalidation_step, int _size) : U(_U), V(_V), invalidation_step(_invalidation_step), size(_size) {}
+        int U = -1;
+        int V = -1;
+        int invalidation_step = HC_VALID;
+        int size = 0;
+      };
+
+      struct Dist
+      {
+        Dist() = default;
+        Dist(int _U, int _V, float _dist) : U(_U), V(_V), dist(_dist) {}
+        int U = -1;
+        int V = -1;
+        float dist = 1000.0f;
+      };
+
+      struct CCluster
+      {
+        int offset = -1;
+        int size = 0;
+        float creation_min_dist = MAX_DISTANCE;
+        int creation_step = -1;
+        int invalidation_step = HC_VALID;
+        int cluster_id = -1;
+      };
+
+      final_clusters.reserve(std::min<int>(2*components.size(),total_node_count));
+
+      std::vector<std::vector<int>> all_cluster_contents(components.size());
+      std::vector<std::vector<CCluster>> all_clusters(components.size());
+      std::atomic<int> min_clusters_count(0);
+
+      #pragma omp parallel for schedule(dynamic)
+      for (int component_id=0;component_id<components.size();component_id++)
+      {
+        const Cluster &component = components[component_id];
+        if (component.count == 1)
+        {
+          //components with 2 or less points are already guaranteed to have distance < threshold
+          //between any of their points
+          #pragma omp critical
+          {
+            final_clusters.push_back(component);
+          }
+          min_clusters_count++;
+        }
+        else
+        {
+          int max_clusters_count = 2*component.count;
+          std::vector<int> global_id_to_component_id(total_node_count, -1);
+          Dist absolute_min(-1, -1, MAX_DISTANCE);
+
+          std::vector<HCluster> line_clusters(max_clusters_count);
+          std::vector<Dist> line_min(max_clusters_count, Dist(-1, -1, MAX_DISTANCE));
+          std::vector<Dist> absolute_min_history;
+          std::vector<float> distance_matrix(max_clusters_count*max_clusters_count, MAX_DISTANCE);
+
+          for (int i=0; i<component.count; i++)
+            global_id_to_component_id[component.point_ids[i]] = i;
+        
+          for (int i=0; i<component.count; i++)
+          {
+            line_clusters[i] = HCluster(i, -1, HC_VALID, 1);
+
+            distance_matrix[i*max_clusters_count+i] = 0.0f;
+            for (auto &link : sim_graph[component.point_ids[i]])
+            {
+              int target_id = global_id_to_component_id[link.target];
+              assert(target_id != -1);
+              distance_matrix[i*max_clusters_count+target_id] = link.dist;
+              if (link.dist < line_min[i].dist)
+                line_min[i] = Dist(i, target_id, link.dist);
+            }
+            if (line_min[i].dist < absolute_min.dist)
+              absolute_min = line_min[i];
+          }
+
+          int clusters_left = component.count;
+          int next_cluster_pos = component.count;
+          int step = 1;
+          
+          //printf("Hierarchical clustering, %d clusters\n", component.count);
+          while (absolute_min.dist < settings.similarity_threshold &&
+                 clusters_left >= 2)
+          {
+            //printf("merge clusters U=%d V=%d with d = %f\n", absolute_min.U, absolute_min.V, absolute_min.dist);
+            
+            assert(absolute_min_history.empty() || absolute_min_history.back().dist <= absolute_min.dist);
+            absolute_min_history.push_back(absolute_min);
+
+            line_clusters[next_cluster_pos] = HCluster(absolute_min.U, absolute_min.V, HC_VALID, 
+                                                       line_clusters[absolute_min.U].size + line_clusters[absolute_min.V].size); //merge U and V
+            line_clusters[absolute_min.U].invalidation_step = step; //invalidate U
+            line_clusters[absolute_min.V].invalidation_step = step; //invalidate V
+
+            //find distances from this cluster to all other valid clusters
+            for (int i=0; i<next_cluster_pos; i++)
+            {
+              if (line_clusters[i].invalidation_step == HC_VALID)
+              {
+                float d = std::max(distance_matrix[i*max_clusters_count+absolute_min.U], 
+                                   distance_matrix[i*max_clusters_count+absolute_min.V]);
+                
+                distance_matrix[i*max_clusters_count+next_cluster_pos] = d;
+                distance_matrix[next_cluster_pos*max_clusters_count+i] = d;
+
+                if (d < line_min[i].dist)
+                  line_min[i] = Dist(i, next_cluster_pos, d);
+                if (d < line_min[next_cluster_pos].dist)
+                  line_min[next_cluster_pos] = Dist(next_cluster_pos, i, d);
+              }
+            }
+
+            //recalculate minimums in lines where it was invalidated and find new absolute minimum
+            absolute_min = Dist(-1, -1, MAX_DISTANCE);
+            for (int i=0; i<=next_cluster_pos; i++)
+            { 
+              if (line_clusters[i].invalidation_step == HC_VALID)
+              {
+                if (line_min[i].dist < absolute_min.dist)
+                {
+                  //printf("%d abs = %f\n", i, line_min[i].dist);
+                  //this minimum is a candidate to be the new absolute minimum and at the same time 
+                  //it was invalidated. We have to recalculate it
+                  if (line_clusters[line_min[i].V].invalidation_step != HC_VALID)
+                  {
+                    line_min[i] = Dist(-1, -1, MAX_DISTANCE);
+                    for (int j=0; j<=next_cluster_pos; j++)
+                    {
+                      if (i!=j && line_clusters[j].invalidation_step == HC_VALID)
+                      {
+                        float d = distance_matrix[i*max_clusters_count+j];
+                        if (d < line_min[i].dist)
+                          line_min[i] = Dist(i, j, d);
+                      }
+                    }
+                  }
+                  assert(line_min[i].U == -1 || line_clusters[line_min[i].V].invalidation_step == HC_VALID);
+
+                  //line min can be changed above
+                  if (line_min[i].dist < absolute_min.dist)
+                    absolute_min = line_min[i];
+                }
+              }
+            }
+
+            // printf("line min = {\n");
+            // for (int i=0; i<=next_cluster_pos; i++)
+            // {
+            //   if (line_clusters[line_min[i].U].invalidation_step == HC_VALID && line_clusters[line_min[i].V].invalidation_step == HC_VALID)
+            //     printf("(%d, %d) %f\n", line_min[i].U, line_min[i].V, line_min[i].dist);
+            //   else
+            //     printf("(%d, %d) X\n", line_min[i].U, line_min[i].V);
+            // }
+            // printf("}\n");
+
+
+            next_cluster_pos++;
+            step++;
+            clusters_left--;
+          }
+
+          int top = 0;
+          int cur_content_size = 0;
+          int clusters_count = next_cluster_pos;
+          std::vector<int> stack(total_node_count);
+
+          for (int i=0;i<clusters_count;i++)
+          {
+            if (line_clusters[i].invalidation_step == HC_VALID)
+            {
+              stack[top] = i;
+              top++;
+            }
+          }
+
+          min_clusters_count += top; //these are clusters with HC_VALID invalidation_step
+                                     //it means they cannot be merged together without breaking similarity threshold
+
+          all_cluster_contents[component_id].resize(component.count, -1);
+          all_clusters[component_id].resize(clusters_count);
+
+          while (top > 0)
+          {
+            int cur = stack[top-1];
+            top--;
+            if (line_clusters[cur].size == 1) //it is a one-point cluster
+            {
+              all_clusters[component_id][cur].offset = cur_content_size;
+              all_clusters[component_id][cur].size = 1;
+              all_clusters[component_id][cur].creation_min_dist = 0.0f;
+              all_clusters[component_id][cur].creation_step = 0;
+              all_clusters[component_id][cur].invalidation_step = line_clusters[cur].invalidation_step;
+              all_clusters[component_id][cur].cluster_id = cur;
+              
+              all_cluster_contents[component_id][cur_content_size] = component.point_ids[line_clusters[cur].U];
+              cur_content_size++;
+            }
+            else
+            {
+              assert(cur >= component.count);
+              int creation_step = cur - component.count;
+              all_clusters[component_id][cur].offset = cur_content_size;
+              all_clusters[component_id][cur].size = line_clusters[cur].size;
+              all_clusters[component_id][cur].creation_min_dist = absolute_min_history[creation_step].dist;
+              all_clusters[component_id][cur].creation_step = creation_step + 1;
+              all_clusters[component_id][cur].invalidation_step = line_clusters[cur].invalidation_step;
+              all_clusters[component_id][cur].cluster_id = cur;
+
+              stack[top] = line_clusters[cur].U;
+              stack[top+1] = line_clusters[cur].V;
+              top += 2;
+            }
+          }
+
+          std::sort(all_clusters[component_id].begin(), all_clusters[component_id].end(), 
+                    [](const CCluster &a, const CCluster &b) { return a.creation_min_dist < b.creation_min_dist; });
+
+          // printf("added %d clusters\n", (int)(final_clusters.size() - prev_fc_size));
+          // printf("old cluster [%d][", component.lead_id);
+          // for (int i=0; i<component.count; i++)
+          //    printf("%d, ", component.point_ids[i]);
+          // printf("]\n");
+          // printf("new clusters:\n");
+
+          // printf("indices = {");
+          // for (int i=0;i<component.count;i++)
+          //   printf("%d, ", all_cluster_contents[component_id][i]);
+          // printf("}\n");
+
+          // for (int i=0; i<all_clusters[component_id].size(); i++)
+          // {
+          //   printf("%d cluster %f data:[%d - %d] time:[%d - %d)\n", 
+          //          all_clusters[component_id][i].cluster_id, 
+          //          all_clusters[component_id][i].creation_min_dist,
+          //          all_clusters[component_id][i].offset,
+          //          all_clusters[component_id][i].offset + all_clusters[component_id][i].size,
+          //          all_clusters[component_id][i].creation_step,
+          //          all_clusters[component_id][i].invalidation_step);
+          // }
+          // for (int i=prev_fc_size; i<final_clusters.size(); i++)
+          // {
+          //   printf("cluster %d = [%d][", i, final_clusters[i].lead_id);
+          //   for (int j=0; j<final_clusters[i].count; j++)
+          //     printf("%d, ", final_clusters[i].point_ids[j]);
+          //   printf("]\n");
+          // }
+        }
+      }
+
+      std::vector<int> end_step_per_cluster(all_clusters.size(), MAX_STEPS);
+      
+      if (settings.target_leaf_count <= 0 || min_clusters_count >= settings.target_leaf_count)
+      {
+        //We have to take the last level of the clustering dendrogram in each component
+        if (settings.target_leaf_count > 0)
+          printf("Warning: settings.target_leaf_count is too low to influence the compression.\n");
+      }
+      else
+      {
+        //We should determine which level of dendrogram to take in each component
+
+        //a.x is the component id, a.y is the current position
+        auto list_cmp = [&all_clusters](int2 a, int2 b) { return all_clusters[a.x][a.y].creation_min_dist < all_clusters[b.x][b.y].creation_min_dist; };
+        std::set<int2, decltype(list_cmp)> list_ends(list_cmp);
+
+        int cur_nodes = surface_node_count;
+        //first, we need to add to the list the first actual clusters 
+        for (int i=0; i<all_clusters.size(); i++)
+        {
+          end_step_per_cluster[i] = 0;
+          for (int j=0; j<all_clusters[i].size(); j++)
+          {
+            if (all_clusters[i][j].size > 1) //it is a cluster, not a single point
+              list_ends.emplace(int2(i, j));
+          }
+        }
+
+        while (cur_nodes > settings.target_leaf_count)
+        {
+          assert(list_ends.size() > 0);
+          int2 end = *list_ends.begin();
+          list_ends.erase(list_ends.begin());
+          end_step_per_cluster[end.x] = all_clusters[end.x][end.y].creation_step;
+          if (end.y + 1 < all_clusters[end.x].size())
+            list_ends.emplace(int2(end.x, end.y + 1));
+          cur_nodes--;
+        }
+      }
+
+      for (int i=0; i<all_clusters.size(); i++)
+      {
+        for (int j=0; j<all_clusters[i].size(); j++)
+        {
+          CCluster &clust = all_clusters[i][j];
+          if (clust.creation_step <= end_step_per_cluster[i] && clust.invalidation_step > end_step_per_cluster[i])
+          {
+            final_clusters.emplace_back();
+            final_clusters.back().lead_id = all_cluster_contents[i][clust.offset + 0];
+            final_clusters.back().count = clust.size;
+            final_clusters.back().point_ids = std::vector<int>(all_cluster_contents[i].begin() + clust.offset, all_cluster_contents[i].begin() + clust.offset + clust.size);
+          }
+        }
+      }
+
+      final_clusters.shrink_to_fit();
+
+      //final_clusters = std::move(components);
     }
 
     auto t4 = std::chrono::high_resolution_clock::now();
