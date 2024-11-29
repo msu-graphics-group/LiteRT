@@ -225,7 +225,7 @@ namespace testing
                 {
                     curr_line.push_back('\n');
                 }
-                if (!filter || filter && !should_filter(curr_line))
+                if (!filter || (filter && !should_filter(curr_line)))
                 {
                     reformat_output(curr_line);
                 }
