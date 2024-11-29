@@ -5013,7 +5013,7 @@ void litert_test_49_similarity_compression()
   LiteImage::Image2D<uint32_t> image_orig(W, H);
   LiteImage::Image2D<uint32_t> image_comp(W, H);
 
-  int depth = 5;
+  int depth = 6;
 
   SparseOctreeSettings settings = SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, depth);
   sdf_converter::GlobalOctree g;
@@ -5031,8 +5031,9 @@ void litert_test_49_similarity_compression()
 
   scom::Settings scom_settings;
   scom_settings.clustering_algorithm = scom::ClusteringAlgorithm::HIERARCHICAL;
-  scom_settings.similarity_threshold = 0.025f;
+  scom_settings.similarity_threshold = 0.02f;
   scom_settings.search_algorithm = scom::SearchAlgorithm::BALL_TREE;
+  scom_settings.target_leaf_count = 10000;
 
   coctree_comp.header = coctree.header;
   coctree_comp.header.sim_compression = 1;
@@ -5073,19 +5074,19 @@ void litert_test_49_similarity_compression()
   printf("TEST 49. COMPACT OCTREE V3 SIMILARITY COMPRESSION\n");
 
   printf("  49.1 %-64s", "Compressed is similar to original");
-  if (psnr1 >= 35)
+  if (psnr1 >= 40)
     printf("passed    (%.2f)\n", psnr1);
   else
     printf("FAILED, psnr = %f\n", psnr1);
 
   printf("  49.2 %-64s", "Compressed is similar to mesh");
-  if (psnr2 >= 35)
+  if (psnr2 >= 40)
     printf("passed    (%.2f)\n", psnr2);
   else
     printf("FAILED, psnr = %f\n", psnr2);
 
   printf("  49.3 %-64s", "PSNR loss from compression is low");
-  if (psnr3-psnr2 < 1)
+  if (psnr3-psnr2 < 1.5)
     printf("passed    (%.2f)\n", psnr3-psnr2);
   else
     printf("FAILED, psnr = %f\n", psnr3-psnr2);
