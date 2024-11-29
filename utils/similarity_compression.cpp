@@ -263,9 +263,7 @@ namespace scom
     int dist_count = v_size * v_size * v_size;
     std::vector<float> average_brick_val(g_octree.nodes.size(), 0);
     std::vector<float> closest_dist(g_octree.nodes.size(), settings.similarity_threshold);
-    std::vector<unsigned> remap(g_octree.nodes.size());
     std::vector<unsigned> remap_2(g_octree.nodes.size(), 0);
-    std::vector<TransformCompact> remap_transforms(g_octree.nodes.size());
     std::vector<bool> surface_node(g_octree.nodes.size(), false);
 
     auto inverse_indices = get_inverse_transform_indices();
@@ -274,8 +272,6 @@ namespace scom
     {
       int off = g_octree.nodes[i].val_off;
 
-      remap[i] = i;
-      remap_transforms[i] = get_identity_transform();
       remap_2[i] = surface_node_count;
 
       if (g_octree.nodes[i].offset == 0 && g_octree.nodes[i].is_not_void)
@@ -325,6 +321,13 @@ namespace scom
       int count = 0;
     };
 
+    struct Cluster
+    {
+      int lead_id = -1;
+      int count = 0;
+      std::vector<int> point_ids; //original node ids (i.e. from global octree)
+    };
+
     constexpr int LABEL_UNVISITED = -1;
     constexpr int LABEL_ISOLATED  = -2;
 
@@ -343,7 +346,7 @@ namespace scom
       int thread_id = omp_get_thread_num();
       int link_count = 0;
       int i  = dataset.data_points[point_a].original_id;
-      if (surface_node[i] == false || remap[i] != i)
+      if (surface_node[i] == false)
         continue;
 
       const DataPoint &A = dataset.data_points[point_a];
@@ -389,8 +392,7 @@ namespace scom
 
     //find connected components
     std::vector<int> labels(total_node_count, LABEL_UNVISITED);
-    std::vector<ComponentInfo> component_infos;
-    std::vector<std::vector<int>> components;
+    std::vector<Cluster> components;
     std::vector<unsigned> stack(2*total_node_count);
     int head = 0;
     for (int lead_id=0;lead_id<total_node_count;lead_id++)
@@ -399,26 +401,28 @@ namespace scom
         continue;
       else 
       {
+        int cur_component_id = components.size();
+        components.emplace_back();
+
         int total_count = 0;
         if (sim_graph[lead_id].empty())
         {
           total_count = 1;
           labels[lead_id] = LABEL_ISOLATED;
-          components.push_back(std::vector<int>{lead_id});
+          components[cur_component_id].point_ids.push_back(lead_id);
         }
         else
         {
           head = 0;
           stack[head] = lead_id;
-          labels[lead_id] = component_infos.size();
-          components.emplace_back();
+          labels[lead_id] = cur_component_id;
 
           while (head >= 0)
           {
             int node_id = stack[head];
             head--;
             total_count++;
-            components.back().push_back(node_id);
+            components[cur_component_id].point_ids.push_back(node_id);
             for (int i=0; i<sim_graph[node_id].size(); i++)
             {
               int target_id = sim_graph[node_id][i].target;
@@ -431,68 +435,82 @@ namespace scom
             }
           }
         }
-        component_infos.emplace_back();
-        component_infos.back().lead_id = lead_id;
-        component_infos.back().count = total_count;
+        components[cur_component_id].lead_id = lead_id;
+        components[cur_component_id].count = total_count;
       }
     }
 
     auto t3 = std::chrono::high_resolution_clock::now();
     printf("find connected components %.2f ms\n", 1e-3f*std::chrono::duration_cast<std::chrono::microseconds>(t3-t2).count());
 
-    int remapped = 0;
+    //clustering
+    std::vector<Cluster> final_clusters;
     if (settings.clustering_algorithm == ClusteringAlgorithm::COMPONENTS_MERGE)
     {
-      for (int i=0; i<component_infos.size(); i++)
-      {
-        //printf("[%d] lead = %d %d nodes\n", i, component_infos[i].lead_id, component_infos[i].count);
-
-        int lead_id = component_infos[i].lead_id;
-        if (component_infos[i].count == 1)
-        {
-          remap[lead_id] = lead_id;
-          remap_transforms[lead_id].rotation_id = 0;
-          remap_transforms[lead_id].add = average_brick_val[lead_id];
-        }
-        else
-        {
-          remapped += component_infos[i].count - 1;
-
-          int lead_off = remap_2[lead_id]*ROT_COUNT*dist_count;
-          float max_dist = 0;
-          for (int j=0; j<components[i].size(); j++)
-          {
-            float min_dist_sq = 1e6f;
-            int min_rot_id = 0;
-            for (int k=0; k<ROT_COUNT; k++)
-            {
-              int target_off = remap_2[components[i][j]]*ROT_COUNT*dist_count + k*dist_count;
-              float dist_sq = 0;
-              for (int l=0; l<dist_count; l++)
-                dist_sq += (dataset.all_points[lead_off + l] - dataset.all_points[target_off + l])*(dataset.all_points[lead_off + l] - dataset.all_points[target_off + l]);
-              if (dist_sq < min_dist_sq)
-              {
-                min_dist_sq = dist_sq;
-                min_rot_id = k;
-              }
-            }
-
-            max_dist = std::max(max_dist, min_dist_sq);
-            
-            remap[components[i][j]] = lead_id;
-            remap_transforms[components[i][j]].rotation_id = inverse_indices[min_rot_id];
-            remap_transforms[components[i][j]].add = average_brick_val[components[i][j]];
-          }
-          printf("%d) %d nodes, max dist = %f/%f\n", component_infos[i].lead_id, component_infos[i].count, max_dist, settings.similarity_threshold);
-        }
-      }     
+      final_clusters = std::move(components);
     }
+
     auto t4 = std::chrono::high_resolution_clock::now();
     printf("clustering %.2f ms\n", 1e-3f*std::chrono::duration_cast<std::chrono::microseconds>(t4-t3).count()); 
 
-    prepare_output(g_octree, settings, remap, remap_2, surface_node, surface_node_count, remap_transforms, dataset, output);
+    // prepare remaps from clusters
+    int remapped = 0;
+    std::vector<unsigned> remap(g_octree.nodes.size());
+    std::vector<TransformCompact> remap_transforms(g_octree.nodes.size());
+
+    for (int i = 0; i < total_node_count; i++)
+    {
+      remap[i] = i;
+      remap_transforms[i] = get_identity_transform();
+    }
+
+    for (int i = 0; i < final_clusters.size(); i++)
+    {
+      int lead_id = final_clusters[i].lead_id;
+      if (final_clusters[i].count == 1)
+      {
+        remap[lead_id] = lead_id;
+        remap_transforms[lead_id].rotation_id = 0;
+        remap_transforms[lead_id].add = average_brick_val[lead_id];
+      }
+      else
+      {
+        remapped += final_clusters[i].count - 1;
+
+        int lead_off = remap_2[lead_id] * ROT_COUNT * dist_count;
+        float max_dist = 0;
+        for (int j = 0; j < final_clusters[i].point_ids.size(); j++)
+        {
+          float min_dist_sq = 1e6f;
+          int min_rot_id = 0;
+          for (int k = 0; k < ROT_COUNT; k++)
+          {
+            int target_off = remap_2[final_clusters[i].point_ids[j]] * ROT_COUNT * dist_count + k * dist_count;
+            float dist_sq = 0;
+            for (int l = 0; l < dist_count; l++)
+              dist_sq += (dataset.all_points[lead_off + l] - dataset.all_points[target_off + l]) * (dataset.all_points[lead_off + l] - dataset.all_points[target_off + l]);
+            if (dist_sq < min_dist_sq)
+            {
+              min_dist_sq = dist_sq;
+              min_rot_id = k;
+            }
+          }
+
+          max_dist = std::max(max_dist, min_dist_sq);
+
+          remap[final_clusters[i].point_ids[j]] = lead_id;
+          remap_transforms[final_clusters[i].point_ids[j]].rotation_id = inverse_indices[min_rot_id];
+          remap_transforms[final_clusters[i].point_ids[j]].add = average_brick_val[final_clusters[i].point_ids[j]];
+        }
+        // printf("%d) %d nodes, max dist = %f/%f\n", components[i].lead_id, components[i].count, max_dist, settings.similarity_threshold);
+      }
+    }
     auto t5 = std::chrono::high_resolution_clock::now();
-    printf("prepare output %.2f ms\n", 1e-3f*std::chrono::duration_cast<std::chrono::microseconds>(t5-t4).count());  
+    printf("prepare remaps %.2f ms\n", 1e-3f*std::chrono::duration_cast<std::chrono::microseconds>(t5-t4).count()); 
+
+    prepare_output(g_octree, settings, remap, remap_2, surface_node, surface_node_count, remap_transforms, dataset, output);
+    auto t6 = std::chrono::high_resolution_clock::now();
+    printf("prepare output %.2f ms\n", 1e-3f*std::chrono::duration_cast<std::chrono::microseconds>(t6-t5).count());  
     
     printf("remapped %d/%d nodes\n", remapped, surface_node_count);
   }
