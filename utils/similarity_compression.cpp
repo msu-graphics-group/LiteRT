@@ -220,7 +220,7 @@ namespace scom
       {
         int group_indices_size = 0;
         std::fill_n(centroid.data(), dist_count, 0);
-        for (int j = i; j < g_octree.nodes.size(); j++)
+        for (int j = 0; j < g_octree.nodes.size(); j++)
         {
           if (remap[j] == i)
           {
@@ -234,10 +234,21 @@ namespace scom
         for (int k = 0; k < dist_count; k++)
           centroid[k] /= group_indices_size;
         
+        // for (int k = 0; k < dist_count; k++)
+        //   centroid[k] = dataset.all_points[(remap_2[i]*ROT_COUNT)*dist_count + k];
+        
         int p_size = output.compressed_data.size();
         output.compressed_data.resize(p_size + dist_count);
         for (int k = 0; k < dist_count; k++)
           output.compressed_data[p_size + k] = centroid[k];
+
+        // if (group_indices_size > 1)
+        // {
+        //   printf("node %d, centroid = {", i);
+        //   for (int k = 0; k < dist_count; k++)
+        //     printf("%f, ", centroid[k]);
+        //   printf("}\n");
+        // }
 
         for (int j = 0; j < group_indices_size; j++)
         {
@@ -397,7 +408,7 @@ namespace scom
     int head = 0;
     for (int lead_id=0;lead_id<total_node_count;lead_id++)
     {
-      if (labels[lead_id] != LABEL_UNVISITED)
+      if (labels[lead_id] != LABEL_UNVISITED || surface_node[lead_id] == false)
         continue;
       else 
       {
@@ -449,6 +460,88 @@ namespace scom
     {
       final_clusters = std::move(components);
     }
+    else if (settings.clustering_algorithm == ClusteringAlgorithm::COMPONENTS_RECURSIVE_FILL)
+    {
+      final_clusters.reserve(std::min<int>(2*components.size(),total_node_count));
+
+      std::vector<int> visited(total_node_count);
+      std::vector<int> cur_cluster(total_node_count);
+      int cur_cluster_size = 0;
+
+      for (int component_id=0;component_id<components.size();component_id++)
+      {
+        const Cluster &component = components[component_id];
+        if (component.count == 1)
+        {
+          //printf("single cluster %d = [%d]\n", (int)final_clusters.size(), component.lead_id);
+          //components with 2 or less points are already guranteed to have distance < threshold
+          //between any of their points
+          final_clusters.push_back(component);
+        }
+        else
+        {
+          int prev_fc_size = final_clusters.size();
+          std::fill_n(visited.data(), visited.size(), LABEL_ISOLATED);
+          for (int i=0; i<component.count; i++)
+          {
+            visited[component.point_ids[i]] = LABEL_UNVISITED;
+          }
+          int visited_count = 0;
+          while (visited_count < component.count)
+          {
+            cur_cluster_size = 0;
+            int start_id = 0;//rand() % component.count;
+            int lead_id = -1;
+            for (int i=0; i<component.count; i++)
+            {
+              int id = component.point_ids[(start_id + i) % component.count];
+              if (visited[id] == LABEL_UNVISITED)
+              {
+                lead_id = id;
+                break;
+              }
+            }
+            assert(lead_id != -1);
+            visited[lead_id] = final_clusters.size();
+            cur_cluster[cur_cluster_size++] = lead_id;
+
+            //add all points from cluster that are reachable from lead_id but not yet visited
+            for (int i=0; i<sim_graph[lead_id].size(); i++)
+            {
+              int target_id = sim_graph[lead_id][i].target;
+              if (visited[target_id] == LABEL_UNVISITED)
+              {
+                visited[target_id] = final_clusters.size();
+                cur_cluster[cur_cluster_size++] = target_id;
+              }
+            }
+            visited_count += cur_cluster_size;
+            //printf("added cluster with %d points, %d/%d visited\n", cur_cluster_size, visited_count, component.count);
+
+            final_clusters.emplace_back();
+            final_clusters.back().lead_id = lead_id;
+            final_clusters.back().count = cur_cluster_size;
+            final_clusters.back().point_ids = std::vector<int>(cur_cluster.begin(), cur_cluster.begin() + cur_cluster_size);
+          }
+
+          // printf("added %d clusters\n", (int)(final_clusters.size() - prev_fc_size));
+          // printf("old cluster [%d][", component.lead_id);
+          // for (int i=0; i<component.count; i++)
+          //   printf("%d, ", component.point_ids[i]);
+          // printf("]\n");
+          // printf("new clusters:\n");
+          // for (int i=prev_fc_size; i<final_clusters.size(); i++)
+          // {
+          //   printf("cluster %d = [%d][", i, final_clusters[i].lead_id);
+          //   for (int j=0; j<final_clusters[i].count; j++)
+          //     printf("%d, ", final_clusters[i].point_ids[j]);
+          //   printf("]\n");
+          // }
+        }
+      }
+
+      final_clusters.shrink_to_fit();
+    }
 
     auto t4 = std::chrono::high_resolution_clock::now();
     printf("clustering %.2f ms\n", 1e-3f*std::chrono::duration_cast<std::chrono::microseconds>(t4-t3).count()); 
@@ -495,14 +588,13 @@ namespace scom
               min_rot_id = k;
             }
           }
-
-          max_dist = std::max(max_dist, min_dist_sq);
+          max_dist = std::max(max_dist, sqrtf(min_dist_sq));
 
           remap[final_clusters[i].point_ids[j]] = lead_id;
           remap_transforms[final_clusters[i].point_ids[j]].rotation_id = inverse_indices[min_rot_id];
           remap_transforms[final_clusters[i].point_ids[j]].add = average_brick_val[final_clusters[i].point_ids[j]];
         }
-        // printf("%d) %d nodes, max dist = %f/%f\n", components[i].lead_id, components[i].count, max_dist, settings.similarity_threshold);
+        //printf("%d) %d nodes, max dist = %f/%f\n", final_clusters[i].lead_id, final_clusters[i].count, max_dist, settings.similarity_threshold);
       }
     }
     auto t5 = std::chrono::high_resolution_clock::now();
@@ -512,6 +604,7 @@ namespace scom
     auto t6 = std::chrono::high_resolution_clock::now();
     printf("prepare output %.2f ms\n", 1e-3f*std::chrono::duration_cast<std::chrono::microseconds>(t6-t5).count());  
     
+    printf("total time = %.2f ms\n", 1e-3f*std::chrono::duration_cast<std::chrono::microseconds>(t6-tt1).count());
     printf("remapped %d/%d nodes\n", remapped, surface_node_count);
   }
 
@@ -647,7 +740,8 @@ namespace scom
   void similarity_compression(const sdf_converter::GlobalOctree &octree, const Settings &settings, CompressionOutput &output)
   {
     if (settings.clustering_algorithm == ClusteringAlgorithm::HIERARCHICAL || 
-        settings.clustering_algorithm == ClusteringAlgorithm::COMPONENTS_MERGE)
+        settings.clustering_algorithm == ClusteringAlgorithm::COMPONENTS_MERGE ||
+        settings.clustering_algorithm == ClusteringAlgorithm::COMPONENTS_RECURSIVE_FILL)
     {
       similarity_compression_hierarchical(octree, settings, output);
       //similarity_compression_replacement(octree, settings, output);
