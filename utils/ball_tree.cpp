@@ -1,9 +1,10 @@
 #include "ball_tree.h"
+#include "omp.h"
 #include <chrono>
 
 namespace scom
 {
-  float BallTree::distance_sqr(const float *a, const float *b) const
+  static float distance_sqr(int m_dim, const float *a, const float *b)
   {
     float d = 0;
     for (int i = 0; i < m_dim; ++i)
@@ -24,55 +25,60 @@ namespace scom
     m_points_data.reserve(dataset.all_points.size());
     m_points.reserve(dataset.data_points.size());
     m_original_ids.reserve(dataset.data_points.size());
-    m_nodes.reserve(2*dataset.data_points.size()/max_leaf_size);
-    m_centroids_data.reserve(2*dataset.data_points.size() * m_dim / max_leaf_size);
+    m_nodes.reserve(4*(dataset.data_points.size()/max_leaf_size + 1));
+    m_centroids_data.reserve(4*m_dim*(dataset.data_points.size() / max_leaf_size + 1));
 
     std::vector<int> index(dataset.data_points.size());
     for (int i = 0; i < dataset.data_points.size(); ++i)
       index[i] = i;
 
-    build_rec(dataset, max_leaf_size, dataset.data_points.size(), index.data());
+    int max_threads = omp_get_max_threads();
+    std::vector<float> tmp_vec(m_dim*max_threads, 0);
+
+    #pragma omp parallel
+    #pragma omp single
+    {
+      build_rec(dataset, max_leaf_size, dataset.data_points.size(), index.data(), tmp_vec.data());
+    }
   
     m_points_data.shrink_to_fit();
     m_points.shrink_to_fit();
     m_original_ids.shrink_to_fit();
     m_nodes.shrink_to_fit();
+    m_centroids_data.shrink_to_fit();
   }
 
-  int BallTree::build_rec(const Dataset &dataset, int max_leaf_size, int n, int *index)
+  int BallTree::build_rec(const Dataset &dataset, int max_leaf_size, int n, int *index, float *tmp_vec)
   {
-    unsigned cur_node_id = m_nodes.size();
-    m_nodes.emplace_back();
-    m_centroids_data.resize(m_centroids_data.size() + m_dim);
-    
-    for (int j = 0; j < m_dim; ++j)
-      m_centroids_data[cur_node_id*m_dim + j] = 0;
-    for (int i = 0; i < n; ++i)
-    {
-      for (int j = 0; j < m_dim; ++j)
-        m_centroids_data[cur_node_id*m_dim + j] += dataset.all_points[index[i] * m_dim + j];
-    }
-    for (int j = 0; j < m_dim; ++j)
-      m_centroids_data[cur_node_id*m_dim + j] /= n;
+    int cur_thread_id = omp_get_thread_num();
+    unsigned cur_node_id = 0;
 
-    float max_dist_sq = 0;
-    for (int i = 0; i < n; ++i)
+    #pragma omp critical
     {
-      float dist_sq = distance_sqr(m_centroids_data.data() + cur_node_id * m_dim, dataset.all_points.data() + index[i] * m_dim);
-      max_dist_sq = std::max(max_dist_sq, dist_sq);
+      assert(m_nodes.capacity() >= m_nodes.size() + 1); 
+      if (m_nodes.capacity() <= m_nodes.size() + 1)
+        printf("BallTree::build_rec: increase m_nodes.capacity()\n");
+      assert(m_centroids_data.capacity() >= m_centroids_data.size() + m_dim);
+      if (m_centroids_data.capacity() <= m_centroids_data.size() + m_dim)
+        printf("BallTree::build_rec: increase m_centroids_data.capacity()\n");      
+      
+      cur_node_id = m_nodes.size();
+      m_nodes.emplace_back();
+      m_centroids_data.resize(m_centroids_data.size() + m_dim);
     }
-
-    m_nodes[cur_node_id].centroid_index = cur_node_id;
-    m_nodes[cur_node_id].radius = sqrtf(max_dist_sq);
 
     if (n <= max_leaf_size)
     {
       // build leaf node
-      unsigned start_id = m_points.size(); 
+      unsigned start_id = 0;
 
-      m_points.resize(start_id + n);
-      m_original_ids.resize(start_id + n);
-      m_points_data.resize(m_points_data.size() + n * m_dim);
+      #pragma omp critical
+      {
+        start_id = m_points.size(); 
+        m_points.resize(start_id + n);
+        m_original_ids.resize(start_id + n);
+        m_points_data.resize(m_points_data.size() + n * m_dim);
+      }
       for (int i = 0; i < n; ++i)
       {
         m_points[start_id + i] = dataset.data_points[index[i]];
@@ -80,14 +86,33 @@ namespace scom
         memcpy(m_points_data.data() + (start_id + i)* m_dim, dataset.all_points.data() + index[i] * m_dim, m_dim * sizeof(float));
       }
 
+      //We can find more optimal bounding spehre with center that is not a centroid
+      //e.g. check CGAL Min_sphere_of_spheres_d_impl.h
+      float c_mult = 1.0f/n;
+      for (int j = 0; j < m_dim; ++j)
+        m_centroids_data[cur_node_id*m_dim + j] = 0;
+      for (int i = 0; i < n; ++i)
+      {
+        for (int j = 0; j < m_dim; ++j)
+          m_centroids_data[cur_node_id*m_dim + j] += c_mult*dataset.all_points[index[i] * m_dim + j];
+      }
+
+      float max_dist_sq = 0;
+      for (int i = 0; i < n; ++i)
+      {
+        float dist_sq = distance_sqr(m_dim, m_centroids_data.data() + cur_node_id * m_dim, dataset.all_points.data() + index[i] * m_dim);
+        max_dist_sq = std::max(max_dist_sq, dist_sq);
+      }
+
       m_nodes[cur_node_id].start_index = start_id;
       m_nodes[cur_node_id].count = n;
       m_nodes[cur_node_id].l_idx = 0;
       m_nodes[cur_node_id].r_idx = 0;
+      m_nodes[cur_node_id].centroid_index = cur_node_id;
+      m_nodes[cur_node_id].radius = sqrtf(max_dist_sq);
     }
     else
     {
-      float *w = new float[m_dim];
       int left = 0, right = n - 1, cnt = 0;
       do
       {
@@ -104,7 +129,7 @@ namespace scom
         for (int i = 0; i < m_dim; ++i)
         {
           float l_v = l_pivot[i], r_v = r_pivot[i];
-          w[i] = r_v - l_v;
+          tmp_vec[cur_thread_id * m_dim + i] = r_v - l_v;
           l_sqr += l_v*l_v;
           r_sqr += r_v*r_v;
         }
@@ -116,7 +141,7 @@ namespace scom
           const float *x = dataset.all_points.data() + index[left] * m_dim;
           float inner_product = 0;
           for (int i = 0; i < m_dim; ++i)
-            inner_product += w[i] * x[i];
+            inner_product += tmp_vec[cur_thread_id * m_dim + i] * x[i];
           float val = inner_product + b;
           if (val < 0.0f)
             ++left;
@@ -130,11 +155,69 @@ namespace scom
       } while ((left <= 0 || left >= n) && cnt <= 3); // ensure split into two parts
       if (cnt > 3)
         left = n / 2;
-      delete[] w;
 
-      m_nodes[cur_node_id].l_idx = build_rec(dataset, max_leaf_size, left, index);
-      m_nodes[cur_node_id].r_idx = build_rec(dataset, max_leaf_size, n - left, index + left);
-  }
+      int l_idx = -1, r_idx = -1;
+
+      const int parallel_threshold = 8*max_leaf_size; //some empiric value to avoid too much overhead
+      if (left > parallel_threshold)
+      {
+        #pragma omp task default(shared)
+        l_idx = build_rec(dataset, max_leaf_size, left, index, tmp_vec);
+      }
+      else
+      {
+        l_idx = build_rec(dataset, max_leaf_size, left, index, tmp_vec);
+      }
+
+      if (n - left > parallel_threshold)
+      {
+        #pragma omp task default(shared)
+        r_idx = build_rec(dataset, max_leaf_size, n - left, index + left, tmp_vec);
+      }
+      else
+      {
+        r_idx = build_rec(dataset, max_leaf_size, n - left, index + left, tmp_vec);
+      }
+
+      #pragma omp taskwait
+      assert(l_idx != -1 && r_idx != -1);
+
+      const Node &l_node = m_nodes[l_idx];
+      const Node &r_node = m_nodes[r_idx];
+
+      float c_mult_1 = l_node.count/(float)(l_node.count + r_node.count);
+      float c_mult_2 = r_node.count/(float)(l_node.count + r_node.count);
+      for (int i = 0; i < n; ++i)
+      {
+        for (int j = 0; j < m_dim; ++j)
+          m_centroids_data[cur_node_id*m_dim + j] = c_mult_1*m_centroids_data[l_node.centroid_index*m_dim + j] + 
+                                                    c_mult_2*m_centroids_data[r_node.centroid_index*m_dim + j];
+      }
+
+      // float d1 = sqrtf(distance_sqr(m_dim, m_centroids_data.data() + cur_node_id * m_dim,
+      //                               m_centroids_data.data() + l_node.centroid_index * m_dim));
+
+      // float d2 = sqrtf(distance_sqr(m_dim, m_centroids_data.data() + cur_node_id * m_dim,
+      //                               m_centroids_data.data() + r_node.centroid_index * m_dim));
+      
+      float max_dist_sq = 0;
+      for (int i = 0; i < n; ++i)
+      {
+        //printf("%u) m_centroids = %p\n", cur_thread_id, m_centroids_data.data());
+        float dist_sq = distance_sqr(m_dim, m_centroids_data.data() + cur_node_id * m_dim, dataset.all_points.data() + index[i] * m_dim);
+        max_dist_sq = std::max(max_dist_sq, dist_sq);
+      }
+      //printf("R1, R2 %f %f\n", sqrtf(max_dist_sq), std::max(d1 + l_node.radius, d2 + r_node.radius));
+
+      m_nodes[cur_node_id].start_index = 0xFFFFFFFFu;
+      m_nodes[cur_node_id].count = l_node.count + r_node.count;
+      m_nodes[cur_node_id].l_idx = l_idx;
+      m_nodes[cur_node_id].r_idx = r_idx;
+      m_nodes[cur_node_id].centroid_index = cur_node_id;
+      m_nodes[cur_node_id].radius = sqrtf(max_dist_sq);
+      //m_nodes[cur_node_id].radius = std::max(d1 + l_node.radius, d2 + r_node.radius);
+    }
+
     return cur_node_id;
   }
 
@@ -150,7 +233,7 @@ namespace scom
         continue;
 
       unsigned off_b = index[i] * m_dim;
-      float dist_sq = distance_sqr(dataset.all_points.data() + off_a, dataset.all_points.data() + off_b);
+      float dist_sq = distance_sqr(m_dim, dataset.all_points.data() + off_a, dataset.all_points.data() + off_b);
       if (far_dist < dist_sq)
       {
         far_dist = dist_sq;
@@ -181,7 +264,7 @@ namespace scom
         {
           // compute the actual distance
           const float *point = m_points_data.data() + (cur_node.start_index + i) * m_dim;
-          float dist_sq = distance_sqr(query, point);
+          float dist_sq = distance_sqr(m_dim, query, point);
 
           if (dist_sq < nearest_dist_sq)
           {
@@ -193,7 +276,7 @@ namespace scom
       else
       {
         const Node &left_node = m_nodes[cur_node.l_idx];
-        float left_center_dist_sq = distance_sqr(query, m_centroids_data.data() + left_node.centroid_index * m_dim);
+        float left_center_dist_sq = distance_sqr(m_dim, query, m_centroids_data.data() + left_node.centroid_index * m_dim);
         if (sqrtf(left_center_dist_sq) < left_node.radius + sqrtf(nearest_dist_sq))
         {
           stack[top] = cur_node.l_idx;
@@ -201,7 +284,7 @@ namespace scom
         }
 
         const Node &right_node = m_nodes[cur_node.r_idx];
-        float right_center_dist_sq = distance_sqr(query, m_centroids_data.data() + right_node.centroid_index * m_dim);
+        float right_center_dist_sq = distance_sqr(m_dim, query, m_centroids_data.data() + right_node.centroid_index * m_dim);
         if (sqrtf(right_center_dist_sq) < right_node.radius + sqrtf(nearest_dist_sq))
         {
           stack[top] = cur_node.r_idx;
@@ -238,7 +321,7 @@ namespace scom
         {
           // compute the actual distance
           const float *point = m_points_data.data() + (cur_node.start_index + i) * m_dim;
-          float dist_sq = distance_sqr(query, point);
+          float dist_sq = distance_sqr(m_dim, query, point);
 
           if (dist_sq < max_dist_sq)
           {
@@ -250,7 +333,7 @@ namespace scom
       else
       {
         const Node &left_node = m_nodes[cur_node.l_idx];
-        float left_center_dist_sq = distance_sqr(query, m_centroids_data.data() + left_node.centroid_index * m_dim);
+        float left_center_dist_sq = distance_sqr(m_dim, query, m_centroids_data.data() + left_node.centroid_index * m_dim);
         if (sqrtf(left_center_dist_sq) < left_node.radius + sqrtf(max_dist_sq))
         {
           stack[top] = cur_node.l_idx;
@@ -258,7 +341,7 @@ namespace scom
         }
 
         const Node &right_node = m_nodes[cur_node.r_idx];
-        float right_center_dist_sq = distance_sqr(query, m_centroids_data.data() + right_node.centroid_index * m_dim);
+        float right_center_dist_sq = distance_sqr(m_dim, query, m_centroids_data.data() + right_node.centroid_index * m_dim);
         if (sqrtf(right_center_dist_sq) < right_node.radius + sqrtf(max_dist_sq))
         {
           stack[top] = cur_node.r_idx;
