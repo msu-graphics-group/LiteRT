@@ -870,7 +870,7 @@ namespace scom
 
     std::vector<std::vector<Link>> tmp_links(max_threads);
     for (int i=0; i<max_threads; i++)
-      tmp_links[i].resize(surface_node_count, Link());
+      tmp_links[i].resize(ROT_COUNT*surface_node_count, Link());
   
 
   auto t1 = std::chrono::high_resolution_clock::now();
