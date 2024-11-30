@@ -70,36 +70,28 @@ LiteMath::float3 BCurve3D::der(float u, int order) const {
 
 
 // *********************** RBezier curve 2D *********************** //
-uint RBCurve2D::degree() const {
-  return points.size() - 1;
-}
-
-LiteMath::float3 RBCurve2D::operator()(float u) const {
-    return get_point(u);
-}
-
 RBCurve2D::RBCurve2D(
     std::vector<float2> points,
+    std::vector<float> weights) : BCurve3D( RBCurve2D::Hmap(points, weights) ) {}
+
+std::vector<float3> RBCurve2D::Hmap(
+    std::vector<float2> points,
     std::vector<float> weights) {
+  // Homorgeneous map to 3D space coodinates
+
   assert(points.size() > 0 && points.size() == weights.size());
 
-  this->points.resize(points.size());
-  this->weights.resize(weights.size());
-
-  for (size_t i = 0; i < points.size(); i++)
-    this->points[i] = float3(points[i].x, points[i].y, 1);
-  this->weights = weights;
-
   std::vector<float3> Hpoints(points.size());
-  for (size_t i = 0; i < points.size(); i++)
-    Hpoints[i] = this->weights[i] * this->points[i];
-  this->H = BCurve3D(Hpoints);
+  for (size_t i = 0; i < points.size(); i++) {
+    float3 point = float3(points[i].x, points[i].y, 1);
+    Hpoints[i] = weights[i] * point;
+  }
+  return Hpoints;
 }
 
 LiteMath::float3 RBCurve2D::get_point(float u) const {
-  float3 p = H.get_point(u);
-  p /= p.z;
-  return p;
+  float3 p = BCurve3D::get_point(u);
+  return p / p.z;
 }
 
 LiteMath::float3 RBCurve2D::fg_gf(float u, int order) {
@@ -112,7 +104,7 @@ LiteMath::float3 RBCurve2D::fg_gf(float u, int order) {
   std::vector<float3> ders(p + 2);
 
   for (uint i = 0; i <= p + 1; i++) {
-    ders[i] = H.der(u, i);
+    ders[i] = BCurve3D::der(u, i);
   }
 
   float3 result = ders[0] * ders[p+1].z - ders[1] * ders[p].z;
@@ -128,23 +120,6 @@ LiteMath::float3 RBCurve2D::fg_gf(float u, int order) {
 }
 
 LiteMath::float3 RBCurve2D::der(float u, int order) const {
-  // If flush = true, memoized values are recomputed
-  // Complexity: O(n^3), where n is curve degree
-  //
-  /*
-  static std::vector<float3> fmemo;
-  static std::vector<float> gmemo;
-  if (flush) {
-    uint p = degree();
-    fmemo.resize(p);
-    gmemo.resuze(p);
-
-    for (uint i = 0; i < p; i++) {
-
-    }
-  }
-  */
-
   assert(order >= 0);
   if (order == 0) {
     return get_point(u);
@@ -152,7 +127,7 @@ LiteMath::float3 RBCurve2D::der(float u, int order) const {
 
   if (order == 1) {
     float3 p = get_point(u);
-    float3 d = H.der(u);
+    float3 d = BCurve3D::der(u);
     return (d*p.z - d.z*p) / (p.z * p.z);
   }
 
@@ -160,15 +135,19 @@ LiteMath::float3 RBCurve2D::der(float u, int order) const {
   float3 left = float3(0.0f);
   for (int i = 0; i < order; ++i) {
     float3 a = der(u, i);
-    float b = H.der(u, order-i).z;
+    float b = BCurve3D::der(u, order-i).z;
     left += comb * a * b;
     comb = comb * (order-i) / (i+1);
   }
 
-  float3 right = H.der(u, order);
+  float3 right = BCurve3D::der(u, order);
 
-  float3 res = (right - left) / (H.get_point(u).z * comb);
+  float3 res = (right - left) / (BCurve3D::get_point(u).z * comb);
   assert(res.z == 0.0f);
 
   return res;
+}
+
+LiteMath::float3 RBCurve2D::operator()(float u) const {
+    return get_point(u);
 }
