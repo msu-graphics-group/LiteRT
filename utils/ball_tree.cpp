@@ -25,8 +25,8 @@ namespace scom
     m_points_data.reserve(dataset.all_points.size());
     m_points.reserve(dataset.data_points.size());
     m_original_ids.reserve(dataset.data_points.size());
-    m_nodes.reserve(4*(dataset.data_points.size()/max_leaf_size + 1));
-    m_centroids_data.reserve(4*m_dim*(dataset.data_points.size() / max_leaf_size + 1));
+    m_nodes.reserve(dataset.data_points.size());
+    m_centroids_data.reserve(m_dim*dataset.data_points.size());
 
     std::vector<int> index(dataset.data_points.size());
     for (int i = 0; i < dataset.data_points.size(); ++i)
