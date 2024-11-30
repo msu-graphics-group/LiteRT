@@ -11,6 +11,36 @@
 
 namespace scom
 {
+  void save_dataset(const Dataset &dataset, const std::string &filename)
+  {
+  std::ofstream fs(filename, std::ios::binary);
+  unsigned points_size = dataset.data_points.size();
+  unsigned all_points_size = dataset.all_points.size();
+  fs.write((const char *)&points_size, sizeof(unsigned));
+  fs.write((const char *)dataset.data_points.data(), points_size * sizeof(DataPoint));
+  fs.write((const char *)&all_points_size, sizeof(unsigned));
+  fs.write((const char *)dataset.all_points.data(), all_points_size * sizeof(float));
+  
+  fs.flush();
+  fs.close();
+  }
+  
+  void load_dataset(const std::string &filename, Dataset &dataset)
+  {
+  std::ifstream fs(filename, std::ios::binary);
+  unsigned points_size = 0;
+  unsigned all_points_size = 0;
+  fs.read((char *)&points_size, sizeof(unsigned));
+  dataset.data_points.resize(points_size);
+  fs.read((char *)dataset.data_points.data(), points_size * sizeof(DataPoint));
+  
+  fs.read((char *)&all_points_size, sizeof(unsigned));
+  dataset.all_points.resize(all_points_size);
+  fs.read((char *)dataset.all_points.data(), all_points_size * sizeof(float));
+  
+  fs.close();
+  }
+
   void initialize_rot_transforms(std::vector<float4x4> &rot_transforms, int v_size)
   {
     rot_transforms.resize(ROT_COUNT, float4x4());
