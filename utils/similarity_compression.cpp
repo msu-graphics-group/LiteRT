@@ -437,6 +437,9 @@ namespace scom
                                const std::vector<Cluster> &components, const std::vector<std::vector<Link>> &sim_graph,
                                int total_node_count, int surface_node_count)
   {
+    auto t00 = std::chrono::high_resolution_clock::now();
+
+    std::atomic<unsigned> time_init_ns(0);
     std::atomic<unsigned> time_table_init_ns(0);
     std::atomic<unsigned> time_new_distances_ns(0);
     std::atomic<unsigned> time_find_min_ns(0);
@@ -447,11 +450,26 @@ namespace scom
 
     final_clusters.reserve(std::min<int>(2 * components.size(), total_node_count));
 
+    int max_component_size = 0;
+    for (int i = 0; i < components.size(); i++)
+      max_component_size = std::max(max_component_size, components[i].count);
+
     std::vector<std::vector<int>> all_cluster_contents(components.size());
     std::vector<std::vector<CCluster>> all_clusters(components.size());
     std::atomic<int> min_clusters_count(0);
 
+    std::vector<int> stack(surface_node_count);
+    std::vector<int> global_id_to_component_id(total_node_count, -1);
+    std::vector<Dist> absolute_min_history(surface_node_count);
+
+    int max_clusters_count = 2 * max_component_size;
+    std::vector<HCluster> line_clusters(max_clusters_count); //each line in the distance matrix is a cluster
+    std::vector<Dist> line_min(max_clusters_count, Dist(-1, -1, MAX_DISTANCE));
+    std::vector<float> distance_matrix(max_clusters_count * max_clusters_count, MAX_DISTANCE);
+    
     auto t0 = std::chrono::high_resolution_clock::now();
+    time_init_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(t0-t00).count();
+
     // Main cycle. Iterate over connected compinents and perform hierarchical clustering
     // for each component independently
     
@@ -474,14 +492,8 @@ namespace scom
         // printf("Hierarchical clustering, %d clusters\n", component.count);
         auto t1 = std::chrono::high_resolution_clock::now();
 
-        int max_clusters_count = 2 * component.count;
-        std::vector<int> global_id_to_component_id(total_node_count, -1);
         Dist absolute_min(-1, -1, MAX_DISTANCE);
-        std::vector<Dist> absolute_min_history;
-
-        std::vector<HCluster> line_clusters(max_clusters_count); //each line in the distance matrix is a cluster
-        std::vector<Dist> line_min(max_clusters_count, Dist(-1, -1, MAX_DISTANCE));
-        std::vector<float> distance_matrix(max_clusters_count * max_clusters_count, MAX_DISTANCE);
+        std::fill_n(line_min.data(), max_clusters_count, Dist(-1, -1, MAX_DISTANCE));
 
         //build global_id_to_component_id remap, will be needed only in the next cycle
         for (int i = 0; i < component.count; i++)
@@ -510,7 +522,7 @@ namespace scom
 
         int clusters_left = component.count;
         int next_cluster_pos = component.count;
-        int step = 1;
+        int step = 0;
 
         //ok, there is a main cycle of hierarchical clustering
         //on each step we find the closest pair of clusters and merge them
@@ -523,14 +535,14 @@ namespace scom
           // printf("merge clusters U=%d V=%d with d = %f\n", absolute_min.U, absolute_min.V, absolute_min.dist);
           auto t3 = std::chrono::high_resolution_clock::now();
 
-          assert(absolute_min_history.empty() || absolute_min_history.back().dist <= absolute_min.dist);
-          absolute_min_history.push_back(absolute_min);
+          assert(step == 0 || absolute_min_history[step-1].dist <= absolute_min.dist);
+          absolute_min_history[step] = absolute_min;
 
           // merge clusters to create new one
           line_clusters[next_cluster_pos] = HCluster(absolute_min.U, absolute_min.V, HC_VALID,
                                                      line_clusters[absolute_min.U].size + line_clusters[absolute_min.V].size); // merge U and V
-          line_clusters[absolute_min.U].invalidation_step = step;                                                              // invalidate U
-          line_clusters[absolute_min.V].invalidation_step = step;                                                              // invalidate V
+          line_clusters[absolute_min.U].invalidation_step = step+1;                                                              // invalidate U
+          line_clusters[absolute_min.V].invalidation_step = step+1;                                                              // invalidate V
 
           // find distances from this cluster to all other valid clusters
 
@@ -616,7 +628,6 @@ namespace scom
         int top = 0;
         int cur_content_size = 0;
         int clusters_count = next_cluster_pos;
-        std::vector<int> stack(total_node_count);
 
         auto t6 = std::chrono::high_resolution_clock::now();
         for (int i = 0; i < clusters_count; i++)
@@ -747,7 +758,7 @@ namespace scom
         }
       }
 
-      while (cur_nodes > settings.target_leaf_count)
+      while (cur_nodes > settings.target_leaf_count+1)
       {
         assert(list_ends.size() > 0);
         int2 end = *list_ends.begin();
@@ -783,6 +794,7 @@ namespace scom
 
     unsigned time_A = std::chrono::duration_cast<std::chrono::nanoseconds>(t9 - t0).count();
 
+    printf("time_init                 (ms) = %.3f\n", 1e-6f*time_init_ns);
     printf("time_table_init           (ms) = %.3f\n", 1e-6f*time_table_init_ns);
     printf("time_new_distances        (ms) = %.3f\n", 1e-6f*time_new_distances_ns);
     printf("time_find_min             (ms) = %.3f\n", 1e-6f*time_find_min_ns);
@@ -792,7 +804,7 @@ namespace scom
     printf("time_prepare_output       (ms) = %.3f\n", 1e-6f*time_prepare_output_ns);
     printf("TOTAL                     (ms) = %.3f\n", 1e-6f*(time_table_init_ns + time_new_distances_ns + time_find_min_ns + 
                                                              time_ddg_traverse_ns + time_ddg_sort_ns + time_all_clusters_iterate_ns + 
-                                                             time_prepare_output_ns));
+                                                             time_prepare_output_ns + time_init_ns));
     //printf("A                         (ms) = %.3f\n", 1e-6f*time_A);
     final_clusters.shrink_to_fit();
   }
