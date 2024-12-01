@@ -70,4 +70,7 @@ private:
   std::vector<T> values;
 };
 
+//********* Utitilies ***********//
+bool isclose(float a, float b, float eps);
+
 #endif 

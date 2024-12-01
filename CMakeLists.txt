@@ -62,6 +62,7 @@ add_executable(
     src/gui.cpp
     src/curve.hpp
     src/curve.cpp
+    src/constants.hpp
 )
 target_include_directories(${PROJECT_NAME} PUBLIC ${SDL_INCLUDE_DIR})
 
@@ -85,3 +86,25 @@ add_executable(
 )
 target_link_libraries(RBCurve2D_test LiteMath)
 target_include_directories(RBCurve2D_test PUBLIC ${PROJECT_SOURCE_DIR}/src/)
+
+add_executable(
+  monotonic_test
+  tests/monotonic.cpp
+    src/utils.hpp
+    src/utils.cpp
+    src/curve.hpp
+    src/curve.cpp
+)
+target_link_libraries(monotonic_test LiteMath)
+target_include_directories(monotonic_test PUBLIC ${PROJECT_SOURCE_DIR}/src/)
+
+add_executable(
+  bisection_test
+  tests/bisection.cpp
+    src/utils.hpp
+    src/utils.cpp
+    src/curve.hpp
+    src/curve.cpp
+)
+target_link_libraries(bisection_test LiteMath)
+target_include_directories(bisection_test PUBLIC ${PROJECT_SOURCE_DIR}/src/)

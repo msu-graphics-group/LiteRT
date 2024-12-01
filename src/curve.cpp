@@ -1,8 +1,11 @@
 #include <vector>
 #include <cassert>
 #include <iostream>
+#include <optional>
+#include <functional>
 
 #include "utils.hpp"
+#include "constants.hpp"
 #include "curve.hpp"
 
 using namespace LiteMath;
@@ -74,10 +77,10 @@ RBCurve2D::RBCurve2D(
     std::vector<float2> points,
     std::vector<float> weights) : BCurve3D( RBCurve2D::Hmap(points, weights) ) {}
 
+// Homorgeneous map to 3D space coodinates
 std::vector<float3> RBCurve2D::Hmap(
     std::vector<float2> points,
     std::vector<float> weights) {
-  // Homorgeneous map to 3D space coodinates
 
   assert(points.size() > 0 && points.size() == weights.size());
 
@@ -94,11 +97,10 @@ LiteMath::float3 RBCurve2D::get_point(float u) const {
   return p / p.z;
 }
 
-LiteMath::float3 RBCurve2D::fg_gf(float u, int order) {
-  // Returns n-order derivative of F(u) = f(u)g'(u)-f'(u)g(u),
-  // where f(u) - numerator of RBezier and g(u) is the denominator
-  // Complexity: O(n^2)
-
+// Returns n-order derivative of F(u) = f(u)g'(u)-f'(u)g(u),
+// where f(u) - numerator of RBezier and g(u) is the denominator
+// Complexity: O(n^2)
+LiteMath::float3 RBCurve2D::fg_gf(float u, int order) const {
   assert(order >= 0);
   uint p = order;
   std::vector<float3> ders(p + 2);
@@ -119,6 +121,7 @@ LiteMath::float3 RBCurve2D::fg_gf(float u, int order) {
   return result;
 }
 
+// Unused function
 LiteMath::float3 RBCurve2D::der(float u, int order) const {
   assert(order >= 0);
   if (order == 0) {
@@ -148,6 +151,80 @@ LiteMath::float3 RBCurve2D::der(float u, int order) const {
   return res;
 }
 
+// If     axes = 0, returns monotonic parts on x-axes
+// elseif axes = 1, returns monotonic parts on y-axis
+std::vector<float>
+RBCurve2D::monotonic_parts(int axes, int order) const {
+  int p = degree();
+  if (order == 2*p-1) {
+    return { 0.0f, 1.0f };
+  }
+
+  std::vector<float> result = { 0.0f };
+
+  auto F = [&](float u) {
+    return fg_gf(u, order)[axes];
+  };
+
+  // TODO: remove recursion
+  auto knots = monotonic_parts(axes, order+1);
+  //std::cout << "ORDER = " << order << " AXES = " << axes << std::endl;
+  for (int span = 0; span < knots.size() - 1; ++span) {
+    float a = knots[span], b = knots[span+1];
+    //std::cout << a << " " << b << std::endl;
+    auto potential_root = bisection(F, a, b);
+    if (potential_root.has_value()) {
+      float root = potential_root.value();
+      if (!isclose(root, result.back(), c::BISECTION_EPS)) {
+        result.push_back(root);
+      }
+    }
+  }
+
+  if (!isclose(1.0f, result.back(), c::BISECTION_EPS)) {
+    result.push_back(1.0f);
+  }
+
+  return result;
+}
+
 LiteMath::float3 RBCurve2D::operator()(float u) const {
     return get_point(u);
+}
+
+// *********************** Utilities *********************** //
+std::optional<float>
+bisection(std::function<float(float)> f, float u1, float u2) {
+  float l = u1;
+  float r = u2;
+  {
+    float f1 = f(u1);
+    float f2 = f(u2);
+    if (std::abs(f1) < c::BISECTION_EPS && std::abs(f2) < c::BISECTION_EPS) {
+      // This should be tested
+      return {};//(l + r) / 2;
+    }
+    if (f1 > 0 && f2 > 0) {
+      return {};
+    }
+    if (f1 < 0 && f2 < 0) {
+      return {};
+    }
+    if (f1 > f2) {
+      std::swap(l, r);
+    }
+  }
+
+  // Maybe should use error of function instead of error of l-r
+  while (std::abs(l-r) > c::BISECTION_EPS) {
+    float m = (l+r) / 2.0f;
+    float value = f(m);
+    if (value < 0.0f) {
+      l = m;
+    } else {
+      r = m;
+    }
+  }
+
+  return (l+r) / 2.0f;
 }
