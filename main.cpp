@@ -8,6 +8,7 @@
 #include "Renderer/eye_ray.h"
 #include "tests/tests.h"
 #include "utils/mesh.h"
+#include "benchmark_backend/benchmark_backend.hpp"
 
 using LiteImage::Image2D;
 
@@ -52,6 +53,11 @@ int main(int argc, const char** argv)
       std::string mesh_name = argv[2];
       unsigned flags = BENCHMARK_FLAG_RENDER_RT;
       SBS_benchmark("saves/"+mesh_name, mesh_name, flags);
+      return 0;
+    }
+    else if (std::string(argv[1]) == "-backend_benchmark")
+    {
+      BenchmarkBackend::getMetrics(argv);
       return 0;
     }
     else if (std::string(argv[1]) == "-tests_dr")

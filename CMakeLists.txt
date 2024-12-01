@@ -43,6 +43,7 @@ include_directories(${CMAKE_SOURCE_DIR}/sdfScene)
 include_directories(${CMAKE_SOURCE_DIR}/BVH)
 include_directories(${CMAKE_SOURCE_DIR}/Render)
 include_directories(${CMAKE_SOURCE_DIR}/openvdb_structs)
+include_directories(${CMAKE_SOURCE_DIR}/benchmark_backend)
 
 #include_directories(SYSTEM ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/spectral/include)
 #set(SPECTRAL_LIB_ONLY ON)
@@ -257,6 +258,11 @@ set(
     ribbon/ribbon_host.cpp
 )
 
+set(
+  BENCHMARK_BACKEND_SRC
+    benchmark_backend/benchmark_backend.cpp
+)
+
 add_subdirectory(step)
 
 option(build_nurbs_viewer off)
@@ -321,7 +327,9 @@ target_sources(render_lib PRIVATE
                ${DR_SRC}
                ${HYDRA_SRC}
                ${CATMUL_CLARK_SRC}
-               ${RIBBON_SRC})
+               ${RIBBON_SRC}
+               ${BENCHMARK_BACKEND_SRC}
+               )
 
 set_property(TARGET render_lib PROPERTY CXX_STANDARD 17)
 target_link_libraries(render_lib PUBLIC Threads::Threads dl ${RAYTRACING_EMBREE_LIBS} ${MODULES_LIBRARIES} step)
