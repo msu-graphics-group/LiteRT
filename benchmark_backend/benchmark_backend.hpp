@@ -24,14 +24,21 @@ namespace BenchmarkBackend
                 float3 pos, float3 target, float3 up, 
                 MultiRenderPreset preset, int a_passNum = 1);
 
-    void getInfoMesh();
+    void getMetrics(const char** argv);
 
-    void getInfoGrid();
+    void getInfoMesh(const std::string &model, const std::string &backend, const std::string &renderer, 
+        const std::string &type, const std::string &lod, const int width, const int height, const int spp, const int cameras);
 
-    void getInfoSVS();
+    void getInfoGrid(const std::string &model, const std::string &backend, const std::string &renderer, 
+        const std::string &type, const std::string &lod, const int width, const int height, const int spp, const int cameras);
 
-    void getInfoSBS();
+    void getInfoSVS(const std::string &model, const std::string &backend, const std::string &renderer, 
+        const std::string &type, const std::string &lod, const int width, const int height, const int spp, const int cameras);
+
+    void getInfoSBS(const std::string &model, const std::string &backend, const std::string &renderer, 
+        const std::string &type, const std::string &lod, const int width, const int height, const int spp, const int cameras);
 
     //  very slooooow
-    void getInfoAdaptSBS();
+    void getInfoAdaptSBS(const std::string &model, const std::string &backend, const std::string &renderer, 
+        const std::string &type, const std::string &lod, const int width, const int height, const int spp, const int cameras);
 };

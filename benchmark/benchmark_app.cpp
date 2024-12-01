@@ -533,9 +533,12 @@ int main(int argc, const char **argv)
     printf("SPP: %d\n", config.spp);
   }
 
+  std::fstream f;
+  f.open("benchmark/results/results.csv", std::ios::out);
+  f << "model_name, backend, renderer, type, lod, memory(Mb), time_min, time_max, time_average, psnr_min, psnr_max, psnr_average, flip_min, flip_max, flip_average\n";
+  f.close();
 
-// Benchmark loop
-
+  // Benchmark loop
   for (const auto &model : config.models)
   {
     // TODO: Build SDFs, benchmark_build
@@ -571,7 +574,17 @@ int main(int argc, const char **argv)
             recompile = false;
           }
 
-          std::system("DRI_PRIME=1 ./render_app -tests_litert 9");
+          // std::system("DRI_PRIME=1 ./render_app -tests_litert 9");
+
+          for (const auto &lod: config.lods)
+          {
+            std::string cmd = "DRI_PRIME=1 ./render_app -backend_benchmark ";
+            cmd += model + " " +  backend + " " + renderer + " " + repr_type + " " + 
+                lod + " " + std::to_string(config.width) + " " + std::to_string(config.height) + 
+                " " + std::to_string(config.spp) + " " + std::to_string(config.cameras);
+            
+            std::system(cmd.c_str());
+          }
         }
       }
     }
