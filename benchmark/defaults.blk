@@ -13,7 +13,7 @@ models:arr = { }
 param_strings:arr = { "tmp" }
 width:i = 512
 height:i = 512
-cameras:i = 8
+cameras:i = 1
 iters:i = 8
 spp:i = 4
 }

@@ -1,11 +1,14 @@
 #include <string>
 #include <vector>
 #include <cstdlib>
+#include <chrono>
+#include <fstream>
 
 #include "../utils/mesh.h"
 #include "../utils/sdf_converter.h"
 #include "../render_settings.h"
 #include "../Renderer/eye_ray.h"
+#include "../utils/image_metrics.h"
 #include "blk.h"
 
 
@@ -40,6 +43,9 @@ struct RenderAppConfig
 
 MultiRenderPreset createPreset(const std::string& render_mode, const int spp);
 int getDevice(const std::string backend);
+int getFileSize(std::string file_name);
+void calcMetrics(float& min, float& max, float& average, const float& new_val);
+
 void render(LiteImage::Image2D<uint32_t> &image, std::shared_ptr<MultiRenderer> pRender, 
             float3 pos, float3 target, float3 up, 
             MultiRenderPreset preset, int a_passNum = 1);

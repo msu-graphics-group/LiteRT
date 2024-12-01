@@ -1,5 +1,18 @@
 #include "benchmark_app.h"
 
+void render(LiteImage::Image2D<uint32_t> &image, std::shared_ptr<MultiRenderer> pRender, 
+            float3 pos, float3 target, float3 up, 
+            MultiRenderPreset preset, int a_passNum)
+{
+  float fov_degrees = 60;
+  float z_near = 0.1f;
+  float z_far = 100.0f;
+  float aspect   = 1.0f;
+  auto proj      = LiteMath::perspectiveMatrix(fov_degrees, aspect, z_near, z_far);
+  auto worldView = LiteMath::lookAt(pos, target, up);
+
+  pRender->Render(image.data(), image.width(), image.height(), worldView, proj, preset, a_passNum);
+}
 
 //// Parameters:
 //
@@ -482,8 +495,13 @@ int main(int argc, const char **argv)
     printf("SPP: %d\n", config.spp);
   }
 
+  std::vector< LiteImage::Image2D<uint32_t>> ref_images;
+  
+  std::fstream f;
+  f.open("benchmark/results/results.csv", std::ios::out);
+  f << "model_name, backend, renderer, type, lod, memory(Mb), time_min, time_max, time_average, psnr_min, psnr_max, psnr_average, flip_min, flip_max, flip_average\n";
 
-// Benchmark loop
+  // Benchmark loop
 
   for (const auto &model : config.models)
   {
@@ -503,7 +521,6 @@ int main(int argc, const char **argv)
           {
             for (const auto &lod : config.lods)
             {
-              void* model_obj;
               auto mesh = cmesh4::LoadMeshFromVSGF(model.c_str());
               cmesh4::rescale_mesh(mesh, float3(-0.95, -0.95, -0.95), float3(0.95, 0.95, 0.95));
 
@@ -511,6 +528,11 @@ int main(int argc, const char **argv)
               
               auto pRender = CreateMultiRenderer(getDevice(backend));
               pRender->SetPreset(preset);
+
+              float min_time = 1e4, max_time = -1, average_time = 0;
+              float memory = 0;
+              float min_psnr = 1000, max_psnr = -1, average_psnr = 0;
+              float min_flip = 1000, max_flip = -1, average_flip = 0;
 
               if (lod == "low")
               {
@@ -525,33 +547,59 @@ int main(int argc, const char **argv)
                 //  Load model into chosen structure
                 if (repr_type == "MESH")
                 {
+                  memory = sizeof(float) * (float)(mesh.IndicesNum() + mesh.VerticesNum()) / 1024.f / 1024.f;
                   pRender->SetScene(mesh);
                 }
                 else if (repr_type == "SDF_GRID")
                 {
                   auto grid = sdf_converter::create_sdf_grid(GridSettings(64), mesh);
+                  memory = sizeof(float) * (float)grid.data.size() / 1024.f / 1024.f;
+
                   pRender->SetScene(grid);
                 }
               }
 
               for (int camera = 0; camera < config.cameras; camera++)
               {
-                const float dist = 3;
+                const float dist = 2;
                 float angle = 2.0f * LiteMath::M_PI * camera / (float)config.cameras;
                 const float3 pos = dist*float3(sin(angle), 0, cos(angle));
 
                 LiteImage::Image2D<uint32_t> image(config.width, config.height);
 
+                auto t1 = std::chrono::steady_clock::now();
                 render(image, pRender, pos, float3(0,0,0), float3(0,1,0), preset, 1);
+                auto t2 = std::chrono::steady_clock::now();
+
+                //  Time calcula"benchmark/results/results.txt", "a+"tion
+                float t = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count() / 1000.f;
+                calcMetrics(min_time, max_time, average_time, t);
+                
+                if (repr_type == "MESH")
+                {
+                  ref_images.push_back(image);
+                }
 
                 std::string img_name = "benchmark/saves/" + repr_type + std::to_string(camera) + ".bmp";
                 LiteImage::SaveImage<uint32_t>(img_name.c_str(), image);
+
+                //  calculate metrics
+                calcMetrics(min_psnr, max_psnr, average_psnr, image_metrics::PSNR(image, ref_images[camera]));
+                calcMetrics(min_flip, max_flip, average_flip, image_metrics::FLIP(image, ref_images[camera]));
               }
+
+              average_time /= (float)config.cameras;
+              average_psnr /= (float)config.cameras;
+              average_flip /= (float)config.cameras;
+
+              f << model << ", " << backend << ", " << renderer << ", " << repr_type << ", " << lod << ", " << memory << ", " << min_time << ", " << max_time << ", " << average_time << ", " << min_psnr << ", " << max_psnr << ", " << average_psnr << ", " << min_flip << ", " << max_flip << ", " << average_flip << std::endl;
             }
           }
         }
       }
     }
+
+    f.close();
   }
 
   return 0;
@@ -592,16 +640,17 @@ getDevice(const std::string backend)
   return -1;
 }
 
-void render(LiteImage::Image2D<uint32_t> &image, std::shared_ptr<MultiRenderer> pRender, 
-            float3 pos, float3 target, float3 up, 
-            MultiRenderPreset preset, int a_passNum)
+void 
+calcMetrics(float& min, float& max, float& average, const float& new_val)
 {
-  float fov_degrees = 60;
-  float z_near = 0.1f;
-  float z_far = 100.0f;
-  float aspect   = 1.0f;
-  auto proj      = LiteMath::perspectiveMatrix(fov_degrees, aspect, z_near, z_far);
-  auto worldView = LiteMath::lookAt(pos, target, up);
+  if (new_val < min)
+  {
+    min = new_val;
+  }
+  if (new_val > max)
+  {
+    max = new_val;
+  }
 
-  pRender->Render(image.data(), image.width(), image.height(), worldView, proj, preset, a_passNum);
+  average += new_val;
 }
