@@ -1,6 +1,6 @@
 {
 backends_enum:arr = { "CPU", "GPU", "RTX", "GPU_RQ" }
-renderers_enum:arr = { "MR", "HYDRA" }
+renderers_enum:arr = { "MR", "Hydra" }
 render_modes_enum:arr = { "MASK", "LAMBERT_NO_TEX", "DEPTH", "LINEAR_DEPTH", "INVERSE_LINEAR_DEPTH", "PRIMITIVE", "TYPE", "GEOM", "NORMAL", "BARYCENTRIC", "ST_ITERATIONS", "RF", "PHONG_NO_TEX", "GS", "RF_DENSITY", "TEX_COORDS", "DIFFUSE", "LAMBERT", "PHONG", "HSV_DEPTH" }
 types_enum:arr = { "MESH", "SDF_GRID", "SDF_SVS", "SDF_SBS", "SDF_SBS_ADAPT", "SDF_FRAME_OCTREE", "SDF_FRAME_OCTREE_TEX", "SDF_FRAME_OCTREE_COMPACT", "SDF_HP", "RF_GRID", "GS_PRIMITIVE", "NURBS", "RIBBON", "CATMUL_CLARK", "GRAPHICS_PRIM", "OPENVDB" }
 lods_enum:arr = { "low", "mid", "high" }
