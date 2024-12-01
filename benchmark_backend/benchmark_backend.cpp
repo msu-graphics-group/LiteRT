@@ -278,17 +278,162 @@ namespace BenchmarkBackend
     getInfoSVS(const std::string &model, const std::string &backend, const std::string &renderer, 
         const std::string &type, const std::string &lod, const int width, const int height, const int spp, const int cameras)
     {
-        
+        float min_time = 1e4, max_time = -1, average_time = 0;
+        float memory = 0;
+        float min_psnr = 1000, max_psnr = -1, average_psnr = 0;
+        float min_flip = 1000, max_flip = -1, average_flip = 0;
+
+        std::fstream f;
+        f.open("benchmark/results/results.csv", std::ios::app);
+
+        auto mesh = cmesh4::LoadMeshFromVSGF(model.c_str());
+        cmesh4::rescale_mesh(mesh, float3(-0.95, -0.95, -0.95), float3(0.95, 0.95, 0.95));
+
+        int depth = 4;
+
+        if (lod == "medium")
+        {
+            depth = 6;
+        }
+        else
+        {
+            depth = 8;
+        }
+
+        SparseOctreeSettings settings(SparseOctreeBuildType::DEFAULT, depth);
+        std::vector<SdfSVSNode> frame_nodes = sdf_converter::create_sdf_SVS(settings, mesh);
+        memory = sizeof(SdfSVSNode) * frame_nodes.size() / 1024.f / 1024.f;
+
+        MultiRenderPreset preset = createPreset(renderer, spp);
+
+        auto pRender_mesh = CreateMultiRenderer(getDevice(backend));
+        pRender_mesh->SetPreset(preset);
+        pRender_mesh->SetScene(mesh);
+
+        auto pRender_svs = CreateMultiRenderer(getDevice(backend));
+        pRender_svs->SetPreset(preset);
+        pRender_svs->SetScene(frame_nodes);
+
+        for (int camera = 0; camera < cameras; camera++)
+        {
+            const float dist = 2;
+            float angle = 2.0f * LiteMath::M_PI * camera / (float)cameras;
+            const float3 pos = dist*float3(sin(angle), 0, cos(angle));
+
+            LiteImage::Image2D<uint32_t> image(width, height), ref_image(width, height);
+            
+            render(ref_image, pRender_mesh, pos, float3(0,0,0), float3(0,1,0), preset, 1);
+
+            auto t1 = std::chrono::steady_clock::now();
+            render(image, pRender_svs, pos, float3(0,0,0), float3(0,1,0), preset, 1);
+            auto t2 = std::chrono::steady_clock::now();
+
+            //  Time calculation
+            float t = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count() / 1000.f;
+            calcMetrics(min_time, max_time, average_time, t);
+
+            std::string img_name = "benchmark/saves/" + type + "_" + std::to_string(camera) + ".bmp";
+            LiteImage::SaveImage<uint32_t>(img_name.c_str(), image);
+
+            //  calculate metrics
+            calcMetrics(min_psnr, max_psnr, average_psnr, image_metrics::PSNR(image, ref_image));
+            calcMetrics(min_flip, max_flip, average_flip, image_metrics::FLIP(image, ref_image));
+        }
+
+        average_time /= (float)cameras;
+        average_psnr /= (float)cameras;
+        average_flip /= (float)cameras;
+
+        f << model << ", " << backend << ", " << renderer << ", " << type << ", " << lod << ", " << memory << ", " 
+          << min_time << ", " << max_time << ", " << average_time << ", " << min_psnr << ", " << max_psnr 
+          << ", " << average_psnr << ", " << min_flip << ", " << max_flip << ", " << average_flip << std::endl;
     }
 
     void
     getInfoSBS(const std::string &model, const std::string &backend, const std::string &renderer, 
         const std::string &type, const std::string &lod, const int width, const int height, const int spp, const int cameras)
     {
+        float min_time = 1e4, max_time = -1, average_time = 0;
+        float memory = 0;
+        float min_psnr = 1000, max_psnr = -1, average_psnr = 0;
+        float min_flip = 1000, max_flip = -1, average_flip = 0;
 
+        std::fstream f;
+        f.open("benchmark/results/results.csv", std::ios::app);
+
+        auto mesh = cmesh4::LoadMeshFromVSGF(model.c_str());
+        cmesh4::rescale_mesh(mesh, float3(-0.95, -0.95, -0.95), float3(0.95, 0.95, 0.95));
+
+        SdfSBSHeader header;
+        header.brick_size = 2;
+        header.brick_pad = 0;
+        header.bytes_per_value = 1;
+        header.aux_data = SDF_SBS_NODE_LAYOUT_DX;
+
+        if (lod == "medium")
+        {
+            header.brick_size = 4;
+        }
+        else
+        {
+            header.brick_size = 5;
+        }
+
+        auto sbs = sdf_converter::create_sdf_SBS(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 5), header, mesh);
+
+        MultiRenderPreset preset = createPreset(renderer, spp);
+
+        auto pRender_mesh = CreateMultiRenderer(getDevice(backend));
+        pRender_mesh->SetPreset(preset);
+        pRender_mesh->SetScene(mesh);
+
+        auto pRender_sbs = CreateMultiRenderer(getDevice(backend));
+        pRender_sbs->SetPreset(preset);
+        pRender_sbs->SetScene(sbs);
+
+        BVHRT *bvh = dynamic_cast<BVHRT*>(pRender_sbs->GetAccelStruct().get());
+        memory = bvh->m_allNodePairs.size()*sizeof(BVHNodePair) + 
+                        bvh->m_primIdCount.size()* sizeof(uint32_t) +
+                        bvh->m_SdfSBSNodes.size()* sizeof(SdfSBSNode) +
+                        bvh->m_SdfSBSData.size() * sizeof(uint32_t) +
+                        bvh->m_SdfSBSDataF.size() * sizeof(float);
+        memory /= 1024.0f * 1024.0f;
+
+        for (int camera = 0; camera < cameras; camera++)
+        {
+            const float dist = 2;
+            float angle = 2.0f * LiteMath::M_PI * camera / (float)cameras;
+            const float3 pos = dist*float3(sin(angle), 0, cos(angle));
+
+            LiteImage::Image2D<uint32_t> image(width, height), ref_image(width, height);
+            
+            render(ref_image, pRender_mesh, pos, float3(0,0,0), float3(0,1,0), preset, 1);
+
+            auto t1 = std::chrono::steady_clock::now();
+            render(image, pRender_sbs, pos, float3(0,0,0), float3(0,1,0), preset, 1);
+            auto t2 = std::chrono::steady_clock::now();
+
+            //  Time calculation
+            float t = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count() / 1000.f;
+            calcMetrics(min_time, max_time, average_time, t);
+
+            std::string img_name = "benchmark/saves/" + type + "_" + std::to_string(camera) + ".bmp";
+            LiteImage::SaveImage<uint32_t>(img_name.c_str(), image);
+
+            //  calculate metrics
+            calcMetrics(min_psnr, max_psnr, average_psnr, image_metrics::PSNR(image, ref_image));
+            calcMetrics(min_flip, max_flip, average_flip, image_metrics::FLIP(image, ref_image));
+        }
+
+        average_time /= (float)cameras;
+        average_psnr /= (float)cameras;
+        average_flip /= (float)cameras;
+
+        f << model << ", " << backend << ", " << renderer << ", " << type << ", " << lod << ", " << memory << ", " 
+          << min_time << ", " << max_time << ", " << average_time << ", " << min_psnr << ", " << max_psnr 
+          << ", " << average_psnr << ", " << min_flip << ", " << max_flip << ", " << average_flip << std::endl;
     }
 
-    //  very slooooow (huin ia)
     void
     getInfoAdaptSBS(const std::string &model, const std::string &backend, const std::string &renderer, 
         const std::string &type, const std::string &lod, const int width, const int height, const int spp, const int cameras)
