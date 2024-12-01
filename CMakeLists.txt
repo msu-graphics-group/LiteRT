@@ -77,34 +77,54 @@ target_link_libraries(
 )
 
 add_executable(
-  RBCurve2D_test
-  tests/RBCurve2D.cpp
+  RBCurve2D_demo
+  examples/RBCurve2D.cpp
+    src/debug.cpp
+    src/debug.hpp
     src/utils.hpp
     src/utils.cpp
     src/curve.hpp
     src/curve.cpp
 )
-target_link_libraries(RBCurve2D_test LiteMath)
-target_include_directories(RBCurve2D_test PUBLIC ${PROJECT_SOURCE_DIR}/src/)
+target_link_libraries(RBCurve2D_demo LiteMath)
+target_include_directories(RBCurve2D_demo PUBLIC ${PROJECT_SOURCE_DIR}/src/)
 
 add_executable(
-  monotonic_test
-  tests/monotonic.cpp
+  monotonic_demo
+  examples/monotonic.cpp
+    src/debug.cpp
+    src/debug.hpp
     src/utils.hpp
     src/utils.cpp
     src/curve.hpp
     src/curve.cpp
 )
-target_link_libraries(monotonic_test LiteMath)
-target_include_directories(monotonic_test PUBLIC ${PROJECT_SOURCE_DIR}/src/)
+target_link_libraries(monotonic_demo LiteMath)
+target_include_directories(monotonic_demo PUBLIC ${PROJECT_SOURCE_DIR}/src/)
 
 add_executable(
-  bisection_test
-  tests/bisection.cpp
+  bisection_demo
+  examples/bisection.cpp
+    src/debug.cpp
+    src/debug.hpp
     src/utils.hpp
     src/utils.cpp
     src/curve.hpp
     src/curve.cpp
 )
-target_link_libraries(bisection_test LiteMath)
-target_include_directories(bisection_test PUBLIC ${PROJECT_SOURCE_DIR}/src/)
+target_link_libraries(bisection_demo LiteMath)
+target_include_directories(bisection_demo PUBLIC ${PROJECT_SOURCE_DIR}/src/)
+
+#add_executable(
+#  monotonic_simple_test
+#  tests/monotonic_simple.cpp
+#    src/constants.hpp
+#    src/debug.cpp
+#    src/debug.hpp
+#    src/utils.hpp
+#    src/utils.cpp
+#    src/curve.hpp
+#    src/curve.cpp
+#)
+#target_link_libraries(monotonic_simple_test LiteMath)
+#target_include_directories(monotonic_simple_test PUBLIC ${PROJECT_SOURCE_DIR}/src/)

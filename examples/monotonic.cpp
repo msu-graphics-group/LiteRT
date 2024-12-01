@@ -1,14 +1,11 @@
 #include <vector>
 #include <iostream>
 
-#include "curve.hpp"
 #include "LiteMath.h"
+#include "curve.hpp"
+#include "debug.hpp"
 
 using namespace LiteMath;
-
-std::ostream& operator<<(std::ostream& cout, float3 v) {
-  return cout << "(" << v.x << " " << v.y << " " << v.z << ")";
-}
 
 int main() {
   // 1/2 of Circle
