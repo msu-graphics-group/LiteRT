@@ -507,32 +507,45 @@ int main(int argc, const char **argv)
               auto mesh = cmesh4::LoadMeshFromVSGF(model.c_str());
               cmesh4::rescale_mesh(mesh, float3(-0.95, -0.95, -0.95), float3(0.95, 0.95, 0.95));
 
-              MultiRenderPreset preset = getDefaultPreset();
-              // preset.
+              MultiRenderPreset preset = createPreset(renderer, config.spp);
+              
+              auto pRender = CreateMultiRenderer(getDevice(backend));
+              pRender->SetPreset(preset);
 
-              if (lod == "1")
+              if (lod == "low")
               {
 
               }
-              else if (lod == "2")
+              else if (lod == "mid")
               {
 
               }
-              else if (lod == "3")
+              else if (lod == "high")
               {
                 //  Load model into chosen structure
                 if (repr_type == "MESH")
                 {
-                  //  skip cause 
+                  pRender->SetScene(mesh);
                 }
                 else if (repr_type == "SDF_GRID")
                 {
-
+                  auto grid = sdf_converter::create_sdf_grid(GridSettings(64), mesh);
+                  pRender->SetScene(grid);
                 }
               }
-              else
+
+              for (int camera = 0; camera < config.cameras; camera++)
               {
-                //  skip
+                const float dist = 3;
+                float angle = 2.0f * LiteMath::M_PI * camera / (float)config.cameras;
+                const float3 pos = dist*float3(sin(angle), 0, cos(angle));
+
+                LiteImage::Image2D<uint32_t> image(config.width, config.height);
+
+                render(image, pRender, pos, float3(0,0,0), float3(0,1,0), preset, 1);
+
+                std::string img_name = "benchmark/saves/" + repr_type + std::to_string(camera) + ".bmp";
+                LiteImage::SaveImage<uint32_t>(img_name.c_str(), image);
               }
             }
           }
@@ -542,4 +555,53 @@ int main(int argc, const char **argv)
   }
 
   return 0;
+}
+
+MultiRenderPreset 
+createPreset(const std::string& render_mode, const int spp)
+{
+  MultiRenderPreset preset = getDefaultPreset();
+
+  if (render_mode == "LAMBERT")
+  {
+    preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
+  }
+
+  preset.spp = spp;
+
+  return preset;
+}
+
+int 
+getDevice(const std::string backend)
+{
+  if (backend == "CPU")
+  {
+    return DEVICE_CPU;
+  }
+  else if (backend == "GPU")
+  {
+    return DEVICE_GPU;
+  }
+  else if (backend == "RTX")
+  {
+    return DEVICE_GPU_RTX;
+  }
+
+  //  if GPU_RQ -> skip
+  return -1;
+}
+
+void render(LiteImage::Image2D<uint32_t> &image, std::shared_ptr<MultiRenderer> pRender, 
+            float3 pos, float3 target, float3 up, 
+            MultiRenderPreset preset, int a_passNum)
+{
+  float fov_degrees = 60;
+  float z_near = 0.1f;
+  float z_far = 100.0f;
+  float aspect   = 1.0f;
+  auto proj      = LiteMath::perspectiveMatrix(fov_degrees, aspect, z_near, z_far);
+  auto worldView = LiteMath::lookAt(pos, target, up);
+
+  pRender->Render(image.data(), image.width(), image.height(), worldView, proj, preset, a_passNum);
 }
