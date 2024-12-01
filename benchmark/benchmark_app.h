@@ -2,6 +2,8 @@
 #include <vector>
 #include <cstdlib>
 
+#include "../utils/mesh.h"
+#include "../render_settings.h"
 #include "blk.h"
 
 
@@ -33,3 +35,4 @@ struct RenderAppConfig
   int cameras;
   int iters;
 };
+

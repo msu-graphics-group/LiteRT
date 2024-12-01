@@ -306,7 +306,6 @@ int main(int argc, const char **argv)
 
   // write_defaults_config("benchmark/defaults.blk", Defaults, config);
 
-
   BenchmarkAppConfig defaults{}, config{};
   RenderAppConfig render_config{};
 
@@ -342,7 +341,6 @@ int main(int argc, const char **argv)
 
 
 // Process config flags
-
   if (param_ind_defaults >= 0u) {
     // --def_conf
     uint32_t start = param_indices[param_ind_defaults] + 1, fin = param_indices[param_ind_defaults + 1];
@@ -505,7 +503,37 @@ int main(int argc, const char **argv)
           {
             for (const auto &lod : config.lods)
             {
-              
+              void* model_obj;
+              auto mesh = cmesh4::LoadMeshFromVSGF(model.c_str());
+              cmesh4::rescale_mesh(mesh, float3(-0.95, -0.95, -0.95), float3(0.95, 0.95, 0.95));
+
+              MultiRenderPreset preset = getDefaultPreset();
+              // preset.
+
+              if (lod == "1")
+              {
+
+              }
+              else if (lod == "2")
+              {
+
+              }
+              else if (lod == "3")
+              {
+                //  Load model into chosen structure
+                if (repr_type == "MESH")
+                {
+                  //  skip cause 
+                }
+                else if (repr_type == "SDF_GRID")
+                {
+
+                }
+              }
+              else
+              {
+                //  skip
+              }
             }
           }
         }

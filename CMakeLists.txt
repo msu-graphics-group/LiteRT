@@ -329,8 +329,11 @@ if (USE_VULKAN)
   target_link_libraries(engine PUBLIC OpenMP::OpenMP_CXX)
 endif()
 
-add_executable(benchmark_app ${CMAKE_SOURCE_DIR}/benchmark/benchmark_app.cpp ${CMAKE_SOURCE_DIR}/utils/blk.cpp)
+add_executable(benchmark_app ${CMAKE_SOURCE_DIR}/benchmark/benchmark_app.cpp ${CMAKE_SOURCE_DIR}/utils/blk.cpp ${CMAKE_SOURCE_DIR}/utils/mesh.cpp )
 target_include_directories(benchmark_app PUBLIC ${CMAKE_SOURCE_DIR}/benchmark
                                                 ${CMAKE_SOURCE_DIR}/utils
                                                 ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/LiteMath
-                                                ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/LiteMath/external)
+                                                ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/LiteMath/external
+                                                )
+
+target_link_libraries(benchmark_app PRIVATE render_lib)
