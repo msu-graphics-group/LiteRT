@@ -557,6 +557,38 @@ int main(int argc, const char **argv)
 
                   pRender->SetScene(grid);
                 }
+                else if (repr_type == "SDF_SVS")
+                {
+                  SparseOctreeSettings settings(SparseOctreeBuildType::DEFAULT, 7);
+                  std::vector<SdfSVSNode> frame_nodes = sdf_converter::create_sdf_SVS(settings, mesh);
+                  memory = sizeof(SdfSVSNode) * frame_nodes.size() / 1024.f / 1024.f;
+
+                  pRender->SetScene(frame_nodes);
+                }
+                else if (repr_type == "SDF_SBS")
+                {
+                  SdfSBSHeader header;
+                  header.brick_size = 3;
+                  header.brick_pad = 0;
+                  header.bytes_per_value = 1;
+                  header.aux_data = SDF_SBS_NODE_LAYOUT_DX;
+
+                  auto sbs = sdf_converter::create_sdf_SBS(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 5), header, mesh);
+
+                  pRender->SetScene(sbs);
+                }
+                else if (repr_type == "SDF_SBS_ADAPT")
+                {
+                  std::vector<MeshBVH> bvh(1);
+                  for (unsigned i = 0; i < 1; i++)
+                    bvh[i].init(mesh);
+                  auto real_sdf = [&](const float3 &p, unsigned idx) -> float 
+                  { return bvh[idx].get_signed_distance(p);};
+                  //  Неработающая ..... 
+                  SdfSBSAdapt sbs_adapt = sdf_converter::greed_sbs_adapt(real_sdf, 5);
+
+                  pRender->SetScene(sbs_adapt);
+                }
               }
 
               for (int camera = 0; camera < config.cameras; camera++)
@@ -571,7 +603,7 @@ int main(int argc, const char **argv)
                 render(image, pRender, pos, float3(0,0,0), float3(0,1,0), preset, 1);
                 auto t2 = std::chrono::steady_clock::now();
 
-                //  Time calcula"benchmark/results/results.txt", "a+"tion
+                //  Time calculation
                 float t = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count() / 1000.f;
                 calcMetrics(min_time, max_time, average_time, t);
                 
@@ -580,7 +612,7 @@ int main(int argc, const char **argv)
                   ref_images.push_back(image);
                 }
 
-                std::string img_name = "benchmark/saves/" + repr_type + std::to_string(camera) + ".bmp";
+                std::string img_name = "benchmark/saves/" + repr_type + "_" + std::to_string(camera) + ".bmp";
                 LiteImage::SaveImage<uint32_t>(img_name.c_str(), image);
 
                 //  calculate metrics

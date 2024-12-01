@@ -9,6 +9,7 @@
 #include "../render_settings.h"
 #include "../Renderer/eye_ray.h"
 #include "../utils/image_metrics.h"
+#include "../utils/mesh_bvh.h"
 #include "blk.h"
 
 
