@@ -175,7 +175,7 @@ RBCurve2D::monotonic_parts(int axes, int order) const {
     auto potential_root = bisection(F, a, b);
     if (potential_root.has_value()) {
       float root = potential_root.value();
-      if (!isclose(root, result.back(), c::BISECTION_EPS)) {
+      if (!isclose(root, result.back(), 2.0f * c::BISECTION_EPS)) {
         result.push_back(root);
       }
     }

@@ -72,5 +72,6 @@ private:
 
 //********* Utitilies ***********//
 bool isclose(float a, float b, float eps);
+bool allclose(std::vector<float> v, std::vector<float> w, float eps);
 
 #endif 

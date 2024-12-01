@@ -2,7 +2,8 @@
 #define NURBS_SRC_CONSTANTS
 
 namespace c {
-  constexpr float BISECTION_EPS = 0.001f;
+  constexpr float TEST_EPS = 1e-3f;
+  constexpr float BISECTION_EPS = 1e-4f;
 }
 
 #endif
