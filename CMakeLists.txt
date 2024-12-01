@@ -127,7 +127,8 @@ set(BUILDERS_SRC
 
 set(TESTS_SRC
     ${CMAKE_SOURCE_DIR}/tests/tests.cpp
-    ${CMAKE_SOURCE_DIR}/tests/benchmark.cpp)
+    ${CMAKE_SOURCE_DIR}/tests/benchmark.cpp
+    ${CMAKE_SOURCE_DIR}/tests/model_check.cpp)
 
 set(DR_SRC 
     ${CMAKE_SOURCE_DIR}/diff_render/DR_common.cpp

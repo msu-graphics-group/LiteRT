@@ -1259,16 +1259,16 @@ namespace cmesh4
     if (apply_basic_transforms)
     {
       if (verbose)
+        printf("[LoadMesh::INFO] Normalizing mesh\n");
+      normalize_mesh(mesh, verbose);
+
+      if (verbose)
         printf("[LoadMesh::INFO] Compressing close vertices\n");
       compress_close_vertices(mesh, 1e-9f, false, verbose);
 
       if (verbose)
         printf("[LoadMesh::INFO] Recalculating normals\n");
       recalculate_vertex_normals(mesh);
-
-      if (verbose)
-        printf("[LoadMesh::INFO] Normalizing mesh\n");
-      normalize_mesh(mesh, verbose);
     }
 
     if (verbose)
