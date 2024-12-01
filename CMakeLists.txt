@@ -108,6 +108,7 @@ set(SCENE_LOADER_SRC
     ${CMAKE_SOURCE_DIR}/utils/csv.cpp
     ${CMAKE_SOURCE_DIR}/utils/blk.cpp
     ${CMAKE_SOURCE_DIR}/utils/ball_tree.cpp
+    ${CMAKE_SOURCE_DIR}/utils/ply_reader.cpp
     )
 
 set(CORE_SRC

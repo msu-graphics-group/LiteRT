@@ -1,8 +1,10 @@
 #include "mesh.h"
 #include "LiteMath/LiteMath.h"
+#include "vector_comparators.h"
+#include "ply_reader.h"
+
 #include <math.h> 
 #include <stack>
-#include "vector_comparators.h"
 #include <map>
 #include <fstream>
 #include <iostream>
@@ -597,7 +599,7 @@ namespace cmesh4
   void compress_close_vertices(cmesh4::SimpleMesh &mesh, double threshold, bool force_merge_distinct_normals, bool verbose)
   {
     std::map<int3, std::vector<unsigned>, cmpInt3> vert_indices;
-    float inv_thr = 1.0/std::max(1e-9, threshold);
+    float inv_thr = 1.0/std::max(1e-6, threshold);
 
     for (int i=0;i<mesh.vPos4f.size();i++)
     {
@@ -615,13 +617,19 @@ namespace cmesh4
       
         //printf("v_idx %d %d %d size %d\n", v_idx.x, v_idx.y, v_idx.z, (int)vert_indices[v_idx].size());
       }
+      if (verbose && (i==0 || i%1000000==0))
+        printf("[compress_close_vertices::INFO] (%d/%d) Filling spatial hash\n", i, (int)mesh.vPos4f.size());
     }
+
+    if (verbose)
+      printf("[compress_close_vertices::INFO] Filled spatial hash\n");
 
     std::vector<int> vert_remap(mesh.vPos4f.size(), -1);
     std::vector<bool> remapped(mesh.vPos4f.size(), false);
     std::vector<int> vert_remap_inv(mesh.vPos4f.size(), -1);
     unsigned new_idx = 0;
 
+    int idx = 0;
     for (auto &it : vert_indices)
     {
       //printf("Checking %d vertices\n", (int)it.second.size());
@@ -654,6 +662,10 @@ namespace cmesh4
           }
         }
       }
+
+      if (verbose && (idx==0 || idx%1000000==0))
+        printf("[compress_close_vertices::INFO] (%d/%d) Processing spatial hash\n", idx, (int)vert_indices.size());
+      idx++;
     }
 
     for (int i=0;i<mesh.vPos4f.size();i++)
@@ -676,12 +688,12 @@ namespace cmesh4
     if (new_idx == mesh.vPos4f.size())
     {
       if (verbose)
-        printf("OK: mesh has no close vertices\n");
+        printf("[compress_close_vertices::INFO] mesh has no close vertices\n");
     }
     else
     {
       if (verbose)
-        printf("WARNING: %d/%d vertices were close and were compressed\n", (int)(mesh.vPos4f.size() - new_idx), (int)mesh.vPos4f.size());
+        printf("[compress_close_vertices::INFO] %d/%d vertices were close and were compressed\n", (int)(mesh.vPos4f.size() - new_idx), (int)mesh.vPos4f.size());
     
       //    std::vector<LiteMath::float4> vPos4f; 
       //    std::vector<LiteMath::float4> vNorm4f;
@@ -730,7 +742,7 @@ namespace cmesh4
       mesh.matIndices = new_matIndices;
 
       if (verbose)
-        printf("%d/%d triangles were removed after vertex compression\n",old_triangles - (int)mesh.matIndices.size(), old_triangles);
+        printf("[compress_close_vertices::INFO] %d/%d triangles were removed after vertex compression\n",old_triangles - (int)mesh.matIndices.size(), old_triangles);
     }
   }
 
@@ -1201,6 +1213,12 @@ namespace cmesh4
       if (verbose)
         printf("[LoadMesh::INFO] Loading VSGF file %s\n", a_fileName);
       mesh = LoadMeshFromVSGF(a_fileName);
+    }
+    else if (substrings[substrings.size() - 1] == "ply")
+    {
+      if (verbose)
+        printf("[LoadMesh::INFO] Loading PLY file %s\n", a_fileName);
+      mesh = LoadMeshFromPly(a_fileName, verbose);
     }
     else
     {
