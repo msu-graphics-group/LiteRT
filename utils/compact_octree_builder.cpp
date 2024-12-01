@@ -3,6 +3,7 @@
 #include "omp.h"
 #include <atomic>
 #include <cassert>
+#include <chrono>
 
 struct COctreeV3ThreadCtx
 {
@@ -23,6 +24,8 @@ struct COctreeV3BuildTask
 
 struct CompressedClusterInfo
 {
+  CompressedClusterInfo() = default;
+  CompressedClusterInfo(float _add_min, float _add_max) : add_min(_add_min), add_max(_add_max) {}
   std::vector<int> original_node_ids;
   float add_min = 0.0f;
   float add_max = 0.0f;
@@ -282,7 +285,8 @@ namespace sdf_converter
     }
     float range_active = max_active - min_active;
     assert(range_active > 0 && range_active < 1);
-    assert(min_active < 0 && min_active > -1);
+    //we cannot guarante min_active < 0 with similarity compression
+    min_active = std::min(min_active, 0.0f);
 
     uint32_t min_comp = (-min_active) * float(0xFFFFFFFFu);
     uint32_t range_comp = range_active * float(0xFFFFFFFFu);
@@ -613,6 +617,8 @@ namespace sdf_converter
     global_ctx.tasks[0].p = uint3(0, 0, 0);
     global_ctx.tasks_count = 1;
 
+    auto t1 = std::chrono::high_resolution_clock::now();
+
     //Performing similarity compression if needed
     if (compact_octree.header.sim_compression)
     {
@@ -626,7 +632,7 @@ namespace sdf_converter
       global_ctx.compact_leaf_offsets.resize(scom_output.leaf_count, 0);
 
       //fill cluster infos to use it for leaves compression
-      global_ctx.cluster_infos.resize(scom_output.leaf_count);
+      global_ctx.cluster_infos.resize(scom_output.leaf_count, CompressedClusterInfo(1000.0f, -1000.0f)); 
       unsigned identity_transform_code = scom::get_identity_transform_code();
       for (int i = 0; i < octree.nodes.size(); i++)
       {
@@ -674,6 +680,9 @@ namespace sdf_converter
       }
     }
 
+    auto t2 = std::chrono::high_resolution_clock::now();
+    //printf("similarity compression %.2f ms\n", 1e-6f*std::chrono::duration_cast<std::chrono::nanoseconds>(t2 - t1).count());
+
     //Building
     int start_task = 0;
     int end_task = 1;
@@ -690,7 +699,9 @@ namespace sdf_converter
       start_task = end_task;
       end_task = global_ctx.tasks_count;
     }
-    printf("compact octree %.1f Kb leaf, %.1f Kb non-leaf\n", stat_leaf_bytes.load() / 1024.0f, stat_nonleaf_bytes.load() / 1024.0f);
+    auto t3 = std::chrono::high_resolution_clock::now();
+    //printf("octree compression %.2f ms\n", 1e-6f*std::chrono::duration_cast<std::chrono::nanoseconds>(t3 - t2).count());
+    //printf("compact octree %.1f Kb leaf, %.1f Kb non-leaf\n", stat_leaf_bytes.load() / 1024.0f, stat_nonleaf_bytes.load() / 1024.0f);
 
     global_ctx.compact.shrink_to_fit();
     compact_octree.data = global_ctx.compact;

@@ -1744,10 +1744,12 @@ NURBS_HitInfo BVHRT::ray_nurbs_newton_intersection(
   hit_info.uv = uv;
   return hit_info;
 }
+#endif
 
 void BVHRT::IntersectNURBS(const float3& ray_pos, const float3& ray_dir,
                            float tNear, uint32_t approx_offset, uint32_t instId,
                            uint32_t geomId, CRT_Hit* pHit) {
+#ifndef DISABLE_NURBS
   uint nurbsId = m_geomData[geomId].offset.x;
   NURBSHeader header  = m_NURBSHeaders[nurbsId];
   uint type = m_geomData[geomId].type;
@@ -1782,9 +1784,9 @@ void BVHRT::IntersectNURBS(const float3& ray_pos, const float3& ray_dir,
 
   // pHit->coords[0] = u0;
   // pHit->coords[1] = v0;
+#endif
 }
 //////////////////////// END NURBS SECTION ///////////////////////////////////////////////
-#endif
 
 
 

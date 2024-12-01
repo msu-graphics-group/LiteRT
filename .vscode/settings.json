@@ -103,5 +103,10 @@
       "visualizerFile": "${workspaceFolder}/.vscode/litemath.natvis",
       "showDisplayString": true
     },
+    "cmake.configureSettings": {
+      "build_nurbs_viewer":true,
+      "USE_VULKAN":false,
+      "USE_RTX":false,
+    },
     "cmake.buildDirectory": "${workspaceFolder}/build/${buildType}"
 }

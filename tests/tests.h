@@ -27,3 +27,7 @@ void SBS_benchmark(const std::string &path, const std::string &mesh_name, unsign
 void rtx_benchmark(const std::string &path, const std::string &mesh_name, unsigned flags = BENCHMARK_FLAG_BUILD | BENCHMARK_FLAG_RENDER_RT, 
                    const std::string &supported_type = "", unsigned device = DEVICE_GPU);
 void quality_check(const char *path);
+
+//given a path to mesh (obj or vsgf) check if it is valid and 
+//if good-quality SDF can be built from it
+void check_model(const std::string &path);

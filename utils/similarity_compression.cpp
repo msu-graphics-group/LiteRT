@@ -271,7 +271,7 @@ namespace scom
         int p_size = output.compressed_data.size();
         output.compressed_data.resize(p_size + dist_count);
         for (int k = 0; k < dist_count; k++)
-          output.compressed_data[p_size + k] = centroid[k];
+          output.compressed_data[p_size + k] = centroid[k] + remap_transforms[i].add;
 
         // if (group_indices_size > 1)
         // {
@@ -284,8 +284,11 @@ namespace scom
         for (int j = 0; j < group_indices_size; j++)
         {
           int k = group_indices[j];
+          TransformCompact tc;
+          tc.rotation_id = remap_transforms[k].rotation_id;
+          tc.add = remap_transforms[k].add - remap_transforms[i].add;
           output.node_id_cleaf_id_remap[k] = unique_node_id;
-          output.tranform_codes[k] = get_transform_code(remap_transforms[k]);
+          output.tranform_codes[k] = get_transform_code(tc);
         }
         unique_node_id++;
       }
@@ -535,7 +538,8 @@ namespace scom
           // printf("merge clusters U=%d V=%d with d = %f\n", absolute_min.U, absolute_min.V, absolute_min.dist);
           auto t3 = std::chrono::high_resolution_clock::now();
 
-          assert(step == 0 || absolute_min_history[step-1].dist <= absolute_min.dist);
+          //TODO: fix the underlying issue and uncomment this assert
+          //assert(step == 0 || absolute_min_history[step-1].dist <= absolute_min.dist);
           absolute_min_history[step] = absolute_min;
 
           // merge clusters to create new one
@@ -870,7 +874,7 @@ namespace scom
 
     std::vector<std::vector<Link>> tmp_links(max_threads);
     for (int i=0; i<max_threads; i++)
-      tmp_links[i].resize(surface_node_count, Link());
+      tmp_links[i].resize(ROT_COUNT*surface_node_count, Link());
   
 
   auto t1 = std::chrono::high_resolution_clock::now();

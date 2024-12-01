@@ -1,18 +1,7 @@
 #include "benchmark_app.h"
 
-void render(LiteImage::Image2D<uint32_t> &image, std::shared_ptr<MultiRenderer> pRender, 
-            float3 pos, float3 target, float3 up, 
-            MultiRenderPreset preset, int a_passNum)
-{
-  float fov_degrees = 60;
-  float z_near = 0.1f;
-  float z_far = 100.0f;
-  float aspect   = 1.0f;
-  auto proj      = LiteMath::perspectiveMatrix(fov_degrees, aspect, z_near, z_far);
-  auto worldView = LiteMath::lookAt(pos, target, up);
+#include <fstream>
 
-  pRender->Render(image.data(), image.width(), image.height(), worldView, proj, preset, a_passNum);
-}
 
 //// Parameters:
 //
@@ -146,6 +135,26 @@ void write_benchmark_config(const char *defaults_config_fpath, const BenchmarkAp
   save_block_to_file(defaults_config_fpath, block_benchmark);
 }
 
+std::string write_render_config_s(const RenderAppConfig &in_render)
+{
+  std::string res_block_str;
+  Block block_render{};
+
+  block_render.set_string("model", in_render.model);
+  block_render.set_string("render_mode", in_render.render_mode);
+  block_render.set_arr("param_strings", in_render.param_strings);
+  block_render.set_arr("lods", in_render.lods);
+
+  block_render.set_int("width", in_render.width);
+  block_render.set_int("height", in_render.height);
+  block_render.set_int("cameras", in_render.cameras);
+  block_render.set_int("iters", in_render.iters);
+  block_render.set_int("spp", in_render.spp);
+
+  save_block_to_string(res_block_str, block_render);
+  return res_block_str;
+}
+
 
 
 std::vector<std::string> filter_enum_params(const char **argv, uint32_t len, const std::vector<std::string> supported_tags)
@@ -182,6 +191,8 @@ std::vector<std::string> filter_enum_params(const char **argv, uint32_t len, con
 void call_kernel_slicer(const BenchmarkAppConfig &defaults, const std::string &repr_type, const std::string &renderer,
                         const std::string &backend, const std::string &slicer_dir, const std::string &slicer_exec)
 {
+// Slicer preprocess
+
   std::string disable_flags;
   disable_flags.reserve(defaults.types.size() - 1);
 
@@ -191,11 +202,20 @@ void call_kernel_slicer(const BenchmarkAppConfig &defaults, const std::string &r
       disable_flags += " -DDISABLE_" + defaults.types[i];
   }
 
+  // current ans slicer directories
+  std::filesystem::path curr_p = std::filesystem::current_path(), slicer_p;
+
+  std::filesystem::current_path(slicer_dir);
+  slicer_p = std::filesystem::current_path();
+  // printf("curr path: %s\n", curr_p.c_str());
+  // printf("slicer path: %s\n", slicer_p.c_str());
+  std::filesystem::current_path(curr_p);
+
 
   // backend- and renderer-specific parameters
 
   std::string main_class = " MultiRenderer";
-  std::string renderer_src = " ./Renderer/eye_ray.cpp";
+  std::string renderer_src = " " + curr_p.native() + "/Renderer/eye_ray.cpp";
   std::string parameters = "";
 
   if (renderer == "MR")
@@ -204,121 +224,122 @@ void call_kernel_slicer(const BenchmarkAppConfig &defaults, const std::string &r
     if (backend != "GPU_RQ")
       multirenderer_suffix =  " -suffix _" + backend;
 
-    std::string i_params = " -I$PWD/TINYSTL                     ignore  \
-  -I./dependencies          ignore  \
-  -I./dependencies/HydraCore3/external          ignore  \
-  -I./dependencies/HydraCore3/external/LiteMath ignore  \
-  -I./                      process \
-  -I./Renderer              process \
-  -I./BVH                   process \
-  -I./sdfScene              ignore";
+    std::string i_params = "\
+    -I" + slicer_p.native() + "/TINYSTL                     ignore  \
+    -I" + curr_p.native() + "/dependencies          ignore  \
+    -I" + curr_p.native() + "/dependencies/HydraCore3/external          ignore  \
+    -I" + curr_p.native() + "/dependencies/HydraCore3/external/LiteMath ignore  \
+    -I" + curr_p.native() + "/                      process \
+    -I" + curr_p.native() + "/Renderer              process \
+    -I" + curr_p.native() + "/BVH                   process \
+    -I" + curr_p.native() + "/sdfScene              ignore";
 
-    parameters = i_params + multirenderer_suffix + "-DPUGIXML_NO_EXCEPTIONS -DKERNEL_SLICER -v "
+    if (backend == "GPU_RQ")
+      i_params += "\
+      -options " + curr_p.native() + "/options.json \
+      -intersectionShader AbstractObject::Intersect \
+      -intersectionTriangle GeomDataTriangle \
+      -intersectionBlackList GeomDataRF \
+      -intersectionBlackList GeomDataGS";
+    else if (backend == "RTX")
+      i_params += "\
+      -options " + curr_p.native() + "/options.json \
+      -intersectionShader AbstractObject::Intersect";
+
+    parameters = i_params + multirenderer_suffix + " -DPUGIXML_NO_EXCEPTIONS -DKERNEL_SLICER -v "
     + "-enable_ray_tracing_pipeline " + std::to_string(backend == "RTX");
   }
   else if (renderer == "Hydra")
   {
     main_class = " Integrator";
-    renderer_src = " ./dependencies/HydraCore3/integrator_pt.cpp\
-  ./dependencies/HydraCore3/integrator_pt_lgt.cpp\
-  ./dependencies/HydraCore3/integrator_pt_mat.cpp\
-  ./dependencies/HydraCore3/integrator_rt.cpp\
-  ./dependencies/HydraCore3/integrator_spectrum.cpp";
+    renderer_src = "\
+    " + curr_p.native() + "/dependencies/HydraCore3/integrator_pt.cpp\
+    " + curr_p.native() + "/dependencies/HydraCore3/integrator_pt_lgt.cpp\
+    " + curr_p.native() + "/dependencies/HydraCore3/integrator_pt_mat.cpp\
+    " + curr_p.native() + "/dependencies/HydraCore3/integrator_rt.cpp\
+    " + curr_p.native() + "/dependencies/HydraCore3/integrator_spectrum.cpp";
 
-    std::string i_params = " -I$PWD/TINYSTL                     ignore  \
-  -I$PWD/apps/LiteMathAux            ignore  \
-  -I./dependencies/HydraCore3/external/LiteScene ignore  \
-  -I./dependencies/HydraCore3/external/LiteMath  ignore  \
-  -I./dependencies/HydraCore3/external           ignore  \
-  -I./dependencies/HydraCore3/cam_plugin         process \
-  -I./                      process \
-  -I./BVH                   process \
-  -I./sdfScene              ignore  ";
+    std::string i_params = "\
+    -I" + slicer_p.native() + "/TINYSTL                     ignore  \
+    -I" + slicer_p.native() + "/apps/LiteMathAux            ignore  \
+    -I" + curr_p.native() + "/dependencies/HydraCore3/external/LiteScene ignore  \
+    -I" + curr_p.native() + "/dependencies/HydraCore3/external/LiteMath  ignore  \
+    -I" + curr_p.native() + "/dependencies/HydraCore3/external           ignore  \
+    -I" + curr_p.native() + "/dependencies/HydraCore3/cam_plugin         process \
+    -I" + curr_p.native() + "/                      process \
+    -I" + curr_p.native() + "/BVH                   process \
+    -I" + curr_p.native() + "/sdfScene              ignore  ";
 
-    parameters = i_params + "-enable_ray_tracing_pipeline 0 \
--enable_motion_blur 0 \
--gen_gpu_api 0 \
--DLITERT_RENDERER \
--DKERNEL_SLICER -v";
+    parameters = i_params + "\
+    -enable_ray_tracing_pipeline 0 \
+    -enable_motion_blur 0 \
+    -gen_gpu_api 0 \
+    -DLITERT_RENDERER \
+    -DKERNEL_SLICER -v";
   }
 
 
-  std::string slicer_command = slicer_exec + renderer_src + " ./BVH/BVH2Common.cpp" +
-    " -mainClass " + main_class +
-    " -composInterface ISceneObject \
+  std::string slicer_command = slicer_exec + renderer_src + " " + curr_p.native() + "/BVH/BVH2Common.cpp" +
+  " -mainClass " + main_class +
+  " -composInterface ISceneObject \
   -composImplementation BVHRT \
   -stdlibfolder $PWD/TINYSTL \
+  -megakernel 1 \
+  -timestamps 1 \
   -pattern rtv \
-  -shaderCC glsl " + parameters;
+  -shaderCC glsl " + parameters + disable_flags;
+
+  // std::ofstream out_f{std::string("config/out_slicer_") + backend + '_' + renderer + ".txt"};
+  // out_f << slicer_command;
+  // out_f.close();
+
+  std::filesystem::current_path(slicer_p);
+  std::system(slicer_command.c_str());
+  std::filesystem::current_path(curr_p);
+
+
+// Slicer build shaders
+
+  if (renderer == "MR")
+  {
+    std::string shaders_dir = "shaders";
+    if (backend == "GPU")
+      shaders_dir += "_gpu";
+    else if (backend == "RTX")
+      shaders_dir += "_rtx";
+    else if (backend == "GPU_RQ")
+      shaders_dir += "_gpu_rq";
+
+    std::filesystem::remove_all(shaders_dir);
+    std::filesystem::create_directory(shaders_dir);
+
+    auto tmp_p = curr_p;
+    tmp_p.append("Renderer");
+    tmp_p.append(shaders_dir);
+    tmp_p = tmp_p.lexically_normal();
+    std::filesystem::current_path(tmp_p);
+
+    std::system("bash build.sh");
+    std::string commd = "find -name \"*.spv\" | xargs cp --parents -t ../../" + shaders_dir;
+    std::system(commd.c_str());
+    std::filesystem::current_path(curr_p);
+  }
+  else if (renderer == "Hydra")
+  {
+    auto tmp_p = curr_p;
+    tmp_p.append("dependencies/HydraCore3/shaders_generated");
+    tmp_p = tmp_p.lexically_normal();
+    std::filesystem::current_path(tmp_p);
+
+    std::system("bash build.sh");
+    std::filesystem::current_path(curr_p);
+  }
 }
 
 
 
 int main(int argc, const char **argv)
 {
-  // BenchmarkAppConfig Defaults{};
-  // Defaults.render_modes = {
-  // "MASK",
-  // "LAMBERT_NO_TEX",
-  // "DEPTH",
-  // "LINEAR_DEPTH",
-  // "INVERSE_LINEAR_DEPTH",
-  // "PRIMITIVE",
-  // "TYPE",
-  // "GEOM",
-  // "NORMAL",
-  // "BARYCENTRIC",
-  // "ST_ITERATIONS",
-  // "RF",
-  // "PHONG_NO_TEX",
-  // "GS",
-  // "RF_DENSITY",
-  // "TEX_COORDS",
-  // "DIFFUSE",
-  // "LAMBERT",
-  // "PHONG",
-  // "HSV_DEPTH",
-  // };
-
-  // Defaults.backends = {
-  // "CPU",
-  // "GPU",
-  // "RTX",
-  // "GPU_RQ",
-  // };
-
-  // Defaults.renderers = {
-  // "MR",
-  // "HYDRA",
-  // };
-
-  // Defaults.types = {
-  // "MESH",
-  // "SDF_GRID",
-  // "SDF_SVS",
-  // "SDF_SBS",
-  // "SDF_SBS_ADAPT",
-  // "SDF_FRAME_OCTREE",
-  // "SDF_FRAME_OCTREE_TEX",
-  // "SDF_FRAME_OCTREE_COMPACT",
-  // "SDF_HP",
-  // "RF_GRID",
-  // "GS_PRIMITIVE",
-  // "NURBS",
-  // "RIBBON",
-  // "CATMUL_CLARK",
-  // "GRAPHICS_PRIM",
-  // "OPENVDB",
-  // };
-
-  // Defaults.lods = {
-  // "low",
-  // "mid",
-  // "high"
-  // };
-
-  // write_defaults_config("benchmark/defaults.blk", Defaults, config);
-
   BenchmarkAppConfig defaults{}, config{};
   RenderAppConfig render_config{};
 
@@ -346,11 +367,6 @@ int main(int argc, const char **argv)
     }
   }
   param_indices.push_back(argc);
-
-  // printf("Indices:\n");
-  // for (auto ind : param_indices)
-  //   printf("%d, ", ind);
-  // printf("\n");
 
 
 // Process config flags
@@ -457,12 +473,34 @@ int main(int argc, const char **argv)
     }
   }
 
+
+// Process slicer_dir path
+
+  std::string slicer_adir = slicer_dir;
+
+  // replace '~' with a home dir path on Linux, filesystem lib isn't able to do this
+  if (slicer_adir.find("~") != slicer_adir.npos)
+  {
+    std::string home_dir = std::getenv("HOME");
+    if (home_dir.empty())
+    {
+      printf("Error: Could not replace '~' with a home dir in slicer path.\n");
+      exit(-1);
+    }
+
+    while (slicer_adir.find("~") != slicer_adir.npos)
+      slicer_adir.replace(slicer_adir.find("~"), 1, home_dir);
+  }
+
+
+// Print config
+
   if (verbose)
   {
     printf("Verbose %d\n", verbose);
     printf("Def conf: %s\n", defaults_config_fpath);
     printf("Base conf: %s\n", base_config_fpath);
-    printf("Slicer dir: %s\n", slicer_dir);
+    printf("Slicer dir: %s\n", slicer_adir.c_str());
     printf("Slicer exec: %s\n", slicer_exec);
 
     printf("\nCONFIG.");
@@ -495,13 +533,8 @@ int main(int argc, const char **argv)
     printf("SPP: %d\n", config.spp);
   }
 
-  std::vector< LiteImage::Image2D<uint32_t>> ref_images;
-  
-  std::fstream f;
-  f.open("benchmark/results/results.csv", std::ios::out);
-  f << "model_name, backend, renderer, type, lod, memory(Mb), time_min, time_max, time_average, psnr_min, psnr_max, psnr_average, flip_min, flip_max, flip_average\n";
 
-  // Benchmark loop
+// Benchmark loop
 
   for (const auto &model : config.models)
   {
@@ -511,178 +544,39 @@ int main(int argc, const char **argv)
     {
       for (const auto &backend : config.backends)
       {
+        bool do_slicing = backend != "CPU";
+        if (renderer == "Hydra" && backend != "GPU")
+          do_slicing = false;
+
+        bool recompile = true;
+
         for (const auto &repr_type : config.types)
         {
-          // TODO: call slicer
-          call_kernel_slicer(defaults, repr_type, renderer, backend, slicer_dir, slicer_exec);
-          // TODO: recompile
-
-          for (const auto &param_string : config.param_strings)
+          // Slice
+          if (do_slicing)
           {
-            for (const auto &lod : config.lods)
-            {
-              auto mesh = cmesh4::LoadMeshFromVSGF(model.c_str());
-              cmesh4::rescale_mesh(mesh, float3(-0.95, -0.95, -0.95), float3(0.95, 0.95, 0.95));
-
-              MultiRenderPreset preset = createPreset(renderer, config.spp);
-              
-              auto pRender = CreateMultiRenderer(getDevice(backend));
-              pRender->SetPreset(preset);
-
-              float min_time = 1e4, max_time = -1, average_time = 0;
-              float memory = 0;
-              float min_psnr = 1000, max_psnr = -1, average_psnr = 0;
-              float min_flip = 1000, max_flip = -1, average_flip = 0;
-
-              if (lod == "low")
-              {
-
-              }
-              else if (lod == "mid")
-              {
-
-              }
-              else if (lod == "high")
-              {
-                //  Load model into chosen structure
-                if (repr_type == "MESH")
-                {
-                  memory = sizeof(float) * (float)(mesh.IndicesNum() + mesh.VerticesNum()) / 1024.f / 1024.f;
-                  pRender->SetScene(mesh);
-                }
-                else if (repr_type == "SDF_GRID")
-                {
-                  auto grid = sdf_converter::create_sdf_grid(GridSettings(64), mesh);
-                  memory = sizeof(float) * (float)grid.data.size() / 1024.f / 1024.f;
-
-                  pRender->SetScene(grid);
-                }
-                else if (repr_type == "SDF_SVS")
-                {
-                  SparseOctreeSettings settings(SparseOctreeBuildType::DEFAULT, 7);
-                  std::vector<SdfSVSNode> frame_nodes = sdf_converter::create_sdf_SVS(settings, mesh);
-                  memory = sizeof(SdfSVSNode) * frame_nodes.size() / 1024.f / 1024.f;
-
-                  pRender->SetScene(frame_nodes);
-                }
-                else if (repr_type == "SDF_SBS")
-                {
-                  SdfSBSHeader header;
-                  header.brick_size = 3;
-                  header.brick_pad = 0;
-                  header.bytes_per_value = 1;
-                  header.aux_data = SDF_SBS_NODE_LAYOUT_DX;
-
-                  auto sbs = sdf_converter::create_sdf_SBS(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 5), header, mesh);
-
-                  pRender->SetScene(sbs);
-                }
-                else if (repr_type == "SDF_SBS_ADAPT")
-                {
-                  std::vector<MeshBVH> bvh(1);
-                  for (unsigned i = 0; i < 1; i++)
-                    bvh[i].init(mesh);
-                  auto real_sdf = [&](const float3 &p, unsigned idx) -> float 
-                  { return bvh[idx].get_signed_distance(p);};
-                  //  Неработающая ..... 
-                  SdfSBSAdapt sbs_adapt = sdf_converter::greed_sbs_adapt(real_sdf, 5);
-
-                  pRender->SetScene(sbs_adapt);
-                }
-              }
-
-              for (int camera = 0; camera < config.cameras; camera++)
-              {
-                const float dist = 2;
-                float angle = 2.0f * LiteMath::M_PI * camera / (float)config.cameras;
-                const float3 pos = dist*float3(sin(angle), 0, cos(angle));
-
-                LiteImage::Image2D<uint32_t> image(config.width, config.height);
-
-                auto t1 = std::chrono::steady_clock::now();
-                render(image, pRender, pos, float3(0,0,0), float3(0,1,0), preset, 1);
-                auto t2 = std::chrono::steady_clock::now();
-
-                //  Time calculation
-                float t = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count() / 1000.f;
-                calcMetrics(min_time, max_time, average_time, t);
-                
-                if (repr_type == "MESH")
-                {
-                  ref_images.push_back(image);
-                }
-
-                std::string img_name = "benchmark/saves/" + repr_type + "_" + std::to_string(camera) + ".bmp";
-                LiteImage::SaveImage<uint32_t>(img_name.c_str(), image);
-
-                //  calculate metrics
-                calcMetrics(min_psnr, max_psnr, average_psnr, image_metrics::PSNR(image, ref_images[camera]));
-                calcMetrics(min_flip, max_flip, average_flip, image_metrics::FLIP(image, ref_images[camera]));
-              }
-
-              average_time /= (float)config.cameras;
-              average_psnr /= (float)config.cameras;
-              average_flip /= (float)config.cameras;
-
-              f << model << ", " << backend << ", " << renderer << ", " << repr_type << ", " << lod << ", " << memory << ", " << min_time << ", " << max_time << ", " << average_time << ", " << min_psnr << ", " << max_psnr << ", " << average_psnr << ", " << min_flip << ", " << max_flip << ", " << average_flip << std::endl;
-            }
+            call_kernel_slicer(defaults, repr_type, renderer, backend, slicer_adir, slicer_exec);
+            recompile = true;
           }
+
+          // Recompile
+          if (recompile)
+          {
+            std::string use_gpu = backend != "CPU" ? "ON" : "OFF";
+            std::string use_rtx = (backend == "RTX") ? "ON" : "OFF";
+            std::string reconfigure_cmd = "cmake -S . -B build -DUSE_VULKAN=" + use_gpu + " -DUSE_RTX=" + use_rtx + " -DCMAKE_BUILD_TYPE=Debug -DUSE_STB_IMAGE=ON";
+
+            std::system(reconfigure_cmd.c_str());
+            std::system("cmake --build build --target render_app -j8");
+            recompile = false;
+          }
+
+          std::system("DRI_PRIME=1 ./render_app -tests_litert 9");
         }
       }
     }
-
-    f.close();
   }
 
+  printf("Benchmark finished\n");
   return 0;
-}
-
-MultiRenderPreset 
-createPreset(const std::string& render_mode, const int spp)
-{
-  MultiRenderPreset preset = getDefaultPreset();
-
-  if (render_mode == "LAMBERT")
-  {
-    preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
-  }
-
-  preset.spp = spp;
-
-  return preset;
-}
-
-int 
-getDevice(const std::string backend)
-{
-  if (backend == "CPU")
-  {
-    return DEVICE_CPU;
-  }
-  else if (backend == "GPU")
-  {
-    return DEVICE_GPU;
-  }
-  else if (backend == "RTX")
-  {
-    return DEVICE_GPU_RTX;
-  }
-
-  //  if GPU_RQ -> skip
-  return -1;
-}
-
-void 
-calcMetrics(float& min, float& max, float& average, const float& new_val)
-{
-  if (new_val < min)
-  {
-    min = new_val;
-  }
-  if (new_val > max)
-  {
-    max = new_val;
-  }
-
-  average += new_val;
 }
