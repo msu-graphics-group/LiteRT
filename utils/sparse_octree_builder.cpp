@@ -968,7 +968,8 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
 
               if ((i == 0 || i == out_octree.header.brick_size) &&
                   (j == 0 || j == out_octree.header.brick_size) &&
-                  (k == 0 || k == out_octree.header.brick_size))
+                  (k == 0 || k == out_octree.header.brick_size) &&
+                  min_ti != -1)
               {
                 int num = (int(i / out_octree.header.brick_size) << 2) + (int(j / out_octree.header.brick_size) << 1) + int(k / out_octree.header.brick_size);
                 float3 bc = cmesh4::barycentric(surface_pos, min_a, min_b, min_c);
