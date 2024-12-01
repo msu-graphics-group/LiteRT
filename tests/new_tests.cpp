@@ -747,4 +747,20 @@ namespace litert_tests
       testing::check_equal(error_count, 0, "Search errors", "0");
       testing::check_equal(scan_errors, 0, "Scan errors", "0");
     }
+
+    ADD_TEST(PlyReader, "Testing reader for .ply files")
+    {
+        MultiRenderPreset preset = getDefaultPreset();
+        auto image = testing::create_image();
+
+        std::string path = "./scenes/01_simple_scenes/test_1.ply";
+        testing::assert_file_existance(path, true, testing::source_location::current());
+
+        auto mesh = cmesh4::LoadMesh(path.c_str(), true, true);
+
+        testing::render_scene(image, DEVICE_CPU, preset, mesh, float3(3, 0, 3));
+        testing::save_image(image, "res");
+
+        testing::saved_reference_check_psnr(image, "res", "res", 90);
+    }
 }
