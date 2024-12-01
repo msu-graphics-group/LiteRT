@@ -53,13 +53,16 @@ namespace cmesh4
   bool check_watertight_mesh(const cmesh4::SimpleMesh& mesh, bool verbose = false);
   cmesh4::SimpleMesh removing_holes(cmesh4::SimpleMesh& mesh, int& ind, bool& fl);
   cmesh4::SimpleMesh before_removing_holes(cmesh4::SimpleMesh mesh, int& ind, bool& fl);
-  void compress_close_vertices(cmesh4::SimpleMesh &mesh, double threshold, bool verbose);
+  void compress_close_vertices(cmesh4::SimpleMesh &mesh, double threshold, bool force_merge_distinct_normals = false, bool verbose = false);
   void fix_normals(cmesh4::SimpleMesh &mesh, bool verbose);
 
   //checks for mesh defects and issues, notifies about them and tries to fix (e.g. wrong normal direction) 
   //it also rescales mesh so that the AABB is fit inside [-1,1]^3, and returns transform that does it
   LiteMath::float4x4 normalize_mesh(cmesh4::SimpleMesh &mesh, bool verbose = false);
 
+  void recalculate_vertex_normals(cmesh4::SimpleMesh &mesh);
 
-  cmesh4::SimpleMesh obj_to_mesh(const std::string file, bool aVerbose = false);
+  cmesh4::SimpleMesh LoadMeshFromObj(const char* a_fileName, bool verbose = false);
+
+  cmesh4::SimpleMesh LoadMesh(const char* a_fileName, bool apply_basic_transforms = true, bool verbose = false);
 }

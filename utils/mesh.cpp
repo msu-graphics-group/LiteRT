@@ -594,10 +594,10 @@ namespace cmesh4
     }
   }
 
-  void compress_close_vertices(cmesh4::SimpleMesh &mesh, double threshold, bool verbose)
+  void compress_close_vertices(cmesh4::SimpleMesh &mesh, double threshold, bool force_merge_distinct_normals, bool verbose)
   {
     std::map<int3, std::vector<unsigned>, cmpInt3> vert_indices;
-    float inv_thr = 1.0/std::max(1e-6, threshold);
+    float inv_thr = 1.0/std::max(1e-9, threshold);
 
     for (int i=0;i<mesh.vPos4f.size();i++)
     {
@@ -633,14 +633,15 @@ namespace cmesh4
             continue;
           float3 p1 = to_float3(mesh.vPos4f[idx1]);
           float3 p2 = to_float3(mesh.vPos4f[idx2]);
+
+          float3 n1 = to_float3(mesh.vNorm4f[idx1]);
+          float3 n2 = to_float3(mesh.vNorm4f[idx2]);
           if (!remapped[idx1] && !remapped[idx2] &&
               sqrt((double)(p1.x-p2.x)*(double)(p1.x-p2.x) + (double)(p1.y-p2.y)*(double)(p1.y-p2.y) + (double)(p1.z-p2.z)*(double)(p1.z-p2.z)) < threshold)
           {
             double d = sqrt((double)(p1.x-p2.x)*(double)(p1.x-p2.x) + (double)(p1.y-p2.y)*(double)(p1.y-p2.y) + (double)(p1.z-p2.z)*(double)(p1.z-p2.z));
-            //printf("length = %lg\n", d);
-            if (dot3(mesh.vNorm4f[idx1], mesh.vNorm4f[idx2]) > 0.99f) //we can safely merge the vertices
+            if (force_merge_distinct_normals || length(n1) < 1e-6f || length(n2) < 1e-6f || dot(n1, n2) > 0.99f) //we can safely merge the vertices
             {
-              //printf("norm[idx1] %f %f %f norm[idx2] %f %f %f\n", mesh.vNorm4f[idx1].x, mesh.vNorm4f[idx1].y, mesh.vNorm4f[idx1].z, mesh.vNorm4f[idx2].x, mesh.vNorm4f[idx2].y, mesh.vNorm4f[idx2].z);
               remapped[idx2] = true;
               if (vert_remap[idx1] == -1)
               {
@@ -649,11 +650,6 @@ namespace cmesh4
                 new_idx++;
               }
               vert_remap[idx2] = vert_remap[idx1];
-            }
-            else //just need to spread them apart to avoid having triangles with zero area
-            {
-              mesh.vPos4f[idx1] += float4(1e-6f, 1e-6f, 1e-6f, 0)*mesh.vNorm4f[idx1];
-              mesh.vPos4f[idx2] += float4(1e-6f, 1e-6f, 1e-6f, 0)*mesh.vNorm4f[idx2];
             }
           }
         }
@@ -775,15 +771,41 @@ namespace cmesh4
     return res;
   }
 
-  SimpleMesh obj_to_mesh(const std::string file, bool aVerbose)
+  void recalculate_vertex_normals(cmesh4::SimpleMesh &mesh)
+  {
+    assert(mesh.vPos4f.size() == mesh.vNorm4f.size());
+    std::vector<float4> vec_norm_count(mesh.vPos4f.size());
+
+    for (int i=0;i<mesh.indices.size();i+=3)
+    {
+      unsigned idx0 = mesh.indices[i+0];
+      unsigned idx1 = mesh.indices[i+1];
+      unsigned idx2 = mesh.indices[i+2];
+
+      float3 p0 = to_float3(mesh.vPos4f[idx0]); 
+      float3 p1 = to_float3(mesh.vPos4f[idx1]);
+      float3 p2 = to_float3(mesh.vPos4f[idx2]);
+
+      float4 triangle_normal = to_float4(normalize(cross(p1 - p0, p2 - p0)), 1.0f);
+
+      vec_norm_count[idx0] += triangle_normal;
+      vec_norm_count[idx1] += triangle_normal;
+      vec_norm_count[idx2] += triangle_normal;
+    }
+
+    for (int i=0;i<mesh.vNorm4f.size();i++)
+      mesh.vNorm4f[i] = to_float4(to_float3(vec_norm_count[i]) / vec_norm_count[i].w, 0.0f);
+  }
+
+  SimpleMesh LoadMeshFromObj(const char* a_fileName, bool aVerbose)
   {
     SimpleMesh mesh;
     // Open file
-    std::ifstream objFile(file.c_str());
+    std::ifstream objFile(a_fileName);
 
     if (objFile.fail())
     {
-      std::cout << "Error: could not open file <" << file << ">" << std::endl;
+      std::cout << "Error: could not open file <" << a_fileName << ">" << std::endl;
       return mesh;
     }
 
@@ -1154,5 +1176,104 @@ namespace cmesh4
 
     return mesh;
     
+  }
+
+  cmesh4::SimpleMesh LoadMesh(const char* a_fileName, bool apply_basic_transforms, bool verbose)
+  {
+    cmesh4::SimpleMesh dummy;
+    cmesh4::SimpleMesh mesh;
+    auto substrings = explode(a_fileName, '.');
+    if (substrings.size() == 1)
+    {
+      printf("[LoadMesh::ERROR] File %s has no extension. Use specific loaderer if you are sure what type it is\n", a_fileName);
+      return dummy;
+    }
+
+    if (substrings[substrings.size() - 1] == "obj")
+    {
+      if (verbose)
+        printf("[LoadMesh::INFO] Loading OBJ file %s\n", a_fileName);
+      
+      mesh = LoadMeshFromObj(a_fileName, verbose);
+    }
+    else if (substrings[substrings.size() - 1] == "vsgf")
+    {
+      if (verbose)
+        printf("[LoadMesh::INFO] Loading VSGF file %s\n", a_fileName);
+      mesh = LoadMeshFromVSGF(a_fileName);
+    }
+    else
+    {
+      printf("[LoadMesh::ERROR] File %s has unknown extension \"%s\".\n", a_fileName, substrings[substrings.size() - 1].c_str());
+      return dummy;
+    }
+
+    if (mesh.vPos4f.size() == 0)
+    {
+      printf("[LoadMesh::ERROR] Mesh %s has no vertices\n", a_fileName);
+      return dummy;
+    }
+
+    if (mesh.vNorm4f.size() == 0)
+    {
+      printf("[LoadMesh::ERROR] Mesh %s has no normals\n", a_fileName);
+      return dummy;
+    }
+
+    if (mesh.vTexCoord2f.size() == 0)
+    {
+      printf("[LoadMesh::ERROR] Mesh %s has no texture coordinates\n", a_fileName);
+      return dummy;
+    }
+
+    if (mesh.vTang4f.size() == 0)
+    {
+      printf("[LoadMesh::ERROR] Mesh %s has no tangents\n", a_fileName);
+      return dummy;
+    }
+
+    if (mesh.indices.size() == 0)
+    {
+      printf("[LoadMesh::ERROR] Mesh %s has no indices\n", a_fileName);
+      return dummy;
+    }
+
+    if (mesh.vNorm4f.size() != mesh.vPos4f.size())
+    {
+      printf("[LoadMesh::ERROR] Mesh %s has different number of normals and vertices\n", a_fileName);
+      return dummy;
+    }
+
+    if (mesh.vTexCoord2f.size() != mesh.vPos4f.size())
+    {
+      printf("[LoadMesh::ERROR] Mesh %s has different number of texture coordinates and vertices\n", a_fileName);
+      return dummy;
+    }
+
+    if (mesh.vTang4f.size() != mesh.vPos4f.size())
+    {
+      printf("[LoadMesh::ERROR] Mesh %s has different number of tangents and vertices\n", a_fileName);
+      return dummy;
+    }
+
+    if (apply_basic_transforms)
+    {
+      if (verbose)
+        printf("[LoadMesh::INFO] Compressing close vertices\n");
+      compress_close_vertices(mesh, 1e-9f, false, verbose);
+
+      if (verbose)
+        printf("[LoadMesh::INFO] Recalculating normals\n");
+      recalculate_vertex_normals(mesh);
+
+      if (verbose)
+        printf("[LoadMesh::INFO] Normalizing mesh\n");
+      normalize_mesh(mesh, verbose);
+    }
+
+    if (verbose)
+      printf("[LoadMesh::INFO] Mesh %s has %d unique vertices and %d triangles\n", a_fileName, (int)mesh.vPos4f.size(), (int)mesh.indices.size() / 3);
+
+    return mesh;
   }
 }
