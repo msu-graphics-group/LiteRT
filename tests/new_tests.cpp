@@ -763,4 +763,24 @@ namespace litert_tests
 
         testing::saved_reference_check_psnr(image, "res", "res", 90);
     }
+
+    ADD_TEST(InstancesRender, "Render simple scene with instances from Hydra file")
+    {
+        std::string scene = "01_simple_scenes/instanced_objects.xml";
+
+        MultiRenderPreset preset = getDefaultPreset();
+        auto cpu_image = testing::create_image();
+        auto gpu_image = testing::create_image();
+
+        testing::render_hydra_scene(cpu_image, DEVICE_CPU, preset, scene);
+        testing::save_image(cpu_image, "cpu");
+
+        testing::render_hydra_scene(gpu_image, DEVICE_GPU, preset, scene);
+        testing::save_image(gpu_image, "gpu");
+
+        testing::check_psnr(cpu_image, gpu_image, "cpu", "gpu", 45);
+
+        testing::saved_reference_check_psnr(cpu_image, "CPU", "cpu", 90);
+        testing::saved_reference_check_psnr(gpu_image, "GPU", "gpu", 90);
+    }
 }
