@@ -1,6 +1,7 @@
 #include <string>
 #include <vector>
 #include <cstdlib>
+#include <filesystem>
 
 #include "blk.h"
 
@@ -25,6 +26,7 @@ struct BenchmarkAppConfig
 // This config is passed to render_app
 struct RenderAppConfig
 {
+  std::string model;
   std::string render_mode;
   std::vector<std::string> lods;
   std::vector<std::string> param_strings;
