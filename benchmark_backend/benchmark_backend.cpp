@@ -60,6 +60,164 @@ namespace BenchmarkBackend
     pRender->Render(image.data(), image.width(), image.height(), worldView, proj, preset, a_passNum);
   }
 
+
+  void build_model(std::string render_config_str)
+  {
+    Block render_config;
+    load_block_from_string(render_config_str, render_config);
+
+    std::string model_path = render_config.get_string("model");
+    std::string lod = render_config.get_string("lod");
+    std::string repr_type = render_config.get_string("type");
+    std::string param_string = render_config.get_string("param_string");
+
+    const int mat_id = 6;
+    cmesh4::SimpleMesh mesh = cmesh4::LoadMesh(model_path.c_str());
+    cmesh4::set_mat_id(mesh, mat_id);
+
+    SparseOctreeSettings settings = get_build_settings(lod);
+
+    // TODO: build benchmark: time, mesh/result size, some 3D metrics
+
+    std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
+    std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
+
+
+    if (repr_type == "SDF_GRID")
+    {
+      GridSettings grid_settings{}; //TODO
+      t1 = std::chrono::steady_clock::now();
+      auto model_new = sdf_converter::create_sdf_grid(grid_settings, mesh);
+      t2 = std::chrono::steady_clock::now();
+      ModelInfo info = get_info_sdf_grid(model_new);
+
+      std::string fname_no_ext = generate_filename_model_no_ext(model_path, repr_type, lod, param_string);
+
+      save_sdf_grid(model_new, fname_no_ext + ".bin");
+      save_xml_string(get_xml_string_model_demo_scene(fname_no_ext + ".bin", info, mat_id), fname_no_ext + ".xml");
+    }
+    if (repr_type == "SDF_SVS")
+    {
+      t1 = std::chrono::steady_clock::now();
+      auto model_new = sdf_converter::create_sdf_SVS(settings, mesh);
+      t2 = std::chrono::steady_clock::now();
+      ModelInfo info = get_info_sdf_SVS(model_new);
+
+      std::string fname_no_ext = generate_filename_model_no_ext(model_path, repr_type, lod, param_string);
+
+      save_sdf_SVS(model_new, fname_no_ext + ".bin");
+      save_xml_string(get_xml_string_model_demo_scene(fname_no_ext + ".bin", info, mat_id), fname_no_ext + ".xml");
+    }
+    if (repr_type == "SDF_SBS")
+    {
+      SdfSBSHeader header{}; //TODO
+      t1 = std::chrono::steady_clock::now();
+      auto model_new = sdf_converter::create_sdf_SBS(settings, header, mesh);
+      t2 = std::chrono::steady_clock::now();
+      ModelInfo info = get_info_sdf_SBS(model_new);
+
+      std::string fname_no_ext = generate_filename_model_no_ext(model_path, repr_type, lod, param_string);
+
+      save_sdf_SBS(model_new, fname_no_ext + ".bin");
+      save_xml_string(get_xml_string_model_demo_scene(fname_no_ext + ".bin", info, mat_id), fname_no_ext + ".xml");
+    }
+    if (repr_type == "SDF_FRAME_OCTREE")
+    {
+      t1 = std::chrono::steady_clock::now();
+      auto model_new = sdf_converter::create_sdf_frame_octree(settings, mesh);
+      t2 = std::chrono::steady_clock::now();
+      ModelInfo info = get_info_sdf_frame_octree(model_new);
+
+      std::string fname_no_ext = generate_filename_model_no_ext(model_path, repr_type, lod, param_string);
+
+      save_sdf_frame_octree(model_new, fname_no_ext + ".bin");
+      save_xml_string(get_xml_string_model_demo_scene(fname_no_ext + ".bin", info, mat_id), fname_no_ext + ".xml");
+    }
+    if (repr_type == "SDF_FRAME_OCTREE_COMPACT")
+    {
+      COctreeV3Header header{}; //TODO
+      t1 = std::chrono::steady_clock::now();
+      auto model_new = sdf_converter::create_COctree_v3(settings, header, mesh);
+      t2 = std::chrono::steady_clock::now();
+      ModelInfo info = get_info_coctree_v3(model_new);
+
+      std::string fname_no_ext = generate_filename_model_no_ext(model_path, repr_type, lod, param_string);
+
+      save_coctree_v3(model_new, fname_no_ext + ".bin");
+      save_xml_string(get_xml_string_model_demo_scene(fname_no_ext + ".bin", info, mat_id), fname_no_ext + ".xml");
+    }
+
+    //  Time calculation
+    float t = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count() / 1000.f; // ms
+  }
+
+
+// Filename generators
+
+  std::string get_model_name(std::string model_path)
+  {
+    uint32_t last_dot = model_path.rfind('.');
+    uint32_t last_slash = model_path.rfind('/');
+    if (last_slash == model_path.npos && model_path.rfind('\\') != model_path.npos)
+      last_slash = model_path.rfind('\\');
+
+    std::string model_name = model_path.substr(last_slash + (last_slash != model_path.npos), last_dot);
+    return model_name;
+  }
+
+  std::string generate_filename_model_no_ext(std::string model_path, std::string repr_type, std::string lod, std::string param_string)
+  {
+    return "benchmark/" + get_model_name(model_path) + "/models/" + repr_type + "/lod_" + lod + '_' + param_string;
+  }
+
+  std::string generate_filename_image(std::string model_path, std::string renderer, std::string backend, std::string repr_type, std::string lod, std::string param_string, uint32_t camera)
+  {
+    // LoadImage("benchmark/bunny/hydra/GPU/mesh/lod_high_default_cam_i.png");
+    return "benchmark/" + get_model_name(model_path) + "/" + renderer + "/" + backend + "/" + repr_type +
+            "/lod_" + lod + '_' + param_string + "_cam_" + std::to_string(camera) + ".png";
+  }
+
+
+// Param string parsers
+
+
+  // TODO: have it make sense
+  SparseOctreeSettings get_build_settings(std::string lod)
+  {
+    SparseOctreeSettings res{};
+
+    res.build_type = SparseOctreeBuildType::MESH_TLO;
+
+    if (lod == "low")
+      res.depth = 2;
+    if (lod == "mid")
+      res.depth = 4;
+    if (lod == "high")
+      res.depth = 7;
+    
+    return res;
+  }
+
+
+  // TODO
+
+  void parse_param_string(std::string param_string, SdfSBSHeader &sbs_header) // these 2 overloads can be unified by passing 6 pointers to int
+  {
+    // param string example: SBS - size_4_pad_1_bpv_1_aux_3
+    // bpv - bytes_per_value
+    // aux then transformed (aux = aux << 24)
+
+  }
+
+  void parse_param_string(std::string param_string, COctreeV3Header &coctree_header) // these 2 overloads can be unified by passing 6 pointers to int
+  {
+    // param string example: COctreeV3 - size_4_pad_1_bpv_1_uv_0_sim_0
+    // bpv - bits_per_value
+
+  }
+
+
+
   void
   getMetrics(const char **argv)
   {
@@ -120,8 +278,8 @@ namespace BenchmarkBackend
       float t = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count() / 1000.f;
       calcMetrics(min_time, max_time, average_time, t);
 
-      std::string img_name = "benchmark/saves/" + backend + "_" + type + "_" + std::to_string(camera) + ".bmp";
-      LiteImage::SaveImage<uint32_t>(img_name.c_str(), image);
+            std::string img_name = "benchmark/saves/" + backend + "_" + renderer + "_" + type + "_" + std::to_string(camera) + ".bmp";
+            LiteImage::SaveImage<uint32_t>(img_name.c_str(), image);
 
       //  calculate metrics
       calcMetrics(min_psnr, max_psnr, average_psnr, image_metrics::PSNR(image, image));
@@ -193,8 +351,10 @@ namespace BenchmarkBackend
       float t = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count() / 1000.f;
       calcMetrics(min_time, max_time, average_time, t);
 
-      std::string img_name = "benchmark/saves/" + backend + "_" + type + "_" + std::to_string(camera) + ".bmp";
-      LiteImage::SaveImage<uint32_t>(img_name.c_str(), image);
+            std::string img_name = "benchmark/saves/" + backend + "_" + renderer + "_" + type + "_" + std::to_string(camera) + ".bmp";
+            std::string img_name2 = "benchmark/saves/" + backend + "_" + renderer + "_MESHREF_" + std::to_string(camera) + ".bmp";
+            LiteImage::SaveImage<uint32_t>(img_name.c_str(), image);
+            LiteImage::SaveImage<uint32_t>(img_name2.c_str(), ref_image);
 
       //  calculate metrics
       calcMetrics(min_psnr, max_psnr, average_psnr, image_metrics::PSNR(image, ref_image));
@@ -268,8 +428,10 @@ namespace BenchmarkBackend
       float t = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count() / 1000.f;
       calcMetrics(min_time, max_time, average_time, t);
 
-      std::string img_name = "benchmark/saves/" + backend + "_" + type + "_" + std::to_string(camera) + ".bmp";
-      LiteImage::SaveImage<uint32_t>(img_name.c_str(), image);
+            std::string img_name = "benchmark/saves/" + backend + "_" + renderer + "_" + type + "_" + std::to_string(camera) + ".bmp";
+            std::string img_name2 = "benchmark/saves/" + backend + "_" + renderer + "_MESHREF_" + std::to_string(camera) + ".bmp";
+            LiteImage::SaveImage<uint32_t>(img_name.c_str(), image);
+            LiteImage::SaveImage<uint32_t>(img_name2.c_str(), ref_image);
 
       //  calculate metrics
       calcMetrics(min_psnr, max_psnr, average_psnr, image_metrics::PSNR(image, ref_image));
@@ -353,8 +515,10 @@ namespace BenchmarkBackend
       float t = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count() / 1000.f;
       calcMetrics(min_time, max_time, average_time, t);
 
-      std::string img_name = "benchmark/saves/" + backend + "_" + type + "_" + std::to_string(camera) + ".bmp";
-      LiteImage::SaveImage<uint32_t>(img_name.c_str(), image);
+            std::string img_name = "benchmark/saves/" + backend + "_" + renderer + "_" + type + "_" + std::to_string(camera) + ".bmp";
+            std::string img_name2 = "benchmark/saves/" + backend + "_" + renderer + "_MESHREF_" + std::to_string(camera) + ".bmp";
+            LiteImage::SaveImage<uint32_t>(img_name.c_str(), image);
+            LiteImage::SaveImage<uint32_t>(img_name2.c_str(), ref_image);
 
       //  calculate metrics
       calcMetrics(min_psnr, max_psnr, average_psnr, image_metrics::PSNR(image, ref_image));

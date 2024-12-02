@@ -12,6 +12,8 @@
 #include "../Renderer/eye_ray.h"
 #include "../utils/image_metrics.h"
 #include "../utils/mesh_bvh.h"
+#include "../utils/ply_reader.h"
+#include "../utils/blk.h"
 
 namespace BenchmarkBackend
 {
@@ -23,6 +25,8 @@ namespace BenchmarkBackend
     void render(LiteImage::Image2D<uint32_t> &image, std::shared_ptr<MultiRenderer> pRender, 
                 float3 pos, float3 target, float3 up, 
                 MultiRenderPreset preset, int a_passNum = 1);
+    
+    void buildModel(std::string render_config_str);
 
     void getMetrics(const char** argv);
 
