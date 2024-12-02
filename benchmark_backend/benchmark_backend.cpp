@@ -2,6 +2,50 @@
 
 namespace BenchmarkBackend
 {
+  /*
+  
+  build_SVS(SimpleMesh mesh, std::string lod, std::string param_string)
+  {
+  if (lod == "low")
+    depth = 4;
+  if (lod == "high")
+    depth = 6;
+  }
+  build_SBS(SimpleMesh mesh, std::string lod, std::string param_string)
+  {
+  
+  }
+
+  void render()
+  {
+   string xml_path = "benchmark/bunny/models/SBS/lod_high_brick4.xml";
+   //it should be also "benchmark/bunny/models/SBS/lod_high_brick4.bin";
+   //brick4 - param string
+
+   IRenderer *renderer;
+   if (...)
+    renderer = MultiRenderer(device)
+   else 
+    renderer = HydraRenderer(device)
+  
+    cameras = ...
+    preset  = ...
+    for (auto &camera : cameras)
+    {
+      Image2D<uint32_t> image_ref = LoadImage("benchmark/bunny/hydra/GPU/mesh/lod_high_default_cam_i.png");
+
+      renderer->setCamera(camera);
+      renderer->render();
+
+      save_image(...)
+      psnr = ...
+      time = ...
+    }
+
+    log.AddLog(...)
+  }
+
+  */
   void render(LiteImage::Image2D<uint32_t> &image, std::shared_ptr<MultiRenderer> pRender,
               float3 pos, float3 target, float3 up,
               MultiRenderPreset preset, int a_passNum)
