@@ -45,9 +45,6 @@ namespace sdf_converter
 
   void frame_octree_limit_nodes(std::vector<SdfFrameOctreeNode> &frame, unsigned nodes_limit,
                                 bool count_only_border_nodes);
-  void frame_octree_to_SVS_rec(const std::vector<SdfFrameOctreeNode> &frame,
-                               std::vector<SdfSVSNode> &nodes,
-                               unsigned idx, uint3 p, unsigned lod_size);
 
   std::vector<uint32_t> frame_octree_to_compact_octree_v2(const std::vector<SdfFrameOctreeNode> &frame);
 }

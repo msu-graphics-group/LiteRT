@@ -330,68 +330,6 @@ namespace litert_tests
     testing::check_psnr(image_6, image_8, "octree-6", "octree-8", 45);
   }
 
-  // former 16
-  ADD_TEST(SVS_Nodes_Removal, "Testing removing nodes from SVS")
-  {
-
-    auto mesh = testing::load_vsgf_mesh(
-        TEAPOT_MESH, 0.999 // WTF? changing from 0.9 to 0.999, made PSNR 100 insdead of 47.2
-    );
-    /* WTF?
-    cmesh4::normalize_mesh(mesh);
-    MeshBVH mesh_bvh;
-    mesh_bvh.init(mesh);
-    */
-
-    std::vector<SdfSVSNode> octree_nodes_6;
-    std::vector<SdfSVSNode> octree_nodes_7;
-    std::vector<SdfSVSNode> octree_nodes_8;
-    const unsigned level_6_nodes = 11215;
-
-    {
-      testing::ScopedTimer timer("creating SVS from octree with depth-6, trimmed to " + std::to_string(level_6_nodes));
-      SparseOctreeSettings settings(SparseOctreeBuildType::DEFAULT, 6);
-      std::vector<SdfFrameOctreeNode> nodes = sdf_converter::create_sdf_frame_octree(settings, mesh);
-      sdf_converter::frame_octree_limit_nodes(nodes, level_6_nodes, true);
-      sdf_converter::frame_octree_to_SVS_rec(nodes, octree_nodes_6, 0, uint3(0, 0, 0), 1);
-    }
-
-    {
-      testing::ScopedTimer timer("creating SVS from octree with depth-7, trimmed to " + std::to_string(level_6_nodes));
-      SparseOctreeSettings settings(SparseOctreeBuildType::DEFAULT, 7);
-      std::vector<SdfFrameOctreeNode> nodes = sdf_converter::create_sdf_frame_octree(settings, mesh);
-      sdf_converter::frame_octree_limit_nodes(nodes, level_6_nodes, true);
-      sdf_converter::frame_octree_to_SVS_rec(nodes, octree_nodes_7, 0, uint3(0, 0, 0), 1);
-    }
-
-    {
-      testing::ScopedTimer timer("creating SVS from octree with depth-8, trimmed to " + std::to_string(level_6_nodes));
-      SparseOctreeSettings settings(SparseOctreeBuildType::DEFAULT, 8);
-      std::vector<SdfFrameOctreeNode> nodes = sdf_converter::create_sdf_frame_octree(settings, mesh);
-      sdf_converter::frame_octree_limit_nodes(nodes, level_6_nodes, true);
-      sdf_converter::frame_octree_to_SVS_rec(nodes, octree_nodes_8, 0, uint3(0, 0, 0), 1);
-    }
-
-    MultiRenderPreset preset = getDefaultPreset();
-    preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
-
-    auto image_6 = testing::create_image();
-    auto image_7 = testing::create_image();
-    auto image_8 = testing::create_image();
-
-    testing::render_scene(image_6, DEVICE_GPU, preset, octree_nodes_6);
-    testing::save_image(image_6, "6");
-
-    testing::render_scene(image_7, DEVICE_GPU, preset, octree_nodes_7);
-    testing::save_image(image_7, "trimmed_7");
-
-    testing::render_scene(image_8, DEVICE_GPU, preset, octree_nodes_8);
-    testing::save_image(image_8, "trimmed_8");
-
-    testing::check_psnr(image_6, image_7, "SVS octree-6", "SVS octree-7", 45);
-    testing::check_psnr(image_6, image_8, "SVS octree-6", "SVS octree-8", 45);
-  }
-
   // former 17
   ADD_TEST(AllTypesSanityCheck, "Testing all")
   {

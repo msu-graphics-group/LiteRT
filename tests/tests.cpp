@@ -1514,88 +1514,7 @@ void litert_test_15_frame_octree_nodes_removal()
 
 void litert_test_16_SVS_nodes_removal()
 {
-  auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path + "scenes/01_simple_scenes/data/teapot.vsgf").c_str());
-  cmesh4::normalize_mesh(mesh);
-  MeshBVH mesh_bvh;
-  mesh_bvh.init(mesh);
 
-  std::vector<SdfSVSNode> octree_nodes_ref;
-  std::vector<SdfSVSNode> octree_nodes_7;
-  std::vector<SdfSVSNode> octree_nodes_8;
-  const unsigned level_6_nodes = 11215;
-
-  {
-    SparseOctreeSettings settings(SparseOctreeBuildType::DEFAULT, 6);
-    std::vector<SdfFrameOctreeNode> nodes = sdf_converter::create_sdf_frame_octree(settings, mesh);
-    sdf_converter::frame_octree_limit_nodes(nodes, level_6_nodes, true);
-    sdf_converter::frame_octree_to_SVS_rec(nodes, octree_nodes_ref, 0, uint3(0,0,0), 1);
-  }
-
-  {
-    SparseOctreeSettings settings(SparseOctreeBuildType::DEFAULT, 7);
-    std::vector<SdfFrameOctreeNode> nodes = sdf_converter::create_sdf_frame_octree(settings, mesh);
-    sdf_converter::frame_octree_limit_nodes(nodes, level_6_nodes, true);
-    sdf_converter::frame_octree_to_SVS_rec(nodes, octree_nodes_7, 0, uint3(0,0,0), 1);
-  }
-
-  {
-    SparseOctreeSettings settings(SparseOctreeBuildType::DEFAULT, 8);
-    std::vector<SdfFrameOctreeNode> nodes = sdf_converter::create_sdf_frame_octree(settings, mesh);
-    sdf_converter::frame_octree_limit_nodes(nodes, level_6_nodes, true);
-    sdf_converter::frame_octree_to_SVS_rec(nodes, octree_nodes_8, 0, uint3(0,0,0), 1);
-  }
-
-  unsigned W = 1024, H = 1024;
-  MultiRenderPreset preset = getDefaultPreset();
-  preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
-  LiteImage::Image2D<uint32_t> image_1(W, H);
-  LiteImage::Image2D<uint32_t> image_2(W, H);
-  LiteImage::Image2D<uint32_t> image_3(W, H);
-
-  {
-    auto pRender_1 = CreateMultiRenderer(DEVICE_GPU);
-    pRender_1->SetPreset(preset);
-    pRender_1->SetScene(octree_nodes_ref);
-    render(image_1, pRender_1, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
-    LiteImage::SaveImage<uint32_t>("saves/test_16_ref.bmp", image_1);
-  }
-
-  {
-    auto pRender_2 = CreateMultiRenderer(DEVICE_GPU);
-    pRender_2->SetPreset(preset);
-    pRender_2->SetScene(octree_nodes_7);
-    render(image_2, pRender_2, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
-    LiteImage::SaveImage<uint32_t>("saves/test_16_trimmed_7.bmp", image_2);
-  }
-
-  {
-    auto pRender_3 = CreateMultiRenderer(DEVICE_GPU);
-    pRender_3->SetPreset(preset);
-    pRender_3->SetScene(octree_nodes_8);
-    render(image_3, pRender_3, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset);
-    LiteImage::SaveImage<uint32_t>("saves/test_16_trimmed_8.bmp", image_3);
-  }
-
-  float psnr_1 = image_metrics::PSNR(image_1, image_2);
-  float psnr_2 = image_metrics::PSNR(image_1, image_3);
-
-  printf("TEST 16. SVS nodes removal\n");
-  printf(" 16.1. %-64s", "octrees have correct node count ");
-  if (octree_nodes_ref.size() >= octree_nodes_7.size() && octree_nodes_ref.size() >= octree_nodes_8.size())
-    printf("passed\n");
-  else
-    printf("FAILED, %d, %d, %d\n", (int)octree_nodes_ref.size(), (int)octree_nodes_7.size(), (int)octree_nodes_8.size());
-  printf(" 16.2. %-64s", "clear level 7 ");
-  if (psnr_1 >= 45)
-    printf("passed    (%.2f)\n", psnr_1);
-  else
-    printf("FAILED, psnr = %f\n", psnr_1);
-
-  printf(" 16.3. %-64s", "clear levels 7 and 8 ");
-  if (psnr_2 >= 45)
-    printf("passed    (%.2f)\n", psnr_2);
-  else
-    printf("FAILED, psnr = %f\n", psnr_2);
 }
 
 void litert_test_17_all_types_sanity_check()
@@ -4954,11 +4873,8 @@ void litert_test_48_openvdb()
     preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
     preset.spp = 1;
 
-    std::vector<SdfSVSNode> octree;
     SparseOctreeSettings settings(SparseOctreeBuildType::DEFAULT, 7);
-    std::vector<SdfFrameOctreeNode> nodes = sdf_converter::create_sdf_frame_octree(settings, mesh);
-    sdf_converter::frame_octree_limit_nodes(nodes, voxels_vdb, false);
-    sdf_converter::frame_octree_to_SVS_rec(nodes, octree, 0, uint3(0,0,0), 1);
+    std::vector<SdfSVSNode> octree = sdf_converter::create_sdf_SVS(settings, mesh);
 
     auto pRender = CreateMultiRenderer(DEVICE_CPU);
     pRender->SetPreset(preset);
