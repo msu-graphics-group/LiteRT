@@ -4001,7 +4001,8 @@ void litert_test_41_coctree_v3()
   {
     auto octree = sdf_converter::create_sdf_frame_octree(SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, base_depth, 2<<28),
                                                          mesh);
-    auto coctree_v2 = sdf_converter::frame_octree_to_compact_octree_v2(octree);
+    auto coctree_v2 = sdf_converter::create_COctree_v2(SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, base_depth, 2<<28),
+                                                       mesh);
     
     auto pRender = CreateMultiRenderer(DEVICE_GPU);
     pRender->SetPreset(preset);
@@ -4039,17 +4040,8 @@ void litert_test_41_coctree_v3()
   coctree.header.uv_size = 0;
 
   auto t1 = std::chrono::steady_clock::now();
-  {
-  auto settings = SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, base_depth - 2, 2 << 28);
-  sdf_converter::GlobalOctree g;
-  g.header.brick_size = coctree.header.brick_size;
-  g.header.brick_pad = coctree.header.brick_pad;
-  auto tlo = cmesh4::create_triangle_list_octree(mesh, settings.depth, 0, 1.0f);
-  sdf_converter::mesh_octree_to_global_octree(mesh, tlo, g);
-  sdf_converter::global_octree_to_compact_octree_v3(g, coctree, 1);
-  }
-  //coctree.data = sdf_converter::create_COctree_v3(SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, base_depth - 2, 2 << 28),
-  //                                                coctree.header, mesh);
+  coctree = sdf_converter::create_COctree_v3(SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, base_depth - 2, 2 << 28),
+                                            coctree.header, mesh);
   auto t2 = std::chrono::steady_clock::now();
 
   save_coctree_v3(coctree, "saves/test_41_coctree_v3.bin");
@@ -4475,13 +4467,12 @@ void litert_test_44_point_query()
       coctree.header.brick_pad = 0;
       coctree.header.bits_per_value = 8;
       coctree.header.uv_size = 0;
-      coctree.data = sdf_converter::create_COctree_v3(SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, 6, 2 << 28), coctree.header, mesh);
-      COctreeV3View coctree_view = coctree;
+      coctree = sdf_converter::create_COctree_v3(SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, 6, 2 << 28), coctree.header, mesh);
 
       auto pRender = CreateMultiRenderer(DEVICE_CPU);
       pRender->SetPreset(preset);
       pRender->SetViewport(0,0,W,H);
-      pRender->SetScene(coctree_view, 0);
+      pRender->SetScene(coctree, 0);
       auto *bvhrt = dynamic_cast<BVHRT*>(pRender->GetAccelStruct()->UnderlyingImpl(0));
       render(image, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset);
       LiteImage::SaveImage<uint32_t>("saves/test_44_mesh_COctreeV3.png", image);
@@ -4607,7 +4598,7 @@ void litert_test_45_global_octree_to_COctreeV3()
   preset.normal_mode = g.header.brick_pad == 1 ? NORMAL_MODE_SDF_SMOOTHED : NORMAL_MODE_VERTEX;
 
   auto t1 = std::chrono::steady_clock::now();
-  ref.data = sdf_converter::create_COctree_v3(settings, ref.header, mesh);
+  ref = sdf_converter::create_COctree_v3(settings, ref.header, mesh);
   coctree.data = ref.data;
   sdf_converter::global_octree_to_compact_octree_v3(g, coctree, 1);
   sdf_converter::global_octree_to_SBS(g, sbs);

@@ -96,6 +96,7 @@ set(SCENE_LOADER_SRC
     ${CMAKE_SOURCE_DIR}/utils/gaussian_field.cpp
     ${CMAKE_SOURCE_DIR}/utils/watertight_mesh.cpp
     ${CMAKE_SOURCE_DIR}/utils/sdf_converter.cpp
+    ${CMAKE_SOURCE_DIR}/utils/sdf_converter_exotic.cpp
     ${CMAKE_SOURCE_DIR}/utils/hydra_stub.cpp
     ${CMAKE_SOURCE_DIR}/utils/marching_cubes.cpp
     ${CMAKE_SOURCE_DIR}/utils/sdf_smoother.cpp
