@@ -122,135 +122,6 @@ namespace sdf_converter
     }
   }
 
-  std::vector<SdfFrameOctreeNode> construct_sdf_frame_octree(SparseOctreeSettings settings, MultithreadedDistanceFunction sdf, 
-                                                             unsigned max_threads)
-  {
-std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
-
-    omp_set_num_threads(max_threads);
-
-    unsigned min_remove_level = std::min(settings.depth, 4u);
-    std::vector<LargeNode> large_nodes;
-    int lg_size = pow(2, min_remove_level);
-    large_nodes.push_back({float3(0,0,0), 1.0f, 0u, 0u, 0u, 0u, 1000.0f});
-
-    unsigned i = 0;
-    while (i < large_nodes.size())
-    {
-      if (large_nodes[i].level < min_remove_level)
-      {
-        large_nodes[i].children_idx = large_nodes.size();
-        for (int j=0;j<8;j++)
-        {
-          float ch_d = large_nodes[i].d / 2;
-          float3 ch_p = 2 * large_nodes[i].p + float3((j & 4) >> 2, (j & 2) >> 1, j & 1);
-          large_nodes.push_back({ch_p, ch_d, large_nodes[i].level+1, 0u, 0u, 0u, 1000.0f});
-        }
-      }
-      i++;
-    }
-
-    std::vector<unsigned> border_large_nodes;
-
-    for (int i=0;i<large_nodes.size();i++)
-    {
-      float3 pos = 2.0f * ((large_nodes[i].p + float3(0.5, 0.5, 0.5)) * large_nodes[i].d) - float3(1, 1, 1); 
-      large_nodes[i].value = sdf(pos, 0);
-      if (large_nodes[i].children_idx == 0 && is_border(large_nodes[i].value, large_nodes[i].level))
-        border_large_nodes.push_back(i);
-    }
-
-    unsigned step = (border_large_nodes.size() + max_threads - 1) / max_threads;
-    std::vector<std::vector<SdfFrameOctreeNode>> all_nodes(max_threads);
-    std::vector<std::vector<uint2>> all_groups(max_threads);
-
-    for (int i=0;i<max_threads;i++)
-    {
-      all_nodes[i].reserve(std::min(1ul << 20, 1ul << 3*settings.depth));
-    }
-
-std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
-
-    #pragma omp parallel for
-    for (int thread_id=0;thread_id<max_threads;thread_id++)
-    {
-      unsigned start = thread_id * step;
-      unsigned end = std::min(start + step, (unsigned)border_large_nodes.size());
-      for (unsigned i=start;i<end;i++)
-      {
-        unsigned idx = border_large_nodes[i];
-        unsigned local_root_idx = all_nodes[thread_id].size();
-        large_nodes[idx].group_idx = all_groups[thread_id].size();
-        large_nodes[idx].thread_id = thread_id;
-        all_nodes[thread_id].emplace_back();
-        add_node_rec(all_nodes[thread_id], settings, sdf, thread_id, 
-                    local_root_idx, large_nodes[idx].level, settings.depth, large_nodes[idx].p, large_nodes[idx].d);
-      
-        all_groups[thread_id].push_back(uint2(local_root_idx, all_nodes[thread_id].size()));
-      }
-    }
-
-std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
-
-    std::vector<SdfFrameOctreeNode> res_nodes(large_nodes.size());
-
-    for (int i=0;i<large_nodes.size();i++)
-    {
-      for (int cid = 0; cid < 8; cid++)
-        res_nodes[i].values[cid] = sdf(2.0f * ((large_nodes[i].p + float3((cid & 4) >> 2, (cid & 2) >> 1, cid & 1)) * large_nodes[i].d) - float3(1, 1, 1), 0);
-    
-      res_nodes[i].offset = large_nodes[i].children_idx;
-      if (large_nodes[i].children_idx == 0 && is_border(large_nodes[i].value, large_nodes[i].level))
-      {
-        unsigned start = all_groups[large_nodes[i].thread_id][large_nodes[i].group_idx].x + 1;
-        unsigned end = all_groups[large_nodes[i].thread_id][large_nodes[i].group_idx].y;
-        
-        if (start == end) //this region is empty
-          continue;
-        
-        unsigned prev_size = res_nodes.size();
-        int shift = int(prev_size) - int(start);
-        res_nodes[i].offset = all_nodes[large_nodes[i].thread_id][start-1].offset + shift;
-        //printf("%d offset %u start %u shift %d\n", i, res_nodes[i].offset, start, shift);
-        res_nodes.insert(res_nodes.end(), all_nodes[large_nodes[i].thread_id].begin() + start, all_nodes[large_nodes[i].thread_id].begin() + end);
-        
-        for (int j=prev_size;j<res_nodes.size();j++)
-        {
-          if (res_nodes[j].offset != 0)
-            res_nodes[j].offset += shift;
-        }
-      }
-    }
-
-std::chrono::steady_clock::time_point t4 = std::chrono::steady_clock::now();
-  
-    // unsigned nn = count_and_mark_active_nodes_rec(res_nodes, 0);
-    // assert(!is_leaf(res_nodes[0].offset));
-
-    // std::vector<SdfFrameOctreeNode> frame_3;
-    // frame_3.reserve(res_nodes.size());
-    // frame_3.push_back(res_nodes[0]);
-    // frame_octree_eliminate_invalid_rec(res_nodes, 0, frame_3, 0);
-    // frame_3.shrink_to_fit();
-
-    //printf("%u/%u nodes are active\n", nn, (unsigned)res_nodes.size());
-    //printf("%u/%u nodes are left after elimination\n", (unsigned)frame_3.size(), (unsigned)res_nodes.size());
-  
-std::chrono::steady_clock::time_point t5 = std::chrono::steady_clock::now();
-  
-    float time_1 = 1e-3f*std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count();
-    float time_2 = 1e-3f*std::chrono::duration_cast<std::chrono::microseconds>(t3 - t2).count();
-    float time_3 = 1e-3f*std::chrono::duration_cast<std::chrono::microseconds>(t4 - t3).count();
-    float time_4 = 1e-3f*std::chrono::duration_cast<std::chrono::microseconds>(t5 - t4).count();
-
-    //printf("total nodes = %d, time = %6.2f ms (%.1f+%.1f+%.1f+%.1f)\n", 
-    //       (int)res_nodes.size(), time_1 + time_2 + time_3 + time_4, time_1, time_2, time_3, time_4);
-
-    omp_set_num_threads(omp_get_max_threads());
-
-    return res_nodes;
-  }
-
   struct PositionHasher
   {
     std::size_t operator()(const float3& k) const
@@ -286,346 +157,6 @@ std::chrono::steady_clock::time_point t5 = std::chrono::steady_clock::now();
         octree_to_layers(nodes, layers, ofs + i, ch_p, ch_d);
       }
     }
-  }
-
-  SdfSBS frame_octree_to_SBS(MultithreadedDistanceFunction sdf, 
-                             unsigned max_threads,
-                             const std::vector<SdfFrameOctreeNode> &nodes,
-                             const SdfSBSHeader &header)
-  {
-std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
-
-    omp_set_num_threads(max_threads);
-    std::vector<float4> layers(nodes.size());
-    octree_to_layers(nodes, layers, 0, float3(0,0,0), 1.0f);
-
-std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
-
-    SdfSBS sbs;
-    uint32_t v_size = header.brick_size + 2*header.brick_pad + 1;
-    sbs.header = header;
-    sbs.nodes.reserve(nodes.size());
-    sbs.values.reserve(nodes.size() * v_size * v_size * v_size);
-
-    unsigned step = (nodes.size() + max_threads - 1) / max_threads;
-
-    #pragma omp parallel for
-    for (int thread_id=0;thread_id<max_threads;thread_id++)
-    {
-      std::vector<float> values(v_size*v_size*v_size, 1000.0f);
-      unsigned start = thread_id * step;
-      unsigned end = std::min(start + step, (unsigned)nodes.size());
-      for (int idx = start; idx < end; idx++)
-      {
-        unsigned ofs = nodes[idx].offset;
-        if (is_leaf(ofs)) 
-        {
-          uint3 p = uint3(layers[idx].x, layers[idx].y, layers[idx].z);
-          float d = layers[idx].w;
-
-          float min_val = 1000;
-          float max_val = -1000;
-          for (int i=0;i<8;i++)
-          {
-            min_val = std::min(min_val, nodes[idx].values[i]);
-            max_val = std::max(max_val, nodes[idx].values[i]);
-          }
-          float3 p0 = 2.0f*(d*float3(p)) - 1.0f;
-          float dp = 2.0f*d/header.brick_size;
-
-          for (int i=-(int)header.brick_pad; i<=(int)(header.brick_size + header.brick_pad); i++)
-          {
-            for (int j=-(int)header.brick_pad; j<=(int)(header.brick_size + header.brick_pad); j++)
-            {
-              for (int k=-(int)header.brick_pad; k<=(int)(header.brick_size + header.brick_pad); k++)
-              {
-                float val = 2e6f;
-                // corners, reuse values
-                if (i == 0)
-                {
-                  if (j == 0)
-                  {
-                    if (k == 0)
-                      val = nodes[idx].values[0];
-                    else if (k == header.brick_size)
-                      val = nodes[idx].values[1];
-                  }
-                  else if (j == header.brick_size)
-                  {
-                    if (k == 0)
-                      val = nodes[idx].values[2];
-                    else if (k == header.brick_size)
-                      val = nodes[idx].values[3];
-                  }
-                }
-                else if (i == header.brick_size)
-                {
-                  if (j == 0)
-                  {
-                    if (k == 0)
-                      val = nodes[idx].values[4];
-                    else if (k == header.brick_size)
-                      val = nodes[idx].values[5];
-                  }
-                  else if (j == header.brick_size)
-                  {
-                    if (k == 0)
-                      val = nodes[idx].values[6];
-                    else if (k == header.brick_size)
-                      val = nodes[idx].values[7];
-                  }
-                }
-
-                //new points
-                if (val > 1e6f)
-                {
-                  float3 pos = p0 + dp*float3(i,j,k);
-                  val = sdf(pos, thread_id);
-                }
-
-                values[SBS_v_to_i(i,j,k,v_size,header.brick_pad)] = val;
-                min_val = std::min(min_val, val);
-                max_val = std::max(max_val, val);
-              }
-            }      
-          }
-
-          //fix for inconsistent distances
-          //if (max_val - min_val > 2 * sqrt(3) * d)
-          //{
-            //printf("inconsistent distance %f - %f with d=%f\n", max_val, min_val, d);
-          //  for (int i = 0; i < values.size(); i++)
-          //    values[i] = LiteMath::sign(max_val) * std::abs(values[i]);
-          //}
-
-          //add not only if there is really a border
-          if (is_border_node(min_val, max_val, 1/d))
-          {
-            unsigned off=0, n_off=0;
-            unsigned lod_size = 1.0f/d;
-            float d_max = 2*sqrt(3)/lod_size;
-            unsigned bits = 8*header.bytes_per_value;
-            unsigned max_val = header.bytes_per_value == 4 ? 0xFFFFFFFF : ((1 << bits) - 1);
-            unsigned vals_per_int = 4/header.bytes_per_value;
-
-            #pragma omp critical
-            {
-              off = sbs.values.size();
-              n_off = sbs.nodes.size();
-              sbs.nodes.emplace_back();
-              sbs.values.resize(sbs.values.size() + (values.size()+vals_per_int-1)/vals_per_int);
-            }
-
-            sbs.nodes[n_off].data_offset = off;
-            sbs.nodes[n_off].pos_xy = (p.x << 16) | p.y;
-            sbs.nodes[n_off].pos_z_lod_size = (p.z << 16) | lod_size;
-
-            for (int i=0;i<values.size();i++)
-            {
-              unsigned d_compressed = std::max(0.0f, max_val*((values[i]+d_max)/(2*d_max)));
-              d_compressed = std::min(d_compressed, max_val);
-              sbs.values[off + i/vals_per_int] |= d_compressed << (bits*(i%vals_per_int));
-            }
-          }
-        } //end if is leaf
-      }
-    }
-std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
-
-    float time_1 = 1e-3f*std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count();
-    float time_2 = 1e-3f*std::chrono::duration_cast<std::chrono::microseconds>(t3 - t2).count();
-    //printf("frame octree to SBS: time = %6.2f ms (%.1f+%.1f)\n", time_1 + time_2, time_1, time_2);
-
-    sbs.nodes.shrink_to_fit();
-    sbs.values.shrink_to_fit();
-    omp_set_num_threads(omp_get_max_threads());
-
-    return sbs;
-  }
-
-  void mesh_octree_to_sdf_frame_octree_rec(const cmesh4::SimpleMesh &mesh,
-                                         const cmesh4::TriangleListOctree &tl_octree,
-                                         std::vector<SdfFrameOctreeNode> &frame,
-                                         unsigned idx, float3 p, float d)
-  {
-    unsigned ofs = tl_octree.nodes[idx].offset;
-    frame[idx].offset = ofs;
-
-    if (is_leaf(ofs)) 
-    {
-      float3 pos = 2.0f*(d*p) - 1.0f;
-      for (int i = 0; i < 8; i++)
-      {
-        float3 ch_pos = pos + 2*d*float3((i & 4) >> 2, (i & 2) >> 1, i & 1);
-        float min_dist_sq = 1000;
-        int min_ti = -1;
-        for (int j=0; j<tl_octree.nodes[idx].tid_count; j++)
-        {
-          int t_i = tl_octree.triangle_ids[tl_octree.nodes[idx].tid_offset+j];
-          
-          float3 a = to_float3(mesh.vPos4f[mesh.indices[3*t_i+0]]);
-          float3 b = to_float3(mesh.vPos4f[mesh.indices[3*t_i+1]]);
-          float3 c = to_float3(mesh.vPos4f[mesh.indices[3*t_i+2]]);
-          float3 vt = ch_pos - cmesh4::closest_point_triangle(ch_pos, a, b, c);
-          float dist_sq = LiteMath::dot(vt, vt);
-
-          if (dist_sq < min_dist_sq)
-          {
-            min_dist_sq = dist_sq; 
-            min_ti = t_i;
-          }
-        }
-
-        if (min_ti >= 0)
-        {
-          float3 a = to_float3(mesh.vPos4f[mesh.indices[3*min_ti+0]]);
-          float3 b = to_float3(mesh.vPos4f[mesh.indices[3*min_ti+1]]);
-          float3 c = to_float3(mesh.vPos4f[mesh.indices[3*min_ti+2]]);
-          float3 vt = ch_pos - cmesh4::closest_point_triangle(ch_pos, a, b, c);
-          float3 n = (1.0f/3.0f)*(to_float3(mesh.vNorm4f[mesh.indices[3*min_ti+0]]) + 
-                                  to_float3(mesh.vNorm4f[mesh.indices[3*min_ti+1]]) + 
-                                  to_float3(mesh.vNorm4f[mesh.indices[3*min_ti+2]]));
-
-          frame[idx].values[i] = dot(normalize(n), vt) > 0 ? sqrt(min_dist_sq) : -sqrt(min_dist_sq);
-        }
-        else
-          frame[idx].values[i] = 1000;
-      }
-    }
-    else
-    {
-      for (int i = 0; i < 8; i++)
-      {
-        float ch_d = d / 2;
-        float3 ch_p = 2 * p + float3((i & 4) >> 2, (i & 2) >> 1, i & 1);
-        mesh_octree_to_sdf_frame_octree_rec(mesh, tl_octree, frame, ofs + i, ch_p, ch_d);
-      }
-    }
-  }
-
-  void mesh_octree_to_sdf_frame_octree(const cmesh4::SimpleMesh &mesh,
-                                       const cmesh4::TriangleListOctree &tl_octree, 
-                                       std::vector<SdfFrameOctreeNode> &out_frame)
-  {
-    out_frame.resize(tl_octree.nodes.size());
-    mesh_octree_to_sdf_frame_octree_rec(mesh, tl_octree, out_frame, 0, float3(0,0,0), 1);
-  }
-
-  void mesh_octree_to_psdf_frame_octree_rec(const cmesh4::SimpleMesh &mesh,
-                                         const cmesh4::TriangleListOctree &tl_octree,
-                                         std::vector<SdfFrameOctreeNode> &frame,
-                                         unsigned idx, float3 p, float d)
-  {
-    unsigned ofs = tl_octree.nodes[idx].offset;
-    frame[idx].offset = ofs;
-
-    if (is_leaf(ofs)) 
-    {
-      float3 pos = 2.0f*(d*p) - 1.0f;
-      bool is_dif_sgn = false;
-      int8_t first_sgn = 0;
-
-      float min_mid_dist_sq = 1000;
-      int min_mid_ti = -1;
-      float3 mid_pos = pos + d*float3(1, 1, 1);
-      for (int i = 0; i < 8; i++)
-      {
-        float3 ch_pos = pos + 2*d*float3((i >> 2) & 1, (i >> 1) & 1, i & 1);
-        float min_dist_sq = 1000;
-        int min_ti = -1;
-        for (int j=0; j<tl_octree.nodes[idx].tid_count; j++)
-        {
-          int t_i = tl_octree.triangle_ids[tl_octree.nodes[idx].tid_offset+j];
-
-          float3 a = to_float3(mesh.vPos4f[mesh.indices[3*t_i+0]]);
-          float3 b = to_float3(mesh.vPos4f[mesh.indices[3*t_i+1]]);
-          float3 c = to_float3(mesh.vPos4f[mesh.indices[3*t_i+2]]);
-          float3 vt = ch_pos - cmesh4::closest_point_triangle(ch_pos, a, b, c);
-          float dist_sq = LiteMath::dot(vt, vt);
-
-          if (dist_sq < min_dist_sq)
-          {
-            min_dist_sq = dist_sq; 
-            min_ti = t_i;
-          }
-
-          if (i == 0)
-          {
-            vt = mid_pos - cmesh4::closest_point_triangle(mid_pos, a, b, c);
-            dist_sq = LiteMath::dot(vt, vt);
-
-            if (dist_sq < min_mid_dist_sq)
-            {
-              min_mid_dist_sq = dist_sq; 
-              min_mid_ti = t_i;
-            }
-          }
-        }
-
-        if (min_ti >= 0)
-        {
-          float3 a = to_float3(mesh.vPos4f[mesh.indices[3*min_ti+0]]);
-          float3 b = to_float3(mesh.vPos4f[mesh.indices[3*min_ti+1]]);
-          float3 c = to_float3(mesh.vPos4f[mesh.indices[3*min_ti+2]]);
-          float3 vt = ch_pos - cmesh4::closest_point_triangle(ch_pos, a, b, c);
-          float3 n = (1.0f/3.0f)*(to_float3(mesh.vNorm4f[mesh.indices[3*min_ti+0]]) + 
-                                  to_float3(mesh.vNorm4f[mesh.indices[3*min_ti+1]]) + 
-                                  to_float3(mesh.vNorm4f[mesh.indices[3*min_ti+2]]));
-
-          frame[idx].values[i] = dot(normalize(n), vt) > 0 ? sqrt(min_dist_sq) : -sqrt(min_dist_sq);
-          if (i == 0)
-          {
-            first_sgn = dot(normalize(n), vt) > 0 ? 1 : -1;
-          }
-          else if (!is_dif_sgn && first_sgn * dot(normalize(n), vt) <= 0)
-          {
-            is_dif_sgn = true;
-            //printf("%d %f\n", i, first_sgn * dot(normalize(n), vt));
-          }
-        }
-        else
-        {
-          frame[idx].values[i] = 1000;
-          is_dif_sgn = true;
-        }
-      }
-      if (!is_dif_sgn)
-      {
-        for (int i = 0; i < 8; ++i)
-        {
-          float3 ch_pos = pos + 2*d*float3((i >> 2) & 1, (i >> 1) & 1, i & 1);
-          float3 a = to_float3(mesh.vPos4f[mesh.indices[3*min_mid_ti+0]]);
-          float3 b = to_float3(mesh.vPos4f[mesh.indices[3*min_mid_ti+1]]);
-          float3 c = to_float3(mesh.vPos4f[mesh.indices[3*min_mid_ti+2]]);
-          float3 vt = ch_pos - cmesh4::closest_point_triangle(ch_pos, a, b, c);
-          float3 n = (1.0f/3.0f)*(to_float3(mesh.vNorm4f[mesh.indices[3*min_mid_ti+0]]) + 
-                                  to_float3(mesh.vNorm4f[mesh.indices[3*min_mid_ti+1]]) + 
-                                  to_float3(mesh.vNorm4f[mesh.indices[3*min_mid_ti+2]]));
-          if (frame[idx].values[i] * dot(normalize(n), vt) < 0)
-          {
-            frame[idx].values[i] = -frame[idx].values[i];
-          }
-          //printf("checked\n");
-        }
-      }
-    }
-    else
-    {
-      for (int i = 0; i < 8; i++)
-      {
-        float ch_d = d / 2;
-        float3 ch_p = 2 * p + float3((i & 4) >> 2, (i & 2) >> 1, i & 1);
-        mesh_octree_to_psdf_frame_octree_rec(mesh, tl_octree, frame, ofs + i, ch_p, ch_d);
-      }
-    }
-  }
-
-  void mesh_octree_to_psdf_frame_octree(const cmesh4::SimpleMesh &mesh,
-                                       const cmesh4::TriangleListOctree &tl_octree, 
-                                       std::vector<SdfFrameOctreeNode> &out_frame)
-  {
-    out_frame.resize(tl_octree.nodes.size());
-    mesh_octree_to_psdf_frame_octree_rec(mesh, tl_octree, out_frame, 0, float3(0,0,0), 1);
   }
 
   bool eq_float3(const float3& lhs, const float3& rhs)
@@ -3077,14 +2608,6 @@ std::chrono::steady_clock::time_point t5 = std::chrono::steady_clock::now();
     }
   }
 
-  void mesh_octree_to_sdf_frame_octree_tex(const cmesh4::SimpleMesh &mesh,
-                                           const cmesh4::TriangleListOctree &tl_octree, 
-                                           std::vector<SdfFrameOctreeTexNode> &out_frame)
-  {
-    out_frame.resize(tl_octree.nodes.size());
-    mesh_octree_to_sdf_frame_octree_tex_rec(mesh, tl_octree, out_frame, 0, float3(0,0,0), 1);
-  }
-
   void octree_to_layers_tex(const std::vector<SdfFrameOctreeTexNode> &nodes, std::vector<float4> &layers, unsigned idx, float3 p, float d)
   {
     layers[idx] = float4(p.x, p.y, p.z, d);
@@ -3098,361 +2621,6 @@ std::chrono::steady_clock::time_point t5 = std::chrono::steady_clock::now();
         octree_to_layers_tex(nodes, layers, ofs + i, ch_p, ch_d);
       }
     }
-  }
-
-  SdfSBS frame_octree_to_SBS_tex(MultithreadedDistanceFunction sdf, 
-                                 unsigned max_threads,
-                                 const std::vector<SdfFrameOctreeTexNode> &nodes,
-                                 const SdfSBSHeader &header)
-  {
-std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
-
-    omp_set_num_threads(max_threads);
-    std::vector<float4> layers(nodes.size());
-    octree_to_layers_tex(nodes, layers, 0, float3(0,0,0), 1.0f);
-
-std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
-
-    SdfSBS sbs;
-    uint32_t v_size = header.brick_size + 2*header.brick_pad + 1;
-    sbs.header = header;
-    sbs.header.aux_data = SDF_SBS_NODE_LAYOUT_DX_UV16;
-    sbs.nodes.reserve(nodes.size());
-    sbs.values.reserve(nodes.size() * v_size * v_size * v_size);
-
-    unsigned step = (nodes.size() + max_threads - 1) / max_threads;
-
-    #pragma omp parallel for
-    for (int thread_id=0;thread_id<max_threads;thread_id++)
-    {
-      std::vector<float> values(v_size*v_size*v_size, 1000.0f);
-      unsigned start = thread_id * step;
-      unsigned end = std::min(start + step, (unsigned)nodes.size());
-      for (int idx = start; idx < end; idx++)
-      {
-        unsigned ofs = nodes[idx].offset;
-        if (is_leaf(ofs)) 
-        {
-          uint3 p = uint3(layers[idx].x, layers[idx].y, layers[idx].z);
-          float d = layers[idx].w;
-
-          float min_val = 1000;
-          float max_val = -1000;
-          for (int i=0;i<8;i++)
-          {
-            min_val = std::min(min_val, nodes[idx].values[i]);
-            max_val = std::max(max_val, nodes[idx].values[i]);
-          }
-          float3 p0 = 2.0f*(d*float3(p)) - 1.0f;
-          float dp = 2.0f*d/header.brick_size;
-
-          for (int i=-(int)header.brick_pad; i<=(int)(header.brick_size + header.brick_pad); i++)
-          {
-            for (int j=-(int)header.brick_pad; j<=(int)(header.brick_size + header.brick_pad); j++)
-            {
-              for (int k=-(int)header.brick_pad; k<=(int)(header.brick_size + header.brick_pad); k++)
-              {
-                float val = 2e6f;
-                // corners, reuse values
-                if (i == 0)
-                {
-                  if (j == 0)
-                  {
-                    if (k == 0)
-                      val = nodes[idx].values[0];
-                    else if (k == header.brick_size)
-                      val = nodes[idx].values[1];
-                  }
-                  else if (j == header.brick_size)
-                  {
-                    if (k == 0)
-                      val = nodes[idx].values[2];
-                    else if (k == header.brick_size)
-                      val = nodes[idx].values[3];
-                  }
-                }
-                else if (i == header.brick_size)
-                {
-                  if (j == 0)
-                  {
-                    if (k == 0)
-                      val = nodes[idx].values[4];
-                    else if (k == header.brick_size)
-                      val = nodes[idx].values[5];
-                  }
-                  else if (j == header.brick_size)
-                  {
-                    if (k == 0)
-                      val = nodes[idx].values[6];
-                    else if (k == header.brick_size)
-                      val = nodes[idx].values[7];
-                  }
-                }
-
-                //new points
-                if (val > 1e6f)
-                {
-                  float3 pos = p0 + dp*float3(i,j,k);
-                  val = sdf(pos, thread_id);
-                }
-
-                values[SBS_v_to_i(i,j,k,v_size,header.brick_pad)] = val;
-              }
-            }      
-          }
-
-          //fix for inconsistent distances
-          if (max_val - min_val > 2 * sqrt(3) * d)
-          {
-            //printf("inconsistent distance %f - %f with d=%f\n", max_val, min_val, d);
-            for (int i = 0; i < values.size(); i++)
-              values[i] = LiteMath::sign(max_val) * std::abs(values[i]);
-          }
-
-          //add node only if there is really a border
-          if (is_border_node(min_val, max_val, 1/d) /*true*/)
-          {
-            unsigned off=0, n_off=0;
-            unsigned lod_size = 1.0f/d;
-            float d_max = 2*sqrt(3)/lod_size;
-            unsigned bits = 8*header.bytes_per_value;
-            unsigned max_val = sbs.header.bytes_per_value == 4 ? 0xFFFFFFFF : ((1 << bits) - 1);
-            unsigned vals_per_int = 4/header.bytes_per_value;
-            unsigned dist_size = (v_size*v_size*v_size+vals_per_int-1)/vals_per_int;
-            unsigned tex_size = 8;
-
-            #pragma omp critical
-            {
-              off = sbs.values.size();
-              n_off = sbs.nodes.size();
-              sbs.nodes.emplace_back();
-              sbs.values.resize(sbs.values.size() + dist_size + tex_size);
-            }
-
-            sbs.nodes[n_off].data_offset = off;
-            sbs.nodes[n_off].pos_xy = (p.x << 16) | p.y;
-            sbs.nodes[n_off].pos_z_lod_size = (p.z << 16) | lod_size;
-
-            //add distances
-            for (int i=0;i<values.size();i++)
-            {
-              unsigned d_compressed = std::max(0.0f, max_val*((values[i]+d_max)/(2*d_max)));
-              d_compressed = std::min(d_compressed, max_val);
-              sbs.values[off + i/vals_per_int] |= d_compressed << (bits*(i%vals_per_int));
-            }
-
-            //add texture coordinates
-            for (int i=0;i<8;i++)
-            {
-              //printf("id = %u, tc= %f %f\n", off, nodes[idx].tex_coords[2*i+0], nodes[idx].tex_coords[2*i+1]);
-              unsigned packed_u = ((1<<16) - 1)*LiteMath::clamp(nodes[idx].tex_coords[2*i+0], 0.0f, 1.0f);
-              unsigned packed_v = ((1<<16) - 1)*LiteMath::clamp(nodes[idx].tex_coords[2*i+1], 0.0f, 1.0f);
-              sbs.values[off + dist_size + i] = (packed_u << 16) | (packed_v & 0x0000FFFF);
-              //printf("hex sbs.values[%d] = %x\n", off + dist_size + i, sbs.values[off + dist_size + i]);
-            }
-          }
-        } //end if is leaf
-      }
-    }
-std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
-
-    float time_1 = 1e-3f*std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count();
-    float time_2 = 1e-3f*std::chrono::duration_cast<std::chrono::microseconds>(t3 - t2).count();
-    //printf("frame octree to SBS: time = %6.2f ms (%.1f+%.1f)\n", time_1 + time_2, time_1, time_2);
-
-    sbs.nodes.shrink_to_fit();
-    sbs.values.shrink_to_fit();
-    omp_set_num_threads(omp_get_max_threads());
-
-    return sbs;
-  }
-
-  SdfSBS SBS_col_to_SBS_ind(const SdfSBS &sbs)
-  {
-    SdfSBS sbs_ind;
-    //same header, except for layout
-    //same nodes and offsets (UV and RGB occupy the same space)
-    //completely different data structure (it is now only indices) + 
-    //additional array for actual values (floats)
-    sbs_ind.header = sbs.header;
-    sbs_ind.header.aux_data = SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F;
-
-    sbs_ind.nodes = sbs.nodes;
-
-    unsigned vals_per_int = 4/sbs.header.bytes_per_value;
-    unsigned v_size = sbs.header.brick_size + 2*sbs.header.brick_pad + 1;
-    unsigned dist_size = (v_size*v_size*v_size+vals_per_int-1)/vals_per_int;
-    unsigned bits = 8*sbs.header.bytes_per_value;
-    unsigned max_val = sbs.header.bytes_per_value == 4 ? 0xFFFFFFFF : ((1 << bits) - 1);
-
-    sbs_ind.values.resize(sbs.nodes.size()*(v_size*v_size*v_size + 8)); //v_size^3 indices for distances + 8 for textures
-    unsigned f_offset = 0;
-    unsigned i_offset = 0;
-
-    std::unordered_map<float3, unsigned, PositionHasher, PositionEqual> distance_indices;
-    std::unordered_map<float3, unsigned, PositionHasher, PositionEqual> color_indices;
-
-    for (int n_idx = 0; n_idx < sbs.nodes.size(); n_idx++)
-    {
-      const SdfSBSNode &n = sbs.nodes[n_idx];
-      float px = n.pos_xy >> 16;
-      float py = n.pos_xy & 0x0000FFFF;
-      float pz = n.pos_z_lod_size >> 16;
-      float sz = n.pos_z_lod_size & 0x0000FFFF;
-      float sz_inv = 2.0f/sz;
-      float d = 2.0f/(sz*sbs.header.brick_size);
-
-      sbs_ind.nodes[n_idx].data_offset = i_offset;
-
-      unsigned col_off = n.data_offset + dist_size;
-      for (unsigned i = 0; i < v_size*v_size*v_size; i++)
-      {
-        uint32_t v_off = n.data_offset;
-        float d_max = 2*1.73205081f/sz;
-        float mult = 2*d_max/max_val;
-        float val = -d_max + mult*((sbs.values[n.data_offset + i/vals_per_int] >> (bits*(i%vals_per_int))) & max_val);
-
-        uint3 voxelPos = uint3(i/(v_size*v_size), i/v_size%v_size, i%v_size);
-        float3 pos = float3(-1,-1,-1) + 2.0f*(float3(px,py,pz)/sz + float3(voxelPos)/(sz*sbs.header.brick_size));
-                      
-        //printf("%u %u val = %f pos = %f %f %f\n", n.data_offset, i, val, pos.x, pos.y, pos.z);
-        //printf("min_pos, pos, sz = %f %f %f %f %f %f %f\n", px, py, pz, pos.x, pos.y, pos.z, sz);
-        auto it = distance_indices.find(pos);
-        if (it == distance_indices.end())
-        {
-          sbs_ind.values_f.push_back(val);
-          distance_indices[pos] = sbs_ind.values_f.size() - 1;
-          sbs_ind.values[i_offset + i] = sbs_ind.values_f.size() - 1;
-        }
-        else
-        {
-          sbs_ind.values[i_offset + i] = it->second;
-        }
-      }
-      for (unsigned i = 0; i < 8; i++)
-      {
-        unsigned col_packed = sbs.values[col_off + i];
-        float3 f_color = float3(col_packed & 0xFF, (col_packed >> 8) & 0xFF, (col_packed >> 16) & 0xFF)/255.0f;
-
-        float3 pos = float3(px, py, pz) + float3((i & 4) >> 2, (i & 2) >> 1, i & 1)/sz;
-        auto it = distance_indices.find(pos);
-        if (it == color_indices.end())
-        {
-          sbs_ind.values_f.push_back(f_color.x);
-          sbs_ind.values_f.push_back(f_color.y);
-          sbs_ind.values_f.push_back(f_color.z);
-          color_indices[pos] = sbs_ind.values_f.size() - 3;
-          sbs_ind.values[i_offset + v_size*v_size*v_size + i] = sbs_ind.values_f.size() - 3;
-        }
-        else
-        {
-          sbs_ind.values[i_offset + v_size*v_size*v_size + i] = it->second;
-        }
-      }
-      i_offset += v_size*v_size*v_size + 8;
-    }
-
-    return sbs_ind;
-  }
-
-  SdfSBS SBS_ind_to_SBS_ind_with_neighbors(const SdfSBS &sbs)
-  {
-    unsigned vals_per_int = 4/sbs.header.bytes_per_value;
-    unsigned v_size = sbs.header.brick_size + 2*sbs.header.brick_pad + 1;
-    unsigned dist_size = (v_size*v_size*v_size+vals_per_int-1)/vals_per_int;
-    unsigned bits = 8*sbs.header.bytes_per_value;
-    unsigned max_val = sbs.header.bytes_per_value == 4 ? 0xFFFFFFFF : ((1 << bits) - 1);
-
-    unsigned values_per_node_old = v_size*v_size*v_size + 8;
-    unsigned values_per_node_new = v_size*v_size*v_size + 8 + 27;
-    unsigned nbr_offset =          v_size*v_size*v_size + 8;
-
-    //check if given sbs in valid and has the required layout
-    assert((sbs.header.aux_data & SDF_SBS_NODE_LAYOUT_MASK) == SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F);
-    assert(sbs.nodes.size() > 0);
-    assert(sbs.values.size() == sbs.nodes.size()*values_per_node_old);
-    assert(sbs.values_f.size() > 0);
-
-    SdfSBS sbs_n;
-    //same header, except for layout
-    //same nodes, but different data offsets
-    //different offset (sbs_ind.values)
-    //same distance values (sbs_ind.values_f)
-    sbs_n.header = sbs.header;
-    sbs_n.header.aux_data = SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F_IN;
-    sbs_n.nodes = sbs.nodes;
-    sbs_n.values_f = sbs.values_f;
-
-    sbs_n.values.resize(sbs.nodes.size()*values_per_node_new);
-    //change data_offsets in nodes, copy indices from sbs.values, leave neighbor indices empty
-    for (int n = 0; n < sbs.nodes.size(); n++)
-    {
-      unsigned offset = sbs.nodes[n].data_offset;
-      unsigned new_offset = n*values_per_node_new;
-
-      sbs_n.nodes[n].data_offset = new_offset;
-      for (int i = 0; i < values_per_node_old; i++)
-        sbs_n.values[new_offset + i] = sbs.values[offset + i];
-
-      for (int i = 0; i < 27; i++)
-        sbs_n.values[new_offset + values_per_node_old + i] = INVALID_IDX;
-    }
-
-    struct AdjList
-    {
-      unsigned count = 0;
-      unsigned node_ids[8] = {INVALID_IDX, INVALID_IDX, INVALID_IDX, INVALID_IDX, INVALID_IDX, INVALID_IDX, INVALID_IDX, INVALID_IDX};
-    };
-    std::vector<AdjList> adj_lists(sbs.values_f.size());
-
-    //for every corner of every node, find all other nodes with the same corner
-    for (int n = 0; n < sbs.nodes.size(); n++)
-    {
-      unsigned offset = sbs.nodes[n].data_offset;
-      //iterate only corners
-      for (int r_id=0; r_id<8; r_id++)
-      {
-        uint3 idx = (v_size-1)*uint3((r_id & 4) >> 2, (r_id & 2) >> 1, r_id & 1);
-        unsigned corner_id = sbs.values[sbs.nodes[n].data_offset + idx.x*v_size*v_size + idx.y*v_size + idx.z];
-        adj_lists[corner_id].node_ids[r_id] = n;
-        adj_lists[corner_id].count++;
-      }
-    }
-
-    //if the corner is shared between two or more node, they are all neighbors of each other
-    //currently we only consider nodes as neighbors if they have the same size
-    for (int i = 0; i < sbs.values_f.size(); i++)
-    {
-      if (adj_lists[i].count <= 1)
-        continue;
-      for (int r_id1 = 0; r_id1 < 8; r_id1++)
-      {
-        if (adj_lists[i].node_ids[r_id1] == INVALID_IDX)
-          continue;
-        for (int r_id2 = 0; r_id2 < 8; r_id2++)
-        {
-          if (adj_lists[i].node_ids[r_id2] == INVALID_IDX || r_id1 == r_id2)
-            continue;
-          
-          unsigned size_1 = sbs_n.nodes[r_id1].pos_z_lod_size & 0x0000FFFF;
-          unsigned size_2 = sbs_n.nodes[r_id2].pos_z_lod_size & 0x0000FFFF;
-          if (size_1 != size_2)
-            continue;
-
-          int3 idx1((r_id1 & 4) >> 2, (r_id1 & 2) >> 1, r_id1 & 1);
-          int3 idx2((r_id2 & 4) >> 2, (r_id2 & 2) >> 1, r_id2 & 1);
-
-          int3 d_idx = idx2 - idx1 + int3(1,1,1);
-          unsigned neighbor_n = 3*3*d_idx.x + 3*d_idx.y + d_idx.z;
-          unsigned node_id = adj_lists[i].node_ids[r_id2];
-          unsigned neighbor_node_id = adj_lists[i].node_ids[r_id1];
-
-          sbs_n.values[sbs_n.nodes[node_id].data_offset + nbr_offset + neighbor_n] = neighbor_node_id;
-        }
-      }
-    }
-
-    return sbs_n;
   }
 
   unsigned count_and_mark_active_nodes_rec(std::vector<SdfFrameOctreeNode> &frame, unsigned nodeId)
@@ -3503,58 +2671,6 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
       for (int i = 0; i < 8; i++)
         frame_octree_eliminate_invalid_rec(frame_old, ofs + i, frame_new, new_ofs + i);
     }
-  }
-
-  void frame_octree_to_compact_octree_rec(const std::vector<SdfFrameOctreeNode> &frame, std::vector<SdfCompactOctreeNode> &compact,
-                                          unsigned nodeId, unsigned lod_size, uint3 p)
-  {
-    unsigned ofs = frame[nodeId].offset;
-
-    float d_max = 2 * sqrt(3) / lod_size;
-    float min_val = 1000;
-    float max_val = -1000;
-    for (int i = 0; i < 8; i++)
-    {
-      min_val = std::min(min_val, frame[nodeId].values[i]);
-      max_val = std::max(max_val, frame[nodeId].values[i]);
-    }
-
-    compact[nodeId].offset = ofs;
-
-    if (!is_leaf(ofs))
-      compact[nodeId].flags = OCTREE_FLAG_NODE_PARENT;
-    else if (min_val > 0 || max_val < 0)
-      compact[nodeId].flags = OCTREE_FLAG_NODE_EMPTY;
-    else
-      compact[nodeId].flags = OCTREE_FLAG_NODE_BORDER;
-
-    compact[nodeId].values[0] = 0u;
-    compact[nodeId].values[1] = 0u;
-    for (int i = 0; i < 8; i++)
-    {
-      unsigned d_compressed = std::max(0.0f, 255 * ((frame[nodeId].values[i] + d_max) / (2 * d_max)) + 0.5f);
-      d_compressed = std::min(d_compressed, 255u);
-      // assert(d_compressed < 256);
-      compact[nodeId].values[i / 4] |= d_compressed << (8 * (i % 4));
-    }
-
-    if (!is_leaf(ofs))
-    {
-      for (int i = 0; i < 8; i++)
-      {
-        uint3 ch_p = 2 * p + uint3((i & 4) >> 2, (i & 2) >> 1, i & 1);
-        frame_octree_to_compact_octree_rec(frame, compact, ofs + i, 2 * lod_size, ch_p);
-      }
-    }
-  }
-
-  std::vector<SdfCompactOctreeNode> frame_octree_to_compact_octree(const std::vector<SdfFrameOctreeNode> &frame)
-  {
-    std::vector<SdfCompactOctreeNode> compact(frame.size());
-
-    frame_octree_to_compact_octree_rec(frame, compact, 0, 1, uint3(0,0,0));
-
-    return compact;
   }
 
   void frame_octree_to_compact_octree_v2_rec(const std::vector<SdfFrameOctreeNode> &frame, std::vector<uint32_t> &compact,
@@ -4224,63 +3340,191 @@ void frame_octree_to_compact_octree_v3_rec(const std::vector<SdfFrameOctreeTexNo
   }
 }
 
-  std::vector<uint32_t> frame_octree_to_compact_octree_v3(const std::vector<SdfFrameOctreeTexNode> &frame, COctreeV3Header header,
-                                                          MultithreadedDistanceFunction sdf, unsigned max_threads)
+  SdfSBS SBS_col_to_SBS_ind(const SdfSBS &sbs)
   {
-    #if ON_CPU==1
-      assert(COctreeV3::VERSION == 3); //if version is changed, this function should be revisited, as some changes may be needed
-    #endif
+    SdfSBS sbs_ind;
+    //same header, except for layout
+    //same nodes and offsets (UV and RGB occupy the same space)
+    //completely different data structure (it is now only indices) + 
+    //additional array for actual values (floats)
+    sbs_ind.header = sbs.header;
+    sbs_ind.header.aux_data = SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F;
 
-    stat_leaf_bytes.store(0);
-    stat_nonleaf_bytes.store(0);
+    sbs_ind.nodes = sbs.nodes;
 
-    std::vector<uint32_t> compact;
-    compact.reserve(9*frame.size());
-    compact.resize(9, 0u);
+    unsigned vals_per_int = 4/sbs.header.bytes_per_value;
+    unsigned v_size = sbs.header.brick_size + 2*sbs.header.brick_pad + 1;
+    unsigned dist_size = (v_size*v_size*v_size+vals_per_int-1)/vals_per_int;
+    unsigned bits = 8*sbs.header.bytes_per_value;
+    unsigned max_val = sbs.header.bytes_per_value == 4 ? 0xFFFFFFFF : ((1 << bits) - 1);
 
-    int v_size = header.brick_size + 2 * header.brick_pad + 1;
-    int p_size = header.brick_size + 2 * header.brick_pad;
-    std::vector<COctreeV3ThreadCtx> all_ctx(max_threads);
-    for (int i = 0; i < max_threads; i++)
+    sbs_ind.values.resize(sbs.nodes.size()*(v_size*v_size*v_size + 8)); //v_size^3 indices for distances + 8 for textures
+    unsigned f_offset = 0;
+    unsigned i_offset = 0;
+
+    std::unordered_map<float3, unsigned, PositionHasher, PositionEqual> distance_indices;
+    std::unordered_map<float3, unsigned, PositionHasher, PositionEqual> color_indices;
+
+    for (int n_idx = 0; n_idx < sbs.nodes.size(); n_idx++)
     {
-      all_ctx[i].values_tmp = std::vector<float>(v_size*v_size*v_size*max_threads);
-      all_ctx[i].u_values_tmp = std::vector<uint32_t>(3*v_size*v_size*v_size*max_threads);
-      all_ctx[i].presence_flags = std::vector<bool>(p_size*p_size*p_size, false);
-      all_ctx[i].requirement_flags = std::vector<bool>(p_size*p_size*p_size, false);
-      all_ctx[i].distance_flags = std::vector<bool>(v_size*v_size*v_size, false);
-    }
+      const SdfSBSNode &n = sbs.nodes[n_idx];
+      float px = n.pos_xy >> 16;
+      float py = n.pos_xy & 0x0000FFFF;
+      float pz = n.pos_z_lod_size >> 16;
+      float sz = n.pos_z_lod_size & 0x0000FFFF;
+      float sz_inv = 2.0f/sz;
+      float d = 2.0f/(sz*sbs.header.brick_size);
 
-    COctreeV3GlobalCtx global_ctx;
-    global_ctx.compact.reserve(9*frame.size());
-    global_ctx.compact.resize(9, 0u);
-    global_ctx.tasks = std::vector<COctreeV3BuildTask>(frame.size());
+      sbs_ind.nodes[n_idx].data_offset = i_offset;
 
-    global_ctx.tasks[0].nodeId = 0;
-    global_ctx.tasks[0].cNodeId = 0;
-    global_ctx.tasks[0].lod_size = 1;
-    global_ctx.tasks[0].p = uint3(0,0,0);
-    global_ctx.tasks_count = 1;
-
-    int start_task = 0;
-    int end_task = 1;
-
-    while (end_task > start_task)
-    {
-      #pragma omp parallel for num_threads(max_threads)
-      for (int i = start_task; i < end_task; i++)
+      unsigned col_off = n.data_offset + dist_size;
+      for (unsigned i = 0; i < v_size*v_size*v_size; i++)
       {
-        auto threadId = omp_get_thread_num();
-        frame_octree_to_compact_octree_v3_rec(frame, header, global_ctx, all_ctx[threadId], sdf, threadId, global_ctx.tasks[i]);
-      }
+        uint32_t v_off = n.data_offset;
+        float d_max = 2*1.73205081f/sz;
+        float mult = 2*d_max/max_val;
+        float val = -d_max + mult*((sbs.values[n.data_offset + i/vals_per_int] >> (bits*(i%vals_per_int))) & max_val);
 
-      start_task = end_task;
-      end_task = global_ctx.tasks_count;
+        uint3 voxelPos = uint3(i/(v_size*v_size), i/v_size%v_size, i%v_size);
+        float3 pos = float3(-1,-1,-1) + 2.0f*(float3(px,py,pz)/sz + float3(voxelPos)/(sz*sbs.header.brick_size));
+                      
+        //printf("%u %u val = %f pos = %f %f %f\n", n.data_offset, i, val, pos.x, pos.y, pos.z);
+        //printf("min_pos, pos, sz = %f %f %f %f %f %f %f\n", px, py, pz, pos.x, pos.y, pos.z, sz);
+        auto it = distance_indices.find(pos);
+        if (it == distance_indices.end())
+        {
+          sbs_ind.values_f.push_back(val);
+          distance_indices[pos] = sbs_ind.values_f.size() - 1;
+          sbs_ind.values[i_offset + i] = sbs_ind.values_f.size() - 1;
+        }
+        else
+        {
+          sbs_ind.values[i_offset + i] = it->second;
+        }
+      }
+      for (unsigned i = 0; i < 8; i++)
+      {
+        unsigned col_packed = sbs.values[col_off + i];
+        float3 f_color = float3(col_packed & 0xFF, (col_packed >> 8) & 0xFF, (col_packed >> 16) & 0xFF)/255.0f;
+
+        float3 pos = float3(px, py, pz) + float3((i & 4) >> 2, (i & 2) >> 1, i & 1)/sz;
+        auto it = distance_indices.find(pos);
+        if (it == color_indices.end())
+        {
+          sbs_ind.values_f.push_back(f_color.x);
+          sbs_ind.values_f.push_back(f_color.y);
+          sbs_ind.values_f.push_back(f_color.z);
+          color_indices[pos] = sbs_ind.values_f.size() - 3;
+          sbs_ind.values[i_offset + v_size*v_size*v_size + i] = sbs_ind.values_f.size() - 3;
+        }
+        else
+        {
+          sbs_ind.values[i_offset + v_size*v_size*v_size + i] = it->second;
+        }
+      }
+      i_offset += v_size*v_size*v_size + 8;
     }
 
-    global_ctx.compact.shrink_to_fit();
+    return sbs_ind;
+  }
 
-    printf("compact octree %.1f Kb leaf, %.1f Kb non-leaf\n", stat_leaf_bytes.load() / 1024.0f, stat_nonleaf_bytes.load() / 1024.0f);
+  SdfSBS SBS_ind_to_SBS_ind_with_neighbors(const SdfSBS &sbs)
+  {
+    unsigned vals_per_int = 4/sbs.header.bytes_per_value;
+    unsigned v_size = sbs.header.brick_size + 2*sbs.header.brick_pad + 1;
+    unsigned dist_size = (v_size*v_size*v_size+vals_per_int-1)/vals_per_int;
+    unsigned bits = 8*sbs.header.bytes_per_value;
+    unsigned max_val = sbs.header.bytes_per_value == 4 ? 0xFFFFFFFF : ((1 << bits) - 1);
 
-    return global_ctx.compact;
+    unsigned values_per_node_old = v_size*v_size*v_size + 8;
+    unsigned values_per_node_new = v_size*v_size*v_size + 8 + 27;
+    unsigned nbr_offset =          v_size*v_size*v_size + 8;
+
+    //check if given sbs in valid and has the required layout
+    assert((sbs.header.aux_data & SDF_SBS_NODE_LAYOUT_MASK) == SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F);
+    assert(sbs.nodes.size() > 0);
+    assert(sbs.values.size() == sbs.nodes.size()*values_per_node_old);
+    assert(sbs.values_f.size() > 0);
+
+    SdfSBS sbs_n;
+    //same header, except for layout
+    //same nodes, but different data offsets
+    //different offset (sbs_ind.values)
+    //same distance values (sbs_ind.values_f)
+    sbs_n.header = sbs.header;
+    sbs_n.header.aux_data = SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F_IN;
+    sbs_n.nodes = sbs.nodes;
+    sbs_n.values_f = sbs.values_f;
+
+    sbs_n.values.resize(sbs.nodes.size()*values_per_node_new);
+    //change data_offsets in nodes, copy indices from sbs.values, leave neighbor indices empty
+    for (int n = 0; n < sbs.nodes.size(); n++)
+    {
+      unsigned offset = sbs.nodes[n].data_offset;
+      unsigned new_offset = n*values_per_node_new;
+
+      sbs_n.nodes[n].data_offset = new_offset;
+      for (int i = 0; i < values_per_node_old; i++)
+        sbs_n.values[new_offset + i] = sbs.values[offset + i];
+
+      for (int i = 0; i < 27; i++)
+        sbs_n.values[new_offset + values_per_node_old + i] = INVALID_IDX;
+    }
+
+    struct AdjList
+    {
+      unsigned count = 0;
+      unsigned node_ids[8] = {INVALID_IDX, INVALID_IDX, INVALID_IDX, INVALID_IDX, INVALID_IDX, INVALID_IDX, INVALID_IDX, INVALID_IDX};
+    };
+    std::vector<AdjList> adj_lists(sbs.values_f.size());
+
+    //for every corner of every node, find all other nodes with the same corner
+    for (int n = 0; n < sbs.nodes.size(); n++)
+    {
+      unsigned offset = sbs.nodes[n].data_offset;
+      //iterate only corners
+      for (int r_id=0; r_id<8; r_id++)
+      {
+        uint3 idx = (v_size-1)*uint3((r_id & 4) >> 2, (r_id & 2) >> 1, r_id & 1);
+        unsigned corner_id = sbs.values[sbs.nodes[n].data_offset + idx.x*v_size*v_size + idx.y*v_size + idx.z];
+        adj_lists[corner_id].node_ids[r_id] = n;
+        adj_lists[corner_id].count++;
+      }
+    }
+
+    //if the corner is shared between two or more node, they are all neighbors of each other
+    //currently we only consider nodes as neighbors if they have the same size
+    for (int i = 0; i < sbs.values_f.size(); i++)
+    {
+      if (adj_lists[i].count <= 1)
+        continue;
+      for (int r_id1 = 0; r_id1 < 8; r_id1++)
+      {
+        if (adj_lists[i].node_ids[r_id1] == INVALID_IDX)
+          continue;
+        for (int r_id2 = 0; r_id2 < 8; r_id2++)
+        {
+          if (adj_lists[i].node_ids[r_id2] == INVALID_IDX || r_id1 == r_id2)
+            continue;
+          
+          unsigned size_1 = sbs_n.nodes[r_id1].pos_z_lod_size & 0x0000FFFF;
+          unsigned size_2 = sbs_n.nodes[r_id2].pos_z_lod_size & 0x0000FFFF;
+          if (size_1 != size_2)
+            continue;
+
+          int3 idx1((r_id1 & 4) >> 2, (r_id1 & 2) >> 1, r_id1 & 1);
+          int3 idx2((r_id2 & 4) >> 2, (r_id2 & 2) >> 1, r_id2 & 1);
+
+          int3 d_idx = idx2 - idx1 + int3(1,1,1);
+          unsigned neighbor_n = 3*3*d_idx.x + 3*d_idx.y + d_idx.z;
+          unsigned node_id = adj_lists[i].node_ids[r_id2];
+          unsigned neighbor_node_id = adj_lists[i].node_ids[r_id1];
+
+          sbs_n.values[sbs_n.nodes[node_id].data_offset + nbr_offset + neighbor_n] = neighbor_node_id;
+        }
+      }
+    }
+
+    return sbs_n;
   }
 }

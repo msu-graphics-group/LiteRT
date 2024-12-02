@@ -108,6 +108,7 @@ namespace sdf_converter
   
   //-------------------------------------------------------------------------------------------------
   //experimental and weird builders
+  SdfSBS SBS_ind_to_SBS_ind_with_neighbors(const SdfSBS &sbs);
   std::vector<SdfFrameOctreeNode> create_sdf_frame_octree(SparseOctreeSettings settings, MultithreadedDistanceFunction sdf, float eps, bool is_smooth, bool fix_artefacts);
   std::vector<SdfFrameOctreeNode> create_psdf_frame_octree(SparseOctreeSettings settings, const cmesh4::SimpleMesh &mesh);
   std::vector<SdfFrameOctreeNode> create_vmpdf_frame_octree(SparseOctreeSettings settings, const cmesh4::SimpleMesh &mesh);

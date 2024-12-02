@@ -3571,6 +3571,9 @@ void litert_test_38_direct_octree_traversal()
   save_sdf_SBS(sbs, "saves/sbs.bin");
   }
 
+  COctreeV2 coctree_v2 = sdf_converter::create_COctree_v2(SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, 9, 2<<28),
+                                                          mesh);
+
   std::vector<SdfFrameOctreeNode> octree;
   std::vector<SdfSVSNode> SVS;
   SdfSBS SBS;
@@ -3700,7 +3703,6 @@ void litert_test_38_direct_octree_traversal()
   {
     auto pRender = CreateMultiRenderer(DEVICE_GPU);
     pRender->SetPreset(preset);
-    auto coctree_v2 = sdf_converter::frame_octree_to_compact_octree_v2(octree);
     pRender->SetScene(COctreeV2View(coctree_v2));
     pRender->SetLights({create_direct_light(float3(1,1,-1), float3(2.0f/3.0f)), create_ambient_light(float3(0.25, 0.25, 0.25))});
 
