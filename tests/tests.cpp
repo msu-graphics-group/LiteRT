@@ -4482,12 +4482,12 @@ void litert_test_45_global_octree_to_COctreeV3()
   std::vector<SdfFrameOctreeNode> frame, fr_r, frame_sdf, fr_sdf_r;
   std::vector<SdfFrameOctreeTexNode> frame_tex, fr_tex_r;
   std::vector<SdfSVSNode> svs, svs_r;
-  std::vector<uint32_t> coc2_r;
+  COctreeV2 coc2_r;
   COctreeV2 coc2;
   svs_r = sdf_converter::create_sdf_SVS(settings, mesh);
   fr_r = sdf_converter::create_sdf_frame_octree(settings, mesh);
   fr_sdf_r = sdf_converter::create_sdf_frame_octree(settings2, mesh);
-  coc2_r = sdf_converter::frame_octree_to_compact_octree_v2(fr_r);
+  coc2_r = sdf_converter::create_COctree_v2(settings, mesh);
   fr_tex_r = sdf_converter::create_sdf_frame_octree_tex(settings, mesh);
 
   auto tlo = cmesh4::create_triangle_list_octree(mesh, settings.depth, 0, 1.0f);
@@ -4618,7 +4618,7 @@ void litert_test_45_global_octree_to_COctreeV3()
   {
     auto pRender = CreateMultiRenderer(DEVICE_GPU);
     pRender->SetPreset(preset);
-    pRender->SetScene(COctreeV2View(coc2_r));
+    pRender->SetScene(coc2_r);
     render(image_r, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset);
     LiteImage::SaveImage<uint32_t>("saves/test_45_cocv2_r.bmp", image_r); 
   }

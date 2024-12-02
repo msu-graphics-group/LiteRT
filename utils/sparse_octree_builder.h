@@ -21,13 +21,6 @@ namespace scom
 
 namespace sdf_converter
 {
-  std::vector<SdfFrameOctreeNode> construct_sdf_frame_octree(SparseOctreeSettings settings, MultithreadedDistanceFunction sdf, float eps, 
-                                                             unsigned max_threads, bool is_smooth, bool fix_artefacts);
-
-  void mesh_octree_to_vmpdf(const cmesh4::SimpleMesh &mesh,
-                            const cmesh4::TriangleListOctree &tl_octree, 
-                            std::vector<SdfFrameOctreeNode> &out_frame);
-
   void sdf_to_global_octree(SparseOctreeSettings settings, MultithreadedDistanceFunction sdf, 
                             unsigned max_threads, GlobalOctree &octree);
 
@@ -45,6 +38,4 @@ namespace sdf_converter
 
   void frame_octree_limit_nodes(std::vector<SdfFrameOctreeNode> &frame, unsigned nodes_limit,
                                 bool count_only_border_nodes);
-
-  std::vector<uint32_t> frame_octree_to_compact_octree_v2(const std::vector<SdfFrameOctreeNode> &frame);
 }
