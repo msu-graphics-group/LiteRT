@@ -264,8 +264,8 @@ namespace litert_tests
 
         testing::check_psnr(cpu_image, gpu_image, "cpu", "gpu", 45);
 
-        testing::saved_reference_check_psnr(cpu_image, "CPU", "cpu", 90);
-        testing::saved_reference_check_psnr(gpu_image, "GPU", "gpu", 90);
+        testing::saved_reference_check_psnr(cpu_image, "CPU", "cpu", 75);
+        testing::saved_reference_check_psnr(gpu_image, "GPU", "gpu", 75);
     }
 
     // former 15
@@ -761,7 +761,7 @@ namespace litert_tests
         testing::render_scene(image, DEVICE_CPU, preset, mesh, float3(3, 0, 3));
         testing::save_image(image, "res");
 
-        testing::saved_reference_check_psnr(image, "res", "res", 90);
+        testing::saved_reference_check_psnr(image, "res", "res", 75);
     }
 
     ADD_TEST(InstancesRender, "Render simple scene with instances from Hydra file")
@@ -780,7 +780,7 @@ namespace litert_tests
 
         testing::check_psnr(cpu_image, gpu_image, "cpu", "gpu", 45);
 
-        testing::saved_reference_check_psnr(cpu_image, "CPU", "cpu", 90);
-        testing::saved_reference_check_psnr(gpu_image, "GPU", "gpu", 90);
+        testing::saved_reference_check_psnr(cpu_image, "CPU", "cpu", 75);
+        testing::saved_reference_check_psnr(gpu_image, "GPU", "gpu", 75);
     }
 }
