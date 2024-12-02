@@ -142,8 +142,9 @@ std::string write_render_config_s(const RenderAppConfig &in_render)
 
   block_render.set_string("model", in_render.model);
   block_render.set_string("render_mode", in_render.render_mode);
-  block_render.set_arr("param_strings", in_render.param_strings);
-  block_render.set_arr("lods", in_render.lods);
+  block_render.set_string("param_string", in_render.param_string);
+  block_render.set_string("lod", in_render.lod);
+  block_render.set_string("type", in_render.type);
 
   block_render.set_int("width", in_render.width);
   block_render.set_int("height", in_render.height);
@@ -155,6 +156,34 @@ std::string write_render_config_s(const RenderAppConfig &in_render)
   return res_block_str;
 }
 
+
+
+// SAME AS IN BENCHMARK_BACKEND.CPP
+
+std::string get_model_name(std::string model_path)
+{
+  uint32_t last_dot = model_path.rfind('.');
+  uint32_t last_slash = model_path.rfind('/');
+  if (last_slash == model_path.npos && model_path.rfind('\\') != model_path.npos)
+    last_slash = model_path.rfind('\\');
+
+  std::string model_name = model_path.substr(last_slash + (last_slash != model_path.npos), last_dot);
+  return model_name;
+}
+
+std::string generate_filename_model_no_ext(std::string model_path, std::string repr_type, std::string lod, std::string param_string)
+{
+  return "benchmark/" + get_model_name(model_path) + "/models/" + repr_type + "/lod_" + lod + '_' + param_string;
+}
+
+std::string generate_filename_image(std::string model_path, std::string renderer, std::string backend, std::string repr_type, std::string lod, std::string param_string, uint32_t camera)
+{
+  // LoadImage("benchmark/bunny/hydra/GPU/mesh/lod_high_default_cam_i.png");
+  return "benchmark/" + get_model_name(model_path) + "/" + renderer + "/" + backend + "/" + repr_type +
+          "/lod_" + lod + '_' + param_string + "_cam_" + std::to_string(camera) + ".png";
+}
+
+// COPY END
 
 
 std::vector<std::string> filter_enum_params(const char **argv, uint32_t len, const std::vector<std::string> supported_tags)
@@ -218,6 +247,23 @@ void call_kernel_slicer(const BenchmarkAppConfig &defaults, const std::string &r
   std::string renderer_src = " " + curr_p.native() + "/Renderer/eye_ray.cpp";
   std::string parameters = "";
 
+  if (backend == "GPU_RQ")
+  {
+    parameters += "\
+    -options " + curr_p.native() + "/options.json \
+    -intersectionShader AbstractObject::Intersect \
+    -intersectionTriangle GeomDataTriangle \
+    -intersectionBlackList GeomDataRF \
+    -intersectionBlackList GeomDataGS";
+  }
+  else if (backend == "RTX")
+  {
+    parameters += "\
+    -options " + curr_p.native() + "/options.json \
+    -intersectionShader AbstractObject::Intersect";
+  }
+  parameters += " -enable_ray_tracing_pipeline " + std::to_string(backend == "RTX");
+
   if (renderer == "MR")
   {
     std::string multirenderer_suffix = " -suffix _gpu_rq";
@@ -234,20 +280,7 @@ void call_kernel_slicer(const BenchmarkAppConfig &defaults, const std::string &r
     -I" + curr_p.native() + "/BVH                   process \
     -I" + curr_p.native() + "/sdfScene              ignore";
 
-    if (backend == "GPU_RQ")
-      i_params += "\
-      -options " + curr_p.native() + "/options.json \
-      -intersectionShader AbstractObject::Intersect \
-      -intersectionTriangle GeomDataTriangle \
-      -intersectionBlackList GeomDataRF \
-      -intersectionBlackList GeomDataGS";
-    else if (backend == "RTX")
-      i_params += "\
-      -options " + curr_p.native() + "/options.json \
-      -intersectionShader AbstractObject::Intersect";
-
-    parameters = i_params + multirenderer_suffix + " -DPUGIXML_NO_EXCEPTIONS -DKERNEL_SLICER -v "
-    + "-enable_ray_tracing_pipeline " + std::to_string(backend == "RTX");
+    parameters += i_params + multirenderer_suffix + " -DPUGIXML_NO_EXCEPTIONS -DKERNEL_SLICER -v ";
   }
   else if (renderer == "Hydra")
   {
@@ -270,8 +303,7 @@ void call_kernel_slicer(const BenchmarkAppConfig &defaults, const std::string &r
     -I" + curr_p.native() + "/BVH                   process \
     -I" + curr_p.native() + "/sdfScene              ignore  ";
 
-    parameters = i_params + "\
-    -enable_ray_tracing_pipeline 0 \
+    parameters += i_params + "\
     -enable_motion_blur 0 \
     -gen_gpu_api 0 \
     -DLITERT_RENDERER \
@@ -493,11 +525,26 @@ int main(int argc, const char **argv)
   }
 
 
+// Override types: force MESH on the first place
+// TODO: read everything in config first, then clean up wrong poarameters.
+//       Now it won't work properly if bad config passed
+
+for (uint32_t i = 0u; i < config.types.size(); ++i)
+{
+  if (config.types[i] == "MESH")
+  {
+    config.types.erase(config.types.begin() + i);
+    break;
+  }
+}
+config.types.insert(config.types.begin(), "MESH");
+
+
 // Print config
 
   if (verbose)
   {
-    printf("Verbose %d\n", verbose);
+    printf("Verbose: %d\n", verbose);
     printf("Def conf: %s\n", defaults_config_fpath);
     printf("Base conf: %s\n", base_config_fpath);
     printf("Slicer dir: %s\n", slicer_adir.c_str());
@@ -548,8 +595,8 @@ int main(int argc, const char **argv)
       for (const auto &backend : config.backends)
       {
         bool do_slicing = backend != "CPU";
-        if (renderer == "Hydra" && backend != "GPU")
-          do_slicing = false;
+        // if (renderer == "Hydra" && backend != "GPU")
+        //   do_slicing = false;
 
         bool recompile = true;
 
@@ -574,17 +621,20 @@ int main(int argc, const char **argv)
             recompile = false;
           }
 
-          // std::system("DRI_PRIME=1 ./render_app -tests_litert 9");
+          // std::system("DRI_PRIME=1 ./render_app -tests_litert 2");
 
-          for (const auto &lod: config.lods)
-          {
-            std::string cmd = "DRI_PRIME=1 ./render_app -backend_benchmark ";
-            cmd += model + " " +  backend + " " + renderer + " " + repr_type + " " + 
-                lod + " " + std::to_string(config.width) + " " + std::to_string(config.height) + 
-                " " + std::to_string(config.spp) + " " + std::to_string(config.cameras);
-            
-            std::system(cmd.c_str());
-          }
+          // for (const auto &lod: config.lods)
+          // {
+          //   for (const auto &param_string: config.param_strings)
+          //   {
+          //     std::string cmd = "DRI_PRIME=1 ./render_app -backend_benchmark ";
+          //     cmd += model + " " +  backend + " " + renderer + " " + repr_type + " " + 
+          //         lod + " " + std::to_string(config.width) + " " + std::to_string(config.height) + 
+          //         " " + std::to_string(config.spp) + " " + std::to_string(config.cameras) + " " + param_string;
+
+          //     std::system(cmd.c_str());
+          //   }
+          // }
         }
       }
     }

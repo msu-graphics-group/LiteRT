@@ -28,8 +28,9 @@ struct RenderAppConfig
 {
   std::string model;
   std::string render_mode;
-  std::vector<std::string> lods;
-  std::vector<std::string> param_strings;
+  std::string lod;
+  std::string type;
+  std::string param_string;
   int width, height;
   int spp;
   int cameras;
