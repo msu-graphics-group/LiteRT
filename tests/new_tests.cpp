@@ -763,4 +763,85 @@ namespace litert_tests
 
     float psnr = testing::check_psnr(img_mesh, img_sdf, "global octree mesh", "global octree sdf", 75);
   }
+
+  ADD_TEST(SimilarityCompression, "Tests different settings for COctreeV3 similarity compression")
+  {
+    auto mesh = testing::load_vsgf_mesh(BUNNY_MESH, 0.95);
+
+    MultiRenderPreset preset = getDefaultPreset();
+    preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
+    preset.spp = 4;
+    SparseOctreeSettings settings(SparseOctreeBuildType::MESH_TLO, 6);
+
+    auto img_mesh = testing::create_image();
+
+    testing::render_scene(img_mesh, DEVICE_GPU, preset, mesh, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0));
+    testing::save_image(img_mesh, "ref");
+
+    {
+      auto img_orig = testing::create_image();
+      auto img_comp = testing::create_image();
+      float psnr_orig, psnr_comp;
+      COctreeV3 coctree_comp;
+      
+      COctreeV3Header header_orig = get_default_coctree_v3_header();
+      header_orig.brick_size = 2;
+      header_orig.brick_pad  = 0;
+
+      COctreeV3 coctree_orig = sdf_converter::create_COctree_v3(settings, header_orig, mesh);
+      testing::render_scene(img_orig, DEVICE_GPU, preset, coctree_orig, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0));
+      testing::save_image(img_orig, "orig");
+      psnr_orig = image_metrics::PSNR(img_mesh, img_orig);
+
+      COctreeV3Header header_comp = header_orig;
+      header_comp.sim_compression = true;
+
+      scom::Settings scom_settings;
+      scom_settings.similarity_threshold = 0.002f;
+      scom_settings.search_algorithm = scom::SearchAlgorithm::BALL_TREE;
+
+      //CA::REPLACEMENT
+      scom_settings.clustering_algorithm = scom::ClusteringAlgorithm::REPLACEMENT;
+      coctree_comp = sdf_converter::create_COctree_v3(settings, header_comp, scom_settings, mesh);
+      testing::render_scene(img_comp, DEVICE_GPU, preset, coctree_comp, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0));
+      testing::save_image(img_comp, "comp_replacement");
+      psnr_comp = image_metrics::PSNR(img_mesh, img_comp);
+      int replacement_size = coctree_comp.data.size();
+
+      testing::check_psnr(img_orig, img_comp, "Compressed (CA::REPLACEMENT)", "Original", 40);
+      testing::check_less(psnr_orig - psnr_comp, 1.5, "PSNR loss (CA::REPLACEMENT)", "threshold");
+
+      //CA::COMPONENTS_MERGE
+      scom_settings.clustering_algorithm = scom::ClusteringAlgorithm::COMPONENTS_MERGE;
+      coctree_comp = sdf_converter::create_COctree_v3(settings, header_comp, scom_settings, mesh);
+      testing::render_scene(img_comp, DEVICE_GPU, preset, coctree_comp, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0));
+      testing::save_image(img_comp, "comp_merge");
+      psnr_comp = image_metrics::PSNR(img_mesh, img_comp);
+      int merge_size = coctree_comp.data.size();
+
+      testing::check_psnr(img_orig, img_comp, "Compressed (CA::COMPONENTS_MERGE)", "Original", 40);
+      testing::check_less(psnr_orig - psnr_comp, 3*1.5, "PSNR loss (CA::COMPONENTS_MERGE)", "3*threshold");
+      testing::check_less(merge_size, replacement_size, "CA::COMPONENTS_MERGE size", "CA::REPLACEMENT size");
+
+      //CA::COMPONENTS_RECURSIVE_FILL
+      scom_settings.clustering_algorithm = scom::ClusteringAlgorithm::COMPONENTS_RECURSIVE_FILL;
+      coctree_comp = sdf_converter::create_COctree_v3(settings, header_comp, scom_settings, mesh);
+      testing::render_scene(img_comp, DEVICE_GPU, preset, coctree_comp, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0));
+      testing::save_image(img_comp, "comp_recursive_fill");
+      psnr_comp = image_metrics::PSNR(img_mesh, img_comp);
+
+      testing::check_psnr(img_orig, img_comp, "Compressed (CA::COMPONENTS_RECURSIVE_FILL)", "Original", 40);
+      testing::check_less(psnr_orig - psnr_comp, 1.5, "PSNR loss (CA::COMPONENTS_RECURSIVE_FILL)", "threshold");
+
+      //CA::HIERARCHICAL
+      scom_settings.clustering_algorithm = scom::ClusteringAlgorithm::HIERARCHICAL;
+      coctree_comp = sdf_converter::create_COctree_v3(settings, header_comp, scom_settings, mesh);
+      testing::render_scene(img_comp, DEVICE_GPU, preset, coctree_comp, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0));
+      testing::save_image(img_comp, "comp_hierarchical");
+      psnr_comp = image_metrics::PSNR(img_mesh, img_comp);
+
+      testing::check_psnr(img_orig, img_comp, "Compressed (CA::HIERARCHICAL)", "Original", 40);
+      testing::check_less(psnr_orig - psnr_comp, 1.5, "PSNR loss (CA::HIERARCHICAL)", "threshold");
+    }
+  }
 }

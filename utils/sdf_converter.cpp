@@ -212,6 +212,21 @@ namespace sdf_converter
     return coctree;
   }
 
+  COctreeV3 create_COctree_v3(SparseOctreeSettings settings, COctreeV3Header header, scom::Settings &scom_settings, const cmesh4::SimpleMesh &mesh)
+  {
+    COctreeV3 coctree;
+    coctree.header = header;
+
+    GlobalOctree g;
+    g.header.brick_size = header.brick_size;
+    g.header.brick_pad = header.brick_pad;
+    auto tlo = cmesh4::create_triangle_list_octree(mesh, settings.depth, 0, 1.0f);
+    mesh_octree_to_global_octree(mesh, tlo, g);
+    global_octree_to_compact_octree_v3(g, coctree, omp_get_max_threads(), scom_settings);
+
+    return coctree;
+  }
+
   GlobalOctree create_global_octree_by_mesh(SparseOctreeSettings settings, const cmesh4::SimpleMesh &mesh, 
                                             GlobalOctreeHeader &header)
   {

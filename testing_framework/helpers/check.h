@@ -31,6 +31,18 @@ namespace testing
         source_location loc = source_location::current()
     );    
 
+    /*
+        Checks if a > b
+    */
+    void check_less(
+        float a,
+        float b,
+        std::string_view a_desc,
+        std::string_view b_desc,
+        bool eq = false,
+        source_location loc = source_location::current()
+    );
+
     template <typename T>
     float measure_psnr(Image<T> &ref, Image<T> &other)
     {

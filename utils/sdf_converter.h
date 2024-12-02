@@ -5,6 +5,11 @@
 #include "../utils/mesh.h"
 #include "../Renderer/eye_ray.h"
 
+namespace scom
+{
+  struct Settings;
+}
+
 struct GridSettings
 {
   GridSettings() {};
@@ -85,6 +90,7 @@ namespace sdf_converter
 
   COctreeV2 create_COctree_v2(SparseOctreeSettings settings, const cmesh4::SimpleMesh &mesh);
   COctreeV3 create_COctree_v3(SparseOctreeSettings settings, COctreeV3Header header, const cmesh4::SimpleMesh &mesh);
+  COctreeV3 create_COctree_v3(SparseOctreeSettings settings, COctreeV3Header header, scom::Settings &scom_settings, const cmesh4::SimpleMesh &mesh);
 
   std::vector<SdfFrameOctreeTexNode> create_sdf_frame_octree_tex(SparseOctreeSettings settings, const cmesh4::SimpleMesh &mesh);
   SdfSBS create_sdf_SBS_tex(SparseOctreeSettings settings, SdfSBSHeader header, const cmesh4::SimpleMesh &mesh, bool noisy = false);
