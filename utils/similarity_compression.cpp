@@ -855,7 +855,8 @@ namespace scom
 
     std::unique_ptr<INNSearchAS> NN_search_AS;
 
-    if (settings.search_algorithm == SearchAlgorithm::LINEAR_SEARCH)
+    if (settings.search_algorithm == SearchAlgorithm::LINEAR_SEARCH ||
+        settings.search_algorithm == SearchAlgorithm::BRUTE_FORCE)
     {
       NN_search_AS.reset(new LinearSearchAS());
       NN_search_AS->build(dataset, 1);
@@ -1102,7 +1103,8 @@ namespace scom
 
     std::unique_ptr<INNSearchAS> NN_search_AS;
 
-    if (settings.search_algorithm == SearchAlgorithm::LINEAR_SEARCH)
+    if (settings.search_algorithm == SearchAlgorithm::LINEAR_SEARCH ||
+        settings.search_algorithm == SearchAlgorithm::BRUTE_FORCE)
     {
       NN_search_AS.reset(new LinearSearchAS());
       NN_search_AS->build(dataset, 1);
