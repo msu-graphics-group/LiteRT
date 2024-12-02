@@ -4380,10 +4380,10 @@ void litert_test_44_point_query()
   SdfSBSHeader header{};
   header.bytes_per_value = 2;
   header.brick_size = 2;
-  sdf_converter::DistanceFunction circle_sdf = [&](float3 p){return length(p) - 0.8f;};
+  sdf_converter::MultithreadedDistanceFunction circle_sdf = [&](float3 p, unsigned idx){return length(p) - 0.8f;};
 
   {
-    SdfSBS sbs = sdf_converter::create_sdf_SBS(settings, header, circle_sdf);
+    SdfSBS sbs = sdf_converter::create_sdf_SBS(settings, header, circle_sdf, 1);
     auto pRender = CreateMultiRenderer(DEVICE_CPU);
     pRender->SetPreset(preset);
     pRender->SetViewport(0,0,W,H);
@@ -4402,14 +4402,14 @@ void litert_test_44_point_query()
       float val = bvhrt->eval_distance_sdf_sbs(0, pt);
       if (val < 10.f)
       {
-        printf("Point: [%f, %f, %f], value = %f, ref = %f\n", pt.x, pt.y, pt.z, val, circle_sdf(pt));
+        printf("Point: [%f, %f, %f], value = %f, ref = %f\n", pt.x, pt.y, pt.z, val, circle_sdf(pt, 0));
       }
     }
   }
 
 
   {
-    std::vector<SdfSVSNode> svs = sdf_converter::create_sdf_SVS(settings, circle_sdf);
+    std::vector<SdfSVSNode> svs = sdf_converter::create_sdf_SVS(settings, circle_sdf, 1);
     auto pRender = CreateMultiRenderer(DEVICE_CPU);
     pRender->SetPreset(preset);
     pRender->SetViewport(0,0,W,H);
@@ -4428,7 +4428,7 @@ void litert_test_44_point_query()
       float val = bvhrt->eval_distance_sdf_svs(0, pt);
       if (val < 10.f) // was in SVS
       {
-        printf("Point: [%f, %f, %f], value = %f, ref = %f\n", pt.x, pt.y, pt.z, val, circle_sdf(pt));
+        printf("Point: [%f, %f, %f], value = %f, ref = %f\n", pt.x, pt.y, pt.z, val, circle_sdf(pt, 0));
       }
     }
   }

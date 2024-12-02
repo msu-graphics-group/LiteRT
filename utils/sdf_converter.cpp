@@ -7,12 +7,6 @@
 
 namespace sdf_converter
 {
-  SdfGrid create_sdf_grid(GridSettings settings, DistanceFunction sdf)
-  {
-    MultithreadedDistanceFunction sdf_multi = [&](const float3 &p, unsigned idx) -> float { return sdf(p); };
-    return create_sdf_grid(settings, sdf_multi, 1);
-  }
-
   SdfGrid create_sdf_grid(GridSettings settings, MultithreadedDistanceFunction sdf, unsigned max_threads)
   {
     assert(settings.size >= 1);
@@ -49,15 +43,6 @@ namespace sdf_converter
     
     return create_sdf_grid(settings, [&](const float3 &p, unsigned idx) -> float 
                            { return bvh[idx].get_signed_distance(p); }, max_threads);
-  }
-
-  std::vector<SdfFrameOctreeNode> create_sdf_frame_octree(SparseOctreeSettings settings, DistanceFunction sdf)
-  {
-    assert(settings.remove_thr >= 0);
-    assert(settings.depth > 1);
-    assert(settings.build_type == SparseOctreeBuildType::DEFAULT); //MESH_TLO available only when building from mesh
-
-    return create_sdf_frame_octree(settings, [&](const float3 &p, unsigned idx) -> float { return sdf(p); }, 1);
   }
 
   std::vector<SdfFrameOctreeNode> create_sdf_frame_octree(SparseOctreeSettings settings, MultithreadedDistanceFunction sdf, float eps, bool is_smooth, bool fix_artefacts)
@@ -115,15 +100,6 @@ namespace sdf_converter
       return {};
     }
   }
-
-  std::vector<SdfSVSNode> create_sdf_SVS(SparseOctreeSettings settings, DistanceFunction sdf)
-  {
-    assert(settings.remove_thr >= 0);
-    assert(settings.depth > 1);
-    assert(settings.build_type == SparseOctreeBuildType::DEFAULT); //MESH_TLO available only when building from mesh
-
-    return create_sdf_SVS(settings, [&](const float3 &p, unsigned idx) -> float { return sdf(p); }, 1);
-  }
   
   std::vector<SdfSVSNode> create_sdf_SVS(SparseOctreeSettings settings, MultithreadedDistanceFunction sdf, unsigned max_threads)
   {
@@ -157,13 +133,6 @@ namespace sdf_converter
       return create_sdf_SVS(settings, [&](const float3 &p, unsigned idx) -> float 
                             { return bvh[idx].get_signed_distance(p); }, max_threads);
     }
-  }
-
-  SdfSBS create_sdf_SBS(SparseOctreeSettings settings, SdfSBSHeader header, DistanceFunction sdf)
-  {
-    assert(settings.build_type == SparseOctreeBuildType::DEFAULT); //MESH_TLO available only when building from mesh
-
-    return create_sdf_SBS(settings, header, [&](const float3 &p, unsigned idx) -> float { return sdf(p); }, 1);
   }
 
   SdfSBS create_sdf_SBS(SparseOctreeSettings settings, SdfSBSHeader header, MultithreadedDistanceFunction sdf, unsigned max_threads)
