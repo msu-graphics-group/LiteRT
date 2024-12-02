@@ -104,7 +104,7 @@
       "showDisplayString": true
     },
     "cmake.configureSettings": {
-      "build_nurbs_viewer":true,
+      "build_nurbs_viewer":false,
       "USE_VULKAN":false,
       "USE_RTX":false,
     },

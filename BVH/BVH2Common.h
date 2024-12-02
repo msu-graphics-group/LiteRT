@@ -35,7 +35,7 @@ using LiteMath::Box4f;
 #include "openvdb_structs/openvdb_common.h"
 
 // #define USE_TRICUBIC 0
-
+struct RBezierGrid;
 
 struct BVHRT;
 struct GeomData

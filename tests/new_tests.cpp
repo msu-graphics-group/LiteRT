@@ -22,7 +22,7 @@
 #include "../utils/image_metrics.h"
 #include "../diff_render/MultiRendererDR.h"
 #include "../utils/iou.h"
-#include "../nurbs/nurbs_common_host.h"
+#include "../nurbs/Surface.hpp"
 #include "../utils/ball_tree.h"
 
 namespace litert_tests

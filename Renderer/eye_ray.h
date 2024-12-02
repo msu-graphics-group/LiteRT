@@ -22,6 +22,8 @@ using LiteImage::ICombinedImageSampler;
 
 struct SparseOctreeSettings;
 
+struct RBezierGrid;
+
 //enum MultiRendererMaterialType
 static constexpr unsigned MULTI_RENDER_MATERIAL_TYPE_COLORED  = 0;
 static constexpr unsigned MULTI_RENDER_MATERIAL_TYPE_TEXTURED = 1;

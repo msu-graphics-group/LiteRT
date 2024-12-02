@@ -10,7 +10,7 @@
 #include <map>
 
 #include "BVH2Common.h"
-#include "../nurbs/nurbs_common_host.h"
+#include "../nurbs/Surface.hpp"
 #include "../utils/sparse_octree_builder.h"
 #include "../catmul_clark/catmul_clark_host.h"
 #include "../ribbon/ribbon_host.h"
@@ -811,9 +811,9 @@ uint32_t BVHRT::AddGeom_SdfFrameOctreeTex(SdfFrameOctreeTexView octree, ISceneOb
 uint32_t BVHRT::AddGeom_NURBS(const RBezierGrid &rbeziers, ISceneObject *fake_this, BuildOptions a_qualityLevel)
 {
   auto bbox = rbeziers.bbox;
-  if (LiteMath::any_of(to_float3(bbox.boxMin) == to_float3(bbox.boxMax))) {
-    bbox.boxMin -= 1e-4f;
-    bbox.boxMax += 1e-4f;
+  if (LiteMath::any_of(bbox.mn == bbox.mx)) {
+    bbox.mn -= 1e-4f;
+    bbox.mx += 1e-4f;
   }
 
   //fill geom data array
@@ -823,16 +823,18 @@ uint32_t BVHRT::AddGeom_NURBS(const RBezierGrid &rbeziers, ISceneObject *fake_th
   m_abstractObjects.back().m_tag = type_to_tag(TYPE_NURBS);
 
   m_geomData.emplace_back();
-  m_geomData.back().boxMin = bbox.boxMin;
-  m_geomData.back().boxMax = bbox.boxMax;
+  m_geomData.back().boxMin = to_float4(bbox.mn, 1.0f);
+  m_geomData.back().boxMax = to_float4(bbox.mx, 1.0f);
   m_geomData.back().offset = uint2(m_NURBSHeaders.size(), 0);
   m_geomData.back().bvhOffset = m_allNodePairs.size();
   m_geomData.back().type = TYPE_NURBS;
 
   //save NURBS to headers and data
   uint32_t offset = m_NURBSData.size();
-  auto [grid_rows, grid_cols] = rbeziers.grid.shape2D();
-  auto [surf_rows, surf_cols] = rbeziers.grid[{0, 0}].weighted_points.shape2D();
+  auto [grid_rows, grid_cols] = std::make_pair(rbeziers.grid.get_n(), rbeziers.grid.get_m());
+  auto [surf_rows, surf_cols] = std::make_pair(
+    rbeziers.grid[{0, 0}].weighted_points.get_n(), 
+    rbeziers.grid[{0, 0}].weighted_points.get_m());
   
   m_NURBSHeaders.push_back(NURBSHeader{
     static_cast<int>(offset), 
@@ -840,8 +842,8 @@ uint32_t BVHRT::AddGeom_NURBS(const RBezierGrid &rbeziers, ISceneObject *fake_th
     static_cast<int>(grid_rows+1), static_cast<int>(grid_cols+1)
   });
   
-  for (int i = 0; i < rbeziers.grid.rows_count(); ++i)
-  for (int j = 0; j < rbeziers.grid.cols_count(); ++j)
+  for (int i = 0; i < rbeziers.grid.get_n(); ++i)
+  for (int j = 0; j < rbeziers.grid.get_m(); ++j)
   {
     std::copy(
       reinterpret_cast<const float*>(
@@ -858,11 +860,11 @@ uint32_t BVHRT::AddGeom_NURBS(const RBezierGrid &rbeziers, ISceneObject *fake_th
     rbeziers.uniq_vknots.begin(), rbeziers.uniq_vknots.end(),
     std::back_inserter(m_NURBSData));
 
-  auto [bboxes, uvs] = get_nurbs_bvh_leaves(rbeziers);
+  auto [bboxes, uvs] = get_bvh_leaves(rbeziers);
   std::vector<BVHNode> nodes(bboxes.size());
   for (int i = 0; i < bboxes.size(); ++i) {
-    nodes[i].boxMin = to_float3(bboxes[i].boxMin);
-    nodes[i].boxMax = to_float3(bboxes[i].boxMax);
+    nodes[i].boxMin = bboxes[i].mn;
+    nodes[i].boxMax = bboxes[i].mx;
     uint32_t approx_id = m_NURBS_approxes.size()/2;
     uint32_t packed = PackOffsetAndSize(approx_id, 1);
     m_primIdCount.push_back(packed);

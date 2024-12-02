@@ -10,6 +10,7 @@
 #include "../utils/mesh.h"
 #include "../utils/mesh_bvh.h"
 #include "../utils/sdf_converter.h"
+#include "../nurbs/Surface.hpp"
 
 using LiteMath::float2;
 using LiteMath::float3;

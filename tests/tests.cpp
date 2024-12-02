@@ -13,7 +13,7 @@
 #include "../utils/image_metrics.h"
 #include "../diff_render/MultiRendererDR.h"
 #include "../utils/iou.h"
-#include "../nurbs/nurbs_common_host.h"
+#include "../nurbs/Surface.hpp"
 #include "../catmul_clark/catmul_clark_host.h"
 #include "../ribbon/ribbon_host.h"
 #include "../openvdb_structs/openvdb_common.h"
@@ -3010,7 +3010,7 @@ void litert_test_30_verify_SBS_SBSAdapt()
 void litert_test_31_nurbs_render()
 {
   std::cout << "TEST 31: NURBS" << std::endl;
-  unsigned W = 800, H = 600;
+  unsigned W = 1200, H = 800;
 
   MultiRenderPreset preset = getDefaultPreset();
   // preset.render_mode = MULTI_RENDER_MODE_NORMAL;
@@ -3029,7 +3029,7 @@ void litert_test_31_nurbs_render()
     { "square", nurbs2rbezier(load_nurbs(nurbs_path/"square.nurbss")) },
     { "cylinder", nurbs2rbezier(load_nurbs(nurbs_path/"cylinder.nurbss")) }
   };
-  std::map<std::string, cmesh4::SimpleMesh> tesselated = {
+  std::map<std::string, Mesh> tesselated = {
     { "vase", get_nurbs_control_mesh(surfaces["vase"]) },
     { "square", get_nurbs_control_mesh(surfaces["square"]) },
     { "cylinder", get_nurbs_control_mesh(surfaces["cylinder"]) }
@@ -3044,9 +3044,9 @@ void litert_test_31_nurbs_render()
   };
 
   std::map<std::string, std::pair<float3, float3>> cameras = {
-    { "vase", { float3{ 0, 1.276, 25.557 }, float3{ 0.0f, 1.276f, 0.0f } } }, 
-    { "square", { float3{ -0.52f, 1.991f, 3.049f }, float3{ 0.0f, 0.0f, 0.0f } } },
-    { "cylinder", { float3{ 2.997f, 4.071f, 2.574f }, float3{ 0.0f, 1.506f, 0.0f } } }
+    { "vase", { float3{ -8.862, 10.783, 8.602 }, float3{ 0.0f, 1.389, 0.0f } } }, 
+    { "square", { float3{ -11.533, 6.522, 14.277 }, float3{ 0.0f, 0.0f, 0.0f } } },
+    { "cylinder", { float3{ -6.103, 7.597, 4.170 }, float3{ 0.0f, 2.5f, 0.0f } } }
   };
 
   for (auto &[name, surf]: surfaces) {
@@ -3074,7 +3074,15 @@ void litert_test_31_nurbs_render()
     float3 up{ 0.0f, 1.0f, 0.0f };
     std::cout << "Setting up scene for tesselated " << name << "... ";
     auto pRender = create_renderer_f();
-    pRender->SetScene(surf);
+    cmesh4::SimpleMesh simple_mesh;
+    simple_mesh.indices = std::move(surf.indices);
+    simple_mesh.vPos4f = std::move(surf.vertices);
+    simple_mesh.vTexCoord2f = std::move(surf.uvs);
+    for (auto &norm: surf.normals) {
+      simple_mesh.vNorm4f.push_back(to_float4(norm, 0.0f));
+    }
+
+    pRender->SetScene(simple_mesh);
     std::cout << "Done." << std::endl;
     std::cout << "tesellated \"" << name << "\" rendering started... ";
     auto b = std::chrono::high_resolution_clock::now();

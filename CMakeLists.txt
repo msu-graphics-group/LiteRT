@@ -244,7 +244,7 @@ endif()
 
 set(
   NURBS_SRC
-    nurbs/nurbs_common_host.cpp
+    nurbs/Surface.cpp
 )
 
 
