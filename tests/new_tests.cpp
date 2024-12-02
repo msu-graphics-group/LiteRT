@@ -779,4 +779,50 @@ namespace litert_tests
     testing::saved_reference_check_psnr(cpu_image, "CPU", "cpu", 75);
     testing::saved_reference_check_psnr(gpu_image, "GPU", "gpu", 75);
   }
+
+  ADD_TEST(GlobalOctreeCreator, "Creates Global Octree using mesh and sdf")
+  {
+    MultiRenderPreset preset = getDefaultPreset();
+    auto mesh = testing::load_vsgf_mesh(SPHERE_MESH, 0.999);
+
+    constexpr size_t OCTREE_DEPTH = 6;
+
+    int max_threads = 6;
+
+    std::vector<MeshBVH> bvh(max_threads);
+    for (unsigned i = 0; i < max_threads; i++)
+      bvh[i].init(mesh);
+    auto sdf = [&](const float3 &p, unsigned idx) -> float 
+    { return bvh[idx].get_signed_distance(p); };
+
+    sdf_converter::GlobalOctree global_mesh, global_sdf;
+    global_mesh.header.brick_pad = 0;
+    global_mesh.header.brick_size = 1;
+
+    global_sdf.header = global_mesh.header;
+
+
+    SparseOctreeSettings settings(SparseOctreeBuildType::MESH_TLO, OCTREE_DEPTH), 
+                         settings2(SparseOctreeBuildType::DEFAULT, OCTREE_DEPTH);
+    auto tlo = cmesh4::create_triangle_list_octree(mesh, OCTREE_DEPTH, 0, 1.0f);
+
+    
+    sdf_converter::mesh_octree_to_global_octree(mesh, tlo, global_mesh);
+    sdf_converter::sdf_to_global_octree(settings2, sdf, max_threads, global_sdf);
+
+    std::vector<SdfFrameOctreeNode> frame_mesh, frame_sdf;
+    sdf_converter::global_octree_to_frame_octree(global_mesh, frame_mesh);
+    sdf_converter::global_octree_to_frame_octree(global_sdf, frame_sdf);
+
+    auto img_mesh = testing::create_image();
+    auto img_sdf = testing::create_image();
+
+    testing::render_scene(img_mesh, DEVICE_GPU, preset, frame_mesh, float3(2, 0, 2), float3(0, 0, 0), float3(0, 1, 0));
+    testing::save_image(img_mesh, "frame_octree_from_mesh");
+
+    testing::render_scene(img_sdf, DEVICE_GPU, preset, frame_sdf, float3(2, 0, 2), float3(0, 0, 0), float3(0, 1, 0));
+    testing::save_image(img_sdf, "frame_octree_from_sdf");
+
+    float psnr = testing::check_psnr(img_mesh, img_sdf, "global octree mesh", "global octree sdf", 75);
+  }
 }
