@@ -2,6 +2,8 @@
 
 namespace BenchmarkBackend
 {
+  std::string generate_filename_model_no_ext(std::string model_path, std::string repr_type, std::string lod, std::string param_string);
+  SparseOctreeSettings get_build_settings(std::string lod);
   /*
   
   build_SVS(SimpleMesh mesh, std::string lod, std::string param_string)
