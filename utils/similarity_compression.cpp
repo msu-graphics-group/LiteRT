@@ -125,6 +125,61 @@ namespace scom
     return t;
   }
 
+  struct Link
+  {
+    int target = -1; // original node id (i.e. from global octree)
+    int rotation = -1;
+    float dist = 1e6f;
+  };
+
+  struct ComponentInfo
+  {
+    int lead_id = -1;
+    int count = 0;
+  };
+
+  struct Cluster
+  {
+    int lead_id = -1;
+    int count = 0;
+    std::vector<int> point_ids; // original node ids (i.e. from global octree)
+  };
+
+  static constexpr int HC_VALID = 0x7fffffff;
+  static constexpr int MAX_STEPS = HC_VALID - 1;
+  static constexpr float MAX_DISTANCE = 1.0f;
+  static constexpr int LABEL_UNVISITED = -1;
+  static constexpr int LABEL_ISOLATED = -2;
+
+  struct HCluster
+  {
+    HCluster() = default;
+    HCluster(int _U, int _V, int _invalidation_step, int _size) : U(_U), V(_V), invalidation_step(_invalidation_step), size(_size) {}
+    int U = -1;
+    int V = -1;
+    int invalidation_step = HC_VALID;
+    int size = 0;
+  };
+
+  struct Dist
+  {
+    Dist() = default;
+    Dist(int _U, int _V, float _dist) : U(_U), V(_V), dist(_dist) {}
+    int U = -1;
+    int V = -1;
+    float dist = 1000.0f;
+  };
+
+  struct CCluster
+  {
+    int offset = -1;
+    int size = 0;
+    float creation_min_dist = MAX_DISTANCE;
+    int creation_step = -1;
+    int invalidation_step = HC_VALID;
+    int cluster_id = -1;
+  };
+
   uint32_t get_transform_code(const TransformCompact &t)
   {
     assert(t.rotation_id < ROT_COUNT);
@@ -226,131 +281,124 @@ namespace scom
     }
   }
 
-  void prepare_output(const sdf_converter::GlobalOctree &g_octree, const Settings &settings, const std::vector<unsigned> &remap,
-                      const std::vector<unsigned> &remap_2, const std::vector<bool> &surface_node, unsigned surface_node_count,
-                      const std::vector<TransformCompact> &remap_transforms, const Dataset &dataset,
-                      /*out*/ CompressionOutput &output)
+  void prepare_output(const sdf_converter::GlobalOctree &g_octree, const Settings &settings, const Dataset &dataset,
+                      const std::vector<unsigned> &remap_2, const std::vector<float> &average_brick_val,
+                      const std::vector<Cluster> &clusters, /*out*/ CompressionOutput &output)
   {
     int v_size = g_octree.header.brick_size + 2 * g_octree.header.brick_pad + 1;
     int dist_count = v_size * v_size * v_size;
     auto inverse_indices = get_inverse_transform_indices();
 
+    std::vector<float4x4> rotations4;
+    initialize_rot_transforms(rotations4, v_size);
+
+    //Find the best rotation id (for every brick in non-trivial cluster
+    //find the rotation that gives the closest match to leading brick).
+    //This is the place when we actually need the leading brick, so
+    //the final quality can depend on what brick will be chosen, but not much.
+    //Note, that we use dataset here (i.e. R^n projections of bricks), because we
+    //should use the same metric here as with clustering.
+    std::vector<int> rotation_ids(g_octree.nodes.size(), 0);
+    for (auto &cluster : clusters)
+    {
+      int lead_off = remap_2[cluster.lead_id] * ROT_COUNT * dist_count;
+      for (int node_id : cluster.point_ids)
+      {
+        if (node_id == cluster.lead_id)
+        {
+          rotation_ids[node_id] = 0;
+        }
+        else
+        {
+          float min_dist_sq = 1e6f;
+          int min_rot_id = 0;
+          for (int k = 0; k < ROT_COUNT; k++)
+          {
+            int target_off = remap_2[node_id] * ROT_COUNT * dist_count + k * dist_count;
+            float dist_sq = 0;
+            for (int l = 0; l < dist_count; l++)
+              dist_sq += (dataset.all_points[lead_off + l] - dataset.all_points[target_off + l]) * (dataset.all_points[lead_off + l] - dataset.all_points[target_off + l]);
+            if (dist_sq < min_dist_sq)
+            {
+              min_dist_sq = dist_sq;
+              min_rot_id = k;
+            }
+          }
+
+          rotation_ids[node_id] = min_rot_id;
+        }
+      }
+    }
+
     output.node_id_cleaf_id_remap.resize(g_octree.nodes.size(), 0);
     output.tranform_codes.resize(g_octree.nodes.size(), 0);
-    output.compressed_data.reserve(surface_node_count * dist_count);
+    output.compressed_data.reserve(g_octree.nodes.size() * dist_count);
 
+    //Main cycle to prepare the similarity compression output.
+    //We replace each cluster with it's centroid. It is not perfect from
+    //math standpoint, because we are in brick metric space, not R^n, but
+    //it almost always gives better result that picking leading brick
     int unique_node_id = 0;
-
-    std::vector<int> group_indices(surface_node_count, -1);
     std::vector<float> centroid(dist_count, 0);
-    for (int i = 0; i < g_octree.nodes.size(); i++)
+    for (const Cluster &cluster : clusters)
     {
-      if (!surface_node[i])
-        continue;
-      if (remap[i] == i)
+      int lead_id = cluster.lead_id;
+      std::fill_n(centroid.data(), dist_count, 0);
+
+      //calculate centroid
+      //Note, that we use actual brick data and not dataset
+      //because we want the centroid to be AN ACTUAL BRICK
+      //(we'll actually render it, although with some transformations)
+      for (int node_id : cluster.point_ids)
       {
-        int group_indices_size = 0;
-        std::fill_n(centroid.data(), dist_count, 0);
-        for (int j = 0; j < g_octree.nodes.size(); j++)
+        int off_a = g_octree.nodes[node_id].val_off;
+        for (int x = 0; x < v_size; x++)
         {
-          if (remap[j] == i)
+          for (int y = 0; y < v_size; y++)
           {
-            group_indices[group_indices_size] = j;
-            for (int k = 0; k < dist_count; k++)
-              centroid[k] += dataset.all_points[(remap_2[j]*ROT_COUNT + inverse_indices[remap_transforms[j].rotation_id])*dist_count + k];
-            group_indices_size++;
+            for (int z = 0; z < v_size; z++)
+            {
+              int idx = x * v_size * v_size + y * v_size + z;
+              int3 rot_vec2 = int3(LiteMath::mul4x3(rotations4[rotation_ids[node_id]], float3(x, y, z)));
+              int rot_idx = rot_vec2.x * v_size * v_size + rot_vec2.y * v_size + rot_vec2.z;
+              centroid[idx] += g_octree.values_f[off_a + rot_idx];
+            }
           }
         }
-
-        for (int k = 0; k < dist_count; k++)
-          centroid[k] /= group_indices_size;
-        
-        // for (int k = 0; k < dist_count; k++)
-        //   centroid[k] = dataset.all_points[(remap_2[i]*ROT_COUNT)*dist_count + k];
-        
-        int p_size = output.compressed_data.size();
-        output.compressed_data.resize(p_size + dist_count);
-        for (int k = 0; k < dist_count; k++)
-          output.compressed_data[p_size + k] = centroid[k] + remap_transforms[i].add;
-
-        // if (group_indices_size > 1)
-        // {
-        //   printf("node %d, centroid = {", i);
-        //   for (int k = 0; k < dist_count; k++)
-        //     printf("%f, ", centroid[k]);
-        //   printf("}\n");
-        // }
-
-        for (int j = 0; j < group_indices_size; j++)
-        {
-          int k = group_indices[j];
-          TransformCompact tc;
-          tc.rotation_id = remap_transforms[k].rotation_id;
-          tc.add = remap_transforms[k].add - remap_transforms[i].add;
-          output.node_id_cleaf_id_remap[k] = unique_node_id;
-          output.tranform_codes[k] = get_transform_code(tc);
-        }
-        unique_node_id++;
       }
+
+      float centroid_average = 0;
+      for (int k = 0; k < dist_count; k++)
+      {
+        centroid[k] /= cluster.count;
+        centroid_average += centroid[k];
+      }
+      centroid_average /= dist_count;
+
+      //Save centroid to output
+      //Note: centroid[k] - centroid_average + average_brick_val[lead_id]
+      //This line shifts centroid average to lead brick average
+      //This is not necessary, but gives better result during brick dynamic compression
+      //In some cases centroid can have weird average values that will be compressed with
+      //large error. It might be bug, idk.
+      int p_size = output.compressed_data.size();
+      output.compressed_data.resize(p_size + dist_count);
+      for (int k = 0; k < dist_count; k++)
+        output.compressed_data[p_size + k] = centroid[k] - centroid_average + average_brick_val[lead_id];
+
+      for (int node_id : cluster.point_ids)
+      {
+        TransformCompact tc;
+        tc.rotation_id = inverse_indices[rotation_ids[node_id]];
+        tc.add = (average_brick_val[node_id] - average_brick_val[lead_id]);
+        output.node_id_cleaf_id_remap[node_id] = unique_node_id;
+        output.tranform_codes[node_id] = get_transform_code(tc);
+      }
+      unique_node_id++;
     }
     output.leaf_count = unique_node_id;
     output.compressed_data.shrink_to_fit();
   }
-
-  struct Link
-  {
-    int target = -1; // original node id (i.e. from global octree)
-    int rotation = -1;
-    float dist = 1e6f;
-  };
-
-  struct ComponentInfo
-  {
-    int lead_id = -1;
-    int count = 0;
-  };
-
-  struct Cluster
-  {
-    int lead_id = -1;
-    int count = 0;
-    std::vector<int> point_ids; // original node ids (i.e. from global octree)
-  };
-
-  static constexpr int HC_VALID = 0x7fffffff;
-  static constexpr int MAX_STEPS = HC_VALID - 1;
-  static constexpr float MAX_DISTANCE = 1.0f;
-  static constexpr int LABEL_UNVISITED = -1;
-  static constexpr int LABEL_ISOLATED = -2;
-
-  struct HCluster
-  {
-    HCluster() = default;
-    HCluster(int _U, int _V, int _invalidation_step, int _size) : U(_U), V(_V), invalidation_step(_invalidation_step), size(_size) {}
-    int U = -1;
-    int V = -1;
-    int invalidation_step = HC_VALID;
-    int size = 0;
-  };
-
-  struct Dist
-  {
-    Dist() = default;
-    Dist(int _U, int _V, float _dist) : U(_U), V(_V), dist(_dist) {}
-    int U = -1;
-    int V = -1;
-    float dist = 1000.0f;
-  };
-
-  struct CCluster
-  {
-    int offset = -1;
-    int size = 0;
-    float creation_min_dist = MAX_DISTANCE;
-    int creation_step = -1;
-    int invalidation_step = HC_VALID;
-    int cluster_id = -1;
-  };
 
   void clustering_recursive_fill(std::vector<Cluster> &final_clusters, const std::vector<Cluster> &components,
                                  const std::vector<std::vector<Link>> &sim_graph, int total_node_count)
@@ -1000,65 +1048,16 @@ namespace scom
     auto t4 = std::chrono::high_resolution_clock::now();
     printf("clustering %.2f ms\n", 1e-3f*std::chrono::duration_cast<std::chrono::microseconds>(t4-t3).count()); 
 
-    // prepare remaps from clusters
-    int remapped = 0;
-    std::vector<unsigned> remap(g_octree.nodes.size());
-    std::vector<TransformCompact> remap_transforms(g_octree.nodes.size());
-
-    for (int i = 0; i < total_node_count; i++)
-    {
-      remap[i] = i;
-      remap_transforms[i] = get_identity_transform();
-    }
-
-    for (int i = 0; i < final_clusters.size(); i++)
-    {
-      int lead_id = final_clusters[i].lead_id;
-      if (final_clusters[i].count == 1)
-      {
-        remap[lead_id] = lead_id;
-        remap_transforms[lead_id].rotation_id = 0;
-        remap_transforms[lead_id].add = average_brick_val[lead_id];
-      }
-      else
-      {
-        remapped += final_clusters[i].count - 1;
-
-        int lead_off = remap_2[lead_id] * ROT_COUNT * dist_count;
-        float max_dist = 0;
-        for (int j = 0; j < final_clusters[i].point_ids.size(); j++)
-        {
-          float min_dist_sq = 1e6f;
-          int min_rot_id = 0;
-          for (int k = 0; k < ROT_COUNT; k++)
-          {
-            int target_off = remap_2[final_clusters[i].point_ids[j]] * ROT_COUNT * dist_count + k * dist_count;
-            float dist_sq = 0;
-            for (int l = 0; l < dist_count; l++)
-              dist_sq += (dataset.all_points[lead_off + l] - dataset.all_points[target_off + l]) * (dataset.all_points[lead_off + l] - dataset.all_points[target_off + l]);
-            if (dist_sq < min_dist_sq)
-            {
-              min_dist_sq = dist_sq;
-              min_rot_id = k;
-            }
-          }
-          max_dist = std::max(max_dist, sqrtf(min_dist_sq));
-
-          remap[final_clusters[i].point_ids[j]] = lead_id;
-          remap_transforms[final_clusters[i].point_ids[j]].rotation_id = inverse_indices[min_rot_id];
-          remap_transforms[final_clusters[i].point_ids[j]].add = average_brick_val[final_clusters[i].point_ids[j]];
-        }
-        //printf("%d) %d nodes, max dist = %f/%f\n", final_clusters[i].lead_id, final_clusters[i].count, max_dist, settings.similarity_threshold);
-      }
-    }
+    prepare_output(g_octree, settings, dataset, remap_2, average_brick_val, final_clusters, output);
     auto t5 = std::chrono::high_resolution_clock::now();
-    printf("prepare remaps %.2f ms\n", 1e-3f*std::chrono::duration_cast<std::chrono::microseconds>(t5-t4).count()); 
-
-    prepare_output(g_octree, settings, remap, remap_2, surface_node, surface_node_count, remap_transforms, dataset, output);
-    auto t6 = std::chrono::high_resolution_clock::now();
-    printf("prepare output %.2f ms\n", 1e-3f*std::chrono::duration_cast<std::chrono::microseconds>(t6-t5).count());  
+    printf("prepare output %.2f ms\n", 1e-3f*std::chrono::duration_cast<std::chrono::microseconds>(t5-t4).count());  
     
-    printf("total time = %.2f ms\n", 1e-3f*std::chrono::duration_cast<std::chrono::microseconds>(t6-tt1).count());
+    printf("total time = %.2f ms\n", 1e-3f*std::chrono::duration_cast<std::chrono::microseconds>(t5-tt1).count());
+    
+    int remapped = 0;
+    for (int i = 0; i < final_clusters.size(); i++)
+      remapped += final_clusters[i].count - 1;
+
     printf("remapped %d/%d nodes\n", remapped, surface_node_count);
   }
 
@@ -1189,7 +1188,27 @@ namespace scom
     printf("remapping took %.1f s (%.1f ms/leaf)\n", 1e-6f*time, 1e-3f*time/surface_node_count);
     printf("remapped %d/%d nodes\n", remapped, surface_node_count);
 
-    prepare_output(g_octree, settings, remap, remap_2, surface_node, surface_node_count, remap_transforms, dataset, output);
+    std::vector<Cluster> clusters;
+    std::vector<int> lead_node_id_to_cluster_id(g_octree.nodes.size(), -1);
+
+    for (int i = 0; i < g_octree.nodes.size(); i++)
+    {
+      if (surface_node[i] && remap[i] == i)
+      {
+        clusters.emplace_back();
+        clusters.back().lead_id = i;
+        lead_node_id_to_cluster_id[i] = clusters.size() - 1;
+      }
+    }
+    for (int i = 0; i < g_octree.nodes.size(); i++)
+    {
+      if (surface_node[i])
+      {
+        clusters[lead_node_id_to_cluster_id[remap[i]]].point_ids.push_back(i);
+        clusters[lead_node_id_to_cluster_id[remap[i]]].count++;
+      }
+    }
+    prepare_output(g_octree, settings, dataset, remap_2, average_brick_val, clusters, output);
   }
 
   void similarity_compression(const sdf_converter::GlobalOctree &octree, const Settings &settings, CompressionOutput &output)
@@ -1199,7 +1218,6 @@ namespace scom
         settings.clustering_algorithm == ClusteringAlgorithm::COMPONENTS_RECURSIVE_FILL)
     {
       similarity_compression_hierarchical(octree, settings, output);
-      //similarity_compression_replacement(octree, settings, output);
     }
     else if (settings.clustering_algorithm == ClusteringAlgorithm::REPLACEMENT)
     {
@@ -1207,7 +1225,7 @@ namespace scom
     }
     else
     {
-      printf("Only replacement similarity compression is supported\n");
+      printf("[similarity_compression::ERROR] unknown clustering algorithm\n");
     }
   }
 }
