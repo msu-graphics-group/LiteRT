@@ -705,7 +705,7 @@ config.types.insert(config.types.begin(), "MESH");
   {
     // Run "slicer_execute.sh" with all types On
     std::string slicer_execute_command = "bash slicer_execute.sh " + slicer_adir + " " + slicer_exec;
-    // std::system(slicer_execute_command.c_str());
+    std::system(slicer_execute_command.c_str());
   }
 
   printf("Benchmark finished\n");
