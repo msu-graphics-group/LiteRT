@@ -10,6 +10,8 @@
 
 using namespace LiteMath;
 
+namespace c = constants;
+
 // *********************** Bezier curve 3D *********************** //
 uint BCurve3D::degree() const {
   return points.get_n() - 1;
@@ -201,13 +203,13 @@ bisection(std::function<float(float)> f, float u1, float u2) {
     float f1 = f(u1);
     float f2 = f(u2);
     if (std::abs(f1) < c::BISECTION_EPS && std::abs(f2) < c::BISECTION_EPS) {
-      // This should be tested
+      //This should be tested
       return {};//(l + r) / 2;
     }
-    if (f1 > 0 && f2 > 0) {
+    if (f1 > c::BISECTION_EPS  && f2 > c::BISECTION_EPS ) {
       return {};
     }
-    if (f1 < 0 && f2 < 0) {
+    if (f1 < -c::BISECTION_EPS  && f2 < -c::BISECTION_EPS ) {
       return {};
     }
     if (f1 > f2) {

@@ -6,6 +6,8 @@
 #include "curve.hpp"
 #include "debug.hpp"
 
+namespace c = constants;
+
 bool test_slope_line() {
   std::vector<float2> points = {
     {-4, -4},
