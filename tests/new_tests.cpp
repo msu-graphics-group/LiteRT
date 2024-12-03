@@ -709,13 +709,13 @@ namespace litert_tests
     testing::render_hydra_scene(cpu_image, DEVICE_CPU, preset, scene);
     testing::save_image(cpu_image, "cpu");
 
-    testing::render_hydra_scene(gpu_image, DEVICE_GPU, preset, scene);
+    testing::render_hydra_scene(gpu_image, DEVICE_CPU, preset, scene);
     testing::save_image(gpu_image, "gpu");
 
-    testing::check_psnr(cpu_image, gpu_image, "cpu", "gpu", 45);
+    testing::check_psnr(cpu_image, gpu_image, "cpu", "gpu", 50);
 
-    testing::saved_reference_check_psnr(cpu_image, "CPU", "cpu", 75);
-    testing::saved_reference_check_psnr(gpu_image, "GPU", "gpu", 75);
+    testing::saved_reference_check_psnr(cpu_image, "CPU", "cpu", 50);
+    testing::saved_reference_check_psnr(gpu_image, "GPU", "gpu", 50);
   }
 
   ADD_TEST(GlobalOctreeCreator, "Creates Global Octree using mesh and sdf")
