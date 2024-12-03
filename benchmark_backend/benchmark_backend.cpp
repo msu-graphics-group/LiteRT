@@ -2,10 +2,8 @@
 
 namespace BenchmarkBackend
 {
-  std::string generate_filename_model_no_ext(std::string model_path, std::string repr_type, std::string lod, std::string param_string);
-  SparseOctreeSettings get_build_settings(std::string lod);
   /*
-  
+
   build_SVS(SimpleMesh mesh, std::string lod, std::string param_string)
   {
   if (lod == "low")
@@ -15,7 +13,7 @@ namespace BenchmarkBackend
   }
   build_SBS(SimpleMesh mesh, std::string lod, std::string param_string)
   {
-  
+
   }
 
   void render()
@@ -27,9 +25,9 @@ namespace BenchmarkBackend
    IRenderer *renderer;
    if (...)
     renderer = MultiRenderer(device)
-   else 
+   else
     renderer = HydraRenderer(device)
-  
+
     cameras = ...
     preset  = ...
     for (auto &camera : cameras)
@@ -48,23 +46,169 @@ namespace BenchmarkBackend
   }
 
   */
-  void render(LiteImage::Image2D<uint32_t> &image, std::shared_ptr<MultiRenderer> pRender,
-              float3 pos, float3 target, float3 up,
-              MultiRenderPreset preset, int a_passNum)
-  {
-    float fov_degrees = 60;
-    float z_near = 0.1f;
-    float z_far = 100.0f;
-    float aspect = 1.0f;
-    auto proj = LiteMath::perspectiveMatrix(fov_degrees, aspect, z_near, z_far);
-    auto worldView = LiteMath::lookAt(pos, target, up);
 
-    pRender->Render(image.data(), image.width(), image.height(), worldView, proj, preset, a_passNum);
+// Common
+
+  std::string get_model_name(std::string model_path)
+  {
+    uint32_t last_dot = model_path.rfind('.');
+    uint32_t last_slash = model_path.rfind('/');
+    if (last_slash == model_path.npos && model_path.rfind('\\') != model_path.npos)
+      last_slash = model_path.rfind('\\');
+
+    uint32_t substr_beg = last_slash + (last_slash != model_path.npos);
+    uint32_t substr_end = last_dot;
+
+    std::string model_name = model_path.substr(substr_beg, substr_end - substr_beg);
+    return model_name;
+  }
+
+  std::string generate_filename_model_no_ext(std::string model_path, std::string repr_type, std::string lod, std::string param_string)
+  {
+    // string xml_path = "benchmark/bunny/models/SBS/lod_high_brick4" + ".xml";
+    return "benchmark/" + get_model_name(model_path) + "/models/" + repr_type + "/lod_" + lod + '_' + param_string;
+  }
+
+  std::string generate_filename_image(std::string model_path, std::string renderer, std::string backend, std::string repr_type, std::string lod, std::string param_string, uint32_t camera)
+  {
+    // LoadImage("benchmark/bunny/hydra/GPU/mesh/lod_high_default_cam_i.png");
+    return "benchmark/" + get_model_name(model_path) + "/" + renderer + "/" + backend + "/" + repr_type +
+            "/lod_" + lod + '_' + param_string + "_cam_" + std::to_string(camera) + ".png";
   }
 
 
+  SparseOctreeSettings get_build_settings(std::string lod)
+  {
+    SparseOctreeSettings res{};
+
+    res.build_type = SparseOctreeBuildType::MESH_TLO;
+
+    if (lod == "low")
+      res.depth = 4;
+    if (lod == "mid")
+      res.depth = 6;
+    if (lod == "high")
+      res.depth = 8;
+
+    return res;
+  }
+
+  GridSettings get_build_settings_grid(std::string lod)
+  {
+    GridSettings res{};
+
+    if (lod == "low")
+      res.size = 32;
+    if (lod == "mid")
+      res.size = 48;
+    if (lod == "high")
+      res.size = 64;
+
+    return res;
+  }
+
+  // TODO: Param string is used for SBS and COctreeV3, and "brick_size" and "brick_pad" are the same fields for now. Should they be?
+
+  void parse_param_string(std::string param_string, SdfSBSHeader *sbs_header, COctreeV3Header *coctree_header)
+  {
+    // param string example: COctreeV3 - 'size_4_pad_1_bits_1_uv_0_sim_0'
+    // param string example:       SBS - 'size_4_pad_0_bytes_1_aux_3'
+    // aux then transformed (aux = aux << 24)
+
+    std::vector<uint32_t> separators = {0};
+
+    for (uint32_t i = 0u; i < param_string.size(); ++i)
+      if (param_string[i] == '_')
+        separators.push_back(i);
+    separators.push_back(param_string.size());
+
+    // Setting default values
+    SdfSBSHeader res_header_sbs{};
+    res_header_sbs.brick_size = 4;
+    res_header_sbs.brick_pad = 0;
+    res_header_sbs.bytes_per_value = 2;
+    res_header_sbs.aux_data = SDF_SBS_NODE_LAYOUT_DX; // 1 << 24
+
+    COctreeV3Header res_header_coctree{};
+    res_header_coctree.brick_size = 4;
+    res_header_coctree.brick_pad = 0;
+    res_header_coctree.bits_per_value = 8;
+    res_header_coctree.uv_size = 0;
+    res_header_coctree.sim_compression = 0;
+
+    // Process parameters
+    if (!param_string.empty() || param_string != "default") // otherwise load default and skip
+    {
+      if ((separators.size() & 1u) == 0u)
+      {
+        printf("Error: incorrect param_string: '%s'\n", param_string.c_str());
+        exit(-1);
+      }
+      else
+      {
+        for (uint32_t i = 2u; i < separators.size(); i += 2u)
+        {
+          uint32_t tag_beg = separators[i-2] + 1, tag_end = separators[i-1],
+                  val_beg = separators[i-1] + 1, val_end = separators[i  ];
+
+          std::string tag     = param_string.substr(tag_beg, tag_end - tag_beg);
+          std::string val_str = param_string.substr(val_beg, val_end - val_beg);
+          int val = std::atoi(val_str.c_str());
+
+          if (tag == "size")
+          {
+            assert(val >= 1 && val <= 16);
+            res_header_sbs.brick_size = val;
+            res_header_coctree.brick_size = val;
+          }
+          else if (tag == "pad")
+          {
+            assert(val >= 0 && val <= 1);
+            res_header_sbs.brick_pad = val;
+            res_header_coctree.brick_pad = val;
+          }
+          else if (tag == "bits")
+          {
+            assert(val == 6 || val == 8 || val == 10 || val == 16 || val == 32);
+            res_header_coctree.bits_per_value = val;
+          }
+          else if (tag == "bytes")
+          {
+            assert(val == 1 || val == 2 || val == 4);
+            res_header_sbs.bytes_per_value = val;
+          }
+          else if (tag == "uv")
+          {
+            assert(val >= 0 && val <= 2);
+            res_header_coctree.uv_size = val;
+          }
+          else if (tag == "sim")
+          {
+            assert(val >= 0 && val <= 1);
+            res_header_coctree.sim_compression = val;
+          }
+          else if (tag == "aux")
+          {
+            assert(val >= 0 && val <= 5);
+            res_header_sbs.aux_data = val << 24u;
+          }
+        }
+      }
+    }
+
+    if (sbs_header != nullptr)
+      *sbs_header = res_header_sbs;
+    if (coctree_header != nullptr)
+      *coctree_header = res_header_coctree;
+  }
+
+
+ // Build
+
   void build_model(std::string render_config_str)
   {
+    // Read config string
+
     Block render_config;
     load_block_from_string(render_config_str, render_config);
 
@@ -73,11 +217,18 @@ namespace BenchmarkBackend
     std::string repr_type = render_config.get_string("type");
     std::string param_string = render_config.get_string("param_string");
 
+    // Not needed in build
+    // std::vector<std::string> render_modes;
+    // render_config.get_arr("render_modes", render_modes);
+
+    // Load mesh
+
     const int mat_id = 6;
     cmesh4::SimpleMesh mesh = cmesh4::LoadMesh(model_path.c_str());
     cmesh4::set_mat_id(mesh, mat_id);
 
     SparseOctreeSettings settings = get_build_settings(lod);
+    GridSettings grid_settings = get_build_settings_grid(lod);
 
     // TODO: build benchmark: time, mesh/result size, some 3D metrics
 
@@ -87,7 +238,6 @@ namespace BenchmarkBackend
 
     if (repr_type == "SDF_GRID")
     {
-      GridSettings grid_settings{}; //TODO
       t1 = std::chrono::steady_clock::now();
       auto model_new = sdf_converter::create_sdf_grid(grid_settings, mesh);
       t2 = std::chrono::steady_clock::now();
@@ -112,7 +262,8 @@ namespace BenchmarkBackend
     }
     if (repr_type == "SDF_SBS")
     {
-      SdfSBSHeader header{}; //TODO
+      SdfSBSHeader header{};
+      parse_param_string(param_string, &header);
       t1 = std::chrono::steady_clock::now();
       auto model_new = sdf_converter::create_sdf_SBS(settings, header, mesh);
       t2 = std::chrono::steady_clock::now();
@@ -137,7 +288,8 @@ namespace BenchmarkBackend
     }
     if (repr_type == "SDF_FRAME_OCTREE_COMPACT")
     {
-      COctreeV3Header header{}; //TODO
+      COctreeV3Header header{};
+      parse_param_string(param_string, nullptr, &header);
       t1 = std::chrono::steady_clock::now();
       auto model_new = sdf_converter::create_COctree_v3(settings, header, mesh);
       t2 = std::chrono::steady_clock::now();
@@ -153,72 +305,21 @@ namespace BenchmarkBackend
     float t = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count() / 1000.f; // ms
   }
 
+// Render
 
-// Filename generators
-
-  std::string get_model_name(std::string model_path)
+  void render(LiteImage::Image2D<uint32_t> &image, std::shared_ptr<MultiRenderer> pRender,
+              float3 pos, float3 target, float3 up,
+              MultiRenderPreset preset, int a_passNum)
   {
-    uint32_t last_dot = model_path.rfind('.');
-    uint32_t last_slash = model_path.rfind('/');
-    if (last_slash == model_path.npos && model_path.rfind('\\') != model_path.npos)
-      last_slash = model_path.rfind('\\');
+    float fov_degrees = 60;
+    float z_near = 0.1f;
+    float z_far = 100.0f;
+    float aspect = 1.0f;
+    auto proj = LiteMath::perspectiveMatrix(fov_degrees, aspect, z_near, z_far);
+    auto worldView = LiteMath::lookAt(pos, target, up);
 
-    std::string model_name = model_path.substr(last_slash + (last_slash != model_path.npos), last_dot);
-    return model_name;
+    pRender->Render(image.data(), image.width(), image.height(), worldView, proj, preset, a_passNum);
   }
-
-  std::string generate_filename_model_no_ext(std::string model_path, std::string repr_type, std::string lod, std::string param_string)
-  {
-    return "benchmark/" + get_model_name(model_path) + "/models/" + repr_type + "/lod_" + lod + '_' + param_string;
-  }
-
-  std::string generate_filename_image(std::string model_path, std::string renderer, std::string backend, std::string repr_type, std::string lod, std::string param_string, uint32_t camera)
-  {
-    // LoadImage("benchmark/bunny/hydra/GPU/mesh/lod_high_default_cam_i.png");
-    return "benchmark/" + get_model_name(model_path) + "/" + renderer + "/" + backend + "/" + repr_type +
-            "/lod_" + lod + '_' + param_string + "_cam_" + std::to_string(camera) + ".png";
-  }
-
-
-// Param string parsers
-
-
-  // TODO: have it make sense
-  SparseOctreeSettings get_build_settings(std::string lod)
-  {
-    SparseOctreeSettings res{};
-
-    res.build_type = SparseOctreeBuildType::MESH_TLO;
-
-    if (lod == "low")
-      res.depth = 2;
-    if (lod == "mid")
-      res.depth = 4;
-    if (lod == "high")
-      res.depth = 7;
-    
-    return res;
-  }
-
-
-  // TODO
-
-  void parse_param_string(std::string param_string, SdfSBSHeader &sbs_header) // these 2 overloads can be unified by passing 6 pointers to int
-  {
-    // param string example: SBS - size_4_pad_1_bpv_1_aux_3
-    // bpv - bytes_per_value
-    // aux then transformed (aux = aux << 24)
-
-  }
-
-  void parse_param_string(std::string param_string, COctreeV3Header &coctree_header) // these 2 overloads can be unified by passing 6 pointers to int
-  {
-    // param string example: COctreeV3 - size_4_pad_1_bpv_1_uv_0_sim_0
-    // bpv - bits_per_value
-
-  }
-
-
 
   void
   getMetrics(const char **argv)
