@@ -211,7 +211,7 @@ namespace scom
 
     std::vector<float> distance_mult_mask(dist_count, 1.0f);
     float mult_sum = 0.0f;
-    assert(settings.distance_importance.x == 1.0f || settings.distance_importance.y == 1.0f || settings.distance_importance.z == 1.0f);
+    //assert(settings.distance_importance.x == 1.0f || settings.distance_importance.y == 1.0f || settings.distance_importance.z == 1.0f);
     for (int x = 0; x < v_size; x++)
     {
       for (int y = 0; y < v_size; y++)
@@ -263,6 +263,8 @@ namespace scom
         dataset.data_points[cur_point_group * ROT_COUNT + r_id].data_offset = off_dataset;
         dataset.data_points[cur_point_group * ROT_COUNT + r_id].original_id = i;
         dataset.data_points[cur_point_group * ROT_COUNT + r_id].rotation_id = r_id;
+
+        float sum = 0.0f;
         for (int x = 0; x < v_size; x++)
         {
           for (int y = 0; y < v_size; y++)
@@ -272,18 +274,24 @@ namespace scom
               int idx = x * v_size * v_size + y * v_size + z;
               int3 rot_vec2 = int3(LiteMath::mul4x3(rotations4[r_id], float3(x, y, z)));
               int rot_idx = rot_vec2.x * v_size * v_size + rot_vec2.y * v_size + rot_vec2.z;
-              dataset.all_points[off_dataset + idx] = mask_norm * distance_mult_mask[idx] * (g_octree.values_f[off_a + rot_idx] - average_brick_val[i]);
+              float t = (g_octree.values_f[off_a + rot_idx] - average_brick_val[i]);
+              sum += t*t;
+              dataset.all_points[off_dataset + idx] = mask_norm * distance_mult_mask[idx] * t;
             }
           }
         }
+
+        sum = sqrtf(sum);
+        for (int i=0;i<dist_count;i++)
+          dataset.all_points[off_dataset + i] /= sum;
       }
       cur_point_group++;
     }
   }
 
   void prepare_output(const sdf_converter::GlobalOctree &g_octree, const Settings &settings, const Dataset &dataset,
-                      const std::vector<unsigned> &remap_2, const std::vector<float> &average_brick_val,
-                      const std::vector<Cluster> &clusters, /*out*/ CompressionOutput &output)
+                      const std::vector<float> &average_brick_val, const std::vector<Cluster> &clusters, 
+              /*out*/ CompressionOutput &output)
   {
     int v_size = g_octree.header.brick_size + 2 * g_octree.header.brick_pad + 1;
     int dist_count = v_size * v_size * v_size;
@@ -291,6 +299,19 @@ namespace scom
 
     std::vector<float4x4> rotations4;
     initialize_rot_transforms(rotations4, v_size);
+
+
+    //dataset has group with ROT_COUNT vectors (dist_count values each) for each surface node
+    std::vector<unsigned> node_id_to_dataset_group_off(g_octree.nodes.size());
+    int surface_node_count = 0;
+    for (int i=0; i<g_octree.nodes.size(); i++)
+    {
+      if (g_octree.nodes[i].offset == 0 && g_octree.nodes[i].is_not_void)
+      {
+        node_id_to_dataset_group_off[i] = surface_node_count * ROT_COUNT * dist_count;
+        surface_node_count++;
+      }
+    }
 
     //Find the best rotation id (for every brick in non-trivial cluster
     //find the rotation that gives the closest match to leading brick).
@@ -301,7 +322,7 @@ namespace scom
     std::vector<int> rotation_ids(g_octree.nodes.size(), 0);
     for (auto &cluster : clusters)
     {
-      int lead_off = remap_2[cluster.lead_id] * ROT_COUNT * dist_count;
+      int lead_off = node_id_to_dataset_group_off[cluster.lead_id];
       for (int node_id : cluster.point_ids)
       {
         if (node_id == cluster.lead_id)
@@ -314,7 +335,7 @@ namespace scom
           int min_rot_id = 0;
           for (int k = 0; k < ROT_COUNT; k++)
           {
-            int target_off = remap_2[node_id] * ROT_COUNT * dist_count + k * dist_count;
+            int target_off = node_id_to_dataset_group_off[node_id] + k * dist_count;
             float dist_sq = 0;
             for (int l = 0; l < dist_count; l++)
               dist_sq += (dataset.all_points[lead_off + l] - dataset.all_points[target_off + l]) * (dataset.all_points[lead_off + l] - dataset.all_points[target_off + l]);
@@ -332,7 +353,7 @@ namespace scom
 
     output.node_id_cleaf_id_remap.resize(g_octree.nodes.size(), 0);
     output.tranform_codes.resize(g_octree.nodes.size(), 0);
-    output.compressed_data.reserve(g_octree.nodes.size() * dist_count);
+    output.compressed_data.resize(clusters.size() * dist_count);
 
     //Main cycle to prepare the similarity compression output.
     //We replace each cluster with it's centroid. It is not perfect from
@@ -381,10 +402,8 @@ namespace scom
       //This is not necessary, but gives better result during brick dynamic compression
       //In some cases centroid can have weird average values that will be compressed with
       //large error. It might be bug, idk.
-      int p_size = output.compressed_data.size();
-      output.compressed_data.resize(p_size + dist_count);
       for (int k = 0; k < dist_count; k++)
-        output.compressed_data[p_size + k] = centroid[k] - centroid_average + average_brick_val[lead_id];
+        output.compressed_data[unique_node_id*dist_count + k] = centroid[k] - centroid_average + average_brick_val[lead_id];
 
       for (int node_id : cluster.point_ids)
       {
@@ -397,7 +416,6 @@ namespace scom
       unique_node_id++;
     }
     output.leaf_count = unique_node_id;
-    output.compressed_data.shrink_to_fit();
   }
 
   void clustering_recursive_fill(std::vector<Cluster> &final_clusters, const std::vector<Cluster> &components,
@@ -540,7 +558,7 @@ namespace scom
       }
       else
       {        
-        // printf("Hierarchical clustering, %d clusters\n", component.count);
+        printf("Hierarchical clustering, %d points\n", component.count);
         auto t1 = std::chrono::high_resolution_clock::now();
 
         Dist absolute_min(-1, -1, MAX_DISTANCE);
@@ -861,7 +879,7 @@ namespace scom
     final_clusters.shrink_to_fit();
   }
 
-  void similarity_compression_hierarchical(const sdf_converter::GlobalOctree &g_octree, const Settings &settings, CompressionOutput &output)
+  void similarity_compression_advanced(const sdf_converter::GlobalOctree &g_octree, const Settings &settings, CompressionOutput &output)
   {
     auto tt1 = std::chrono::high_resolution_clock::now();
  
@@ -872,7 +890,6 @@ namespace scom
     int dist_count = v_size * v_size * v_size;
     std::vector<float> average_brick_val(g_octree.nodes.size(), 0);
     std::vector<float> closest_dist(g_octree.nodes.size(), settings.similarity_threshold);
-    std::vector<unsigned> remap_2(g_octree.nodes.size(), 0);
     std::vector<bool> surface_node(g_octree.nodes.size(), false);
 
     auto inverse_indices = get_inverse_transform_indices();
@@ -880,8 +897,6 @@ namespace scom
     for (int i=0; i<g_octree.nodes.size(); i++)
     {
       int off = g_octree.nodes[i].val_off;
-
-      remap_2[i] = surface_node_count;
 
       if (g_octree.nodes[i].offset == 0 && g_octree.nodes[i].is_not_void)
       {
@@ -1048,7 +1063,7 @@ namespace scom
     auto t4 = std::chrono::high_resolution_clock::now();
     printf("clustering %.2f ms\n", 1e-3f*std::chrono::duration_cast<std::chrono::microseconds>(t4-t3).count()); 
 
-    prepare_output(g_octree, settings, dataset, remap_2, average_brick_val, final_clusters, output);
+    prepare_output(g_octree, settings, dataset, average_brick_val, final_clusters, output);
     auto t5 = std::chrono::high_resolution_clock::now();
     printf("prepare output %.2f ms\n", 1e-3f*std::chrono::duration_cast<std::chrono::microseconds>(t5-t4).count());  
     
@@ -1071,7 +1086,6 @@ namespace scom
     std::vector<float> average_brick_val(g_octree.nodes.size(), 0);
     std::vector<float> closest_dist(g_octree.nodes.size(), settings.similarity_threshold);
     std::vector<unsigned> remap(g_octree.nodes.size());
-    std::vector<unsigned> remap_2(g_octree.nodes.size(), 0);
     std::vector<TransformCompact> remap_transforms(g_octree.nodes.size());
     std::vector<bool> surface_node(g_octree.nodes.size(), false);
 
@@ -1083,7 +1097,6 @@ namespace scom
 
       remap[i] = i;
       remap_transforms[i] = get_identity_transform();
-      remap_2[i] = surface_node_count;
 
       if (g_octree.nodes[i].offset == 0 && g_octree.nodes[i].is_not_void)
       {
@@ -1208,7 +1221,7 @@ namespace scom
         clusters[lead_node_id_to_cluster_id[remap[i]]].count++;
       }
     }
-    prepare_output(g_octree, settings, dataset, remap_2, average_brick_val, clusters, output);
+    prepare_output(g_octree, settings, dataset, average_brick_val, clusters, output);
   }
 
   void similarity_compression(const sdf_converter::GlobalOctree &octree, const Settings &settings, CompressionOutput &output)
@@ -1217,7 +1230,7 @@ namespace scom
         settings.clustering_algorithm == ClusteringAlgorithm::COMPONENTS_MERGE ||
         settings.clustering_algorithm == ClusteringAlgorithm::COMPONENTS_RECURSIVE_FILL)
     {
-      similarity_compression_hierarchical(octree, settings, output);
+      similarity_compression_advanced(octree, settings, output);
     }
     else if (settings.clustering_algorithm == ClusteringAlgorithm::REPLACEMENT)
     {

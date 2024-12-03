@@ -797,7 +797,7 @@ namespace litert_tests
       header_comp.sim_compression = true;
 
       scom::Settings scom_settings;
-      scom_settings.similarity_threshold = 0.002f;
+      scom_settings.similarity_threshold = 0.05f;
       scom_settings.search_algorithm = scom::SearchAlgorithm::BALL_TREE;
 
       //CA::REPLACEMENT
