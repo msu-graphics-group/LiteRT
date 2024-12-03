@@ -8,6 +8,7 @@
 
 namespace c = constants;
 
+// *********************** Simple Monotonic Tests *********************** //
 bool test_slope_line() {
   std::vector<float2> points = {
     {-4, -4},
@@ -252,6 +253,90 @@ bool test_triangle() {
   return Xclose && Yclose;
 }
 
+// *********************** Mapped Monotonic Tests *********************** //
+bool test_mapped_cubic_bezier_1() {
+  std::vector<float2> points = {
+    {-4, -4},
+    {-2,  4},
+    { 2, -4},
+    { 4,  4},
+  };
+  std::vector<float> weights = {1, 1, 1, 1};
+  float tmin = 0.4f;
+  float tmax = 0.8f;
+
+  RBCurve2D curve(points, weights, tmin, tmax);
+  std::vector<float> Xtest = curve.monotonic_parts(0);
+  std::vector<float> Xtruth = { 0.0f, 1.0f };
+  bool Xclose = allclose(Xtest, Xtruth, c::TEST_EPS);
+  //std::cout << debug::LOG::INFO << Xtest << std::endl;
+
+  auto Y = curve.monotonic_parts(1);
+  std::vector<float> Ytest = curve.monotonic_parts(1);
+  std::vector<float> Ytruth = { 0.0f, 0.25f, 1.0f };
+  bool Yclose = allclose(Ytest, Ytruth, c::TEST_EPS);
+  //std::cout << debug::LOG::INFO << Ytest << std::endl;
+
+  return Xclose && Yclose;
+}
+
+bool test_mapped_cubic_bezier_2() {
+  std::vector<float2> points = {
+    {-4, -4},
+    {-4,  4},
+    { 4, -4},
+    { 4,  4},
+  };
+  std::vector<float> weights = {1, 1, 1, 1};
+  float tmin = 0.6f;
+  float tmax = 0.9f;
+
+  RBCurve2D curve(points, weights, tmin, tmax);
+  std::vector<float> Xtest = curve.monotonic_parts(0);
+  std::vector<float> Xtruth = { 0.0f, 1.0f };
+  bool Xclose = allclose(Xtest, Xtruth, c::TEST_EPS);
+  //std::cout << debug::LOG::INFO << Xtest << std::endl;
+
+  auto Y = curve.monotonic_parts(1);
+  std::vector<float> Ytest = curve.monotonic_parts(1);
+  std::vector<float> Ytruth = { 0.0f, 1.0f };
+  bool Yclose = allclose(Ytest, Ytruth, c::TEST_EPS);
+  //std::cout << debug::LOG::INFO << Ytest << std::endl;
+
+  return Xclose && Yclose;
+}
+
+bool test_mapped_egg() {
+  std::vector<float2> points = {
+    { 0,  1},
+    { 1,  1},
+    { 1,  0},
+    { 1, -1},
+    { 0, -1},
+    {-1, -1},
+    {-1,  0},
+    {-1,  1},
+    { 0,  1}
+  };
+  std::vector<float> weights = {1, 1, 1, 2, 1, 2, 1, 1, 1};
+  float tmin = 0.5f;
+  float tmax = 1.0f;
+
+  RBCurve2D curve(points, weights, tmin, tmax);
+  std::vector<float> Xtest = curve.monotonic_parts(0);
+  std::vector<float> Xtruth = { 0.0f, 0.572f, 1.0f };
+  bool Xclose = allclose(Xtest, Xtruth, c::TEST_EPS);
+  //std::cout << debug::LOG::INFO << Xtest << std::endl;
+
+  auto Y = curve.monotonic_parts(1);
+  std::vector<float> Ytest = curve.monotonic_parts(1);
+  std::vector<float> Ytruth = { 0.0f, 1.0f };
+  bool Yclose = allclose(Ytest, Ytruth, c::TEST_EPS);
+  //std::cout << debug::LOG::INFO << Ytest << std::endl;
+
+  return Xclose && Yclose;
+}
+
 int main() {
   debug::title("Simple Monotonic Tests");
   debug::test("Slope Line", test_slope_line());
@@ -265,6 +350,9 @@ int main() {
   debug::test("Curl", test_curl());
   debug::test("Triangle", test_triangle());
 
-  //debug::title("Mapped Monotonic Tests");
+  debug::title("Mapped Monotonic Tests");
+  debug::test("Mapped Cubic Bezier 1", test_mapped_cubic_bezier_1());
+  debug::test("Mapped Cubic Bezier 2", test_mapped_cubic_bezier_2());
+  debug::test("Mapped Egg", test_mapped_egg());
   return 0;
 }
