@@ -264,5 +264,7 @@ int main() {
   debug::test("Water Drop", test_waterdrop());
   debug::test("Curl", test_curl());
   debug::test("Triangle", test_triangle());
+
+  //debug::title("Mapped Monotonic Tests");
   return 0;
 }

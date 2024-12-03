@@ -21,7 +21,9 @@ LiteMath::float3 BCurve3D::operator()(float u) const {
     return get_point(u);
 }
 
-BCurve3D::BCurve3D(std::vector<LiteMath::float3> points) {
+BCurve3D::BCurve3D(
+    std::vector<LiteMath::float3> points,
+    float tmin, float tmax) : tmin(tmin), tmax(tmax) {
   assert(points.size() > 0);
   uint p = points.size() - 1;
   this->points = Matrix2D<float3>(p + 1, p + 1);
@@ -46,6 +48,7 @@ LiteMath::float3 BCurve3D::get_point(float u) const {
 }
 
 LiteMath::float3 BCurve3D::der(float u, int order) const {
+  u = lerp(tmin, tmax, u);
   uint p = degree();
   if (order < 0 || order > p)
     return float3(0.0f);
@@ -77,7 +80,10 @@ LiteMath::float3 BCurve3D::der(float u, int order) const {
 // *********************** RBezier curve 2D *********************** //
 RBCurve2D::RBCurve2D(
     std::vector<float2> points,
-    std::vector<float> weights) : BCurve3D( RBCurve2D::Hmap(points, weights) ) {}
+    std::vector<float> weights,
+    float tmin,
+    float tmax) :
+  BCurve3D( RBCurve2D::Hmap(points, weights), tmin, tmax ) {}
 
 // Homorgeneous map to 3D space coodinates
 std::vector<float3> RBCurve2D::Hmap(

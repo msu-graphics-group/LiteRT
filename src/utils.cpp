@@ -3,6 +3,11 @@
 
 #include "utils.hpp"
 
+// Inverse lerp
+//float ilerp(float a, float b, float t) {
+//  return (t - a) / (b - a);
+//}
+
 bool isclose(float a, float b, float eps) {
   return std::abs(a - b) < eps;
 }
