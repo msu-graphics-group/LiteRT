@@ -4,6 +4,7 @@
 #include <vector>
 #include <optional>
 #include <functional>
+#include <filesystem>
 
 #include "utils.hpp"
 #include "LiteMath.h"
@@ -29,9 +30,11 @@ struct RBCurve2D : public BCurve3D
   // Stores points and weights as homorgeneous map to 3D coodinates
   // Pi(xi, yi) -> Pi(wi * xi, wi * yi, wi)
 
-  RBCurve2D() {};
+  RBCurve2D() {}; 
   RBCurve2D(std::vector<LiteMath::float2> points,
             std::vector<float> weights,
+            float tmin = 0.0f, float tmax = 1.0f);
+  RBCurve2D(std::vector<LiteMath::float3> Hpoints,
             float tmin = 0.0f, float tmax = 1.0f);
   static std::vector<LiteMath::float3> Hmap(
       std::vector<LiteMath::float2> points,
@@ -48,6 +51,19 @@ struct RBCurve2D : public BCurve3D
   // Monotonic knots
   std::vector<float> knots;
 };
+
+struct NURBSCurve2D
+{
+public:
+  int degree(void) const;
+  int npoints(void) const;
+  int nknots(void) const;
+  std::vector<RBCurve2D> decompose(void) const;
+public:
+  std::vector<LiteMath::float3> pw;
+  std::vector<float> knots;
+};
+NURBSCurve2D load_nurbs_curve(std::filesystem::path path);
 
 std::optional<float>
 bisection(std::function<float(float)> f, float u1, float u2);
