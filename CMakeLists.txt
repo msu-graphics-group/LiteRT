@@ -265,7 +265,7 @@ set(
 
 add_subdirectory(step)
 
-option(build_nurbs_viewer off)
+option(build_nurbs_viewer OFF)
 if (build_nurbs_viewer)
   message("NURBS Viewer enabled!")
   add_library(LiteMath ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/LiteMath/Image2d.cpp)

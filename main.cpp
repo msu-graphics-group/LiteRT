@@ -97,6 +97,11 @@ int main(int argc, const char** argv)
       check_model(argv[2]);
       return 0;
     }
+    else if(std::string(argv[1]) == "--check-models" && argc > 3)
+    {
+      check_models(argv[2], argv[3]);
+      return 0;
+    }
   }
   //auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path+"scenes/01_simple_scenes/data/teapot.vsgf").c_str());
   //cmesh4::create_triangle_list_grid(mesh, LiteMath::uint3(32,32,32));
