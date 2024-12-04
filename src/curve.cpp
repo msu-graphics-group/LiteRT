@@ -196,6 +196,37 @@ RBCurve2D::monotonic_parts(int axes, int order) const {
   return result;
 }
 
+void RBCurve2D::bimonotonic_parts() {
+  // TODO: Make only v-knots
+  auto xknots = monotonic_parts(0);
+  auto yknots = monotonic_parts(1);
+  std::merge(
+      xknots.begin(), xknots.end(),
+      yknots.begin(), yknots.end(),
+      std::back_inserter(knots));
+  knots.resize(std::unique(knots.begin(), knots.end()) - knots.begin());
+}
+
+std::vector<float>
+RBCurve2D::intersections(float u0) const {
+  std::vector<float> result;
+  for (int span = 0; span < knots.size() - 1; ++span) {
+    float u0 = knots[span];
+    float u1 = knots[span+1];
+    auto f = [&](float t) {
+      auto p = get_point(t);
+      return p.x - u0;
+    };
+
+    auto potential_hit = bisection(f, u0, u1);
+    if (potential_hit.has_value()) {
+      auto u = potential_hit.value();
+      result.push_back(u);
+    }
+  }
+  return result;
+}
+
 LiteMath::float3 RBCurve2D::operator()(float u) const {
     return get_point(u);
 }

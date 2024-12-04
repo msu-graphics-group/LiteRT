@@ -40,8 +40,13 @@ struct RBCurve2D : public BCurve3D
   LiteMath::float3 get_point(float u) const;
   LiteMath::float3 der(float u, int order = 1) const;
   LiteMath::float3 fg_gf(float u, int order = 0) const;
-  std::vector<float> monotonic_parts(int axes, int order = 0) const; 
+  std::vector<float> monotonic_parts(int axes, int order = 0) const;
+  void               bimonotonic_parts(void);
+  std::vector<float> intersections(float u0) const;
   LiteMath::float3 operator()(float u) const;
+
+  // Monotonic knots
+  std::vector<float> knots;
 };
 
 std::optional<float>
