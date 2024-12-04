@@ -7,6 +7,7 @@
 #include "../utils/image_metrics.h"
 #include "LiteScene/hydraxml.h"
 #include "../utils/sparse_octree_builder.h"
+#include "../utils/similarity_compression.h"
 #include "LiteMath/Image2d.h"
 
 #include <functional>
@@ -43,7 +44,7 @@ void check_model(const std::string &path)
   preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
   preset.spp = 4;
 
-  unsigned W = 2048, H = 2048;
+  unsigned W = 4096, H = 4096;
   LiteImage::Image2D<uint32_t> image_ref(W, H);
   LiteImage::Image2D<uint32_t> image(W, H);
 
@@ -52,13 +53,25 @@ void check_model(const std::string &path)
     preset.normal_mode = NORMAL_MODE_VERTEX;
     pRender->SetPreset(preset);
     pRender->SetScene(mesh);
+    //render(image, pRender, float3(0.4,-0.8,-0.4), float3(0,-0.81,-0.4), float3(0,1,0), preset, 1); //for sponza, pRender, float3(0.4,-0.8,-0.4), float3(0,-0.81,-0.4), float3(0,1,0), preset, 1); //for sponza
+    //render(image_ref, pRender, float3(-0.75,-0.75,1.25), float3(-0.75,-0.75,0), float3(0,1,0), preset, 1); //for HMS_Daring_Type_45.obj
     render(image_ref, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset, 1);
     LiteImage::SaveImage<uint32_t>(("saves/check_" + model_name + "_ref.png").c_str(), image_ref); 
+
+    long mesh_total_bytes = 0;
+    BVHRT *bvh = dynamic_cast<BVHRT*>(pRender->GetAccelStruct()->UnderlyingImpl(0));
+    mesh_total_bytes = bvh->m_allNodePairs.size()*sizeof(BVHNodePair) + 
+                       bvh->m_primIdCount.size()* sizeof(uint32_t) +
+                       bvh->m_vertPos.size()* sizeof(float4) +
+                       bvh->m_vertNorm.size()* sizeof(float4) +
+                       bvh->m_indices.size()* sizeof(uint32_t) +
+                       bvh->m_primIndices.size()* sizeof(uint32_t);
+    printf("mesh %6.1f Mb\n", mesh_total_bytes/(1024.0f*1024.0f));
   }
 
   printf("[check_model::INFO] Rendered mesh\n");
 
-  constexpr int max_depth = 8;
+  constexpr int max_depth = 9;
   std::array<float, max_depth> PSNRs = {0, 0, 0, 0, 0, 0, 0, 0}; 
   float max_psnr = 0;
 
@@ -68,26 +81,33 @@ void check_model(const std::string &path)
     SparseOctreeSettings settings = SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, depth);
     sdf_converter::GlobalOctree g;
     g.header.brick_size = 4;
-    g.header.brick_pad = 1;
+    g.header.brick_pad = 0;
     
     COctreeV3 coctree;
     coctree.header.bits_per_value = 8;
     coctree.header.brick_size = g.header.brick_size;
     coctree.header.brick_pad = g.header.brick_pad;
     coctree.header.uv_size = 0;
-    coctree.header.sim_compression = 0;
+    coctree.header.sim_compression = 1;
+    
+    scom::Settings scom_settings;
+    scom_settings.similarity_threshold = 0.075f;
+    scom_settings.search_algorithm = scom::SearchAlgorithm::BALL_TREE;
+    scom_settings.clustering_algorithm = scom::ClusteringAlgorithm::REPLACEMENT;
 
     auto tlo = cmesh4::create_triangle_list_octree(mesh, settings.depth, 0, 1.0f);
     printf("[check_model::INFO]   Built TLO\n");
     sdf_converter::mesh_octree_to_global_octree(mesh, tlo, g);
     printf("[check_model::INFO]   Built Global Octree\n");
-    sdf_converter::global_octree_to_compact_octree_v3(g, coctree, 8);
+    sdf_converter::global_octree_to_compact_octree_v3(g, coctree, 8, scom_settings);
     printf("[check_model::INFO]   Built Compact Octree\n");
 
     auto pRender = CreateMultiRenderer(DEVICE_GPU);
     preset.normal_mode = g.header.brick_pad == 1 ? NORMAL_MODE_SDF_SMOOTHED : NORMAL_MODE_VERTEX;
     pRender->SetPreset(preset);
     pRender->SetScene(coctree, 0);
+    //render(image, pRender, float3(0.4,-0.8,-0.4), float3(0,-0.81,-0.4), float3(0,1,0), preset, 1); //for sponza
+    //render(image, pRender, float3(-0.75,-0.75,1.25), float3(-0.75,-0.75,0), float3(0,1,0), preset, 1); //for HMS_Daring_Type_45.obj
     render(image, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset, 1);
     LiteImage::SaveImage<uint32_t>(("saves/check_" + model_name + "_depth_" + std::to_string(depth) + ".png").c_str(), image); 
 

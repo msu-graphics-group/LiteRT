@@ -1056,8 +1056,8 @@ namespace cmesh4
           if (g[3].find(' ') != -1)
             g[3] = g[3].substr(0, g[3].find(' '));
 
-          if (aVerbose)
-            std::cout << "Face: (" << g[0] << ") (" << g[1] << ") (" << g[2] << ")" << std::endl;
+          //if (aVerbose)
+          //  std::cout << "Face: (" << g[0] << ") (" << g[1] << ") (" << g[2] << ")" << std::endl;
 
           for (int k = 0; k < 3; ++k)
           {
@@ -1184,7 +1184,7 @@ namespace cmesh4
 
     objFile.close();
 
-    if (aVerbose) std::cout << "Preparing to build faces" << std::endl;
+    //if (aVerbose) std::cout << "Preparing to build faces" << std::endl;
 
     return mesh;
     
