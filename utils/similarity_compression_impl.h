@@ -1,8 +1,10 @@
 #pragma once
 #include "similarity_compression.h"
+#include "aligned_allocator.h"
 
 namespace scom
 {
+  using aligned_vector_f = std::vector<float, AlignmentAllocator<float, 64>>;
   struct DataPoint
   {
     uint32_t original_id;
@@ -13,7 +15,7 @@ namespace scom
 
   struct Dataset
   {
-    std::vector<float> all_points; //R^n vector for each data point
+    aligned_vector_f all_points; //R^n vector for each data point
     std::vector<DataPoint> data_points;
   };
 

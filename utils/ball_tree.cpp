@@ -4,7 +4,7 @@
 
 namespace scom
 {
-  static float distance_sqr(int m_dim, const float *a, const float *b)
+  float BallTree::distance_sqr(int m_dim, const float *a, const float *b) const
   {
     float d = 0;
     for (int i = 0; i < m_dim; ++i)
