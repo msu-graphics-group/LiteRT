@@ -8,7 +8,7 @@ models:arr = { }
 param_strings:arr = { "size_4_pad_0" }
 width:i = 512
 height:i = 512
-cameras:i = 1
+cameras:i = 4
 iters:i = 8
 spp:i = 4
 }

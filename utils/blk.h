@@ -260,7 +260,7 @@ struct Block
     std::vector<Value> values;
 };
 
-extern bool load_block_from_string(std::string &str, Block &b);
+extern bool load_block_from_string(const std::string &str, Block &b);
 extern bool load_block_from_file(std::string path, Block &b);
 extern void save_block_to_string(std::string &str, Block &b);
 extern void save_block_to_file(std::string path, Block &b);

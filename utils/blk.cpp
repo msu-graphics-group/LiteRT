@@ -516,7 +516,7 @@ bool load_block(const char *data, int &cur_pos, Block &b)
     return true;
 }
 
-bool load_block_from_string(std::string &str, Block &b)
+bool load_block_from_string(const std::string &str, Block &b)
 {
     if (str.empty())
         return false;

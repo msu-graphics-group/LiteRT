@@ -686,8 +686,13 @@ config.types.insert(config.types.begin(), "MESH");
 
 
               // Render
-
               render_config.model = xml_path;
+
+              if (repr_type == "MESH")
+              {
+                render_config.model = model;
+              }
+
               config_str = write_render_config_s(render_config);
 
               cmd = "DRI_PRIME=1 ./render_app -backend_benchmark render ";
