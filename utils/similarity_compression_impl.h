@@ -6,7 +6,7 @@ namespace scom
   struct DataPoint
   {
     uint32_t original_id;
-    uint32_t data_offset;
+    size_t   data_offset;
     uint32_t rotation_id;
     float    average_val;
   };

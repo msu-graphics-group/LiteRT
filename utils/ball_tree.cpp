@@ -226,13 +226,13 @@ namespace scom
     int far_id = -1;
     float far_dist = -1.0f;
 
-    unsigned off_a = index[id_from] * m_dim;
+    size_t off_a = index[id_from] * m_dim;
     for (int i = 0; i < n; ++i)
     {
       if (i == id_from)
         continue;
 
-      unsigned off_b = index[i] * m_dim;
+      size_t off_b = index[i] * m_dim;
       float dist_sq = distance_sqr(m_dim, dataset.all_points.data() + off_a, dataset.all_points.data() + off_b);
       if (far_dist < dist_sq)
       {

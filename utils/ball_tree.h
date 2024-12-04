@@ -37,7 +37,7 @@ namespace scom
     int build_rec(const Dataset &dataset, int max_leaf_size, int n, int *index, float *tmp_vec);
     int find_furthest_id(const Dataset &dataset, int id_from, int n, int *index);
 
-    int m_dim; // dimension count of data
+    size_t m_dim; // dimension count of data
     std::vector<Node> m_nodes;
     std::vector<float> m_centroids_data; //m_dim * m_nodes.size();
     

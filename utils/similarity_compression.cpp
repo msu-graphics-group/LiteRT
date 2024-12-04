@@ -14,11 +14,11 @@ namespace scom
   void save_dataset(const Dataset &dataset, const std::string &filename)
   {
   std::ofstream fs(filename, std::ios::binary);
-  unsigned points_size = dataset.data_points.size();
-  unsigned all_points_size = dataset.all_points.size();
-  fs.write((const char *)&points_size, sizeof(unsigned));
+  size_t points_size = dataset.data_points.size();
+  size_t all_points_size = dataset.all_points.size();
+  fs.write((const char *)&points_size, sizeof(size_t));
   fs.write((const char *)dataset.data_points.data(), points_size * sizeof(DataPoint));
-  fs.write((const char *)&all_points_size, sizeof(unsigned));
+  fs.write((const char *)&all_points_size, sizeof(size_t));
   fs.write((const char *)dataset.all_points.data(), all_points_size * sizeof(float));
   
   fs.flush();
@@ -28,13 +28,13 @@ namespace scom
   void load_dataset(const std::string &filename, Dataset &dataset)
   {
   std::ifstream fs(filename, std::ios::binary);
-  unsigned points_size = 0;
-  unsigned all_points_size = 0;
-  fs.read((char *)&points_size, sizeof(unsigned));
+  size_t points_size = 0;
+  size_t all_points_size = 0;
+  fs.read((char *)&points_size, sizeof(size_t));
   dataset.data_points.resize(points_size);
   fs.read((char *)dataset.data_points.data(), points_size * sizeof(DataPoint));
   
-  fs.read((char *)&all_points_size, sizeof(unsigned));
+  fs.read((char *)&all_points_size, sizeof(size_t));
   dataset.all_points.resize(all_points_size);
   fs.read((char *)dataset.all_points.data(), all_points_size * sizeof(float));
   
@@ -242,7 +242,8 @@ namespace scom
       }
     }
 
-    dataset.all_points.resize(dist_count * ROT_COUNT * surface_node_count);
+    printf("creating dataset %.1f Mb\n", float(dist_count * ROT_COUNT * ((size_t)surface_node_count) * sizeof(float)) / 1024.0f / 1024.0f);
+    dataset.all_points.resize(dist_count * ROT_COUNT * ((size_t)surface_node_count));
     dataset.data_points.resize(surface_node_count * ROT_COUNT);
 
     float mask_norm = dist_count / mult_sum;
@@ -257,7 +258,7 @@ namespace scom
 #pragma omp parallel for schedule(static)
       for (int r_id = 0; r_id < ROT_COUNT; r_id++)
       {
-        int off_dataset = (cur_point_group * ROT_COUNT + r_id) * dist_count;
+        size_t off_dataset = (size_t)(cur_point_group * ROT_COUNT + r_id) * dist_count;
 
         dataset.data_points[cur_point_group * ROT_COUNT + r_id].average_val = average_brick_val[i];
         dataset.data_points[cur_point_group * ROT_COUNT + r_id].data_offset = off_dataset;
@@ -302,7 +303,7 @@ namespace scom
 
 
     //dataset has group with ROT_COUNT vectors (dist_count values each) for each surface node
-    std::vector<unsigned> node_id_to_dataset_group_off(g_octree.nodes.size());
+    std::vector<size_t> node_id_to_dataset_group_off(g_octree.nodes.size());
     int surface_node_count = 0;
     for (int i=0; i<g_octree.nodes.size(); i++)
     {
@@ -322,7 +323,7 @@ namespace scom
     std::vector<int> rotation_ids(g_octree.nodes.size(), 0);
     for (auto &cluster : clusters)
     {
-      int lead_off = node_id_to_dataset_group_off[cluster.lead_id];
+      size_t lead_off = node_id_to_dataset_group_off[cluster.lead_id];
       for (int node_id : cluster.point_ids)
       {
         if (node_id == cluster.lead_id)
@@ -335,7 +336,7 @@ namespace scom
           int min_rot_id = 0;
           for (int k = 0; k < ROT_COUNT; k++)
           {
-            int target_off = node_id_to_dataset_group_off[node_id] + k * dist_count;
+            size_t target_off = node_id_to_dataset_group_off[node_id] + k * dist_count;
             float dist_sq = 0;
             for (int l = 0; l < dist_count; l++)
               dist_sq += (dataset.all_points[lead_off + l] - dataset.all_points[target_off + l]) * (dataset.all_points[lead_off + l] - dataset.all_points[target_off + l]);
@@ -1139,7 +1140,7 @@ namespace scom
       remap_transforms[i].rotation_id = 0;
       remap_transforms[i].add = dataset.data_points[point_a].average_val;
       
-      int off_a = dataset.data_points[point_a].data_offset;
+      size_t off_a = dataset.data_points[point_a].data_offset;
 
       if (settings.search_algorithm == SearchAlgorithm::BRUTE_FORCE)
       {
@@ -1147,7 +1148,7 @@ namespace scom
         for (int point_b = point_a + ROT_COUNT; point_b < dataset.data_points.size(); point_b++)
         {
           int j = dataset.data_points[point_b].original_id;
-          int off_b = dataset.data_points[point_b].data_offset;
+          size_t off_b = dataset.data_points[point_b].data_offset;
 
           float diff = 0;
           float dist = 0;
