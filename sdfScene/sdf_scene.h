@@ -550,7 +550,7 @@ ModelInfo get_info_sdf_SVS(const SdfSVSView &scene);
 
 void save_sdf_SBS(const SdfSBSView &scene, const std::string &path);
 void load_sdf_SBS(SdfSBS &scene, const std::string &path);
-ModelInfo get_info_sdf_SVS(const SdfSBSView &scene);
+ModelInfo get_info_sdf_SBS(const SdfSBSView &scene);
 
 void save_sdf_frame_octree_tex(const SdfFrameOctreeTexView &scene, const std::string &path);
 void load_sdf_frame_octree_tex(std::vector<SdfFrameOctreeTexNode> &scene, const std::string &path);

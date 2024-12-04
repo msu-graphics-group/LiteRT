@@ -14,11 +14,11 @@ namespace scom
   void save_dataset(const Dataset &dataset, const std::string &filename)
   {
   std::ofstream fs(filename, std::ios::binary);
-  unsigned points_size = dataset.data_points.size();
-  unsigned all_points_size = dataset.all_points.size();
-  fs.write((const char *)&points_size, sizeof(unsigned));
+  size_t points_size = dataset.data_points.size();
+  size_t all_points_size = dataset.all_points.size();
+  fs.write((const char *)&points_size, sizeof(size_t));
   fs.write((const char *)dataset.data_points.data(), points_size * sizeof(DataPoint));
-  fs.write((const char *)&all_points_size, sizeof(unsigned));
+  fs.write((const char *)&all_points_size, sizeof(size_t));
   fs.write((const char *)dataset.all_points.data(), all_points_size * sizeof(float));
   
   fs.flush();
@@ -28,13 +28,13 @@ namespace scom
   void load_dataset(const std::string &filename, Dataset &dataset)
   {
   std::ifstream fs(filename, std::ios::binary);
-  unsigned points_size = 0;
-  unsigned all_points_size = 0;
-  fs.read((char *)&points_size, sizeof(unsigned));
+  size_t points_size = 0;
+  size_t all_points_size = 0;
+  fs.read((char *)&points_size, sizeof(size_t));
   dataset.data_points.resize(points_size);
   fs.read((char *)dataset.data_points.data(), points_size * sizeof(DataPoint));
   
-  fs.read((char *)&all_points_size, sizeof(unsigned));
+  fs.read((char *)&all_points_size, sizeof(size_t));
   dataset.all_points.resize(all_points_size);
   fs.read((char *)dataset.all_points.data(), all_points_size * sizeof(float));
   
@@ -125,178 +125,6 @@ namespace scom
     return t;
   }
 
-  uint32_t get_transform_code(const TransformCompact &t)
-  {
-    assert(t.rotation_id < ROT_COUNT);
-    assert(t.add > -0.5 && t.add < 0.5);
-
-    uint32_t rot_code = t.rotation_id;
-    uint32_t add_code = (t.add + 0.5f) * float(0x007FFFFFu);
-
-    float add_restored = (float((add_code << 8) & 0x7FFFFF00u) / float(0x7FFFFF00u) - 0.5f);
-    //printf("add, restored: %f, %f\n", t.add, add_restored);
-
-    return VALID_TRANSFORM_CODE_BIT | (add_code << 8) | rot_code;
-  }
-
-  uint32_t get_identity_transform_code()
-  {
-    return get_transform_code(get_identity_transform());
-  }
-
-  void create_dataset(const sdf_converter::GlobalOctree &g_octree, const Settings &settings, const std::vector<bool> &surface_node,
-                      unsigned surface_node_count, const std::vector<float> &average_brick_val,
-                      /*out*/ Dataset &dataset)
-  {
-    int v_size = g_octree.header.brick_size + 2 * g_octree.header.brick_pad + 1;
-    int dist_count = v_size * v_size * v_size;
-
-    std::vector<float4x4> rotations4;
-    initialize_rot_transforms(rotations4, v_size);
-
-    std::vector<float> distance_mult_mask(dist_count, 1.0f);
-    float mult_sum = 0.0f;
-    assert(settings.distance_importance.x == 1.0f || settings.distance_importance.y == 1.0f || settings.distance_importance.z == 1.0f);
-    for (int x = 0; x < v_size; x++)
-    {
-      for (int y = 0; y < v_size; y++)
-      {
-        for (int z = 0; z < v_size; z++)
-        {
-          float mult = 1.0f;
-          if (x < g_octree.header.brick_pad || x >= v_size - g_octree.header.brick_pad ||
-              y < g_octree.header.brick_pad || y >= v_size - g_octree.header.brick_pad ||
-              z < g_octree.header.brick_pad || z >= v_size - g_octree.header.brick_pad)
-          {
-            mult = settings.distance_importance.x; // padding distance
-          }
-          else if (x < g_octree.header.brick_pad + 1 || x >= v_size - g_octree.header.brick_pad - 1 ||
-                   y < g_octree.header.brick_pad + 1 || y >= v_size - g_octree.header.brick_pad - 1 ||
-                   z < g_octree.header.brick_pad + 1 || z >= v_size - g_octree.header.brick_pad - 1)
-          {
-            mult = settings.distance_importance.y; // border distance
-          }
-          else
-          {
-            mult = settings.distance_importance.z; // internal distance
-          }
-
-          mult_sum += mult;
-          distance_mult_mask[x * v_size * v_size + y * v_size + z] = mult;
-        }
-      }
-    }
-
-    dataset.all_points.resize(dist_count * ROT_COUNT * surface_node_count);
-    dataset.data_points.resize(surface_node_count * ROT_COUNT);
-
-    float mask_norm = dist_count / mult_sum;
-    uint32_t cur_point_group = 0;
-    for (int i = 0; i < g_octree.nodes.size(); i++)
-    {
-      if (!surface_node[i])
-        continue;
-
-      int off_a = g_octree.nodes[i].val_off;
-
-#pragma omp parallel for schedule(static)
-      for (int r_id = 0; r_id < ROT_COUNT; r_id++)
-      {
-        int off_dataset = (cur_point_group * ROT_COUNT + r_id) * dist_count;
-
-        dataset.data_points[cur_point_group * ROT_COUNT + r_id].average_val = average_brick_val[i];
-        dataset.data_points[cur_point_group * ROT_COUNT + r_id].data_offset = off_dataset;
-        dataset.data_points[cur_point_group * ROT_COUNT + r_id].original_id = i;
-        dataset.data_points[cur_point_group * ROT_COUNT + r_id].rotation_id = r_id;
-        for (int x = 0; x < v_size; x++)
-        {
-          for (int y = 0; y < v_size; y++)
-          {
-            for (int z = 0; z < v_size; z++)
-            {
-              int idx = x * v_size * v_size + y * v_size + z;
-              int3 rot_vec2 = int3(LiteMath::mul4x3(rotations4[r_id], float3(x, y, z)));
-              int rot_idx = rot_vec2.x * v_size * v_size + rot_vec2.y * v_size + rot_vec2.z;
-              dataset.all_points[off_dataset + idx] = mask_norm * distance_mult_mask[idx] * (g_octree.values_f[off_a + rot_idx] - average_brick_val[i]);
-            }
-          }
-        }
-      }
-      cur_point_group++;
-    }
-  }
-
-  void prepare_output(const sdf_converter::GlobalOctree &g_octree, const Settings &settings, const std::vector<unsigned> &remap,
-                      const std::vector<unsigned> &remap_2, const std::vector<bool> &surface_node, unsigned surface_node_count,
-                      const std::vector<TransformCompact> &remap_transforms, const Dataset &dataset,
-                      /*out*/ CompressionOutput &output)
-  {
-    int v_size = g_octree.header.brick_size + 2 * g_octree.header.brick_pad + 1;
-    int dist_count = v_size * v_size * v_size;
-    auto inverse_indices = get_inverse_transform_indices();
-
-    output.node_id_cleaf_id_remap.resize(g_octree.nodes.size(), 0);
-    output.tranform_codes.resize(g_octree.nodes.size(), 0);
-    output.compressed_data.reserve(surface_node_count * dist_count);
-
-    int unique_node_id = 0;
-
-    std::vector<int> group_indices(surface_node_count, -1);
-    std::vector<float> centroid(dist_count, 0);
-    for (int i = 0; i < g_octree.nodes.size(); i++)
-    {
-      if (!surface_node[i])
-        continue;
-      if (remap[i] == i)
-      {
-        int group_indices_size = 0;
-        std::fill_n(centroid.data(), dist_count, 0);
-        for (int j = 0; j < g_octree.nodes.size(); j++)
-        {
-          if (remap[j] == i)
-          {
-            group_indices[group_indices_size] = j;
-            for (int k = 0; k < dist_count; k++)
-              centroid[k] += dataset.all_points[(remap_2[j]*ROT_COUNT + inverse_indices[remap_transforms[j].rotation_id])*dist_count + k];
-            group_indices_size++;
-          }
-        }
-
-        for (int k = 0; k < dist_count; k++)
-          centroid[k] /= group_indices_size;
-        
-        // for (int k = 0; k < dist_count; k++)
-        //   centroid[k] = dataset.all_points[(remap_2[i]*ROT_COUNT)*dist_count + k];
-        
-        int p_size = output.compressed_data.size();
-        output.compressed_data.resize(p_size + dist_count);
-        for (int k = 0; k < dist_count; k++)
-          output.compressed_data[p_size + k] = centroid[k] + remap_transforms[i].add;
-
-        // if (group_indices_size > 1)
-        // {
-        //   printf("node %d, centroid = {", i);
-        //   for (int k = 0; k < dist_count; k++)
-        //     printf("%f, ", centroid[k]);
-        //   printf("}\n");
-        // }
-
-        for (int j = 0; j < group_indices_size; j++)
-        {
-          int k = group_indices[j];
-          TransformCompact tc;
-          tc.rotation_id = remap_transforms[k].rotation_id;
-          tc.add = remap_transforms[k].add - remap_transforms[i].add;
-          output.node_id_cleaf_id_remap[k] = unique_node_id;
-          output.tranform_codes[k] = get_transform_code(tc);
-        }
-        unique_node_id++;
-      }
-    }
-    output.leaf_count = unique_node_id;
-    output.compressed_data.shrink_to_fit();
-  }
-
   struct Link
   {
     int target = -1; // original node id (i.e. from global octree)
@@ -351,6 +179,245 @@ namespace scom
     int invalidation_step = HC_VALID;
     int cluster_id = -1;
   };
+
+  uint32_t get_transform_code(const TransformCompact &t)
+  {
+    assert(t.rotation_id < ROT_COUNT);
+    assert(t.add > -0.5 && t.add < 0.5);
+
+    uint32_t rot_code = t.rotation_id;
+    uint32_t add_code = (t.add + 0.5f) * float(0x007FFFFFu);
+
+    float add_restored = (float((add_code << 8) & 0x7FFFFF00u) / float(0x7FFFFF00u) - 0.5f);
+    //printf("add, restored: %f, %f\n", t.add, add_restored);
+
+    return VALID_TRANSFORM_CODE_BIT | (add_code << 8) | rot_code;
+  }
+
+  uint32_t get_identity_transform_code()
+  {
+    return get_transform_code(get_identity_transform());
+  }
+
+  void create_dataset(const sdf_converter::GlobalOctree &g_octree, const Settings &settings, const std::vector<bool> &surface_node,
+                      unsigned surface_node_count, const std::vector<float> &average_brick_val,
+                      /*out*/ Dataset &dataset)
+  {
+    int v_size = g_octree.header.brick_size + 2 * g_octree.header.brick_pad + 1;
+    int dist_count = v_size * v_size * v_size;
+
+    std::vector<float4x4> rotations4;
+    initialize_rot_transforms(rotations4, v_size);
+
+    std::vector<float> distance_mult_mask(dist_count, 1.0f);
+    float mult_sum = 0.0f;
+    //assert(settings.distance_importance.x == 1.0f || settings.distance_importance.y == 1.0f || settings.distance_importance.z == 1.0f);
+    for (int x = 0; x < v_size; x++)
+    {
+      for (int y = 0; y < v_size; y++)
+      {
+        for (int z = 0; z < v_size; z++)
+        {
+          float mult = 1.0f;
+          if (x < g_octree.header.brick_pad || x >= v_size - g_octree.header.brick_pad ||
+              y < g_octree.header.brick_pad || y >= v_size - g_octree.header.brick_pad ||
+              z < g_octree.header.brick_pad || z >= v_size - g_octree.header.brick_pad)
+          {
+            mult = settings.distance_importance.x; // padding distance
+          }
+          else if (x < g_octree.header.brick_pad + 1 || x >= v_size - g_octree.header.brick_pad - 1 ||
+                   y < g_octree.header.brick_pad + 1 || y >= v_size - g_octree.header.brick_pad - 1 ||
+                   z < g_octree.header.brick_pad + 1 || z >= v_size - g_octree.header.brick_pad - 1)
+          {
+            mult = settings.distance_importance.y; // border distance
+          }
+          else
+          {
+            mult = settings.distance_importance.z; // internal distance
+          }
+
+          mult_sum += mult;
+          distance_mult_mask[x * v_size * v_size + y * v_size + z] = mult;
+        }
+      }
+    }
+
+    printf("creating dataset %.1f Mb\n", float(dist_count * ROT_COUNT * ((size_t)surface_node_count) * sizeof(float)) / 1024.0f / 1024.0f);
+    dataset.all_points.resize(dist_count * ROT_COUNT * ((size_t)surface_node_count));
+    dataset.data_points.resize(surface_node_count * ROT_COUNT);
+
+    float mask_norm = dist_count / mult_sum;
+    uint32_t cur_point_group = 0;
+    for (int i = 0; i < g_octree.nodes.size(); i++)
+    {
+      if (!surface_node[i])
+        continue;
+
+      int off_a = g_octree.nodes[i].val_off;
+
+#pragma omp parallel for schedule(static)
+      for (int r_id = 0; r_id < ROT_COUNT; r_id++)
+      {
+        size_t off_dataset = (size_t)(cur_point_group * ROT_COUNT + r_id) * dist_count;
+
+        dataset.data_points[cur_point_group * ROT_COUNT + r_id].average_val = average_brick_val[i];
+        dataset.data_points[cur_point_group * ROT_COUNT + r_id].data_offset = off_dataset;
+        dataset.data_points[cur_point_group * ROT_COUNT + r_id].original_id = i;
+        dataset.data_points[cur_point_group * ROT_COUNT + r_id].rotation_id = r_id;
+
+        float sum = 0.0f;
+        for (int x = 0; x < v_size; x++)
+        {
+          for (int y = 0; y < v_size; y++)
+          {
+            for (int z = 0; z < v_size; z++)
+            {
+              int idx = x * v_size * v_size + y * v_size + z;
+              int3 rot_vec2 = int3(LiteMath::mul4x3(rotations4[r_id], float3(x, y, z)));
+              int rot_idx = rot_vec2.x * v_size * v_size + rot_vec2.y * v_size + rot_vec2.z;
+              float t = (g_octree.values_f[off_a + rot_idx] - average_brick_val[i]);
+              sum += t*t;
+              dataset.all_points[off_dataset + idx] = mask_norm * distance_mult_mask[idx] * t;
+            }
+          }
+        }
+
+        sum = sqrtf(sum);
+        for (int i=0;i<dist_count;i++)
+          dataset.all_points[off_dataset + i] /= sum;
+      }
+      cur_point_group++;
+    }
+  }
+
+  void prepare_output(const sdf_converter::GlobalOctree &g_octree, const Settings &settings, const Dataset &dataset,
+                      const std::vector<float> &average_brick_val, const std::vector<Cluster> &clusters, 
+              /*out*/ CompressionOutput &output)
+  {
+    int v_size = g_octree.header.brick_size + 2 * g_octree.header.brick_pad + 1;
+    int dist_count = v_size * v_size * v_size;
+    auto inverse_indices = get_inverse_transform_indices();
+
+    std::vector<float4x4> rotations4;
+    initialize_rot_transforms(rotations4, v_size);
+
+
+    //dataset has group with ROT_COUNT vectors (dist_count values each) for each surface node
+    std::vector<size_t> node_id_to_dataset_group_off(g_octree.nodes.size());
+    int surface_node_count = 0;
+    for (int i=0; i<g_octree.nodes.size(); i++)
+    {
+      if (g_octree.nodes[i].offset == 0 && g_octree.nodes[i].is_not_void)
+      {
+        node_id_to_dataset_group_off[i] = surface_node_count * ROT_COUNT * dist_count;
+        surface_node_count++;
+      }
+    }
+
+    //Find the best rotation id (for every brick in non-trivial cluster
+    //find the rotation that gives the closest match to leading brick).
+    //This is the place when we actually need the leading brick, so
+    //the final quality can depend on what brick will be chosen, but not much.
+    //Note, that we use dataset here (i.e. R^n projections of bricks), because we
+    //should use the same metric here as with clustering.
+    std::vector<int> rotation_ids(g_octree.nodes.size(), 0);
+    for (auto &cluster : clusters)
+    {
+      size_t lead_off = node_id_to_dataset_group_off[cluster.lead_id];
+      for (int node_id : cluster.point_ids)
+      {
+        if (node_id == cluster.lead_id)
+        {
+          rotation_ids[node_id] = 0;
+        }
+        else
+        {
+          float min_dist_sq = 1e6f;
+          int min_rot_id = 0;
+          for (int k = 0; k < ROT_COUNT; k++)
+          {
+            size_t target_off = node_id_to_dataset_group_off[node_id] + k * dist_count;
+            float dist_sq = 0;
+            for (int l = 0; l < dist_count; l++)
+              dist_sq += (dataset.all_points[lead_off + l] - dataset.all_points[target_off + l]) * (dataset.all_points[lead_off + l] - dataset.all_points[target_off + l]);
+            if (dist_sq < min_dist_sq)
+            {
+              min_dist_sq = dist_sq;
+              min_rot_id = k;
+            }
+          }
+
+          rotation_ids[node_id] = min_rot_id;
+        }
+      }
+    }
+
+    output.node_id_cleaf_id_remap.resize(g_octree.nodes.size(), 0);
+    output.tranform_codes.resize(g_octree.nodes.size(), 0);
+    output.compressed_data.resize(clusters.size() * dist_count);
+
+    //Main cycle to prepare the similarity compression output.
+    //We replace each cluster with it's centroid. It is not perfect from
+    //math standpoint, because we are in brick metric space, not R^n, but
+    //it almost always gives better result that picking leading brick
+    int unique_node_id = 0;
+    std::vector<float> centroid(dist_count, 0);
+    for (const Cluster &cluster : clusters)
+    {
+      int lead_id = cluster.lead_id;
+      std::fill_n(centroid.data(), dist_count, 0);
+
+      //calculate centroid
+      //Note, that we use actual brick data and not dataset
+      //because we want the centroid to be AN ACTUAL BRICK
+      //(we'll actually render it, although with some transformations)
+      for (int node_id : cluster.point_ids)
+      {
+        int off_a = g_octree.nodes[node_id].val_off;
+        for (int x = 0; x < v_size; x++)
+        {
+          for (int y = 0; y < v_size; y++)
+          {
+            for (int z = 0; z < v_size; z++)
+            {
+              int idx = x * v_size * v_size + y * v_size + z;
+              int3 rot_vec2 = int3(LiteMath::mul4x3(rotations4[rotation_ids[node_id]], float3(x, y, z)));
+              int rot_idx = rot_vec2.x * v_size * v_size + rot_vec2.y * v_size + rot_vec2.z;
+              centroid[idx] += g_octree.values_f[off_a + rot_idx];
+            }
+          }
+        }
+      }
+
+      float centroid_average = 0;
+      for (int k = 0; k < dist_count; k++)
+      {
+        centroid[k] /= cluster.count;
+        centroid_average += centroid[k];
+      }
+      centroid_average /= dist_count;
+
+      //Save centroid to output
+      //Note: centroid[k] - centroid_average + average_brick_val[lead_id]
+      //This line shifts centroid average to lead brick average
+      //This is not necessary, but gives better result during brick dynamic compression
+      //In some cases centroid can have weird average values that will be compressed with
+      //large error. It might be bug, idk.
+      for (int k = 0; k < dist_count; k++)
+        output.compressed_data[unique_node_id*dist_count + k] = centroid[k] - centroid_average + average_brick_val[lead_id];
+
+      for (int node_id : cluster.point_ids)
+      {
+        TransformCompact tc;
+        tc.rotation_id = inverse_indices[rotation_ids[node_id]];
+        tc.add = (average_brick_val[node_id] - average_brick_val[lead_id]);
+        output.node_id_cleaf_id_remap[node_id] = unique_node_id;
+        output.tranform_codes[node_id] = get_transform_code(tc);
+      }
+      unique_node_id++;
+    }
+    output.leaf_count = unique_node_id;
+  }
 
   void clustering_recursive_fill(std::vector<Cluster> &final_clusters, const std::vector<Cluster> &components,
                                  const std::vector<std::vector<Link>> &sim_graph, int total_node_count)
@@ -492,7 +559,7 @@ namespace scom
       }
       else
       {        
-        // printf("Hierarchical clustering, %d clusters\n", component.count);
+        printf("Hierarchical clustering, %d points\n", component.count);
         auto t1 = std::chrono::high_resolution_clock::now();
 
         Dist absolute_min(-1, -1, MAX_DISTANCE);
@@ -813,7 +880,7 @@ namespace scom
     final_clusters.shrink_to_fit();
   }
 
-  void similarity_compression_hierarchical(const sdf_converter::GlobalOctree &g_octree, const Settings &settings, CompressionOutput &output)
+  void similarity_compression_advanced(const sdf_converter::GlobalOctree &g_octree, const Settings &settings, CompressionOutput &output)
   {
     auto tt1 = std::chrono::high_resolution_clock::now();
  
@@ -824,7 +891,6 @@ namespace scom
     int dist_count = v_size * v_size * v_size;
     std::vector<float> average_brick_val(g_octree.nodes.size(), 0);
     std::vector<float> closest_dist(g_octree.nodes.size(), settings.similarity_threshold);
-    std::vector<unsigned> remap_2(g_octree.nodes.size(), 0);
     std::vector<bool> surface_node(g_octree.nodes.size(), false);
 
     auto inverse_indices = get_inverse_transform_indices();
@@ -832,8 +898,6 @@ namespace scom
     for (int i=0; i<g_octree.nodes.size(); i++)
     {
       int off = g_octree.nodes[i].val_off;
-
-      remap_2[i] = surface_node_count;
 
       if (g_octree.nodes[i].offset == 0 && g_octree.nodes[i].is_not_void)
       {
@@ -855,14 +919,27 @@ namespace scom
 
     std::unique_ptr<INNSearchAS> NN_search_AS;
 
-    if (settings.search_algorithm == SearchAlgorithm::LINEAR_SEARCH)
+    if (settings.search_algorithm == SearchAlgorithm::LINEAR_SEARCH ||
+        settings.search_algorithm == SearchAlgorithm::BRUTE_FORCE)
     {
       NN_search_AS.reset(new LinearSearchAS());
       NN_search_AS->build(dataset, 1);
     }
     else if (settings.search_algorithm == SearchAlgorithm::BALL_TREE)
     {
-      NN_search_AS.reset(new BallTree());
+      #ifdef __AVX2__
+        switch (dist_count)
+        {
+          case  2*2*2: NN_search_AS.reset(new BallTreeFD<8>());  break;
+          case  4*4*4: NN_search_AS.reset(new BallTreeFD<64>()); break;
+          case  6*6*6: NN_search_AS.reset(new BallTreeFD<216>());break;
+          case  8*8*8: NN_search_AS.reset(new BallTreeFD<512>());break;
+          default: NN_search_AS.reset(new BallTree());       break;
+        }
+      #else
+        NN_search_AS.reset(new BallTree());
+      #endif
+      
       NN_search_AS->build(dataset, 32);
     }
 
@@ -999,65 +1076,16 @@ namespace scom
     auto t4 = std::chrono::high_resolution_clock::now();
     printf("clustering %.2f ms\n", 1e-3f*std::chrono::duration_cast<std::chrono::microseconds>(t4-t3).count()); 
 
-    // prepare remaps from clusters
-    int remapped = 0;
-    std::vector<unsigned> remap(g_octree.nodes.size());
-    std::vector<TransformCompact> remap_transforms(g_octree.nodes.size());
-
-    for (int i = 0; i < total_node_count; i++)
-    {
-      remap[i] = i;
-      remap_transforms[i] = get_identity_transform();
-    }
-
-    for (int i = 0; i < final_clusters.size(); i++)
-    {
-      int lead_id = final_clusters[i].lead_id;
-      if (final_clusters[i].count == 1)
-      {
-        remap[lead_id] = lead_id;
-        remap_transforms[lead_id].rotation_id = 0;
-        remap_transforms[lead_id].add = average_brick_val[lead_id];
-      }
-      else
-      {
-        remapped += final_clusters[i].count - 1;
-
-        int lead_off = remap_2[lead_id] * ROT_COUNT * dist_count;
-        float max_dist = 0;
-        for (int j = 0; j < final_clusters[i].point_ids.size(); j++)
-        {
-          float min_dist_sq = 1e6f;
-          int min_rot_id = 0;
-          for (int k = 0; k < ROT_COUNT; k++)
-          {
-            int target_off = remap_2[final_clusters[i].point_ids[j]] * ROT_COUNT * dist_count + k * dist_count;
-            float dist_sq = 0;
-            for (int l = 0; l < dist_count; l++)
-              dist_sq += (dataset.all_points[lead_off + l] - dataset.all_points[target_off + l]) * (dataset.all_points[lead_off + l] - dataset.all_points[target_off + l]);
-            if (dist_sq < min_dist_sq)
-            {
-              min_dist_sq = dist_sq;
-              min_rot_id = k;
-            }
-          }
-          max_dist = std::max(max_dist, sqrtf(min_dist_sq));
-
-          remap[final_clusters[i].point_ids[j]] = lead_id;
-          remap_transforms[final_clusters[i].point_ids[j]].rotation_id = inverse_indices[min_rot_id];
-          remap_transforms[final_clusters[i].point_ids[j]].add = average_brick_val[final_clusters[i].point_ids[j]];
-        }
-        //printf("%d) %d nodes, max dist = %f/%f\n", final_clusters[i].lead_id, final_clusters[i].count, max_dist, settings.similarity_threshold);
-      }
-    }
+    prepare_output(g_octree, settings, dataset, average_brick_val, final_clusters, output);
     auto t5 = std::chrono::high_resolution_clock::now();
-    printf("prepare remaps %.2f ms\n", 1e-3f*std::chrono::duration_cast<std::chrono::microseconds>(t5-t4).count()); 
-
-    prepare_output(g_octree, settings, remap, remap_2, surface_node, surface_node_count, remap_transforms, dataset, output);
-    auto t6 = std::chrono::high_resolution_clock::now();
-    printf("prepare output %.2f ms\n", 1e-3f*std::chrono::duration_cast<std::chrono::microseconds>(t6-t5).count());  
+    printf("prepare output %.2f ms\n", 1e-3f*std::chrono::duration_cast<std::chrono::microseconds>(t5-t4).count());  
     
-    printf("total time = %.2f ms\n", 1e-3f*std::chrono::duration_cast<std::chrono::microseconds>(t6-tt1).count());
+    printf("total time = %.2f ms\n", 1e-3f*std::chrono::duration_cast<std::chrono::microseconds>(t5-tt1).count());
+    
+    int remapped = 0;
+    for (int i = 0; i < final_clusters.size(); i++)
+      remapped += final_clusters[i].count - 1;
+
     printf("remapped %d/%d nodes\n", remapped, surface_node_count);
   }
 
@@ -1071,7 +1099,6 @@ namespace scom
     std::vector<float> average_brick_val(g_octree.nodes.size(), 0);
     std::vector<float> closest_dist(g_octree.nodes.size(), settings.similarity_threshold);
     std::vector<unsigned> remap(g_octree.nodes.size());
-    std::vector<unsigned> remap_2(g_octree.nodes.size(), 0);
     std::vector<TransformCompact> remap_transforms(g_octree.nodes.size());
     std::vector<bool> surface_node(g_octree.nodes.size(), false);
 
@@ -1083,7 +1110,6 @@ namespace scom
 
       remap[i] = i;
       remap_transforms[i] = get_identity_transform();
-      remap_2[i] = surface_node_count;
 
       if (g_octree.nodes[i].offset == 0 && g_octree.nodes[i].is_not_void)
       {
@@ -1102,7 +1128,8 @@ namespace scom
 
     std::unique_ptr<INNSearchAS> NN_search_AS;
 
-    if (settings.search_algorithm == SearchAlgorithm::LINEAR_SEARCH)
+    if (settings.search_algorithm == SearchAlgorithm::LINEAR_SEARCH ||
+        settings.search_algorithm == SearchAlgorithm::BRUTE_FORCE)
     {
       NN_search_AS.reset(new LinearSearchAS());
       NN_search_AS->build(dataset, 1);
@@ -1125,7 +1152,7 @@ namespace scom
       remap_transforms[i].rotation_id = 0;
       remap_transforms[i].add = dataset.data_points[point_a].average_val;
       
-      int off_a = dataset.data_points[point_a].data_offset;
+      size_t off_a = dataset.data_points[point_a].data_offset;
 
       if (settings.search_algorithm == SearchAlgorithm::BRUTE_FORCE)
       {
@@ -1133,7 +1160,7 @@ namespace scom
         for (int point_b = point_a + ROT_COUNT; point_b < dataset.data_points.size(); point_b++)
         {
           int j = dataset.data_points[point_b].original_id;
-          int off_b = dataset.data_points[point_b].data_offset;
+          size_t off_b = dataset.data_points[point_b].data_offset;
 
           float diff = 0;
           float dist = 0;
@@ -1187,7 +1214,27 @@ namespace scom
     printf("remapping took %.1f s (%.1f ms/leaf)\n", 1e-6f*time, 1e-3f*time/surface_node_count);
     printf("remapped %d/%d nodes\n", remapped, surface_node_count);
 
-    prepare_output(g_octree, settings, remap, remap_2, surface_node, surface_node_count, remap_transforms, dataset, output);
+    std::vector<Cluster> clusters;
+    std::vector<int> lead_node_id_to_cluster_id(g_octree.nodes.size(), -1);
+
+    for (int i = 0; i < g_octree.nodes.size(); i++)
+    {
+      if (surface_node[i] && remap[i] == i)
+      {
+        clusters.emplace_back();
+        clusters.back().lead_id = i;
+        lead_node_id_to_cluster_id[i] = clusters.size() - 1;
+      }
+    }
+    for (int i = 0; i < g_octree.nodes.size(); i++)
+    {
+      if (surface_node[i])
+      {
+        clusters[lead_node_id_to_cluster_id[remap[i]]].point_ids.push_back(i);
+        clusters[lead_node_id_to_cluster_id[remap[i]]].count++;
+      }
+    }
+    prepare_output(g_octree, settings, dataset, average_brick_val, clusters, output);
   }
 
   void similarity_compression(const sdf_converter::GlobalOctree &octree, const Settings &settings, CompressionOutput &output)
@@ -1196,8 +1243,7 @@ namespace scom
         settings.clustering_algorithm == ClusteringAlgorithm::COMPONENTS_MERGE ||
         settings.clustering_algorithm == ClusteringAlgorithm::COMPONENTS_RECURSIVE_FILL)
     {
-      similarity_compression_hierarchical(octree, settings, output);
-      //similarity_compression_replacement(octree, settings, output);
+      similarity_compression_advanced(octree, settings, output);
     }
     else if (settings.clustering_algorithm == ClusteringAlgorithm::REPLACEMENT)
     {
@@ -1205,7 +1251,7 @@ namespace scom
     }
     else
     {
-      printf("Only replacement similarity compression is supported\n");
+      printf("[similarity_compression::ERROR] unknown clustering algorithm\n");
     }
   }
 }

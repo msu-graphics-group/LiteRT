@@ -57,6 +57,15 @@ namespace testing
         log_cmp(a, b, a_desc, b_desc, "=", "!=", ok, loc);
     } 
 
+    void check_less(float a, float b, std::string_view a_desc, std::string_view b_desc, bool eq, source_location loc)
+    {
+        std::string_view sign = eq ? "<=" : "<";
+        std::string_view neg = eq ? ">" : ">=";
+        bool ok = eq ? a <= b : a < b;
+        log_cmp(a, b, a_desc, b_desc, sign, neg, ok, loc);
+    }
+
+
     void log_metric(
         std::string_view ref_desc,
         std::string_view other_desc,

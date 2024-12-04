@@ -21,26 +21,6 @@ namespace scom
 
 namespace sdf_converter
 {
-  SdfSBS frame_octree_to_SBS(MultithreadedDistanceFunction sdf, 
-                             unsigned max_threads,
-                             const std::vector<SdfFrameOctreeNode> &nodes,
-                             const SdfSBSHeader &header);
-
-  std::vector<SdfFrameOctreeNode> construct_sdf_frame_octree(SparseOctreeSettings settings, MultithreadedDistanceFunction sdf, float eps, 
-                                                             unsigned max_threads, bool is_smooth, bool fix_artefacts);
-
-  void mesh_octree_to_sdf_frame_octree(const cmesh4::SimpleMesh &mesh,
-                                       const cmesh4::TriangleListOctree &tl_octree, 
-                                       std::vector<SdfFrameOctreeNode> &out_frame);
-
-  void mesh_octree_to_psdf_frame_octree(const cmesh4::SimpleMesh &mesh,
-                                       const cmesh4::TriangleListOctree &tl_octree, 
-                                       std::vector<SdfFrameOctreeNode> &out_frame);
-
-  void mesh_octree_to_vmpdf(const cmesh4::SimpleMesh &mesh,
-                            const cmesh4::TriangleListOctree &tl_octree, 
-                            std::vector<SdfFrameOctreeNode> &out_frame);
-
   void sdf_to_global_octree(SparseOctreeSettings settings, MultithreadedDistanceFunction sdf, 
                             unsigned max_threads, GlobalOctree &octree);
 
@@ -56,30 +36,6 @@ namespace sdf_converter
   void global_octree_to_compact_octree_v3(const GlobalOctree &octree, COctreeV3 &compact_octree, unsigned max_threads);
   void global_octree_to_compact_octree_v3(const GlobalOctree &octree, COctreeV3 &compact_octree, unsigned max_threads, const scom::Settings &settings);
 
-  void mesh_octree_to_sdf_frame_octree_tex(const cmesh4::SimpleMesh &mesh,
-                                           const cmesh4::TriangleListOctree &tl_octree, 
-                                           std::vector<SdfFrameOctreeTexNode> &out_frame);
-
   void frame_octree_limit_nodes(std::vector<SdfFrameOctreeNode> &frame, unsigned nodes_limit,
                                 bool count_only_border_nodes);
-  void frame_octree_to_SVS_rec(const std::vector<SdfFrameOctreeNode> &frame,
-                               std::vector<SdfSVSNode> &nodes,
-                               unsigned idx, uint3 p, unsigned lod_size);
-
-  SdfSBS frame_octree_to_SBS_tex(MultithreadedDistanceFunction sdf, 
-                                 unsigned max_threads,
-                                 const std::vector<SdfFrameOctreeTexNode> &nodes,
-                                 const SdfSBSHeader &header);
-
-  SdfSBS SBS_col_to_SBS_ind(const SdfSBS &sbs);
-
-  SdfSBS SBS_ind_to_SBS_ind_with_neighbors(const SdfSBS &sbs);
-
-  std::vector<SdfFrameOctreeNode> construct_sdf_frame_octree(SparseOctreeSettings settings, MultithreadedDistanceFunction sdf, 
-                                                             unsigned max_threads);
-
-  std::vector<SdfCompactOctreeNode> frame_octree_to_compact_octree(const std::vector<SdfFrameOctreeNode> &frame);
-  std::vector<uint32_t> frame_octree_to_compact_octree_v2(const std::vector<SdfFrameOctreeNode> &frame);
-  std::vector<uint32_t> frame_octree_to_compact_octree_v3(const std::vector<SdfFrameOctreeTexNode> &frame, COctreeV3Header header,
-                                                          MultithreadedDistanceFunction sdf, unsigned max_threads);
 }

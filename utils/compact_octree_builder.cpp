@@ -701,7 +701,7 @@ namespace sdf_converter
     }
     auto t3 = std::chrono::high_resolution_clock::now();
     //printf("octree compression %.2f ms\n", 1e-6f*std::chrono::duration_cast<std::chrono::nanoseconds>(t3 - t2).count());
-    //printf("compact octree %.1f Kb leaf, %.1f Kb non-leaf\n", stat_leaf_bytes.load() / 1024.0f, stat_nonleaf_bytes.load() / 1024.0f);
+    printf("compact octree %.1f Kb leaf, %.1f Kb non-leaf\n", stat_leaf_bytes.load() / 1024.0f, stat_nonleaf_bytes.load() / 1024.0f);
 
     global_ctx.compact.shrink_to_fit();
     compact_octree.data = global_ctx.compact;

@@ -8,7 +8,7 @@
 // -s, --slicer        = str str // slicer parameters
 //
 ///  Config files
-// -d, --def_conf      = str // path to a config file containing defaults and enums
+// -e, --enum_conf     = str // path to a config file containing enums
 //     --conf          = str // path to a config file (input arguments overwrite it)
 // -v, --verbose             // show processing info
 //
@@ -38,14 +38,14 @@
 
 
 
-BenchmarkAppConfig read_enums_config(const char *defaults_config_fpath)
+BenchmarkAppConfig read_enums_config(const char *enums_config_fpath)
 {
   BenchmarkAppConfig res_defaults{};
   Block block_defaults{};
 
-  if (!load_block_from_file(defaults_config_fpath, block_defaults))
+  if (!load_block_from_file(enums_config_fpath, block_defaults))
   {
-    printf("Error: Could not read defaults file: %s\n", defaults_config_fpath);
+    printf("Error: Could not read defaults file: %s\n", enums_config_fpath);
     exit(-1);
   }
 
@@ -58,7 +58,7 @@ BenchmarkAppConfig read_enums_config(const char *defaults_config_fpath)
   return res_defaults;
 }
 
-void write_defaults_config(const char *defaults_config_fpath, const BenchmarkAppConfig &in_enums, const BenchmarkAppConfig &in_defaults)
+void write_enums_config(const char *enums_config_fpath, const BenchmarkAppConfig &in_enums, const BenchmarkAppConfig &in_defaults)
 {
   Block block_defaults{};
 
@@ -83,7 +83,7 @@ void write_defaults_config(const char *defaults_config_fpath, const BenchmarkApp
   block_defaults.set_int("iters", in_defaults.iters);
   block_defaults.set_int("spp", in_defaults.spp);
 
-  save_block_to_file(defaults_config_fpath, block_defaults);
+  save_block_to_file(enums_config_fpath, block_defaults);
 }
 
 BenchmarkAppConfig read_benchmark_config(const char *benchmark_config_fpath)
@@ -114,7 +114,7 @@ BenchmarkAppConfig read_benchmark_config(const char *benchmark_config_fpath)
   return res_benchmark;
 }
 
-void write_benchmark_config(const char *defaults_config_fpath, const BenchmarkAppConfig &in_benchmark)
+void write_benchmark_config(const char *benchmark_config_fpath, const BenchmarkAppConfig &in_benchmark)
 {
   Block block_benchmark{};
 
@@ -132,7 +132,7 @@ void write_benchmark_config(const char *defaults_config_fpath, const BenchmarkAp
   block_benchmark.set_int("iters", in_benchmark.iters);
   block_benchmark.set_int("spp", in_benchmark.spp);
 
-  save_block_to_file(defaults_config_fpath, block_benchmark);
+  save_block_to_file(benchmark_config_fpath, block_benchmark);
 }
 
 std::string write_render_config_s(const RenderAppConfig &in_render)
@@ -140,10 +140,13 @@ std::string write_render_config_s(const RenderAppConfig &in_render)
   std::string res_block_str;
   Block block_render{};
 
+  block_render.set_string("lod", in_render.lod);
+  block_render.set_string("type", in_render.type);
   block_render.set_string("model", in_render.model);
-  block_render.set_string("render_mode", in_render.render_mode);
-  block_render.set_arr("param_strings", in_render.param_strings);
-  block_render.set_arr("lods", in_render.lods);
+  block_render.set_string("backend", in_render.backend);
+  block_render.set_string("renderer", in_render.renderer);
+  block_render.set_string("param_string", in_render.param_string);
+  block_render.set_arr("render_modes", in_render.render_modes);
 
   block_render.set_int("width", in_render.width);
   block_render.set_int("height", in_render.height);
@@ -157,18 +160,49 @@ std::string write_render_config_s(const RenderAppConfig &in_render)
 
 
 
-std::vector<std::string> filter_enum_params(const char **argv, uint32_t len, const std::vector<std::string> supported_tags)
+// SAME AS IN BENCHMARK_BACKEND.CPP
+
+std::string get_model_name(std::string model_path)
+{
+  uint32_t last_dot = model_path.rfind('.');
+  uint32_t last_slash = model_path.rfind('/');
+  if (last_slash == model_path.npos && model_path.rfind('\\') != model_path.npos)
+    last_slash = model_path.rfind('\\');
+  
+  uint32_t substr_beg = last_slash + (last_slash != model_path.npos);
+  uint32_t substr_end = last_dot;
+
+  std::string model_name = model_path.substr(substr_beg, substr_end - substr_beg);
+  return model_name;
+}
+
+std::string generate_filename_model_no_ext(std::string model_path, std::string repr_type, std::string lod, std::string param_string)
+{
+  return "benchmark/" + get_model_name(model_path) + "/models/" + repr_type + "/lod_" + lod + '_' + param_string;
+}
+
+std::string generate_filename_image(std::string model_path, std::string renderer, std::string backend, std::string repr_type, std::string lod, std::string param_string, uint32_t camera)
+{
+  // LoadImage("benchmark/bunny/hydra/GPU/mesh/lod_high_default_cam_i.png");
+  return "benchmark/" + get_model_name(model_path) + "/" + renderer + "/" + backend + "/" + repr_type +
+          "/lod_" + lod + '_' + param_string + "_cam_" + std::to_string(camera) + ".png";
+}
+
+// COPY END
+
+
+std::vector<std::string> filter_enum_params(const std::vector<std::string> &tags, const std::vector<std::string> &supported_tags)
 {
   std::vector<std::string> res;
   std::vector<bool> enum_flags;
   enum_flags.resize(supported_tags.size(), false);
 
-  for (uint32_t i = 0u; i < len; ++i)
+  for (const auto &tag : tags)
   {
     bool found = false;
     for (uint32_t j = 0u; j < supported_tags.size(); ++j)
     {
-      if (supported_tags[j] == argv[i] && !enum_flags[j])
+      if (supported_tags[j] == tag && !enum_flags[j])
       {
         enum_flags[j] = true;
         res.push_back(supported_tags[j]);
@@ -179,7 +213,7 @@ std::vector<std::string> filter_enum_params(const char **argv, uint32_t len, con
 
     if (!found)
     {
-      printf("Error: Could not match token: %s\n", argv[i]);
+      printf("Error: Could not match token: %s\n", tag.c_str());
       exit(-1);
     }
   }
@@ -188,18 +222,18 @@ std::vector<std::string> filter_enum_params(const char **argv, uint32_t len, con
 }
 
 
-void call_kernel_slicer(const BenchmarkAppConfig &defaults, const std::string &repr_type, const std::string &renderer,
+void call_kernel_slicer(const BenchmarkAppConfig &config, const std::string &repr_type, const std::string &renderer,
                         const std::string &backend, const std::string &slicer_dir, const std::string &slicer_exec)
 {
 // Slicer preprocess
 
   std::string disable_flags;
-  disable_flags.reserve(defaults.types.size() - 1);
+  disable_flags.reserve(config.types.size() - 1);
 
-  for (uint32_t i = 0u; i < defaults.types.size(); ++i)
+  for (uint32_t i = 0u; i < config.types.size(); ++i)
   {
-    if (defaults.types[i] != repr_type)
-      disable_flags += " -DDISABLE_" + defaults.types[i];
+    if (config.types[i] != repr_type)
+      disable_flags += " -DDISABLE_" + config.types[i];
   }
 
   // current ans slicer directories
@@ -207,8 +241,6 @@ void call_kernel_slicer(const BenchmarkAppConfig &defaults, const std::string &r
 
   std::filesystem::current_path(slicer_dir);
   slicer_p = std::filesystem::current_path();
-  // printf("curr path: %s\n", curr_p.c_str());
-  // printf("slicer path: %s\n", slicer_p.c_str());
   std::filesystem::current_path(curr_p);
 
 
@@ -217,6 +249,23 @@ void call_kernel_slicer(const BenchmarkAppConfig &defaults, const std::string &r
   std::string main_class = " MultiRenderer";
   std::string renderer_src = " " + curr_p.native() + "/Renderer/eye_ray.cpp";
   std::string parameters = "";
+
+  if (backend == "GPU_RQ")
+  {
+    parameters += "\
+    -options " + curr_p.native() + "/options.json \
+    -intersectionShader AbstractObject::Intersect \
+    -intersectionTriangle GeomDataTriangle \
+    -intersectionBlackList GeomDataRF \
+    -intersectionBlackList GeomDataGS";
+  }
+  else if (backend == "RTX")
+  {
+    parameters += "\
+    -options " + curr_p.native() + "/options.json \
+    -intersectionShader AbstractObject::Intersect";
+  }
+  parameters += " -enable_ray_tracing_pipeline " + std::to_string(backend == "RTX");
 
   if (renderer == "MR")
   {
@@ -234,20 +283,7 @@ void call_kernel_slicer(const BenchmarkAppConfig &defaults, const std::string &r
     -I" + curr_p.native() + "/BVH                   process \
     -I" + curr_p.native() + "/sdfScene              ignore";
 
-    if (backend == "GPU_RQ")
-      i_params += "\
-      -options " + curr_p.native() + "/options.json \
-      -intersectionShader AbstractObject::Intersect \
-      -intersectionTriangle GeomDataTriangle \
-      -intersectionBlackList GeomDataRF \
-      -intersectionBlackList GeomDataGS";
-    else if (backend == "RTX")
-      i_params += "\
-      -options " + curr_p.native() + "/options.json \
-      -intersectionShader AbstractObject::Intersect";
-
-    parameters = i_params + multirenderer_suffix + " -DPUGIXML_NO_EXCEPTIONS -DKERNEL_SLICER -v "
-    + "-enable_ray_tracing_pipeline " + std::to_string(backend == "RTX");
+    parameters += i_params + multirenderer_suffix + " -DPUGIXML_NO_EXCEPTIONS -DKERNEL_SLICER -v ";
   }
   else if (renderer == "Hydra")
   {
@@ -270,8 +306,7 @@ void call_kernel_slicer(const BenchmarkAppConfig &defaults, const std::string &r
     -I" + curr_p.native() + "/BVH                   process \
     -I" + curr_p.native() + "/sdfScene              ignore  ";
 
-    parameters = i_params + "\
-    -enable_ray_tracing_pipeline 0 \
+    parameters += i_params + "\
     -enable_motion_blur 0 \
     -gen_gpu_api 0 \
     -DLITERT_RENDERER \
@@ -340,11 +375,10 @@ void call_kernel_slicer(const BenchmarkAppConfig &defaults, const std::string &r
 
 int main(int argc, const char **argv)
 {
-  BenchmarkAppConfig defaults{}, config{};
-  RenderAppConfig render_config{};
+  BenchmarkAppConfig enums{}, config{};
 
   bool verbose = false;
-  const char *defaults_config_fpath = "benchmark/defaults.blk", *base_config_fpath = "benchmark/defaults.blk";
+  const char *enums_config_fpath = "benchmark/enums.blk", *base_config_fpath = "benchmark/config.blk";
   const char *slicer_dir = "~/kernel_slicer/", *slicer_exec = "~/kernel_slicer/cmake-build-release/kslicer";
 
 
@@ -357,7 +391,7 @@ int main(int argc, const char **argv)
   {
     if (argv[i][0] == '-')
     {
-      if (std::string("-d") == argv[i] || std::string("--def_conf") == argv[i])
+      if (std::string("-e") == argv[i] || std::string("--enum_conf") == argv[i])
         param_ind_defaults = param_indices.size();
       else if (std::string("--conf") == argv[i])
         param_ind_base = param_indices.size();
@@ -371,14 +405,14 @@ int main(int argc, const char **argv)
 
 // Process config flags
   if (param_ind_defaults >= 0u) {
-    // --def_conf
+    // --enum_conf
     uint32_t start = param_indices[param_ind_defaults] + 1, fin = param_indices[param_ind_defaults + 1];
     if ((fin - start) != 1)
     {
-      printf("Error: --def_conf expects 1 parameter, got %d\n", fin - start);
+      printf("Error: --enum_conf expects 1 parameter, got %d\n", fin - start);
       exit(-1);
     }
-    defaults_config_fpath = argv[start];
+    enums_config_fpath = argv[start];
   }
 
   if (param_ind_base >= 0u) {
@@ -392,7 +426,7 @@ int main(int argc, const char **argv)
     base_config_fpath = argv[start];
   }
 
-  defaults = read_enums_config(defaults_config_fpath); // reads enums
+  enums = read_enums_config(enums_config_fpath); // reads enums
   config = read_benchmark_config(base_config_fpath); // reads defaults
 
 
@@ -407,27 +441,37 @@ int main(int argc, const char **argv)
 
     if (flag == "-v" || flag == "--verbose")
       verbose = true;
-    else if ("-d" == flag || "--def_conf" == flag || "--conf" == flag)
+    else if ("-e" == flag || "--enum_conf" == flag || "--conf" == flag)
     {} // skip
     else if (flag == "-b" || flag == "--backends")
     {
-      config.backends = filter_enum_params(argv + start, fin - start, defaults.backends);
+      config.backends.reserve(fin - start);
+      for (uint32_t i = start; i < fin; ++i)
+        config.backends.push_back(std::string(argv[i]));
     }
     else if (flag == "-r" || flag == "--renderers")
     {
-      config.renderers = filter_enum_params(argv + start, fin - start, defaults.renderers);
+      config.renderers.reserve(fin - start);
+      for (uint32_t i = start; i < fin; ++i)
+        config.renderers.push_back(std::string(argv[i]));
     }
     else if (flag == "-t" || flag == "--types")
     {
-      config.types = filter_enum_params(argv + start, fin - start, defaults.types);
+      config.types.reserve(fin - start);
+      for (uint32_t i = start; i < fin; ++i)
+        config.types.push_back(std::string(argv[i]));
     }
     else if (flag == "-rm" || flag == "--render_modes")
     {
-      config.render_modes = filter_enum_params(argv + start, fin - start, defaults.render_modes);
+      config.render_modes.reserve(fin - start);
+      for (uint32_t i = start; i < fin; ++i)
+        config.render_modes.push_back(std::string(argv[i]));
     }
     else if (flag == "--lods")
     {
-      config.lods = filter_enum_params(argv + start, fin - start, defaults.lods);
+      config.lods.reserve(fin - start);
+      for (uint32_t i = start; i < fin; ++i)
+        config.lods.push_back(std::string(argv[i]));
     }
     else if (flag == "-m" || flag == "--models")
     {
@@ -473,6 +517,14 @@ int main(int argc, const char **argv)
     }
   }
 
+// Filter enums
+
+  config.backends = filter_enum_params(config.backends, enums.backends);
+  config.renderers = filter_enum_params(config.renderers, enums.renderers);
+  config.types = filter_enum_params(config.types, enums.types);
+  config.render_modes = filter_enum_params(config.render_modes, enums.render_modes);
+  config.lods = filter_enum_params(config.lods, enums.lods);
+
 
 // Process slicer_dir path
 
@@ -493,12 +545,25 @@ int main(int argc, const char **argv)
   }
 
 
+// Override types: force MESH on the first place
+
+for (uint32_t i = 0u; i < config.types.size(); ++i)
+{
+  if (config.types[i] == "MESH")
+  {
+    config.types.erase(config.types.begin() + i);
+    break;
+  }
+}
+config.types.insert(config.types.begin(), "MESH");
+
+
 // Print config
 
   if (verbose)
   {
-    printf("Verbose %d\n", verbose);
-    printf("Def conf: %s\n", defaults_config_fpath);
+    printf("Verbose: %d\n", verbose);
+    printf("Def conf: %s\n", enums_config_fpath);
     printf("Base conf: %s\n", base_config_fpath);
     printf("Slicer dir: %s\n", slicer_adir.c_str());
     printf("Slicer exec: %s\n", slicer_exec);
@@ -539,26 +604,36 @@ int main(int argc, const char **argv)
   f.close();
 
   // Benchmark loop
+
+  RenderAppConfig render_config{};
+  render_config.spp = config.spp;
+  render_config.iters = config.iters;
+  render_config.width = config.width;
+  render_config.height = config.height;
+  render_config.cameras = config.cameras;
+  render_config.render_modes = config.render_modes;
+
+
   for (const auto &model : config.models)
   {
-    // TODO: Build SDFs, benchmark_build
-
     for (const auto &renderer : config.renderers)
     {
+      render_config.renderer = renderer;
       for (const auto &backend : config.backends)
       {
-        bool do_slicing = backend != "CPU";
-        if (renderer == "Hydra" && backend != "GPU")
-          do_slicing = false;
+        render_config.backend = backend;
 
+        bool do_slicing = backend != "CPU";
         bool recompile = true;
 
         for (const auto &repr_type : config.types)
         {
+          render_config.type = repr_type;
+
           // Slice
           if (do_slicing)
           {
-            call_kernel_slicer(defaults, repr_type, renderer, backend, slicer_adir, slicer_exec);
+            call_kernel_slicer(enums, repr_type, renderer, backend, slicer_adir, slicer_exec);
             recompile = true;
           }
 
@@ -574,20 +649,68 @@ int main(int argc, const char **argv)
             recompile = false;
           }
 
-          // std::system("DRI_PRIME=1 ./render_app -tests_litert 9");
+          // std::system("DRI_PRIME=1 ./render_app -tests_litert 2");
 
           for (const auto &lod: config.lods)
           {
-            std::string cmd = "DRI_PRIME=1 ./render_app -backend_benchmark ";
-            cmd += model + " " +  backend + " " + renderer + " " + repr_type + " " + 
-                lod + " " + std::to_string(config.width) + " " + std::to_string(config.height) + 
-                " " + std::to_string(config.spp) + " " + std::to_string(config.cameras);
-            
-            std::system(cmd.c_str());
+            render_config.lod = lod;
+            for (const auto &param_string: config.param_strings)
+            {
+              render_config.param_string = param_string;
+
+
+              // Create directories for model and tests
+
+              render_config.model = model;
+              std::string xml_path = generate_filename_model_no_ext(render_config.model, render_config.type, render_config.lod, render_config.param_string) + ".xml";
+              std::string experiment_path = generate_filename_image(render_config.model, render_config.renderer, render_config.backend, render_config.type,
+                                                                    render_config.lod, render_config.param_string,render_config.cameras);
+              std::string dirs_to_create = xml_path.substr(0, (xml_path.rfind('/') != xml_path.npos) ? xml_path.rfind('/') : xml_path.rfind('\\'));
+              printf("Creating model dir: %s\n", dirs_to_create.c_str());
+              std::filesystem::create_directories(dirs_to_create);
+              dirs_to_create = experiment_path.substr(0, (experiment_path.rfind('/') != experiment_path.npos) ? experiment_path.rfind('/') : experiment_path.rfind('\\'));
+              printf("Creating tests dir: %s\n", dirs_to_create.c_str());
+              std::filesystem::create_directories(dirs_to_create);
+
+
+              // Build
+
+              render_config.model = model;
+              std::string config_str = write_render_config_s(render_config);
+
+              std::string cmd = "DRI_PRIME=1 ./render_app -backend_benchmark build ";
+              cmd += "'" + config_str + "'";
+
+              std::system(cmd.c_str());
+              // printf("\n\nCommand:\n%s\n\n", cmd.c_str());
+
+
+              // Render
+              render_config.model = xml_path;
+
+              if (repr_type == "MESH")
+              {
+                render_config.model = model;
+              }
+
+              config_str = write_render_config_s(render_config);
+
+              cmd = "DRI_PRIME=1 ./render_app -backend_benchmark render ";
+              cmd += "'" + config_str + "'";
+
+              std::system(cmd.c_str());
+              // printf("\n\nCommand:\n%s\n\n", cmd.c_str());
+            }
           }
         }
       }
     }
+  }
+
+  {
+    // Run "slicer_execute.sh" with all types On
+    std::string slicer_execute_command = "bash slicer_execute.sh " + slicer_adir + " " + slicer_exec;
+    std::system(slicer_execute_command.c_str());
   }
 
   printf("Benchmark finished\n");

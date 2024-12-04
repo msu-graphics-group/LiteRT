@@ -696,7 +696,7 @@ static float step(float edge0, float edge1, float x)
 float BVHRT::load_tricubic_distance_values(uint32_t nodeId, float3 voxelPos, uint32_t v_size, float sz_inv, const SdfSBSHeader &header, float values[64])
 {
   float vmin = 1e6f;
-
+#ifndef DISABLE_SDF_SBS
   if (header.aux_data == SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F ||
       header.aux_data == SDF_SBS_NODE_LAYOUT_ID32F_IRGB32F_IN)
   {
@@ -718,7 +718,7 @@ float BVHRT::load_tricubic_distance_values(uint32_t nodeId, float3 voxelPos, uin
       }
     }
   }
-
+#endif
   return vmin;
 }
 

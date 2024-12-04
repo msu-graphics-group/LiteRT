@@ -92,7 +92,7 @@ public:
   void SetScene(const Ribbon &rib);
   void SetScene(const OpenVDB_Grid& grid);
   void SetScene(GraphicsPrimView scene);
-  void SetScene(COctreeV3View scene, unsigned bvh_level);
+  void SetScene(COctreeV3View scene, unsigned bvh_level = 0);
 
   void SetScene(COctreeV1View scene);
   void SetScene(COctreeV2View scene);

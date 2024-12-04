@@ -57,7 +57,15 @@ int main(int argc, const char** argv)
     }
     else if (std::string(argv[1]) == "-backend_benchmark")
     {
-      BenchmarkBackend::getMetrics(argv);
+      if (std::string(argv[2]) == "build")
+      {
+        BenchmarkBackend::build_model(argv[3]);
+      }
+      else if (std::string(argv[2]) == "render")
+      {
+        BenchmarkBackend::getMetrics(argv[3]);
+      }
+
       return 0;
     }
     else if (std::string(argv[1]) == "-tests_dr")

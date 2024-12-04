@@ -1,0 +1,14 @@
+{
+backends:arr = { "CPU" }
+renderers:arr = { "MR" }
+render_modes:arr = { "LAMBERT" }
+types:arr = { "MESH", "SDF_GRID", "SDF_SBS", "SDF_SVS" }
+lods:arr = { "high" }
+models:arr = { }
+param_strings:arr = { "size_4_pad_0" }
+width:i = 512
+height:i = 512
+cameras:i = 4
+iters:i = 8
+spp:i = 4
+}

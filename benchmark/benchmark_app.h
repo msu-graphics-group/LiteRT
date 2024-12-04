@@ -27,9 +27,12 @@ struct BenchmarkAppConfig
 struct RenderAppConfig
 {
   std::string model;
-  std::string render_mode;
-  std::vector<std::string> lods;
-  std::vector<std::string> param_strings;
+  std::string renderer;
+  std::string backend;
+  std::string param_string;
+  std::string lod;
+  std::string type;
+  std::vector<std::string> render_modes;
   int width, height;
   int spp;
   int cameras;

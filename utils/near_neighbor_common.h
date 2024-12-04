@@ -43,10 +43,10 @@ namespace scom
     {
       const float *closest_point = nullptr;
       float closest_dist_sq = max_dist*max_dist;
-      for (int i = 0; i < m_dataset.data_points.size(); ++i)
+      for (size_t i = 0; i < m_dataset.data_points.size(); ++i)
       {
         float dist_sq = 0;
-        for (int j = 0; j < m_dim; ++j)
+        for (size_t j = 0; j < m_dim; ++j)
           dist_sq += (query[j] - m_dataset.all_points[i*m_dim + j]) * (query[j] - m_dataset.all_points[i*m_dim + j]);
 
         if (dist_sq < closest_dist_sq)
@@ -66,10 +66,10 @@ namespace scom
     {
       int scan_count = 0;
       float max_dist_sq = max_dist*max_dist;
-      for (int i = 0; i < m_dataset.data_points.size(); ++i)
+      for (size_t i = 0; i < m_dataset.data_points.size(); ++i)
       {
         float dist_sq = 0;
-        for (int j = 0; j < m_dim; ++j)
+        for (size_t j = 0; j < m_dim; ++j)
           dist_sq += (query[j] - m_dataset.all_points[i*m_dim + j]) * (query[j] - m_dataset.all_points[i*m_dim + j]);
         
         if (dist_sq < max_dist_sq)
@@ -83,7 +83,7 @@ namespace scom
     }
 
   private:
-    int m_dim;
+    size_t m_dim;
     Dataset m_dataset;
   };
 }

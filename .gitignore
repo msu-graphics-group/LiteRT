@@ -79,3 +79,6 @@ testrt
 benchmark_app
 benchmark/saves
 benchmark/results
+benchmark/models
+benchmark/MR
+benchmark/HYDRA
