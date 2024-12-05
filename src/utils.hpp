@@ -3,6 +3,8 @@
 #include <vector>
 #include <type_traits>
 
+#include "LiteMath.h"
+
 template<typename T>
 struct StrideView
 {
@@ -72,6 +74,7 @@ private:
 
 //********* Utitilies ***********//
 bool isclose(float a, float b, float eps);
+bool isclose(LiteMath::float3 a, LiteMath::float3 b, float eps);
 bool allclose(std::vector<float> v, std::vector<float> w, float eps);
 
 #endif 

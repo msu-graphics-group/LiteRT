@@ -128,3 +128,17 @@ add_executable(
 )
 target_link_libraries(monotonic_simple_test LiteMath)
 target_include_directories(monotonic_simple_test PUBLIC ${PROJECT_SOURCE_DIR}/src/)
+
+add_executable(
+  intersections_test
+  tests/intersections.cpp
+    src/constants.hpp
+    src/debug.cpp
+    src/debug.hpp
+    src/utils.hpp
+    src/utils.cpp
+    src/curve.hpp
+    src/curve.cpp
+)
+target_link_libraries(intersections_test LiteMath)
+target_include_directories(intersections_test PUBLIC ${PROJECT_SOURCE_DIR}/src/)

@@ -1,15 +1,17 @@
 #include <vector>
 #include <cmath>
 
+#include "LiteMath.h"
 #include "utils.hpp"
 
-// Inverse lerp
-//float ilerp(float a, float b, float t) {
-//  return (t - a) / (b - a);
-//}
+using namespace LiteMath;
 
 bool isclose(float a, float b, float eps) {
   return std::abs(a - b) < eps;
+}
+
+bool isclose(float3 a, float3 b, float eps) {
+  return length(a - b) < eps;
 }
 
 bool allclose(std::vector<float> v, std::vector<float> w, float eps) {

@@ -85,13 +85,17 @@ RBCurve2D::RBCurve2D(
     std::vector<float> weights,
     float tmin,
     float tmax) :
-  BCurve3D( RBCurve2D::Hmap(points, weights), tmin, tmax ) {}
+  BCurve3D( RBCurve2D::Hmap(points, weights), tmin, tmax ) {
+  knots = monotonic_parts(0);
+}
 
 RBCurve2D::RBCurve2D(
     std::vector<LiteMath::float3> Hpoints,
     float tmin,
     float tmax) :
-  BCurve3D( Hpoints, tmin, tmax ) {}
+  BCurve3D( Hpoints, tmin, tmax ) {
+  knots = monotonic_parts(0);
+}
 
 // Homorgeneous map to 3D space coodinates
 std::vector<float3> RBCurve2D::Hmap(
@@ -204,29 +208,18 @@ RBCurve2D::monotonic_parts(int axes, int order) const {
   return result;
 }
 
-void RBCurve2D::bimonotonic_parts() {
-  // TODO: Make only v-knots
-  auto xknots = monotonic_parts(0);
-  auto yknots = monotonic_parts(1);
-  std::merge(
-      xknots.begin(), xknots.end(),
-      yknots.begin(), yknots.end(),
-      std::back_inserter(knots));
-  knots.resize(std::unique(knots.begin(), knots.end()) - knots.begin());
-}
-
 std::vector<float>
 RBCurve2D::intersections(float u0) const {
   std::vector<float> result;
   for (int span = 0; span < knots.size() - 1; ++span) {
-    float u0 = knots[span];
-    float u1 = knots[span+1];
+    float umin = knots[span];
+    float umax = knots[span+1];
     auto f = [&](float t) {
       auto p = get_point(t);
       return p.x - u0;
     };
 
-    auto potential_hit = bisection(f, u0, u1);
+    auto potential_hit = bisection(f, umin, umax);
     if (potential_hit.has_value()) {
       auto u = potential_hit.value();
       result.push_back(u);
@@ -408,15 +401,15 @@ bisection(std::function<float(float)> f, float u1, float u2) {
     }
   }
 
-  // Maybe should use error of function instead of error of l-r
-  while (std::abs(l-r) > c::BISECTION_EPS) {
+  // I tried using error of function instead of error of l-r
+  // (Don't do this)
+  while (std::abs(l-r) > c::BISECTION_EPS) { 
     float m = (l+r) / 2.0f;
     float value = f(m);
-    if (value < 0.0f) {
+    if (value < 0.0f)
       l = m;
-    } else {
+    else
       r = m;
-    }
   }
 
   return (l+r) / 2.0f;
