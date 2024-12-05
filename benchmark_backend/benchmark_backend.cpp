@@ -1,4 +1,4 @@
-#include "benchmark_backend.hpp"
+#include "benchmark_backend.h"
 #ifdef USE_VULKAN
 #include "vk_context.h"
 #endif

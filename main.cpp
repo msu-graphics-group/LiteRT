@@ -8,7 +8,7 @@
 #include "Renderer/eye_ray.h"
 #include "tests/tests.h"
 #include "utils/mesh/mesh.h"
-#include "benchmark_backend/benchmark_backend.hpp"
+#include "benchmark_backend/benchmark_backend.h"
 
 using LiteImage::Image2D;
 
