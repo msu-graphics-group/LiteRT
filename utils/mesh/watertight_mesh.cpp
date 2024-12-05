@@ -1,5 +1,5 @@
 #include "mesh.h"
-#include "common/vector_comparators.h"
+#include "utils/common/vector_comparators.h"
 
 #include <iostream>
 #include <map>

@@ -1,6 +1,6 @@
 #include "mesh.h"
 #include "LiteMath/LiteMath.h"
-#include "common/vector_comparators.h"
+#include "utils/common/vector_comparators.h"
 #include "ply_reader.h"
 
 #include <math.h> 

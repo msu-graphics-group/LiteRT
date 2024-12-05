@@ -7,8 +7,8 @@
 #include "LiteScene/hydraxml.h"
 #include "LiteScene/cmesh4.h"
 #include "../Timer.h"
-#include "../utils/mesh.h"
-#include "../utils/mesh_bvh.h"
+#include "../utils/mesh/mesh.h"
+#include "../utils/mesh/mesh_bvh.h"
 #include "../utils/sdf_converter.h"
 
 using LiteMath::float2;

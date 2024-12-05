@@ -1,6 +1,6 @@
 #include "sdf_scene.h"
 #include "cmesh4.h"
-#include "utils/mesh.h"
+#include "utils/mesh/mesh.h"
 
 #include <cassert>
 #include <fstream>

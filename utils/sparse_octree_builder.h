@@ -3,7 +3,7 @@
 #include <functional>
 #include <fstream>
 #include "../sdfScene/sdf_scene.h"
-#include "../utils/mesh.h"
+#include "../utils/mesh/mesh.h"
 #include "../utils/sdf_converter.h"
 /*
 A class that is able to represent and arbitrary function f : R^3 -> T 

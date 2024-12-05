@@ -89,20 +89,24 @@ set(SCENE_LOADER_SRC
     ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/LiteScene/hydraxml.cpp
     ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/LiteScene/cmesh4.cpp
     ${CMAKE_SOURCE_DIR}/sdfScene/sdf_scene.cpp
+
     ${CMAKE_SOURCE_DIR}/utils/common/csv.cpp
     ${CMAKE_SOURCE_DIR}/utils/common/blk.cpp
-    ${CMAKE_SOURCE_DIR}/utils/mesh_bvh.cpp
-    ${CMAKE_SOURCE_DIR}/utils/mesh.cpp
+
+    ${CMAKE_SOURCE_DIR}/utils/mesh/mesh_bvh.cpp
+    ${CMAKE_SOURCE_DIR}/utils/mesh/mesh.cpp
+    ${CMAKE_SOURCE_DIR}/utils/mesh/watertight_mesh.cpp
+    ${CMAKE_SOURCE_DIR}/utils/mesh/marching_cubes.cpp
+    ${CMAKE_SOURCE_DIR}/utils/mesh/demo_meshes.cpp
+    ${CMAKE_SOURCE_DIR}/utils/mesh/ply_reader.cpp
+    
     ${CMAKE_SOURCE_DIR}/utils/sparse_octree_builder.cpp
     ${CMAKE_SOURCE_DIR}/utils/radiance_field.cpp
     ${CMAKE_SOURCE_DIR}/utils/gaussian_field.cpp
-    ${CMAKE_SOURCE_DIR}/utils/watertight_mesh.cpp
     ${CMAKE_SOURCE_DIR}/utils/sdf_converter.cpp
     ${CMAKE_SOURCE_DIR}/utils/sdf_converter_exotic.cpp
     ${CMAKE_SOURCE_DIR}/utils/hydra_stub.cpp
-    ${CMAKE_SOURCE_DIR}/utils/marching_cubes.cpp
     ${CMAKE_SOURCE_DIR}/utils/sdf_smoother.cpp
-    ${CMAKE_SOURCE_DIR}/utils/demo_meshes.cpp
     ${CMAKE_SOURCE_DIR}/utils/image_metrics.cpp
     ${CMAKE_SOURCE_DIR}/utils/iou.cpp
     ${CMAKE_SOURCE_DIR}/utils/points_visualizer.cpp
@@ -110,7 +114,6 @@ set(SCENE_LOADER_SRC
     ${CMAKE_SOURCE_DIR}/utils/similarity_compression.cpp
     ${CMAKE_SOURCE_DIR}/openvdb_structs/openvdb_common.cpp
     ${CMAKE_SOURCE_DIR}/utils/ball_tree.cpp
-    ${CMAKE_SOURCE_DIR}/utils/ply_reader.cpp
     )
 
 set(CORE_SRC

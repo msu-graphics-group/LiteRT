@@ -2,7 +2,7 @@
 #include <vector>
 #include <functional>
 #include "../sdfScene/sdf_scene.h"
-#include "../utils/mesh.h"
+#include "../utils/mesh/mesh.h"
 #include "../Renderer/eye_ray.h"
 
 namespace scom
