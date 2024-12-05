@@ -927,18 +927,14 @@ namespace scom
     }
     else if (settings.search_algorithm == SearchAlgorithm::BALL_TREE)
     {
-      #ifdef __AVX2__
-        switch (dist_count)
-        {
-          case  2*2*2: NN_search_AS.reset(new BallTreeFD<8>());  break;
-          case  4*4*4: NN_search_AS.reset(new BallTreeFD<64>()); break;
-          case  6*6*6: NN_search_AS.reset(new BallTreeFD<216>());break;
-          case  8*8*8: NN_search_AS.reset(new BallTreeFD<512>());break;
-          default: NN_search_AS.reset(new BallTree());       break;
-        }
-      #else
-        NN_search_AS.reset(new BallTree());
-      #endif
+      switch (dist_count)
+      {
+        case  2*2*2: NN_search_AS.reset(new BallTreeFD<8>());  break;
+        case  4*4*4: NN_search_AS.reset(new BallTreeFD<64>()); break;
+        case  6*6*6: NN_search_AS.reset(new BallTreeFD<216>());break;
+        case  8*8*8: NN_search_AS.reset(new BallTreeFD<512>());break;
+        default: NN_search_AS.reset(new BallTree());       break;
+      }
       
       NN_search_AS->build(dataset, 32);
     }
