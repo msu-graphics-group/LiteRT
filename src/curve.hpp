@@ -5,6 +5,8 @@
 #include <optional>
 #include <functional>
 #include <filesystem>
+#include <limits>
+#include <array>
 
 #include "utils.hpp"
 #include "LiteMath.h"
@@ -66,5 +68,24 @@ NURBSCurve2D load_nurbs_curve(std::filesystem::path path);
 
 std::optional<float>
 bisection(std::function<float(float)> f, float u1, float u2);
+
+struct KdTreeBox
+{
+  LiteMath::float2 boxMin{ std::numeric_limits<float>::infinity() };
+  LiteMath::float2 boxMax{ -std::numeric_limits<float>::infinity() };
+};
+
+struct KdTreeLeave
+{
+  float tmin;
+  float tmax;
+  uint32_t curve_id = -1u;
+};
+
+std::array<RBCurve2D, 2>
+de_casteljau_division(const RBCurve2D &c, float t);
+
+std::tuple<std::vector<KdTreeBox>, std::vector<KdTreeLeave>>
+get_kdtree_leaves(const std::vector<RBCurve2D> &curves);
 
 #endif 

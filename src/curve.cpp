@@ -5,6 +5,7 @@
 #include <functional>
 #include <filesystem>
 #include <fstream>
+#include <numeric>
 
 #include "utils.hpp"
 #include "constants.hpp"
@@ -413,4 +414,110 @@ bisection(std::function<float(float)> f, float u1, float u2) {
   }
 
   return (l+r) / 2.0f;
+}
+
+std::array<RBCurve2D, 2>
+de_casteljau_division(const RBCurve2D &c, float t) {
+  int p = static_cast<int>(c.degree());
+  float t_effective = (t - c.tmin) / (c.tmax - c.tmin);
+  std::vector<float3> tmp(p+1);
+
+  std::array res = { 
+    std::vector<float3>(p+1),
+    std::vector<float3>(p+1)
+  };
+
+  for (int i = 0; i <= p; ++i)
+    tmp[i] = c.points[{0, i}];
+  for (int i = 0; i <= p; ++i) {
+    res[0][i] = tmp[0];
+    res[1][p-i] = tmp[p-i];
+    for (int j = 0; j <= p-i-1; ++j)
+      tmp[j] += (tmp[j+1]-tmp[j])*t_effective;
+  }
+  return std::array{ RBCurve2D(res[0], c.tmin, t), RBCurve2D(res[1], c.tmax, t) };
+}
+
+KdTreeBox calc_box(const RBCurve2D &curve) {
+  KdTreeBox res;
+  for (int i = 0; i <= curve.degree(); ++i) {
+    float3 p3 = curve.points[{0, i}];
+    p3 /= p3.z;
+    float2 p2 = float2{ p3.x, p3.y };
+    res.boxMin = min(res.boxMin, p2);
+    res.boxMax = max(res.boxMax, p2);
+  }
+  return res;
+}
+
+void 
+get_kdtree_leaves_helper(
+    std::vector<RBCurve2D> curves,
+    std::vector<uint32_t> curv_ids, 
+    std::vector<KdTreeBox> &res_boxes,
+    std::vector<KdTreeLeave> &res_leaves,
+    float2 box_min,
+    float2 box_max,
+    int axes = 0) {
+  if (curves.size() == 0) {
+    res_leaves.push_back(KdTreeLeave{ 0.0f, 0.0f, -1u }); 
+    res_boxes.push_back(KdTreeBox{box_min, box_max});
+    return;
+  } 
+  if (curves.size() == 1) {
+    res_leaves.push_back(KdTreeLeave{ curves[0].tmin, curves[0].tmax, curv_ids[0] });
+    res_boxes.push_back(KdTreeBox{box_min, box_max});
+    return;
+  }
+  
+  std::vector<RBCurve2D> left_child_curves, right_child_curves;
+  std::vector<uint32_t> left_child_ids, right_child_ids;
+  float middle = ((box_min+box_max)/2)[axes];
+  for (int i = 0; i < curves.size(); ++i) {
+    auto box = calc_box(curves[i]);
+    if (box.boxMin[axes] >= middle) {
+      right_child_curves.push_back(curves[i]);
+      right_child_ids.push_back(curv_ids[i]);
+    } else if (box.boxMax[axes] < middle) {
+      left_child_curves.push_back(curves[i]);
+      left_child_ids.push_back(curv_ids[i]);
+    } else {
+      auto &curve = curves[i];
+      auto f = [&](float t) {
+        auto p = curve.get_point(t);
+        p /= p.z;
+        return p[axes] - middle;
+      };
+      float t = bisection(f, curve.tmin, curve.tmax).value(); // TODO define chile to put curve if no intersections
+      auto parts = de_casteljau_division(curve, t);
+      auto test_point = parts[0].points[{0, 0}];
+      test_point /= test_point.z;
+      if (test_point[axes] < middle) {
+        left_child_curves.push_back(parts[0]);
+        right_child_curves.push_back(parts[1]);
+      } else {
+        left_child_curves.push_back(parts[1]);
+        right_child_curves.push_back(parts[0]);
+      }
+      left_child_ids.push_back(curv_ids[i]);
+      right_child_ids.push_back(curv_ids[i]);
+    }
+  }
+
+  curves.clear();
+  curves.reserve(0);
+
+  auto lmn = box_min, rmn = box_min;
+  auto lmx = box_max, rmx = box_max;
+  lmx[axes] = middle;
+  rmn[axes] = middle;
+
+  get_kdtree_leaves_helper(
+      std::move(left_child_curves), std::move(left_child_ids), 
+      res_boxes, res_leaves,
+      lmn, lmx, axes^1);
+  get_kdtree_leaves_helper(
+      std::move(right_child_curves), std::move(right_child_ids), 
+      res_boxes, res_leaves,
+      rmn, rmx, axes^1);
 }
