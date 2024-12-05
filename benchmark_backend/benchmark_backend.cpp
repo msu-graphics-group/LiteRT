@@ -217,9 +217,6 @@ namespace BenchmarkBackend
     std::string repr_type = render_config.get_string("type");
     std::string param_string = render_config.get_string("param_string");
 
-    // Not needed in build
-    // std::vector<std::string> render_modes;
-    // render_config.get_arr("render_modes", render_modes);
 
     // Load mesh
 
@@ -237,7 +234,11 @@ namespace BenchmarkBackend
 
     if (repr_type == "MESH")
     {
-      
+      std::string fname_no_ext = generate_filename_model_no_ext(model_path, repr_type, lod, param_string);
+
+      std::string fname_vsgf = fname_no_ext + ".vsgf";
+      cmesh4::SaveMeshToVSGF(fname_vsgf.c_str(), mesh);
+      save_scene_xml(fname_no_ext + ".xml", get_model_name(fname_no_ext) + ".vsgf", mesh, DemoScene::SINGLE_OBJECT);
     }
     else if (repr_type == "SDF_GRID")
     {
@@ -249,7 +250,7 @@ namespace BenchmarkBackend
       std::string fname_no_ext = generate_filename_model_no_ext(model_path, repr_type, lod, param_string);
       
       save_sdf_grid(model_new, fname_no_ext + ".bin");
-      save_scene_xml(fname_no_ext + ".xml", fname_no_ext + ".bin", info, mat_id);
+      save_scene_xml(fname_no_ext + ".xml", get_model_name(fname_no_ext) + ".bin", info, mat_id);
     }
     else if (repr_type == "SDF_SVS")
     {
@@ -261,7 +262,7 @@ namespace BenchmarkBackend
       std::string fname_no_ext = generate_filename_model_no_ext(model_path, repr_type, lod, param_string);
 
       save_sdf_SVS(model_new, fname_no_ext + ".bin");
-      save_scene_xml(fname_no_ext + ".xml", fname_no_ext + ".bin", info, mat_id);
+      save_scene_xml(fname_no_ext + ".xml", get_model_name(fname_no_ext) + ".bin", info, mat_id);
     }
     else if (repr_type == "SDF_SBS")
     {
@@ -275,7 +276,7 @@ namespace BenchmarkBackend
       std::string fname_no_ext = generate_filename_model_no_ext(model_path, repr_type, lod, param_string);
 
       save_sdf_SBS(model_new, fname_no_ext + ".bin");
-      save_scene_xml(fname_no_ext + ".xml", fname_no_ext + ".bin", info, mat_id);
+      save_scene_xml(fname_no_ext + ".xml", get_model_name(fname_no_ext) + ".bin", info, mat_id);
     }
     else if (repr_type == "SDF_FRAME_OCTREE")
     {
@@ -287,7 +288,7 @@ namespace BenchmarkBackend
       std::string fname_no_ext = generate_filename_model_no_ext(model_path, repr_type, lod, param_string);
 
       save_sdf_frame_octree(model_new, fname_no_ext + ".bin");
-      save_scene_xml(fname_no_ext + ".xml", fname_no_ext + ".bin", info, mat_id);
+      save_scene_xml(fname_no_ext + ".xml", get_model_name(fname_no_ext) + ".bin", info, mat_id);
     }
     else if (repr_type == "SDF_FRAME_OCTREE_COMPACT")
     {
@@ -301,7 +302,7 @@ namespace BenchmarkBackend
       std::string fname_no_ext = generate_filename_model_no_ext(model_path, repr_type, lod, param_string);
 
       save_coctree_v3(model_new, fname_no_ext + ".bin");
-      save_scene_xml(fname_no_ext + ".xml", fname_no_ext + ".bin", info, mat_id);
+      save_scene_xml(fname_no_ext + ".xml", get_model_name(fname_no_ext) + ".bin", info, mat_id);
     }
 
     //  Time calculation
@@ -343,11 +344,13 @@ namespace BenchmarkBackend
         spp:i = 4
       }
     */
+    printf("1. Start render\n");
 
     Block render_config;
     load_block_from_string(render_config_str, render_config);
 
     std::string model_path = render_config.get_string("model");
+    std::string model_name = render_config.get_string("model_name") + ".workaround";
     std::string lod = render_config.get_string("lod");
     std::string repr_type = render_config.get_string("type");
     std::string param_string = render_config.get_string("param_string");
@@ -361,27 +364,43 @@ namespace BenchmarkBackend
     int height = render_config.get_int("height");
     int cameras = render_config.get_int("cameras");
     int spp = render_config.get_int("spp");
-    
-    //  If proceed mesh
-    cmesh4::SimpleMesh mesh; 
-
-    if (repr_type == "MESH")
-    {
-      mesh = cmesh4::LoadMeshFromVSGF(model_path.c_str());
-      cmesh4::rescale_mesh(mesh, float3(-0.95, -0.95, -0.95), float3(0.95, 0.95, 0.95));
-    }
+    printf("2.\n");
 
     //  Start measurements
     std::fstream f;
     f.open("benchmark/results/results.csv", std::ios::app);
+    printf("3.\n");
+
+    if (renderer_type == "Hydra" && !render_modes.empty())
+      render_modes.resize(1); // Note: no render modes for Hydra, render only once
 
     for (const auto &render_mode: render_modes)
     {
       int device = getDevice(backend);
-      MultiRenderPreset preset = createPreset(render_mode, spp);
 
-      auto pRender = CreateMultiRenderer(device);
-      pRender->SetPreset(preset);
+      std::shared_ptr<IRenderer> pRender;
+        MultiRenderPreset mr_preset = createPreset(render_mode, spp);
+    printf("4.\n");
+      
+      if (renderer_type == "MR")
+      {
+    printf("4.5.\n");
+        pRender = CreateMultiRenderer(device);
+          assert(static_cast<MultiRenderer*>(pRender.get()) != nullptr);
+        static_cast<MultiRenderer*>(pRender.get())->SetPreset(mr_preset);
+      }
+      else if (renderer_type == "Hydra")
+      {
+        pRender = std::make_shared<HydraRenderer>(device);
+        HydraRenderPreset hydra_preset = getDefaultHydraRenderPreset();
+        hydra_preset.spp = spp;
+        static_cast<HydraRenderer*>(pRender.get())->SetPreset(width, height, hydra_preset);
+      }
+      else
+      {
+        // TODO: throw something at someone
+      }
+    printf("5.\n");
 
       float min_time = 1e4, max_time = -1, average_time = 0;
       float memory = 0;
@@ -390,13 +409,14 @@ namespace BenchmarkBackend
 
       if (repr_type == "MESH")
       {
-        pRender->SetScene(mesh);
+        pRender->LoadScene(model_path.c_str());
       }
       else
       {
         pRender->SetViewport(0, 0, width, height);
-        pRender->LoadSceneHydra(model_path.c_str());
+        pRender->LoadScene(model_path.c_str());
       }
+    printf("6.\n");
 
       for (int camera = 0; camera < cameras; ++camera)
       {
@@ -405,13 +425,33 @@ namespace BenchmarkBackend
         const float3 pos = dist * float3(sin(angle), 0, cos(angle));
 
         LiteImage::Image2D<uint32_t> image(width, height);
+        printf("7.\n");
 
         auto t1 = std::chrono::steady_clock::now();
-        render(image, pRender, pos, float3(0, 0, 0), float3(0, 1, 0), preset, 1);
+        // render(image, pRender, pos, float3(0, 0, 0), float3(0, 1, 0), preset, 1);
+        // TODO: set cameras
+        if (renderer_type == "MR")
+        {
+          float fov_degrees = 60;
+          float z_near = 0.1f;
+          float z_far = 100.0f;
+          float aspect = 1.0f;
+          auto proj = LiteMath::perspectiveMatrix(fov_degrees, aspect, z_near, z_far);
+          auto worldView = LiteMath::lookAt(pos, float3(0,0,0), float3(0,1,0));
+
+    printf("7.5.\n");
+          // static_cast<MultiRenderer*>(pRender.get())->UpdateCamera(worldView, proj);
+    printf("7.6.\n");
+    assert(dynamic_cast<MultiRenderer*>(pRender.get()) != nullptr);
+          dynamic_cast<MultiRenderer*>(pRender.get())->Render(image.data(), width, height, worldView, proj, mr_preset);
+    printf("7.7.\n");
+        }
+        // pRender->Render(image.data(), width, height, "color");
         auto t2 = std::chrono::steady_clock::now();
         
         //  Time calculation
         float t = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count() / 1000.f;
+    printf("8.\n");
         calcMetrics(min_time, max_time, average_time, t);
 
         //  Save image
@@ -419,13 +459,14 @@ namespace BenchmarkBackend
 
         if (repr_type == "MESH")
         {
-          save_name = generate_filename_image(model_path, renderer_type, backend, repr_type, "default", "", camera);
+          save_name = generate_filename_image(model_name, renderer_type, backend, repr_type, "default", "", camera);
         }
         else
         {
-          save_name = generate_filename_image(model_path, renderer_type, backend, repr_type, lod, param_string, camera);
+          save_name = generate_filename_image(model_name, renderer_type, backend, repr_type, lod, param_string, camera);
         }
 
+        printf("SaveImg path: %s\n", save_name.c_str());
         LiteImage::SaveImage<uint32_t>(save_name.c_str(), image);
 
         LiteImage::Image2D<uint32_t> ref_image;
@@ -436,7 +477,7 @@ namespace BenchmarkBackend
         }
         else
         {
-          std::string image_ref_path = generate_filename_image(model_path, renderer_type, backend, repr_type, "default", "", camera);
+          std::string image_ref_path = generate_filename_image(model_name, renderer_type, backend, "MESH", "default", "", camera);
           ref_image = LiteImage::LoadImage<uint32_t>(image_ref_path.c_str());
         }
 
@@ -838,10 +879,46 @@ namespace BenchmarkBackend
   {
     MultiRenderPreset preset = getDefaultPreset();
 
-    if (render_mode == "LAMBERT")
-    {
+    if (render_mode == "MASK")
+      preset.render_mode = MULTI_RENDER_MODE_MASK;
+    else if (render_mode == "LAMBERT_NO_TEX")
       preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
-    }
+    else if (render_mode == "DEPTH")
+      preset.render_mode = MULTI_RENDER_MODE_DEPTH;
+    else if (render_mode == "LINEAR_DEPTH")
+      preset.render_mode = MULTI_RENDER_MODE_LINEAR_DEPTH;
+    else if (render_mode == "INVERSE_LINEAR_DEPTH")
+      preset.render_mode = MULTI_RENDER_MODE_INVERSE_LINEAR_DEPTH;
+    else if (render_mode == "PRIMITIVE")
+      preset.render_mode = MULTI_RENDER_MODE_PRIMITIVE;
+    else if (render_mode == "TYPE")
+      preset.render_mode = MULTI_RENDER_MODE_TYPE;
+    else if (render_mode == "GEOM")
+      preset.render_mode = MULTI_RENDER_MODE_GEOM;
+    else if (render_mode == "NORMAL")
+      preset.render_mode = MULTI_RENDER_MODE_NORMAL;
+    else if (render_mode == "BARYCENTRIC")
+      preset.render_mode = MULTI_RENDER_MODE_BARYCENTRIC;
+    else if (render_mode == "ST_ITERATIONS")
+      preset.render_mode = MULTI_RENDER_MODE_ST_ITERATIONS;
+    else if (render_mode == "RF")
+      preset.render_mode = MULTI_RENDER_MODE_RF;
+    else if (render_mode == "PHONG_NO_TEX")
+      preset.render_mode = MULTI_RENDER_MODE_PHONG_NO_TEX;
+    else if (render_mode == "GS")
+      preset.render_mode = MULTI_RENDER_MODE_GS;
+    else if (render_mode == "RF_DENSITY")
+      preset.render_mode = MULTI_RENDER_MODE_RF_DENSITY;
+    else if (render_mode == "TEX_COORDS")
+      preset.render_mode = MULTI_RENDER_MODE_TEX_COORDS;
+    else if (render_mode == "DIFFUSE")
+      preset.render_mode = MULTI_RENDER_MODE_DIFFUSE;
+    else if (render_mode == "LAMBERT")
+      preset.render_mode = MULTI_RENDER_MODE_LAMBERT;
+    else if (render_mode == "PHONG")
+      preset.render_mode = MULTI_RENDER_MODE_PHONG;
+    else if (render_mode == "HSV_DEPTH")
+      preset.render_mode = MULTI_RENDER_MODE_HSV_DEPTH;
 
     preset.spp = spp;
 
@@ -854,7 +931,7 @@ namespace BenchmarkBackend
     {
       return DEVICE_CPU;
     }
-    else if (backend == "GPU")
+    else if (backend == "GPU" || backend == "GPU_RQ")
     {
       return DEVICE_GPU;
     }

@@ -145,6 +145,7 @@ std::string write_render_config_s(const RenderAppConfig &in_render)
   block_render.set_string("model", in_render.model);
   block_render.set_string("backend", in_render.backend);
   block_render.set_string("renderer", in_render.renderer);
+  block_render.set_string("model_name", in_render.model_name);
   block_render.set_string("param_string", in_render.param_string);
   block_render.set_arr("render_modes", in_render.render_modes);
 
@@ -599,6 +600,7 @@ config.types.insert(config.types.begin(), "MESH");
   }
 
   std::fstream f;
+  // TODO: create dirs for tables
   f.open("benchmark/results/results.csv", std::ios::out);
   f << "model_name, backend, renderer, type, lod, memory(Mb), time_min, time_max, time_average, psnr_min, psnr_max, psnr_average, flip_min, flip_max, flip_average\n";
   f.close();
@@ -616,6 +618,7 @@ config.types.insert(config.types.begin(), "MESH");
 
   for (const auto &model : config.models)
   {
+    render_config.model_name = get_model_name(model);
     for (const auto &renderer : config.renderers)
     {
       render_config.renderer = renderer;
@@ -675,6 +678,8 @@ config.types.insert(config.types.begin(), "MESH");
 
               // Build
 
+              printf("1. Build\n");
+
               render_config.model = model;
               std::string config_str = write_render_config_s(render_config);
 
@@ -686,20 +691,17 @@ config.types.insert(config.types.begin(), "MESH");
 
 
               // Render
+
+              printf("2. Render\n");
+
               render_config.model = xml_path;
-
-              if (repr_type == "MESH")
-              {
-                render_config.model = model;
-              }
-
               config_str = write_render_config_s(render_config);
 
               cmd = "DRI_PRIME=1 ./render_app -backend_benchmark render ";
               cmd += "'" + config_str + "'";
 
               std::system(cmd.c_str());
-              // printf("\n\nCommand:\n%s\n\n", cmd.c_str());
+              printf("\n\nCommand:\n%s\n\n", cmd.c_str());
             }
           }
         }

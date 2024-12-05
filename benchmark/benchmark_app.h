@@ -27,6 +27,7 @@ struct BenchmarkAppConfig
 struct RenderAppConfig
 {
   std::string model;
+  std::string model_name;
   std::string renderer;
   std::string backend;
   std::string param_string;

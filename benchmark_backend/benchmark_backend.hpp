@@ -14,6 +14,7 @@
 #include "../utils/mesh_bvh.h"
 #include "../utils/ply_reader.h"
 #include "../utils/blk.h"
+#include "../tests/hydra_integration.h"
 
 namespace BenchmarkBackend
 {
@@ -44,19 +45,19 @@ namespace BenchmarkBackend
 
   void getMetrics(const std::string &render_config_str);
 
-  void getInfoMesh(const std::string &model, const std::string &backend, const std::string &renderer,
-                   const std::string &type, const std::string &lod, const int width, const int height, const int spp, const int cameras);
+  // void getInfoMesh(const std::string &model, const std::string &backend, const std::string &renderer,
+  //                  const std::string &type, const std::string &lod, const int width, const int height, const int spp, const int cameras);
 
-  void getInfoGrid(const std::string &model, const std::string &backend, const std::string &renderer,
-                   const std::string &type, const std::string &lod, const int width, const int height, const int spp, const int cameras);
+  // void getInfoGrid(const std::string &model, const std::string &backend, const std::string &renderer,
+  //                  const std::string &type, const std::string &lod, const int width, const int height, const int spp, const int cameras);
 
-  void getInfoSVS(const std::string &model, const std::string &backend, const std::string &renderer,
-                  const std::string &type, const std::string &lod, const int width, const int height, const int spp, const int cameras);
+  // void getInfoSVS(const std::string &model, const std::string &backend, const std::string &renderer,
+  //                 const std::string &type, const std::string &lod, const int width, const int height, const int spp, const int cameras);
 
-  void getInfoSBS(const std::string &model, const std::string &backend, const std::string &renderer,
-                  const std::string &type, const std::string &lod, const int width, const int height, const int spp, const int cameras);
+  // void getInfoSBS(const std::string &model, const std::string &backend, const std::string &renderer,
+  //                 const std::string &type, const std::string &lod, const int width, const int height, const int spp, const int cameras);
 
-  //  very slooooow
-  void getInfoAdaptSBS(const std::string &model, const std::string &backend, const std::string &renderer,
-                       const std::string &type, const std::string &lod, const int width, const int height, const int spp, const int cameras);
+  // //  very slooooow
+  // void getInfoAdaptSBS(const std::string &model, const std::string &backend, const std::string &renderer,
+  //                      const std::string &type, const std::string &lod, const int width, const int height, const int spp, const int cameras);
 };
