@@ -446,42 +446,49 @@ int main(int argc, const char **argv)
     {} // skip
     else if (flag == "-b" || flag == "--backends")
     {
+      config.backends.clear();
       config.backends.reserve(fin - start);
       for (uint32_t i = start; i < fin; ++i)
         config.backends.push_back(std::string(argv[i]));
     }
     else if (flag == "-r" || flag == "--renderers")
     {
+      config.renderers.clear();
       config.renderers.reserve(fin - start);
       for (uint32_t i = start; i < fin; ++i)
         config.renderers.push_back(std::string(argv[i]));
     }
     else if (flag == "-t" || flag == "--types")
     {
+      config.types.clear();
       config.types.reserve(fin - start);
       for (uint32_t i = start; i < fin; ++i)
         config.types.push_back(std::string(argv[i]));
     }
     else if (flag == "-rm" || flag == "--render_modes")
     {
+      config.render_modes.clear();
       config.render_modes.reserve(fin - start);
       for (uint32_t i = start; i < fin; ++i)
         config.render_modes.push_back(std::string(argv[i]));
     }
     else if (flag == "--lods")
     {
+      config.lods.clear();
       config.lods.reserve(fin - start);
       for (uint32_t i = start; i < fin; ++i)
         config.lods.push_back(std::string(argv[i]));
     }
     else if (flag == "-m" || flag == "--models")
     {
+      config.models.clear();
       config.models.reserve(fin - start);
       for (uint32_t i = start; i < fin; ++i)
         config.models.push_back(std::string(argv[i]));
     }
     else if (flag == "-p" || flag == "--param_strings")
     {
+      config.param_strings.clear();
       config.param_strings.reserve(fin - start);
       for (uint32_t i = start; i < fin; ++i)
         config.param_strings.push_back(argv[i]);
@@ -619,12 +626,16 @@ config.types.insert(config.types.begin(), "MESH");
   for (const auto &model : config.models)
   {
     render_config.model_name = get_model_name(model);
+    int model_build_flag_renderers = 0;
     for (const auto &renderer : config.renderers)
     {
       render_config.renderer = renderer;
+      ++model_build_flag_renderers; // we don't need to rebuild models for each renderer
+      int model_build_flag_backends = 0;
       for (const auto &backend : config.backends)
       {
         render_config.backend = backend;
+        ++model_build_flag_backends; // we don't need to rebuild models for each backend
 
         bool do_slicing = backend != "CPU";
         bool recompile = true;
@@ -679,29 +690,33 @@ config.types.insert(config.types.begin(), "MESH");
               // Build
 
               printf("1. Build\n");
+              if (model_build_flag_renderers == 1 && model_build_flag_backends == 1) {
+                render_config.model = model;
+                std::string config_str = write_render_config_s(render_config);
 
-              render_config.model = model;
-              std::string config_str = write_render_config_s(render_config);
+                std::string cmd = "DRI_PRIME=1 ./render_app -backend_benchmark build ";
+                cmd += "'" + config_str + "'";
 
-              std::string cmd = "DRI_PRIME=1 ./render_app -backend_benchmark build ";
-              cmd += "'" + config_str + "'";
-
-              std::system(cmd.c_str());
-              // printf("\n\nCommand:\n%s\n\n", cmd.c_str());
+                std::system(cmd.c_str());
+                // printf("\n\nCommand:\n%s\n\n", cmd.c_str());
+              }
+              else
+                printf("Model should already exist\n");
 
 
               // Render
 
               printf("2. Render\n");
+              {
+                render_config.model = xml_path;
+                std::string config_str = write_render_config_s(render_config);
 
-              render_config.model = xml_path;
-              config_str = write_render_config_s(render_config);
+                std::string cmd = "DRI_PRIME=1 ./render_app -backend_benchmark render ";
+                cmd += "'" + config_str + "'";
 
-              cmd = "DRI_PRIME=1 ./render_app -backend_benchmark render ";
-              cmd += "'" + config_str + "'";
-
-              std::system(cmd.c_str());
-              printf("\n\nCommand:\n%s\n\n", cmd.c_str());
+                std::system(cmd.c_str());
+                // printf("\n\nCommand:\n%s\n\n", cmd.c_str());
+              }
             }
           }
         }
