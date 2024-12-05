@@ -122,7 +122,7 @@ void HydraRenderer::SetPreset(uint32_t a_width, uint32_t a_height, HydraRenderPr
 
     float timings[4] = {0,0,0,0};
     m_pImpl->SetFrameBufferLayer(m_preset.fbLayer);
-    m_pImpl->SetCamId(0);
+    // m_pImpl->SetCamId(0);
     m_pImpl->SetViewport(0, 0, m_width, m_height);
 
     std::cout << "[main]: PathTraceBlock(MIS-PT) ... " << std::endl;
