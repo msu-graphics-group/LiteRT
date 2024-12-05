@@ -268,13 +268,17 @@ bool test_mapped_cubic_bezier_1() {
   RBCurve2D curve(points, weights, tmin, tmax);
   std::vector<float> Xtest = curve.monotonic_parts(0);
   std::vector<float> Xtruth = { 0.0f, 1.0f };
+  Xtruth = lerp(tmin, tmax, Xtruth);
   bool Xclose = allclose(Xtest, Xtruth, c::TEST_EPS);
+  //std::cout << debug::LOG::INFO << Xtruth << std::endl;
   //std::cout << debug::LOG::INFO << Xtest << std::endl;
 
   auto Y = curve.monotonic_parts(1);
   std::vector<float> Ytest = curve.monotonic_parts(1);
-  std::vector<float> Ytruth = { 0.0f, 0.25f, 1.0f };
+  std::vector<float> Ytruth = { 0.0f, 0.5f, 1.0f };
+  Ytruth = lerp(tmin, tmax, Ytruth);
   bool Yclose = allclose(Ytest, Ytruth, c::TEST_EPS);
+  //std::cout << debug::LOG::INFO << Ytruth << std::endl;
   //std::cout << debug::LOG::INFO << Ytest << std::endl;
 
   return Xclose && Yclose;
@@ -294,13 +298,17 @@ bool test_mapped_cubic_bezier_2() {
   RBCurve2D curve(points, weights, tmin, tmax);
   std::vector<float> Xtest = curve.monotonic_parts(0);
   std::vector<float> Xtruth = { 0.0f, 1.0f };
+  Xtruth = lerp(tmin, tmax, Xtruth);
   bool Xclose = allclose(Xtest, Xtruth, c::TEST_EPS);
+  //std::cout << debug::LOG::INFO << Xtruth << std::endl;
   //std::cout << debug::LOG::INFO << Xtest << std::endl;
 
   auto Y = curve.monotonic_parts(1);
   std::vector<float> Ytest = curve.monotonic_parts(1);
-  std::vector<float> Ytruth = { 0.0f, 1.0f };
+  std::vector<float> Ytruth = { 0.0f, 0.5f, 1.0f };
+  Ytruth = lerp(tmin, tmax, Ytruth);
   bool Yclose = allclose(Ytest, Ytruth, c::TEST_EPS);
+  //std::cout << debug::LOG::INFO << Ytruth << std::endl;
   //std::cout << debug::LOG::INFO << Ytest << std::endl;
 
   return Xclose && Yclose;
@@ -324,13 +332,15 @@ bool test_mapped_egg() {
 
   RBCurve2D curve(points, weights, tmin, tmax);
   std::vector<float> Xtest = curve.monotonic_parts(0);
-  std::vector<float> Xtruth = { 0.0f, 0.572f, 1.0f };
+  std::vector<float> Xtruth = { 0.0f, 0.214f, 0.786f, 1.0f };;
+  Xtruth = lerp(tmin, tmax, Xtruth);
   bool Xclose = allclose(Xtest, Xtruth, c::TEST_EPS);
   //std::cout << debug::LOG::INFO << Xtest << std::endl;
 
   auto Y = curve.monotonic_parts(1);
   std::vector<float> Ytest = curve.monotonic_parts(1);
-  std::vector<float> Ytruth = { 0.0f, 1.0f };
+  std::vector<float> Ytruth = { 0.0f, 0.5f, 1.0f };
+  Ytruth = lerp(tmin, tmax, Ytruth);
   bool Yclose = allclose(Ytest, Ytruth, c::TEST_EPS);
   //std::cout << debug::LOG::INFO << Ytest << std::endl;
 
