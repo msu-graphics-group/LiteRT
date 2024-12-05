@@ -325,6 +325,22 @@ namespace BenchmarkBackend
     pRender->Render(image.data(), image.width(), image.height(), worldView, proj, preset, a_passNum);
   }
 
+  void Render(LiteImage::Image2D<uint32_t> &image, IRenderer* pRender, uint32_t width, uint32_t height, const LiteMath::float3 &pos)
+  {
+    float fov_degrees = 60;
+    float z_near = 0.1f;
+    float z_far = 100.0f;
+    float aspect = 1.0f;
+    auto proj = LiteMath::perspectiveMatrix(fov_degrees, aspect, z_near, z_far);
+    auto worldView = LiteMath::lookAt(pos, float3(0,0,0), float3(0,1,0));
+
+    pRender->SetViewport(0,0, width, height);
+    pRender->UpdateCamera(worldView, proj);
+    pRender->CommitDeviceData();
+    pRender->Clear(width, height, "color");
+    pRender->Render(image.data(), width, height, "color");
+  }
+
   void
   getMetrics(const std::string &render_config_str)
   {
@@ -344,7 +360,6 @@ namespace BenchmarkBackend
         spp:i = 4
       }
     */
-    printf("1. Start render\n");
 
     Block render_config;
     load_block_from_string(render_config_str, render_config);
@@ -364,12 +379,10 @@ namespace BenchmarkBackend
     int height = render_config.get_int("height");
     int cameras = render_config.get_int("cameras");
     int spp = render_config.get_int("spp");
-    printf("2.\n");
 
     //  Start measurements
     std::fstream f;
     f.open("benchmark/results/results.csv", std::ios::app);
-    printf("3.\n");
 
     if (renderer_type == "Hydra" && !render_modes.empty())
       render_modes.resize(1); // Note: no render modes for Hydra, render only once
@@ -379,14 +392,11 @@ namespace BenchmarkBackend
       int device = getDevice(backend);
 
       std::shared_ptr<IRenderer> pRender;
-        MultiRenderPreset mr_preset = createPreset(render_mode, spp);
-    printf("4.\n");
       
       if (renderer_type == "MR")
       {
-    printf("4.5.\n");
         pRender = CreateMultiRenderer(device);
-          assert(static_cast<MultiRenderer*>(pRender.get()) != nullptr);
+        MultiRenderPreset mr_preset = createPreset(render_mode, spp);
         static_cast<MultiRenderer*>(pRender.get())->SetPreset(mr_preset);
       }
       else if (renderer_type == "Hydra")
@@ -400,23 +410,13 @@ namespace BenchmarkBackend
       {
         // TODO: throw something at someone
       }
-    printf("5.\n");
 
       float min_time = 1e4, max_time = -1, average_time = 0;
       float memory = 0;
       float min_psnr = 1000, max_psnr = -1, average_psnr = 0;
       float min_flip = 1000, max_flip = -1, average_flip = 0;
 
-      if (repr_type == "MESH")
-      {
-        pRender->LoadScene(model_path.c_str());
-      }
-      else
-      {
-        pRender->SetViewport(0, 0, width, height);
-        pRender->LoadScene(model_path.c_str());
-      }
-    printf("6.\n");
+      pRender->LoadScene(model_path.c_str());
 
       for (int camera = 0; camera < cameras; ++camera)
       {
@@ -425,46 +425,18 @@ namespace BenchmarkBackend
         const float3 pos = dist * float3(sin(angle), 0, cos(angle));
 
         LiteImage::Image2D<uint32_t> image(width, height);
-        printf("7.\n");
 
         auto t1 = std::chrono::steady_clock::now();
-        // render(image, pRender, pos, float3(0, 0, 0), float3(0, 1, 0), preset, 1);
-        // TODO: set cameras
-        if (renderer_type == "MR")
-        {
-          float fov_degrees = 60;
-          float z_near = 0.1f;
-          float z_far = 100.0f;
-          float aspect = 1.0f;
-          auto proj = LiteMath::perspectiveMatrix(fov_degrees, aspect, z_near, z_far);
-          auto worldView = LiteMath::lookAt(pos, float3(0,0,0), float3(0,1,0));
-
-    printf("7.5.\n");
-          // static_cast<MultiRenderer*>(pRender.get())->UpdateCamera(worldView, proj);
-    printf("7.6.\n");
-    assert(dynamic_cast<MultiRenderer*>(pRender.get()) != nullptr);
-          dynamic_cast<MultiRenderer*>(pRender.get())->Render(image.data(), width, height, worldView, proj, mr_preset);
-    printf("7.7.\n");
-        }
-        // pRender->Render(image.data(), width, height, "color");
+        Render(image, pRender.get(), width, height, pos);
         auto t2 = std::chrono::steady_clock::now();
         
         //  Time calculation
         float t = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count() / 1000.f;
-    printf("8.\n");
         calcMetrics(min_time, max_time, average_time, t);
 
         //  Save image
-        std::string save_name;
-
-        if (repr_type == "MESH")
-        {
-          save_name = generate_filename_image(model_name, renderer_type, backend, repr_type, "default", "", camera);
-        }
-        else
-        {
-          save_name = generate_filename_image(model_name, renderer_type, backend, repr_type, lod, param_string, camera);
-        }
+        std::string save_name = generate_filename_image(model_name, renderer_type, backend, repr_type, lod, param_string, camera),
+                    mesh_name = generate_filename_image(model_name, renderer_type, backend,    "MESH", lod, param_string, camera);
 
         printf("SaveImg path: %s\n", save_name.c_str());
         LiteImage::SaveImage<uint32_t>(save_name.c_str(), image);
@@ -477,8 +449,7 @@ namespace BenchmarkBackend
         }
         else
         {
-          std::string image_ref_path = generate_filename_image(model_name, renderer_type, backend, "MESH", "default", "", camera);
-          ref_image = LiteImage::LoadImage<uint32_t>(image_ref_path.c_str());
+          ref_image = LiteImage::LoadImage<uint32_t>(mesh_name.c_str());
         }
 
         //  calculate metrics
