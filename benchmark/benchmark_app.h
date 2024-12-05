@@ -3,7 +3,7 @@
 #include <cstdlib>
 #include <filesystem>
 
-#include "blk.h"
+#include "common/blk.h"
 
 
 // This config can be saved to run the same tests

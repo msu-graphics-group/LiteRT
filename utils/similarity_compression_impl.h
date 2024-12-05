@@ -1,6 +1,6 @@
 #pragma once
 #include "similarity_compression.h"
-#include "aligned_allocator.h"
+#include "common/aligned_allocator.h"
 
 namespace scom
 {

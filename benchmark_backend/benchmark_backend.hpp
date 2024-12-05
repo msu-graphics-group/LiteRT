@@ -6,15 +6,15 @@
 #include <vector>
 #include <cstdlib>
 
-#include "../utils/mesh.h"
-#include "../utils/sdf_converter.h"
-#include "../render_settings.h"
-#include "../Renderer/eye_ray.h"
-#include "../utils/image_metrics.h"
-#include "../utils/mesh_bvh.h"
-#include "../utils/ply_reader.h"
-#include "../utils/blk.h"
-#include "../tests/hydra_integration.h"
+#include "utils/mesh.h"
+#include "utils/sdf_converter.h"
+#include "render_settings.h"
+#include "Renderer/eye_ray.h"
+#include "utils/image_metrics.h"
+#include "utils/mesh_bvh.h"
+#include "utils/ply_reader.h"
+#include "utils/common/blk.h"
+#include "tests/hydra_integration.h"
 
 namespace BenchmarkBackend
 {

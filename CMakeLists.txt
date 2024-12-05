@@ -89,6 +89,8 @@ set(SCENE_LOADER_SRC
     ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/LiteScene/hydraxml.cpp
     ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/LiteScene/cmesh4.cpp
     ${CMAKE_SOURCE_DIR}/sdfScene/sdf_scene.cpp
+    ${CMAKE_SOURCE_DIR}/utils/common/csv.cpp
+    ${CMAKE_SOURCE_DIR}/utils/common/blk.cpp
     ${CMAKE_SOURCE_DIR}/utils/mesh_bvh.cpp
     ${CMAKE_SOURCE_DIR}/utils/mesh.cpp
     ${CMAKE_SOURCE_DIR}/utils/sparse_octree_builder.cpp
@@ -107,8 +109,6 @@ set(SCENE_LOADER_SRC
     ${CMAKE_SOURCE_DIR}/utils/compact_octree_builder.cpp
     ${CMAKE_SOURCE_DIR}/utils/similarity_compression.cpp
     ${CMAKE_SOURCE_DIR}/openvdb_structs/openvdb_common.cpp
-    ${CMAKE_SOURCE_DIR}/utils/csv.cpp
-    ${CMAKE_SOURCE_DIR}/utils/blk.cpp
     ${CMAKE_SOURCE_DIR}/utils/ball_tree.cpp
     ${CMAKE_SOURCE_DIR}/utils/ply_reader.cpp
     )
@@ -389,7 +389,7 @@ if (USE_VULKAN)
   target_link_libraries(engine PUBLIC OpenMP::OpenMP_CXX)
 endif()
 
-add_executable(benchmark_app ${CMAKE_SOURCE_DIR}/benchmark/benchmark_app.cpp ${CMAKE_SOURCE_DIR}/utils/blk.cpp )
+add_executable(benchmark_app ${CMAKE_SOURCE_DIR}/benchmark/benchmark_app.cpp ${CMAKE_SOURCE_DIR}/utils/common/blk.cpp )
 target_include_directories(benchmark_app PUBLIC ${CMAKE_SOURCE_DIR}/benchmark
                                                 ${CMAKE_SOURCE_DIR}/utils
                                                 ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/LiteMath

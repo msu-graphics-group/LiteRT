@@ -12,7 +12,7 @@
 #include "../utils/demo_meshes.h"
 #include "../utils/image_metrics.h"
 #include "../diff_render/MultiRendererDR.h"
-#include "../utils/stat_utils.h"
+#include "../utils/common/stat_utils.h"
 #include "../render_common.h"
 
 #include <functional>
