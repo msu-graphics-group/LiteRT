@@ -179,13 +179,13 @@ std::string get_model_name(std::string model_path)
 
 std::string generate_filename_model_no_ext(std::string model_path, std::string repr_type, std::string lod, std::string param_string)
 {
-  return "benchmark/" + get_model_name(model_path) + "/models/" + repr_type + "/lod_" + lod + '_' + param_string;
+  return "benchmark/saves/" + get_model_name(model_path) + "/models/" + repr_type + "/lod_" + lod + '_' + param_string;
 }
 
 std::string generate_filename_image(std::string model_path, std::string renderer, std::string backend, std::string repr_type, std::string lod, std::string param_string, uint32_t camera)
 {
   // LoadImage("benchmark/bunny/hydra/GPU/mesh/lod_high_default_cam_i.png");
-  return "benchmark/" + get_model_name(model_path) + "/" + renderer + "/" + backend + "/" + repr_type +
+  return "benchmark/saves/" + get_model_name(model_path) + "/" + renderer + "/" + backend + "/" + repr_type +
           "/lod_" + lod + '_' + param_string + "_cam_" + std::to_string(camera) + ".png";
 }
 

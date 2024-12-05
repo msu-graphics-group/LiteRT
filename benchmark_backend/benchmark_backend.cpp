@@ -66,13 +66,13 @@ namespace BenchmarkBackend
   std::string generate_filename_model_no_ext(std::string model_path, std::string repr_type, std::string lod, std::string param_string)
   {
     // string xml_path = "benchmark/bunny/models/SBS/lod_high_brick4" + ".xml";
-    return "benchmark/" + get_model_name(model_path) + "/models/" + repr_type + "/lod_" + lod + '_' + param_string;
+    return "benchmark/saves/" + get_model_name(model_path) + "/models/" + repr_type + "/lod_" + lod + '_' + param_string;
   }
 
   std::string generate_filename_image(std::string model_path, std::string renderer, std::string backend, std::string repr_type, std::string lod, std::string param_string, uint32_t camera)
   {
     // LoadImage("benchmark/bunny/hydra/GPU/mesh/lod_high_default_cam_i.png");
-    return "benchmark/" + get_model_name(model_path) + "/" + renderer + "/" + backend + "/" + repr_type +
+    return "benchmark/saves/" + get_model_name(model_path) + "/" + renderer + "/" + backend + "/" + repr_type +
             "/lod_" + lod + '_' + param_string + "_cam_" + std::to_string(camera) + ".png";
   }
 
@@ -250,7 +250,7 @@ namespace BenchmarkBackend
       std::string fname_no_ext = generate_filename_model_no_ext(model_path, repr_type, lod, param_string);
       
       save_sdf_grid(model_new, fname_no_ext + ".bin");
-      save_scene_xml(fname_no_ext + ".xml", get_model_name(fname_no_ext) + ".bin", info, mat_id);
+      save_scene_xml(fname_no_ext + ".xml", get_model_name(fname_no_ext) + ".bin", info, mat_id, DemoScene::SINGLE_OBJECT);
     }
     else if (repr_type == "SDF_SVS")
     {
@@ -262,7 +262,7 @@ namespace BenchmarkBackend
       std::string fname_no_ext = generate_filename_model_no_ext(model_path, repr_type, lod, param_string);
 
       save_sdf_SVS(model_new, fname_no_ext + ".bin");
-      save_scene_xml(fname_no_ext + ".xml", get_model_name(fname_no_ext) + ".bin", info, mat_id);
+      save_scene_xml(fname_no_ext + ".xml", get_model_name(fname_no_ext) + ".bin", info, mat_id, DemoScene::SINGLE_OBJECT);
     }
     else if (repr_type == "SDF_SBS")
     {
@@ -276,7 +276,7 @@ namespace BenchmarkBackend
       std::string fname_no_ext = generate_filename_model_no_ext(model_path, repr_type, lod, param_string);
 
       save_sdf_SBS(model_new, fname_no_ext + ".bin");
-      save_scene_xml(fname_no_ext + ".xml", get_model_name(fname_no_ext) + ".bin", info, mat_id);
+      save_scene_xml(fname_no_ext + ".xml", get_model_name(fname_no_ext) + ".bin", info, mat_id, DemoScene::SINGLE_OBJECT);
     }
     else if (repr_type == "SDF_FRAME_OCTREE")
     {
@@ -288,7 +288,7 @@ namespace BenchmarkBackend
       std::string fname_no_ext = generate_filename_model_no_ext(model_path, repr_type, lod, param_string);
 
       save_sdf_frame_octree(model_new, fname_no_ext + ".bin");
-      save_scene_xml(fname_no_ext + ".xml", get_model_name(fname_no_ext) + ".bin", info, mat_id);
+      save_scene_xml(fname_no_ext + ".xml", get_model_name(fname_no_ext) + ".bin", info, mat_id, DemoScene::SINGLE_OBJECT);
     }
     else if (repr_type == "SDF_FRAME_OCTREE_COMPACT")
     {
@@ -302,7 +302,7 @@ namespace BenchmarkBackend
       std::string fname_no_ext = generate_filename_model_no_ext(model_path, repr_type, lod, param_string);
 
       save_coctree_v3(model_new, fname_no_ext + ".bin");
-      save_scene_xml(fname_no_ext + ".xml", get_model_name(fname_no_ext) + ".bin", info, mat_id);
+      save_scene_xml(fname_no_ext + ".xml", get_model_name(fname_no_ext) + ".bin", info, mat_id, DemoScene::SINGLE_OBJECT);
     }
 
     //  Time calculation
