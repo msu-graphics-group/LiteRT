@@ -49,26 +49,26 @@ void check_model(const std::string &path)
 	LiteImage::Image2D<uint32_t> image_ref(W, H);
 	LiteImage::Image2D<uint32_t> image(W, H);
 
-  {
-    auto pRender = CreateMultiRenderer(DEVICE_GPU);
-    preset.normal_mode = NORMAL_MODE_VERTEX;
-    pRender->SetPreset(preset);
-    pRender->SetScene(mesh);
-    //render(image, pRender, float3(0.4,-0.8,-0.4), float3(0,-0.81,-0.4), float3(0,1,0), preset, 1); //for sponza, pRender, float3(0.4,-0.8,-0.4), float3(0,-0.81,-0.4), float3(0,1,0), preset, 1); //for sponza
-    //render(image_ref, pRender, float3(-0.75,-0.75,1.25), float3(-0.75,-0.75,0), float3(0,1,0), preset, 1); //for HMS_Daring_Type_45.obj
-    render(image_ref, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset, 1);
-    LiteImage::SaveImage<uint32_t>(("saves/check_" + model_name + "_ref.png").c_str(), image_ref); 
+	{
+		auto pRender = CreateMultiRenderer(DEVICE_GPU);
+		preset.normal_mode = NORMAL_MODE_VERTEX;
+		pRender->SetPreset(preset);
+		pRender->SetScene(mesh);
+		// render(image, pRender, float3(0.4,-0.8,-0.4), float3(0,-0.81,-0.4), float3(0,1,0), preset, 1); //for sponza, pRender, float3(0.4,-0.8,-0.4), float3(0,-0.81,-0.4), float3(0,1,0), preset, 1); //for sponza
+		// render(image_ref, pRender, float3(-0.75,-0.75,1.25), float3(-0.75,-0.75,0), float3(0,1,0), preset, 1); //for HMS_Daring_Type_45.obj
+		render(image_ref, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset, 1);
+		LiteImage::SaveImage<uint32_t>(("saves/check_" + model_name + "_ref.png").c_str(), image_ref);
 
-    long mesh_total_bytes = 0;
-    BVHRT *bvh = dynamic_cast<BVHRT*>(pRender->GetAccelStruct()->UnderlyingImpl(0));
-    mesh_total_bytes = bvh->m_allNodePairs.size()*sizeof(BVHNodePair) + 
-                       bvh->m_primIdCount.size()* sizeof(uint32_t) +
-                       bvh->m_vertPos.size()* sizeof(float4) +
-                       bvh->m_vertNorm.size()* sizeof(float4) +
-                       bvh->m_indices.size()* sizeof(uint32_t) +
-                       bvh->m_primIndices.size()* sizeof(uint32_t);
-    printf("mesh %6.1f Mb\n", mesh_total_bytes/(1024.0f*1024.0f));
-  }
+		long mesh_total_bytes = 0;
+		BVHRT *bvh = dynamic_cast<BVHRT *>(pRender->GetAccelStruct()->UnderlyingImpl(0));
+		mesh_total_bytes = bvh->m_allNodePairs.size() * sizeof(BVHNodePair) +
+						   bvh->m_primIdCount.size() * sizeof(uint32_t) +
+						   bvh->m_vertPos.size() * sizeof(float4) +
+						   bvh->m_vertNorm.size() * sizeof(float4) +
+						   bvh->m_indices.size() * sizeof(uint32_t) +
+						   bvh->m_primIndices.size() * sizeof(uint32_t);
+		printf("mesh %6.1f Mb\n", mesh_total_bytes / (1024.0f * 1024.0f));
+	}
 
 	printf("[check_model::INFO] Rendered mesh\n");
 
@@ -76,25 +76,25 @@ void check_model(const std::string &path)
 	std::array<float, max_depth> PSNRs = {0, 0, 0, 0, 0, 0, 0, 0};
 	float max_psnr = 0;
 
-  for (int depth = 3; depth < max_depth; depth++)
-  {
-    printf("[check_model::INFO] Building SDF with depth %d\n", depth);
-    SparseOctreeSettings settings = SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, depth);
-    sdf_converter::GlobalOctree g;
-    g.header.brick_size = 4;
-    g.header.brick_pad = 0;
-    
-    COctreeV3 coctree;
-    coctree.header.bits_per_value = 8;
-    coctree.header.brick_size = g.header.brick_size;
-    coctree.header.brick_pad = g.header.brick_pad;
-    coctree.header.uv_size = 0;
-    coctree.header.sim_compression = 1;
-    
-    scom::Settings scom_settings;
-    scom_settings.similarity_threshold = 0.075f;
-    scom_settings.search_algorithm = scom::SearchAlgorithm::BALL_TREE;
-    scom_settings.clustering_algorithm = scom::ClusteringAlgorithm::REPLACEMENT;
+	for (int depth = 3; depth < max_depth; depth++)
+	{
+		printf("[check_model::INFO] Building SDF with depth %d\n", depth);
+		SparseOctreeSettings settings = SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, depth);
+		sdf_converter::GlobalOctree g;
+		g.header.brick_size = 4;
+		g.header.brick_pad = 0;
+
+		COctreeV3 coctree;
+		coctree.header.bits_per_value = 8;
+		coctree.header.brick_size = g.header.brick_size;
+		coctree.header.brick_pad = g.header.brick_pad;
+		coctree.header.uv_size = 0;
+		coctree.header.sim_compression = 1;
+
+		scom::Settings scom_settings;
+		scom_settings.similarity_threshold = 0.075f;
+		scom_settings.search_algorithm = scom::SearchAlgorithm::BALL_TREE;
+		scom_settings.clustering_algorithm = scom::ClusteringAlgorithm::REPLACEMENT;
 
 		auto tlo = cmesh4::create_triangle_list_octree(mesh, settings.depth, 0, 1.0f);
 		printf("[check_model::INFO]   Built TLO\n");
@@ -103,14 +103,14 @@ void check_model(const std::string &path)
 		sdf_converter::global_octree_to_compact_octree_v3(g, coctree, 8, scom_settings);
 		printf("[check_model::INFO]   Built Compact Octree\n");
 
-    auto pRender = CreateMultiRenderer(DEVICE_GPU);
-    preset.normal_mode = g.header.brick_pad == 1 ? NORMAL_MODE_SDF_SMOOTHED : NORMAL_MODE_VERTEX;
-    pRender->SetPreset(preset);
-    pRender->SetScene(coctree, 0);
-    //render(image, pRender, float3(0.4,-0.8,-0.4), float3(0,-0.81,-0.4), float3(0,1,0), preset, 1); //for sponza
-    //render(image, pRender, float3(-0.75,-0.75,1.25), float3(-0.75,-0.75,0), float3(0,1,0), preset, 1); //for HMS_Daring_Type_45.obj
-    render(image, pRender, float3(0,0,3), float3(0,0,0), float3(0,1,0), preset, 1);
-    LiteImage::SaveImage<uint32_t>(("saves/check_" + model_name + "_depth_" + std::to_string(depth) + ".png").c_str(), image); 
+		auto pRender = CreateMultiRenderer(DEVICE_GPU);
+		preset.normal_mode = g.header.brick_pad == 1 ? NORMAL_MODE_SDF_SMOOTHED : NORMAL_MODE_VERTEX;
+		pRender->SetPreset(preset);
+		pRender->SetScene(coctree, 0);
+		// render(image, pRender, float3(0.4,-0.8,-0.4), float3(0,-0.81,-0.4), float3(0,1,0), preset, 1); //for sponza
+		// render(image, pRender, float3(-0.75,-0.75,1.25), float3(-0.75,-0.75,0), float3(0,1,0), preset, 1); //for HMS_Daring_Type_45.obj
+		render(image, pRender, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0), preset, 1);
+		LiteImage::SaveImage<uint32_t>(("saves/check_" + model_name + "_depth_" + std::to_string(depth) + ".png").c_str(), image);
 
 		float psnr = image_metrics::PSNR(image, image_ref);
 		max_psnr = std::max(max_psnr, psnr);
@@ -129,7 +129,6 @@ void check_model(const std::string &path)
 		printf("[check_model::INFO] PSNR IS TOO HIGH. CHECK THE IMAGES\n");
 	printf("[check_model::INFO] ==================================================================\n");
 }
-
 
 namespace model_validator
 {
@@ -186,6 +185,18 @@ namespace model_validator
 		else
 		{
 			renderer->SetScene(scene);
+		}
+		if constexpr (std::is_same_v<cmesh4::SimpleMesh, T>)
+		{
+			long mesh_total_bytes = 0;
+			BVHRT *bvh = dynamic_cast<BVHRT *>(renderer->GetAccelStruct()->UnderlyingImpl(0));
+			mesh_total_bytes = bvh->m_allNodePairs.size() * sizeof(BVHNodePair) +
+							   bvh->m_primIdCount.size() * sizeof(uint32_t) +
+							   bvh->m_vertPos.size() * sizeof(float4) +
+							   bvh->m_vertNorm.size() * sizeof(float4) +
+							   bvh->m_indices.size() * sizeof(uint32_t) +
+							   bvh->m_primIndices.size() * sizeof(uint32_t);
+			printf("Mesh total size = %6.1f Mb\n", mesh_total_bytes / (1024.0f * 1024.0f));
 		}
 		std::cout << "Started rendering '" << log_name << "'" << std::endl;
 		render(image, renderer.get(), preset, pos, target, up);
@@ -270,13 +281,18 @@ namespace model_validator
 
 			preset.normal_mode = g.header.brick_pad == 1 ? NORMAL_MODE_SDF_SMOOTHED : NORMAL_MODE_VERTEX;
 
+			scom::Settings scom_settings;
+			scom_settings.similarity_threshold = 0.075f;
+			scom_settings.search_algorithm = scom::SearchAlgorithm::BALL_TREE;
+			scom_settings.clustering_algorithm = scom::ClusteringAlgorithm::REPLACEMENT;
+
 			auto create_coctree = [&]()
 			{
 				auto tlo = cmesh4::create_triangle_list_octree(mesh, settings.depth, 0, 1.0f);
 				std::cout << "Finished TLO..." << std::endl;
 				sdf_converter::mesh_octree_to_global_octree(mesh, tlo, g);
 				std::cout << "Finished global octree..." << std::endl;
-				sdf_converter::global_octree_to_compact_octree_v3(g, coctree, 8);
+				sdf_converter::global_octree_to_compact_octree_v3(g, coctree, 8, scom_settings);
 				return coctree;
 			};
 
@@ -308,14 +324,11 @@ namespace model_validator
 		return q == 3 ? 0 : q;
 	}
 
-	
 	void validate_model(
-		const std::string&model_path,
-		const std::string&model_root,
-		const std::string&out_dir)
+		const std::string &model_path,
+		const std::string &model_root,
+		const std::string &out_dir)
 	{
-		
-		
 
 		auto mesh = cmesh4::LoadMesh(model_path.c_str());
 
@@ -345,14 +358,15 @@ namespace model_validator
 		std::cout << "Ended validating '" << model_root << "'" << std::endl;
 	}
 
-	void validate_models(const std::string&models_dir, const std::string&out_dir)
+	void validate_models(const std::string &models_dir, const std::string &out_dir)
 	{
 		static std::vector<std::string> model_extentions = {".obj", ".ply", ".vsgf"};
-		
-		static auto is_model_file_name = [&](const std::string&x){
+
+		static auto is_model_file_name = [&](const std::string &x)
+		{
 			return model_extentions.end() != std::find(model_extentions.begin(), model_extentions.end(), std::filesystem::path(x).extension().string());
 		};
-		
+
 		for (auto file : std::filesystem::directory_iterator(models_dir))
 		{
 			if (file.is_directory())
@@ -364,7 +378,7 @@ namespace model_validator
 					{
 						if (path != "")
 						{
-							std::cerr << "Error: lready found model '" << path << "' inside '" << file.path().string() <<"'."<< std::endl;
+							std::cerr << "Error: lready found model '" << path << "' inside '" << file.path().string() << "'." << std::endl;
 							return;
 						}
 						else
@@ -379,7 +393,7 @@ namespace model_validator
 				}
 				validate_model(path, file.path().string(), out_dir);
 			}
-			else if(file.is_regular_file())
+			else if (file.is_regular_file())
 			{
 				auto path = file.path().string();
 				if (is_model_file_name(path))
