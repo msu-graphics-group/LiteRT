@@ -176,6 +176,13 @@ void HydraRenderer::SetPreset(uint32_t a_width, uint32_t a_height, HydraRenderPr
     m_pImpl->CommitDeviceData();
   }
 
+  void HydraRenderer::UpdateCamera(const LiteMath::float4x4& a_worldView, const LiteMath::float4x4& a_proj)
+  {
+    assert(m_pImpl);
+    m_pImpl->SetWorldView(a_worldView);
+    m_pImpl->SetProj(a_proj);
+  }
+
 void hydra_integration_example(unsigned device, std::string scene_filename)
 {
   int FB_WIDTH        = 512;

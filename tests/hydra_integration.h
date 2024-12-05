@@ -35,6 +35,7 @@ public:
   
   virtual void GetExecutionTime(const char* a_funcName, float a_out[4]) override;
   virtual void CommitDeviceData() override;
+  virtual void UpdateCamera(const LiteMath::float4x4& a_worldView, const LiteMath::float4x4& a_proj) override;
 private:
   uint32_t m_width;
   uint32_t m_height;

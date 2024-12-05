@@ -16,6 +16,7 @@
 #include "LiteMath.h"
 #include "similarity_compression_impl.h"
 #include "near_neighbor_common.h"
+#include "constexpr_for.h"
 
 namespace scom
 {
@@ -48,16 +49,6 @@ namespace scom
     std::vector<unsigned>  m_original_ids; //m_points.size();
     aligned_vector_f m_points_data; //m_dim * m_points.size();
   };
-
-  template <auto Start, auto End, auto Inc = 1, typename F>
-  constexpr void constexpr_for(F&& f) 
-  {
-      static_assert(Inc != 0);
-      if constexpr ((Inc > 0 && Start < End) || (Inc < 0 && End < Start)) {
-          f(std::integral_constant<decltype(Start), Start>());
-          constexpr_for<Start + Inc, End, Inc>(f);
-      }
-  }
 
   template <int DIM>
   class BallTreeFD : public BallTree
@@ -102,6 +93,20 @@ namespace scom
         __m256 diff_sq = _mm256_mul_ps(diff, diff);
         d += sum8(diff_sq);
       });
+      
+      constexpr int rem = DIM % 8;
+      constexpr int off = (DIM / 8) * 8;
+
+      if constexpr (rem > 0)
+      {
+        constexpr_for<0,rem>([&](auto i) 
+        {
+          d += (a[off + i] - b[off + i]) * (a[off + i] - b[off + i]);
+        });
+      }
+      #else
+      for (int i = 0; i < m_dim; ++i)
+        d += (a[i] - b[i]) * (a[i] - b[i]);
       #endif
 
       return d;
