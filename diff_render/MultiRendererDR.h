@@ -2,7 +2,7 @@
 
 #include "DR_common.h"
 #include "BVH2DR.h"
-#include "../Renderer/eye_ray.h"
+#include "Renderer/eye_ray.h"
 #include <set>
 #include <atomic>
 

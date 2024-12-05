@@ -2,7 +2,7 @@
 #include <testing_framework/helpers/image.h>
 #include <testing_framework/helpers/format.h>
 #include <testing_framework/helpers/source_location.h>
-#include "../../utils/image_metrics.h"
+#include "utils/image_metrics.h"
 
 namespace testing
 {

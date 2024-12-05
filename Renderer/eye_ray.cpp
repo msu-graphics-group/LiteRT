@@ -4,7 +4,7 @@
 //#include <iomanip>   
 
 #include "eye_ray.h"
-#include "../render_common.h"
+#include "render_common.h"
 
 uint32_t MultiRenderer::encode_RGBA8(float4 c)
 {

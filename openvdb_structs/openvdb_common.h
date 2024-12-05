@@ -8,7 +8,7 @@
 
 #include <LiteMath.h>
 using LiteMath::float3;
-#include "../utils/mesh/mesh.h"
+#include "utils/mesh/mesh.h"
 using cmesh4::SimpleMesh;
 
 struct OpenVDB_Grid

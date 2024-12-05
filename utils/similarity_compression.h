@@ -1,5 +1,5 @@
 #pragma once
-#include "../sdfScene/sdf_scene.h"
+#include "sdfScene/sdf_scene.h"
 #include "sparse_octree_builder.h"
 #include <vector>
 

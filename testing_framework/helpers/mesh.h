@@ -1,7 +1,7 @@
 #pragma once
 #include <string>
 #include <testing_framework/helpers/source_location.h>
-#include "../../utils/mesh/mesh.h"
+#include "utils/mesh/mesh.h"
 
 namespace testing
 {

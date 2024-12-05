@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../BVH/BVH2Common.h"
+#include "BVH/BVH2Common.h"
 #include "DR_common.h"
 
 namespace dr

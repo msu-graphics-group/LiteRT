@@ -1,6 +1,6 @@
 #include "DR_common.h"
 #include "MultiRendererDR.h"
-#include "../utils/sparse_octree_builder.h"
+#include "utils/sparse_octree_builder.h"
 
 #include <functional>
 #include <cassert>

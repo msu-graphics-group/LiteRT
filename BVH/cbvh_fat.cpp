@@ -6,7 +6,7 @@
 
 using LiteMath::float4;
 
-#include "../raytrace_common.h"
+#include "raytrace_common.h"
 
 LayoutPresets LayoutPresetsFromString(const char* a_str)
 {
