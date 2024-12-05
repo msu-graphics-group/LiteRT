@@ -453,14 +453,24 @@ namespace BenchmarkBackend
         }
 
         //  calculate metrics
-        calcMetrics(min_psnr, max_psnr, average_psnr, image_metrics::PSNR(image, image));
-        calcMetrics(min_flip, max_flip, average_flip, image_metrics::FLIP(image, image));
+        calcMetrics(min_psnr, max_psnr, average_psnr, image_metrics::PSNR(image, ref_image));
+        calcMetrics(min_flip, max_flip, average_flip, image_metrics::FLIP(image, ref_image));
       }
 
       average_time /= (float)cameras;
       average_psnr /= (float)cameras;
       average_flip /= (float)cameras;
 
+      std::string device_name = "CPU";
+      if (backend != "CPU")
+      {
+        VkPhysicalDeviceProperties properties{};
+        vkGetPhysicalDeviceProperties(vk_utils::globalContextGet().physicalDevice, &properties);
+
+        device_name = properties.deviceName;
+      }
+
+      // TODO: this, also put device_name somewhere
       f << model_path << ", " << backend << ", " << renderer_type << ", " << repr_type << ", " << lod << ", " << memory << ", " << min_time << ", " << max_time << ", " << average_time << ", " << min_psnr << ", " << max_psnr << ", " << average_psnr << ", " << min_flip << ", " << max_flip << ", " << average_flip << std::endl;
     }
 
@@ -928,5 +938,11 @@ namespace BenchmarkBackend
     }
 
     average += new_val;
+  }
+
+  // TODO: model size for each representation type for MultiRenderer and HydraRenderer
+  uint32_t getModelSize()
+  {
+
   }
 };
