@@ -178,14 +178,7 @@ namespace model_validator
 		float3 up = float3(0, 1, 0))
 	{
 		auto renderer = CreateMultiRenderer(DEVICE_GPU);
-		if constexpr (std::is_same_v<T, COctreeV3>)
-		{
-			renderer->SetScene(scene, 0);
-		}
-		else
-		{
-			renderer->SetScene(scene);
-		}
+		renderer->SetScene(scene);
 		if constexpr (std::is_same_v<cmesh4::SimpleMesh, T>)
 		{
 			long mesh_total_bytes = 0;
@@ -198,9 +191,9 @@ namespace model_validator
 							   bvh->m_primIndices.size() * sizeof(uint32_t);
 			printf("Mesh total size = %6.1f Mb\n", mesh_total_bytes / (1024.0f * 1024.0f));
 		}
-		std::cout << "Started rendering '" << log_name << "'" << std::endl;
+		// std::cout << "Started rendering '" << log_name << "'" << std::endl;
 		render(image, renderer.get(), preset, pos, target, up);
-		std::cout << "Ended rendering '" << log_name << "'" << std::endl;
+		// std::cout << "Ended rendering '" << log_name << "'" << std::endl;
 
 		std::filesystem::create_directories(dir);
 		save_image(image, file_name, dir);
@@ -238,9 +231,9 @@ namespace model_validator
 		float3 target = float3(0, 0, 0),
 		float3 up = float3(0, 1, 0))
 	{
-		std::cout << "Started creating '" << log_name << "'" << std::endl;
+		// std::cout << "Started creating '" << log_name << "'" << std::endl;
 		auto scene = f();
-		std::cout << "Ended creating '" << log_name << "'" << std::endl;
+		// std::cout << "Ended creating '" << log_name << "'" << std::endl;
 		return render_and_measure(reference, scene_image, scene, log_name, file_name, dir, preset, pos, target, up);
 	}
 
@@ -262,7 +255,7 @@ namespace model_validator
 		render_scene_and_save(ref_image, mesh, "Reference", "ref", image_dir, preset);
 
 		constexpr size_t MIN_DEPTH = 3;
-		constexpr size_t MAX_DEPTH = 7;
+		constexpr size_t MAX_DEPTH = 8;
 
 		for (size_t depth = MIN_DEPTH; depth <= MAX_DEPTH; depth++)
 		{
@@ -289,9 +282,9 @@ namespace model_validator
 			auto create_coctree = [&]()
 			{
 				auto tlo = cmesh4::create_triangle_list_octree(mesh, settings.depth, 0, 1.0f);
-				std::cout << "Finished TLO..." << std::endl;
+				// std::cout << "Finished TLO..." << std::endl;
 				sdf_converter::mesh_octree_to_global_octree(mesh, tlo, g);
-				std::cout << "Finished global octree..." << std::endl;
+				// std::cout << "Finished global octree..." << std::endl;
 				sdf_converter::global_octree_to_compact_octree_v3(g, coctree, 8, scom_settings);
 				return coctree;
 			};
@@ -324,11 +317,55 @@ namespace model_validator
 		return q == 3 ? 0 : q;
 	}
 
+	std::filesystem::file_time_type file_last_change_time(std::filesystem::path file, bool reduce_max)
+	{
+		if (std::filesystem::is_directory(file))
+		{
+			auto time = std::filesystem::last_write_time(file);
+
+			for (auto i : std::filesystem::directory_iterator(file))
+			{
+				if (i.is_directory() || i.is_regular_file())
+				{
+					auto t = file_last_change_time(i.path(), reduce_max);
+					if (reduce_max)
+					{
+						time = std::max(time, t);
+					}
+					else
+					{
+						time = std::min(time, t);
+					}
+				}
+			}
+
+			return time;
+		}
+		else
+		{
+			return std::filesystem::last_write_time(file);
+		}
+	}
+
 	void validate_model(
 		const std::string &model_path,
 		const std::string &model_root,
 		const std::string &out_dir)
 	{
+		std::cout << "[ '" << model_root << "' ]" << std::endl;
+		std::string name = std::filesystem::path(model_root).filename().string();
+
+		if (std::filesystem::exists(out_dir + "/images/" + name))
+		{
+			auto source_change_time = file_last_change_time(model_root, true);
+			auto dst_change_time = file_last_change_time(out_dir + "/images/" + name, false);
+			if (source_change_time < dst_change_time)
+			{
+				std::cout << "Already validated skipping..." << std::endl
+						  << std::endl;
+				return;
+			}
+		}
 
 		auto mesh = cmesh4::LoadMesh(model_path.c_str());
 
@@ -338,9 +375,9 @@ namespace model_validator
 			return;
 		}
 
-		std::cout << "Started validating '" << model_root << "'" << std::endl;
+		// std::cout << "Started validating '" << model_root << "'" << std::endl;
 
-		std::string name = std::filesystem::path(model_root).filename().string();
+		// std::string name = std::filesystem::path(model_root).filename().string();
 
 		std::filesystem::create_directories(out_dir + "/images/" + name);
 		std::filesystem::create_directories(out_dir + "/best");
@@ -353,9 +390,10 @@ namespace model_validator
 		if (q < 2)
 		{
 			std::cout << "Model is copied into '" << dst << "'" << std::endl;
-			std::filesystem::copy(model_root, dst, std::filesystem::copy_options::recursive);
+			std::filesystem::copy(model_root, dst, std::filesystem::copy_options::recursive | std::filesystem::copy_options::overwrite_existing);
 		}
-		std::cout << "Ended validating '" << model_root << "'" << std::endl;
+		// std::cout << "Ended validating '" << model_root << "'" << std::endl;
+		std::cout << std::endl;
 	}
 
 	void validate_models(const std::string &models_dir, const std::string &out_dir)
