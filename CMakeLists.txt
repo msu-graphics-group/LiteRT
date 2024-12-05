@@ -116,8 +116,8 @@ target_link_libraries(bisection_demo LiteMath)
 target_include_directories(bisection_demo PUBLIC ${PROJECT_SOURCE_DIR}/src/)
 
 add_executable(
-  monotonic_simple_test
-  tests/monotonic_simple.cpp
+  monotonic_test
+  tests/monotonic.cpp
     src/constants.hpp
     src/debug.cpp
     src/debug.hpp
@@ -126,8 +126,8 @@ add_executable(
     src/curve.hpp
     src/curve.cpp
 )
-target_link_libraries(monotonic_simple_test LiteMath)
-target_include_directories(monotonic_simple_test PUBLIC ${PROJECT_SOURCE_DIR}/src/)
+target_link_libraries(monotonic_test LiteMath)
+target_include_directories(monotonic_test PUBLIC ${PROJECT_SOURCE_DIR}/src/)
 
 add_executable(
   intersections_test
