@@ -1,8 +1,10 @@
 #include "sdf_scene.h"
-#include <cassert>
-#include <fstream>
 #include "cmesh4.h"
 #include "utils/mesh.h"
+
+#include <cassert>
+#include <fstream>
+#include <filesystem>
 
 void save_sdf_scene(const SdfScene &scene, const std::string &path)
 {
@@ -363,15 +365,15 @@ void save_sdf_scene_hydra(const SdfScene &scene, const std::string &folder, cons
   fs.close();
 }
 
-std::string insert_in_demo_scene_cornell_box(const std::string &geom_info_str)
+std::string insert_in_demo_scene_cornell_box(const std::string &geom_info_str, const std::string &scenes_relative_path)
 {
-constexpr unsigned MAX_BUF_SIZE = 8192;
+  constexpr unsigned MAX_BUF_SIZE = 8192;
   char buf[MAX_BUF_SIZE];
 
     snprintf(buf, MAX_BUF_SIZE, R""""(
     <?xml version="1.0"?>
     <textures_lib total_chunks="4">
-      <texture id="0" name="Map#0" loc="../scenes/01_simple_scenes/data/chunk_00000.image4ub" offset="8" bytesize="16" width="2" height="2" dl="0" />
+      <texture id="0" name="Map#0" loc="%s/01_simple_scenes/data/chunk_00000.image4ub" offset="8" bytesize="16" width="2" height="2" dl="0" />
     </textures_lib>
     <materials_lib>
       <material id="0" name="mysimplemat" type="hydra_material">
@@ -428,7 +430,7 @@ constexpr unsigned MAX_BUF_SIZE = 8192;
       </material>
     </materials_lib>
     <geometry_lib total_chunks="4">
-      <mesh id="0" name="my_box" type="vsgf" bytesize="1304" loc="../scenes/01_simple_scenes/data/cornell_open.vsgf" offset="0" vertNum="20" triNum="10" dl="0" path="" bbox="    -4 4 -4 4 -4 4">
+      <mesh id="0" name="my_box" type="vsgf" bytesize="1304" loc="%s/01_simple_scenes/data/cornell_open.vsgf" offset="0" vertNum="20" triNum="10" dl="0" path="" bbox="    -4 4 -4 4 -4 4">
         <positions type="array4f" bytesize="320" offset="24" apply="vertex" />
         <normals type="array4f" bytesize="320" offset="344" apply="vertex" />
         <tangents type="array4f" bytesize="320" offset="664" apply="vertex" />
@@ -437,7 +439,7 @@ constexpr unsigned MAX_BUF_SIZE = 8192;
         <matindices type="array1i" bytesize="40" offset="1264" apply="primitive" />
       </mesh>
       %s
-      <mesh id="2" name="my_area_light_lightmesh" type="vsgf" bytesize="280" loc="../scenes/01_simple_scenes/data/chunk_00003.vsgf" offset="0" vertNum="4" triNum="2" dl="0" path="" light_id="0" bbox="    -1 1 0 0 -1 1">
+      <mesh id="2" name="my_area_light_lightmesh" type="vsgf" bytesize="280" loc="%s/01_simple_scenes/data/chunk_00003.vsgf" offset="0" vertNum="4" triNum="2" dl="0" path="" light_id="0" bbox="    -1 1 0 0 -1 1">
         <positions type="array4f" bytesize="64" offset="24" apply="vertex" />
         <normals type="array4f" bytesize="64" offset="88" apply="vertex" />
         <tangents type="array4f" bytesize="64" offset="152" apply="vertex" />
@@ -491,12 +493,12 @@ constexpr unsigned MAX_BUF_SIZE = 8192;
       </scene>
     </scenes>
     )"""",
-    geom_info_str.c_str());
+    scenes_relative_path.c_str(), scenes_relative_path.c_str(), geom_info_str.c_str(), scenes_relative_path.c_str());
 
     return std::string(buf, strlen(buf));
 }
 
-std::string insert_in_demo_scene_single_object(std::string geom_info_str)
+std::string insert_in_demo_scene_single_object(std::string geom_info_str, const std::string &scenes_relative_path)
 {
 constexpr unsigned MAX_BUF_SIZE = 8192;
   char buf[MAX_BUF_SIZE];
@@ -611,15 +613,15 @@ constexpr unsigned MAX_BUF_SIZE = 8192;
   return std::string(buf, strlen(buf));
 }
 
-std::string insert_in_demo_scene(std::string geom_info_str, DemoScene scene_type)
+std::string insert_in_demo_scene(std::string geom_info_str, const std::string &scenes_relative_path, DemoScene scene_type)
 {
   switch (scene_type)
   {
   case DemoScene::CORNELL_BOX:
-    return insert_in_demo_scene_cornell_box(geom_info_str);
+    return insert_in_demo_scene_cornell_box(geom_info_str, scenes_relative_path);
     break;
   case DemoScene::SINGLE_OBJECT:
-    return insert_in_demo_scene_single_object(geom_info_str);
+    return insert_in_demo_scene_single_object(geom_info_str, scenes_relative_path);
     break;
   
   default:
@@ -629,7 +631,7 @@ std::string insert_in_demo_scene(std::string geom_info_str, DemoScene scene_type
   }
 }
 
-std::string get_xml_string_model_demo_scene(std::string bin_file_name, ModelInfo info, int mat_id, DemoScene scene)
+std::string get_xml_string_model_demo_scene(std::string bin_file_name, std::string scenes_relative_path, ModelInfo info, int mat_id, DemoScene scene)
 {
   constexpr unsigned MAX_BUF_SIZE = 1024;
   char buf[MAX_BUF_SIZE];
@@ -642,10 +644,12 @@ std::string get_xml_string_model_demo_scene(std::string bin_file_name, ModelInfo
   
   std::string geom_info_str = std::string(buf, strlen(buf));
 
-  return insert_in_demo_scene(geom_info_str, scene);
+
+
+  return insert_in_demo_scene(geom_info_str, scenes_relative_path, scene);
 }
 
-std::string get_xml_string_model_demo_scene(std::string bin_file_name, const cmesh4::SimpleMesh &mesh, DemoScene scene)
+std::string get_xml_string_model_demo_scene(std::string bin_file_name, std::string scenes_relative_path, const cmesh4::SimpleMesh &mesh, DemoScene scene)
 {
   constexpr unsigned MAX_BUF_SIZE = 1024;
   char buf[MAX_BUF_SIZE];
@@ -685,7 +689,7 @@ std::string get_xml_string_model_demo_scene(std::string bin_file_name, const cme
   
   std::string geom_info_str = std::string(buf, strlen(buf));
 
-  return insert_in_demo_scene(geom_info_str, scene);
+  return insert_in_demo_scene(geom_info_str, scenes_relative_path, scene);
 }
 
 void save_xml_string(const std::string xml_string, const std::string &path)
@@ -693,6 +697,28 @@ void save_xml_string(const std::string xml_string, const std::string &path)
   std::ofstream xml_file(path);
   xml_file << xml_string;
   xml_file.close();
+}
+
+std::string get_scenes_relative_path(std::string bin_file_name)
+{
+  std::string scenes_absolute_path = std::filesystem::current_path().string() + "/scenes";
+  std::string xml_absolute_path = std::filesystem::absolute(std::filesystem::path(bin_file_name).parent_path()).string();
+  std::string scenes_relative_path = std::filesystem::relative(scenes_absolute_path, xml_absolute_path).string();
+
+  return scenes_relative_path;
+}
+void save_scene_xml(std::string path, std::string bin_file_name, ModelInfo info, int mat_id,
+                    DemoScene scene)
+{
+  std::string scenes_relative_path = get_scenes_relative_path(path);
+  save_xml_string(get_xml_string_model_demo_scene(bin_file_name, scenes_relative_path, info, mat_id, scene), path);
+}
+
+void save_scene_xml(std::string path, std::string bin_file_name, const cmesh4::SimpleMesh &mesh,
+                    DemoScene scene)
+{
+  std::string scenes_relative_path = get_scenes_relative_path(path);
+  save_xml_string(get_xml_string_model_demo_scene(bin_file_name, scenes_relative_path, mesh, scene), path);
 }
 
 SdfSBSAdaptView convert_sbs_to_adapt(SdfSBSAdapt &adapt_scene, const SdfSBSView &scene)

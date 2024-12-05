@@ -560,11 +560,10 @@ void save_coctree_v3(const COctreeV3View &scene, const std::string &path);
 void load_coctree_v3(COctreeV3 &scene, const std::string &path);
 ModelInfo get_info_coctree_v3(const COctreeV3View &scene);
 
-std::string get_xml_string_model_demo_scene(std::string bin_file_name, ModelInfo info, int mat_id,
-                                            DemoScene scene = DemoScene::CORNELL_BOX); //for all models except mesh
-std::string get_xml_string_model_demo_scene(std::string bin_file_name, const cmesh4::SimpleMesh &mesh,
-                                            DemoScene scene = DemoScene::CORNELL_BOX);
-void save_xml_string(const std::string xml_string, const std::string &path);
+void save_scene_xml(std::string path, std::string bin_file_name, ModelInfo info, int mat_id,
+                    DemoScene scene = DemoScene::CORNELL_BOX); //for all models except mesh
+void save_scene_xml(std::string path, std::string bin_file_name, const cmesh4::SimpleMesh &mesh,
+                    DemoScene scene = DemoScene::CORNELL_BOX);
 
 void load_neural_sdf_scene_SIREN(SdfScene &scene, const std::string &path); // loads scene from raw SIREN weights file
 void save_sdf_scene_hydra(const SdfScene &scene, const std::string &folder, const std::string &name);

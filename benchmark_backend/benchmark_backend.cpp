@@ -249,7 +249,7 @@ namespace BenchmarkBackend
       std::string fname_no_ext = generate_filename_model_no_ext(model_path, repr_type, lod, param_string);
       
       save_sdf_grid(model_new, fname_no_ext + ".bin");
-      save_xml_string(get_xml_string_model_demo_scene(fname_no_ext + ".bin", info, mat_id), fname_no_ext + ".xml");
+      save_scene_xml(fname_no_ext + ".xml", fname_no_ext + ".bin", info, mat_id);
     }
     else if (repr_type == "SDF_SVS")
     {
@@ -261,7 +261,7 @@ namespace BenchmarkBackend
       std::string fname_no_ext = generate_filename_model_no_ext(model_path, repr_type, lod, param_string);
 
       save_sdf_SVS(model_new, fname_no_ext + ".bin");
-      save_xml_string(get_xml_string_model_demo_scene(fname_no_ext + ".bin", info, mat_id), fname_no_ext + ".xml");
+      save_scene_xml(fname_no_ext + ".xml", fname_no_ext + ".bin", info, mat_id);
     }
     else if (repr_type == "SDF_SBS")
     {
@@ -275,7 +275,7 @@ namespace BenchmarkBackend
       std::string fname_no_ext = generate_filename_model_no_ext(model_path, repr_type, lod, param_string);
 
       save_sdf_SBS(model_new, fname_no_ext + ".bin");
-      save_xml_string(get_xml_string_model_demo_scene(fname_no_ext + ".bin", info, mat_id), fname_no_ext + ".xml");
+      save_scene_xml(fname_no_ext + ".xml", fname_no_ext + ".bin", info, mat_id);
     }
     else if (repr_type == "SDF_FRAME_OCTREE")
     {
@@ -287,7 +287,7 @@ namespace BenchmarkBackend
       std::string fname_no_ext = generate_filename_model_no_ext(model_path, repr_type, lod, param_string);
 
       save_sdf_frame_octree(model_new, fname_no_ext + ".bin");
-      save_xml_string(get_xml_string_model_demo_scene(fname_no_ext + ".bin", info, mat_id), fname_no_ext + ".xml");
+      save_scene_xml(fname_no_ext + ".xml", fname_no_ext + ".bin", info, mat_id);
     }
     else if (repr_type == "SDF_FRAME_OCTREE_COMPACT")
     {
@@ -301,7 +301,7 @@ namespace BenchmarkBackend
       std::string fname_no_ext = generate_filename_model_no_ext(model_path, repr_type, lod, param_string);
 
       save_coctree_v3(model_new, fname_no_ext + ".bin");
-      save_xml_string(get_xml_string_model_demo_scene(fname_no_ext + ".bin", info, mat_id), fname_no_ext + ".xml");
+      save_scene_xml(fname_no_ext + ".xml", fname_no_ext + ".bin", info, mat_id);
     }
 
     //  Time calculation

@@ -3498,7 +3498,7 @@ void litert_test_43_hydra_integration()
   {
     std::string bin_filename = "test_43_mesh.vsgf";
     cmesh4::SaveMeshToVSGF(("saves/"+bin_filename).c_str(), mesh);
-    save_xml_string(get_xml_string_model_demo_scene(bin_filename, mesh), "saves/test_43_mesh.xml");
+    save_scene_xml("saves/test_43_mesh.xml", bin_filename, mesh);
 
     HydraRenderer renderer(DEVICE_GPU);
     renderer.SetPreset(WIDTH, HEIGHT, preset);
@@ -3515,7 +3515,7 @@ void litert_test_43_hydra_integration()
     auto sdf_SVS = sdf_converter::create_sdf_SVS(SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, 8), mesh);
     auto info = get_info_sdf_SVS(sdf_SVS);
     save_sdf_SVS(sdf_SVS, "saves/"+ bin_filename);
-    save_xml_string(get_xml_string_model_demo_scene(bin_filename, info, mat_id), "saves/test_43_svs.xml");
+    save_scene_xml("saves/test_43_svs.xml", bin_filename, info, mat_id);
 
     HydraRenderer renderer(DEVICE_GPU);
     renderer.SetPreset(WIDTH, HEIGHT, preset);
