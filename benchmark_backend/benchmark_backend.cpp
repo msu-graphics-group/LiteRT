@@ -1,4 +1,7 @@
 #include "benchmark_backend.hpp"
+#ifdef USE_VULKAN
+#include "vk_context.h"
+#endif
 
 namespace BenchmarkBackend
 {
@@ -464,10 +467,12 @@ namespace BenchmarkBackend
       std::string device_name = "CPU";
       if (backend != "CPU")
       {
+        #ifdef USE_VULKAN
         VkPhysicalDeviceProperties properties{};
         vkGetPhysicalDeviceProperties(vk_utils::globalContextGet().physicalDevice, &properties);
 
         device_name = properties.deviceName;
+        #endif
       }
 
       // TODO: this, also put device_name somewhere
@@ -943,6 +948,6 @@ namespace BenchmarkBackend
   // TODO: model size for each representation type for MultiRenderer and HydraRenderer
   uint32_t getModelSize()
   {
-
+    return (uint32_t)-1;
   }
 };

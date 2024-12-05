@@ -16,8 +16,6 @@
 #include "../utils/blk.h"
 #include "../tests/hydra_integration.h"
 
-#include "vk_context.h"
-
 namespace BenchmarkBackend
 {
 // Common
