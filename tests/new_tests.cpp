@@ -14,16 +14,16 @@
 #include "utils/mesh/mesh.h"
 #include "LiteScene/hydraxml.h"
 #include "LiteMath/Image2d.h"
-#include "utils/sdf_converter.h"
-#include "utils/sparse_octree_builder.h"
+#include "utils/sdf/sdf_converter.h"
+#include "utils/sdf/sparse_octree_builder.h"
 #include "utils/mesh/marching_cubes.h"
-#include "utils/sdf_smoother.h"
+#include "utils/sdf/sdf_smoother.h"
 #include "utils/mesh/demo_meshes.h"
 #include "utils/image_metrics.h"
 #include "diff_render/MultiRendererDR.h"
-#include "utils/iou.h"
+#include "utils/sdf/iou.h"
 #include "nurbs/nurbs_common_host.h"
-#include "utils/ball_tree.h"
+#include "utils/coctree/ball_tree.h"
 
 namespace litert_tests
 {

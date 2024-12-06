@@ -1,4 +1,4 @@
-#include "sparse_octree_builder.h"
+#include "utils/sdf/sparse_octree_builder.h"
 #include "similarity_compression.h"
 #include "omp.h"
 #include <atomic>

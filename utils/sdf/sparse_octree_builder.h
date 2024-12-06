@@ -4,7 +4,7 @@
 #include <fstream>
 #include "sdfScene/sdf_scene.h"
 #include "utils/mesh/mesh.h"
-#include "utils/sdf_converter.h"
+#include "sdf_converter.h"
 /*
 A class that is able to represent and arbitrary function f : R^3 -> T 
 as a sparse octree, where every leaf contains value of function in it's

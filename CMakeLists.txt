@@ -99,21 +99,23 @@ set(SCENE_LOADER_SRC
     ${CMAKE_SOURCE_DIR}/utils/mesh/marching_cubes.cpp
     ${CMAKE_SOURCE_DIR}/utils/mesh/demo_meshes.cpp
     ${CMAKE_SOURCE_DIR}/utils/mesh/ply_reader.cpp
+  
+    ${CMAKE_SOURCE_DIR}/utils/coctree/compact_octree_builder.cpp
+    ${CMAKE_SOURCE_DIR}/utils/coctree/similarity_compression.cpp
+    ${CMAKE_SOURCE_DIR}/utils/coctree/ball_tree.cpp
+
+    ${CMAKE_SOURCE_DIR}/utils/sdf/sparse_octree_builder.cpp
+    ${CMAKE_SOURCE_DIR}/utils/sdf/sdf_converter.cpp
+    ${CMAKE_SOURCE_DIR}/utils/sdf/sdf_converter_exotic.cpp
+    ${CMAKE_SOURCE_DIR}/utils/sdf/sdf_smoother.cpp
+    ${CMAKE_SOURCE_DIR}/utils/sdf/iou.cpp
     
-    ${CMAKE_SOURCE_DIR}/utils/sparse_octree_builder.cpp
     ${CMAKE_SOURCE_DIR}/utils/radiance_field.cpp
     ${CMAKE_SOURCE_DIR}/utils/gaussian_field.cpp
-    ${CMAKE_SOURCE_DIR}/utils/sdf_converter.cpp
-    ${CMAKE_SOURCE_DIR}/utils/sdf_converter_exotic.cpp
     ${CMAKE_SOURCE_DIR}/utils/hydra_stub.cpp
-    ${CMAKE_SOURCE_DIR}/utils/sdf_smoother.cpp
     ${CMAKE_SOURCE_DIR}/utils/image_metrics.cpp
-    ${CMAKE_SOURCE_DIR}/utils/iou.cpp
     ${CMAKE_SOURCE_DIR}/utils/points_visualizer.cpp
-    ${CMAKE_SOURCE_DIR}/utils/compact_octree_builder.cpp
-    ${CMAKE_SOURCE_DIR}/utils/similarity_compression.cpp
     ${CMAKE_SOURCE_DIR}/openvdb_structs/openvdb_common.cpp
-    ${CMAKE_SOURCE_DIR}/utils/ball_tree.cpp
     )
 
 set(CORE_SRC

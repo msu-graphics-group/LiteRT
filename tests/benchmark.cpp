@@ -3,7 +3,7 @@
 #include "Renderer/eye_ray.h"
 #include "utils/mesh/mesh_bvh.h"
 #include "utils/mesh/mesh.h"
-#include "utils/sdf_converter.h"
+#include "utils/sdf/sdf_converter.h"
 #include "utils/image_metrics.h"
 #include "LiteScene/hydraxml.h"
 #include "LiteMath/Image2d.h"

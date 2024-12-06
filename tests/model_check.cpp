@@ -3,11 +3,11 @@
 #include "Renderer/eye_ray.h"
 #include "utils/mesh/mesh_bvh.h"
 #include "utils/mesh/mesh.h"
-#include "utils/sdf_converter.h"
+#include "utils/sdf/sdf_converter.h"
 #include "utils/image_metrics.h"
 #include "LiteScene/hydraxml.h"
-#include "utils/sparse_octree_builder.h"
-#include "utils/similarity_compression.h"
+#include "utils/sdf/sparse_octree_builder.h"
+#include "utils/coctree/similarity_compression.h"
 #include "LiteMath/Image2d.h"
 
 #include <functional>

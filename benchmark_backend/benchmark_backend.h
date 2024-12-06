@@ -7,7 +7,7 @@
 #include <cstdlib>
 
 #include "utils/mesh/mesh.h"
-#include "utils/sdf_converter.h"
+#include "utils/sdf/sdf_converter.h"
 #include "render_settings.h"
 #include "Renderer/eye_ray.h"
 #include "utils/image_metrics.h"

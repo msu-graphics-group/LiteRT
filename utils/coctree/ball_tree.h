@@ -16,7 +16,7 @@
 #include "LiteMath.h"
 #include "similarity_compression_impl.h"
 #include "near_neighbor_common.h"
-#include "common/constexpr_for.h"
+#include "utils/common/constexpr_for.h"
 
 namespace scom
 {

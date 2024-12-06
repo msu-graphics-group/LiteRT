@@ -1,7 +1,7 @@
 #include "sdf_converter.h"
-#include "mesh/mesh_bvh.h"
+#include "utils/mesh/mesh_bvh.h"
 #include "sparse_octree_builder.h"
-#include "mesh/mesh.h"
+#include "utils/mesh/mesh.h"
 #include "omp.h"
 
 #include <set>

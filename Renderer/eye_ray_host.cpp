@@ -9,7 +9,7 @@
 #include "Timer.h"
 #include "utils/mesh/mesh.h"
 #include "utils/mesh/mesh_bvh.h"
-#include "utils/sdf_converter.h"
+#include "utils/sdf/sdf_converter.h"
 
 using LiteMath::float2;
 using LiteMath::float3;

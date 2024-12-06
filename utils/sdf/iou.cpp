@@ -1,5 +1,5 @@
 #include "iou.h"
-#include "common/rand.h"
+#include "utils/common/rand.h"
 namespace IoU
 {
   static float trilinear_interpolation(const float values[8], float3 dp)

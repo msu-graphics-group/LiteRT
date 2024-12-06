@@ -1,6 +1,6 @@
 #include <string>
 #include <vector>
-#include "sdf_converter.h"
+#include "utils/sdf/sdf_converter.h"
 #include "render_settings.h"
 
 void direct_test(std::string path, std::string type, MultiRenderPreset preset,
