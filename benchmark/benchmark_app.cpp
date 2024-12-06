@@ -254,7 +254,7 @@ void call_kernel_slicer(const BenchmarkAppConfig &config, const std::string &rep
   if (backend == "GPU_RQ")
   {
     parameters += "\
-    -options " + curr_p.native() + "/options.json \
+    -options " + curr_p.native() + "/scripts/options.json \
     -intersectionShader AbstractObject::Intersect \
     -intersectionTriangle GeomDataTriangle \
     -intersectionBlackList GeomDataRF \
@@ -263,7 +263,7 @@ void call_kernel_slicer(const BenchmarkAppConfig &config, const std::string &rep
   else if (backend == "RTX")
   {
     parameters += "\
-    -options " + curr_p.native() + "/options.json \
+    -options " + curr_p.native() + "/scripts/options.json \
     -intersectionShader AbstractObject::Intersect";
   }
   parameters += " -enable_ray_tracing_pipeline " + std::to_string(backend == "RTX");
