@@ -85,6 +85,7 @@ namespace scom
     {
       float d = 0;
       #ifdef __AVX2__
+      static_assert(DIM % 8 == 0, "DIM must be a multiple of 8");
       constexpr_for<0,DIM/8>([&](auto i)
       {
         __m256 v1 = _mm256_load_ps(a + i * 8);
@@ -93,19 +94,8 @@ namespace scom
         __m256 diff_sq = _mm256_mul_ps(diff, diff);
         d += sum8(diff_sq);
       });
-      
-      constexpr int rem = DIM % 8;
-      constexpr int off = (DIM / 8) * 8;
-
-      if constexpr (rem > 0)
-      {
-        constexpr_for<0,rem>([&](auto i) 
-        {
-          d += (a[off + i] - b[off + i]) * (a[off + i] - b[off + i]);
-        });
-      }
       #else
-      for (int i = 0; i < m_dim; ++i)
+      for (int i = 0; i < DIM; ++i)
         d += (a[i] - b[i]) * (a[i] - b[i]);
       #endif
 

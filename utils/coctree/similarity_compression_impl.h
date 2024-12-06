@@ -15,6 +15,7 @@ namespace scom
 
   struct Dataset
   {
+    unsigned dim;
     aligned_vector_f all_points; //R^n vector for each data point
     std::vector<DataPoint> data_points;
   };

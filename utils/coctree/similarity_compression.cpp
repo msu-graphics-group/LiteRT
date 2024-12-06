@@ -38,6 +38,9 @@ namespace scom
   dataset.all_points.resize(all_points_size);
   fs.read((char *)dataset.all_points.data(), all_points_size * sizeof(float));
   
+  assert(all_points_size % points_size == 0);
+  dataset.dim = all_points_size / points_size;
+
   fs.close();
   }
 
@@ -242,8 +245,9 @@ namespace scom
       }
     }
 
-    printf("creating dataset %.1f Mb\n", float(dist_count * ROT_COUNT * ((size_t)surface_node_count) * sizeof(float)) / 1024.0f / 1024.0f);
-    dataset.all_points.resize(dist_count * ROT_COUNT * ((size_t)surface_node_count));
+    dataset.dim = ((dist_count + 7) / 8)*8; //to support AVX2 vectorization
+    printf("creating dataset %.1f Mb\n", float(dataset.dim * ROT_COUNT * ((size_t)surface_node_count) * sizeof(float)) / 1024.0f / 1024.0f);
+    dataset.all_points.resize(dataset.dim * ROT_COUNT * ((size_t)surface_node_count));
     dataset.data_points.resize(surface_node_count * ROT_COUNT);
 
     float mask_norm = dist_count / mult_sum;
@@ -258,7 +262,7 @@ namespace scom
 #pragma omp parallel for schedule(static)
       for (int r_id = 0; r_id < ROT_COUNT; r_id++)
       {
-        size_t off_dataset = (size_t)(cur_point_group * ROT_COUNT + r_id) * dist_count;
+        size_t off_dataset = (size_t)(cur_point_group * ROT_COUNT + r_id) * dataset.dim;
 
         dataset.data_points[cur_point_group * ROT_COUNT + r_id].average_val = average_brick_val[i];
         dataset.data_points[cur_point_group * ROT_COUNT + r_id].data_offset = off_dataset;
@@ -283,7 +287,7 @@ namespace scom
         }
 
         sum = sqrtf(sum);
-        for (int i=0;i<dist_count;i++)
+        for (int i=0;i<dataset.dim;i++)
           dataset.all_points[off_dataset + i] /= sum;
       }
       cur_point_group++;
@@ -302,14 +306,14 @@ namespace scom
     initialize_rot_transforms(rotations4, v_size);
 
 
-    //dataset has group with ROT_COUNT vectors (dist_count values each) for each surface node
+    //dataset has group with ROT_COUNT vectors (dataset.dim values each) for each surface node
     std::vector<size_t> node_id_to_dataset_group_off(g_octree.nodes.size());
     int surface_node_count = 0;
     for (int i=0; i<g_octree.nodes.size(); i++)
     {
       if (g_octree.nodes[i].offset == 0 && g_octree.nodes[i].is_not_void)
       {
-        node_id_to_dataset_group_off[i] = surface_node_count * ROT_COUNT * dist_count;
+        node_id_to_dataset_group_off[i] = surface_node_count * ROT_COUNT * dataset.dim;
         surface_node_count++;
       }
     }
@@ -336,9 +340,9 @@ namespace scom
           int min_rot_id = 0;
           for (int k = 0; k < ROT_COUNT; k++)
           {
-            size_t target_off = node_id_to_dataset_group_off[node_id] + k * dist_count;
+            size_t target_off = node_id_to_dataset_group_off[node_id] + k * dataset.dim;
             float dist_sq = 0;
-            for (int l = 0; l < dist_count; l++)
+            for (int l = 0; l < dataset.dim; l++)
               dist_sq += (dataset.all_points[lead_off + l] - dataset.all_points[target_off + l]) * (dataset.all_points[lead_off + l] - dataset.all_points[target_off + l]);
             if (dist_sq < min_dist_sq)
             {
@@ -927,11 +931,14 @@ namespace scom
     }
     else if (settings.search_algorithm == SearchAlgorithm::BALL_TREE)
     {
-      switch (dist_count)
+      switch (dataset.dim)
       {
         case  2*2*2: NN_search_AS.reset(new BallTreeFD<8>());  break;
+        case  32:    NN_search_AS.reset(new BallTreeFD<32>());  break; //3*3*3 + padding
         case  4*4*4: NN_search_AS.reset(new BallTreeFD<64>()); break;
+        case  128:   NN_search_AS.reset(new BallTreeFD<128>());break;  //5*5*5 + padding
         case  6*6*6: NN_search_AS.reset(new BallTreeFD<216>());break;
+        case  344:   NN_search_AS.reset(new BallTreeFD<344>());break;  //7*7*7 + padding
         case  8*8*8: NN_search_AS.reset(new BallTreeFD<512>());break;
         default: NN_search_AS.reset(new BallTree());       break;
       }
