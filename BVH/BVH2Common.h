@@ -27,7 +27,7 @@ using LiteMath::Box4f;
 
 #include "ISceneObject.h"
 #include "raytrace_common.h"
-#include "cbvh.h"
+#include "utils/cbvh.h"
 #include "nurbs/nurbs_common.h"
 #include "utils/graphics_primitive_common.h"
 #include "catmul_clark/catmul_clark.h"

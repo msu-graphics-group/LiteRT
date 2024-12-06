@@ -2,7 +2,7 @@
 #include <cmath>
 #include <cstdint>
 #include "LiteMath.h"
-#include "BVH/cbvh.h"
+#include "utils/cbvh.h"
 
 using LiteMath::cross;
 using LiteMath::dot;

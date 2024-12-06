@@ -113,6 +113,9 @@ set(SCENE_LOADER_SRC
     ${CMAKE_SOURCE_DIR}/utils/image_metrics.cpp
     ${CMAKE_SOURCE_DIR}/utils/points_visualizer.cpp
     ${CMAKE_SOURCE_DIR}/utils/openvdb_common.cpp
+    ${CMAKE_SOURCE_DIR}/utils/cbvh.cpp
+    ${CMAKE_SOURCE_DIR}/utils/cbvh_fat.cpp
+    ${CMAKE_SOURCE_DIR}/utils/cbvh_embree2.cpp
     )
 
 set(CORE_SRC
@@ -125,9 +128,6 @@ set(CORE_SRC
 set(BUILDERS_SRC
     ${CMAKE_SOURCE_DIR}/BVH/BVH2Common.cpp
     ${CMAKE_SOURCE_DIR}/BVH/BVH2Common_host.cpp
-    ${CMAKE_SOURCE_DIR}/BVH/cbvh.cpp
-    ${CMAKE_SOURCE_DIR}/BVH/cbvh_fat.cpp
-    ${CMAKE_SOURCE_DIR}/BVH/cbvh_embree2.cpp
     )
 
 set(TESTS_SRC
