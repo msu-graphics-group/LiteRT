@@ -24,7 +24,7 @@ namespace BenchmarkBackend
   std::string generate_filename_model_no_ext(std::string model_path, std::string repr_type, std::string lod, std::string param_string);
   std::string generate_filename_image(std::string model_path, std::string renderer, std::string backend, std::string repr_type, std::string lod, std::string param_string, uint32_t camera);
 
-  void parse_param_string(std::string param_string, SdfSBSHeader *sbs_header = nullptr, COctreeV3Header *coctree_header = nullptr);
+  void parse_param_string(std::string param_string, SdfSBSHeader *sbs_header = nullptr, COctreeV3Settings *coctree_header = nullptr);
 
 // Build
 

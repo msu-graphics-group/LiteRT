@@ -2,6 +2,7 @@
 #include "utils/mesh/mesh_bvh.h"
 #include "sparse_octree_builder.h"
 #include "utils/mesh/mesh.h"
+#include "utils/coctree/similarity_compression.h"
 #include "omp.h"
 #include <chrono>
 
@@ -192,37 +193,39 @@ namespace sdf_converter
     g.header.brick_pad = 0;
     auto tlo = cmesh4::create_triangle_list_octree(mesh, settings.depth, 0, 1.0f);
     mesh_octree_to_global_octree(mesh, tlo, g);
-    global_octree_to_compact_octree_v2(g, coctree);
+    global_octree_to_COctreeV2(g, coctree);
 
     return coctree;
   }
 
-  COctreeV3 create_COctree_v3(SparseOctreeSettings settings, COctreeV3Header header, const cmesh4::SimpleMesh &mesh)
+  COctreeV3 create_COctree_v3(SparseOctreeSettings settings, 
+                              COctreeV3Settings co_settings, 
+                              const cmesh4::SimpleMesh &mesh)
   {
     COctreeV3 coctree;
-    coctree.header = header;
-
     GlobalOctree g;
-    g.header.brick_size = header.brick_size;
-    g.header.brick_pad = header.brick_pad;
+    g.header.brick_size = co_settings.brick_size;
+    g.header.brick_pad = co_settings.brick_pad;
     auto tlo = cmesh4::create_triangle_list_octree(mesh, settings.depth, 0, 1.0f);
     mesh_octree_to_global_octree(mesh, tlo, g);
-    global_octree_to_compact_octree_v3(g, coctree, omp_get_max_threads());
+    global_octree_to_COctreeV3(g, coctree, co_settings);
     
     return coctree;
   }
 
-  COctreeV3 create_COctree_v3(SparseOctreeSettings settings, COctreeV3Header header, scom::Settings &scom_settings, const cmesh4::SimpleMesh &mesh)
+  COctreeV3 create_COctree_v3(SparseOctreeSettings settings, 
+                              COctreeV3Settings co_settings, 
+                              scom::Settings  scom_settings, 
+                              const cmesh4::SimpleMesh &mesh)
   {
     COctreeV3 coctree;
-    coctree.header = header;
 
     GlobalOctree g;
-    g.header.brick_size = header.brick_size;
-    g.header.brick_pad = header.brick_pad;
+    g.header.brick_size = co_settings.brick_size;
+    g.header.brick_pad = co_settings.brick_pad;
     auto tlo = cmesh4::create_triangle_list_octree(mesh, settings.depth, 0, 1.0f);
     mesh_octree_to_global_octree(mesh, tlo, g);
-    global_octree_to_compact_octree_v3(g, coctree, omp_get_max_threads(), scom_settings);
+    global_octree_to_COctreeV3(g, coctree, co_settings, scom_settings);
 
     return coctree;
   }

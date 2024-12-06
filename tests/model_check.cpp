@@ -85,11 +85,13 @@ void check_model(const std::string &path)
 		g.header.brick_pad = 0;
 
 		COctreeV3 coctree;
-		coctree.header.bits_per_value = 8;
-		coctree.header.brick_size = g.header.brick_size;
-		coctree.header.brick_pad = g.header.brick_pad;
-		coctree.header.uv_size = 0;
-		coctree.header.sim_compression = 1;
+
+    COctreeV3Settings co_settings;
+		co_settings.bits_per_value = 8;
+		co_settings.brick_size = g.header.brick_size;
+		co_settings.brick_pad = g.header.brick_pad;
+		co_settings.uv_size = 0;
+		co_settings.sim_compression = 1;
 
 		scom::Settings scom_settings;
 		scom_settings.similarity_threshold = 0.075f;
@@ -100,7 +102,7 @@ void check_model(const std::string &path)
 		printf("[check_model::INFO]   Built TLO\n");
 		sdf_converter::mesh_octree_to_global_octree(mesh, tlo, g);
 		printf("[check_model::INFO]   Built Global Octree\n");
-		sdf_converter::global_octree_to_compact_octree_v3(g, coctree, 8, scom_settings);
+		sdf_converter::global_octree_to_COctreeV3(g, coctree, co_settings, scom_settings);
 		printf("[check_model::INFO]   Built Compact Octree\n");
 
 		auto pRender = CreateMultiRenderer(DEVICE_GPU);
@@ -266,11 +268,12 @@ namespace model_validator
 			g.header.brick_pad = 1;
 
 			COctreeV3 coctree;
-			coctree.header.bits_per_value = 8;
-			coctree.header.brick_size = g.header.brick_size;
-			coctree.header.brick_pad = g.header.brick_pad;
-			coctree.header.uv_size = 0;
-			coctree.header.sim_compression = 0;
+      COctreeV3Settings co_settings;
+			co_settings.bits_per_value = 8;
+			co_settings.brick_size = g.header.brick_size;
+			co_settings.brick_pad = g.header.brick_pad;
+			co_settings.uv_size = 0;
+			co_settings.sim_compression = 0;
 
 			preset.normal_mode = g.header.brick_pad == 1 ? NORMAL_MODE_SDF_SMOOTHED : NORMAL_MODE_VERTEX;
 
@@ -285,7 +288,7 @@ namespace model_validator
 				// std::cout << "Finished TLO..." << std::endl;
 				sdf_converter::mesh_octree_to_global_octree(mesh, tlo, g);
 				// std::cout << "Finished global octree..." << std::endl;
-				sdf_converter::global_octree_to_compact_octree_v3(g, coctree, 8, scom_settings);
+				sdf_converter::global_octree_to_COctreeV3(g, coctree, co_settings, scom_settings);
 				return coctree;
 			};
 

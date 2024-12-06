@@ -1015,7 +1015,7 @@ std::chrono::steady_clock::time_point t5 = std::chrono::steady_clock::now();
     }
   }
 
-  void global_octree_to_compact_octree_v2(const GlobalOctree &octree, COctreeV2 &compact)
+  void global_octree_to_COctreeV2(const GlobalOctree &octree, COctreeV2 &compact)
   {
     assert(octree.header.brick_size == 1);
     assert(octree.header.brick_pad == 0);

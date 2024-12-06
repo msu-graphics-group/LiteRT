@@ -578,18 +578,29 @@ namespace sdf_converter
     }
   }
 
-  void global_octree_to_compact_octree_v3(const GlobalOctree &octree, COctreeV3 &compact_octree, unsigned max_threads)
+  void global_octree_to_COctreeV3(const GlobalOctree &octree, COctreeV3 &compact_octree, COctreeV3Settings co_settings)
   {
-    global_octree_to_compact_octree_v3(octree, compact_octree, max_threads, scom::Settings());
+    global_octree_to_COctreeV3(octree, compact_octree, co_settings, scom::Settings());
   }
 
-  void global_octree_to_compact_octree_v3(const GlobalOctree &octree, COctreeV3 &compact_octree, unsigned max_threads, const scom::Settings &settings)
+  void global_octree_to_COctreeV3(const GlobalOctree &octree, COctreeV3 &compact_octree, 
+                                  COctreeV3Settings co_settings, scom::Settings settings)
   {
 #if ON_CPU == 1
     assert(COctreeV3::VERSION == 3); // if version is changed, this function should be revisited, as some changes may be needed
 #endif
     stat_leaf_bytes.store(0);
     stat_nonleaf_bytes.store(0);
+
+    //TODO: ensure that the builder is thread-safe and uncomment
+    int max_threads = 1;
+
+    //set some basic header values from settings to avoid moving settings around
+    compact_octree.header.bits_per_value = co_settings.bits_per_value;
+    compact_octree.header.brick_size = co_settings.brick_size;
+    compact_octree.header.brick_pad = co_settings.brick_pad;
+    compact_octree.header.sim_compression = co_settings.sim_compression;
+    compact_octree.header.uv_size = co_settings.uv_size;
 
     //Initialize thread contexts 
     const int v_size = octree.header.brick_size + 2 * octree.header.brick_pad + 1;

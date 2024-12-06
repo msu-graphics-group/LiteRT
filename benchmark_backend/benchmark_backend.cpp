@@ -112,7 +112,7 @@ namespace BenchmarkBackend
 
   // TODO: Param string is used for SBS and COctreeV3, and "brick_size" and "brick_pad" are the same fields for now. Should they be?
 
-  void parse_param_string(std::string param_string, SdfSBSHeader *sbs_header, COctreeV3Header *coctree_header)
+  void parse_param_string(std::string param_string, SdfSBSHeader *sbs_header, COctreeV3Settings *coctree_header)
   {
     // param string example: COctreeV3 - 'size_4_pad_1_bits_1_uv_0_sim_0'
     // param string example:       SBS - 'size_4_pad_0_bytes_1_aux_3'
@@ -132,7 +132,7 @@ namespace BenchmarkBackend
     res_header_sbs.bytes_per_value = 2;
     res_header_sbs.aux_data = SDF_SBS_NODE_LAYOUT_DX; // 1 << 24
 
-    COctreeV3Header res_header_coctree{};
+    COctreeV3Settings res_header_coctree{};
     res_header_coctree.brick_size = 4;
     res_header_coctree.brick_pad = 0;
     res_header_coctree.bits_per_value = 8;
@@ -295,7 +295,7 @@ namespace BenchmarkBackend
     }
     else if (repr_type == "SDF_FRAME_OCTREE_COMPACT")
     {
-      COctreeV3Header header{};
+      COctreeV3Settings header{};
       parse_param_string(param_string, nullptr, &header);
       t1 = std::chrono::steady_clock::now();
       auto model_new = sdf_converter::create_COctree_v3(settings, header, mesh);

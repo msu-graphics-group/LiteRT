@@ -183,6 +183,9 @@ struct OTStackElement
   uint2 p_size;
 };
 
+//Header is an ultimate descriptor of how COctreeV3 is stored in memory
+//It has a lot of redundance and should not be filled manually
+//Created in global_octree_to_COctreeV3 and used in render mostly
 struct COctreeV3Header
 {
   uint32_t brick_size;      //number of voxels in each brick, 1 to 16
@@ -207,6 +210,18 @@ static unsigned SBS_v_to_i(float i, float j, float k, unsigned v_size, unsigned 
 // CPU-specific functions and data structures
 //################################################################################
 #ifndef KERNEL_SLICER
+
+// Determines how the octree should be packed into COctreeV3.
+// Doesn't deal with similarity compression (it is defined by scom::Settings)
+// For other SDF types Settings and Header are the same thing, because they are simplier
+struct COctreeV3Settings
+{
+  uint32_t brick_size = 1;      //number of voxels in each brick, 1 to 16
+  uint32_t brick_pad = 0;       //how many additional voxels are stored on the borders, 0 is default, 1 is for tricubic filtration or normals smoothing
+  uint32_t bits_per_value = 8;  //6, 8, 10, 16, 32 bits per value is allowed
+  uint32_t uv_size = 0;         //0 if COctreeV3 is not textured, 1 for default (16 for u and v) and 2 for more precision (32 for u and v, not supported)
+  uint32_t sim_compression = 0; //0 or 1, indicates if similarity compression is used
+};
 
 static COctreeV3Header get_default_coctree_v3_header()
 {

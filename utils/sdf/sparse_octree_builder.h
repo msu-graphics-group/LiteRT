@@ -32,9 +32,10 @@ namespace sdf_converter
   void global_octree_to_frame_octree_tex(const GlobalOctree &octree, std::vector<SdfFrameOctreeTexNode> &out_frame);
   void global_octree_to_SVS(const GlobalOctree &octree, std::vector<SdfSVSNode> &svs);
   void global_octree_to_SBS(const GlobalOctree &octree, SdfSBS &sbs);
-  void global_octree_to_compact_octree_v2(const GlobalOctree &octree, COctreeV2 &compact);
-  void global_octree_to_compact_octree_v3(const GlobalOctree &octree, COctreeV3 &compact_octree, unsigned max_threads);
-  void global_octree_to_compact_octree_v3(const GlobalOctree &octree, COctreeV3 &compact_octree, unsigned max_threads, const scom::Settings &settings);
+  void global_octree_to_COctreeV2(const GlobalOctree &octree, COctreeV2 &compact);
+  void global_octree_to_COctreeV3(const GlobalOctree &octree, COctreeV3 &compact_octree, COctreeV3Settings co_settings);
+  void global_octree_to_COctreeV3(const GlobalOctree &octree, COctreeV3 &compact_octree, 
+                                  COctreeV3Settings co_settings, scom::Settings settings);
 
   void frame_octree_limit_nodes(std::vector<SdfFrameOctreeNode> &frame, unsigned nodes_limit,
                                 bool count_only_border_nodes);

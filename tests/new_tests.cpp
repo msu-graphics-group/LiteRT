@@ -784,7 +784,7 @@ namespace litert_tests
       float psnr_orig, psnr_comp;
       COctreeV3 coctree_comp;
       
-      COctreeV3Header header_orig = get_default_coctree_v3_header();
+      COctreeV3Settings header_orig;
       header_orig.brick_size = 2;
       header_orig.brick_pad  = 0;
 
@@ -793,7 +793,7 @@ namespace litert_tests
       testing::save_image(img_orig, "orig");
       psnr_orig = image_metrics::PSNR(img_mesh, img_orig);
 
-      COctreeV3Header header_comp = header_orig;
+      COctreeV3Settings header_comp = header_orig;
       header_comp.sim_compression = true;
 
       scom::Settings scom_settings;
