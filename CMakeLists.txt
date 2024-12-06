@@ -39,13 +39,6 @@ include_directories(${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/LiteMat
 include_directories(${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/LiteScene)
 include_directories(${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/CrossRT)
 include_directories(${CMAKE_SOURCE_DIR}/dependencies/embree)
-include_directories(${CMAKE_SOURCE_DIR}/BVH)
-include_directories(${CMAKE_SOURCE_DIR}/Render)
-include_directories(${CMAKE_SOURCE_DIR}/benchmark_backend)
-
-#include_directories(SYSTEM ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/spectral/include)
-#set(SPECTRAL_LIB_ONLY ON)
-#add_subdirectory(${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/spectral)
 
 set(HYDRA_CORE3_LIB ON)
 
@@ -82,13 +75,15 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS} -std=c++17 -O3 -ffas
                      -Wno-int-to-pointer-cast -Wno-register -Wreturn-type -Wdisabled-optimization \
                      -Wno-narrowing -Wno-attributes -Wno-sign-compare")
 
-set(SCENE_LOADER_SRC
+set(CORE_SRC
+    ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/LiteMath/Image2d.cpp
     ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/LiteScene/pugixml.cpp
     ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/LiteScene/hydraxml.cpp
     ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/LiteScene/cmesh4.cpp
 
     ${CMAKE_SOURCE_DIR}/utils/common/csv.cpp
     ${CMAKE_SOURCE_DIR}/utils/common/blk.cpp
+    ${CMAKE_SOURCE_DIR}/utils/common/timer.cpp
 
     ${CMAKE_SOURCE_DIR}/utils/mesh/mesh_bvh.cpp
     ${CMAKE_SOURCE_DIR}/utils/mesh/mesh.cpp
@@ -96,7 +91,7 @@ set(SCENE_LOADER_SRC
     ${CMAKE_SOURCE_DIR}/utils/mesh/marching_cubes.cpp
     ${CMAKE_SOURCE_DIR}/utils/mesh/demo_meshes.cpp
     ${CMAKE_SOURCE_DIR}/utils/mesh/ply_reader.cpp
-  
+
     ${CMAKE_SOURCE_DIR}/utils/coctree/compact_octree_builder.cpp
     ${CMAKE_SOURCE_DIR}/utils/coctree/similarity_compression.cpp
     ${CMAKE_SOURCE_DIR}/utils/coctree/ball_tree.cpp
@@ -116,16 +111,10 @@ set(SCENE_LOADER_SRC
     ${CMAKE_SOURCE_DIR}/utils/cbvh.cpp
     ${CMAKE_SOURCE_DIR}/utils/cbvh_fat.cpp
     ${CMAKE_SOURCE_DIR}/utils/cbvh_embree2.cpp
-    )
 
-set(CORE_SRC
-    ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/LiteMath/Image2d.cpp
-    ${CMAKE_SOURCE_DIR}/utils/common/timer.cpp
     ${CMAKE_SOURCE_DIR}/Renderer/eye_ray.cpp
     ${CMAKE_SOURCE_DIR}/Renderer/eye_ray_host.cpp
-    )
 
-set(BUILDERS_SRC
     ${CMAKE_SOURCE_DIR}/BVH/BVH2Common.cpp
     ${CMAKE_SOURCE_DIR}/BVH/BVH2Common_host.cpp
     )
@@ -185,14 +174,10 @@ if (USE_VULKAN)
   list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}")
   set(SLICER_DIR "/home/sammael/kernel_slicer" CACHE STRING "Custom diff render location")
   
-  set(MODULES_INCLUDE_DIRS ${MODULES_INCLUDE_DIRS} ${Vulkan_INCLUDE_DIR}
-                                                   ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/vkutils
-                                                   ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/volk)
-
-  #link_directories(${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/volk)
-
-  #add_subdirectory(${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/volk
-  #                 ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/volk/build)
+  set(MODULES_INCLUDE_DIRS ${MODULES_INCLUDE_DIRS} 
+      ${Vulkan_INCLUDE_DIR}
+      ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/vkutils
+      ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/volk)
 
   add_compile_definitions(USE_GPU)
   add_compile_definitions(USE_VOLK)
@@ -322,9 +307,7 @@ target_include_directories(render_lib PUBLIC ${MODULES_INCLUDE_DIRS})
 
 target_sources(render_lib PRIVATE
                ${MODULES_SRC}
-               ${SCENE_LOADER_SRC}
                ${CORE_SRC}
-               ${BUILDERS_SRC}
                ${NURBS_SRC}
                ${TESTS_SRC}
                ${DR_SRC}
@@ -377,9 +360,7 @@ if (USE_VULKAN)
 
   target_sources(engine PRIVATE                
                 ${MODULES_SRC}
-                ${SCENE_LOADER_SRC}
                 ${CORE_SRC}
-                ${BUILDERS_SRC} 
                 ${ENGINE_SOURCE} 
                 ${IMGUI_SRC}
                 ${NURBS_SRC}
