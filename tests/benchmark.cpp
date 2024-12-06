@@ -230,10 +230,6 @@ void quality_check(const char *path)
   }
 }
 
-void direct_test(std::string path, std::string type, MultiRenderPreset preset,
-                 float rotation_angle, unsigned width, unsigned height, unsigned spp, 
-                 float *out_timings, std::vector<uint32_t> &out_image);
-
 void main_benchmark(const std::string &path, const std::string &mesh_name, unsigned flags,
                      std::string image_prefix,
                      std::vector<std::string> use_structure,
@@ -531,7 +527,7 @@ void main_benchmark(const std::string &path, const std::string &mesh_name, unsig
                 {
                   std::vector<uint32_t> image_vector;
                   std::string model_path = structure == "mesh" ? mesh_path : filename;
-                  direct_test(model_path, structure_types[s_id], preset, angle, W, H, hydra_spp, timings, image_vector);
+                  printf("OLD HYDRA INTEGRAION DISABLED!\n");
                   image = LiteImage::Image2D<uint32_t>(W, H, image_vector.data());
                 }
                 //else sdf octree is too slow, no need to render with hydra

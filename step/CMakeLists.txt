@@ -14,8 +14,8 @@ target_include_directories(${PROJECT_NAME} PUBLIC ${PROJECT_SOURCE_DIR}/../depen
 
 add_library(
   Timer
-     ${PROJECT_SOURCE_DIR}/../Timer.cpp
-     ${PROJECT_SOURCE_DIR}/../Timer.h 
+     ${PROJECT_SOURCE_DIR}/../utils/common/timer.cpp
+     ${PROJECT_SOURCE_DIR}/../utils/common/timer.h 
 )
 target_include_directories(Timer PUBLIC ${PROJECT_SOURCE_DIR}/../)
 

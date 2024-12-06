@@ -2,7 +2,7 @@
 #include <vector>
 #include <functional>
 #include <fstream>
-#include "sdfScene/sdf_scene.h"
+#include "sdf_scene.h"
 #include "utils/mesh/mesh.h"
 #include "sdf_converter.h"
 /*

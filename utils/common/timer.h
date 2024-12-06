@@ -1,7 +1,6 @@
-#ifndef TIMER_H
-#define TIMER_H
-
+#pragma once
 #include <chrono>
+
 namespace profiling
 {
   class Timer
@@ -31,4 +30,3 @@ namespace profiling
     Time getElapsedTime() const;
   };
 }
-#endif

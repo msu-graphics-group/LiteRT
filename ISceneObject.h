@@ -6,7 +6,7 @@
 
 #include "LiteMath.h"
 #include "dependencies/HydraCore3/external/CrossRT/CrossRT.h"
-#include "sdfScene/sdf_scene.h"
+#include "utils/sdf/sdf_scene.h"
 #include "utils/radiance_field.h"
 #include "utils/gaussian_field.h"
 #include "render_settings.h"

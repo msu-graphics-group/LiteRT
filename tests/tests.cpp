@@ -16,7 +16,7 @@
 #include "nurbs/nurbs_common_host.h"
 #include "catmul_clark/catmul_clark_host.h"
 #include "ribbon/ribbon_host.h"
-#include "openvdb_structs/openvdb_common.h"
+#include "utils/openvdb_common.h"
 #include "utils/coctree/similarity_compression.h"
 
 #include <functional>

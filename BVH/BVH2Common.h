@@ -29,10 +29,10 @@ using LiteMath::Box4f;
 #include "raytrace_common.h"
 #include "cbvh.h"
 #include "nurbs/nurbs_common.h"
-#include "graphics_primitive/graphics_primitive_common.h"
+#include "utils/graphics_primitive_common.h"
 #include "catmul_clark/catmul_clark.h"
 #include "ribbon/ribbon.h"
-#include "openvdb_structs/openvdb_common.h"
+#include "utils/openvdb_common.h"
 
 // #define USE_TRICUBIC 0
 

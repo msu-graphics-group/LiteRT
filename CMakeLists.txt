@@ -39,10 +39,8 @@ include_directories(${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/LiteMat
 include_directories(${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/LiteScene)
 include_directories(${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/CrossRT)
 include_directories(${CMAKE_SOURCE_DIR}/dependencies/embree)
-include_directories(${CMAKE_SOURCE_DIR}/sdfScene)
 include_directories(${CMAKE_SOURCE_DIR}/BVH)
 include_directories(${CMAKE_SOURCE_DIR}/Render)
-include_directories(${CMAKE_SOURCE_DIR}/openvdb_structs)
 include_directories(${CMAKE_SOURCE_DIR}/benchmark_backend)
 
 #include_directories(SYSTEM ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/spectral/include)
@@ -88,7 +86,6 @@ set(SCENE_LOADER_SRC
     ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/LiteScene/pugixml.cpp
     ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/LiteScene/hydraxml.cpp
     ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/LiteScene/cmesh4.cpp
-    ${CMAKE_SOURCE_DIR}/sdfScene/sdf_scene.cpp
 
     ${CMAKE_SOURCE_DIR}/utils/common/csv.cpp
     ${CMAKE_SOURCE_DIR}/utils/common/blk.cpp
@@ -109,18 +106,18 @@ set(SCENE_LOADER_SRC
     ${CMAKE_SOURCE_DIR}/utils/sdf/sdf_converter_exotic.cpp
     ${CMAKE_SOURCE_DIR}/utils/sdf/sdf_smoother.cpp
     ${CMAKE_SOURCE_DIR}/utils/sdf/iou.cpp
-    
+    ${CMAKE_SOURCE_DIR}/utils/sdf/sdf_scene.cpp
+
     ${CMAKE_SOURCE_DIR}/utils/radiance_field.cpp
     ${CMAKE_SOURCE_DIR}/utils/gaussian_field.cpp
-    ${CMAKE_SOURCE_DIR}/utils/hydra_stub.cpp
     ${CMAKE_SOURCE_DIR}/utils/image_metrics.cpp
     ${CMAKE_SOURCE_DIR}/utils/points_visualizer.cpp
-    ${CMAKE_SOURCE_DIR}/openvdb_structs/openvdb_common.cpp
+    ${CMAKE_SOURCE_DIR}/utils/openvdb_common.cpp
     )
 
 set(CORE_SRC
     ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/LiteMath/Image2d.cpp
-    ${CMAKE_SOURCE_DIR}/Timer.cpp
+    ${CMAKE_SOURCE_DIR}/utils/common/timer.cpp
     ${CMAKE_SOURCE_DIR}/Renderer/eye_ray.cpp
     ${CMAKE_SOURCE_DIR}/Renderer/eye_ray_host.cpp
     )

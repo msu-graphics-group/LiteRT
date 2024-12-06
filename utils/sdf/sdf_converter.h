@@ -1,7 +1,7 @@
 #pragma once
 #include <vector>
 #include <functional>
-#include "sdfScene/sdf_scene.h"
+#include "sdf_scene.h"
 #include "utils/mesh/mesh.h"
 #include "Renderer/eye_ray.h"
 
