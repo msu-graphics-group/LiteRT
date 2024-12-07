@@ -2492,7 +2492,6 @@ float BVHRT::eval_distance_sdf_coctree_v3(uint32_t octree_id, float3 pos)
 #if ON_CPU==1
   assert(COctreeV3::VERSION == 3); //if version is changed, this function should be revisited, as some changes may be needed
 #endif
-  const uint32_t uints_per_child = 1 + coctree_v3_header.sim_compression;
   uint32_t type = m_geomData[octree_id].type;
   // assert (type == TYPE_COCTREE_V3);
   uint32_t leftNodeOffset = eval_distance_traverse_bvh(octree_id, pos);
@@ -2576,10 +2575,10 @@ float BVHRT::eval_distance_sdf_coctree_v3(uint32_t octree_id, float3 pos)
       // if child is active
       if ((childrenInfo & (1u << currNode)) > 0)
       {
-        uint32_t childPos = 1 + uints_per_child*bitCount(childrenInfo & ((1u << currNode) - 1));
-        uint32_t childOffset = m_SdfCompactOctreeV3Data[curr_node.nodeId + childPos];
+        uint32_t childPos = 1 + coctree_v3_header.uints_per_child_info*bitCount(childrenInfo & ((1u << currNode) - 1));
+        uint32_t childOffset = (m_SdfCompactOctreeV3Data[curr_node.nodeId + childPos] & coctree_v3_header.idx_mask) >> coctree_v3_header.idx_sh;
         uint32_t childInfo = coctree_v3_header.sim_compression > 0 ? 
-                             m_SdfCompactOctreeV3Data[curr_node.nodeId + childPos + 1] : 
+                             m_SdfCompactOctreeV3Data[curr_node.nodeId + childPos + coctree_v3_header.trans_off] : 
                              childrenInfo & (1u << (currNode + 8)); // > 0 <=> this child is leaf
         curr_node.nodeId = childOffset;
         curr_node.info = childInfo;
@@ -3018,7 +3017,8 @@ float BVHRT::COctreeV3_LoadDistanceValues(uint32_t brickOffset, float3 voxelPos,
 
   float vmin = 1e6f;
 #ifndef DISABLE_SDF_FRAME_OCTREE_COMPACT
-  int3 voxelPosP = int3(to_float3(m_SdfCompactOctreeRotPTransforms[transform_code & 0xFF] * to_float4(voxelPos + float3(header.brick_pad), 1.0f)));
+  uint32_t rotIdx = transform_code & header.rot_mask;
+  int3 voxelPosP = int3(to_float3(m_SdfCompactOctreeRotPTransforms[rotIdx] * to_float4(voxelPos + float3(header.brick_pad), 1.0f)));
   uint32_t p_size = header.brick_size + 2 * header.brick_pad;
   uint32_t PFlagPos = voxelPosP.x*p_size*p_size + voxelPosP.y*p_size + voxelPosP.z;
   
@@ -3050,7 +3050,7 @@ float BVHRT::COctreeV3_LoadDistanceValues(uint32_t brickOffset, float3 voxelPos,
   uint32_t bits = header.bits_per_value;
   uint32_t max_val = header.bits_per_value == 32 ? 0xFFFFFFFF : ((1 << bits) - 1);
 
-  float add_transform = (transform_code & 0x80000000u) > 0 ? (float(transform_code & 0x7FFFFF00u) / float(0x7FFFFF00u) - 0.5f) : 0.0f;
+  float add_transform = header.sim_compression > 0 ? (float(transform_code & header.add_mask) / float(header.add_mask) - 0.5f) : 0.0f;
 
   float min_val = -float(m_SdfCompactOctreeV3Data[brickOffset + off_3 + 0]) / float(0xFFFFFFFFu) + add_transform;
   float range   =  (float(m_SdfCompactOctreeV3Data[brickOffset + off_3 + 1]) / float(0xFFFFFFFFu)) / max_val;
@@ -3058,7 +3058,7 @@ float BVHRT::COctreeV3_LoadDistanceValues(uint32_t brickOffset, float3 voxelPos,
   for (int i = 0; i < 8; i++)
   {
     float3 vPosOrig = voxelPos + float3(header.brick_pad) + float3((i & 4) >> 2, (i & 2) >> 1, i & 1);
-    int3 vPos = int3(to_float3(m_SdfCompactOctreeRotVTransforms[transform_code & 0xFF] * to_float4(vPosOrig, 1.0f)));
+    int3 vPos = int3(to_float3(m_SdfCompactOctreeRotVTransforms[rotIdx] * to_float4(vPosOrig, 1.0f)));
     uint32_t sliceId = vPos.x;
     uint32_t localId = vPos.y * v_size + vPos.z;
 
@@ -3309,7 +3309,6 @@ void BVHRT::OctreeIntersectV3(uint32_t type, const float3 ray_pos, const float3 
   uint32_t level_sz;
   float d;
   const float old_t = pHit->t;
-  const uint32_t uints_per_child = 1 + coctree_v3_header.sim_compression;
 
   stack[top].nodeId = startNodeOffset;
   stack[top].info = 0;
@@ -3354,10 +3353,10 @@ void BVHRT::OctreeIntersectV3(uint32_t type, const float3 ray_pos, const float3 
           // if child is active
           if ((childrenInfo & (1u << childNode)) > 0)
           {
-            uint32_t childPos = 1 + uints_per_child*bitCount(childrenInfo & ((1u << childNode) - 1));
-            uint32_t childOffset = m_SdfCompactOctreeV3Data[stack[top].nodeId + childPos];
+            uint32_t childPos = 1 + coctree_v3_header.uints_per_child_info*bitCount(childrenInfo & ((1u << childNode) - 1));
+            uint32_t childOffset = (m_SdfCompactOctreeV3Data[stack[top].nodeId + childPos] & coctree_v3_header.idx_mask) >> coctree_v3_header.idx_sh;
             uint32_t childInfo = coctree_v3_header.sim_compression > 0 ? 
-                                 m_SdfCompactOctreeV3Data[stack[top].nodeId + childPos + 1] : 
+                                 m_SdfCompactOctreeV3Data[stack[top].nodeId + childPos + coctree_v3_header.trans_off] : 
                                  childrenInfo & (1u << (childNode + 8)); // > 0 <=> this child is leaf
             tmp_buf[buf_top].nodeId = childOffset;
             tmp_buf[buf_top].info = childInfo;

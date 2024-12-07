@@ -183,6 +183,15 @@ struct OTStackElement
   uint2 p_size;
 };
 
+//enum COctreeNodePackMode
+static constexpr unsigned COCTREE_NODE_PACK_MODE_DEFAULT        = 0; //32 bit per child info (32 bit child offset)
+static constexpr unsigned COCTREE_NODE_PACK_MODE_SIM_COMP_FULL  = 1; //64 bit per child info (32 bit child offset, (8+24) bit transform code)
+static constexpr unsigned COCTREE_NODE_PACK_MODE_SIM_COMP_SMALL = 2; //32 bit per child info (18 bit child offset, (6+8 ) bit transform code)
+
+//enum COctreeLeafPackMode
+static constexpr unsigned COCTREE_LEAF_PACK_MODE_SLICES         = 0; //default mode, separate bit fields for each slice
+static constexpr unsigned COCTREE_LEAF_PACK_MODE_FULL           = 1; //single bit field for all slices, for bricks with <=64 distances
+
 //Header is an ultimate descriptor of how COctreeV3 is stored in memory
 //It has a lot of redundance and should not be filled manually
 //Created in global_octree_to_COctreeV3 and used in render mostly
@@ -193,6 +202,17 @@ struct COctreeV3Header
   uint32_t bits_per_value;  //6, 8, 10, 16, 32 bits per value is allowed
   uint32_t uv_size;         //0 if COctreeV3 is not textured, 1 for default (16 for u and v) and 2 for more precision (32 for u and v, not supported)
   uint32_t sim_compression; //0 or 1, indicates if similarity compression is used
+  
+  uint32_t node_pack_mode;
+  uint32_t leaf_pack_mode;
+  
+  // precomputed values for non-leaf nodes, fully determined by node_pack_mode
+  uint32_t uints_per_child_info;
+  uint32_t idx_mask;
+  uint32_t idx_sh;
+  uint32_t trans_off;
+  uint32_t rot_mask;
+  uint32_t add_mask;
 };
 
 struct OpenVDBHeader
@@ -223,6 +243,38 @@ struct COctreeV3Settings
   uint32_t sim_compression = 0; //0 or 1, indicates if similarity compression is used
 };
 
+//based on node_pack_mode and leaf_pack_mode, fill masks and other values dependant on them
+static void fill_coctree_v3_header(COctreeV3Header &header)
+{
+  if (header.node_pack_mode == COCTREE_NODE_PACK_MODE_DEFAULT)
+  {
+    header.uints_per_child_info = 1;
+    header.idx_sh = 0;
+    header.trans_off = 0;
+    header.idx_mask = 0xFFFFFFFFu;
+    header.rot_mask = 0x00000000u;
+    header.add_mask = 0x00000000u;
+  }
+  else if (header.node_pack_mode == COCTREE_NODE_PACK_MODE_SIM_COMP_FULL)
+  {
+    header.uints_per_child_info = 2;
+    header.idx_sh = 0;
+    header.trans_off = 1;
+    header.idx_mask = 0xFFFFFFFFu;
+    header.rot_mask = 0x0000003Fu;
+    header.add_mask = 0x7FFFFF00u;
+  }
+  else if (header.node_pack_mode == COCTREE_NODE_PACK_MODE_SIM_COMP_SMALL)
+  {
+    header.uints_per_child_info = 1;
+    header.idx_sh = 14;
+    header.trans_off = 0;
+    header.idx_mask = 0xFFFFC000u; //14-32 bits
+    header.rot_mask = 0x0000003Fu; // 0- 6 bits
+    header.add_mask = 0x00003FC0u; // 6-14 bits
+  }
+}
+
 static COctreeV3Header get_default_coctree_v3_header()
 {
   COctreeV3Header header;
@@ -232,6 +284,9 @@ static COctreeV3Header get_default_coctree_v3_header()
   header.bits_per_value = 8;
   header.uv_size = 0;
   header.sim_compression = 0;
+
+  header.node_pack_mode = COCTREE_NODE_PACK_MODE_DEFAULT;
+  header.leaf_pack_mode = COCTREE_LEAF_PACK_MODE_SLICES;
 
   return header;
 }

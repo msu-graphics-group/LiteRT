@@ -595,17 +595,9 @@ namespace sdf_converter
     //TODO: ensure that the builder is thread-safe and uncomment
     int max_threads = 1;
 
-    //set some basic header values from settings to avoid moving settings around
-    compact_octree.header.bits_per_value = co_settings.bits_per_value;
-    compact_octree.header.brick_size = co_settings.brick_size;
-    compact_octree.header.brick_pad = co_settings.brick_pad;
-    compact_octree.header.sim_compression = co_settings.sim_compression;
-    compact_octree.header.uv_size = co_settings.uv_size;
-
     //Initialize thread contexts 
     const int v_size = octree.header.brick_size + 2 * octree.header.brick_pad + 1;
     const int p_size = octree.header.brick_size + 2 * octree.header.brick_pad;
-    const unsigned uints_per_child_offset = compact_octree.header.sim_compression ? 2 : 1;
     std::vector<COctreeV3ThreadCtx> all_ctx(max_threads);
     for (int i = 0; i < max_threads; i++)
     {
@@ -616,22 +608,12 @@ namespace sdf_converter
       all_ctx[i].distance_flags = std::vector<bool>(v_size * v_size * v_size, false);
     }
 
-    //Initialize global context
     COctreeV3GlobalCtx global_ctx;
-    global_ctx.compact.reserve((1+8*uints_per_child_offset) * octree.nodes.size());
-    global_ctx.compact.resize((1+8*uints_per_child_offset), 0u);
-    global_ctx.tasks = std::vector<COctreeV3BuildTask>(octree.nodes.size());
-
-    global_ctx.tasks[0].nodeId = 0;
-    global_ctx.tasks[0].cNodeId = 0;
-    global_ctx.tasks[0].lod_size = 1;
-    global_ctx.tasks[0].p = uint3(0, 0, 0);
-    global_ctx.tasks_count = 1;
 
     auto t1 = std::chrono::high_resolution_clock::now();
 
     //Performing similarity compression if needed
-    if (compact_octree.header.sim_compression)
+    if (co_settings.sim_compression)
     {
       scom::CompressionOutput scom_output;
       scom::similarity_compression(octree, settings, scom_output);
@@ -692,7 +674,62 @@ namespace sdf_converter
     }
 
     auto t2 = std::chrono::high_resolution_clock::now();
-    //printf("similarity compression %.2f ms\n", 1e-6f*std::chrono::duration_cast<std::chrono::nanoseconds>(t2 - t1).count());
+
+    //TODO: ckeck if the data is small enough to use small nodes
+    bool can_use_small_nodes = false;
+
+    //Determine data layout and fill header
+    compact_octree.header = get_default_coctree_v3_header();
+
+    compact_octree.header.bits_per_value = co_settings.bits_per_value;
+    compact_octree.header.brick_size = co_settings.brick_size;
+    compact_octree.header.brick_pad = co_settings.brick_pad;
+    compact_octree.header.sim_compression = co_settings.sim_compression;
+    compact_octree.header.uv_size = co_settings.uv_size;
+
+    if (co_settings.sim_compression == false)
+    {
+      //no similarity compression
+      //child info is just the offset to the child
+      compact_octree.header.node_pack_mode = COCTREE_NODE_PACK_MODE_DEFAULT;
+    }
+    else if (co_settings.sim_compression == true && can_use_small_nodes == false)
+    {
+      //similarity compression is used
+      //child info is the offset to the child and the transform code
+      //2 uints per child info
+      compact_octree.header.node_pack_mode = COCTREE_NODE_PACK_MODE_SIM_COMP_FULL;
+    }
+    else if (co_settings.sim_compression == true && can_use_small_nodes == true)
+    {
+      //similarity compression is used
+      //child info is the offset to the child and the transform code
+      //1 uint per child info
+      compact_octree.header.node_pack_mode = COCTREE_NODE_PACK_MODE_SIM_COMP_SMALL;
+    }
+    else
+    {
+      printf("Failed to determine coctree node pack mode\n");
+      compact_octree.header.node_pack_mode = COCTREE_NODE_PACK_MODE_DEFAULT;
+    }
+
+    //TODO: more leaf node packing options
+    compact_octree.header.leaf_pack_mode = COCTREE_LEAF_PACK_MODE_SLICES;
+
+
+    //precompute masks and other stuff in header
+    fill_coctree_v3_header(compact_octree.header);
+
+    //Initialize global context
+    global_ctx.compact.reserve((1+8*compact_octree.header.uints_per_child_info) * octree.nodes.size());
+    global_ctx.compact.resize(( 1+8*compact_octree.header.uints_per_child_info), 0u);
+    global_ctx.tasks = std::vector<COctreeV3BuildTask>(octree.nodes.size());
+
+    global_ctx.tasks[0].nodeId = 0;
+    global_ctx.tasks[0].cNodeId = 0;
+    global_ctx.tasks[0].lod_size = 1;
+    global_ctx.tasks[0].p = uint3(0, 0, 0);
+    global_ctx.tasks_count = 1;
 
     //Building
     int start_task = 0;
