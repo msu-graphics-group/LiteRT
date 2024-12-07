@@ -68,16 +68,18 @@ static bool is_leaf(unsigned offset)
   return (offset == 0) || (offset & INVALID_IDX);
 }
 
-uint32_t get_transform_code(const COctreeV3Header &header, const scom::TransformCompact &t)
+uint32_t get_transform_code(const COctreeV3Header &header, const scom::TransformCompact &t, float lod_size)
 {
+  float sz_inv = 1.0f/lod_size;
+
   assert(t.rotation_id < scom::ROT_COUNT);
-  assert(t.add > -0.5 && t.add < 0.5);
+  assert(t.add > -1.73205081f*sz_inv && t.add < 1.73205081f*sz_inv);
 
   uint32_t rot_code = t.rotation_id;
-  uint32_t add_code = uint32_t((t.add + 0.5f) * float(header.add_mask)) & header.add_mask;
+  uint32_t add_code = uint32_t(((0.5f/1.73205081f)*t.add*lod_size + 0.5f) * float(header.add_mask)) & header.add_mask;
 
-  float add_restored = (float(add_code & header.add_mask) / float(header.add_mask) - 0.5f);
-  printf("add, restored: %f, %f\n", t.add, add_restored);
+  float add_restored = 1.73205081f*sz_inv*(2*(float(add_code & header.add_mask) / float(header.add_mask)) - 1);
+  //printf("add, restored: %f, %f\n", t.add, add_restored);
 
   return scom::VALID_TRANSFORM_CODE_BIT | add_code | rot_code;
 }
@@ -536,7 +538,8 @@ namespace sdf_converter
 
           if (header.sim_compression > 0) //if transform code is required, we save it here
           {
-            uint32_t code = get_transform_code(header, global_ctx.transforms[ofs + i]);
+            //printf("sz = %u\n", task.lod_size);
+            uint32_t code = get_transform_code(header, global_ctx.transforms[ofs + i], task.lod_size);
             global_ctx.compact[task.cNodeId + 1 + header.uints_per_child_info*ch_count + header.trans_off] = code;
           }
           ch_is_active |= (1 << i);
