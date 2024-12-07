@@ -81,7 +81,9 @@ uint32_t get_transform_code(const COctreeV3Header &header, const scom::Transform
   float add_restored = 1.73205081f*sz_inv*(2*(float(add_code & header.add_mask) / float(header.add_mask)) - 1);
   //printf("add, restored: %f, %f\n", t.add, add_restored);
 
-  return scom::VALID_TRANSFORM_CODE_BIT | add_code | rot_code;
+  assert((add_code|rot_code) != 0); //0 transform will be interpreted as non-leaf node, it is not allowed
+
+  return add_code | rot_code;
 }
 
 namespace sdf_converter
@@ -510,6 +512,7 @@ namespace sdf_converter
             unsigned leaf_size = brick_values_compress(octree, header, thread_ctx, ofs + i, 2 * task.lod_size, ch_p, add_min, add_max);
 
             assert(leaf_size > 0);
+            //printf("leaf size %u/%u\n", leaf_size, (v_size*v_size*v_size + 3)/4);
 
             // resize compact octree to accommodate the new leaf
             #pragma omp critical
@@ -532,15 +535,18 @@ namespace sdf_converter
             leaf_offset = global_ctx.compact_leaf_offsets[compact_leaf_idx];
           }
 
+          global_ctx.compact[task.cNodeId + 1 + header.uints_per_child_info*ch_count] = 0;
+          global_ctx.compact[task.cNodeId + 1 + header.uints_per_child_info*ch_count + header.trans_off] = 0;
+
           //if we use small nodes, we have limited space for leaf_offset. Make sure it fits
-          assert((leaf_offset & header.idx_mask) == leaf_offset);
-          global_ctx.compact[task.cNodeId + 1 + header.uints_per_child_info*ch_count] = leaf_offset << header.idx_sh;
+          assert((leaf_offset & (header.idx_mask >> header.idx_sh)) == leaf_offset);
+          global_ctx.compact[task.cNodeId + 1 + header.uints_per_child_info*ch_count] |= leaf_offset << header.idx_sh;
 
           if (header.sim_compression > 0) //if transform code is required, we save it here
           {
             //printf("sz = %u\n", task.lod_size);
             uint32_t code = get_transform_code(header, global_ctx.transforms[ofs + i], task.lod_size);
-            global_ctx.compact[task.cNodeId + 1 + header.uints_per_child_info*ch_count + header.trans_off] = code;
+            global_ctx.compact[task.cNodeId + 1 + header.uints_per_child_info*ch_count + header.trans_off] |= code;
           }
           ch_is_active |= (1 << i);
           ch_is_leaf |= (1 << i);
@@ -565,10 +571,9 @@ namespace sdf_converter
         {
           unsigned child_offset = global_ctx.compact.size();
           
-          //if we use small nodes, we have limited space for leaf_offset. Make sure it fits
-          assert((child_offset & header.idx_mask) == child_offset);
-          global_ctx.compact[task.cNodeId + 1 + header.uints_per_child_info*ch_count] = child_offset << header.idx_sh;
-          if (header.sim_compression > 0) //if transform code is required, always identity transform for non-leaf child
+          //even if we use small nodes, we still have all 32 bits to store offset for non-leaf children 
+          global_ctx.compact[task.cNodeId + 1 + header.uints_per_child_info*ch_count] = child_offset;
+          if (header.trans_off > 0) //if transform code is stored in separate uint, set it to zero to avoid UB
             global_ctx.compact[task.cNodeId + 1 + header.uints_per_child_info*ch_count + header.trans_off] = 0;
           global_ctx.compact.resize(global_ctx.compact.size() + child_size, 0u);                 // space for non-leaf child
         }
@@ -701,9 +706,6 @@ namespace sdf_converter
 
     auto t2 = std::chrono::high_resolution_clock::now();
 
-    //TODO: ckeck if the data is small enough to use small nodes
-    bool can_use_small_nodes = false;
-
     //Determine data layout and fill header
     compact_octree.header = get_default_coctree_v3_header();
 
@@ -712,6 +714,25 @@ namespace sdf_converter
     compact_octree.header.brick_pad = co_settings.brick_pad;
     compact_octree.header.sim_compression = co_settings.sim_compression;
     compact_octree.header.uv_size = co_settings.uv_size;
+
+    bool can_use_small_nodes = false;
+    //estimate how many active leaf nodes we have and their sizes 
+    {
+      int active_leaf_count = global_ctx.cluster_infos.size();
+      int leaf_dist_cnt = v_size*v_size*v_size;
+      int leaf_uints = (leaf_dist_cnt + 32/co_settings.bits_per_value-1)/(32/co_settings.bits_per_value);
+      int max_size_uints = leaf_uints*active_leaf_count;
+      printf("leaves will take <= %.1f Kb\n", 4*max_size_uints/1024.0f);
+
+      COctreeV3Header tmp_header = compact_octree.header;
+      tmp_header.node_pack_mode = COCTREE_NODE_PACK_MODE_SIM_COMP_SMALL;
+      fill_coctree_v3_header(tmp_header);
+      if (max_size_uints < (tmp_header.idx_mask >> tmp_header.idx_sh))
+      {
+        can_use_small_nodes = true;
+        printf("can use small nodes (%d/%d)\n", max_size_uints, int(tmp_header.idx_mask >> tmp_header.idx_sh));
+      }
+    }
 
     if (co_settings.sim_compression == false)
     {
