@@ -192,6 +192,8 @@ static constexpr unsigned COCTREE_NODE_PACK_MODE_SIM_COMP_SMALL = 2; //32 bit pe
 static constexpr unsigned COCTREE_LEAF_PACK_MODE_SLICES         = 0; //default mode, separate bit fields for each slice
 static constexpr unsigned COCTREE_LEAF_PACK_MODE_FULL           = 1; //single bit field for all slices, for bricks with <=64 distances
 
+static constexpr unsigned COCTREE_MAX_CHILD_INFO_SIZE           = 2; //size in uints
+
 //Header is an ultimate descriptor of how COctreeV3 is stored in memory
 //It has a lot of redundance and should not be filled manually
 //Created in global_octree_to_COctreeV3 and used in render mostly
@@ -547,7 +549,7 @@ struct COctreeV2View
 
 struct COctreeV3
 {
-  static constexpr unsigned VERSION = 3; // change version if structure changes
+  static constexpr unsigned VERSION = 4; // change version if structure changes
   COctreeV3Header header = get_default_coctree_v3_header();
   std::vector<uint32_t> data;
 };

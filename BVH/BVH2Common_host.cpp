@@ -1252,6 +1252,9 @@ void add_border_nodes_rec(COctreeV3View octree, uint32_t max_bvh_level,
                           std::vector<BVHNode> &nodes,
                           uint32_t nodeId, float3 p, float d, uint32_t level)
 {
+#if ON_CPU==1
+  assert(COctreeV3::VERSION == 4); //if version is changed, this function should be revisited, as some changes may be needed
+#endif
   unsigned childrenInfo = octree.data[nodeId + 0];
   unsigned children_leaves = childrenInfo & 0xFF00u;
 
@@ -1293,7 +1296,7 @@ std::vector<BVHNode> GetBoxes_COctreeV3(COctreeV3View octree, uint32_t max_bvh_l
 uint32_t BVHRT::AddGeom_COctreeV3(COctreeV3View octree, unsigned bvh_level, ISceneObject *fake_this, BuildOptions a_qualityLevel)
 {
 #if ON_CPU==1
-  assert(COctreeV3::VERSION == 3); //if version is changed, this function should be revisited, as some changes may be needed
+  assert(COctreeV3::VERSION == 4); //if version is changed, this function should be revisited, as some changes may be needed
 #endif
 
   scom::initialize_rot_transforms(m_SdfCompactOctreeRotVTransforms, octree.header.brick_size + 2 * octree.header.brick_pad + 1);

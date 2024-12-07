@@ -2490,7 +2490,7 @@ float BVHRT::eval_distance_sdf_sbs(uint32_t sbs_id, float3 pos)
 float BVHRT::eval_distance_sdf_coctree_v3(uint32_t octree_id, float3 pos)
 {
 #if ON_CPU==1
-  assert(COctreeV3::VERSION == 3); //if version is changed, this function should be revisited, as some changes may be needed
+  assert(COctreeV3::VERSION == 4); //if version is changed, this function should be revisited, as some changes may be needed
 #endif
   uint32_t type = m_geomData[octree_id].type;
   // assert (type == TYPE_COCTREE_V3);
@@ -3012,7 +3012,7 @@ float BVHRT::COctreeV3_LoadDistanceValues(uint32_t brickOffset, float3 voxelPos,
                                           float values[8] /*out*/)
 {
 #if ON_CPU==1
-  assert(COctreeV3::VERSION == 3); //if version is changed, this function should be revisited, as some changes may be needed
+  assert(COctreeV3::VERSION == 4); //if version is changed, this function should be revisited, as some changes may be needed
 #endif
 
   float vmin = 1e6f;
@@ -3095,7 +3095,7 @@ void BVHRT::COctreeV3_BrickIntersect(uint32_t type, const float3 ray_pos, const 
 {
 
 #if ON_CPU==1
-  assert(COctreeV3::VERSION == 3); //if version is changed, this function should be revisited, as some changes may be needed
+  assert(COctreeV3::VERSION == 4); //if version is changed, this function should be revisited, as some changes may be needed
 #endif
 
 #ifndef DISABLE_SDF_FRAME_OCTREE_COMPACT
@@ -3246,7 +3246,7 @@ void BVHRT::OctreeIntersectV3(uint32_t type, const float3 ray_pos, const float3 
                               CRT_Hit *pHit)
 {
 #if ON_CPU==1
-  assert(COctreeV3::VERSION == 3); //if version is changed, this function should be revisited, as some changes may be needed
+  assert(COctreeV3::VERSION == 4); //if version is changed, this function should be revisited, as some changes may be needed
 #endif
 
 #ifndef DISABLE_SDF_FRAME_OCTREE_COMPACT
