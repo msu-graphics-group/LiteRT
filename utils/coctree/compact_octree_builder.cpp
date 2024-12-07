@@ -1,5 +1,5 @@
 #include "utils/sdf/sparse_octree_builder.h"
-#include "similarity_compression.h"
+#include "similarity_compression_impl.h"
 #include "omp.h"
 #include <atomic>
 #include <cassert>
@@ -34,12 +34,12 @@ struct CompressedClusterInfo
 
 struct COctreeV3GlobalCtx
 {
-  std::vector<float> compressed_data;         // data for all leaf nodes remained after similarity compression
-  std::vector<uint32_t> compact_leaf_offsets; // offsets in compressed_data array, for each leaf left after similarity compression
-                                              // filled in global_octree_to_compact_octree_v3_rec
-  std::vector<uint32_t> node_id_cleaf_id_remap; // ids of leaf node in list of leaves left after similarity compression,
-                                                // for each node from global octree (0 for non-leaf nodes)
-  std::vector<uint32_t> tranform_codes; // similarity compression transform codes for each node from global octree
+  std::vector<float> compressed_data;            // data for all leaf nodes remained after similarity compression
+  std::vector<uint32_t> compact_leaf_offsets;    // offsets in compressed_data array, for each leaf left after similarity compression
+                                                 // filled in global_octree_to_compact_octree_v3_rec
+  std::vector<uint32_t> node_id_cleaf_id_remap;  // ids of leaf node in list of leaves left after similarity compression,
+                                                 // for each node from global octree (0 for non-leaf nodes)
+  std::vector<scom::TransformCompact> transforms;// similarity compression transform codes for each node from global octree
   std::vector<CompressedClusterInfo> cluster_infos;
   std::vector<COctreeV3BuildTask> tasks;
   unsigned tasks_count;
@@ -67,6 +67,21 @@ static bool is_leaf(unsigned offset)
 {
   return (offset == 0) || (offset & INVALID_IDX);
 }
+
+uint32_t get_transform_code(const COctreeV3Header &header, const scom::TransformCompact &t)
+{
+  assert(t.rotation_id < scom::ROT_COUNT);
+  assert(t.add > -0.5 && t.add < 0.5);
+
+  uint32_t rot_code = t.rotation_id;
+  uint32_t add_code = uint32_t((t.add + 0.5f) * float(header.add_mask)) & header.add_mask;
+
+  float add_restored = (float(add_code & header.add_mask) / float(header.add_mask) - 0.5f);
+  printf("add, restored: %f, %f\n", t.add, add_restored);
+
+  return scom::VALID_TRANSFORM_CODE_BIT | add_code | rot_code;
+}
+
 namespace sdf_converter
 {
   unsigned brick_values_compress(const GlobalOctree &octree, COctreeV3Header header,
@@ -457,7 +472,6 @@ namespace sdf_converter
 
     const int v_size = header.brick_size + 2 * header.brick_pad + 1;
     const int vox_count = v_size*v_size*v_size;
-    const unsigned uints_per_child_offset = header.sim_compression ? 2 : 1;
     const unsigned ofs = octree.nodes[task.nodeId].offset;
     assert(!is_leaf(ofs)); // octree must have at least two levels
 
@@ -516,9 +530,15 @@ namespace sdf_converter
             leaf_offset = global_ctx.compact_leaf_offsets[compact_leaf_idx];
           }
 
-          global_ctx.compact[task.cNodeId + uints_per_child_offset*ch_count + 1] = leaf_offset; // offset to this leaf
-          if (uints_per_child_offset == 2) //if transform code is required, we save it here
-            global_ctx.compact[task.cNodeId + uints_per_child_offset*ch_count + 2] = global_ctx.tranform_codes[ofs + i];
+          //if we use small nodes, we have limited space for leaf_offset. Make sure it fits
+          assert((leaf_offset & header.idx_mask) == leaf_offset);
+          global_ctx.compact[task.cNodeId + 1 + header.uints_per_child_info*ch_count] = leaf_offset << header.idx_sh;
+
+          if (header.sim_compression > 0) //if transform code is required, we save it here
+          {
+            uint32_t code = get_transform_code(header, global_ctx.transforms[ofs + i]);
+            global_ctx.compact[task.cNodeId + 1 + header.uints_per_child_info*ch_count + header.trans_off] = code;
+          }
           ch_is_active |= (1 << i);
           ch_is_leaf |= (1 << i);
           ch_count++;
@@ -536,19 +556,22 @@ namespace sdf_converter
         unsigned child_size = 1;
         unsigned child_ofs = octree.nodes[ofs + i].offset;
         for (int j = 0; j < 8; j++)
-          child_size += uints_per_child_offset*octree.nodes[child_ofs + j].is_not_void;
+          child_size += header.uints_per_child_info*octree.nodes[child_ofs + j].is_not_void;
 
 #pragma omp critical
         {
           unsigned child_offset = global_ctx.compact.size();
-          global_ctx.compact[task.cNodeId + uints_per_child_offset*ch_count + 1] = child_offset; // offset to this child
-          if (uints_per_child_offset == 2) //if transform code is required, always identity transform for non-leaf child
-            global_ctx.compact[task.cNodeId + uints_per_child_offset*ch_count + 2] = 0;
+          
+          //if we use small nodes, we have limited space for leaf_offset. Make sure it fits
+          assert((child_offset & header.idx_mask) == child_offset);
+          global_ctx.compact[task.cNodeId + 1 + header.uints_per_child_info*ch_count] = child_offset << header.idx_sh;
+          if (header.sim_compression > 0) //if transform code is required, always identity transform for non-leaf child
+            global_ctx.compact[task.cNodeId + 1 + header.uints_per_child_info*ch_count + header.trans_off] = 0;
           global_ctx.compact.resize(global_ctx.compact.size() + child_size, 0u);                 // space for non-leaf child
         }
         stat_nonleaf_bytes += child_size * sizeof(uint32_t);
 
-        child_offset_pos[i] = uints_per_child_offset * ch_count + 1;
+        child_offset_pos[i] = header.uints_per_child_info * ch_count + 1;
         ch_is_active |= (1 << i);
         ch_count++;
       }
@@ -620,22 +643,22 @@ namespace sdf_converter
 
       global_ctx.compressed_data = scom_output.compressed_data;
       global_ctx.node_id_cleaf_id_remap = scom_output.node_id_cleaf_id_remap;
-      global_ctx.tranform_codes = scom_output.tranform_codes;
+      global_ctx.transforms = scom_output.tranforms;
 
       global_ctx.compact_leaf_offsets.resize(scom_output.leaf_count, 0);
 
       //fill cluster infos to use it for leaves compression
       global_ctx.cluster_infos.resize(scom_output.leaf_count, CompressedClusterInfo(1000.0f, -1000.0f)); 
-      unsigned identity_transform_code = scom::get_identity_transform_code();
       for (int i = 0; i < octree.nodes.size(); i++)
       {
         if (is_leaf(octree.nodes[i].offset) && octree.nodes[i].is_not_void)
         {
-          float add = float(global_ctx.tranform_codes[i] & 0x7FFFFF00u) / float(0x7FFFFF00u) - 0.5f;
+          float add = global_ctx.transforms[i].add;
 
           int cleaf_id = global_ctx.node_id_cleaf_id_remap[i];
           global_ctx.cluster_infos[cleaf_id].original_node_ids.push_back(i);
-          global_ctx.cluster_infos[cleaf_id].trivial_transform &= (global_ctx.tranform_codes[i] == identity_transform_code);
+          global_ctx.cluster_infos[cleaf_id].trivial_transform &= std::abs(global_ctx.transforms[i].add) < 1e-5f &&
+                                                                  global_ctx.transforms[i].rotation_id == scom::ROT_ID_IDENTITY;
           global_ctx.cluster_infos[cleaf_id].add_min = std::min(global_ctx.cluster_infos[cleaf_id].add_min, add);
           global_ctx.cluster_infos[cleaf_id].add_max = std::max(global_ctx.cluster_infos[cleaf_id].add_max, add);
         }
@@ -650,7 +673,7 @@ namespace sdf_converter
       global_ctx.cluster_infos.reserve(octree.nodes.size());
 
       global_ctx.node_id_cleaf_id_remap = std::vector<unsigned>(octree.nodes.size(), 0u);
-      global_ctx.tranform_codes = std::vector<unsigned>(octree.nodes.size(), 0u);
+      global_ctx.transforms = std::vector<scom::TransformCompact>(octree.nodes.size(), scom::get_identity_transform());
 
       int vox_count = v_size*v_size*v_size;
       for (int i = 0; i < octree.nodes.size(); i++)
@@ -658,7 +681,7 @@ namespace sdf_converter
         if (is_leaf(octree.nodes[i].offset) && octree.nodes[i].is_not_void)
         {
           global_ctx.node_id_cleaf_id_remap[i] = global_ctx.compact_leaf_offsets.size();
-          global_ctx.tranform_codes[i] = scom::get_identity_transform_code(); //identity transform
+          global_ctx.transforms[i] = scom::get_identity_transform(); //identity transform
           
           CompressedClusterInfo info;
           info.trivial_transform = true;

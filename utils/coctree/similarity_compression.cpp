@@ -114,12 +114,6 @@ namespace scom
     return inverse_indices;
   }
 
-  struct TransformCompact
-  {
-    unsigned rotation_id;
-    float add;
-  };
-
   TransformCompact get_identity_transform()
   {
     TransformCompact t;
@@ -182,25 +176,6 @@ namespace scom
     int invalidation_step = HC_VALID;
     int cluster_id = -1;
   };
-
-  uint32_t get_transform_code(const TransformCompact &t)
-  {
-    assert(t.rotation_id < ROT_COUNT);
-    assert(t.add > -0.5 && t.add < 0.5);
-
-    uint32_t rot_code = t.rotation_id;
-    uint32_t add_code = (t.add + 0.5f) * float(0x007FFFFFu);
-
-    float add_restored = (float((add_code << 8) & 0x7FFFFF00u) / float(0x7FFFFF00u) - 0.5f);
-    //printf("add, restored: %f, %f\n", t.add, add_restored);
-
-    return VALID_TRANSFORM_CODE_BIT | (add_code << 8) | rot_code;
-  }
-
-  uint32_t get_identity_transform_code()
-  {
-    return get_transform_code(get_identity_transform());
-  }
 
   void create_dataset(const sdf_converter::GlobalOctree &g_octree, const Settings &settings, const std::vector<bool> &surface_node,
                       unsigned surface_node_count, const std::vector<float> &average_brick_val,
@@ -357,7 +332,7 @@ namespace scom
     }
 
     output.node_id_cleaf_id_remap.resize(g_octree.nodes.size(), 0);
-    output.tranform_codes.resize(g_octree.nodes.size(), 0);
+    output.tranforms.resize(g_octree.nodes.size(), get_identity_transform());
     output.compressed_data.resize(clusters.size() * dist_count);
 
     //Main cycle to prepare the similarity compression output.
@@ -416,7 +391,7 @@ namespace scom
         tc.rotation_id = inverse_indices[rotation_ids[node_id]];
         tc.add = (average_brick_val[node_id] - average_brick_val[lead_id]);
         output.node_id_cleaf_id_remap[node_id] = unique_node_id;
-        output.tranform_codes[node_id] = get_transform_code(tc);
+        output.tranforms[node_id] = tc;
       }
       unique_node_id++;
     }
