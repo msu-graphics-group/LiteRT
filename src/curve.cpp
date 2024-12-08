@@ -36,12 +36,16 @@ BCurve3D::BCurve3D(
     this->points[index] = points[j];
   }
 
+  // Cm(t) = C( (t - a) / (b - a) )
+  // Cm'(t) = C'( (t - a) / (b - a) ) * (1 / (b - a))
+  // Cm''(t) = C''(  (t - a) / (b - a) ) * (1 / (b - a) ^ 2)
   for (uint i = 1; i <= p; i++) {
     for (uint j = 0; j <= p - i; j++) {
       auto index = std::make_pair(i,   j);
       auto left  = std::make_pair(i-1, j);
       auto right = std::make_pair(i-1, j+1);
-      this->points[index] = (p - i + 1) * (this->points[right] - this->points[left]);
+      auto dP    = this->points[right] - this->points[left];
+      this->points[index] = ( float(p - i + 1) / (tmax - tmin) ) * dP;
     }
   }
 }
@@ -51,7 +55,7 @@ LiteMath::float3 BCurve3D::get_point(float u) const {
 }
 
 LiteMath::float3 BCurve3D::der(float u, int order) const {
-  u = lerp(tmin, tmax, u);
+  u = ilerp(tmin, tmax, u);
   uint p = degree();
   if (order < 0 || order > p)
     return float3(0.0f);
@@ -178,10 +182,10 @@ std::vector<float>
 RBCurve2D::monotonic_parts(int axes, int order) const {
   int p = degree();
   if (order == 2*p-1) {
-    return { 0.0f, 1.0f };
+    return { tmin, tmax };
   }
 
-  std::vector<float> result = { 0.0f };
+  std::vector<float> result = { tmin };
 
   auto F = [&](float u) {
     return fg_gf(u, order)[axes];
@@ -202,8 +206,8 @@ RBCurve2D::monotonic_parts(int axes, int order) const {
     }
   }
 
-  if (!isclose(1.0f, result.back(), c::BISECTION_EPS)) {
-    result.push_back(1.0f);
+  if (!isclose(tmax, result.back(), c::BISECTION_EPS)) {
+    result.push_back(tmax);
   }
 
   return result;
@@ -306,7 +310,8 @@ NURBSCurve2D::decompose() const {
 
   std::vector<RBCurve2D> result;
   for (int i = 0; i < Qw.size(); ++i) {
-    auto curve = RBCurve2D(Qw[i], knots[i], knots[i+1]);
+    //auto curve = RBCurve2D(Qw[i], knots[i], knots[i+1]);
+    auto curve = RBCurve2D(Qw[i]);
     result.push_back(curve);
   }
   return result;

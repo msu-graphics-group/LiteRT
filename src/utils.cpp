@@ -6,6 +6,17 @@
 
 using namespace LiteMath;
 
+// Inverse lerp
+float ilerp(float a, float b, float t) {
+  return (t - a) / (b - a);
+}
+
+std::vector<float> lerp(float a, float b, std::vector<float> t) {
+  for (size_t i = 0; i < t.size(); i++)
+    t[i] = lerp(a, b, t[i]);
+  return t;
+}
+
 bool isclose(float a, float b, float eps) {
   return std::abs(a - b) < eps;
 }

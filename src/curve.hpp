@@ -30,7 +30,8 @@ struct BCurve3D
 struct RBCurve2D : public BCurve3D
 {
   // Stores points and weights as homorgeneous map to 3D coodinates
-  // Pi(xi, yi) -> Pi(wi * xi, wi * yi, wi)
+  // Pi(xi, yi) -> Pi(wi * xi, wi * yi, wi).
+  // tmin <= u <= tmax is linearly mapped to [0, 1]
 
   RBCurve2D() {}; 
   RBCurve2D(std::vector<LiteMath::float2> points,

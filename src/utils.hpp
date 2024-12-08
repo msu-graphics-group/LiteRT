@@ -73,6 +73,8 @@ private:
 };
 
 //********* Utitilies ***********//
+float ilerp(float a, float b, float t);
+std::vector<float> lerp(float a, float b, std::vector<float> t);
 bool isclose(float a, float b, float eps);
 bool isclose(LiteMath::float3 a, LiteMath::float3 b, float eps);
 bool allclose(std::vector<float> v, std::vector<float> w, float eps);
