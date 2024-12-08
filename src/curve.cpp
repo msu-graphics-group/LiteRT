@@ -209,6 +209,7 @@ RBCurve2D::monotonic_parts(int axes, int order) const {
   if (!isclose(tmax, result.back(), c::BISECTION_EPS)) {
     result.push_back(tmax);
   }
+  result.back() = tmax;
 
   return result;
 }
@@ -227,7 +228,9 @@ RBCurve2D::intersections(float u0) const {
     auto potential_hit = bisection(f, umin, umax);
     if (potential_hit.has_value()) {
       auto u = potential_hit.value();
-      result.push_back(u);
+      auto p = get_point(u);
+      p /= p.z;
+      result.push_back(p.y);
     }
   }
   return result;
@@ -493,19 +496,31 @@ get_kdtree_leaves_helper(
         p /= p.z;
         return p[axes] - middle;
       };
-      float t = bisection(f, curve.tmin, curve.tmax).value(); // TODO define chile to put curve if no intersections
-      auto parts = de_casteljau_division(curve, t);
-      auto test_point = parts[0].points[{0, 0}];
-      test_point /= test_point.z;
-      if (test_point[axes] < middle) {
-        left_child_curves.push_back(parts[0]);
-        right_child_curves.push_back(parts[1]);
+      auto t = bisection(f, curve.tmin, curve.tmax); // TODO define child to put curve if no intersections
+      if (!t.has_value()) {
+        auto test_point = curve.points[{0, 0}];
+        test_point /= test_point.z;
+        if (test_point[axes] < middle) {
+          left_child_curves.push_back(curve);
+          left_child_ids.push_back(curv_ids[i]);
+        } else {
+          right_child_curves.push_back(curve);
+          right_child_ids.push_back(curv_ids[i]);
+        }
       } else {
-        left_child_curves.push_back(parts[1]);
-        right_child_curves.push_back(parts[0]);
+        auto parts = de_casteljau_division(curve, t.value());
+        auto test_point = parts[0].points[{0, 0}];
+        test_point /= test_point.z;
+        if (test_point[axes] < middle) {
+          left_child_curves.push_back(parts[0]);
+          right_child_curves.push_back(parts[1]);
+        } else {
+          left_child_curves.push_back(parts[1]);
+          right_child_curves.push_back(parts[0]);
+        }
+        left_child_ids.push_back(curv_ids[i]);
+        right_child_ids.push_back(curv_ids[i]);
       }
-      left_child_ids.push_back(curv_ids[i]);
-      right_child_ids.push_back(curv_ids[i]);
     }
   }
 
@@ -535,15 +550,12 @@ decompose_to_monotonic(const RBCurve2D &curve) {
   std::copy(monotonic_parts_u.begin(), monotonic_parts_u.end(), std::back_inserter(monotonic_parts));
   std::copy(monotonic_parts_v.begin(), monotonic_parts_v.end(), std::back_inserter(monotonic_parts));
   std::sort(monotonic_parts.begin(), monotonic_parts.end());
+
   monotonic_parts.resize(std::unique(monotonic_parts.begin(), monotonic_parts.end())-monotonic_parts.begin());
-  
-  if (monotonic_parts.size() == 2) {
-    return { curve };
-  }
 
   std::vector<RBCurve2D> result = { curve };
 
-  for (int span = 0; span < monotonic_parts.size()-1; ++span) {
+  for (int span = 0; span < monotonic_parts.size()-2; ++span) {
     float tmin = monotonic_parts[span];
     float tmax = curve.tmax;
     float t_div = monotonic_parts[span+1];

@@ -142,3 +142,18 @@ add_executable(
 )
 target_link_libraries(intersections_test LiteMath)
 target_include_directories(intersections_test PUBLIC ${PROJECT_SOURCE_DIR}/src/)
+
+
+add_executable(
+  kd_tree_test
+  tests/kd_tree_test.cpp
+    src/constants.hpp
+    src/debug.cpp
+    src/debug.hpp
+    src/utils.hpp
+    src/utils.cpp
+    src/curve.hpp
+    src/curve.cpp
+)
+target_link_libraries(kd_tree_test LiteMath)
+target_include_directories(kd_tree_test PUBLIC ${PROJECT_SOURCE_DIR}/src/)
