@@ -38,6 +38,7 @@ struct COctreeV3GlobalCtx
   std::vector<float> compressed_data;            // data for all leaf nodes remained after similarity compression
   std::vector<uint32_t> compact_leaf_offsets;    // offsets in compressed_data array, for each leaf left after similarity compression
                                                  // filled in global_octree_to_compact_octree_v3_rec
+  std::vector<uint32_t> compact_leaf_types;      // leaf types for each leaf left after similarity compression
   std::vector<uint32_t> node_id_cleaf_id_remap;  // ids of leaf node in list of leaves left after similarity compression,
                                                  // for each node from global octree (0 for non-leaf nodes)
   std::vector<uint32_t> node_id_compact_offset;  // offsets in compact array, for each node from global octree
@@ -90,9 +91,9 @@ uint32_t get_transform_code(const COctreeV3Header &header, const scom::Transform
 
 namespace sdf_converter
 {
-  unsigned brick_values_compress(const GlobalOctree &octree, COctreeV3Header header,
-                                 COctreeV3ThreadCtx &ctx, unsigned idx, unsigned lod_size, uint3 p,
-                                 float add_min, float add_max)
+  void BVC_calculate_flags(const GlobalOctree &octree, const COctreeV3Header &header,
+                           COctreeV3ThreadCtx &ctx, unsigned idx, unsigned lod_size, uint3 p,
+                           float add_min, float add_max)
   {
     int v_size = header.brick_size + 2 * header.brick_pad + 1;
     int p_size = header.brick_size + 2 * header.brick_pad;
@@ -237,65 +238,15 @@ namespace sdf_converter
       printf("\n\n");
     }
     */
-    float d_max = 2 * sqrt(3) / lod_size;
-    unsigned bits = header.bits_per_value;
-    unsigned max_val = header.bits_per_value == 32 ? 0xFFFFFFFF : ((1 << bits) - 1);
-    unsigned vals_per_int = 32 / header.bits_per_value;
+  }
 
-    const unsigned line_distances_offset_bits = 16;
-    const unsigned line_distances_offsets_per_uint = 32 / line_distances_offset_bits;
+  void BVC_fill_range(const COctreeV3Header &header, COctreeV3ThreadCtx &ctx, unsigned off_3,
+                      /*out*/ float &min_active, float &max_active)
+  {
+    int v_size = header.brick_size + 2 * header.brick_pad + 1;
 
-    unsigned slice_distance_flags_bits = v_size * v_size;
-    unsigned slice_distance_flags_uints = (slice_distance_flags_bits + 32 - 1) / 32;
-    unsigned distance_flags_size_uints = v_size * slice_distance_flags_uints;
-    unsigned presence_flags_size_uints = (p_size * p_size * p_size + 32 - 1) / 32;
-    unsigned distance_offsets_size_uints = (v_size + line_distances_offsets_per_uint - 1) / line_distances_offsets_per_uint; // 16 bits for offset, should be enough for all cases
-
-    const unsigned min_range_size_uints = 2;
-
-    assert(slice_distance_flags_uints <= 2); // if we want slices with more than 64 values, we should change rendering
-
-    //<presence_flags><distance_flags><distance_offsets><min value and range><distances>
-    unsigned off_0 = 0;                                   // presence flags
-    unsigned off_1 = off_0 + presence_flags_size_uints;   // distance flags
-    unsigned off_2 = off_1 + distance_flags_size_uints;   // distance offsets
-    unsigned off_3 = off_2 + distance_offsets_size_uints; // min value and range
-    unsigned off_4 = off_3 + min_range_size_uints;        // texture coordinates
-    unsigned off_5 = off_4 + 8 * header.uv_size;          // distances
-
-    // empty all range that can be used later
-    unsigned max_size_uints = (v_size * v_size * v_size + vals_per_int - 1) / vals_per_int + off_5;
-    for (int i = 0; i < max_size_uints; i++)
-      ctx.u_values_tmp[i] = 0;
-
-    // fill presence flags
-    for (int i = 0; i < p_size * p_size * p_size; i++)
-    {
-      ctx.u_values_tmp[off_0 + i / 32] |= (unsigned)ctx.presence_flags[i] << (i % 32);
-    }
-
-    // fill distnace flags and offsets for each slice
-    unsigned cur_distances_offset = 0;
-    for (int s_i = 0; s_i < v_size; s_i++)
-    {
-      // offset for distances in this slice
-      assert(cur_distances_offset < (1 << line_distances_offset_bits));
-      ctx.u_values_tmp[off_2 + s_i / line_distances_offsets_per_uint] |= cur_distances_offset << (line_distances_offset_bits * (s_i % line_distances_offsets_per_uint));
-      // printf("offset %u put to slice %u\n", cur_distances_offset, s_i);
-
-      for (int k = 0; k < v_size * v_size; k++)
-      {
-        unsigned distance_bit = (unsigned)ctx.distance_flags[s_i * v_size * v_size + k];
-        // if (distance_bit)
-        //   printf("Adistance %d put to %u\n", s_i*v_size*v_size + k, cur_distances_offset);
-        ctx.u_values_tmp[off_1 + slice_distance_flags_uints * s_i + k / 32] |= distance_bit << (k % 32);
-        cur_distances_offset += distance_bit;
-      }
-    }
-
-    // find range of distances in this brick to better compress distances in this range
-    float min_active = 1000;
-    float max_active = -1000;
+    min_active = 1000;
+    max_active = -1000;
     for (int i = 0; i < v_size * v_size * v_size; i++)
     {
       if (ctx.distance_flags[i])
@@ -314,8 +265,11 @@ namespace sdf_converter
 
     ctx.u_values_tmp[off_3 + 0] = min_comp;
     ctx.u_values_tmp[off_3 + 1] = range_comp;
+  }
 
-    // fill texture coordinates
+  void BVC_fill_texture_coordinates(const GlobalOctree &octree, const COctreeV3Header &header, COctreeV3ThreadCtx &ctx, 
+                                    unsigned idx, unsigned off_4)
+  {
     if (header.uv_size > 0)
     {
       assert(header.uv_size == 1); // only 16 bit precision is supported now
@@ -326,8 +280,50 @@ namespace sdf_converter
         ctx.u_values_tmp[off_4 + i] = (unsigned)u_comp << 16 | (unsigned)v_comp;
       }
     }
+  }
 
-    // fill actual distances
+  void BVC_fill_presence_flags(const COctreeV3Header &header, COctreeV3ThreadCtx &ctx, unsigned off_0)
+  {
+    int p_size = header.brick_size + 2 * header.brick_pad;
+    for (int i = 0; i < p_size * p_size * p_size; i++)
+      ctx.u_values_tmp[off_0 + i / 32] |= (unsigned)ctx.presence_flags[i] << (i % 32);
+  }
+
+  void BVC_sliced_fill_distance_flags(const COctreeV3Header &header, COctreeV3ThreadCtx &ctx, unsigned off_1, unsigned off_2,
+                                      unsigned line_distances_offset_bits, unsigned line_distances_offsets_per_uint,
+                                      unsigned slice_distance_flags_uints)
+  {
+    int v_size = header.brick_size + 2 * header.brick_pad + 1;
+
+    unsigned cur_distances_offset = 0;
+    for (int s_i = 0; s_i < v_size; s_i++)
+    {
+      // offset for distances in this slice
+      assert(cur_distances_offset < (1 << line_distances_offset_bits));
+      ctx.u_values_tmp[off_2 + s_i / line_distances_offsets_per_uint] |= cur_distances_offset << (line_distances_offset_bits * (s_i % line_distances_offsets_per_uint));
+      // printf("offset %u put to slice %u\n", cur_distances_offset, s_i);
+
+      for (int k = 0; k < v_size * v_size; k++)
+      {
+        unsigned distance_bit = (unsigned)ctx.distance_flags[s_i * v_size * v_size + k];
+        // if (distance_bit)
+        //   printf("Adistance %d put to %u\n", s_i*v_size*v_size + k, cur_distances_offset);
+        ctx.u_values_tmp[off_1 + slice_distance_flags_uints * s_i + k / 32] |= distance_bit << (k % 32);
+        cur_distances_offset += distance_bit;
+      }
+    }
+  }
+
+  void BVC_sliced_fill_distances(const GlobalOctree &octree, const COctreeV3Header &header,
+                                 COctreeV3ThreadCtx &ctx, unsigned off_5, float min_active, float max_active,
+                                 /*out*/ unsigned &distances_size_uint)
+  {
+    int v_size = header.brick_size + 2 * header.brick_pad + 1;
+    unsigned bits = header.bits_per_value;
+    unsigned max_val = header.bits_per_value == 32 ? 0xFFFFFFFF : ((1 << bits) - 1);
+    unsigned vals_per_int = 32 / header.bits_per_value;
+    float range_active = max_active - min_active;
+    
     unsigned active_distances = 0;
     for (int i = 0; i < v_size * v_size * v_size; i++)
     {
@@ -340,11 +336,128 @@ namespace sdf_converter
       }
     }
 
-    unsigned distances_size_uint = (active_distances + vals_per_int - 1) / vals_per_int;
+    distances_size_uint = (active_distances + vals_per_int - 1) / vals_per_int;
     assert(distances_size_uint > 0);
-    // printf("a leaf %u %u %u (%u/%u)\n", distances_size_uint, distance_flags_size_uints, presence_flags_size_uints, active_distances, v_size*v_size*v_size);
+  }
 
-    return distances_size_uint + min_range_size_uints + distance_flags_size_uints + presence_flags_size_uints + distance_offsets_size_uints + 8 * header.uv_size;
+  void BVC_grid_fill_distances(const GlobalOctree &octree, const COctreeV3Header &header,
+                               COctreeV3ThreadCtx &ctx, unsigned off_5, float min_active, float max_active,
+                               /*out*/ unsigned &distances_size_uint)
+  {
+    int v_size = header.brick_size + 2 * header.brick_pad + 1;
+    unsigned bits = header.bits_per_value;
+    unsigned max_val = header.bits_per_value == 32 ? 0xFFFFFFFF : ((1 << bits) - 1);
+    unsigned vals_per_int = 32 / header.bits_per_value;
+    float range_active = max_active - min_active;
+    
+    unsigned active_distances = 0;
+    for (int i = 0; i < v_size * v_size * v_size; i++)
+    {
+      unsigned d_compressed = max_val * ((ctx.values_tmp[i] - min_active) / range_active);
+      ctx.u_values_tmp[off_5 + active_distances / vals_per_int] |= d_compressed << (bits * (active_distances % vals_per_int));
+      active_distances++;
+    }
+
+    distances_size_uint = (active_distances + vals_per_int - 1) / vals_per_int;
+    assert(distances_size_uint > 0);    
+  }
+
+  unsigned brick_values_compress(unsigned leaf_type,
+                                 const GlobalOctree &octree, const COctreeV3Header &header,
+                                 COctreeV3ThreadCtx &ctx, unsigned idx, unsigned lod_size, uint3 p,
+                                 float add_min, float add_max)
+  {
+    int v_size = header.brick_size + 2 * header.brick_pad + 1;
+    int p_size = header.brick_size + 2 * header.brick_pad;
+
+    unsigned total_size_uint = 0;
+
+    if (leaf_type != COCTREE_LEAF_TYPE_GRID)
+    {
+      BVC_calculate_flags(octree, header, ctx, idx, lod_size, p, add_min, add_max);
+    }
+    else
+    {
+      //mark everything as active
+      for (int i = 0; i < v_size * v_size * v_size; i++)
+        ctx.distance_flags[i] = true;
+      for (int i = 0; i < p_size * p_size * p_size; i++)
+        ctx.presence_flags[i] = true;
+    }
+
+    if (leaf_type == COCTREE_LEAF_TYPE_SLICES)
+    {
+      const unsigned line_distances_offset_bits = 16;
+      const unsigned line_distances_offsets_per_uint = 32 / line_distances_offset_bits;
+      const unsigned slice_distance_flags_bits = v_size * v_size;
+      const unsigned slice_distance_flags_uints = (slice_distance_flags_bits + 32 - 1) / 32;
+
+      const unsigned presence_flags_size_uints = (p_size * p_size * p_size + 32 - 1) / 32;
+      const unsigned distance_flags_size_uints = v_size * slice_distance_flags_uints;
+      const unsigned distance_offsets_size_uints = (v_size + line_distances_offsets_per_uint - 1) / line_distances_offsets_per_uint; // 16 bits for offset, should be enough for all cases
+      const unsigned min_range_size_uints = 2;
+
+      assert(slice_distance_flags_uints <= 2); // if we want slices with more than 64 values, we should change rendering
+
+      //<presence_flags><distance_flags><distance_offsets><min value and range><distances>
+      unsigned off_0 = 0;                                   // presence flags
+      unsigned off_1 = off_0 + presence_flags_size_uints;   // distance flags
+      unsigned off_2 = off_1 + distance_flags_size_uints;   // distance offsets
+      unsigned off_3 = off_2 + distance_offsets_size_uints; // min value and range
+      unsigned off_4 = off_3 + min_range_size_uints;        // texture coordinates
+      unsigned off_5 = off_4 + 8 * header.uv_size;          // distances
+
+      // empty all range that can be used later
+      unsigned max_size_uints = v_size * v_size * v_size + off_5;
+      for (int i = 0; i < max_size_uints; i++)
+        ctx.u_values_tmp[i] = 0;
+
+      float min_active = 1000;
+      float max_active = -1000;
+      unsigned distances_size_uint = 0;
+
+      BVC_fill_presence_flags(header, ctx, off_0);
+      BVC_sliced_fill_distance_flags(header, ctx, off_1, off_2, line_distances_offset_bits, line_distances_offsets_per_uint, slice_distance_flags_uints);
+      BVC_fill_range(header, ctx, off_3, min_active, max_active);
+      BVC_fill_texture_coordinates(octree, header, ctx, idx, off_4);
+      BVC_sliced_fill_distances(octree, header, ctx, off_5, min_active, max_active, distances_size_uint);
+
+      total_size_uint = presence_flags_size_uints + distance_flags_size_uints + distance_offsets_size_uints + min_range_size_uints + 8 * header.uv_size + distances_size_uint;
+
+      //printf("SLICED leaf %u (%u + %u + %u + %u + %u + %u)\n", total_size_uint, presence_flags_size_uints, distance_flags_size_uints, 
+      //                                                         distance_offsets_size_uints, min_range_size_uints, 8 * header.uv_size,
+      //                                                         distances_size_uint);
+    }
+    else if (leaf_type == COCTREE_LEAF_TYPE_GRID)
+    {
+      const unsigned min_range_size_uints = 2;
+      unsigned off_3 = 0;                           // min value and range
+      unsigned off_4 = off_3 + min_range_size_uints;// texture coordinates
+      unsigned off_5 = off_4 + 8 * header.uv_size;  // distances
+
+      // empty all range that can be used later
+      unsigned max_size_uints = v_size * v_size * v_size + off_5;
+      for (int i = 0; i < max_size_uints; i++)
+        ctx.u_values_tmp[i] = 0;
+
+      float min_active = 1000;
+      float max_active = -1000;
+      unsigned distances_size_uint = 0;
+
+      BVC_fill_range(header, ctx, off_3, min_active, max_active);
+      BVC_fill_texture_coordinates(octree, header, ctx, idx, off_4);
+      BVC_grid_fill_distances(octree, header, ctx, off_5, min_active, max_active, distances_size_uint);
+
+      total_size_uint = min_range_size_uints + 8 * header.uv_size + distances_size_uint;
+
+      //printf("GRID leaf %u (%u + %u + %u)\n", total_size_uint, min_range_size_uints, 8 * header.uv_size, distances_size_uint);
+    }
+    else
+    {
+      printf("unknown or unsupported leaf type %u\n", leaf_type);
+      assert(false);
+    }
+    return total_size_uint;
   }
 
   unsigned brick_values_compress_no_packing(COctreeV3Header header, COctreeV3ThreadCtx &ctx,
@@ -383,7 +496,7 @@ namespace sdf_converter
     uint3 ch_p = 2 * task.p + uint3((i & 4) >> 2, (i & 2) >> 1, i & 1);
 
     unsigned leaf_size = brick_values_compress_no_packing(header, thread_ctx, ofs + i, 2 * task.lod_size, ch_p);
-    unsigned a_leaf_size = brick_values_compress(octree, header, thread_ctx, ofs + i, 2 * task.lod_size, ch_p, add_min, add_max);
+    unsigned a_leaf_size = brick_values_compress(0, octree, header, thread_ctx, ofs + i, 2 * task.lod_size, ch_p, add_min, add_max);
     // printf("compressed to %u uints, naive packing would be %u uints\n", a_leaf_size, leaf_size);
 
     std::vector<unsigned> u_values_tmp_2(thread_ctx.u_values_tmp.size(), 0u);
@@ -482,7 +595,7 @@ namespace sdf_converter
     const int v_size = header.brick_size + 2 * header.brick_pad + 1;
     const int vox_count = v_size * v_size * v_size;
 
-    unsigned leaf_offset;
+    unsigned leaf_offset, leaf_size, leaf_type;
 
     unsigned compact_leaf_idx = global_ctx.node_id_cleaf_id_remap[task.nodeId];
     if (global_ctx.compact_leaf_offsets[compact_leaf_idx] == 0u) // this is a new node, we should compress it and add to compact octree
@@ -497,8 +610,16 @@ namespace sdf_converter
       // fill the compact octree with compressed leaf data
       float add_min = global_ctx.cluster_infos[compact_leaf_idx].add_min;
       float add_max = global_ctx.cluster_infos[compact_leaf_idx].add_max;
-      unsigned leaf_size = brick_values_compress(octree, header, thread_ctx, task.nodeId, task.lod_size, task.p, add_min, add_max);
 
+      unsigned uncompressed_leaf_size = 2 + (v_size*v_size*v_size + (32/header.bits_per_value - 1))/(32/header.bits_per_value);
+      
+      leaf_size = brick_values_compress(header.default_leaf_type, octree, header, thread_ctx, task.nodeId, task.lod_size, task.p, add_min, add_max);
+      leaf_type = header.default_leaf_type;
+      if (leaf_size >= uncompressed_leaf_size && header.fallback_leaf_type != header.default_leaf_type)
+      {
+        leaf_size = brick_values_compress(header.fallback_leaf_type, octree, header, thread_ctx, task.nodeId, task.lod_size, task.p, add_min, add_max);
+        leaf_type = header.fallback_leaf_type;
+      }
       assert(leaf_size > 0);
       // printf("leaf size %u/%u\n", leaf_size, (v_size*v_size*v_size + 3)/4);
 
@@ -516,15 +637,17 @@ namespace sdf_converter
       // add info about this leaf to the context
       // TODO : make it thread-safe
       global_ctx.compact_leaf_offsets[compact_leaf_idx] = leaf_offset;
+      global_ctx.compact_leaf_types[compact_leaf_idx] = leaf_type;
       stat_leaf_bytes += leaf_size * sizeof(uint32_t);
     }
     else // this leaf node already exist, just get its offset and size
     {
       leaf_offset = global_ctx.compact_leaf_offsets[compact_leaf_idx];
+      leaf_type   = global_ctx.compact_leaf_types[compact_leaf_idx];
     }
 
     global_ctx.node_id_compact_offset[task.nodeId] = leaf_offset;
-    global_ctx.node_id_leaf_type[task.nodeId] = header.default_leaf_type;
+    global_ctx.node_id_leaf_type[task.nodeId] = leaf_type;
   }
 
   void execute_compression_task_node(const GlobalOctree &octree, const COctreeV3Header &header,
@@ -759,6 +882,9 @@ namespace sdf_converter
     //determine default leaf packing mode
     //TODO: more leaf node packing options
     //compact_octree.header.leaf_pack_mode = COCTREE_LEAF_PACK_MODE_SLICES;
+    compact_octree.header.default_leaf_type  = COCTREE_LEAF_TYPE_SLICES;
+    compact_octree.header.fallback_leaf_type = co_settings.allow_fallback_to_unpacked_leaves ?
+                                               compact_octree.header.default_leaf_type : COCTREE_LEAF_TYPE_GRID;
 
     //prepare tasks for compression
     std::vector<std::vector<COctreeV3BuildTask>> node_layers;
@@ -773,6 +899,7 @@ namespace sdf_converter
     global_ctx.compact.resize(( 1+8*COCTREE_MAX_CHILD_INFO_SIZE), 0u);
     global_ctx.node_id_compact_offset = std::vector<unsigned>(octree.nodes.size(), 0xFFFFFFFFu);
     global_ctx.node_id_leaf_type = std::vector<unsigned>(octree.nodes.size(), 0u);
+    global_ctx.compact_leaf_types = std::vector<unsigned>(global_ctx.compact_leaf_offsets.size(), COCTREE_LEAF_TYPE_NOT_A_LEAF);
     
     //compress leaves (isn't thread safe)
     for (int i = 0; i < leaf_layer.size(); i++)

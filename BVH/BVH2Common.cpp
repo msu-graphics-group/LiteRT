@@ -3036,7 +3036,32 @@ float BVHRT::COctreeV3_LoadDistanceValuesLeafGrid(uint32_t brickOffset, float3 v
 
   float vmin = 1e6f;
 #ifndef DISABLE_SDF_FRAME_OCTREE_COMPACT
-  return -1.0f;
+  uint32_t rotIdx = transform_code & header.rot_mask;
+  const unsigned min_range_size_uints = 2;
+
+  //<><><><min value and range><tex_coords><distances>
+  unsigned off_3 = 0;                                   // min value and range
+  unsigned off_4 = off_3 + min_range_size_uints;        // texture coordinates
+  unsigned off_5 = off_4 + 8 * header.uv_size;          // distances
+
+  uint32_t vals_per_int = 32 / header.bits_per_value;
+  uint32_t bits = header.bits_per_value;
+  uint32_t max_val = header.bits_per_value == 32 ? 0xFFFFFFFF : ((1 << bits) - 1);
+
+  float add_transform = header.sim_compression > 0 ? 1.73205081f*sz_inv*(2*(float(transform_code & header.add_mask) / float(header.add_mask)) - 1) : 0.0f;
+
+  float min_val = -float(m_SdfCompactOctreeV3Data[brickOffset + off_3 + 0]) / float(0xFFFFFFFFu) + add_transform;
+  float range   =  (float(m_SdfCompactOctreeV3Data[brickOffset + off_3 + 1]) / float(0xFFFFFFFFu)) / max_val;
+
+  for (int i = 0; i < 8; i++)
+  {
+    float3 vPosOrig = voxelPos + float3(header.brick_pad) + float3((i & 4) >> 2, (i & 2) >> 1, i & 1);
+    int3 vPos = int3(to_float3(m_SdfCompactOctreeRotVTransforms[rotIdx] * to_float4(vPosOrig, 1.0f)));
+    uint32_t vId0 = vPos.x*v_size*v_size + vPos.y*v_size + vPos.z;
+    uint32_t dist0 = ((m_SdfCompactOctreeV3Data[brickOffset + off_5 + vId0 / vals_per_int] >> (bits * (vId0 % vals_per_int))) & max_val);
+    values[i] = min_val + range * dist0;
+    vmin = std::min(values[i], vmin);
+  }
 #endif
   return vmin;
 }
@@ -3087,7 +3112,7 @@ float BVHRT::COctreeV3_LoadDistanceValuesLeafSlices(uint32_t brickOffset, float3
 
   const unsigned min_range_size_uints = 2;
 
-  //<presence_flags><distance_flags><distance_offsets><min value and range><distances>
+  //<presence_flags><distance_flags><distance_offsets><min value and range><tex_coords><distances>
   unsigned off_0 = 0;                                   // presence flags
   unsigned off_1 = off_0 + presence_flags_size_uints;   // distance flags
   unsigned off_2 = off_1 + distance_flags_size_uints;   // distance offsets
