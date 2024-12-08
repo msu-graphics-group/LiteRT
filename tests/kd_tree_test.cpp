@@ -42,9 +42,6 @@ int main(int argc, const char **argv) {
     vs.push_back(0.0f);
     vs.push_back(1.0f);
     std::sort(vs.begin(), vs.end());
-    for (int i = 1; i < vs.size(); ++i)
-      if (abs(vs[i]-vs[i-1]) < 1e-3f)
-        vs[i] = vs[i-1];
     vs.back() = 1.0f;
     vs.resize(std::unique(vs.begin(), vs.end())-vs.begin());
     for (int span = 0; span < vs.size()-1; ++span) {
