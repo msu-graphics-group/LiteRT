@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 #include <cstdlib>
+#include <filesystem>
 
 #include "utils/mesh/mesh.h"
 #include "utils/sdf/sdf_converter.h"
@@ -42,6 +43,7 @@ namespace BenchmarkBackend
   void render(LiteImage::Image2D<uint32_t> &image, std::shared_ptr<MultiRenderer> pRender,
               float3 pos, float3 target, float3 up,
               MultiRenderPreset preset, int a_passNum = 1);
+  void Render(LiteImage::Image2D<uint32_t> &image, IRenderer* pRender, uint32_t width, uint32_t height, const LiteMath::float3 &pos);
 
   void getMetrics(const std::string &render_config_str);
 

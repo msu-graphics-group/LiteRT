@@ -1,55 +1,10 @@
 #include "benchmark_backend.h"
-#ifdef USE_VULKAN
+#ifdef USE_GPU
 #include "vk_context.h"
 #endif
 
 namespace BenchmarkBackend
 {
-  /*
-
-  build_SVS(SimpleMesh mesh, std::string lod, std::string param_string)
-  {
-  if (lod == "low")
-    depth = 4;
-  if (lod == "high")
-    depth = 6;
-  }
-  build_SBS(SimpleMesh mesh, std::string lod, std::string param_string)
-  {
-
-  }
-
-  void render()
-  {
-   string xml_path = "benchmark/bunny/models/SBS/lod_high_brick4.xml";
-   //it should be also "benchmark/bunny/models/SBS/lod_high_brick4.bin";
-   //brick4 - param string
-
-   IRenderer *renderer;
-   if (...)
-    renderer = MultiRenderer(device)
-   else
-    renderer = HydraRenderer(device)
-
-    cameras = ...
-    preset  = ...
-    for (auto &camera : cameras)
-    {
-      Image2D<uint32_t> image_ref = LoadImage("benchmark/bunny/hydra/GPU/mesh/lod_high_default_cam_i.png");
-
-      renderer->setCamera(camera);
-      renderer->render();
-
-      save_image(...)
-      psnr = ...
-      time = ...
-    }
-
-    log.AddLog(...)
-  }
-
-  */
-
 // Common
 
   std::string get_model_name(std::string model_path)
@@ -110,10 +65,18 @@ namespace BenchmarkBackend
     return res;
   }
 
-  // TODO: Param string is used for SBS and COctreeV3, and "brick_size" and "brick_pad" are the same fields for now. Should they be?
 
   void parse_param_string(std::string param_string, SdfSBSHeader *sbs_header, COctreeV3Settings *coctree_header)
   {
+    // Notes:
+    // "size" - sets both COctreeV3 and SBS "brick_size"
+    // "ssize" - sets only       SBS "brick_size"
+    // "csize" - sets only COctreeV3 "brick_size"
+
+    // "pad" - sets both COctreeV3 and SBS "brick_pad"
+    // "spad" - sets only       SBS "brick_pad"
+    // "cpad" - sets only COctreeV3 "brick_pad"
+
     // param string example: COctreeV3 - 'size_4_pad_1_bits_1_uv_0_sim_0'
     // param string example:       SBS - 'size_4_pad_0_bytes_1_aux_3'
     // aux then transformed (aux = aux << 24)
@@ -164,10 +127,30 @@ namespace BenchmarkBackend
             res_header_sbs.brick_size = val;
             res_header_coctree.brick_size = val;
           }
+          else if (tag == "ssize")
+          {
+            assert(val >= 1 && val <= 16);
+            res_header_sbs.brick_size = val;
+          }
+          else if (tag == "csize")
+          {
+            assert(val >= 1 && val <= 16);
+            res_header_coctree.brick_size = val;
+          }
           else if (tag == "pad")
           {
             assert(val >= 0 && val <= 1);
             res_header_sbs.brick_pad = val;
+            res_header_coctree.brick_pad = val;
+          }
+          else if (tag == "spad")
+          {
+            assert(val >= 0 && val <= 1);
+            res_header_sbs.brick_pad = val;
+          }
+          else if (tag == "cpad")
+          {
+            assert(val >= 0 && val <= 1);
             res_header_coctree.brick_pad = val;
           }
           else if (tag == "bits")
@@ -230,17 +213,40 @@ namespace BenchmarkBackend
     SparseOctreeSettings settings = get_build_settings(lod);
     GridSettings grid_settings = get_build_settings_grid(lod);
 
-    // TODO: build benchmark: time, mesh/result size, some 3D metrics
+    std::string fname_no_ext = generate_filename_model_no_ext(model_path, repr_type, lod, param_string);
 
     std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
     std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
 
     if (repr_type == "MESH")
     {
-      std::string fname_no_ext = generate_filename_model_no_ext(model_path, repr_type, lod, param_string);
-
       std::string fname_vsgf = fname_no_ext + ".vsgf";
       cmesh4::SaveMeshToVSGF(fname_vsgf.c_str(), mesh);
+      save_scene_xml(fname_no_ext + ".xml", get_model_name(fname_no_ext) + ".vsgf", mesh, DemoScene::SINGLE_OBJECT);
+    }
+    else if (repr_type == "MESH_LOD")
+    {
+      std::string fname_vsgf_before_lod = fname_no_ext + "_nolod.vsgf";
+      std::string fname_vsgf = fname_no_ext + ".vsgf";
+      cmesh4::SaveMeshToVSGF(fname_vsgf_before_lod.c_str(), mesh);
+
+      float lod_param = 1.f;
+
+      if (lod == "high")
+        lod_param = 0.75f;
+      if (lod == "mid")
+        lod_param = 0.50f;
+      if (lod == "low")
+        lod_param = 0.25f;
+
+      std::string lod_command = "dependencies/lod_maker/lod_maker " + fname_vsgf_before_lod + " " + fname_vsgf + " " + std::to_string(lod_param);
+
+      t1 = std::chrono::steady_clock::now();
+      std::system(lod_command.c_str());
+      t2 = std::chrono::steady_clock::now();
+
+      std::filesystem::remove(fname_vsgf_before_lod.c_str()); // the only reason to import filesystem, delete original mesh, it can already be found in MESH directory
+
       save_scene_xml(fname_no_ext + ".xml", get_model_name(fname_no_ext) + ".vsgf", mesh, DemoScene::SINGLE_OBJECT);
     }
     else if (repr_type == "SDF_GRID")
@@ -250,8 +256,6 @@ namespace BenchmarkBackend
       t2 = std::chrono::steady_clock::now();
       ModelInfo info = get_info_sdf_grid(model_new);
 
-      std::string fname_no_ext = generate_filename_model_no_ext(model_path, repr_type, lod, param_string);
-      
       save_sdf_grid(model_new, fname_no_ext + ".bin");
       save_scene_xml(fname_no_ext + ".xml", get_model_name(fname_no_ext) + ".bin", info, mat_id, DemoScene::SINGLE_OBJECT);
     }
@@ -261,8 +265,6 @@ namespace BenchmarkBackend
       auto model_new = sdf_converter::create_sdf_SVS(settings, mesh);
       t2 = std::chrono::steady_clock::now();
       ModelInfo info = get_info_sdf_SVS(model_new);
-
-      std::string fname_no_ext = generate_filename_model_no_ext(model_path, repr_type, lod, param_string);
 
       save_sdf_SVS(model_new, fname_no_ext + ".bin");
       save_scene_xml(fname_no_ext + ".xml", get_model_name(fname_no_ext) + ".bin", info, mat_id, DemoScene::SINGLE_OBJECT);
@@ -276,8 +278,6 @@ namespace BenchmarkBackend
       t2 = std::chrono::steady_clock::now();
       ModelInfo info = get_info_sdf_SBS(model_new);
 
-      std::string fname_no_ext = generate_filename_model_no_ext(model_path, repr_type, lod, param_string);
-
       save_sdf_SBS(model_new, fname_no_ext + ".bin");
       save_scene_xml(fname_no_ext + ".xml", get_model_name(fname_no_ext) + ".bin", info, mat_id, DemoScene::SINGLE_OBJECT);
     }
@@ -287,8 +287,6 @@ namespace BenchmarkBackend
       auto model_new = sdf_converter::create_sdf_frame_octree(settings, mesh);
       t2 = std::chrono::steady_clock::now();
       ModelInfo info = get_info_sdf_frame_octree(model_new);
-
-      std::string fname_no_ext = generate_filename_model_no_ext(model_path, repr_type, lod, param_string);
 
       save_sdf_frame_octree(model_new, fname_no_ext + ".bin");
       save_scene_xml(fname_no_ext + ".xml", get_model_name(fname_no_ext) + ".bin", info, mat_id, DemoScene::SINGLE_OBJECT);
@@ -302,14 +300,38 @@ namespace BenchmarkBackend
       t2 = std::chrono::steady_clock::now();
       ModelInfo info = get_info_coctree_v3(model_new);
 
-      std::string fname_no_ext = generate_filename_model_no_ext(model_path, repr_type, lod, param_string);
-
       save_coctree_v3(model_new, fname_no_ext + ".bin");
       save_scene_xml(fname_no_ext + ".xml", get_model_name(fname_no_ext) + ".bin", info, mat_id, DemoScene::SINGLE_OBJECT);
     }
 
+    //  Both models' size calculation
+
+    float original_memory = 0.f, memory = 0.f;
+
+    {
+      auto mr_renderer = CreateMultiRenderer(DEVICE_CPU);
+      mr_renderer->SetPreset(getDefaultPreset());
+      mr_renderer->SetScene(mesh);
+
+      original_memory = static_cast<BVHRT*>(mr_renderer->GetAccelStruct().get())->get_model_size() * (1.f / (1024 * 1024));
+    }
+    {
+      std::string fname_str = fname_no_ext + ".xml";
+
+      auto mr_renderer = CreateMultiRenderer(DEVICE_CPU);
+      mr_renderer->SetPreset(getDefaultPreset());
+      mr_renderer->LoadScene(fname_str.c_str());
+
+      memory = static_cast<BVHRT*>(mr_renderer->GetAccelStruct().get())->get_model_size() * (1.f / (1024 * 1024));
+    }
+
     //  Time calculation
     float t = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count() / 1000.f; // ms
+
+    //  Write down measurements
+    std::fstream f;
+    f.open("benchmark/results/build.csv", std::ios::app);
+    f << get_model_name(model_path) << ", " << repr_type << ", " << original_memory << ", " << memory << ", " << t << std::endl;
   }
 
 // Render
@@ -347,28 +369,11 @@ namespace BenchmarkBackend
   void
   getMetrics(const std::string &render_config_str)
   {
-    /*
-      {
-        lod:s = "high"
-        type:s = "SDF_SVS"
-        model:s = "benchmark/bunny/models/SDF_SVS/lod_high_size_4_pad_0.xml"
-        backend:s = "CPU"
-        renderer:s = "MR"
-        param_string:s = "size_4_pad_0"
-        render_modes:arr = { "LAMBERT" }
-        width:i = 512
-        height:i = 512
-        cameras:i = 1
-        iters:i = 8
-        spp:i = 4
-      }
-    */
-
     Block render_config;
     load_block_from_string(render_config_str, render_config);
 
     std::string model_path = render_config.get_string("model");
-    std::string model_name = render_config.get_string("model_name") + ".workaround";
+    std::string model_name = render_config.get_string("model_name");
     std::string lod = render_config.get_string("lod");
     std::string repr_type = render_config.get_string("type");
     std::string param_string = render_config.get_string("param_string");
@@ -385,41 +390,55 @@ namespace BenchmarkBackend
 
     //  Start measurements
     std::fstream f;
-    f.open("benchmark/results/results.csv", std::ios::app);
+    f.open("benchmark/results/render.csv", std::ios::app);
 
     if (renderer_type == "Hydra" && !render_modes.empty())
+    {
       render_modes.resize(1); // Note: no render modes for Hydra, render only once
+      render_modes[0] = "Hydras_render_mode"; // TODO
+    }
+
+    // Create renderer
+
+    int device = getDevice(backend);
+    float memory = 0;
+
+    std::shared_ptr<IRenderer> pRender;
+
+    if (renderer_type == "MR")
+    {
+      pRender = CreateMultiRenderer(device);
+    }
+    else if (renderer_type == "Hydra")
+    {
+      pRender = std::make_shared<HydraRenderer>(device);
+      HydraRenderPreset hydra_preset = getDefaultHydraRenderPreset();
+      hydra_preset.spp = spp;
+      static_cast<HydraRenderer*>(pRender.get())->SetPreset(width, height, hydra_preset);
+    }
+    else
+    {
+      // TODO: throw something at someone
+    }
+
+    pRender->LoadScene(model_path.c_str());
+    memory = static_cast<BVHRT*>(pRender->GetAccelStruct().get())->get_model_size() * (1.f / (1024 * 1024));
+
+
+    // Render modes loop
 
     for (const auto &render_mode: render_modes)
     {
-      int device = getDevice(backend);
-
-      std::shared_ptr<IRenderer> pRender;
-      
       if (renderer_type == "MR")
       {
-        pRender = CreateMultiRenderer(device);
+        // Set MultiRenderer render mode
         MultiRenderPreset mr_preset = createPreset(render_mode, spp);
         static_cast<MultiRenderer*>(pRender.get())->SetPreset(mr_preset);
       }
-      else if (renderer_type == "Hydra")
-      {
-        pRender = std::make_shared<HydraRenderer>(device);
-        HydraRenderPreset hydra_preset = getDefaultHydraRenderPreset();
-        hydra_preset.spp = spp;
-        static_cast<HydraRenderer*>(pRender.get())->SetPreset(width, height, hydra_preset);
-      }
-      else
-      {
-        // TODO: throw something at someone
-      }
 
-      float min_time = 1e4, max_time = -1, average_time = 0;
-      float memory = 0;
+      float min_time =  1e8, max_time = -1, average_time = 0;
       float min_psnr = 1000, max_psnr = -1, average_psnr = 0;
       float min_flip = 1000, max_flip = -1, average_flip = 0;
-
-      pRender->LoadScene(model_path.c_str());
 
       for (int camera = 0; camera < cameras; ++camera)
       {
@@ -438,8 +457,8 @@ namespace BenchmarkBackend
         calcMetrics(min_time, max_time, average_time, t);
 
         //  Save image
-        std::string save_name = generate_filename_image(model_name, renderer_type, backend, repr_type, lod, param_string, camera),
-                    mesh_name = generate_filename_image(model_name, renderer_type, backend,    "MESH", lod, param_string, camera);
+        std::string save_name = generate_filename_image(model_name + ".workaround", renderer_type, backend, repr_type, lod, param_string, camera),
+                    mesh_name = generate_filename_image(model_name + ".workaround", renderer_type, backend,    "MESH", lod, param_string, camera);
 
         printf("SaveImg path: %s\n", save_name.c_str());
         LiteImage::SaveImage<uint32_t>(save_name.c_str(), image);
@@ -467,16 +486,15 @@ namespace BenchmarkBackend
       std::string device_name = "CPU";
       if (backend != "CPU")
       {
-        #ifdef USE_VULKAN
+#ifdef USE_GPU
         VkPhysicalDeviceProperties properties{};
         vkGetPhysicalDeviceProperties(vk_utils::globalContextGet().physicalDevice, &properties);
 
         device_name = properties.deviceName;
-        #endif
+#endif
       }
 
-      // TODO: this, also put device_name somewhere
-      f << model_path << ", " << backend << ", " << renderer_type << ", " << repr_type << ", " << lod << ", " << memory << ", " << min_time << ", " << max_time << ", " << average_time << ", " << min_psnr << ", " << max_psnr << ", " << average_psnr << ", " << min_flip << ", " << max_flip << ", " << average_flip << std::endl;
+      f << model_name << ", " << backend << ", " << device_name << ", " << renderer_type << ", " << repr_type << ", " << lod << ", " << memory << ", " << min_time << ", " << max_time << ", " << average_time << ", " << min_psnr << ", " << max_psnr << ", " << average_psnr << ", " << min_flip << ", " << max_flip << ", " << average_flip << std::endl;
     }
 
     f.close();

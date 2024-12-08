@@ -69,19 +69,19 @@ void write_enums_config(const char *enums_config_fpath, const BenchmarkAppConfig
   block_defaults.set_arr("lods_enum", in_enums.lods);
 
 
-  block_defaults.set_arr("backends", in_defaults.backends);
-  block_defaults.set_arr("renderers", in_defaults.renderers);
-  block_defaults.set_arr("render_modes", in_defaults.render_modes);
-  block_defaults.set_arr("types", in_defaults.types);
-  block_defaults.set_arr("lods", in_defaults.lods);
-  block_defaults.set_arr("models", in_defaults.models);
-  block_defaults.set_arr("param_strings", in_defaults.param_strings);
+  // block_defaults.set_arr("backends", in_defaults.backends);
+  // block_defaults.set_arr("renderers", in_defaults.renderers);
+  // block_defaults.set_arr("render_modes", in_defaults.render_modes);
+  // block_defaults.set_arr("types", in_defaults.types);
+  // block_defaults.set_arr("lods", in_defaults.lods);
+  // block_defaults.set_arr("models", in_defaults.models);
+  // block_defaults.set_arr("param_strings", in_defaults.param_strings);
 
-  block_defaults.set_int("width", in_defaults.width);
-  block_defaults.set_int("height", in_defaults.height);
-  block_defaults.set_int("cameras", in_defaults.cameras);
-  block_defaults.set_int("iters", in_defaults.iters);
-  block_defaults.set_int("spp", in_defaults.spp);
+  // block_defaults.set_int("width", in_defaults.width);
+  // block_defaults.set_int("height", in_defaults.height);
+  // block_defaults.set_int("cameras", in_defaults.cameras);
+  // block_defaults.set_int("iters", in_defaults.iters);
+  // block_defaults.set_int("spp", in_defaults.spp);
 
   save_block_to_file(enums_config_fpath, block_defaults);
 }
@@ -233,6 +233,9 @@ void call_kernel_slicer(const BenchmarkAppConfig &config, const std::string &rep
 
   for (uint32_t i = 0u; i < config.types.size(); ++i)
   {
+    if (repr_type == "MESH_LOD" && config.types[i] == "MESH")
+      continue;
+
     if (config.types[i] != repr_type)
       disable_flags += " -DDISABLE_" + config.types[i];
   }
@@ -607,9 +610,14 @@ config.types.insert(config.types.begin(), "MESH");
   }
 
   std::fstream f;
-  // TODO: create dirs for tables
-  f.open("benchmark/results/results.csv", std::ios::out);
-  f << "model_name, backend, renderer, type, lod, memory(Mb), time_min, time_max, time_average, psnr_min, psnr_max, psnr_average, flip_min, flip_max, flip_average\n";
+  std::filesystem::create_directories("benchmark/results");
+
+  f.open("benchmark/results/build.csv", std::ios::out);
+  f << "model_name, type, original_model_size(Mb), model_size(Mb), build_time(s)\n";
+  f.close();
+
+  f.open("benchmark/results/render.csv", std::ios::out);
+  f << "model_name, backend, device, renderer, type, lod, model_size(Mb), time_min(s), time_max(s), time_average(s), psnr_min, psnr_max, psnr_average, flip_min, flip_max, flip_average\n";
   f.close();
 
   // Benchmark loop

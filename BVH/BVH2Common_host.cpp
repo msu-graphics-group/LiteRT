@@ -1750,6 +1750,176 @@ float BVHRT::eval_distance(float3 pos)
   return 1e6; 
 }
 
+size_t BVHRT::get_model_size(uint32_t geomId)
+{
+  size_t model_size = 0ul, bvh_size = 0ul;
+  GeomData geom_data = m_geomData[geomId];
+  uint32_t tag = type_to_tag(geom_data.type);
+
+
+  // Compute BVH size
+
+  {
+    uint32_t next_offset_geom_bvh = m_allNodePairs.size();
+    if (geomId < m_geomData.size() - 1)
+      next_offset_geom_bvh = m_geomData[geomId + 1].bvhOffset;
+    
+    bvh_size = sizeof(BVHNodePair) * (next_offset_geom_bvh - geom_data.bvhOffset);
+  }
+
+  // Compute model size
+
+  switch (tag)
+  {
+    case AbstractObject::TAG_NONE:
+    {
+      break;
+    }
+    case AbstractObject::TAG_TRIANGLE:
+    {
+#ifndef DISABLE_MESH
+      model_size = sizeof(uint32_t) * (m_indices.size() + m_primIndices.size())
+                 + sizeof(float4) * (m_vertPos.size() + m_vertNorm.size());
+#endif
+      break;
+    }
+    case AbstractObject::TAG_SDF_GRID:
+    {
+#ifndef DISABLE_SDF_GRID
+      model_size = sizeof(float) * m_SdfGridData.size()
+                 + sizeof(uint3) * m_SdfGridSizes.size()
+                 + sizeof(uint32_t) * m_SdfGridOffsets.size();
+#endif
+      break;
+    }
+    case AbstractObject::TAG_SDF_NODE:
+    {
+      if (geom_data.type == TYPE_SDF_FRAME_OCTREE)
+      {
+#ifndef DISABLE_SDF_FRAME_OCTREE
+        model_size = sizeof(SdfFrameOctreeNode) * m_SdfFrameOctreeNodes.size()
+                   + sizeof(uint32_t) * m_SdfFrameOctreeRoots.size()
+                   + sizeof(BVHNode) * m_origNodes.size();
+#endif
+      }
+      else if (geom_data.type == TYPE_SDF_FRAME_OCTREE_TEX)
+      {
+#ifndef DISABLE_SDF_FRAME_OCTREE_TEX
+        model_size = sizeof(SdfFrameOctreeTexNode) * m_SdfFrameOctreeTexNodes.size()
+                   + sizeof(uint32_t) * m_SdfFrameOctreeTexRoots.size()
+                   + sizeof(BVHNode) * m_origNodes.size();
+#endif
+      }
+      else if (geom_data.type == TYPE_SDF_SVS)
+      {
+#ifndef DISABLE_SDF_SVS
+        model_size = sizeof(SdfSVSNode) * m_SdfSVSNodes.size()
+                   + sizeof(uint32_t) * m_SdfSVSRoots.size();
+#endif
+      }
+      break;
+    }
+    case AbstractObject::TAG_SDF_BRICK:
+    {
+#ifndef DISABLE_SDF_SBS
+      model_size = sizeof(SdfSBSNode) * m_SdfSBSNodes.size()
+                 + sizeof(uint32_t) * (m_SdfSBSData.size() + m_SdfSBSRoots.size())
+                 + sizeof(float) * m_SdfSBSDataF.size()
+                 + sizeof(SdfSBSHeader) * m_SdfSBSHeaders.size();
+#endif
+      break;
+    }
+    case AbstractObject::TAG_RF:
+    {
+#ifndef DISABLE_RF_GRID
+      model_size = sizeof(float) * (m_RFGridData.size() + m_RFGridScales.size())
+                 + sizeof(uint32_t) * (m_RFGridFlags.size() + m_RFGridOffsets.size())
+                 + sizeof(uint4) * m_RFGridPtrs.size()
+                 + sizeof(size_t) * m_RFGridSizes.size()
+                 + sizeof(BVHNode) * m_origNodes.size();
+#endif
+      break;
+    }
+    case AbstractObject::TAG_GS:
+    {
+#ifndef DISABLE_GS_PRIMITIVE
+      model_size = sizeof(float4x4) * (m_gs_data_0.size() + m_gs_conic.size());
+#endif
+      break;
+    }
+    case AbstractObject::TAG_SDF_ADAPT_BRICK:
+    {
+#ifndef DISABLE_SDF_SBS_ADAPT
+      model_size = sizeof(SdfSBSAdaptNode) * m_SdfSBSAdaptNodes.size()
+                 + sizeof(uint32_t) * (m_SdfSBSAdaptData.size() + m_SdfSBSAdaptRoots.size())
+                 + sizeof(float) * m_SdfSBSAdaptDataF.size()
+                 + sizeof(SdfSBSAdaptHeader) * m_SdfSBSAdaptHeaders.size();
+#endif
+      break;
+    }
+    case AbstractObject::TAG_NURBS:
+    {
+#ifndef DISABLE_NURBS
+      model_size = sizeof(float) * (m_NURBSData.size() + m_NURBS_approxes.size())
+                 + sizeof(NURBSHeader) * m_NURBSHeaders.size();
+#endif
+      break;
+    }
+    case AbstractObject::TAG_GRAPHICS_PRIM:
+    {
+#ifndef DISABLE_GRAPHICS_PRIM
+      model_size = sizeof(float4) * m_GraphicsPrimPoints.size()
+                 + sizeof(uint32_t) * m_GraphicsPrimRoots.size()
+                 + sizeof(GraphicsPrimHeader) * m_GraphicsPrimHeaders.size();
+#endif
+      break;
+    }
+    case AbstractObject::TAG_COCTREE_SIMPLE:
+    {
+#ifndef DISABLE_SDF_FRAME_OCTREE_COMPACT
+      model_size = sizeof(SdfCompactOctreeNode) * m_SdfCompactOctreeV1Data.size();
+#endif
+      break;
+    }
+    case AbstractObject::TAG_COCTREE_BRICKED:
+    {
+#ifndef DISABLE_SDF_FRAME_OCTREE_COMPACT
+      model_size = sizeof(uint32_t) * (m_SdfCompactOctreeV2Data.size() + m_SdfCompactOctreeV3Data.size())
+                 + sizeof(LiteMath::float4x4) * (m_SdfCompactOctreeRotVTransforms.size() + m_SdfCompactOctreeRotPTransforms.size());
+      if (geom_data.type == TYPE_COCTREE_V3)
+        model_size += sizeof(COctreeV3Header);
+#endif
+      break;
+    }
+    case AbstractObject::TAG_CATMUL_CLARK:
+    {
+#ifndef DISABLE_CATMUL_CLARK
+      model_size = sizeof(float) * m_CatmulClarkData.size()
+                 + sizeof(CatmulClarkHeader) * m_CatmulClarkHeaders.size();
+#endif
+      break;
+    }
+    case AbstractObject::TAG_RIBBON:
+    {
+#ifndef DISABLE_RIBBON
+      model_size = sizeof(float) * m_RibbonData.size()
+                 + sizeof(RibbonHeader) * m_RibbonHeaders.size();
+#endif
+      break;
+    }
+    case AbstractObject::TAG_OPENVDB_GRID:
+    {
+#ifndef DISABLE_OPENVDB
+      model_size = sizeof(OpenVDB_Grid) * m_VDBData.size()
+                 + sizeof(OpenVDBHeader) * m_VDBHeaders.size();
+#endif
+      break;
+    }
+  }
+
+  return model_size + bvh_size;
+}
+
 //SdfGridFunction interface implementation
 void BVHRT::init(SdfGridView grid)
 {
