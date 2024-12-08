@@ -323,6 +323,11 @@ struct BVHRT : public ISceneObject
   virtual SdfHit sdf_sphere_tracing(unsigned type, unsigned prim_id, const float3 &min_pos, const float3 &max_pos,
                                     float tNear, const float3 &pos, const float3 &dir, bool need_norm);    
 
+  // BVH orig nodes
+#if !defined(DISABLE_SDF_FRAME_OCTREE) || !defined(DISABLE_RF_GRID) || !defined(DISABLE_SDF_FRAME_OCTREE_COMPACT) || !defined(DISABLE_SDF_FRAME_OCTREE_TEX)
+  std::vector<BVHNode> m_origNodes;
+#endif
+
   //SDF grid data
 #ifndef DISABLE_SDF_GRID
   std::vector<float> m_SdfGridData;       //raw data for all SDF grids
@@ -338,9 +343,6 @@ struct BVHRT : public ISceneObject
   std::vector<size_t> m_RFGridSizes;      //size for each RF grid
   std::vector<float> m_RFGridScales;      //size for each RF grid
   std::vector<uint32_t> m_RFGridFlags;      //size for each RF grid
-  #ifdef DISABLE_SDF_FRAME_OCTREE
-    std::vector<BVHNode> m_origNodes;
-  #endif
 #endif
 
 #ifndef KERNEL_SLICER
@@ -360,7 +362,6 @@ std::vector<OpenVDB_Grid> m_VDBData;
 #ifndef DISABLE_SDF_FRAME_OCTREE
   std::vector<SdfFrameOctreeNode> m_SdfFrameOctreeNodes;//nodes for all SDF octrees
   std::vector<uint32_t> m_SdfFrameOctreeRoots;     //root node ids for each SDF octree
-  std::vector<BVHNode> m_origNodes;
 #endif
 
 #ifndef DISABLE_SDF_FRAME_OCTREE_COMPACT
@@ -402,11 +403,6 @@ std::vector<OpenVDB_Grid> m_VDBData;
 #ifndef DISABLE_SDF_FRAME_OCTREE_TEX
   std::vector<SdfFrameOctreeTexNode> m_SdfFrameOctreeTexNodes;//nodes for all SDF octrees
   std::vector<uint32_t> m_SdfFrameOctreeTexRoots;          //root node ids for each SDF octree
-  #ifdef DISABLE_SDF_FRAME_OCTREE
-    #ifdef DISABLE_RF_GRID
-      std::vector<BVHNode> m_origNodes;
-    #endif
-  #endif
 #endif
 
 #ifndef DISABLE_NURBS
