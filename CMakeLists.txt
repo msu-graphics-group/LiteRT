@@ -76,69 +76,77 @@ target_link_libraries(
     step
 )
 
-add_executable(
-  RBCurve2D_demo
-  examples/RBCurve2D.cpp
-    src/debug.cpp
-    src/debug.hpp
-    src/utils.hpp
-    src/utils.cpp
-    src/curve.hpp
-    src/curve.cpp
-)
-target_link_libraries(RBCurve2D_demo LiteMath)
-target_include_directories(RBCurve2D_demo PUBLIC ${PROJECT_SOURCE_DIR}/src/)
 
-add_executable(
-  monotonic_demo
-  examples/monotonic.cpp
-    src/debug.cpp
-    src/debug.hpp
-    src/utils.hpp
-    src/utils.cpp
-    src/curve.hpp
-    src/curve.cpp
-)
-target_link_libraries(monotonic_demo LiteMath)
-target_include_directories(monotonic_demo PUBLIC ${PROJECT_SOURCE_DIR}/src/)
+option(COMPILE_DEMOS "Compile demos" OFF)
+if (${COMPILE_DEMOS})
+  add_executable(
+    RBCurve2D_demo
+    examples/RBCurve2D.cpp
+      src/debug.cpp
+      src/debug.hpp
+      src/utils.hpp
+      src/utils.cpp
+      src/curve.hpp
+      src/curve.cpp
+  )
+  target_link_libraries(RBCurve2D_demo LiteMath)
+  target_include_directories(RBCurve2D_demo PUBLIC ${PROJECT_SOURCE_DIR}/src/)
 
-add_executable(
-  bisection_demo
-  examples/bisection.cpp
-    src/debug.cpp
-    src/debug.hpp
-    src/utils.hpp
-    src/utils.cpp
-    src/curve.hpp
-    src/curve.cpp
-)
-target_link_libraries(bisection_demo LiteMath)
-target_include_directories(bisection_demo PUBLIC ${PROJECT_SOURCE_DIR}/src/)
+  add_executable(
+    monotonic_demo
+    examples/monotonic.cpp
+      src/debug.cpp
+      src/debug.hpp
+      src/utils.hpp
+      src/utils.cpp
+      src/curve.hpp
+      src/curve.cpp
+  )
+  target_link_libraries(monotonic_demo LiteMath)
+  target_include_directories(monotonic_demo PUBLIC ${PROJECT_SOURCE_DIR}/src/)
 
-add_executable(
-  monotonic_test
-  tests/monotonic.cpp
-    src/constants.hpp
-    src/debug.cpp
-    src/debug.hpp
-    src/utils.hpp
-    src/utils.cpp
-    src/curve.hpp
-    src/curve.cpp
-)
-target_link_libraries(monotonic_test LiteMath)
-target_include_directories(monotonic_test PUBLIC ${PROJECT_SOURCE_DIR}/src/)
+  add_executable(
+    bisection_demo
+    examples/bisection.cpp
+      src/debug.cpp
+      src/debug.hpp
+      src/utils.hpp
+      src/utils.cpp
+      src/curve.hpp
+      src/curve.cpp
+  )
+  target_link_libraries(bisection_demo LiteMath)
+  target_include_directories(bisection_demo PUBLIC ${PROJECT_SOURCE_DIR}/src/)
+endif()
 
-add_executable(
-  intersections_test
-  tests/intersections.cpp
-    src/constants.hpp
-    src/debug.cpp
-    src/debug.hpp
-    src/utils.hpp
-    src/utils.cpp
-    src/curve.hpp
-    src/curve.cpp
-)
-target_link_libraries(intersections_test LiteMath)
-target_include_directories(intersections_test PUBLIC ${PROJECT_SOURCE_DIR}/src/)
+
+option(COMPILE_TESTS "Compile tests" ON)
+if (${COMPILE_TESTS})
+  add_executable(
+    monotonic_test
+    tests/monotonic.cpp
+      src/constants.hpp
+      src/debug.cpp
+      src/debug.hpp
+      src/utils.hpp
+      src/utils.cpp
+      src/curve.hpp
+      src/curve.cpp
+  )
+  target_link_libraries(monotonic_test LiteMath)
+  target_include_directories(monotonic_test PUBLIC ${PROJECT_SOURCE_DIR}/src/)
+
+  add_executable(
+    intersections_test
+    tests/intersections.cpp
+      src/constants.hpp
+      src/debug.cpp
+      src/debug.hpp
+      src/utils.hpp
+      src/utils.cpp
+      src/curve.hpp
+      src/curve.cpp
+  )
+  target_link_libraries(intersections_test LiteMath)
+  target_include_directories(intersections_test PUBLIC ${PROJECT_SOURCE_DIR}/src/)
+endif()
