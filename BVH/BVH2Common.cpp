@@ -2531,7 +2531,7 @@ float BVHRT::eval_distance_sdf_coctree_v3(uint32_t octree_id, float3 pos)
     d = 1.0f/float(level_sz);
     p_f = float3(p);
 
-    if(curr_node.info > 0) //leaf node
+    if((curr_node.info & COCTREE_LEAF_TYPE_MASK) != COCTREE_LEAF_TYPE_NOT_A_LEAF) //leaf node
     {
       float sz_inv = 2.0f/level_sz;
 
@@ -2556,7 +2556,9 @@ float BVHRT::eval_distance_sdf_coctree_v3(uint32_t octree_id, float3 pos)
         start_q = (pos - min_pos) * (0.5f*level_sz*header.brick_size);
 
         uint32_t leafOffset = (curr_node.nodeId & coctree_v3_header.idx_mask) >> coctree_v3_header.idx_sh;
-        float vmin = COctreeV3_LoadDistanceValues(leafOffset, voxelPos, v_size, sz_inv, header, 0u, values);
+        uint32_t leafType = curr_node.info & COCTREE_LEAF_TYPE_MASK;
+        uint32_t transformCode = curr_node.info >> COCTREE_LEAF_TYPE_BITS;
+        float vmin = COctreeV3_LoadDistanceValues(leafType, leafOffset, voxelPos, v_size, sz_inv, header, transformCode, values);
 
         if (vmin <= 0.f)
           res_dist = eval_dist_trilinear(values, start_q);
@@ -2578,8 +2580,9 @@ float BVHRT::eval_distance_sdf_coctree_v3(uint32_t octree_id, float3 pos)
       {
         uint32_t childPos = 1 + coctree_v3_header.uints_per_child_info*bitCount(childrenInfo & ((1u << currNode) - 1));
         uint32_t childOffset = m_SdfCompactOctreeV3Data[curr_node.nodeId + childPos];
-        uint32_t childInfo = (childrenInfo & (1u << (currNode + 8))) > 0 ? 
-                              m_SdfCompactOctreeV3Data[curr_node.nodeId + childPos + coctree_v3_header.trans_off] : 0;// > 0 <=> this child is leaf
+        uint32_t childType = (childrenInfo >> (8 + COCTREE_LEAF_TYPE_BITS*currNode)) & COCTREE_LEAF_TYPE_MASK;
+        uint32_t childInfoOffset = curr_node.nodeId + childPos + coctree_v3_header.trans_off;
+        uint32_t childInfo = (m_SdfCompactOctreeV3Data[childInfoOffset] << COCTREE_LEAF_TYPE_BITS) | childType;
         curr_node.nodeId = childOffset;
         curr_node.info = childInfo;
         curr_node.p_size = (curr_node.p_size << 1) | uint2(((currNode & 4) << (16-2)) | ((currNode & 2) >> 1), (currNode & 1) << 16);
@@ -3007,9 +3010,55 @@ void BVHRT::OctreeIntersect(uint32_t type, const float3 ray_pos, const float3 ra
 #endif
 }
 
-float BVHRT::COctreeV3_LoadDistanceValues(uint32_t brickOffset, float3 voxelPos, uint32_t v_size, float sz_inv, 
+float BVHRT::COctreeV3_LoadDistanceValues(uint32_t leafType, uint32_t brickOffset, float3 voxelPos, uint32_t v_size, float sz_inv, 
                                           const COctreeV3Header &header, uint32_t transform_code,
                                           float values[8] /*out*/)
+{
+  switch (leafType)
+  {
+  case COCTREE_LEAF_TYPE_GRID:
+    return COctreeV3_LoadDistanceValuesLeafGrid(brickOffset, voxelPos, v_size, sz_inv, header, transform_code, values);
+  case COCTREE_LEAF_TYPE_BIT_PACK:
+    return COctreeV3_LoadDistanceValuesLeafBitPack(brickOffset, voxelPos, v_size, sz_inv, header, transform_code, values);
+  case COCTREE_LEAF_TYPE_SLICES:
+    return COctreeV3_LoadDistanceValuesLeafSlices(brickOffset, voxelPos, v_size, sz_inv, header, transform_code, values);
+  }
+  return 1e6f;
+}
+
+float BVHRT::COctreeV3_LoadDistanceValuesLeafGrid(uint32_t brickOffset, float3 voxelPos, uint32_t v_size, float sz_inv, 
+                                                  const COctreeV3Header &header, uint32_t transform_code,
+                                                  float values[8] /*out*/)
+{
+#if ON_CPU==1
+  assert(COctreeV3::VERSION == 4); //if version is changed, this function should be revisited, as some changes may be needed
+#endif
+
+  float vmin = 1e6f;
+#ifndef DISABLE_SDF_FRAME_OCTREE_COMPACT
+  return -1.0f;
+#endif
+  return vmin;
+}
+
+float BVHRT::COctreeV3_LoadDistanceValuesLeafBitPack(uint32_t brickOffset, float3 voxelPos, uint32_t v_size, float sz_inv, 
+                                                     const COctreeV3Header &header, uint32_t transform_code,
+                                                     float values[8] /*out*/)
+{
+#if ON_CPU==1
+  assert(COctreeV3::VERSION == 4); //if version is changed, this function should be revisited, as some changes may be needed
+#endif
+
+  float vmin = 1e6f;
+#ifndef DISABLE_SDF_FRAME_OCTREE_COMPACT
+  return -1.0f;
+#endif
+  return vmin;
+}
+
+float BVHRT::COctreeV3_LoadDistanceValuesLeafSlices(uint32_t brickOffset, float3 voxelPos, uint32_t v_size, float sz_inv, 
+                                                    const COctreeV3Header &header, uint32_t transform_code,
+                                                    float values[8] /*out*/)
 {
 #if ON_CPU==1
   assert(COctreeV3::VERSION == 4); //if version is changed, this function should be revisited, as some changes may be needed
@@ -3090,7 +3139,7 @@ float BVHRT::COctreeV3_LoadDistanceValues(uint32_t brickOffset, float3 voxelPos,
 
 void BVHRT::COctreeV3_BrickIntersect(uint32_t type, const float3 ray_pos, const float3 ray_dir,
                                      float tNear, uint32_t instId, uint32_t geomId, const COctreeV3Header &header,
-                                     uint32_t brickOffset, float3 p, float sz, uint32_t transform_code,
+                                     uint32_t brickOffset, float3 p, float sz, uint32_t transform_code_leaf_type,
                                      CRT_Hit *pHit)
 {
 
@@ -3110,6 +3159,8 @@ void BVHRT::COctreeV3_BrickIntersect(uint32_t type, const float3 ray_pos, const 
   //uint32_t sdfId =  m_geomData[geomId].offset.x;
 
   uint32_t v_size = header.brick_size + 2*header.brick_pad + 1;
+  uint32_t leaf_type = transform_code_leaf_type & COCTREE_LEAF_TYPE_MASK;
+  uint32_t transform_code = transform_code_leaf_type >> COCTREE_LEAF_TYPE_BITS;
 
   float sz_inv = 2.0f/sz;
   
@@ -3131,7 +3182,7 @@ void BVHRT::COctreeV3_BrickIntersect(uint32_t type, const float3 ray_pos, const 
     float3 max_pos = min_pos + d*float3(1,1,1);
     float3 size = max_pos - min_pos;
 
-    float vmin = COctreeV3_LoadDistanceValues(brickOffset, voxelPos, v_size, sz_inv, header, transform_code, values);
+    float vmin = COctreeV3_LoadDistanceValues(leaf_type, brickOffset, voxelPos, v_size, sz_inv, header, transform_code, values);
 
     fNearFar = RayBoxIntersection2(ray_pos, SafeInverse(ray_dir), min_pos, max_pos);
     if (tNear < fNearFar.x && vmin <= 0.0f)    
@@ -3164,7 +3215,7 @@ void BVHRT::COctreeV3_BrickIntersect(uint32_t type, const float3 ray_pos, const 
           int3 VoxelPosI = voxelPos0 + int3((i & 4) >> 2, (i & 2) >> 1, i & 1);
           float3 dVoxelPos = float3(VoxelPosI) - voxelPos;
 
-          float vmin_n = COctreeV3_LoadDistanceValues(brickOffset, float3(VoxelPosI), v_size, sz_inv, header, transform_code, values_n);
+          float vmin_n = COctreeV3_LoadDistanceValues(leaf_type, brickOffset, float3(VoxelPosI), v_size, sz_inv, header, transform_code, values_n);
           if (vmin_n <= 0.0f)
             normals[i] = normalize(eval_dist_trilinear_diff(values_n, dp - dVoxelPos));
         }
@@ -3323,7 +3374,7 @@ void BVHRT::OctreeIntersectV3(uint32_t type, const float3 ray_pos, const float3 
       t0 = _t0 + d*p_f * _l;
       t1 = _t0 + d*(p_f + 1) * _l;
 
-      if(stack[top].info > 0) //leaf node
+      if((stack[top].info & COCTREE_LEAF_TYPE_MASK) != COCTREE_LEAF_TYPE_NOT_A_LEAF) //leaf node
       {
         uint32_t p_mask = level_sz - 1;
         uint3 real_p = uint3(((a & 4) > 0) ? (~p.x & p_mask) : p.x,
@@ -3332,7 +3383,7 @@ void BVHRT::OctreeIntersectV3(uint32_t type, const float3 ray_pos, const float3 
 
         uint32_t leafOffset = (stack[top].nodeId & coctree_v3_header.idx_mask) >> coctree_v3_header.idx_sh;
         COctreeV3_BrickIntersect(TYPE_SDF_FRAME_OCTREE, ray_pos, ray_dir, tNear, instId, geomId, coctree_v3_header, leafOffset, 
-                                 float3(real_p), float(level_sz), coctree_v3_header.sim_compression*stack[top].info, pHit);
+                                 float3(real_p), float(level_sz), stack[top].info, pHit);
 
         if (pHit->t < old_t)
           top = -1;
@@ -3356,8 +3407,10 @@ void BVHRT::OctreeIntersectV3(uint32_t type, const float3 ray_pos, const float3 
           {
             uint32_t childPos = 1 + coctree_v3_header.uints_per_child_info*bitCount(childrenInfo & ((1u << childNode) - 1));
             uint32_t childOffset = m_SdfCompactOctreeV3Data[stack[top].nodeId + childPos];
-            uint32_t childInfo = (childrenInfo & (1u << (childNode + 8))) > 0 ? 
-                                 m_SdfCompactOctreeV3Data[stack[top].nodeId + childPos + coctree_v3_header.trans_off] : 0;// > 0 <=> this child is leaf
+            uint32_t childType = (childrenInfo >> (8 + COCTREE_LEAF_TYPE_BITS*childNode)) & COCTREE_LEAF_TYPE_MASK;
+            uint32_t childInfoOffset = stack[top].nodeId + childPos + coctree_v3_header.trans_off;
+            uint32_t childInfo = (m_SdfCompactOctreeV3Data[childInfoOffset] << COCTREE_LEAF_TYPE_BITS) | childType;
+
             tmp_buf[buf_top].nodeId = childOffset;
             tmp_buf[buf_top].info = childInfo;
             tmp_buf[buf_top].p_size = (stack[top].p_size << 1) | uint2(((currNode & 4) << (16-2)) | ((currNode & 2) >> 1), (currNode & 1) << 16);

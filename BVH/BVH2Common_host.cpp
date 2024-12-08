@@ -1256,7 +1256,7 @@ void add_border_nodes_rec(COctreeV3View octree, uint32_t max_bvh_level,
   assert(COctreeV3::VERSION == 4); //if version is changed, this function should be revisited, as some changes may be needed
 #endif
   unsigned childrenInfo = octree.data[nodeId + 0];
-  unsigned children_leaves = childrenInfo & 0xFF00u;
+  unsigned children_leaves = childrenInfo & 0xFFFF00u;
 
   if (children_leaves || max_bvh_level == level)
   {

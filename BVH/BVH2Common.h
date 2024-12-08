@@ -245,8 +245,17 @@ struct BVHRT : public ISceneObject
                            float values[8], uint32_t &primId, uint32_t &nodeId, float &d, 
                            float &qNear, float &qFar, float2 &fNearFar, float3 &start_q);
 
-  float COctreeV3_LoadDistanceValues(uint32_t brickOffset, float3 voxelPos, uint32_t v_size, float sz_inv, 
+  float COctreeV3_LoadDistanceValues(uint32_t leafType, uint32_t brickOffset, float3 voxelPos, uint32_t v_size, float sz_inv, 
                                      const COctreeV3Header &header, uint32_t transform_code, float values[8]);
+
+  float COctreeV3_LoadDistanceValuesLeafGrid(uint32_t brickOffset, float3 voxelPos, uint32_t v_size, float sz_inv, 
+                                             const COctreeV3Header &header, uint32_t transform_code, float values[8]);
+
+  float COctreeV3_LoadDistanceValuesLeafBitPack(uint32_t brickOffset, float3 voxelPos, uint32_t v_size, float sz_inv, 
+                                                const COctreeV3Header &header, uint32_t transform_code, float values[8]);
+
+  float COctreeV3_LoadDistanceValuesLeafSlices(uint32_t brickOffset, float3 voxelPos, uint32_t v_size, float sz_inv, 
+                                               const COctreeV3Header &header, uint32_t transform_code, float values[8]);
 
   void COctreeV3_BrickIntersect(uint32_t type, const float3 ray_pos, const float3 ray_dir,
                                 float tNear, uint32_t instId, uint32_t geomId, const COctreeV3Header &header,
