@@ -145,6 +145,8 @@ struct BVHRT : public ISceneObject
   void SetPreset(const MultiRenderPreset& a_preset){ m_preset = a_preset; }
   MultiRenderPreset GetPreset() const { return m_preset; }
 
+  size_t get_model_size(uint32_t geomId = 0u);
+
   //common functions for a few Sdf...Function interfaces
 #ifndef KERNEL_SLICER 
   float eval_distance(float3 pos) override;
