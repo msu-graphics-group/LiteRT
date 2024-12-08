@@ -3076,6 +3076,54 @@ float BVHRT::COctreeV3_LoadDistanceValuesLeafBitPack(uint32_t brickOffset, float
 
   float vmin = 1e6f;
 #ifndef DISABLE_SDF_FRAME_OCTREE_COMPACT
+  uint32_t rotIdx = transform_code & header.rot_mask;
+  int3 voxelPosP = int3(to_float3(m_SdfCompactOctreeRotPTransforms[rotIdx] * to_float4(voxelPos + float3(header.brick_pad), 1.0f)));
+  uint32_t p_size = header.brick_size + 2 * header.brick_pad;
+  uint32_t PFlagPos = voxelPosP.x*p_size*p_size + voxelPosP.y*p_size + voxelPosP.z;
+  
+  //early exit if voxel is not present
+  if ((m_SdfCompactOctreeV3Data[brickOffset + PFlagPos/32] & (1u << (PFlagPos%32))) == 0)
+    return 1e6f;
+  
+  //this voxel is guaranteed to have surface
+  uint32_t distance_flags_size_uints = (v_size * v_size * v_size + 32 - 1) / 32;
+  uint32_t presence_flags_size_uints = (p_size * p_size * p_size + 32 - 1) / 32;
+  uint32_t      min_range_size_uints = 2;
+
+  //<presence_flags><distance_flags><><min value and range><tex_coords><distances>
+  unsigned off_0 = 0;                                   // presence flags
+  unsigned off_1 = off_0 + presence_flags_size_uints;   // distance flags
+  unsigned off_3 = off_1 + distance_flags_size_uints;   // min value and range
+  unsigned off_4 = off_3 + min_range_size_uints;        // texture coordinates
+  unsigned off_5 = off_4 + 8 * header.uv_size;          // distances
+
+  uint32_t vals_per_int = 32 / header.bits_per_value;
+  uint32_t bits = header.bits_per_value;
+  uint32_t max_val = header.bits_per_value == 32 ? 0xFFFFFFFF : ((1 << bits) - 1);
+
+  float add_transform = header.sim_compression > 0 ? 1.73205081f*sz_inv*(2*(float(transform_code & header.add_mask) / float(header.add_mask)) - 1) : 0.0f;
+
+  float min_val = -float(m_SdfCompactOctreeV3Data[brickOffset + off_3 + 0]) / float(0xFFFFFFFFu) + add_transform;
+  float range   =  (float(m_SdfCompactOctreeV3Data[brickOffset + off_3 + 1]) / float(0xFFFFFFFFu)) / max_val;
+
+  for (int i = 0; i < 8; i++)
+  {
+    float3 vPosOrig = voxelPos + float3(header.brick_pad) + float3((i & 4) >> 2, (i & 2) >> 1, i & 1);
+    int3 vPos = int3(to_float3(m_SdfCompactOctreeRotVTransforms[rotIdx] * to_float4(vPosOrig, 1.0f)));
+    uint32_t sliceId = vPos.x;
+    uint32_t localId = vPos.x * v_size * v_size + vPos.y * v_size + vPos.z;
+
+    uint32_t b0 = m_SdfCompactOctreeV3Data[brickOffset + off_1];
+    b0 = localId > 31 ? b0 : b0 & ((1u << localId) - 1);
+    b0 = bitCount(b0);
+
+    uint32_t b1 = localId > 32 ? m_SdfCompactOctreeV3Data[brickOffset + off_1 + 1] & ((1u << (localId - 32)) - 1) : 0;
+    b1 = bitCount(b1);
+
+    uint32_t vId0 = b0 + b1;
+    uint32_t dist0 = ((m_SdfCompactOctreeV3Data[brickOffset + off_5 + vId0 / vals_per_int] >> (bits * (vId0 % vals_per_int))) & max_val);
+    values[i] = min_val + range * dist0;
+  }
   return -1.0f;
 #endif
   return vmin;

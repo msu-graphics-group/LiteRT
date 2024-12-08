@@ -538,7 +538,7 @@ namespace scom
       }
       else
       {        
-        printf("Hierarchical clustering, %d points\n", component.count);
+        //printf("Hierarchical clustering, %d points\n", component.count);
         auto t1 = std::chrono::high_resolution_clock::now();
 
         Dist absolute_min(-1, -1, MAX_DISTANCE);
