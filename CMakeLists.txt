@@ -253,55 +253,6 @@ set(
 
 add_subdirectory(step)
 
-option(build_nurbs_viewer OFF)
-if (build_nurbs_viewer)
-  message("NURBS Viewer enabled!")
-  add_library(LiteMath ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/LiteMath/Image2d.cpp)
-  target_link_directories(LiteMath PUBLIC ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/LiteMath/)
-
-  add_library(
-    ImGui 
-      ${CMAKE_SOURCE_DIR}/dependencies/imgui/imgui_demo.cpp
-      ${CMAKE_SOURCE_DIR}/dependencies/imgui/imgui_draw.cpp
-      ${CMAKE_SOURCE_DIR}/dependencies/imgui/imgui_tables.cpp
-      ${CMAKE_SOURCE_DIR}/dependencies/imgui/imgui.cpp
-      ${CMAKE_SOURCE_DIR}/dependencies/imgui/imgui_widgets.cpp
-      ${CMAKE_SOURCE_DIR}/dependencies/imgui/backends/imgui_impl_sdlrenderer2.cpp 
-      ${CMAKE_SOURCE_DIR}/dependencies/imgui/backends/imgui_impl_sdl2.cpp
-  )
-  target_link_libraries(ImGui glfw SDL2main SDL2)
-  target_include_directories(ImGui PUBLIC dependencies/imgui/ dependencies/imgui/backends /usr/include/SDL2)
-
-  enable_language(ISPC)
-  add_library(ispc_ray_pack nurbs/ispc_ray_pack.ispc)
-  target_include_directories(ispc_ray_pack PUBLIC dependencies/embree/)
-
-  add_executable(
-    nurbs_viewer
-      nurbs/viewer.cpp
-      nurbs/Surface.hpp
-      nurbs/Surface.cpp
-      nurbs/raytracer.hpp
-      nurbs/raytracer.cpp
-      nurbs/utils.hpp
-      nurbs/utils.cpp
-      nurbs/embree_adaptors.hpp
-      nurbs/embree_adaptors.cpp
-      nurbs/gui.hpp 
-      nurbs/gui.cpp
-  )
-  target_link_libraries(
-    nurbs_viewer
-      LiteMath
-      ImGui
-      OpenMP::OpenMP_CXX
-      ispc_ray_pack
-      ${RAYTRACING_EMBREE_LIBS}
-      step
-  )
-endif()
-
-
 add_library(render_lib)
 target_include_directories(render_lib PUBLIC ${MODULES_INCLUDE_DIRS})
 
