@@ -3,8 +3,8 @@
 #include <testing_framework/helpers/image.h>
 #include <testing_framework/helpers/format.h>
 #include <testing_framework/helpers/scoped_timer.h>
-#include "../../Renderer/eye_ray.h"
-#include "../../utils/sdf_converter.h"
+#include "../Renderer/eye_ray.h"
+#include "utils/sdf/sdf_converter.h"
 
 namespace testing
 {

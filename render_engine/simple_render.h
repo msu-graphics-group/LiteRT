@@ -6,8 +6,8 @@
 #include "LiteScene/scene_mgr.h"
 #include "render_common.h"
 #include "render_gui.h"
-#include "../shaders/common.h"
-#include "../Renderer/eye_ray.h"
+#include "shaders/common.h"
+#include "Renderer/eye_ray.h"
 
 #include <geom/vk_mesh.h>
 #include <vk_descriptor_sets.h>
@@ -21,7 +21,7 @@
 #include "CrossRT.h"
 
 #if defined(USE_RTX)
-  #include "../Renderer/eye_ray_rtx.h"
+  #include "Renderer/eye_ray_rtx.h"
   typedef MultiRenderer_RTX MultiRendererGPUImpl;
   std::shared_ptr<MultiRenderer> CreateMultiRenderer_RTX(uint32_t maxPrimitives, vk_utils::VulkanContext a_ctx, size_t a_maxThreadsGenerated);
 
@@ -30,7 +30,7 @@
     return CreateMultiRenderer_RTX(maxPrimitives, a_ctx, max_width * max_height);
   }
 #else
-  #include "../Renderer/eye_ray_gpu.h"
+  #include "Renderer/eye_ray_gpu.h"
   typedef MultiRenderer_GPU MultiRendererGPUImpl;
   std::shared_ptr<MultiRenderer> CreateMultiRenderer_GPU(uint32_t maxPrimitives, vk_utils::VulkanContext a_ctx, size_t a_maxThreadsGenerated);
 

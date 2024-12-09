@@ -1,23 +1,23 @@
 #include "tests.h"
-#include "../IRenderer.h"
-#include "../Renderer/eye_ray.h"
-#include "../utils/mesh_bvh.h"
-#include "../utils/mesh.h"
+#include "IRenderer.h"
+#include "Renderer/eye_ray.h"
+#include "utils/mesh/mesh_bvh.h"
+#include "utils/mesh/mesh.h"
 #include "LiteScene/hydraxml.h"
 #include "LiteMath/Image2d.h"
-#include "../utils/sdf_converter.h"
-#include "../utils/sparse_octree_builder.h"
-#include "../utils/marching_cubes.h"
-#include "../utils/sdf_smoother.h"
-#include "../utils/demo_meshes.h"
-#include "../utils/image_metrics.h"
-#include "../diff_render/MultiRendererDR.h"
-#include "../utils/iou.h"
-#include "../nurbs/nurbs_common_host.h"
-#include "../catmul_clark/catmul_clark_host.h"
-#include "../ribbon/ribbon_host.h"
-#include "../openvdb_structs/openvdb_common.h"
-#include "../utils/similarity_compression.h"
+#include "utils/sdf/sdf_converter.h"
+#include "utils/sdf/sparse_octree_builder.h"
+#include "utils/mesh/marching_cubes.h"
+#include "utils/sdf/sdf_smoother.h"
+#include "utils/mesh/demo_meshes.h"
+#include "utils/image_metrics.h"
+#include "diff_render/MultiRendererDR.h"
+#include "utils/sdf/iou.h"
+#include "nurbs/nurbs_common_host.h"
+#include "catmul_clark/catmul_clark_host.h"
+#include "ribbon/ribbon_host.h"
+#include "utils/openvdb_common.h"
+#include "utils/coctree/similarity_compression.h"
 
 #include <functional>
 #include <cassert>
@@ -3213,14 +3213,15 @@ void litert_test_41_coctree_v3()
     bvh[i].init(mesh);
 
   COctreeV3 coctree;
-  coctree.header.bits_per_value = b;
-  coctree.header.brick_size = 4;
-  coctree.header.brick_pad = 1;
-  coctree.header.uv_size = 0;
+  COctreeV3Settings co_settings;
+  co_settings.bits_per_value = b;
+  co_settings.brick_size = 4;
+  co_settings.brick_pad = 1;
+  co_settings.uv_size = 0;
 
   auto t1 = std::chrono::steady_clock::now();
   coctree = sdf_converter::create_COctree_v3(SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, base_depth - 2, 2 << 28),
-                                            coctree.header, mesh);
+                                             co_settings, mesh);
   auto t2 = std::chrono::steady_clock::now();
 
   save_coctree_v3(coctree, "saves/test_41_coctree_v3.bin");
@@ -3641,12 +3642,13 @@ void litert_test_44_point_query()
 
     {
       printf("Mesh COctreeV3...\n");
-      COctreeV3 coctree{};
-      coctree.header.brick_size = 4;
-      coctree.header.brick_pad = 0;
-      coctree.header.bits_per_value = 8;
-      coctree.header.uv_size = 0;
-      coctree = sdf_converter::create_COctree_v3(SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, 6, 2 << 28), coctree.header, mesh);
+      COctreeV3 coctree;
+      COctreeV3Settings co_settings;
+      co_settings.brick_size = 4;
+      co_settings.brick_pad = 0;
+      co_settings.bits_per_value = 8;
+      co_settings.uv_size = 0;
+      coctree = sdf_converter::create_COctree_v3(SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, 6, 2 << 28), co_settings, mesh);
 
       auto pRender = CreateMultiRenderer(DEVICE_CPU);
       pRender->SetPreset(preset);
@@ -3944,11 +3946,12 @@ void litert_test_49_similarity_compression()
   auto tlo = cmesh4::create_triangle_list_octree(mesh, settings.depth, 0, 1.0f);
   sdf_converter::mesh_octree_to_global_octree(mesh, tlo, g);
   COctreeV3 coctree, coctree_comp;
-  coctree.header.bits_per_value = 8;
-  coctree.header.brick_size = g.header.brick_size;
-  coctree.header.brick_pad = g.header.brick_pad;
-  coctree.header.uv_size = 0;
-  coctree.header.sim_compression = 0;
+  COctreeV3Settings co_settings;
+  co_settings.bits_per_value = 8;
+  co_settings.brick_size = g.header.brick_size;
+  co_settings.brick_pad = g.header.brick_pad;
+  co_settings.uv_size = 0;
+  co_settings.sim_compression = 0;
 
   scom::Settings scom_settings;
   scom_settings.clustering_algorithm = scom::ClusteringAlgorithm::HIERARCHICAL;
@@ -3956,11 +3959,11 @@ void litert_test_49_similarity_compression()
   scom_settings.search_algorithm = scom::SearchAlgorithm::BALL_TREE;
   scom_settings.target_leaf_count = 10000;
 
-  coctree_comp.header = coctree.header;
-  coctree_comp.header.sim_compression = 1;
+  COctreeV3Settings co_settings_comp = co_settings;
+  co_settings_comp.sim_compression = 1;
 
-  sdf_converter::global_octree_to_compact_octree_v3(g, coctree, 8);
-  sdf_converter::global_octree_to_compact_octree_v3(g, coctree_comp, 8, scom_settings);
+  sdf_converter::global_octree_to_COctreeV3(g, coctree, co_settings);
+  sdf_converter::global_octree_to_COctreeV3(g, coctree_comp, co_settings_comp, scom_settings);
 
   {
     auto pRender = CreateMultiRenderer(DEVICE_GPU);

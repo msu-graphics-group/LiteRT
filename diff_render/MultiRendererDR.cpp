@@ -1,7 +1,7 @@
 #include "MultiRendererDR.h"
 #include "BVH2DR.h"
 #include "utils/points_visualizer.h"
-#include "../render_common.h"
+#include "render_common.h"
 
 #include <omp.h>
 #include <chrono>

@@ -7,7 +7,7 @@ $2 $start_dir/Renderer/eye_ray.cpp $start_dir/BVH/BVH2Common.cpp \
 -mainClass MultiRenderer \
 -composInterface ISceneObject \
 -composImplementation BVHRT \
--options $start_dir/options.json \
+-options $start_dir/scripts/options.json \
 -intersectionShader AbstractObject::Intersect \
 -enable_ray_tracing_pipeline 1 \
 -stdlibfolder $PWD/TINYSTL \

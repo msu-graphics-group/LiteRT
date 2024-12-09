@@ -7,7 +7,7 @@
 #include <iomanip>
 #include <filesystem>
 
-#include "../../utils/image_metrics.h"
+#include "utils/image_metrics.h"
 
 namespace testing
 {

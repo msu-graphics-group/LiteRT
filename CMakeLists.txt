@@ -39,15 +39,6 @@ include_directories(${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/LiteMat
 include_directories(${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/LiteScene)
 include_directories(${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/CrossRT)
 include_directories(${CMAKE_SOURCE_DIR}/dependencies/embree)
-include_directories(${CMAKE_SOURCE_DIR}/sdfScene)
-include_directories(${CMAKE_SOURCE_DIR}/BVH)
-include_directories(${CMAKE_SOURCE_DIR}/Render)
-include_directories(${CMAKE_SOURCE_DIR}/openvdb_structs)
-include_directories(${CMAKE_SOURCE_DIR}/benchmark_backend)
-
-#include_directories(SYSTEM ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/spectral/include)
-#set(SPECTRAL_LIB_ONLY ON)
-#add_subdirectory(${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/spectral)
 
 set(HYDRA_CORE3_LIB ON)
 
@@ -84,48 +75,48 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS} -std=c++17 -O3 -ffas
                      -Wno-int-to-pointer-cast -Wno-register -Wreturn-type -Wdisabled-optimization \
                      -Wno-narrowing -Wno-attributes -Wno-sign-compare")
 
-set(SCENE_LOADER_SRC
+set(CORE_SRC
+    ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/LiteMath/Image2d.cpp
     ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/LiteScene/pugixml.cpp
     ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/LiteScene/hydraxml.cpp
     ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/LiteScene/cmesh4.cpp
-    ${CMAKE_SOURCE_DIR}/sdfScene/sdf_scene.cpp
-    ${CMAKE_SOURCE_DIR}/utils/mesh_bvh.cpp
-    ${CMAKE_SOURCE_DIR}/utils/mesh.cpp
-    ${CMAKE_SOURCE_DIR}/utils/sparse_octree_builder.cpp
+
+    ${CMAKE_SOURCE_DIR}/utils/common/csv.cpp
+    ${CMAKE_SOURCE_DIR}/utils/common/blk.cpp
+    ${CMAKE_SOURCE_DIR}/utils/common/timer.cpp
+
+    ${CMAKE_SOURCE_DIR}/utils/mesh/mesh_bvh.cpp
+    ${CMAKE_SOURCE_DIR}/utils/mesh/mesh.cpp
+    ${CMAKE_SOURCE_DIR}/utils/mesh/watertight_mesh.cpp
+    ${CMAKE_SOURCE_DIR}/utils/mesh/marching_cubes.cpp
+    ${CMAKE_SOURCE_DIR}/utils/mesh/demo_meshes.cpp
+    ${CMAKE_SOURCE_DIR}/utils/mesh/ply_reader.cpp
+
+    ${CMAKE_SOURCE_DIR}/utils/coctree/compact_octree_builder.cpp
+    ${CMAKE_SOURCE_DIR}/utils/coctree/similarity_compression.cpp
+    ${CMAKE_SOURCE_DIR}/utils/coctree/ball_tree.cpp
+
+    ${CMAKE_SOURCE_DIR}/utils/sdf/sparse_octree_builder.cpp
+    ${CMAKE_SOURCE_DIR}/utils/sdf/sdf_converter.cpp
+    ${CMAKE_SOURCE_DIR}/utils/sdf/sdf_converter_exotic.cpp
+    ${CMAKE_SOURCE_DIR}/utils/sdf/sdf_smoother.cpp
+    ${CMAKE_SOURCE_DIR}/utils/sdf/iou.cpp
+    ${CMAKE_SOURCE_DIR}/utils/sdf/sdf_scene.cpp
+
     ${CMAKE_SOURCE_DIR}/utils/radiance_field.cpp
     ${CMAKE_SOURCE_DIR}/utils/gaussian_field.cpp
-    ${CMAKE_SOURCE_DIR}/utils/watertight_mesh.cpp
-    ${CMAKE_SOURCE_DIR}/utils/sdf_converter.cpp
-    ${CMAKE_SOURCE_DIR}/utils/sdf_converter_exotic.cpp
-    ${CMAKE_SOURCE_DIR}/utils/hydra_stub.cpp
-    ${CMAKE_SOURCE_DIR}/utils/marching_cubes.cpp
-    ${CMAKE_SOURCE_DIR}/utils/sdf_smoother.cpp
-    ${CMAKE_SOURCE_DIR}/utils/demo_meshes.cpp
     ${CMAKE_SOURCE_DIR}/utils/image_metrics.cpp
-    ${CMAKE_SOURCE_DIR}/utils/iou.cpp
     ${CMAKE_SOURCE_DIR}/utils/points_visualizer.cpp
-    ${CMAKE_SOURCE_DIR}/utils/compact_octree_builder.cpp
-    ${CMAKE_SOURCE_DIR}/utils/similarity_compression.cpp
-    ${CMAKE_SOURCE_DIR}/openvdb_structs/openvdb_common.cpp
-    ${CMAKE_SOURCE_DIR}/utils/csv.cpp
-    ${CMAKE_SOURCE_DIR}/utils/blk.cpp
-    ${CMAKE_SOURCE_DIR}/utils/ball_tree.cpp
-    ${CMAKE_SOURCE_DIR}/utils/ply_reader.cpp
-    )
+    ${CMAKE_SOURCE_DIR}/utils/openvdb_common.cpp
+    ${CMAKE_SOURCE_DIR}/utils/cbvh.cpp
+    ${CMAKE_SOURCE_DIR}/utils/cbvh_fat.cpp
+    ${CMAKE_SOURCE_DIR}/utils/cbvh_embree2.cpp
 
-set(CORE_SRC
-    ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/LiteMath/Image2d.cpp
-    ${CMAKE_SOURCE_DIR}/Timer.cpp
     ${CMAKE_SOURCE_DIR}/Renderer/eye_ray.cpp
     ${CMAKE_SOURCE_DIR}/Renderer/eye_ray_host.cpp
-    )
 
-set(BUILDERS_SRC
     ${CMAKE_SOURCE_DIR}/BVH/BVH2Common.cpp
     ${CMAKE_SOURCE_DIR}/BVH/BVH2Common_host.cpp
-    ${CMAKE_SOURCE_DIR}/BVH/cbvh.cpp
-    ${CMAKE_SOURCE_DIR}/BVH/cbvh_fat.cpp
-    ${CMAKE_SOURCE_DIR}/BVH/cbvh_embree2.cpp
     )
 
 set(TESTS_SRC
@@ -183,14 +174,10 @@ if (USE_VULKAN)
   list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}")
   set(SLICER_DIR "/home/sammael/kernel_slicer" CACHE STRING "Custom diff render location")
   
-  set(MODULES_INCLUDE_DIRS ${MODULES_INCLUDE_DIRS} ${Vulkan_INCLUDE_DIR}
-                                                   ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/vkutils
-                                                   ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/volk)
-
-  #link_directories(${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/volk)
-
-  #add_subdirectory(${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/volk
-  #                 ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/volk/build)
+  set(MODULES_INCLUDE_DIRS ${MODULES_INCLUDE_DIRS} 
+      ${Vulkan_INCLUDE_DIR}
+      ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/vkutils
+      ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/volk)
 
   add_compile_definitions(USE_GPU)
   add_compile_definitions(USE_VOLK)
@@ -266,63 +253,12 @@ set(
 
 add_subdirectory(step)
 
-option(build_nurbs_viewer OFF)
-if (build_nurbs_viewer)
-  message("NURBS Viewer enabled!")
-  add_library(LiteMath ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/LiteMath/Image2d.cpp)
-  target_link_directories(LiteMath PUBLIC ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/LiteMath/)
-
-  add_library(
-    ImGui 
-      ${CMAKE_SOURCE_DIR}/dependencies/imgui/imgui_demo.cpp
-      ${CMAKE_SOURCE_DIR}/dependencies/imgui/imgui_draw.cpp
-      ${CMAKE_SOURCE_DIR}/dependencies/imgui/imgui_tables.cpp
-      ${CMAKE_SOURCE_DIR}/dependencies/imgui/imgui.cpp
-      ${CMAKE_SOURCE_DIR}/dependencies/imgui/imgui_widgets.cpp
-      ${CMAKE_SOURCE_DIR}/dependencies/imgui/backends/imgui_impl_sdlrenderer2.cpp 
-      ${CMAKE_SOURCE_DIR}/dependencies/imgui/backends/imgui_impl_sdl2.cpp
-  )
-  target_link_libraries(ImGui glfw SDL2main SDL2)
-  target_include_directories(ImGui PUBLIC dependencies/imgui/ dependencies/imgui/backends /usr/include/SDL2)
-
-  enable_language(ISPC)
-  add_library(ispc_ray_pack nurbs/ispc_ray_pack.ispc)
-  target_include_directories(ispc_ray_pack PUBLIC dependencies/embree/)
-
-  add_executable(
-    nurbs_viewer
-      nurbs/viewer.cpp
-      nurbs/Surface.hpp
-      nurbs/Surface.cpp
-      nurbs/raytracer.hpp
-      nurbs/raytracer.cpp
-      nurbs/utils.hpp
-      nurbs/utils.cpp
-      nurbs/embree_adaptors.hpp
-      nurbs/embree_adaptors.cpp
-      nurbs/gui.hpp 
-      nurbs/gui.cpp
-  )
-  target_link_libraries(
-    nurbs_viewer
-      LiteMath
-      ImGui
-      OpenMP::OpenMP_CXX
-      ispc_ray_pack
-      ${RAYTRACING_EMBREE_LIBS}
-      step
-  )
-endif()
-
-
 add_library(render_lib)
 target_include_directories(render_lib PUBLIC ${MODULES_INCLUDE_DIRS})
 
 target_sources(render_lib PRIVATE
                ${MODULES_SRC}
-               ${SCENE_LOADER_SRC}
                ${CORE_SRC}
-               ${BUILDERS_SRC}
                ${NURBS_SRC}
                ${TESTS_SRC}
                ${DR_SRC}
@@ -375,9 +311,7 @@ if (USE_VULKAN)
 
   target_sources(engine PRIVATE                
                 ${MODULES_SRC}
-                ${SCENE_LOADER_SRC}
                 ${CORE_SRC}
-                ${BUILDERS_SRC} 
                 ${ENGINE_SOURCE} 
                 ${IMGUI_SRC}
                 ${NURBS_SRC}
@@ -389,7 +323,7 @@ if (USE_VULKAN)
   target_link_libraries(engine PUBLIC OpenMP::OpenMP_CXX)
 endif()
 
-add_executable(benchmark_app ${CMAKE_SOURCE_DIR}/benchmark/benchmark_app.cpp ${CMAKE_SOURCE_DIR}/utils/blk.cpp )
+add_executable(benchmark_app ${CMAKE_SOURCE_DIR}/benchmark/benchmark_app.cpp ${CMAKE_SOURCE_DIR}/utils/common/blk.cpp )
 target_include_directories(benchmark_app PUBLIC ${CMAKE_SOURCE_DIR}/benchmark
                                                 ${CMAKE_SOURCE_DIR}/utils
                                                 ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/LiteMath

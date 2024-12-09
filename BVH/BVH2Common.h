@@ -27,12 +27,12 @@ using LiteMath::Box4f;
 
 #include "ISceneObject.h"
 #include "raytrace_common.h"
-#include "cbvh.h"
+#include "utils/cbvh.h"
 #include "nurbs/nurbs_common.h"
-#include "graphics_primitive/graphics_primitive_common.h"
+#include "utils/graphics_primitive_common.h"
 #include "catmul_clark/catmul_clark.h"
 #include "ribbon/ribbon.h"
-#include "openvdb_structs/openvdb_common.h"
+#include "utils/openvdb_common.h"
 
 // #define USE_TRICUBIC 0
 
@@ -145,6 +145,8 @@ struct BVHRT : public ISceneObject
   void SetPreset(const MultiRenderPreset& a_preset){ m_preset = a_preset; }
   MultiRenderPreset GetPreset() const { return m_preset; }
 
+  size_t get_model_size(uint32_t geomId = 0u);
+
   //common functions for a few Sdf...Function interfaces
 #ifndef KERNEL_SLICER 
   float eval_distance(float3 pos) override;
@@ -245,8 +247,17 @@ struct BVHRT : public ISceneObject
                            float values[8], uint32_t &primId, uint32_t &nodeId, float &d, 
                            float &qNear, float &qFar, float2 &fNearFar, float3 &start_q);
 
-  float COctreeV3_LoadDistanceValues(uint32_t brickOffset, float3 voxelPos, uint32_t v_size, float sz_inv, 
+  float COctreeV3_LoadDistanceValues(uint32_t leafType, uint32_t brickOffset, float3 voxelPos, uint32_t v_size, float sz_inv, 
                                      const COctreeV3Header &header, uint32_t transform_code, float values[8]);
+
+  float COctreeV3_LoadDistanceValuesLeafGrid(uint32_t brickOffset, float3 voxelPos, uint32_t v_size, float sz_inv, 
+                                             const COctreeV3Header &header, uint32_t transform_code, float values[8]);
+
+  float COctreeV3_LoadDistanceValuesLeafBitPack(uint32_t brickOffset, float3 voxelPos, uint32_t v_size, float sz_inv, 
+                                                const COctreeV3Header &header, uint32_t transform_code, float values[8]);
+
+  float COctreeV3_LoadDistanceValuesLeafSlices(uint32_t brickOffset, float3 voxelPos, uint32_t v_size, float sz_inv, 
+                                               const COctreeV3Header &header, uint32_t transform_code, float values[8]);
 
   void COctreeV3_BrickIntersect(uint32_t type, const float3 ray_pos, const float3 ray_dir,
                                 float tNear, uint32_t instId, uint32_t geomId, const COctreeV3Header &header,
@@ -321,6 +332,11 @@ struct BVHRT : public ISceneObject
   virtual SdfHit sdf_sphere_tracing(unsigned type, unsigned prim_id, const float3 &min_pos, const float3 &max_pos,
                                     float tNear, const float3 &pos, const float3 &dir, bool need_norm);    
 
+  // BVH orig nodes
+#if !defined(DISABLE_SDF_FRAME_OCTREE) || !defined(DISABLE_RF_GRID) || !defined(DISABLE_SDF_FRAME_OCTREE_COMPACT) || !defined(DISABLE_SDF_FRAME_OCTREE_TEX)
+  std::vector<BVHNode> m_origNodes;
+#endif
+
   //SDF grid data
 #ifndef DISABLE_SDF_GRID
   std::vector<float> m_SdfGridData;       //raw data for all SDF grids
@@ -336,9 +352,6 @@ struct BVHRT : public ISceneObject
   std::vector<size_t> m_RFGridSizes;      //size for each RF grid
   std::vector<float> m_RFGridScales;      //size for each RF grid
   std::vector<uint32_t> m_RFGridFlags;      //size for each RF grid
-  #ifdef DISABLE_SDF_FRAME_OCTREE
-    std::vector<BVHNode> m_origNodes;
-  #endif
 #endif
 
 #ifndef KERNEL_SLICER
@@ -358,18 +371,18 @@ std::vector<OpenVDB_Grid> m_VDBData;
 #ifndef DISABLE_SDF_FRAME_OCTREE
   std::vector<SdfFrameOctreeNode> m_SdfFrameOctreeNodes;//nodes for all SDF octrees
   std::vector<uint32_t> m_SdfFrameOctreeRoots;     //root node ids for each SDF octree
-  std::vector<BVHNode> m_origNodes;
 #endif
 
 #ifndef DISABLE_SDF_FRAME_OCTREE_COMPACT
-  std::vector<SdfCompactOctreeNode> m_SdfCompactOctreeV1Data; //compact nodes for all SDF octrees
+#ifndef KERNEL_SLICER
+  std::vector<SdfCompactOctreeNode> m_SdfCompactOctreeV1Data; //not used in actually
+#endif
   std::vector<uint32_t>             m_SdfCompactOctreeV2Data;
   std::vector<uint32_t>             m_SdfCompactOctreeV3Data;
 
   COctreeV3Header coctree_v3_header;
   static constexpr uint32_t ROT_COUNT = 48;
-  std::vector<float4x4> m_SdfCompactOctreeRotVTransforms;
-  std::vector<float4x4> m_SdfCompactOctreeRotPTransforms;
+  std::vector<int4>     m_SdfCompactOctreeRotModifiers;
 #endif
 
   //SDF Sparse Voxel Sets
@@ -400,11 +413,6 @@ std::vector<OpenVDB_Grid> m_VDBData;
 #ifndef DISABLE_SDF_FRAME_OCTREE_TEX
   std::vector<SdfFrameOctreeTexNode> m_SdfFrameOctreeTexNodes;//nodes for all SDF octrees
   std::vector<uint32_t> m_SdfFrameOctreeTexRoots;          //root node ids for each SDF octree
-  #ifdef DISABLE_SDF_FRAME_OCTREE
-    #ifdef DISABLE_RF_GRID
-      std::vector<BVHNode> m_origNodes;
-    #endif
-  #endif
 #endif
 
 #ifndef DISABLE_NURBS

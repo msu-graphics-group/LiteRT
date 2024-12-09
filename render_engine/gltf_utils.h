@@ -4,7 +4,7 @@
 #include <LiteMath.h>
 #include "geom/cmesh.h"
 #include "tiny_gltf.h"
-#include "../shaders/common.h"
+#include "shaders/common.h"
 
 void getNumVerticesAndIndicesFromGLTFMesh(const tinygltf::Model &a_model, const tinygltf::Mesh &a_mesh, uint32_t& numVertices, uint32_t& numIndices);
 cmesh::SimpleMesh  simpleMeshFromGLTFMesh(const tinygltf::Model &a_model, const tinygltf::Mesh &a_mesh);

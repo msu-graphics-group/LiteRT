@@ -1,13 +1,13 @@
 #include "tests.h"
-#include "../IRenderer.h"
-#include "../Renderer/eye_ray.h"
-#include "../utils/mesh_bvh.h"
-#include "../utils/mesh.h"
-#include "../utils/sdf_converter.h"
-#include "../utils/image_metrics.h"
+#include "IRenderer.h"
+#include "Renderer/eye_ray.h"
+#include "utils/mesh/mesh_bvh.h"
+#include "utils/mesh/mesh.h"
+#include "utils/sdf/sdf_converter.h"
+#include "utils/image_metrics.h"
 #include "LiteScene/hydraxml.h"
-#include "../utils/sparse_octree_builder.h"
-#include "../utils/similarity_compression.h"
+#include "utils/sdf/sparse_octree_builder.h"
+#include "utils/coctree/similarity_compression.h"
 #include "LiteMath/Image2d.h"
 
 #include <functional>
@@ -85,11 +85,13 @@ void check_model(const std::string &path)
 		g.header.brick_pad = 0;
 
 		COctreeV3 coctree;
-		coctree.header.bits_per_value = 8;
-		coctree.header.brick_size = g.header.brick_size;
-		coctree.header.brick_pad = g.header.brick_pad;
-		coctree.header.uv_size = 0;
-		coctree.header.sim_compression = 1;
+
+    COctreeV3Settings co_settings;
+		co_settings.bits_per_value = 8;
+		co_settings.brick_size = g.header.brick_size;
+		co_settings.brick_pad = g.header.brick_pad;
+		co_settings.uv_size = 0;
+		co_settings.sim_compression = 1;
 
 		scom::Settings scom_settings;
 		scom_settings.similarity_threshold = 0.075f;
@@ -100,7 +102,7 @@ void check_model(const std::string &path)
 		printf("[check_model::INFO]   Built TLO\n");
 		sdf_converter::mesh_octree_to_global_octree(mesh, tlo, g);
 		printf("[check_model::INFO]   Built Global Octree\n");
-		sdf_converter::global_octree_to_compact_octree_v3(g, coctree, 8, scom_settings);
+		sdf_converter::global_octree_to_COctreeV3(g, coctree, co_settings, scom_settings);
 		printf("[check_model::INFO]   Built Compact Octree\n");
 
 		auto pRender = CreateMultiRenderer(DEVICE_GPU);
@@ -292,11 +294,12 @@ namespace model_validator
 			g.header.brick_pad = 1;
 
 			COctreeV3 coctree;
-			coctree.header.bits_per_value = 8;
-			coctree.header.brick_size = g.header.brick_size;
-			coctree.header.brick_pad = g.header.brick_pad;
-			coctree.header.uv_size = 0;
-			coctree.header.sim_compression = 0;
+      COctreeV3Settings co_settings;
+			co_settings.bits_per_value = 8;
+			co_settings.brick_size = g.header.brick_size;
+			co_settings.brick_pad = g.header.brick_pad;
+			co_settings.uv_size = 0;
+			co_settings.sim_compression = 0;
 
 			preset.normal_mode = g.header.brick_pad == 1 ? NORMAL_MODE_SDF_SMOOTHED : NORMAL_MODE_VERTEX;
 
@@ -306,11 +309,10 @@ namespace model_validator
 			scom_settings.clustering_algorithm = scom::ClusteringAlgorithm::REPLACEMENT;
 
 			auto tlo = cmesh4::create_triangle_list_octree(mesh, settings.depth, 0, 1.0f);
-			std::cout << "Finished TLO..." << std::endl;
+			// std::cout << "Finished TLO..." << std::endl;
 			sdf_converter::mesh_octree_to_global_octree(mesh, tlo, g);
-			std::cout << "Finished global octree..." << std::endl;
-			sdf_converter::global_octree_to_compact_octree_v3(g, coctree, 8, scom_settings);
-			std::cout << "Finished compact octree..." << std::endl;
+			// std::cout << "Finished global octree..." << std::endl;
+			sdf_converter::global_octree_to_COctreeV3(g, coctree, co_settings, scom_settings);
 
 			for (size_t i = 0; i < cameras.size(); i++)
 			{
