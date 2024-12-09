@@ -1299,9 +1299,8 @@ uint32_t BVHRT::AddGeom_COctreeV3(COctreeV3View octree, unsigned bvh_level, ISce
   assert(COctreeV3::VERSION == 4); //if version is changed, this function should be revisited, as some changes may be needed
 #endif
 
-  scom::initialize_rot_transforms(m_SdfCompactOctreeRotVTransforms, octree.header.brick_size + 2 * octree.header.brick_pad + 1);
-  scom::initialize_rot_transforms(m_SdfCompactOctreeRotPTransforms, octree.header.brick_size + 2 * octree.header.brick_pad);
   scom::initialize_rot_modifiers(m_SdfCompactOctreeRotModifiers, octree.header.brick_size + 2 * octree.header.brick_pad + 1);
+  scom::initialize_rot_modifiers(m_SdfCompactOctreeRotModifiers, octree.header.brick_size + 2 * octree.header.brick_pad);
 
   assert(m_SdfCompactOctreeV1Data.size() == 0); //only one compact octree per scene is supported
   assert(octree.size > 0);
@@ -1886,7 +1885,7 @@ size_t BVHRT::get_model_size(uint32_t geomId)
     {
 #ifndef DISABLE_SDF_FRAME_OCTREE_COMPACT
       model_size = sizeof(uint32_t) * (m_SdfCompactOctreeV2Data.size() + m_SdfCompactOctreeV3Data.size())
-                 + sizeof(LiteMath::float4x4) * (m_SdfCompactOctreeRotVTransforms.size() + m_SdfCompactOctreeRotPTransforms.size());
+                 + sizeof(LiteMath::int4) * m_SdfCompactOctreeRotModifiers.size();
       if (geom_data.type == TYPE_COCTREE_V3)
         model_size += sizeof(COctreeV3Header);
 #endif

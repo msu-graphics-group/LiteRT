@@ -374,14 +374,14 @@ std::vector<OpenVDB_Grid> m_VDBData;
 #endif
 
 #ifndef DISABLE_SDF_FRAME_OCTREE_COMPACT
-  std::vector<SdfCompactOctreeNode> m_SdfCompactOctreeV1Data; //compact nodes for all SDF octrees
+#ifndef KERNEL_SLICER
+  std::vector<SdfCompactOctreeNode> m_SdfCompactOctreeV1Data; //not used in actually
+#endif
   std::vector<uint32_t>             m_SdfCompactOctreeV2Data;
   std::vector<uint32_t>             m_SdfCompactOctreeV3Data;
 
   COctreeV3Header coctree_v3_header;
   static constexpr uint32_t ROT_COUNT = 48;
-  std::vector<float4x4> m_SdfCompactOctreeRotVTransforms;
-  std::vector<float4x4> m_SdfCompactOctreeRotPTransforms;
   std::vector<int4>     m_SdfCompactOctreeRotModifiers;
 #endif
 

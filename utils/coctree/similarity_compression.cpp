@@ -46,7 +46,8 @@ namespace scom
 
   void initialize_rot_transforms(std::vector<float4x4> &rot_transforms, int v_size)
   {
-    rot_transforms.resize(ROT_COUNT, float4x4());
+    int prev_size = rot_transforms.size();
+    rot_transforms.resize(prev_size + ROT_COUNT, float4x4());
     for (int i=0; i<ROT_COUNT; i++)
     {
       // GENERATE ROTATIONS
@@ -66,7 +67,7 @@ namespace scom
                                         e1.y, e2.y, e3.y, 0, 
                                         e1.z, e2.z, e3.z, 0, 
                                         0, 0, 0, 1);
-      rot_transforms[i] = LiteMath::translate4x4(float3(v_size/2.0f - 0.5f + 1e-3f)) * rot * LiteMath::translate4x4(-float3(v_size/2.0f - 0.5f));
+      rot_transforms[prev_size+i] = LiteMath::translate4x4(float3(v_size/2.0f - 0.5f + 1e-3f)) * rot * LiteMath::translate4x4(-float3(v_size/2.0f - 0.5f));
     }
   }
 
@@ -119,7 +120,8 @@ namespace scom
     std::vector<float4x4> rotations4;
     initialize_rot_transforms(rotations4, v_size);
 
-    rot_modifiers.resize(ROT_COUNT);
+    int prev_size = rot_modifiers.size();
+    rot_modifiers.resize(prev_size + ROT_COUNT, int4(0,0,0,0));
 
     for (int i=0; i<ROT_COUNT; i++)
     {
@@ -168,7 +170,7 @@ namespace scom
       {
         if (modifier_possible[j])
         {
-          rot_modifiers[i] = modifiers[j];
+          rot_modifiers[prev_size+i] = modifiers[j];
           //printf("%d] int4(%d, %d, %d, %d)\n", i, modifiers[j].x, modifiers[j].y, modifiers[j].z, modifiers[j].w);
         }
       }
