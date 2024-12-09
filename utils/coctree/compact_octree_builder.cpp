@@ -601,6 +601,8 @@ namespace sdf_converter
     }
   }
 
+  static std::atomic<int> type_stat[4] = {0, 0, 0, 0};
+
   void execute_compression_task_leaf(const GlobalOctree &octree, const COctreeV3Header &header,
                                      COctreeV3GlobalCtx &global_ctx, COctreeV3ThreadCtx &thread_ctx,
                                      unsigned thread_id, const COctreeV3BuildTask &task)
@@ -635,11 +637,12 @@ namespace sdf_converter
       leaf_type = header.default_leaf_type;
       if (leaf_size >= uncompressed_leaf_size && header.fallback_leaf_type != header.default_leaf_type)
       {
+        int old_leaf_size = leaf_size;
         leaf_size = brick_values_compress(header.fallback_leaf_type, octree, header, thread_ctx, task.nodeId, task.lod_size, task.p, add_min, add_max);
         leaf_type = header.fallback_leaf_type;
       }
-      // static int type_stat[4] = {0, 0, 0, 0};
-      // type_stat[leaf_type]++;
+      //printf("%u] type = %u, size = %u/%u\n", task.nodeId, leaf_type, leaf_size, uncompressed_leaf_size);
+      type_stat[leaf_type]++;
       // printf("leaf type %d %d %d %d\n", type_stat[0], type_stat[1], type_stat[2], type_stat[3]);
       assert(leaf_size > 0);
       // printf("leaf size %u/%u\n", leaf_size, uncompressed_leaf_size);
@@ -811,6 +814,9 @@ namespace sdf_converter
     stat_leaf_bytes.store(0);
     stat_nonleaf_bytes.store(0);
 
+    for (int i=0;i<4;i++)
+      type_stat[i].store(0);
+
     auto t1 = std::chrono::high_resolution_clock::now();
 
     //Initialize thread contexts 
@@ -900,13 +906,25 @@ namespace sdf_converter
     compact_octree.header.sim_compression = co_settings.sim_compression;
     compact_octree.header.uv_size = co_settings.uv_size;
 
-    //determine default leaf packing mode
-    //TODO: more leaf node packing options
-    //compact_octree.header.leaf_pack_mode = COCTREE_LEAF_PACK_MODE_SLICES;
-    compact_octree.header.default_leaf_type  = v_size > 4 ? COCTREE_LEAF_TYPE_SLICES : COCTREE_LEAF_TYPE_BIT_PACK;
+    //determine leaf packing modes
+    bool can_use_bitpack = v_size*v_size*v_size <= 64; //we have 2 bit max on bitfield.
+    if (co_settings.default_leaf_type == COCTREE_USE_BEST_LEAF_TYPE)
+    {
+      compact_octree.header.default_leaf_type = can_use_bitpack ? COCTREE_LEAF_TYPE_BIT_PACK : COCTREE_LEAF_TYPE_SLICES;
+    }
+    else if (co_settings.default_leaf_type == COCTREE_LEAF_TYPE_BIT_PACK && !can_use_bitpack)
+    {
+      printf("WARNING: bit pack leaf type is not supported for v_size > 4, switching to slices\n");
+      compact_octree.header.default_leaf_type = COCTREE_LEAF_TYPE_SLICES;
+    }
+    else
+    {
+      compact_octree.header.default_leaf_type = co_settings.default_leaf_type;
+    }
+
     compact_octree.header.fallback_leaf_type = co_settings.allow_fallback_to_unpacked_leaves ?
                                                COCTREE_LEAF_TYPE_GRID : compact_octree.header.default_leaf_type;
-
+                                                                                                 
     //prepare tasks for compression
     std::vector<std::vector<COctreeV3BuildTask>> node_layers;
     std::vector<COctreeV3BuildTask> leaf_layer;
@@ -968,6 +986,7 @@ namespace sdf_converter
     auto t5 = std::chrono::high_resolution_clock::now();
     printf("compress nodes %.2f ms\n", 1e-6f*std::chrono::duration_cast<std::chrono::nanoseconds>(t5 - t4).count());
 
+    printf("leaf types [%d %d %d %d]\n", type_stat[0].load(), type_stat[1].load(), type_stat[2].load(), type_stat[3].load());
     printf("compact octree %.1f Kb leaf, %.1f Kb non-leaf\n", stat_leaf_bytes.load() / 1024.0f, stat_nonleaf_bytes.load() / 1024.0f);
 
     global_ctx.compact.shrink_to_fit();

@@ -764,6 +764,90 @@ namespace litert_tests
     float psnr = testing::check_psnr(img_mesh, img_sdf, "global octree mesh", "global octree sdf", 75);
   }
 
+  ADD_TEST(CompactOctree, "Tests different settings for COctreeV3 rendering")
+  {
+    const unsigned device = DEVICE_GPU;
+
+    auto mesh = testing::load_vsgf_mesh(BUNNY_MESH, 0.95);
+
+    MultiRenderPreset preset = getDefaultPreset();
+    preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
+    preset.spp = 4;
+    SparseOctreeSettings settings(SparseOctreeBuildType::MESH_TLO, 6);
+
+    auto img_mesh = testing::create_image();
+
+    testing::render_scene(img_mesh, device, preset, mesh, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0));
+    testing::save_image(img_mesh, "ref");
+
+    int default_size = 0;
+    {
+      auto img = testing::create_image();
+      
+      COctreeV3Settings co_settings;
+      co_settings.brick_size = 3;
+      co_settings.brick_pad  = 0;
+
+      COctreeV3 coctree = sdf_converter::create_COctree_v3(settings, co_settings, mesh);
+      default_size = coctree.data.size();
+      testing::render_scene(img, device, preset, coctree, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0));
+      testing::save_image(img, "default");
+      float psnr = image_metrics::PSNR(img_mesh, img);
+      testing::check_psnr(img_mesh, img, "COctreeV3 (default)", "Mesh", 40); 
+    }   
+
+    {
+      auto img = testing::create_image();
+      
+      COctreeV3Settings co_settings;
+      co_settings.brick_size = 3;
+      co_settings.brick_pad  = 0;
+      co_settings.default_leaf_type = COCTREE_LEAF_TYPE_GRID;
+      co_settings.allow_fallback_to_unpacked_leaves = false;
+
+      COctreeV3 coctree = sdf_converter::create_COctree_v3(settings, co_settings, mesh);
+      testing::render_scene(img, device, preset, coctree, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0));
+      testing::save_image(img, "grid");
+      float psnr = image_metrics::PSNR(img_mesh, img);
+      testing::check_psnr(img_mesh, img, "COctreeV3 (grid)", "Mesh", 40); 
+      testing::check_less(default_size, coctree.data.size(), "size (default)", "size (grid)");
+    }   
+
+    {
+      auto img = testing::create_image();
+      
+      COctreeV3Settings co_settings;
+      co_settings.brick_size = 3;
+      co_settings.brick_pad  = 0;
+      co_settings.default_leaf_type = COCTREE_LEAF_TYPE_BIT_PACK;
+      co_settings.allow_fallback_to_unpacked_leaves = false;
+
+      COctreeV3 coctree = sdf_converter::create_COctree_v3(settings, co_settings, mesh);
+      testing::render_scene(img, device, preset, coctree, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0));
+      testing::save_image(img, "bitpack");
+      float psnr = image_metrics::PSNR(img_mesh, img);
+      testing::check_psnr(img_mesh, img, "COctreeV3 (bitpack)", "Mesh", 40); 
+      testing::check_less(default_size, coctree.data.size(), "size (default)", "size (bitpack)");
+    }   
+
+    {
+      auto img = testing::create_image();
+      
+      COctreeV3Settings co_settings;
+      co_settings.brick_size = 3;
+      co_settings.brick_pad  = 0;
+      co_settings.default_leaf_type = COCTREE_LEAF_TYPE_SLICES;
+      co_settings.allow_fallback_to_unpacked_leaves = false;
+
+      COctreeV3 coctree = sdf_converter::create_COctree_v3(settings, co_settings, mesh);
+      testing::render_scene(img, device, preset, coctree, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0));
+      testing::save_image(img, "slices");
+      float psnr = image_metrics::PSNR(img_mesh, img);
+      testing::check_psnr(img_mesh, img, "COctreeV3 (slices)", "Mesh", 40); 
+      testing::check_less(default_size, coctree.data.size(), "size (default)", "size (slices)");
+    }   
+  }
+
   ADD_TEST(SimilarityCompression, "Tests different settings for COctreeV3 similarity compression")
   {
     auto mesh = testing::load_vsgf_mesh(BUNNY_MESH, 0.95);

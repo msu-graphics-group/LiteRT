@@ -198,6 +198,7 @@ static constexpr unsigned COCTREE_LEAF_TYPE_SLICES              = 3; //separate 
 static constexpr unsigned COCTREE_LEAF_TYPE_BITS                = 2;
 static constexpr unsigned COCTREE_LEAF_TYPE_MASK                = 0x3;
 static constexpr unsigned COCTREE_MAX_CHILD_INFO_SIZE           = 2; //size in uints
+static constexpr unsigned COCTREE_USE_BEST_LEAF_TYPE            = 1000;
 
 //Header is an ultimate descriptor of how COctreeV3 is stored in memory
 //It has a lot of redundance and should not be filled manually
@@ -249,6 +250,7 @@ struct COctreeV3Settings
   uint32_t bits_per_value = 8;  //6, 8, 10, 16, 32 bits per value is allowed
   uint32_t uv_size = 0;         //0 if COctreeV3 is not textured, 1 for default (16 for u and v) and 2 for more precision (32 for u and v, not supported)
   uint32_t sim_compression = 0; //0 or 1, indicates if similarity compression is used
+  uint32_t default_leaf_type = COCTREE_USE_BEST_LEAF_TYPE; //enum COctreeLeafType or COCTREE_USE_BEST_TYPE
   // If true, bricks can be saved as dense grid (COCTREE_LEAF_TYPE_GRID), if default_leaf_type
   // will result in larger memory footprint. It causes branching in shader and may slow it down.
   bool allow_fallback_to_unpacked_leaves = true;
