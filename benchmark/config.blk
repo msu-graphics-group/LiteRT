@@ -2,13 +2,53 @@
 backends:arr = { "CPU" }
 renderers:arr = { "MR" }
 render_modes:arr = { "LAMBERT_NO_TEX" }
-types:arr = { "MESH", "SDF_GRID", "SDF_SBS", "SDF_SVS" }
-lods:arr = { "high" }
 models:arr = { }
-param_strings:arr = { "size_4_pad_0" }
 width:i = 512
 height:i = 512
 cameras:i = 4
 iters:i = 8
 spp:i = 4
+repr_configs
+{
+  MESH
+  {
+    default {
+      
+    }
+  }
+  SDF_GRID
+  {
+    small {
+      size:i = 64
+    }
+    large {
+      size:i = 128
+    }
+  }
+  MESH_LOD
+  {
+    small {
+      decimate_percentage:r = 0.25
+    }
+    large {
+      decimate_percentage:r = 0.5
+    }
+    original {
+      decimate_percentage:r = 1.0
+    }
+  }
+  SDF_SBS 
+  {
+    small {
+      depth:i = 6
+      brick_size:i = 2
+      brick_pad:i  = 0
+    }
+    large {
+      depth:i = 5
+      brick_size:i = 4
+      brick_pad:i  = 0      
+    }
+  }
+}
 }

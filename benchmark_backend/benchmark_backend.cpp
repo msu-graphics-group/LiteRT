@@ -21,48 +21,15 @@ namespace BenchmarkBackend
     return model_name;
   }
 
-  std::string generate_filename_model_no_ext(std::string model_path, std::string repr_type, std::string lod, std::string param_string)
+  std::string generate_filename_model_no_ext(std::string model_path, std::string repr_type, std::string repr_config_name)
   {
-    // string xml_path = "benchmark/bunny/models/SBS/lod_high_brick4" + ".xml";
-    return "benchmark/saves/" + get_model_name(model_path) + "/models/" + repr_type + "/lod_" + lod + '_' + param_string;
+    return "benchmark/saves/" + get_model_name(model_path) + "/models/" + repr_type + "/" + repr_config_name;
   }
 
-  std::string generate_filename_image(std::string model_path, std::string renderer, std::string backend, std::string repr_type, std::string lod, std::string param_string, uint32_t camera)
+  std::string generate_filename_image(std::string model_path, std::string renderer, std::string backend, std::string repr_type, std::string repr_config_name, uint32_t camera)
   {
-    // LoadImage("benchmark/bunny/hydra/GPU/mesh/lod_high_default_cam_i.png");
     return "benchmark/saves/" + get_model_name(model_path) + "/" + renderer + "/" + backend + "/" + repr_type +
-            "/lod_" + lod + '_' + param_string + "_cam_" + std::to_string(camera) + ".png";
-  }
-
-
-  SparseOctreeSettings get_build_settings(std::string lod)
-  {
-    SparseOctreeSettings res{};
-
-    res.build_type = SparseOctreeBuildType::MESH_TLO;
-
-    if (lod == "low")
-      res.depth = 4;
-    if (lod == "mid")
-      res.depth = 6;
-    if (lod == "high")
-      res.depth = 8;
-
-    return res;
-  }
-
-  GridSettings get_build_settings_grid(std::string lod)
-  {
-    GridSettings res{};
-
-    if (lod == "low")
-      res.size = 32;
-    if (lod == "mid")
-      res.size = 48;
-    if (lod == "high")
-      res.size = 64;
-
-    return res;
+          "/" + repr_config_name + "_cam_" + std::to_string(camera) + ".png";
   }
 
 
@@ -195,13 +162,15 @@ namespace BenchmarkBackend
   {
     // Read config string
 
-    Block render_config;
+    Block render_config, repr_config;
     load_block_from_string(render_config_str, render_config);
 
     std::string model_path = render_config.get_string("model");
-    std::string lod = render_config.get_string("lod");
     std::string repr_type = render_config.get_string("type");
-    std::string param_string = render_config.get_string("param_string");
+    std::string repr_config_str = render_config.get_string("repr_config");
+    std::string repr_config_name = render_config.get_string("repr_config_name");
+
+    load_block_from_string(repr_config_str, repr_config);
 
 
     // Load mesh
@@ -210,10 +179,12 @@ namespace BenchmarkBackend
     cmesh4::SimpleMesh mesh = cmesh4::LoadMesh(model_path.c_str());
     cmesh4::set_mat_id(mesh, mat_id);
 
-    SparseOctreeSettings settings = get_build_settings(lod);
-    GridSettings grid_settings = get_build_settings_grid(lod);
+    SparseOctreeSettings settings{};
+    settings.build_type = SparseOctreeBuildType::MESH_TLO;
+    settings.depth = repr_config.get_int("depth");
 
-    std::string fname_no_ext = generate_filename_model_no_ext(model_path, repr_type, lod, param_string);
+    std::string fname_no_ext = generate_filename_model_no_ext(model_path, repr_type, repr_config_name);
+    std::string tmp_fname = get_model_name(fname_no_ext);
 
     std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
     std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
@@ -230,14 +201,7 @@ namespace BenchmarkBackend
       std::string fname_vsgf = fname_no_ext + ".vsgf";
       cmesh4::SaveMeshToVSGF(fname_vsgf_before_lod.c_str(), mesh);
 
-      float lod_param = 1.f;
-
-      if (lod == "high")
-        lod_param = 0.75f;
-      if (lod == "mid")
-        lod_param = 0.50f;
-      if (lod == "low")
-        lod_param = 0.25f;
+      float lod_param = repr_config.get_double("decimate_percentage");
 
       std::string lod_command = "dependencies/lod_maker/lod_maker " + fname_vsgf_before_lod + " " + fname_vsgf + " " + std::to_string(lod_param);
 
@@ -251,6 +215,9 @@ namespace BenchmarkBackend
     }
     else if (repr_type == "SDF_GRID")
     {
+      GridSettings grid_settings{};
+      grid_settings.size = repr_config.get_int("size");
+
       t1 = std::chrono::steady_clock::now();
       auto model_new = sdf_converter::create_sdf_grid(grid_settings, mesh);
       t2 = std::chrono::steady_clock::now();
@@ -272,7 +239,12 @@ namespace BenchmarkBackend
     else if (repr_type == "SDF_SBS")
     {
       SdfSBSHeader header{};
-      parse_param_string(param_string, &header);
+      header.brick_size = repr_config.get_int("brick_size", 4);
+      header.brick_pad = repr_config.get_int("brick_pad", 0);
+      header.bytes_per_value = repr_config.get_int("bytes_per_value", 2);
+      header.aux_data = repr_config.get_int("aux_data", 1) << 24; // 1 << 24
+
+
       t1 = std::chrono::steady_clock::now();
       auto model_new = sdf_converter::create_sdf_SBS(settings, header, mesh);
       t2 = std::chrono::steady_clock::now();
@@ -294,7 +266,13 @@ namespace BenchmarkBackend
     else if (repr_type == "SDF_FRAME_OCTREE_COMPACT")
     {
       COctreeV3Settings header{};
-      parse_param_string(param_string, nullptr, &header);
+      header.brick_size = repr_config.get_int("brick_size", 4);
+      header.brick_pad = repr_config.get_int("brick_pad", 0);
+      header.bits_per_value = repr_config.get_int("bits_per_value", 8);
+      header.uv_size = repr_config.get_int("uv_size", 0);
+      header.sim_compression = repr_config.get_int("sim_compression", 0);
+
+
       t1 = std::chrono::steady_clock::now();
       auto model_new = sdf_converter::create_COctree_v3(settings, header, mesh);
       t2 = std::chrono::steady_clock::now();
@@ -350,12 +328,12 @@ namespace BenchmarkBackend
     pRender->Render(image.data(), image.width(), image.height(), worldView, proj, preset, a_passNum);
   }
 
-  void Render(LiteImage::Image2D<uint32_t> &image, IRenderer* pRender, uint32_t width, uint32_t height, const LiteMath::float3 &pos)
+  void Render(LiteImage::Image2D<uint32_t> &image, IRenderer* pRender, uint32_t width, uint32_t height, const LiteMath::float3 &pos, std::chrono::steady_clock::time_point &t1, std::chrono::steady_clock::time_point &t2)
   {
     float fov_degrees = 60;
     float z_near = 0.1f;
     float z_far = 100.0f;
-    float aspect = 1.0f;
+    float aspect = float(width) / height;
     auto proj = LiteMath::perspectiveMatrix(fov_degrees, aspect, z_near, z_far);
     auto worldView = LiteMath::lookAt(pos, float3(0,0,0), float3(0,1,0));
 
@@ -363,7 +341,10 @@ namespace BenchmarkBackend
     pRender->UpdateCamera(worldView, proj);
     pRender->CommitDeviceData();
     pRender->Clear(width, height, "color");
+
+    t1 = std::chrono::steady_clock::now();
     pRender->Render(image.data(), width, height, "color");
+    t2 = std::chrono::steady_clock::now();
   }
 
   void
@@ -374,9 +355,10 @@ namespace BenchmarkBackend
 
     std::string model_path = render_config.get_string("model");
     std::string model_name = render_config.get_string("model_name");
-    std::string lod = render_config.get_string("lod");
     std::string repr_type = render_config.get_string("type");
-    std::string param_string = render_config.get_string("param_string");
+    std::string repr_config = render_config.get_string("repr_config");
+    std::string repr_config_name = render_config.get_string("repr_config_name");
+    std::string mesh_config_name = render_config.get_string("mesh_config_name");
     std::string backend = render_config.get_string("backend");
     std::string renderer_type = render_config.get_string("renderer");
     
@@ -386,6 +368,7 @@ namespace BenchmarkBackend
     int width = render_config.get_int("width");
     int height = render_config.get_int("height");
     int cameras = render_config.get_int("cameras");
+    int iters = render_config.get_int("iters");
     int spp = render_config.get_int("spp");
 
     //  Start measurements
@@ -439,44 +422,47 @@ namespace BenchmarkBackend
       float min_time =  1e8, max_time = -1, average_time = 0;
       float min_psnr = 1000, max_psnr = -1, average_psnr = 0;
       float min_flip = 1000, max_flip = -1, average_flip = 0;
-
-      for (int camera = 0; camera < cameras; ++camera)
+      
+      for (int iter = 0; iter < iters; ++iter)
       {
-        const float dist = 2;
-        float angle = 2.0f * LiteMath::M_PI * camera / (float)cameras;
-        const float3 pos = dist * float3(sin(angle), 0, cos(angle));
-
-        LiteImage::Image2D<uint32_t> image(width, height);
-
-        auto t1 = std::chrono::steady_clock::now();
-        Render(image, pRender.get(), width, height, pos);
-        auto t2 = std::chrono::steady_clock::now();
-        
-        //  Time calculation
-        float t = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count() / 1000.f;
-        calcMetrics(min_time, max_time, average_time, t);
-
-        //  Save image
-        std::string save_name = generate_filename_image(model_name + ".workaround", renderer_type, backend, repr_type, lod, param_string, camera),
-                    mesh_name = generate_filename_image(model_name + ".workaround", renderer_type, backend,    "MESH", lod, param_string, camera);
-
-        printf("SaveImg path: %s\n", save_name.c_str());
-        LiteImage::SaveImage<uint32_t>(save_name.c_str(), image);
-
-        LiteImage::Image2D<uint32_t> ref_image;
-
-        if (repr_type == "MESH")
+        for (int camera = 0; camera < cameras; ++camera)
         {
-          ref_image = image;
-        }
-        else
-        {
-          ref_image = LiteImage::LoadImage<uint32_t>(mesh_name.c_str());
-        }
+          const float dist = 2;
+          float angle = 2.0f * LiteMath::M_PI * camera / (float)cameras;
+          const float3 pos = dist * float3(sin(angle), 0, cos(angle));
 
-        //  calculate metrics
-        calcMetrics(min_psnr, max_psnr, average_psnr, image_metrics::PSNR(image, ref_image));
-        calcMetrics(min_flip, max_flip, average_flip, image_metrics::FLIP(image, ref_image));
+          LiteImage::Image2D<uint32_t> image(width, height);
+
+          std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
+          std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
+          Render(image, pRender.get(), width, height, pos, t1, t2);
+          
+          //  Time calculation
+          float t = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count() / 1000.f;
+          calcMetrics(min_time, max_time, average_time, t);
+
+          //  Save image
+          std::string save_name = generate_filename_image(model_name + ".workaround", renderer_type, backend, repr_type, repr_config_name, camera),
+                      mesh_name = generate_filename_image(model_name + ".workaround", renderer_type, backend,    "MESH", mesh_config_name, camera);
+
+          printf("SaveImg path: %s\n", save_name.c_str());
+          LiteImage::SaveImage<uint32_t>(save_name.c_str(), image);
+
+          LiteImage::Image2D<uint32_t> ref_image;
+
+          if (repr_type == "MESH")
+          {
+            ref_image = image;
+          }
+          else
+          {
+            ref_image = LiteImage::LoadImage<uint32_t>(mesh_name.c_str());
+          }
+
+          //  calculate metrics
+          calcMetrics(min_psnr, max_psnr, average_psnr, image_metrics::PSNR(image, ref_image));
+          calcMetrics(min_flip, max_flip, average_flip, image_metrics::FLIP(image, ref_image));
+        }
       }
 
       average_time /= (float)cameras;
@@ -494,7 +480,7 @@ namespace BenchmarkBackend
 #endif
       }
 
-      f << model_name << ", " << backend << ", " << device_name << ", " << renderer_type << ", " << repr_type << ", " << lod << ", " << memory << ", " << min_time << ", " << max_time << ", " << average_time << ", " << min_psnr << ", " << max_psnr << ", " << average_psnr << ", " << min_flip << ", " << max_flip << ", " << average_flip << std::endl;
+      f << model_name << ", " << backend << ", " << device_name << ", " << renderer_type << ", " << repr_type << ", " << repr_config_name << ", " << render_mode << ", " << memory << ", " << min_time << ", " << max_time << ", " << average_time << ", " << min_psnr << ", " << max_psnr << ", " << average_psnr << ", " << min_flip << ", " << max_flip << ", " << average_flip << std::endl;
     }
 
     f.close();
@@ -961,11 +947,5 @@ namespace BenchmarkBackend
     }
 
     average += new_val;
-  }
-
-  // TODO: model size for each representation type for MultiRenderer and HydraRenderer
-  uint32_t getModelSize()
-  {
-    return (uint32_t)-1;
   }
 };

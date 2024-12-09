@@ -22,8 +22,8 @@ namespace BenchmarkBackend
 // Common
 
   std::string get_model_name(std::string model_path);
-  std::string generate_filename_model_no_ext(std::string model_path, std::string repr_type, std::string lod, std::string param_string);
-  std::string generate_filename_image(std::string model_path, std::string renderer, std::string backend, std::string repr_type, std::string lod, std::string param_string, uint32_t camera);
+  std::string generate_filename_model_no_ext(std::string model_path, std::string repr_type, std::string repr_config_name);
+  std::string generate_filename_image(std::string model_path, std::string renderer, std::string backend, std::string repr_type, std::string repr_config_name, uint32_t camera);
 
   void parse_param_string(std::string param_string, SdfSBSHeader *sbs_header = nullptr, COctreeV3Settings *coctree_header = nullptr);
 
@@ -43,7 +43,7 @@ namespace BenchmarkBackend
   void render(LiteImage::Image2D<uint32_t> &image, std::shared_ptr<MultiRenderer> pRender,
               float3 pos, float3 target, float3 up,
               MultiRenderPreset preset, int a_passNum = 1);
-  void Render(LiteImage::Image2D<uint32_t> &image, IRenderer* pRender, uint32_t width, uint32_t height, const LiteMath::float3 &pos);
+  void Render(LiteImage::Image2D<uint32_t> &image, IRenderer* pRender, uint32_t width, uint32_t height, const LiteMath::float3 &pos, std::chrono::steady_clock::time_point &t1, std::chrono::steady_clock::time_point &t2);
 
   void getMetrics(const std::string &render_config_str);
 

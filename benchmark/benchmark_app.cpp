@@ -15,12 +15,11 @@
 ///  Benchmark_app-level
 // -b, --backends      = {CPU|GPU|RTX|GPU_RQ}
 // -r, --renderers     = {MR|Hydra}
-// -t, --types         = {MESH|SDF_GRID|SDF_SBS|...}
 // -m, --models        = str str str...
+// -f, --force_build                           // rebuild existing models
 //
 ///  Render_app-level
-// -rm, --render_modes = {lambert|...}  // see "MULTI_RENDER_MODE" enum, NOTE: in render_app config this parameter is "uint", matching enum
-//     --lods          = {low|mid|high}
+// -rm, --render_modes = {LAMBERT_NO_TEX|...}  // see "MULTI_RENDER_MODE" enum
 // -w, --width         = uint
 // -h, --height        = uint
 //     --spp           = uint
@@ -38,9 +37,9 @@
 
 
 
-BenchmarkAppConfig read_enums_config(const char *enums_config_fpath)
+BenchmarkAppEnums read_enums_config(const char *enums_config_fpath)
 {
-  BenchmarkAppConfig res_defaults{};
+  BenchmarkAppEnums res_defaults{};
   Block block_defaults{};
 
   if (!load_block_from_file(enums_config_fpath, block_defaults))
@@ -52,36 +51,19 @@ BenchmarkAppConfig read_enums_config(const char *enums_config_fpath)
   block_defaults.get_arr("backends_enum", res_defaults.backends);
   block_defaults.get_arr("renderers_enum", res_defaults.renderers);
   block_defaults.get_arr("render_modes_enum", res_defaults.render_modes);
-  block_defaults.get_arr("types_enum", res_defaults.types);
-  block_defaults.get_arr("lods_enum", res_defaults.lods);
+  block_defaults.get_arr("types_enum", res_defaults.repr_types);
 
   return res_defaults;
 }
 
-void write_enums_config(const char *enums_config_fpath, const BenchmarkAppConfig &in_enums, const BenchmarkAppConfig &in_defaults)
+void write_enums_config(const char *enums_config_fpath, const BenchmarkAppEnums &in_enums)
 {
   Block block_defaults{};
 
   block_defaults.set_arr("backends_enum", in_enums.backends);
   block_defaults.set_arr("renderers_enum", in_enums.renderers);
   block_defaults.set_arr("render_modes_enum", in_enums.render_modes);
-  block_defaults.set_arr("types_enum", in_enums.types);
-  block_defaults.set_arr("lods_enum", in_enums.lods);
-
-
-  // block_defaults.set_arr("backends", in_defaults.backends);
-  // block_defaults.set_arr("renderers", in_defaults.renderers);
-  // block_defaults.set_arr("render_modes", in_defaults.render_modes);
-  // block_defaults.set_arr("types", in_defaults.types);
-  // block_defaults.set_arr("lods", in_defaults.lods);
-  // block_defaults.set_arr("models", in_defaults.models);
-  // block_defaults.set_arr("param_strings", in_defaults.param_strings);
-
-  // block_defaults.set_int("width", in_defaults.width);
-  // block_defaults.set_int("height", in_defaults.height);
-  // block_defaults.set_int("cameras", in_defaults.cameras);
-  // block_defaults.set_int("iters", in_defaults.iters);
-  // block_defaults.set_int("spp", in_defaults.spp);
+  block_defaults.set_arr("types_enum", in_enums.repr_types);
 
   save_block_to_file(enums_config_fpath, block_defaults);
 }
@@ -100,16 +82,52 @@ BenchmarkAppConfig read_benchmark_config(const char *benchmark_config_fpath)
   block_benchmark.get_arr("backends", res_benchmark.backends);
   block_benchmark.get_arr("renderers", res_benchmark.renderers);
   block_benchmark.get_arr("render_modes", res_benchmark.render_modes);
-  block_benchmark.get_arr("types", res_benchmark.types);
-  block_benchmark.get_arr("lods", res_benchmark.lods);
   block_benchmark.get_arr("models", res_benchmark.models);
-  block_benchmark.get_arr("param_strings", res_benchmark.param_strings);
 
   res_benchmark.width = block_benchmark.get_int("width");
   res_benchmark.height = block_benchmark.get_int("height");
   res_benchmark.cameras = block_benchmark.get_int("cameras");
   res_benchmark.iters = block_benchmark.get_int("iters");
   res_benchmark.spp = block_benchmark.get_int("spp");
+
+  // Get representation configs
+  Block *repr_configs = block_benchmark.get_block("repr_configs");
+
+  if (repr_configs == nullptr)
+  {
+    printf("Error: config file has no representations to render\n");
+    exit(-1);
+  }
+
+  for (uint32_t i = 0u; i < repr_configs->size(); ++i) // { repr_type : configs }
+  {
+    std::string curr_repr_type = repr_configs->get_name(i); // repr_type
+    Block *curr_repr_type_configs = repr_configs->get_block(i); // configs
+
+
+    if (res_benchmark.repr_configs.find(curr_repr_type) != res_benchmark.repr_configs.end())
+    {
+      printf("Error: config file has multiple blocks for representation: %s\n", curr_repr_type.c_str());
+      exit(-1);
+    }
+
+    if (curr_repr_type_configs->size() == 0)
+    {
+      printf("No custom configs for %s, default is used", curr_repr_type.c_str());
+    }
+
+    std::string repr_config_string;
+    res_benchmark.repr_configs[curr_repr_type] = {}; // create empty vector of configs
+    for (uint32_t i = 0u; i < curr_repr_type_configs->size(); ++i)
+    {
+      std::string curr_repr_type_single = curr_repr_type_configs->get_name(i);
+      Block *curr_repr_type_single_config = curr_repr_type_configs->get_block(i);
+
+      save_block_to_string(curr_repr_type_single, *curr_repr_type_single_config); // "blockname{Block}"
+
+      res_benchmark.repr_configs[curr_repr_type].push_back(curr_repr_type_single);
+    }
+  }
 
   return res_benchmark;
 }
@@ -121,16 +139,15 @@ void write_benchmark_config(const char *benchmark_config_fpath, const BenchmarkA
   block_benchmark.set_arr("backends", in_benchmark.backends);
   block_benchmark.set_arr("renderers", in_benchmark.renderers);
   block_benchmark.set_arr("render_modes", in_benchmark.render_modes);
-  block_benchmark.set_arr("types", in_benchmark.types);
-  block_benchmark.set_arr("lods", in_benchmark.lods);
   block_benchmark.set_arr("models", in_benchmark.models);
-  block_benchmark.set_arr("param_strings", in_benchmark.param_strings);
 
   block_benchmark.set_int("width", in_benchmark.width);
   block_benchmark.set_int("height", in_benchmark.height);
   block_benchmark.set_int("cameras", in_benchmark.cameras);
   block_benchmark.set_int("iters", in_benchmark.iters);
   block_benchmark.set_int("spp", in_benchmark.spp);
+
+  // THIS FUNCTION IS NOT USED -> NOT UPDATED, TO MAKE IT WORK, ADD repr_config PROCESSING
 
   save_block_to_file(benchmark_config_fpath, block_benchmark);
 }
@@ -140,13 +157,14 @@ std::string write_render_config_s(const RenderAppConfig &in_render)
   std::string res_block_str;
   Block block_render{};
 
-  block_render.set_string("lod", in_render.lod);
   block_render.set_string("type", in_render.type);
   block_render.set_string("model", in_render.model);
   block_render.set_string("backend", in_render.backend);
   block_render.set_string("renderer", in_render.renderer);
   block_render.set_string("model_name", in_render.model_name);
-  block_render.set_string("param_string", in_render.param_string);
+  block_render.set_string("repr_config", in_render.repr_config);
+  block_render.set_string("repr_config_name", in_render.repr_config_name);
+  block_render.set_string("mesh_config_name", in_render.mesh_config_name);
   block_render.set_arr("render_modes", in_render.render_modes);
 
   block_render.set_int("width", in_render.width);
@@ -177,16 +195,15 @@ std::string get_model_name(std::string model_path)
   return model_name;
 }
 
-std::string generate_filename_model_no_ext(std::string model_path, std::string repr_type, std::string lod, std::string param_string)
+std::string generate_filename_model_no_ext(std::string model_path, std::string repr_type, std::string repr_config_name)
 {
-  return "benchmark/saves/" + get_model_name(model_path) + "/models/" + repr_type + "/lod_" + lod + '_' + param_string;
+  return "benchmark/saves/" + get_model_name(model_path) + "/models/" + repr_type + "/" + repr_config_name;
 }
 
-std::string generate_filename_image(std::string model_path, std::string renderer, std::string backend, std::string repr_type, std::string lod, std::string param_string, uint32_t camera)
+std::string generate_filename_image(std::string model_path, std::string renderer, std::string backend, std::string repr_type, std::string repr_config_name, uint32_t camera)
 {
-  // LoadImage("benchmark/bunny/hydra/GPU/mesh/lod_high_default_cam_i.png");
   return "benchmark/saves/" + get_model_name(model_path) + "/" + renderer + "/" + backend + "/" + repr_type +
-          "/lod_" + lod + '_' + param_string + "_cam_" + std::to_string(camera) + ".png";
+         "/" + repr_config_name + "_cam_" + std::to_string(camera) + ".png";
 }
 
 // COPY END
@@ -214,7 +231,7 @@ std::vector<std::string> filter_enum_params(const std::vector<std::string> &tags
 
     if (!found)
     {
-      printf("Error: Could not match token: %s\n", tag.c_str());
+      printf("Error: Could not match token: '%s'\n", tag.c_str());
       exit(-1);
     }
   }
@@ -223,21 +240,25 @@ std::vector<std::string> filter_enum_params(const std::vector<std::string> &tags
 }
 
 
-void call_kernel_slicer(const BenchmarkAppConfig &config, const std::string &repr_type, const std::string &renderer,
+void call_kernel_slicer(const BenchmarkAppEnums &enums, const std::string &repr_type, const std::string &renderer,
                         const std::string &backend, const std::string &slicer_dir, const std::string &slicer_exec)
 {
 // Slicer preprocess
 
   std::string disable_flags;
-  disable_flags.reserve(config.types.size() - 1);
 
-  for (uint32_t i = 0u; i < config.types.size(); ++i)
+  for (const auto &enum_repr_type : enums.repr_types)
   {
-    if (repr_type == "MESH_LOD" && config.types[i] == "MESH")
+    // MESH_LOD is supported, but there's no DISABLE_MESH_LOD, it is still just mesh
+
+    if (enum_repr_type == "MESH_LOD") // don't add -DDISABLE_MESH_LOD, even though it's not used anywhere
+      continue;
+    if (repr_type == "MESH_LOD" && enum_repr_type == "MESH") // don't add -DDISABLE_MESH when render MESH_LOD
       continue;
 
-    if (config.types[i] != repr_type)
-      disable_flags += " -DDISABLE_" + config.types[i];
+
+    if (enum_repr_type != repr_type)
+      disable_flags += " -DDISABLE_" + enum_repr_type;
   }
 
   // current ans slicer directories
@@ -379,12 +400,14 @@ void call_kernel_slicer(const BenchmarkAppConfig &config, const std::string &rep
 
 int main(int argc, const char **argv)
 {
-  BenchmarkAppConfig enums{}, config{};
+  BenchmarkAppEnums enums{};
+  BenchmarkAppConfig config{};
 
-  bool verbose = false;
+  bool verbose = false, force_build = false;
   const char *enums_config_fpath = "benchmark/enums.blk", *base_config_fpath = "benchmark/config.blk";
   const char *slicer_dir = "~/kernel_slicer/", *slicer_exec = "~/kernel_slicer/cmake-build-release/kslicer";
 
+  config = read_benchmark_config(base_config_fpath); // reads defaults
 
 // Find flags
 
@@ -445,6 +468,8 @@ int main(int argc, const char **argv)
 
     if (flag == "-v" || flag == "--verbose")
       verbose = true;
+    else if (flag == "-f" || flag == "--force_build")
+      force_build = true;
     else if ("-e" == flag || "--enum_conf" == flag || "--conf" == flag)
     {} // skip
     else if (flag == "-b" || flag == "--backends")
@@ -461,13 +486,6 @@ int main(int argc, const char **argv)
       for (uint32_t i = start; i < fin; ++i)
         config.renderers.push_back(std::string(argv[i]));
     }
-    else if (flag == "-t" || flag == "--types")
-    {
-      config.types.clear();
-      config.types.reserve(fin - start);
-      for (uint32_t i = start; i < fin; ++i)
-        config.types.push_back(std::string(argv[i]));
-    }
     else if (flag == "-rm" || flag == "--render_modes")
     {
       config.render_modes.clear();
@@ -475,26 +493,12 @@ int main(int argc, const char **argv)
       for (uint32_t i = start; i < fin; ++i)
         config.render_modes.push_back(std::string(argv[i]));
     }
-    else if (flag == "--lods")
-    {
-      config.lods.clear();
-      config.lods.reserve(fin - start);
-      for (uint32_t i = start; i < fin; ++i)
-        config.lods.push_back(std::string(argv[i]));
-    }
     else if (flag == "-m" || flag == "--models")
     {
       config.models.clear();
       config.models.reserve(fin - start);
       for (uint32_t i = start; i < fin; ++i)
         config.models.push_back(std::string(argv[i]));
-    }
-    else if (flag == "-p" || flag == "--param_strings")
-    {
-      config.param_strings.clear();
-      config.param_strings.reserve(fin - start);
-      for (uint32_t i = start; i < fin; ++i)
-        config.param_strings.push_back(argv[i]);
     }
     else if (flag == "-s" || flag == "--slicer")
     {
@@ -532,10 +536,28 @@ int main(int argc, const char **argv)
 
   config.backends = filter_enum_params(config.backends, enums.backends);
   config.renderers = filter_enum_params(config.renderers, enums.renderers);
-  config.types = filter_enum_params(config.types, enums.types);
   config.render_modes = filter_enum_params(config.render_modes, enums.render_modes);
-  config.lods = filter_enum_params(config.lods, enums.lods);
 
+  {
+    printf("Checking types...\n");
+    std::vector <std::string> repr_types_vec = { "MESH" };
+    std::map <std::string, std::vector<std::string>> repr_types_map;
+
+    for (const auto &repr_config : config.repr_configs)
+    {
+      if (repr_config.first != "MESH")
+        repr_types_vec.push_back(repr_config.first);
+    }
+
+    repr_types_vec = filter_enum_params(repr_types_vec, enums.repr_types);
+
+    for (const auto &repr_type : repr_types_vec)
+    {
+      repr_types_map[repr_type] = (config.repr_configs.find(repr_type) != config.repr_configs.end()) ? config.repr_configs[repr_type] : std::vector<std::string>{};
+    }
+
+    config.repr_configs = repr_types_map; // filtered repr_configs
+  }
 
 // Process slicer_dir path
 
@@ -556,19 +578,6 @@ int main(int argc, const char **argv)
   }
 
 
-// Override types: force MESH on the first place
-
-for (uint32_t i = 0u; i < config.types.size(); ++i)
-{
-  if (config.types[i] == "MESH")
-  {
-    config.types.erase(config.types.begin() + i);
-    break;
-  }
-}
-config.types.insert(config.types.begin(), "MESH");
-
-
 // Print config
 
   if (verbose)
@@ -583,9 +592,6 @@ config.types.insert(config.types.begin(), "MESH");
     printf("\nModels:\n");
     for (auto elem : config.models)
       printf("%s\n", elem.c_str());
-    printf("\nParam strings:\n");
-    for (auto elem : config.param_strings)
-      printf("%s\n", elem.c_str());
     printf("\nBackends:\n");
     for (auto elem : config.backends)
       printf("%s, ", elem.c_str());
@@ -595,12 +601,9 @@ config.types.insert(config.types.begin(), "MESH");
     printf("\nRender modes:\n");
     for (auto elem : config.render_modes)
       printf("%s, ", elem.c_str());
-    printf("\nLODs:\n");
-    for (auto elem : config.lods)
-      printf("%s, ", elem.c_str());
     printf("\nTypes:\n");
-    for (auto elem : config.types)
-      printf("%s, ", elem.c_str());
+    for (auto elem : config.repr_configs)
+      printf("%s x %ld, ", elem.first.c_str(), std::max(elem.second.size(), 1ul));
 
     printf("\nWidth: %d\n", config.width);
     printf("Height: %d\n", config.height);
@@ -608,6 +611,8 @@ config.types.insert(config.types.begin(), "MESH");
     printf("Iters: %d\n", config.iters);
     printf("SPP: %d\n", config.spp);
   }
+
+  // Create dirs and .csv for results
 
   std::fstream f;
   std::filesystem::create_directories("benchmark/results");
@@ -617,7 +622,7 @@ config.types.insert(config.types.begin(), "MESH");
   f.close();
 
   f.open("benchmark/results/render.csv", std::ios::out);
-  f << "model_name, backend, device, renderer, type, lod, model_size(Mb), time_min(s), time_max(s), time_average(s), psnr_min, psnr_max, psnr_average, flip_min, flip_max, flip_average\n";
+  f << "model_name, backend, device, renderer, type, config_name, model_size(Mb), time_min(s), time_max(s), time_average(s), psnr_min, psnr_max, psnr_average, flip_min, flip_max, flip_average\n";
   f.close();
 
   // Benchmark loop
@@ -629,6 +634,7 @@ config.types.insert(config.types.begin(), "MESH");
   render_config.height = config.height;
   render_config.cameras = config.cameras;
   render_config.render_modes = config.render_modes;
+  render_config.mesh_config_name = "default";
 
 
   for (const auto &model : config.models)
@@ -648,14 +654,14 @@ config.types.insert(config.types.begin(), "MESH");
         bool do_slicing = backend != "CPU";
         bool recompile = true;
 
-        for (const auto &repr_type : config.types)
+        for (const auto &repr_config : config.repr_configs)
         {
-          render_config.type = repr_type;
+          render_config.type = repr_config.first;
 
           // Slice
           if (do_slicing)
           {
-            call_kernel_slicer(enums, repr_type, renderer, backend, slicer_adir, slicer_exec);
+            call_kernel_slicer(enums, render_config.type, render_config.renderer, render_config.backend, slicer_adir, slicer_exec);
             recompile = true;
           }
 
@@ -671,60 +677,59 @@ config.types.insert(config.types.begin(), "MESH");
             recompile = false;
           }
 
-          // std::system("DRI_PRIME=1 ./render_app -tests_litert 2");
 
-          for (const auto &lod: config.lods)
+          for (const auto &repr_config_single_n: repr_config.second)
           {
-            render_config.lod = lod;
-            for (const auto &param_string: config.param_strings)
+            uint32_t bracket_ind = repr_config_single_n.find('{');
+            std::string repr_config_name = repr_config_single_n.substr(0, bracket_ind);
+            std::string repr_config_single = repr_config_single_n.substr(bracket_ind);
+            // Create directories for model and tests
+
+            render_config.model = model;
+            render_config.repr_config = repr_config_single;
+            render_config.repr_config_name = repr_config_name;
+            std::string xml_path = generate_filename_model_no_ext(render_config.model, render_config.type, repr_config_name) + ".xml";
+            std::string experiment_path = generate_filename_image(render_config.model, render_config.renderer, render_config.backend,
+                                                                  render_config.type,  repr_config_name, render_config.cameras);
+            std::string dirs_to_create = xml_path.substr(0, (xml_path.rfind('/') != xml_path.npos) ? xml_path.rfind('/') : xml_path.rfind('\\'));
+            printf("Creating model dir: %s\n", dirs_to_create.c_str());
+            std::filesystem::create_directories(dirs_to_create);
+            dirs_to_create = experiment_path.substr(0, (experiment_path.rfind('/') != experiment_path.npos) ? experiment_path.rfind('/') : experiment_path.rfind('\\'));
+            printf("Creating tests dir: %s\n", dirs_to_create.c_str());
+            std::filesystem::create_directories(dirs_to_create);
+
+
+            // Build
+
+            if (!std::filesystem::exists(xml_path) || force_build)
             {
-              render_config.param_string = param_string;
-
-
-              // Create directories for model and tests
+              printf("1. Build\n");
 
               render_config.model = model;
-              std::string xml_path = generate_filename_model_no_ext(render_config.model, render_config.type, render_config.lod, render_config.param_string) + ".xml";
-              std::string experiment_path = generate_filename_image(render_config.model, render_config.renderer, render_config.backend, render_config.type,
-                                                                    render_config.lod, render_config.param_string,render_config.cameras);
-              std::string dirs_to_create = xml_path.substr(0, (xml_path.rfind('/') != xml_path.npos) ? xml_path.rfind('/') : xml_path.rfind('\\'));
-              printf("Creating model dir: %s\n", dirs_to_create.c_str());
-              std::filesystem::create_directories(dirs_to_create);
-              dirs_to_create = experiment_path.substr(0, (experiment_path.rfind('/') != experiment_path.npos) ? experiment_path.rfind('/') : experiment_path.rfind('\\'));
-              printf("Creating tests dir: %s\n", dirs_to_create.c_str());
-              std::filesystem::create_directories(dirs_to_create);
+              std::string config_str = write_render_config_s(render_config);
+
+              std::string cmd = "DRI_PRIME=1 ./render_app -backend_benchmark build ";
+              cmd += "'" + config_str + "'";
+
+              std::system(cmd.c_str());
+              // printf("\n\nCommand:\n%s\n\n", cmd.c_str());
+            }
+            else
+              printf("1. Model already exists.\n");
 
 
-              // Build
+            // Render
 
-              printf("1. Build\n");
-              if (model_build_flag_renderers == 1 && model_build_flag_backends == 1) {
-                render_config.model = model;
-                std::string config_str = write_render_config_s(render_config);
+            printf("2. Render\n");
+            {
+              render_config.model = xml_path;
+              std::string config_str = write_render_config_s(render_config);
 
-                std::string cmd = "DRI_PRIME=1 ./render_app -backend_benchmark build ";
-                cmd += "'" + config_str + "'";
+              std::string cmd = "DRI_PRIME=1 ./render_app -backend_benchmark render ";
+              cmd += "'" + config_str + "'";
 
-                std::system(cmd.c_str());
-                // printf("\n\nCommand:\n%s\n\n", cmd.c_str());
-              }
-              else
-                printf("Model should already exist\n");
-
-
-              // Render
-
-              printf("2. Render\n");
-              {
-                render_config.model = xml_path;
-                std::string config_str = write_render_config_s(render_config);
-
-                std::string cmd = "DRI_PRIME=1 ./render_app -backend_benchmark render ";
-                cmd += "'" + config_str + "'";
-
-                std::system(cmd.c_str());
-                // printf("\n\nCommand:\n%s\n\n", cmd.c_str());
-              }
+              std::system(cmd.c_str());
+              // printf("\n\nCommand:\n%s\n\n", cmd.c_str());
             }
           }
         }
@@ -732,7 +737,7 @@ config.types.insert(config.types.begin(), "MESH");
     }
   }
 
-  {
+  if (config.backends.size() > 1 || (config.backends.size() == 1 && config.backends[0] != "CPU")) {
     // Run "slicer_execute.sh" with all types On
     std::string slicer_execute_command = "bash slicer_execute.sh " + slicer_adir + " " + slicer_exec;
     std::system(slicer_execute_command.c_str());
