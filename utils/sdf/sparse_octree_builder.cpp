@@ -64,6 +64,236 @@ namespace sdf_converter
     }
   }
 
+  static float trilinear_interp(const float values[8], float3 dp)
+  {
+    return (1-dp.x)*(1-dp.y)*(1-dp.z)*values[0] + 
+          (1-dp.x)*(1-dp.y)*(  dp.z)*values[1] + 
+          (1-dp.x)*(  dp.y)*(1-dp.z)*values[2] + 
+          (1-dp.x)*(  dp.y)*(  dp.z)*values[3] + 
+          (  dp.x)*(1-dp.y)*(1-dp.z)*values[4] + 
+          (  dp.x)*(1-dp.y)*(  dp.z)*values[5] + 
+          (  dp.x)*(  dp.y)*(1-dp.z)*values[6] + 
+          (  dp.x)*(  dp.y)*(  dp.z)*values[7];
+  }
+
+  float count_distance_at_brick_on_position(const cmesh4::SimpleMesh &mesh, const cmesh4::TriangleListOctree &tl_octree, int idx, float3 pos, float2 &tex_coord, unsigned &mat)
+  {
+    float sign = 1, min_dist_sq = 1000000;
+
+    float3 surface_pos = float3(0, 0, 0), min_a = float3(0, 0, 0), min_b = float3(0, 0, 0), min_c = float3(0, 0, 0);
+    int min_ti = -1;
+    for (int tri=0; tri<tl_octree.nodes[idx].tid_count; tri++)
+    {
+      int t_i = tl_octree.triangle_ids[tl_octree.nodes[idx].tid_offset+tri];
+      float3 a = to_float3(mesh.vPos4f[mesh.indices[3*t_i+0]]);
+      float3 b = to_float3(mesh.vPos4f[mesh.indices[3*t_i+1]]);
+      float3 c = to_float3(mesh.vPos4f[mesh.indices[3*t_i+2]]);
+      float3 vt = pos - cmesh4::closest_point_triangle(pos, a, b, c);
+      float dst_sq = LiteMath::dot(vt, vt);
+      if (min_dist_sq > dst_sq)
+      {
+        min_dist_sq = dst_sq;
+        min_ti = t_i;
+        min_a = a;
+        min_b = b;
+        min_c = c;
+        surface_pos = cmesh4::closest_point_triangle(pos, a, b, c);
+        if (LiteMath::dot(LiteMath::cross(a - b, a - c), vt) < 0)
+        {
+          sign = -1;
+        }
+        else
+        {
+          sign = 1;
+        }
+      }
+    }
+    float3 bc = cmesh4::barycentric(surface_pos, min_a, min_b, min_c);
+    tex_coord = bc.x*mesh.vTexCoord2f[mesh.indices[3*min_ti+0]] + bc.y*mesh.vTexCoord2f[mesh.indices[3*min_ti+1]] + bc.z*mesh.vTexCoord2f[mesh.indices[3*min_ti+2]];
+    mat = mesh.matIndices[min_ti];
+    return min_dist_sq * sign;
+  }
+
+  /*float count_rmse()
+  {
+    float rmse = 0.0f;
+    for (int x = 0; x <= 2; x += 1)
+    {
+      for (int y = 0; y <= 2; y += 1)
+      {
+        for (int z = 0; z <= 2; z += 1)
+        {
+          float3 off_idx = float3((float)x / 2.0, (float)y / 2.0, (float)z / 2.0);
+          float coeff = 1.0;
+          if (x == 1) coeff *= 2.0;
+          if (y == 1) coeff *= 2.0;
+          if (z == 1) coeff *= 2.0;
+          float sdf_val = sdf(corner + offset * off_idx, 0);//TODO save it to cash and take
+          rmse += pow((sdf_val - trilinear_interpolation(node_values, off_idx)), 2);
+        }
+      }
+    }
+    return sqrt(rmse / 64.0);
+  }*/
+
+  void linear_mesh_octree_to_global_octree_with_precision(const cmesh4::SimpleMesh &mesh,
+                                         const cmesh4::TriangleListOctree &tl_octree,
+                                         GlobalOctree &out_octree,
+                                         unsigned min_layer, unsigned max_layer, float precision)
+  {
+    assert(min_layer < max_layer);
+    struct PositionHasher
+    {
+      std::size_t operator()(const float3& k) const
+      {
+        // Compute individual hash values for first,
+        // second and third and combine them using XOR
+        // and bit shifting:
+        return (  (std::hash<float>()(k.x)
+                ^ (std::hash<float>()(k.y) << 1)) >> 1)
+                ^ (std::hash<float>()(k.z) << 1);
+      }
+    };
+    struct PositionEqual
+    {
+      bool operator()(const float3& lhs, const float3& rhs) const
+      {
+        return std::abs(lhs.x - rhs.x) < 1e-12f && std::abs(lhs.y - rhs.y) < 1e-12f && std::abs(lhs.z - rhs.z) < 1e-12f;
+      }
+    };
+    out_octree.nodes.resize(1);
+    out_octree.values_f.resize(0);
+    unsigned v_size = out_octree.header.brick_size + out_octree.header.brick_pad * 2 + 1;
+    unsigned mat;
+    float2 tex_c;
+    struct NodeData
+    {
+      unsigned tl_idx;
+      unsigned global_idx;
+      float d;
+      float3 pos;
+      unsigned layer_num;
+      std::unordered_map<float3, std::pair<float, float>/*real, interpolated*/, PositionHasher, PositionEqual> node_distances;
+    };
+    std::vector<NodeData> checks;
+    NodeData elem;
+    elem.d = 1;
+    elem.pos = float3(0, 0, 0);
+    elem.layer_num = 0;
+    elem.node_distances = {};
+    elem.tl_idx = 0;
+    elem.global_idx = 0;
+    checks.push_back(elem);
+    int pad = out_octree.header.brick_pad, size = out_octree.header.brick_size;
+    for (int i = 0; i < checks.size(); ++i)
+    {
+      float3 pos = 2.0f*(checks[i].d*checks[i].pos) - 1.0f;
+      out_octree.nodes[checks[i].global_idx].val_off = out_octree.values_f.size();
+      out_octree.values_f.resize(out_octree.values_f.size() + v_size * v_size * v_size);
+      out_octree.nodes[checks[i].global_idx].is_not_void = tl_octree.nodes[checks[i].tl_idx].tid_count != 0;
+      out_octree.nodes[checks[i].global_idx].offset = 0;
+      for (int x = -pad; x <= size + pad; ++x)
+      {
+        for (int y = -pad; y <= size + pad; ++y)
+        {
+          for (int z = -pad; z <= size + pad; ++z)
+          {
+            float3 ch_pos = pos + 2*(checks[i].d/out_octree.header.brick_size)*float3(x, y, z);
+            float dist = count_distance_at_brick_on_position(mesh, tl_octree, checks[i].tl_idx, ch_pos, tex_c, mat);
+            checks[i].node_distances[ch_pos] = std::pair(dist, dist);
+            out_octree.values_f[out_octree.nodes[checks[i].global_idx].offset + v_size * v_size * (x + pad) + v_size * (y + pad) + z + pad] = dist;
+            if ((x == 0 || x == size) && (y == 0 || y == size) && (z == 0 || z == size))
+            {
+              int num = (int(x / size) << 2) + (int(y / size) << 1) + int(z / size);
+              out_octree.nodes[checks[i].global_idx].tex_coords[num] = tex_c;
+            }
+            if (x == size / 2 && y == size / 2 && z == size / 2 && size != 1)
+            {
+              out_octree.nodes[checks[i].global_idx].material_id = mat;
+            }
+          }
+        }
+      }
+      if (size == 1)
+      {
+        float3 ch_pos = pos + checks[i].d;
+        count_distance_at_brick_on_position(mesh, tl_octree, checks[i].tl_idx, ch_pos, tex_c, mat);
+        out_octree.nodes[checks[i].global_idx].material_id = mat;
+      }
+      
+      bool is_div = checks[i].layer_num <= min_layer;
+      if(tl_octree.nodes[checks[i].tl_idx].tid_count == 0 || checks[i].layer_num >= max_layer)
+      {
+        is_div = false;
+      }
+      else if(!is_div)
+      {
+        float3 pos = 2.0f*(checks[i].d*checks[i].pos) - 1.0f;
+        float error = 0;
+        for (int x = 0; x <= size * 2; ++x)
+        {
+          for (int y = 0; y <= size * 2; ++y)
+          {
+            for (int z = 0; z <= size * 2; ++z)
+            {
+              float3 ch_pos = pos + (checks[i].d/out_octree.header.brick_size)*float3(x, y, z);
+              float diff = 0;
+              if (checks[i].node_distances.find(ch_pos) == checks[i].node_distances.end())
+              {
+                float dist = count_distance_at_brick_on_position(mesh, tl_octree, checks[i].tl_idx, ch_pos, tex_c, mat);
+                float values[8];
+                for (int j = 0; j < 8; ++j)
+                {
+                  int xs = (j >> 2) * 2 - 1;
+                  int ys = ((j >> 1) & 1) * 2 - 1;
+                  int zs = (j & 1) * 2 - 1;
+                  float3 interp_pos = ch_pos + float3(xs * (x % 2), ys * (y % 2), zs * (z % 2)) * (checks[i].d/out_octree.header.brick_size);
+                  values[j] = checks[i].node_distances[interp_pos].first;
+                }
+                float interp = trilinear_interp(values, float3(0.5, 0.5, 0.5));
+                checks[i].node_distances[ch_pos] = std::pair(dist, interp);
+                float coeff = 1;
+                if (x != 0 && x != size * 2)
+                {
+                  coeff *= 2;
+                }
+                if (y != 0 && y != size * 2)
+                {
+                  coeff *= 2;
+                }
+                if (z != 0 && z != size * 2)
+                {
+                  coeff *= 2;
+                }
+                error += coeff * std::pow(dist - interp, 2);
+
+              }
+            }
+          }
+        }
+        error /= (size * size * size * 64);
+        error = sqrt(error);
+        if (error >= precision) is_div = true;
+      }
+
+      if (is_div)
+      {
+        for (int j = 0; j < 8; ++j)
+        {
+          elem.d = checks[i].d / 2.0;
+          elem.pos = 2 * checks[i].pos + float3(j >> 2, (j >> 1) & 1, j & 1);
+          elem.layer_num = checks[i].layer_num + 1;
+          elem.node_distances = {};
+          elem.tl_idx = tl_octree.nodes[checks[i].tl_idx].offset;
+          elem.global_idx = out_octree.nodes.size() + j;
+          checks.push_back(elem);
+        }
+        out_octree.nodes[checks[i].global_idx].offset = out_octree.nodes.size();
+        out_octree.nodes.resize(out_octree.nodes.size() + 8);
+      }
+    }
+  }
+
   void linear_mesh_octree_to_global_octree(const cmesh4::SimpleMesh &mesh,
                                          const cmesh4::TriangleListOctree &tl_octree,
                                          GlobalOctree &out_octree, unsigned max_threads)
