@@ -114,6 +114,67 @@ namespace scom
     return inverse_indices;
   }
 
+  void initialize_rot_modifiers(std::vector<int4> &rot_modifiers, int v_size)
+  {
+    std::vector<float4x4> rotations4;
+    initialize_rot_transforms(rotations4, v_size);
+
+    rot_modifiers.resize(ROT_COUNT);
+
+    for (int i=0; i<ROT_COUNT; i++)
+    {
+      constexpr int possible_modifiers_count = (2*4)*(2*4)*(2*4) * (2*2*2*2);
+      std::vector<bool> modifier_possible(possible_modifiers_count, true);
+      std::vector<int4> modifiers(possible_modifiers_count, int4(-1));
+      for (int k=0; k<possible_modifiers_count; k++)
+      {
+        int j = k;
+        //printf("j  = %d\n", j);
+        int4 modifier(0,0,0,0);
+        int4 mults(1,v_size, v_size*v_size, v_size*v_size*v_size);
+        int4 mults2(1,v_size-1, v_size*(v_size-1), v_size*v_size*(v_size-1));
+        modifier.x = mults[j % 4]; j /= 4;
+        modifier.x *= (j%2) ? -1 : 1; j /= 2;
+        modifier.y = mults[j % 4]; j /= 4;
+        modifier.y *= (j%2) ? -1 : 1; j /= 2;
+        modifier.z = mults[j % 4]; j /= 4;
+        modifier.z *= (j%2) ? -1 : 1; j /= 2;
+        modifier.w += j%2 ? mults2[0] : 0; j /= 2;
+        modifier.w += j%2 ? mults2[1] : 0; j /= 2;
+        modifier.w += j%2 ? mults2[2] : 0; j /= 2;
+        modifier.w += j%2 ? mults2[3] : 0; j /= 2;
+        modifiers[k] = modifier;
+        int idx, idx_a, idx_b;
+        int3 rot_vec;
+        for (int x = 0; x < v_size; x++)
+        {
+          for (int y = 0; y < v_size; y++)
+          {
+            for (int z = 0; z < v_size; z++)
+            {
+              idx_a = dot(modifier, int4(x,y,z,1));
+              float3 V = float3(x,y,z);
+              int3 rot_vec = int3(LiteMath::mul4x3(rotations4[i], V));
+              idx_b = rot_vec.x * v_size*v_size + rot_vec.y * v_size + rot_vec.z;
+              if (idx_a != idx_b)
+              {
+                modifier_possible[k] = false;
+              }
+            }
+          }
+        }
+      }
+      for (int j=0; j<possible_modifiers_count; j++)
+      {
+        if (modifier_possible[j])
+        {
+          rot_modifiers[i] = modifiers[j];
+          //printf("%d] int4(%d, %d, %d, %d)\n", i, modifiers[j].x, modifiers[j].y, modifiers[j].z, modifiers[j].w);
+        }
+      }
+    }
+  }
+
   TransformCompact get_identity_transform()
   {
     TransformCompact t;

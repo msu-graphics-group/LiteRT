@@ -3053,15 +3053,50 @@ float BVHRT::COctreeV3_LoadDistanceValuesLeafGrid(uint32_t brickOffset, float3 v
   float min_val = -float(m_SdfCompactOctreeV3Data[brickOffset + off_3 + 0]) / float(0xFFFFFFFFu) + add_transform;
   float range   =  (float(m_SdfCompactOctreeV3Data[brickOffset + off_3 + 1]) / float(0xFFFFFFFFu)) / max_val;
 
-  for (int i = 0; i < 8; i++)
-  {
-    float3 vPosOrig = voxelPos + float3(header.brick_pad) + float3((i & 4) >> 2, (i & 2) >> 1, i & 1);
-    int3 vPos = int3(to_float3(m_SdfCompactOctreeRotVTransforms[rotIdx] * to_float4(vPosOrig, 1.0f)));
-    uint32_t vId0 = vPos.x*v_size*v_size + vPos.y*v_size + vPos.z;
-    uint32_t dist0 = ((m_SdfCompactOctreeV3Data[brickOffset + off_5 + vId0 / vals_per_int] >> (bits * (vId0 % vals_per_int))) & max_val);
-    values[i] = min_val + range * dist0;
-    vmin = std::min(values[i], vmin);
-  }
+  uint32_t vId0 = uint32_t(dot(m_SdfCompactOctreeRotModifiers[rotIdx], 
+                           int4(voxelPos.x + header.brick_pad, voxelPos.y + header.brick_pad, voxelPos.z + header.brick_pad, 1)));
+  uint32_t vId, dist;
+
+  vId = vId0;
+  dist = ((m_SdfCompactOctreeV3Data[brickOffset + off_5 + vId / vals_per_int] >> (bits * (vId % vals_per_int))) & max_val);
+  values[0] = min_val + range * dist;
+  vmin = std::min(values[0], vmin);
+
+  vId = vId0 + m_SdfCompactOctreeRotModifiers[rotIdx].z;
+  dist = ((m_SdfCompactOctreeV3Data[brickOffset + off_5 + vId / vals_per_int] >> (bits * (vId % vals_per_int))) & max_val);
+  values[1] = min_val + range * dist;
+  vmin = std::min(values[1], vmin);
+
+  vId = vId0 + m_SdfCompactOctreeRotModifiers[rotIdx].y;
+  dist = ((m_SdfCompactOctreeV3Data[brickOffset + off_5 + vId / vals_per_int] >> (bits * (vId % vals_per_int))) & max_val);
+  values[2] = min_val + range * dist;
+  vmin = std::min(values[2], vmin);
+
+  vId = vId0 + m_SdfCompactOctreeRotModifiers[rotIdx].y + m_SdfCompactOctreeRotModifiers[rotIdx].z;
+  dist = ((m_SdfCompactOctreeV3Data[brickOffset + off_5 + vId / vals_per_int] >> (bits * (vId % vals_per_int))) & max_val);
+  values[3] = min_val + range * dist;
+  vmin = std::min(values[3], vmin);
+
+  vId = vId0 + m_SdfCompactOctreeRotModifiers[rotIdx].x;
+  dist = ((m_SdfCompactOctreeV3Data[brickOffset + off_5 + vId / vals_per_int] >> (bits * (vId % vals_per_int))) & max_val);
+  values[4] = min_val + range * dist;
+  vmin = std::min(values[4], vmin);
+
+  vId = vId0 + m_SdfCompactOctreeRotModifiers[rotIdx].x + m_SdfCompactOctreeRotModifiers[rotIdx].z;
+  dist = ((m_SdfCompactOctreeV3Data[brickOffset + off_5 + vId / vals_per_int] >> (bits * (vId % vals_per_int))) & max_val);
+  values[5] = min_val + range * dist;
+  vmin = std::min(values[5], vmin);
+
+  vId = vId0 + m_SdfCompactOctreeRotModifiers[rotIdx].x + m_SdfCompactOctreeRotModifiers[rotIdx].y; 
+  dist = ((m_SdfCompactOctreeV3Data[brickOffset + off_5 + vId / vals_per_int] >> (bits * (vId % vals_per_int))) & max_val);
+  values[6] = min_val + range * dist;
+  vmin = std::min(values[6], vmin);
+
+  vId = vId0 + m_SdfCompactOctreeRotModifiers[rotIdx].x + m_SdfCompactOctreeRotModifiers[rotIdx].y + m_SdfCompactOctreeRotModifiers[rotIdx].z;
+  dist = ((m_SdfCompactOctreeV3Data[brickOffset + off_5 + vId / vals_per_int] >> (bits * (vId % vals_per_int))) & max_val);
+  values[7] = min_val + range * dist;
+  vmin = std::min(values[7], vmin);
+
 #endif
   return vmin;
 }

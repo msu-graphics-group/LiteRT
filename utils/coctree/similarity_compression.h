@@ -58,5 +58,6 @@ namespace scom
   
   void similarity_compression(const sdf_converter::GlobalOctree &octree, const Settings &settings, CompressionOutput &output);
   void initialize_rot_transforms(std::vector<float4x4> &rot_transforms, int v_size);
+  void initialize_rot_modifiers(std::vector<int4> &rot_modifiers, int v_size);
   TransformCompact get_identity_transform();
 }

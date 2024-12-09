@@ -1301,6 +1301,7 @@ uint32_t BVHRT::AddGeom_COctreeV3(COctreeV3View octree, unsigned bvh_level, ISce
 
   scom::initialize_rot_transforms(m_SdfCompactOctreeRotVTransforms, octree.header.brick_size + 2 * octree.header.brick_pad + 1);
   scom::initialize_rot_transforms(m_SdfCompactOctreeRotPTransforms, octree.header.brick_size + 2 * octree.header.brick_pad);
+  scom::initialize_rot_modifiers(m_SdfCompactOctreeRotModifiers, octree.header.brick_size + 2 * octree.header.brick_pad + 1);
 
   assert(m_SdfCompactOctreeV1Data.size() == 0); //only one compact octree per scene is supported
   assert(octree.size > 0);

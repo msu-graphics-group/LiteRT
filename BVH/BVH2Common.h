@@ -382,6 +382,7 @@ std::vector<OpenVDB_Grid> m_VDBData;
   static constexpr uint32_t ROT_COUNT = 48;
   std::vector<float4x4> m_SdfCompactOctreeRotVTransforms;
   std::vector<float4x4> m_SdfCompactOctreeRotPTransforms;
+  std::vector<int4>     m_SdfCompactOctreeRotModifiers;
 #endif
 
   //SDF Sparse Voxel Sets
