@@ -1081,9 +1081,9 @@ std::chrono::steady_clock::time_point t5 = std::chrono::steady_clock::now();
     tmp_octree.header = out_octree.header;
     tmp_octree.nodes.resize(tl_octree.nodes.size());
 
-    //linear_mesh_octree_to_global_octree_with_precision(mesh, tl_octree, tmp_octree, 2, 3, 0.0001);//error with tlo
+    linear_mesh_octree_to_global_octree_with_precision(mesh, tl_octree, tmp_octree, 4, 7, 0.005);//error with tlo
     //printf("next\n");
-    linear_mesh_octree_to_global_octree(mesh, tl_octree, tmp_octree, omp_get_max_threads());
+    //linear_mesh_octree_to_global_octree(mesh, tl_octree, tmp_octree, omp_get_max_threads());
     //printf("%d\n", tmp_octree.nodes.size());
     
     unsigned nn = global_octree_count_and_mark_active_nodes_rec(tmp_octree, 0);

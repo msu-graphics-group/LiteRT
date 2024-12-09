@@ -738,7 +738,7 @@ namespace litert_tests
   ADD_TEST(GlobalOctreeCreator, "Creates Global Octree using mesh and sdf")
   {
     MultiRenderPreset preset = getDefaultPreset();
-    auto mesh = testing::load_vsgf_mesh(SPHERE_MESH, 0.999);
+    auto mesh = testing::load_vsgf_mesh(BUNNY_MESH, 0.999);
 
     constexpr size_t OCTREE_DEPTH = 7;
 
