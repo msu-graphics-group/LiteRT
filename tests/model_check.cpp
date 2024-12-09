@@ -145,14 +145,16 @@ namespace model_validator
 	constexpr size_t WIDTH = 2048;
 	constexpr size_t HEIGHT = 2048;
 
+	struct Camera
+	{
+		float3 pos, target, up;
+	};
+
 	void render(
 		image_t &image,
 		MultiRenderer *renderer,
 		MultiRenderPreset preset,
-		float3 pos = float3(0, 0, 3),
-		float3 target = float3(0, 0, 0),
-		float3 up = float3(0, 1, 0),
-		int a_passNum = 1)
+		Camera camera)
 	{
 
 		float fov_degrees = 60;
@@ -160,9 +162,9 @@ namespace model_validator
 		float z_far = 100.0f;
 		float aspect = 1.0f;
 		auto proj = LiteMath::perspectiveMatrix(fov_degrees, aspect, z_near, z_far);
-		auto worldView = LiteMath::lookAt(pos, target, up);
+		auto worldView = LiteMath::lookAt(camera.pos, camera.target, camera.up);
 
-		renderer->Render(image.data(), image.width(), image.height(), worldView, proj, preset, a_passNum);
+		renderer->Render(image.data(), image.width(), image.height(), worldView, proj, preset, 1);
 	}
 
 	template <typename T>
@@ -173,13 +175,11 @@ namespace model_validator
 		const std::string &file_name, // name of file
 		const std::string &dir,
 		MultiRenderPreset preset,
-		float3 pos = float3(0, 0, 3),
-		float3 target = float3(0, 0, 0),
-		float3 up = float3(0, 1, 0))
+		Camera camera)
 	{
 		auto renderer = CreateMultiRenderer(DEVICE_GPU);
 		renderer->SetScene(scene);
-		if constexpr (std::is_same_v<cmesh4::SimpleMesh, T>)
+		/*if constexpr (std::is_same_v<cmesh4::SimpleMesh, T>)
 		{
 			long mesh_total_bytes = 0;
 			BVHRT *bvh = dynamic_cast<BVHRT *>(renderer->GetAccelStruct()->UnderlyingImpl(0));
@@ -190,9 +190,9 @@ namespace model_validator
 							   bvh->m_indices.size() * sizeof(uint32_t) +
 							   bvh->m_primIndices.size() * sizeof(uint32_t);
 			printf("Mesh total size = %6.1f Mb\n", mesh_total_bytes / (1024.0f * 1024.0f));
-		}
+		}*/
 		// std::cout << "Started rendering '" << log_name << "'" << std::endl;
-		render(image, renderer.get(), preset, pos, target, up);
+		render(image, renderer.get(), preset, camera);
 		// std::cout << "Ended rendering '" << log_name << "'" << std::endl;
 
 		std::filesystem::create_directories(dir);
@@ -208,13 +208,16 @@ namespace model_validator
 		const std::string &file_name,
 		const std::string &dir,
 		MultiRenderPreset preset,
-		float3 pos = float3(0, 0, 3),
-		float3 target = float3(0, 0, 0),
-		float3 up = float3(0, 1, 0))
+		Camera camera
+		)
 	{
-		render_scene_and_save(scene_image, scene, log_name, file_name, dir, preset, pos, target, up);
+		
+
+		render_scene_and_save(scene_image, scene, log_name, file_name, dir, preset, camera);
 		float psnr = image_metrics::PSNR(reference, scene_image);
+		
 		std::cout << "PSNR of 'Reference' and '" << log_name << "' = " << psnr << std::endl;
+		
 		return psnr;
 	}
 
@@ -227,14 +230,13 @@ namespace model_validator
 		const std::string &file_name,
 		const std::string &dir,
 		MultiRenderPreset preset,
-		float3 pos = float3(0, 0, 3),
-		float3 target = float3(0, 0, 0),
-		float3 up = float3(0, 1, 0))
+		Camera camera
+		)
 	{
 		// std::cout << "Started creating '" << log_name << "'" << std::endl;
 		auto scene = f();
 		// std::cout << "Ended creating '" << log_name << "'" << std::endl;
-		return render_and_measure(reference, scene_image, scene, log_name, file_name, dir, preset, pos, target, up);
+		return render_and_measure(reference, scene_image, scene, log_name, file_name, dir, preset, camera);
 	}
 
 	/*
@@ -249,12 +251,36 @@ namespace model_validator
 		preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
 		preset.spp = 4;
 
-		image_t ref_image(WIDTH, HEIGHT);
+		constexpr size_t NUM_CAMERAS = 6;
+
+		std::vector<Camera> cameras(NUM_CAMERAS);
+
+		for (size_t i = 0; i < cameras.size(); i++)
+		{
+			float r = 3;
+			float theta = 2 * M_PI * i / cameras.size();
+
+			float3 pos(std::cos(theta) * r, 0, std::sin(theta) * r);
+			float3 target(0, 0, 0);
+			float3 global_up(0, 1, 0);
+
+			auto direction = target - pos;
+			auto up = LiteMath::cross(LiteMath::cross(direction, global_up), direction);
+
+			cameras[i].pos = pos;
+			cameras[i].target = target;
+			cameras[i].up = up;
+		}
+
+		std::vector<image_t> ref_images(cameras.size(), image_t(WIDTH, HEIGHT));
 		image_t tmp_image(WIDTH, HEIGHT);
 
-		render_scene_and_save(ref_image, mesh, "Reference", "ref", image_dir, preset);
+		for (size_t i = 0; i < cameras.size(); i++)
+		{
+			render_scene_and_save(ref_images[i], mesh, "Reference", "ref_" + std::to_string(i + 1), image_dir, preset, cameras[i]);
+		}
 
-		constexpr size_t MIN_DEPTH = 3;
+		constexpr size_t MIN_DEPTH = 8;
 		constexpr size_t MAX_DEPTH = 8;
 
 		for (size_t depth = MIN_DEPTH; depth <= MAX_DEPTH; depth++)
@@ -279,18 +305,29 @@ namespace model_validator
 			scom_settings.search_algorithm = scom::SearchAlgorithm::BALL_TREE;
 			scom_settings.clustering_algorithm = scom::ClusteringAlgorithm::REPLACEMENT;
 
-			auto create_coctree = [&]()
-			{
-				auto tlo = cmesh4::create_triangle_list_octree(mesh, settings.depth, 0, 1.0f);
-				// std::cout << "Finished TLO..." << std::endl;
-				sdf_converter::mesh_octree_to_global_octree(mesh, tlo, g);
-				// std::cout << "Finished global octree..." << std::endl;
-				sdf_converter::global_octree_to_compact_octree_v3(g, coctree, 8, scom_settings);
-				return coctree;
-			};
+			auto tlo = cmesh4::create_triangle_list_octree(mesh, settings.depth, 0, 1.0f);
+			std::cout << "Finished TLO..." << std::endl;
+			sdf_converter::mesh_octree_to_global_octree(mesh, tlo, g);
+			std::cout << "Finished global octree..." << std::endl;
+			sdf_converter::global_octree_to_compact_octree_v3(g, coctree, 8, scom_settings);
+			std::cout << "Finished compact octree..." << std::endl;
 
-			float psnr = check_method(ref_image, tmp_image, create_coctree, "Compact octree with depth " + std::to_string(depth), "coctree_depth_" + std::to_string(depth), image_dir, preset);
-			max_psnr = std::max(max_psnr, psnr);
+			for (size_t i = 0; i < cameras.size(); i++)
+			{
+
+				//float psnr = check_method(ref_image, tmp_image, create_coctree, "Compact octree with depth " + std::to_string(depth), "coctree_depth_" + std::to_string(depth), image_dir, preset);
+				float psnr = render_and_measure(
+					ref_images[i],
+					tmp_image,
+					coctree,
+					"Compact octree with depth " + std::to_string(depth),
+					"coctree_depth_" + std::to_string(depth) + "_" + std::to_string(i+1),
+					image_dir,
+					preset,
+					cameras[i]
+					);
+				max_psnr = std::max(max_psnr, psnr);
+			}
 		}
 		size_t q = 0;
 		if (max_psnr < 30)
@@ -317,7 +354,7 @@ namespace model_validator
 		return q == 3 ? 0 : q;
 	}
 
-	std::filesystem::file_time_type file_last_change_time(std::filesystem::path file, bool reduce_max)
+	std::filesystem::file_time_type file_last_change_time(std::filesystem::path file)
 	{
 		if (std::filesystem::is_directory(file))
 		{
@@ -327,15 +364,8 @@ namespace model_validator
 			{
 				if (i.is_directory() || i.is_regular_file())
 				{
-					auto t = file_last_change_time(i.path(), reduce_max);
-					if (reduce_max)
-					{
-						time = std::max(time, t);
-					}
-					else
-					{
-						time = std::min(time, t);
-					}
+					auto t = file_last_change_time(i.path());
+					time = std::max(time, t);
 				}
 			}
 
@@ -357,8 +387,8 @@ namespace model_validator
 
 		if (std::filesystem::exists(out_dir + "/images/" + name))
 		{
-			auto source_change_time = file_last_change_time(model_root, true);
-			auto dst_change_time = file_last_change_time(out_dir + "/images/" + name, false);
+			auto source_change_time = file_last_change_time(model_root);
+			auto dst_change_time = file_last_change_time(out_dir + "/images/" + name);
 			if (source_change_time < dst_change_time)
 			{
 				std::cout << "Already validated skipping..." << std::endl
@@ -429,7 +459,10 @@ namespace model_validator
 				{
 					std::cerr << "Error: did not find any models inside '" << file.path().string() << "'." << std::endl;
 				}
-				validate_model(path, file.path().string(), out_dir);
+				else
+				{
+					validate_model(path, file.path().string(), out_dir);
+				}
 			}
 			else if (file.is_regular_file())
 			{
