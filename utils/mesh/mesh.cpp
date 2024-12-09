@@ -329,7 +329,6 @@ namespace cmesh4
       //go deeper
       unsigned ch_idx = nodes.size();
       nodes[idx].offset = ch_idx;
-      nodes[idx].tid_count = node_tri_ids.size();
       nodes[idx].tid_offset = tri_ids.size();
 
       for (int i=0;i<8;i++)
@@ -362,6 +361,7 @@ namespace cmesh4
         create_triangle_list_octree_rec(mesh, tri_ids, nodes, max_depth, max_triangles_per_leaf, search_range_mult,
                                         child_tri_ids, ch_idx+i, ch_p, ch_d, level+1);
       }
+      nodes[idx].tid_count = tri_ids.size() - nodes[idx].tid_offset;
     }
   }
 
@@ -396,7 +396,7 @@ namespace cmesh4
     octree.nodes.resize(octree_total_nodes);
     octree.triangle_ids.resize(octree_total_tri_ids);
     octree.nodes[0].offset = 1;
-    octree.nodes[0].tid_count = all_tri_ids.size()/3;
+    octree.nodes[0].tid_count = octree_total_tri_ids;
     octree.nodes[0].tid_offset = 0;
 
     unsigned node_ofs = 9;
