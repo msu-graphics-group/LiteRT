@@ -1204,6 +1204,7 @@ namespace scom
     std::vector<float> average_brick_val(g_octree.nodes.size(), 0);
     std::vector<float> closest_dist(g_octree.nodes.size(), settings.similarity_threshold);
     std::vector<unsigned> remap(g_octree.nodes.size());
+    std::vector<bool> is_parent(g_octree.nodes.size(), 0);
     std::vector<TransformCompact> remap_transforms(g_octree.nodes.size());
     std::vector<bool> surface_node(g_octree.nodes.size(), false);
 
@@ -1233,60 +1234,70 @@ namespace scom
     Dataset dataset_no_rot;
     create_dataset(g_octree, settings, surface_node, surface_node_count, average_brick_val, 0, 1, dataset_no_rot);
 
-    Dataset dataset;
+    size_t expected_full_dataset_size = ROT_COUNT*(dataset_no_rot.all_points.size()*sizeof(float) + dataset_no_rot.data_points.size()*sizeof(DataPoint));
+    constexpr size_t dataset_size_limit = 4ul * 1024ul * 1024ul * 1024ul; //4 GB max
+
+    int batches = ceil((double)expected_full_dataset_size/dataset_size_limit);
+    if (batches > ROT_COUNT)
+      printf("WARNING: expected batch dataset size (%lu) will exceed limit even with maximum batches\n", expected_full_dataset_size/ROT_COUNT);
+    else if (batches > 1)
+      printf("WARNING: datset will be split into %d batches, compression quality will be reduced\n", batches);
+    
+    int splits = std::min(batches, ROT_COUNT);
+    int step = (ROT_COUNT + splits - 1) / splits;
     int remapped = 0;
-    int rot_start = 0;
-    int rot_end = ROT_COUNT;
-    int rot_count = rot_end - rot_start;
-    create_dataset(g_octree, settings, surface_node, surface_node_count, average_brick_val, rot_start, rot_end, dataset);
 
-    std::unique_ptr<INNSearchAS> NN_search_AS;
-
-    if (settings.search_algorithm == SearchAlgorithm::LINEAR_SEARCH)
+    for (int split = 0; split < splits; split++)
     {
-      NN_search_AS.reset(new LinearSearchAS());
-      NN_search_AS->build(dataset, 1);
-    }
-    else if (settings.search_algorithm == SearchAlgorithm::BALL_TREE)
-    {
-      create_BallTreeAS(dataset, NN_search_AS);
-    }
+      Dataset dataset;
+      int rot_start = split*step;
+      int rot_end = std::min(ROT_COUNT, (split+1)*step);
+      int rot_count = rot_end - rot_start;
+      create_dataset(g_octree, settings, surface_node, surface_node_count, average_brick_val, rot_start, rot_end, dataset);
 
-    for (int point_a = 0; point_a < dataset_no_rot.data_points.size(); point_a++)
-    {
-      int i  = dataset_no_rot.data_points[point_a].original_id;
-      if (surface_node[i] == false || remap[i] != i)
-        continue;
-      
-      remap_transforms[i].rotation_id = 0;
-      remap_transforms[i].add = dataset_no_rot.data_points[point_a].average_val;
-      
-      size_t off_a = dataset_no_rot.data_points[point_a].data_offset;
+      std::unique_ptr<INNSearchAS> NN_search_AS;
 
+      if (settings.search_algorithm == SearchAlgorithm::LINEAR_SEARCH)
       {
+        NN_search_AS.reset(new LinearSearchAS());
+        NN_search_AS->build(dataset, 1);
+      }
+      else if (settings.search_algorithm == SearchAlgorithm::BALL_TREE)
+      {
+        create_BallTreeAS(dataset, NN_search_AS);
+      }
+      dataset.all_points.clear();
+      dataset.data_points.clear();
+
+      for (int point_a = 0; point_a < surface_node_count; point_a++)
+      {
+        int i  = dataset_no_rot.data_points[point_a].original_id;
+        if (surface_node[i] == false || remap[i] != i)
+          continue;
+        
+        remap_transforms[i].rotation_id = 0;
+        remap_transforms[i].add = dataset_no_rot.data_points[point_a].average_val;
+        
+        size_t off_a = dataset_no_rot.data_points[point_a].data_offset;
+
         NN_search_AS->scan_near(dataset_no_rot.all_points.data() + off_a, settings.similarity_threshold,
-          [&](float dist, unsigned point_b, const DataPoint &B, const float *)
-          {
+          [&](float dist, unsigned point_b, const DataPoint &B, const float *) {
             if (point_b < (point_a + 1)*rot_count)
               return;
+            
             int j = B.original_id;
-
-            #pragma omp critical
+            if (dist < closest_dist[j] && !is_parent[j])
             {
-              if (dist < closest_dist[j])
-              {
-                remapped += remap[j] == j;
-                remap[j] = i;
-                remap_transforms[j].rotation_id = B.rotation_id;
-                remap_transforms[j].add = B.average_val;
-                closest_dist[j] = dist;
-              }
+              remapped += remap[j] == j;
+              remap[j] = i;
+              is_parent[i] = true;
+              remap_transforms[j].rotation_id = B.rotation_id;
+              remap_transforms[j].add = B.average_val;
+              closest_dist[j] = dist;
             }
-          });
+        });
       }
     }
-    dataset.all_points.clear();
-    dataset.data_points.clear();
 
     auto t2 = std::chrono::high_resolution_clock::now();
 
