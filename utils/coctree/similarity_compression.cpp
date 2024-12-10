@@ -242,11 +242,16 @@ namespace scom
   };
 
   void create_dataset(const sdf_converter::GlobalOctree &g_octree, const Settings &settings, const std::vector<bool> &surface_node,
-                      unsigned surface_node_count, const std::vector<float> &average_brick_val,
+                      unsigned surface_node_count, const std::vector<float> &average_brick_val, int rot_start, int rot_end,
                       /*out*/ Dataset &dataset)
   {
+    assert(rot_start >= 0);
+    assert(rot_end <= ROT_COUNT);
+    assert(rot_start < rot_end);
+
     int v_size = g_octree.header.brick_size + 2 * g_octree.header.brick_pad + 1;
     int dist_count = v_size * v_size * v_size;
+    int rot_count = rot_end - rot_start;
 
     std::vector<float4x4> rotations4;
     initialize_rot_transforms(rotations4, v_size);
@@ -285,9 +290,9 @@ namespace scom
     }
 
     dataset.dim = ((dist_count + 7) / 8)*8; //to support AVX2 vectorization
-    printf("creating dataset %.1f Mb\n", float(dataset.dim * ROT_COUNT * ((size_t)surface_node_count) * sizeof(float)) / 1024.0f / 1024.0f);
-    dataset.all_points.resize(dataset.dim * ROT_COUNT * ((size_t)surface_node_count));
-    dataset.data_points.resize(surface_node_count * ROT_COUNT);
+    printf("creating dataset %.1f Mb\n", float(dataset.dim * rot_count * ((size_t)surface_node_count) * sizeof(float)) / 1024.0f / 1024.0f);
+    dataset.all_points.resize(dataset.dim * rot_count * ((size_t)surface_node_count));
+    dataset.data_points.resize(surface_node_count * rot_count);
 
     float mask_norm = dist_count / mult_sum;
     uint32_t cur_point_group = 0;
@@ -299,14 +304,14 @@ namespace scom
       int off_a = g_octree.nodes[i].val_off;
 
 #pragma omp parallel for schedule(static)
-      for (int r_id = 0; r_id < ROT_COUNT; r_id++)
+      for (int r_id = 0; r_id < rot_count; r_id++)
       {
-        size_t off_dataset = (size_t)(cur_point_group * ROT_COUNT + r_id) * dataset.dim;
+        size_t off_dataset = (size_t)(cur_point_group * rot_count + r_id) * dataset.dim;
 
-        dataset.data_points[cur_point_group * ROT_COUNT + r_id].average_val = average_brick_val[i];
-        dataset.data_points[cur_point_group * ROT_COUNT + r_id].data_offset = off_dataset;
-        dataset.data_points[cur_point_group * ROT_COUNT + r_id].original_id = i;
-        dataset.data_points[cur_point_group * ROT_COUNT + r_id].rotation_id = r_id;
+        dataset.data_points[cur_point_group * rot_count + r_id].average_val = average_brick_val[i];
+        dataset.data_points[cur_point_group * rot_count + r_id].data_offset = off_dataset;
+        dataset.data_points[cur_point_group * rot_count + r_id].original_id = i;
+        dataset.data_points[cur_point_group * rot_count + r_id].rotation_id = r_id + rot_start;
 
         float sum = 0.0f;
         for (int x = 0; x < v_size; x++)
@@ -316,7 +321,7 @@ namespace scom
             for (int z = 0; z < v_size; z++)
             {
               int idx = x * v_size * v_size + y * v_size + z;
-              int3 rot_vec2 = int3(LiteMath::mul4x3(rotations4[r_id], float3(x, y, z)));
+              int3 rot_vec2 = int3(LiteMath::mul4x3(rotations4[r_id + rot_start], float3(x, y, z)));
               int rot_idx = rot_vec2.x * v_size * v_size + rot_vec2.y * v_size + rot_vec2.z;
               float t = (g_octree.values_f[off_a + rot_idx] - average_brick_val[i]);
               sum += t*t;
@@ -906,7 +911,10 @@ namespace scom
     }
 
     Dataset dataset;
-    create_dataset(g_octree, settings, surface_node, surface_node_count, average_brick_val, dataset);
+    create_dataset(g_octree, settings, surface_node, surface_node_count, average_brick_val, 0, ROT_COUNT, dataset);
+
+    Dataset no_rot_dataset;
+    create_dataset(g_octree, settings, surface_node, surface_node_count, average_brick_val, 0, 1, no_rot_dataset);
 
     auto tt2 = std::chrono::high_resolution_clock::now();
     printf("prepare data %.2f ms\n", 1e-3f*std::chrono::duration_cast<std::chrono::microseconds>(tt2-tt1).count());  
@@ -924,7 +932,7 @@ namespace scom
       switch (dataset.dim)
       {
         case  2*2*2: NN_search_AS.reset(new BallTreeFD<8>());  break;
-        case  32:    NN_search_AS.reset(new BallTreeFD<32>());  break; //3*3*3 + padding
+        case  32:    NN_search_AS.reset(new BallTreeFD<32>()); break; //3*3*3 + padding
         case  4*4*4: NN_search_AS.reset(new BallTreeFD<64>()); break;
         case  128:   NN_search_AS.reset(new BallTreeFD<128>());break;  //5*5*5 + padding
         case  6*6*6: NN_search_AS.reset(new BallTreeFD<216>());break;
@@ -935,6 +943,8 @@ namespace scom
       
       NN_search_AS->build(dataset, 32);
     }
+    dataset.all_points.clear();
+    dataset.data_points.clear();
 
     auto tt3 = std::chrono::high_resolution_clock::now();
     printf("build NN search AS %.2f ms\n", 1e-3f*std::chrono::duration_cast<std::chrono::microseconds>(tt3-tt2).count());  
@@ -949,16 +959,16 @@ namespace scom
 
   auto t1 = std::chrono::high_resolution_clock::now();
     #pragma omp parallel for schedule(dynamic)
-    for (int point_a = 0; point_a < dataset.data_points.size(); point_a+=ROT_COUNT)
+    for (int point_a = 0; point_a < no_rot_dataset.data_points.size(); point_a++)
     {
       int thread_id = omp_get_thread_num();
       int link_count = 0;
-      int i  = dataset.data_points[point_a].original_id;
+      int i  = no_rot_dataset.data_points[point_a].original_id;
       if (surface_node[i] == false)
         continue;
 
-      const DataPoint &A = dataset.data_points[point_a];
-      NN_search_AS->scan_near(dataset.all_points.data() + A.data_offset, settings.similarity_threshold,
+      const DataPoint &A = no_rot_dataset.data_points[point_a];
+      NN_search_AS->scan_near(no_rot_dataset.all_points.data() + A.data_offset, settings.similarity_threshold,
                               [&](float dist, unsigned point_b, const DataPoint &B, const float *)
                               {
                                 if (A.original_id == B.original_id)
@@ -994,8 +1004,6 @@ namespace scom
 
       sim_graph[i] = std::vector<Link>(tmp_links[thread_id].begin(), tmp_links[thread_id].begin() + real_link_count);
     }
-    dataset.all_points.clear();
-    dataset.data_points.clear();
 
     auto t2 = std::chrono::high_resolution_clock::now();
     printf("build links %.2f ms\n", 1e-3f*std::chrono::duration_cast<std::chrono::microseconds>(t2-t1).count());
@@ -1185,8 +1193,14 @@ namespace scom
       average_brick_val[i] = sum/dist_count;
     }
 
+    auto t1 = std::chrono::high_resolution_clock::now();
+
     Dataset dataset;
-    create_dataset(g_octree, settings, surface_node, surface_node_count, average_brick_val, dataset);
+    int remapped = 0;
+    int rot_start = 0;
+    int rot_end = ROT_COUNT;
+    int rot_count = rot_end - rot_start;
+    create_dataset(g_octree, settings, surface_node, surface_node_count, average_brick_val, rot_start, rot_end, dataset);
 
     std::unique_ptr<INNSearchAS> NN_search_AS;
 
@@ -1202,10 +1216,7 @@ namespace scom
       NN_search_AS->build(dataset, 32);
     }
 
-    int remapped = 0;
-
-    auto t1 = std::chrono::high_resolution_clock::now();
-    for (int point_a = 0; point_a < dataset.data_points.size(); point_a+=ROT_COUNT)
+    for (int point_a = 0; point_a < dataset.data_points.size(); point_a+=rot_count)
     {
       int i  = dataset.data_points[point_a].original_id;
       if (surface_node[i] == false || remap[i] != i)
@@ -1219,7 +1230,7 @@ namespace scom
       if (settings.search_algorithm == SearchAlgorithm::BRUTE_FORCE)
       {
         #pragma omp parallel for schedule(static)
-        for (int point_b = point_a + ROT_COUNT; point_b < dataset.data_points.size(); point_b++)
+        for (int point_b = point_a + rot_count; point_b < dataset.data_points.size(); point_b++)
         {
           int j = dataset.data_points[point_b].original_id;
           size_t off_b = dataset.data_points[point_b].data_offset;
@@ -1252,7 +1263,7 @@ namespace scom
         NN_search_AS->scan_near(dataset.all_points.data() + off_a, settings.similarity_threshold,
           [&](float dist, unsigned point_b, const DataPoint &, const float *)
           {
-            if (point_b < point_a + ROT_COUNT)
+            if (point_b < point_a + rot_count)
               return;
             int j = dataset.data_points[point_b].original_id;
 
@@ -1272,6 +1283,7 @@ namespace scom
     }
     dataset.all_points.clear();
     dataset.data_points.clear();
+
     auto t2 = std::chrono::high_resolution_clock::now();
 
     float time = std::chrono::duration_cast<std::chrono::microseconds>(t2-t1).count();
