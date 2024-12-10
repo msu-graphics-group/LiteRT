@@ -920,11 +920,8 @@ namespace litert_tests
   ADD_TEST(PrecisedOctreeCreation, "Compare precised framed octree and standart framed octree")
   {
     MultiRenderPreset preset = getDefaultPreset();
-    auto mesh = testing::load_vsgf_mesh(BUNNY_MESH, 0.999);
-
+    auto mesh = testing::load_vsgf_mesh(BUNNY_MESH, 0.95);
     constexpr size_t OCTREE_DEPTH = 7;
-
-    int max_threads = 6;
 
     sdf_converter::GlobalOctree global_framed, global_prec;
     global_framed.header.brick_pad = 0;
@@ -939,7 +936,11 @@ namespace litert_tests
 
     
     sdf_converter::mesh_octree_to_global_octree(mesh, tlo, global_framed);
-    sdf_converter::mesh_octree_to_global_octree(mesh, tlo, global_prec, 0.0003, 2, 6);
+    sdf_converter::mesh_octree_to_global_octree(mesh, tlo, global_prec, 0.001, 2, 7);
+
+    int nc_1 = global_framed.nodes.size();
+    int nc_2 = global_prec.nodes.size();
+    testing::check_less(nc_2, nc_1, "Node Count (with Early Stop)", "Node Count (Default)");
 
     std::vector<SdfFrameOctreeNode> frame, frame_prec;
     sdf_converter::global_octree_to_frame_octree(global_framed, frame);
@@ -954,7 +955,7 @@ namespace litert_tests
     testing::render_scene(img_prec, DEVICE_GPU, preset, frame_prec, float3(2, 0, 2), float3(0, 0, 0), float3(0, 1, 0));
     testing::save_image(img_prec, "precised_frame_octree");
 
-    float psnr = testing::check_psnr(img_mesh, img_prec, "framed octree", "precised framed octree", 30);
+    float psnr = testing::check_psnr(img_mesh, img_prec, "framed octree", "precised framed octree", 35);
   }
 
   ADD_TEST(SaveToObj, "Save mesh to obj")
