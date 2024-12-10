@@ -895,17 +895,6 @@ namespace litert_tests
       testing::check_psnr(img_orig, img_comp, "Compressed (CA::REPLACEMENT)", "Original", 40);
       testing::check_less(psnr_orig - psnr_comp, 1.5, "PSNR loss (CA::REPLACEMENT)", "threshold");
 
-      //CA::COMPONENTS_MERGE
-      scom_settings.clustering_algorithm = scom::ClusteringAlgorithm::COMPONENTS_MERGE;
-      coctree_comp = sdf_converter::create_COctree_v3(settings, header_comp, scom_settings, mesh);
-      testing::render_scene(img_comp, DEVICE_GPU, preset, coctree_comp, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0));
-      testing::save_image(img_comp, "comp_merge");
-      psnr_comp = image_metrics::PSNR(img_mesh, img_comp);
-      int merge_size = coctree_comp.data.size();
-
-      testing::check_greater(psnr_orig - psnr_comp, 1.5, "PSNR loss (CA::COMPONENTS_MERGE)", "threshold");
-      testing::check_less(merge_size, replacement_size, "CA::COMPONENTS_MERGE size", "CA::REPLACEMENT size");
-
       //CA::COMPONENTS_RECURSIVE_FILL
       scom_settings.clustering_algorithm = scom::ClusteringAlgorithm::COMPONENTS_RECURSIVE_FILL;
       coctree_comp = sdf_converter::create_COctree_v3(settings, header_comp, scom_settings, mesh);

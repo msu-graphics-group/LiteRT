@@ -203,6 +203,7 @@ namespace scom
     int lead_id = -1;
     int count = 0;
     std::vector<int> point_ids; // original node ids (i.e. from global octree)
+    std::vector<int8_t> rotations;
   };
 
   static constexpr int HC_VALID = 0x7fffffff;
@@ -332,67 +333,15 @@ namespace scom
     }
   }
 
-  void prepare_output(const sdf_converter::GlobalOctree &g_octree, const Settings &settings, const Dataset &dataset,
+  void prepare_output(const sdf_converter::GlobalOctree &g_octree, const Settings &settings,
                       const std::vector<float> &average_brick_val, const std::vector<Cluster> &clusters, 
               /*out*/ CompressionOutput &output)
   {
     int v_size = g_octree.header.brick_size + 2 * g_octree.header.brick_pad + 1;
     int dist_count = v_size * v_size * v_size;
     auto inverse_indices = get_inverse_transform_indices();
-
     std::vector<float4x4> rotations4;
     initialize_rot_transforms(rotations4, v_size);
-
-
-    //dataset has group with ROT_COUNT vectors (dataset.dim values each) for each surface node
-    std::vector<size_t> node_id_to_dataset_group_off(g_octree.nodes.size());
-    int surface_node_count = 0;
-    for (int i=0; i<g_octree.nodes.size(); i++)
-    {
-      if (g_octree.nodes[i].offset == 0 && g_octree.nodes[i].is_not_void)
-      {
-        node_id_to_dataset_group_off[i] = surface_node_count * ROT_COUNT * dataset.dim;
-        surface_node_count++;
-      }
-    }
-
-    //Find the best rotation id (for every brick in non-trivial cluster
-    //find the rotation that gives the closest match to leading brick).
-    //This is the place when we actually need the leading brick, so
-    //the final quality can depend on what brick will be chosen, but not much.
-    //Note, that we use dataset here (i.e. R^n projections of bricks), because we
-    //should use the same metric here as with clustering.
-    std::vector<int> rotation_ids(g_octree.nodes.size(), 0);
-    for (auto &cluster : clusters)
-    {
-      size_t lead_off = node_id_to_dataset_group_off[cluster.lead_id];
-      for (int node_id : cluster.point_ids)
-      {
-        if (node_id == cluster.lead_id)
-        {
-          rotation_ids[node_id] = 0;
-        }
-        else
-        {
-          float min_dist_sq = 1e6f;
-          int min_rot_id = 0;
-          for (int k = 0; k < ROT_COUNT; k++)
-          {
-            size_t target_off = node_id_to_dataset_group_off[node_id] + k * dataset.dim;
-            float dist_sq = 0;
-            for (int l = 0; l < dataset.dim; l++)
-              dist_sq += (dataset.all_points[lead_off + l] - dataset.all_points[target_off + l]) * (dataset.all_points[lead_off + l] - dataset.all_points[target_off + l]);
-            if (dist_sq < min_dist_sq)
-            {
-              min_dist_sq = dist_sq;
-              min_rot_id = k;
-            }
-          }
-
-          rotation_ids[node_id] = min_rot_id;
-        }
-      }
-    }
 
     output.node_id_cleaf_id_remap.resize(g_octree.nodes.size(), 0);
     output.tranforms.resize(g_octree.nodes.size(), get_identity_transform());
@@ -413,9 +362,9 @@ namespace scom
       //Note, that we use actual brick data and not dataset
       //because we want the centroid to be AN ACTUAL BRICK
       //(we'll actually render it, although with some transformations)
-      for (int node_id : cluster.point_ids)
+      for (int i = 0; i < cluster.count; i++)
       {
-        int off_a = g_octree.nodes[node_id].val_off;
+        int off_a = g_octree.nodes[cluster.point_ids[i]].val_off;
         for (int x = 0; x < v_size; x++)
         {
           for (int y = 0; y < v_size; y++)
@@ -423,7 +372,7 @@ namespace scom
             for (int z = 0; z < v_size; z++)
             {
               int idx = x * v_size * v_size + y * v_size + z;
-              int3 rot_vec2 = int3(LiteMath::mul4x3(rotations4[rotation_ids[node_id]], float3(x, y, z)));
+              int3 rot_vec2 = int3(LiteMath::mul4x3(rotations4[cluster.rotations[i]], float3(x, y, z)));
               int rot_idx = rot_vec2.x * v_size * v_size + rot_vec2.y * v_size + rot_vec2.z;
               centroid[idx] += g_octree.values_f[off_a + rot_idx];
             }
@@ -448,10 +397,11 @@ namespace scom
       for (int k = 0; k < dist_count; k++)
         output.compressed_data[unique_node_id*dist_count + k] = centroid[k] - centroid_average + average_brick_val[lead_id];
 
-      for (int node_id : cluster.point_ids)
+      for (int i = 0; i < cluster.count; i++)
       {
+        int node_id = cluster.point_ids[i];
         TransformCompact tc;
-        tc.rotation_id = inverse_indices[rotation_ids[node_id]];
+        tc.rotation_id = inverse_indices[cluster.rotations[i]];
         tc.add = (average_brick_val[node_id] - average_brick_val[lead_id]);
         output.node_id_cleaf_id_remap[node_id] = unique_node_id;
         output.tranforms[node_id] = tc;
@@ -1044,6 +994,8 @@ namespace scom
 
       sim_graph[i] = std::vector<Link>(tmp_links[thread_id].begin(), tmp_links[thread_id].begin() + real_link_count);
     }
+    dataset.all_points.clear();
+    dataset.data_points.clear();
 
     auto t2 = std::chrono::high_resolution_clock::now();
     printf("build links %.2f ms\n", 1e-3f*std::chrono::duration_cast<std::chrono::microseconds>(t2-t1).count());
@@ -1103,11 +1055,7 @@ namespace scom
 
     //clustering
     std::vector<Cluster> final_clusters;
-    if (settings.clustering_algorithm == ClusteringAlgorithm::COMPONENTS_MERGE)
-    {
-      final_clusters = std::move(components);
-    }
-    else if (settings.clustering_algorithm == ClusteringAlgorithm::COMPONENTS_RECURSIVE_FILL)
+    if (settings.clustering_algorithm == ClusteringAlgorithm::COMPONENTS_RECURSIVE_FILL)
     {
       clustering_recursive_fill(final_clusters, components, sim_graph, total_node_count);
     }
@@ -1116,10 +1064,81 @@ namespace scom
       clustering_hierarchical(settings, final_clusters, components, sim_graph, total_node_count, surface_node_count);
     }
 
+    //prepare rotations for clusters
+    //clustering here guarantees that all nodes in each cluster are closer than similarity_threshold
+    //to the leading node, it means that we have Link between them in our graph and it contains optimal rotation
+    for (auto &cluster : final_clusters)
+    {
+      assert(cluster.count >= 1);
+      assert(cluster.count == cluster.point_ids.size());
+
+      cluster.rotations.resize(cluster.count);
+      
+      for (int i = 0; i < cluster.count; i++)
+      {
+        int n_id = cluster.point_ids[i];
+
+        if (n_id == cluster.lead_id)
+        {
+          cluster.rotations[i] = 0;
+          continue;
+        }
+
+        cluster.rotations[i] = -1;
+
+        //binary search in sim_graph[cluster.lead_id]
+        int left = 0;
+        int right = sim_graph[cluster.lead_id].size() - 1;
+        while (left <= right)
+        {
+          int mid = (left + right) / 2;
+          if (sim_graph[cluster.lead_id][mid].target < n_id)
+            left = mid + 1;
+          else if (sim_graph[cluster.lead_id][mid].target > n_id)
+            right = mid - 1;
+          else
+          {
+            cluster.rotations[i] = sim_graph[cluster.lead_id][mid].rotation;
+            break;
+          }
+        }
+
+        // if (cluster.rotations[i] == -1)
+        // {
+        //   printf("Cluster in broken! %d--%d no link\n", cluster.lead_id, n_id);
+        //   printf("cluster = {");
+        //   for (int j = 0; j < cluster.count; j++)
+        //   {
+        //     if (j > 0)
+        //       printf(", ");
+        //     printf("%d", cluster.point_ids[j]);
+        //   }
+        //   printf("}\n");
+        //   printf("sim_graph[%d] = {", cluster.lead_id);
+        //   for (int j = 0; j < sim_graph[cluster.lead_id].size(); j++)
+        //   {
+        //     if (j > 0)
+        //       printf(", ");
+        //     printf("(%d, %d, %.4f)", sim_graph[cluster.lead_id][j].target, sim_graph[cluster.lead_id][j].rotation, sim_graph[cluster.lead_id][j].dist);
+        //   }
+        //   printf("}\n");
+        //   printf("sim_graph[%d] = {", n_id);
+        //   for (int j = 0; j < sim_graph[n_id].size(); j++)
+        //   {
+        //     if (j > 0)
+        //       printf(", ");
+        //     printf("(%d, %d, %.4f)", sim_graph[n_id][j].target, sim_graph[n_id][j].rotation, sim_graph[n_id][j].dist);
+        //   }
+        //   printf("}\n");
+        // }
+        assert(cluster.rotations[i] != -1);
+      }
+    }
+
     auto t4 = std::chrono::high_resolution_clock::now();
     printf("clustering %.2f ms\n", 1e-3f*std::chrono::duration_cast<std::chrono::microseconds>(t4-t3).count()); 
 
-    prepare_output(g_octree, settings, dataset, average_brick_val, final_clusters, output);
+    prepare_output(g_octree, settings, average_brick_val, final_clusters, output);
     auto t5 = std::chrono::high_resolution_clock::now();
     printf("prepare output %.2f ms\n", 1e-3f*std::chrono::duration_cast<std::chrono::microseconds>(t5-t4).count());  
     
@@ -1243,7 +1262,7 @@ namespace scom
               {
                 remapped += remap[j] == j;
                 remap[j] = i;
-                remap_transforms[j].rotation_id = inverse_indices[dataset.data_points[point_b].rotation_id];
+                remap_transforms[j].rotation_id = dataset.data_points[point_b].rotation_id;
                 remap_transforms[j].add = dataset.data_points[point_b].average_val;
                 closest_dist[j] = dist;
               }
@@ -1251,6 +1270,8 @@ namespace scom
           });
       }
     }
+    dataset.all_points.clear();
+    dataset.data_points.clear();
     auto t2 = std::chrono::high_resolution_clock::now();
 
     float time = std::chrono::duration_cast<std::chrono::microseconds>(t2-t1).count();
@@ -1273,17 +1294,18 @@ namespace scom
     {
       if (surface_node[i])
       {
-        clusters[lead_node_id_to_cluster_id[remap[i]]].point_ids.push_back(i);
-        clusters[lead_node_id_to_cluster_id[remap[i]]].count++;
+        Cluster &cur_cluster = clusters[lead_node_id_to_cluster_id[remap[i]]];
+        cur_cluster.point_ids.push_back(i);
+        cur_cluster.count++;
+        cur_cluster.rotations.push_back(remap_transforms[i].rotation_id);
       }
     }
-    prepare_output(g_octree, settings, dataset, average_brick_val, clusters, output);
+    prepare_output(g_octree, settings, average_brick_val, clusters, output);
   }
 
   void similarity_compression(const sdf_converter::GlobalOctree &octree, const Settings &settings, CompressionOutput &output)
   {
     if (settings.clustering_algorithm == ClusteringAlgorithm::HIERARCHICAL || 
-        settings.clustering_algorithm == ClusteringAlgorithm::COMPONENTS_MERGE ||
         settings.clustering_algorithm == ClusteringAlgorithm::COMPONENTS_RECURSIVE_FILL)
     {
       similarity_compression_advanced(octree, settings, output);

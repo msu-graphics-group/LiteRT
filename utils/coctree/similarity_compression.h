@@ -13,14 +13,10 @@ namespace scom
   {
     REPLACEMENT,               //fast, guarantees that no replacement with loss > similarity_threshold will happen
                                //can ofter miss possible merges, does not use target_leaf_count 
-    COMPONENTS_MERGE,          //faster than REPLACEMENT (because of multithreading) with stronger compression
-                               //creates one cluster for each component in thr-distance graph
-                               //can possible merge very dissimilar brick if they are connected with a long chain
-                               //does not use target_leaf_count 
     COMPONENTS_RECURSIVE_FILL, //faster than REPLACEMENT (because of multithreading) with similar quality
                                //guarantees that no replacement with loss > similarity_threshold will happen
                                //does not use target_leaf_count 
-    HIERARCHICAL               //the most theoretically sound, but slower that COMPONENTS_MERGE or REPLACEMENT
+    HIERARCHICAL               //the most theoretically sound, but slower than REPLACEMENT and eats more memory
                                //guarantees that no replacement with loss > similarity_threshold will happen
                                //can use target_leaf_count for more fine-tured compression to the exact size
   };
