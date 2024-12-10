@@ -83,8 +83,6 @@ namespace sdf_converter
     float3 surface_pos = float3(0, 0, 0), min_a = float3(0, 0, 0), min_b = float3(0, 0, 0), min_c = float3(0, 0, 0);
     int min_ti = -1;
 
-    //printf("%f, %f, %f\n", pos.x, pos.y, pos.z);
-
     for (int tri=0; tri<tl_octree.nodes[idx].tid_count; tri++)
     {
       int t_i = tl_octree.triangle_ids[tl_octree.nodes[idx].tid_offset+tri];
@@ -94,7 +92,6 @@ namespace sdf_converter
       float3 vt = pos - cmesh4::closest_point_triangle(pos, a, b, c);
       float dst_sq = LiteMath::dot(vt, vt);
       float3 ss = cmesh4::closest_point_triangle(pos, a, b, c);
-      //if (dst_sq < 1) printf("%f %f %f, %f %f %f\n", ss.x, ss.y, ss.z, pos.x, pos.y, pos.z);
       if (min_dist_sq > dst_sq)
       {
         min_dist_sq = dst_sq;
@@ -103,8 +100,6 @@ namespace sdf_converter
         min_b = b;
         min_c = c;
         surface_pos = cmesh4::closest_point_triangle(pos, a, b, c);
-
-        //printf("%f %f %f, %f %f %f\n", surface_pos.x, surface_pos.y, surface_pos.z, pos.x, pos.y, pos.z);
 
         if (LiteMath::dot(LiteMath::cross(a - b, a - c), vt) < 0)
         {
@@ -122,31 +117,8 @@ namespace sdf_converter
       tex_coord = bc.x*mesh.vTexCoord2f[mesh.indices[3*min_ti+0]] + bc.y*mesh.vTexCoord2f[mesh.indices[3*min_ti+1]] + bc.z*mesh.vTexCoord2f[mesh.indices[3*min_ti+2]];
       mat = mesh.matIndices[min_ti];
     }
-    //if (min_dist_sq < 1 && sign > 0) printf("%f\n", min_dist_sq * sign);
     return sqrt(min_dist_sq) * sign;
   }
-
-  /*float count_rmse()
-  {
-    float rmse = 0.0f;
-    for (int x = 0; x <= 2; x += 1)
-    {
-      for (int y = 0; y <= 2; y += 1)
-      {
-        for (int z = 0; z <= 2; z += 1)
-        {
-          float3 off_idx = float3((float)x / 2.0, (float)y / 2.0, (float)z / 2.0);
-          float coeff = 1.0;
-          if (x == 1) coeff *= 2.0;
-          if (y == 1) coeff *= 2.0;
-          if (z == 1) coeff *= 2.0;
-          float sdf_val = sdf(corner + offset * off_idx, 0);//TODO save it to cash and take
-          rmse += pow((sdf_val - trilinear_interpolation(node_values, off_idx)), 2);
-        }
-      }
-    }
-    return sqrt(rmse / 64.0);
-  }*/
 
   void linear_mesh_octree_to_global_octree_with_precision(const cmesh4::SimpleMesh &mesh,
                                          const cmesh4::TriangleListOctree &tl_octree,
@@ -199,69 +171,23 @@ namespace sdf_converter
     elem.global_idx = 0;
     checks.push_back(elem);
     int pad = out_octree.header.brick_pad, size = out_octree.header.brick_size;
-    //printf("%d\n\n", checks[0].tl_idx);
     for (int i = 0; i < checks.size(); ++i)
     {
       float3 pos = 2.0f*(checks[i].d*checks[i].pos) - 1.0f;
-      //printf("\n%f %f %f -|- %f %f %f\n\n", checks[i].pos.x, checks[i].pos.y, checks[i].pos.z, p_d[checks[i].tl_idx].first.x, p_d[checks[i].tl_idx].first.y, p_d[checks[i].tl_idx].first.z);
-      //printf("%f %f %f\n", pos.x, pos.y, pos.z);
       out_octree.nodes[checks[i].global_idx].val_off = out_octree.values_f.size();
       out_octree.values_f.resize(out_octree.values_f.size() + v_size * v_size * v_size);
       out_octree.nodes[checks[i].global_idx].is_not_void = tl_octree.nodes[checks[i].tl_idx].tid_count != 0;
       out_octree.nodes[checks[i].global_idx].offset = 0;
-      /*if (tl_octree.nodes[checks[i].tl_idx].offset == 0 || max_layer == checks[i].layer_num)*/ for (int x = -pad; x <= size + pad; ++x)
+      for (int x = -pad; x <= size + pad; ++x)
       {
         for (int y = -pad; y <= size + pad; ++y)
         {
           for (int z = -pad; z <= size + pad; ++z)
           {
             float3 ch_pos = pos + 2*(checks[i].d/out_octree.header.brick_size)*float3(x, y, z);
-            //printf("%f - %f - %f\n", ch_pos.x, ch_pos.y, ch_pos.z);
-            //float dist = count_distance_at_brick_on_position(mesh, tl_octree, checks[i].tl_idx, ch_pos, tex_c, mat);
-            /*float sign = 1, min_dist_sq = 1000000;
-
-              float3 surface_pos = float3(0, 0, 0), min_a = float3(0, 0, 0), min_b = float3(0, 0, 0), min_c = float3(0, 0, 0);
-              int min_ti = -1;
-
-              //float val = 1000.0f;
-
-              //if (distances.find(ch_pos) == distances.end())
-              //{
-              for (int tri=0; tri<tl_octree.nodes[checks[i].tl_idx].tid_count; tri++)
-              {
-                int t_i = tl_octree.triangle_ids[tl_octree.nodes[checks[i].tl_idx].tid_offset+tri];
-                float3 a = to_float3(mesh.vPos4f[mesh.indices[3*t_i+0]]);
-                float3 b = to_float3(mesh.vPos4f[mesh.indices[3*t_i+1]]);
-                float3 c = to_float3(mesh.vPos4f[mesh.indices[3*t_i+2]]);
-                float3 vt = ch_pos - cmesh4::closest_point_triangle(ch_pos, a, b, c);
-                float dst_sq = LiteMath::dot(vt, vt);
-                float3 ss = cmesh4::closest_point_triangle(ch_pos, a, b, c);
-                float3 pos_tl =  2 * p_d[checks[i].tl_idx].first * p_d[checks[i].tl_idx].second - 1;
-                if (checks[i].tl_idx > 90000) printf("%d: %f %f %f, %f %f %f - %f %f %f\n", checks[i].tl_idx, ss.x, ss.y, ss.z, ch_pos.x, ch_pos.y, ch_pos.z, pos_tl.x, pos_tl.y, pos_tl.z);
-                if (checks[i].tl_idx > 90000) printf("A: %f %f %f, %f %f %f - %f %f %f\n", a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z);
-                if (min_dist_sq > dst_sq)
-                {
-                  min_dist_sq = dst_sq;
-                  min_ti = t_i;
-                  min_a = a;
-                  min_b = b;
-                  min_c = c;
-                  surface_pos = cmesh4::closest_point_triangle(ch_pos, a, b, c);
-                  //printf("%f\n", dst_sq);
-                  if (LiteMath::dot(LiteMath::cross(a - b, a - c), vt) < 0)
-                  {
-                    sign = -1;
-                  }
-                  else
-                  {
-                    sign = 1;
-                  }
-                }
-              }
-              float dist = sqrt(min_dist_sq) * sign;*/
             float dist = count_distance_at_brick_on_position(mesh, tl_octree, checks[i].tl_idx, ch_pos, tex_c, mat);
             checks[i].node_distances[ch_pos] = std::pair(dist, dist);
-            /*if (tl_octree.nodes[checks[i].tl_idx].offset == 0) */out_octree.values_f[out_octree.nodes[checks[i].global_idx].val_off + v_size * v_size * (x + pad) + v_size * (y + pad) + z + pad] = dist;
+            out_octree.values_f[out_octree.nodes[checks[i].global_idx].val_off + v_size * v_size * (x + pad) + v_size * (y + pad) + z + pad] = dist;
             if ((x == 0 || x == size) && (y == 0 || y == size) && (z == 0 || z == size))
             {
               int num = (int(x / size) << 2) + (int(y / size) << 1) + int(z / size);
@@ -274,7 +200,7 @@ namespace sdf_converter
           }
         }
       }
-      /*if (tl_octree.nodes[checks[i].tl_idx].offset == 0) */if (size == 1)
+      if (size == 1)
       {
         float3 ch_pos = pos + checks[i].d;
         count_distance_at_brick_on_position(mesh, tl_octree, checks[i].tl_idx, ch_pos, tex_c, mat);
@@ -285,15 +211,6 @@ namespace sdf_converter
       if(tl_octree.nodes[checks[i].tl_idx].tid_count == 0 || checks[i].layer_num >= max_layer || tl_octree.nodes[checks[i].tl_idx].offset == 0)
       {
         is_div = false;
-        if (checks[i].layer_num >= max_layer && tl_octree.nodes[checks[i].tl_idx].tid_count != 0)
-        {
-          printf("%d %f %f %f - ", checks[i].layer_num, checks[i].pos.x, checks[i].pos.y, checks[i].pos.z);
-          for (int h = 0; h < v_size * v_size * v_size; ++h)
-          {
-            printf("%f ", out_octree.values_f[out_octree.nodes[checks[i].global_idx].val_off + h]);
-          }
-          printf("%d %d\n", tl_octree.nodes[checks[i].tl_idx].tid_offset, checks[i].tl_idx);
-        }
       }
       else if(!is_div)
       {
@@ -342,24 +259,9 @@ namespace sdf_converter
         }
         error /= (size * size * size * 64);
         error = sqrt(error);
-        //printf("error: %f %d\n\n", error, checks[i].layer_num);
         if (error >= precision) is_div = true;
-        else
-        {
-          printf("%d %f %f %f - ", checks[i].layer_num, checks[i].pos.x, checks[i].pos.y, checks[i].pos.z);
-          for (int h = 0; h < v_size * v_size * v_size; ++h)
-          {
-            printf("%f ", out_octree.values_f[out_octree.nodes[checks[i].global_idx].val_off + h]);
-          }
-          printf("\n");
-        }
       }
       //subdividing
-      for (int x = 0; x < v_size * v_size * v_size; ++x)
-      {
-       // printf("%f ", out_octree.values_f[out_octree.nodes[checks[i].global_idx].val_off + x]);
-      }
-      //printf("\n");
       if (is_div)
       {
         for (int j = 0; j < 8; ++j)
@@ -401,7 +303,7 @@ namespace sdf_converter
       out_octree.nodes[idx].val_off = idx*v_size*v_size*v_size;
       out_octree.nodes[idx].is_not_void = true;
 
-      //if (ofs == 0)
+      if (ofs == 0)
       {
 
         float min_val =  1000;
@@ -440,8 +342,6 @@ namespace sdf_converter
                 float dst_sq = LiteMath::dot(vt, vt);
                 float3 ss = cmesh4::closest_point_triangle(ch_pos, a, b, c);
                 float3 pos_tl =  2 * p_d[idx].first * p_d[idx].second - 1;
-                //if (idx == 0) printf("%d: %f %f %f, %f %f %f - %f %f %f\n", idx, ss.x, ss.y, ss.z, ch_pos.x, ch_pos.y, ch_pos.z, pos_tl.x, pos_tl.y, pos_tl.z);
-                //if (idx == 0) printf("A: %f %f %f, %f %f %f - %f %f %f\n", a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z);
                 if (min_dist_sq > dst_sq)
                 {
                   min_dist_sq = dst_sq;
@@ -450,7 +350,6 @@ namespace sdf_converter
                   min_b = b;
                   min_c = c;
                   surface_pos = cmesh4::closest_point_triangle(ch_pos, a, b, c);
-                  //printf("%f\n", dst_sq);
                   if (LiteMath::dot(LiteMath::cross(a - b, a - c), vt) < 0)
                   {
                     sign = -1;
@@ -1075,16 +974,20 @@ std::chrono::steady_clock::time_point t5 = std::chrono::steady_clock::now();
 
   void mesh_octree_to_global_octree(const cmesh4::SimpleMesh &mesh,
                                     const cmesh4::TriangleListOctree &tl_octree, 
-                                    GlobalOctree &out_octree)
+                                    GlobalOctree &out_octree, float precision,
+                                    unsigned min_layer, unsigned max_layer)
   {
     GlobalOctree tmp_octree;
     tmp_octree.header = out_octree.header;
     tmp_octree.nodes.resize(tl_octree.nodes.size());
-
-    linear_mesh_octree_to_global_octree_with_precision(mesh, tl_octree, tmp_octree, 4, 7, 0.005);//error with tlo
-    //printf("next\n");
-    //linear_mesh_octree_to_global_octree(mesh, tl_octree, tmp_octree, omp_get_max_threads());
-    //printf("%d\n", tmp_octree.nodes.size());
+    if (precision > 0 && min_layer < max_layer)
+    {
+      linear_mesh_octree_to_global_octree_with_precision(mesh, tl_octree, tmp_octree, min_layer, max_layer, precision);
+    }
+    else
+    {
+      linear_mesh_octree_to_global_octree(mesh, tl_octree, tmp_octree, omp_get_max_threads());
+    }
     
     unsigned nn = global_octree_count_and_mark_active_nodes_rec(tmp_octree, 0);
     assert(!is_leaf(tmp_octree.nodes[0].offset));
@@ -1095,7 +998,6 @@ std::chrono::steady_clock::time_point t5 = std::chrono::steady_clock::now();
     out_octree.nodes.push_back(tmp_octree.nodes[0]);
     global_octree_eliminate_invalid_rec(tmp_octree, 0, out_octree, 0);
     out_octree.nodes.shrink_to_fit();
-    //printf("%d\n", out_octree.nodes.size());
     //printf("%u/%u nodes are active\n", nn, (unsigned)tmp_octree.nodes.size());
     //printf("%u/%u nodes are left after elimination\n", (unsigned)out_octree.nodes.size(), (unsigned)tmp_octree.nodes.size());
   }
