@@ -65,4 +65,6 @@ namespace cmesh4
   cmesh4::SimpleMesh LoadMeshFromObj(const char* a_fileName, bool verbose = false);
 
   cmesh4::SimpleMesh LoadMesh(const char* a_fileName, bool apply_basic_transforms = true, bool verbose = false);
+
+  void SaveMeshToObj(const char* a_fileName, const cmesh4::SimpleMesh &mesh);
 }

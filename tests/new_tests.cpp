@@ -956,4 +956,23 @@ namespace litert_tests
 
     float psnr = testing::check_psnr(img_mesh, img_prec, "framed octree", "precised framed octree", 30);
   }
+
+  ADD_TEST(SaveToObj, "Save mesh to obj")
+  {
+    MultiRenderPreset preset = getDefaultPreset();
+
+    auto mesh_1 = cmesh4::LoadMesh("scenes/01_simple_scenes/data/bunny.vsgf");
+
+    auto img_1 = testing::create_image();
+    auto img_2 = testing::create_image();
+    testing::render_scene(img_1, DEVICE_GPU, preset, mesh_1);
+    testing::save_image(img_1, "ref");
+
+    cmesh4::SaveMeshToObj("saves/SaveToObj/test_mesh.obj", mesh_1);
+    auto mesh_2 = cmesh4::LoadMesh("saves/SaveToObj/test_mesh.obj");
+    testing::render_scene(img_2, DEVICE_GPU, preset, mesh_2);
+    testing::save_image(img_2, "saved");
+
+    testing::check_psnr(img_1, img_2, "Orignal mesh", "Saved and Loaded mesh", 50);
+  }
 }

@@ -1297,4 +1297,42 @@ namespace cmesh4
 
     return mesh;
   }
+
+  void SaveMeshToObj(const char* a_fileName, const cmesh4::SimpleMesh &mesh)
+  {
+    std::string header = "#obj file created by custom obj loader\n";
+    std::string o_data = "o MainModel\n";
+    std::string v_data;
+    std::string tc_data;
+    std::string n_data;
+    std::string s_data = "s off\n";
+    std::string f_data;
+
+    int sz = mesh.vPos4f.size();
+    assert(mesh.vNorm4f.size() == sz);
+    assert(mesh.vTexCoord2f.size() == sz);
+
+    for (int i = 0; i < sz; ++i)
+    {
+      v_data += "v " + std::to_string(mesh.vPos4f[i].x) + " " + std::to_string(mesh.vPos4f[i].y) + " " + std::to_string(mesh.vPos4f[i].z) + "\n";
+      n_data += "vn " + std::to_string(mesh.vNorm4f[i].x) + " " + std::to_string(mesh.vNorm4f[i].y) + " " + std::to_string(mesh.vNorm4f[i].z) + "\n";
+      tc_data += "vt " + std::to_string(mesh.vTexCoord2f[i].x) + " " + std::to_string(mesh.vTexCoord2f[i].y) + "\n";
+    }
+    for (int i = 0; i < mesh.indices.size() / 3; ++i)
+    {
+      f_data += "f " + std::to_string(mesh.indices[3*i]+1) + "/" + std::to_string(mesh.indices[3*i]+1) + "/" + std::to_string(mesh.indices[3*i]+1) + " " +
+                std::to_string(mesh.indices[3*i+1]+1) + "/" + std::to_string(mesh.indices[3*i+1]+1) + "/" + std::to_string(mesh.indices[3*i+1]+1) + " " +
+                std::to_string(mesh.indices[3*i+2]+1) + "/" + std::to_string(mesh.indices[3*i+2]+1) + "/" + std::to_string(mesh.indices[3*i+2]+1) + "\n";
+    }
+
+    std::ofstream out(a_fileName);
+    out << header;
+    out << o_data;
+    out << v_data;
+    out << tc_data;
+    out << n_data;
+    out << s_data;
+    out << f_data;
+    out.close();
+  }
 }
