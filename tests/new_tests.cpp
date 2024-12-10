@@ -721,9 +721,9 @@ namespace litert_tests
   ADD_TEST(GlobalOctreeCreator, "Creates Global Octree using mesh and sdf")
   {
     MultiRenderPreset preset = getDefaultPreset();
-    auto mesh = testing::load_vsgf_mesh(SPHERE_MESH, 0.999);
+    auto mesh = testing::load_vsgf_mesh(BUNNY_MESH, 0.999);
 
-    constexpr size_t OCTREE_DEPTH = 6;
+    constexpr size_t OCTREE_DEPTH = 7;
 
     int max_threads = 6;
 
@@ -915,5 +915,45 @@ namespace litert_tests
       testing::check_psnr(img_orig, img_comp, "Compressed (CA::HIERARCHICAL)", "Original", 40);
       testing::check_less(psnr_orig - psnr_comp, 1.5, "PSNR loss (CA::HIERARCHICAL)", "threshold");
     }
+  }
+
+  ADD_TEST(PrecisedOctreeCreation, "Compare precised framed octree and standart framed octree")
+  {
+    MultiRenderPreset preset = getDefaultPreset();
+    auto mesh = testing::load_vsgf_mesh(BUNNY_MESH, 0.999);
+
+    constexpr size_t OCTREE_DEPTH = 7;
+
+    int max_threads = 6;
+
+    sdf_converter::GlobalOctree global_framed, global_prec;
+    global_framed.header.brick_pad = 0;
+    global_framed.header.brick_size = 1;
+
+    global_prec.header = global_framed.header;
+
+
+    SparseOctreeSettings settings(SparseOctreeBuildType::MESH_TLO, OCTREE_DEPTH), 
+                         settings2(SparseOctreeBuildType::DEFAULT, OCTREE_DEPTH);
+    auto tlo = cmesh4::create_triangle_list_octree(mesh, OCTREE_DEPTH, 0, 1.0f);
+
+    
+    sdf_converter::mesh_octree_to_global_octree(mesh, tlo, global_framed);
+    sdf_converter::mesh_octree_to_global_octree(mesh, tlo, global_prec, 0.0003, 2, 6);
+
+    std::vector<SdfFrameOctreeNode> frame, frame_prec;
+    sdf_converter::global_octree_to_frame_octree(global_framed, frame);
+    sdf_converter::global_octree_to_frame_octree(global_prec, frame_prec);
+
+    auto img_mesh = testing::create_image();
+    auto img_prec = testing::create_image();
+
+    testing::render_scene(img_mesh, DEVICE_GPU, preset, frame, float3(2, 0, 2), float3(0, 0, 0), float3(0, 1, 0));
+    testing::save_image(img_mesh, "frame_octree");
+
+    testing::render_scene(img_prec, DEVICE_GPU, preset, frame_prec, float3(2, 0, 2), float3(0, 0, 0), float3(0, 1, 0));
+    testing::save_image(img_prec, "precised_frame_octree");
+
+    float psnr = testing::check_psnr(img_mesh, img_prec, "framed octree", "precised framed octree", 30);
   }
 }

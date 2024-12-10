@@ -26,7 +26,8 @@ namespace sdf_converter
 
   void mesh_octree_to_global_octree(const cmesh4::SimpleMesh &mesh,
                                     const cmesh4::TriangleListOctree &tl_octree, 
-                                    GlobalOctree &out_octree);
+                                    GlobalOctree &out_octree, float precision = 0.0,
+                                    unsigned min_layer = 0, unsigned max_layer = 20);
 
   void global_octree_to_frame_octree(const GlobalOctree &octree, std::vector<SdfFrameOctreeNode> &out_frame); 
   void global_octree_to_frame_octree_tex(const GlobalOctree &octree, std::vector<SdfFrameOctreeTexNode> &out_frame);
