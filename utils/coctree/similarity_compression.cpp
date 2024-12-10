@@ -604,6 +604,7 @@ namespace scom
         //printf("Hierarchical clustering, %d points\n", component.count);
         auto t1 = std::chrono::high_resolution_clock::now();
 
+        int prev_fc_size = final_clusters.size();
         Dist absolute_min(-1, -1, MAX_DISTANCE);
         std::fill_n(line_min.data(), max_clusters_count, Dist(-1, -1, MAX_DISTANCE));
 
@@ -614,6 +615,8 @@ namespace scom
         //create initial clusters, each contain only one point from the component
         for (int i = 0; i < component.count; i++)
         {
+          for (int j = 0; j < component.count; j++)
+            distance_matrix[i * max_clusters_count + j] = MAX_DISTANCE;
           line_clusters[i] = HCluster(i, -1, HC_VALID, 1);
 
           distance_matrix[i * max_clusters_count + i] = 0.0f;
@@ -647,8 +650,7 @@ namespace scom
           // printf("merge clusters U=%d V=%d with d = %f\n", absolute_min.U, absolute_min.V, absolute_min.dist);
           auto t3 = std::chrono::high_resolution_clock::now();
 
-          //TODO: fix the underlying issue and uncomment this assert
-          //assert(step == 0 || absolute_min_history[step-1].dist <= absolute_min.dist);
+          assert(step == 0 || absolute_min_history[step-1].dist <= absolute_min.dist);
           absolute_min_history[step] = absolute_min;
 
           // merge clusters to create new one
