@@ -82,6 +82,7 @@ namespace sdf_converter
 
     float3 surface_pos = float3(0, 0, 0), min_a = float3(0, 0, 0), min_b = float3(0, 0, 0), min_c = float3(0, 0, 0);
     int min_ti = -1;
+
     for (int tri=0; tri<tl_octree.nodes[idx].tid_count; tri++)
     {
       int t_i = tl_octree.triangle_ids[tl_octree.nodes[idx].tid_offset+tri];
@@ -90,6 +91,7 @@ namespace sdf_converter
       float3 c = to_float3(mesh.vPos4f[mesh.indices[3*t_i+2]]);
       float3 vt = pos - cmesh4::closest_point_triangle(pos, a, b, c);
       float dst_sq = LiteMath::dot(vt, vt);
+      float3 ss = cmesh4::closest_point_triangle(pos, a, b, c);
       if (min_dist_sq > dst_sq)
       {
         min_dist_sq = dst_sq;
@@ -98,6 +100,7 @@ namespace sdf_converter
         min_b = b;
         min_c = c;
         surface_pos = cmesh4::closest_point_triangle(pos, a, b, c);
+
         if (LiteMath::dot(LiteMath::cross(a - b, a - c), vt) < 0)
         {
           sign = -1;
@@ -108,33 +111,14 @@ namespace sdf_converter
         }
       }
     }
-    float3 bc = cmesh4::barycentric(surface_pos, min_a, min_b, min_c);
-    tex_coord = bc.x*mesh.vTexCoord2f[mesh.indices[3*min_ti+0]] + bc.y*mesh.vTexCoord2f[mesh.indices[3*min_ti+1]] + bc.z*mesh.vTexCoord2f[mesh.indices[3*min_ti+2]];
-    mat = mesh.matIndices[min_ti];
-    return min_dist_sq * sign;
-  }
-
-  /*float count_rmse()
-  {
-    float rmse = 0.0f;
-    for (int x = 0; x <= 2; x += 1)
+    if (min_ti != -1)
     {
-      for (int y = 0; y <= 2; y += 1)
-      {
-        for (int z = 0; z <= 2; z += 1)
-        {
-          float3 off_idx = float3((float)x / 2.0, (float)y / 2.0, (float)z / 2.0);
-          float coeff = 1.0;
-          if (x == 1) coeff *= 2.0;
-          if (y == 1) coeff *= 2.0;
-          if (z == 1) coeff *= 2.0;
-          float sdf_val = sdf(corner + offset * off_idx, 0);//TODO save it to cash and take
-          rmse += pow((sdf_val - trilinear_interpolation(node_values, off_idx)), 2);
-        }
-      }
+      float3 bc = cmesh4::barycentric(surface_pos, min_a, min_b, min_c);
+      tex_coord = bc.x*mesh.vTexCoord2f[mesh.indices[3*min_ti+0]] + bc.y*mesh.vTexCoord2f[mesh.indices[3*min_ti+1]] + bc.z*mesh.vTexCoord2f[mesh.indices[3*min_ti+2]];
+      mat = mesh.matIndices[min_ti];
     }
-    return sqrt(rmse / 64.0);
-  }*/
+    return sqrt(min_dist_sq) * sign;
+  }
 
   void linear_mesh_octree_to_global_octree_with_precision(const cmesh4::SimpleMesh &mesh,
                                          const cmesh4::TriangleListOctree &tl_octree,
@@ -142,6 +126,8 @@ namespace sdf_converter
                                          unsigned min_layer, unsigned max_layer, float precision)
   {
     assert(min_layer < max_layer);
+    std::vector<std::pair<float3, float>> p_d(tl_octree.nodes.size());
+    save_p_and_d_from_tl_octree_rec(tl_octree, p_d, 0, float3(0,0,0), 1);
     struct PositionHasher
     {
       std::size_t operator()(const float3& k) const
@@ -201,7 +187,7 @@ namespace sdf_converter
             float3 ch_pos = pos + 2*(checks[i].d/out_octree.header.brick_size)*float3(x, y, z);
             float dist = count_distance_at_brick_on_position(mesh, tl_octree, checks[i].tl_idx, ch_pos, tex_c, mat);
             checks[i].node_distances[ch_pos] = std::pair(dist, dist);
-            out_octree.values_f[out_octree.nodes[checks[i].global_idx].offset + v_size * v_size * (x + pad) + v_size * (y + pad) + z + pad] = dist;
+            out_octree.values_f[out_octree.nodes[checks[i].global_idx].val_off + v_size * v_size * (x + pad) + v_size * (y + pad) + z + pad] = dist;
             if ((x == 0 || x == size) && (y == 0 || y == size) && (z == 0 || z == size))
             {
               int num = (int(x / size) << 2) + (int(y / size) << 1) + int(z / size);
@@ -220,9 +206,9 @@ namespace sdf_converter
         count_distance_at_brick_on_position(mesh, tl_octree, checks[i].tl_idx, ch_pos, tex_c, mat);
         out_octree.nodes[checks[i].global_idx].material_id = mat;
       }
-      
+      //start counting of needs dividing
       bool is_div = checks[i].layer_num <= min_layer;
-      if(tl_octree.nodes[checks[i].tl_idx].tid_count == 0 || checks[i].layer_num >= max_layer)
+      if(tl_octree.nodes[checks[i].tl_idx].tid_count == 0 || checks[i].layer_num >= max_layer || tl_octree.nodes[checks[i].tl_idx].offset == 0)
       {
         is_div = false;
       }
@@ -275,7 +261,7 @@ namespace sdf_converter
         error = sqrt(error);
         if (error >= precision) is_div = true;
       }
-
+      //subdividing
       if (is_div)
       {
         for (int j = 0; j < 8; ++j)
@@ -284,7 +270,7 @@ namespace sdf_converter
           elem.pos = 2 * checks[i].pos + float3(j >> 2, (j >> 1) & 1, j & 1);
           elem.layer_num = checks[i].layer_num + 1;
           elem.node_distances = {};
-          elem.tl_idx = tl_octree.nodes[checks[i].tl_idx].offset;
+          elem.tl_idx = tl_octree.nodes[checks[i].tl_idx].offset + j;
           elem.global_idx = out_octree.nodes.size() + j;
           checks.push_back(elem);
         }
@@ -328,6 +314,7 @@ namespace sdf_converter
 
         float3 pos = 2.0f*(d*p) - 1.0f;
         //out_octree.nodes[idx].val_off = idx*v_size*v_size*v_size;
+        //printf("%d %d %d\n", tl_octree.nodes[idx].tid_count, tl_octree.nodes[idx].tid_offset, tl_octree.triangle_ids.size());
 
         for (int i = -(int)out_octree.header.brick_pad; i <= (int)out_octree.header.brick_size + (int)out_octree.header.brick_pad; ++i)
         {
@@ -353,6 +340,8 @@ namespace sdf_converter
                 float3 c = to_float3(mesh.vPos4f[mesh.indices[3*t_i+2]]);
                 float3 vt = ch_pos - cmesh4::closest_point_triangle(ch_pos, a, b, c);
                 float dst_sq = LiteMath::dot(vt, vt);
+                float3 ss = cmesh4::closest_point_triangle(ch_pos, a, b, c);
+                float3 pos_tl =  2 * p_d[idx].first * p_d[idx].second - 1;
                 if (min_dist_sq > dst_sq)
                 {
                   min_dist_sq = dst_sq;
@@ -985,13 +974,20 @@ std::chrono::steady_clock::time_point t5 = std::chrono::steady_clock::now();
 
   void mesh_octree_to_global_octree(const cmesh4::SimpleMesh &mesh,
                                     const cmesh4::TriangleListOctree &tl_octree, 
-                                    GlobalOctree &out_octree)
+                                    GlobalOctree &out_octree, float precision,
+                                    unsigned min_layer, unsigned max_layer)
   {
     GlobalOctree tmp_octree;
     tmp_octree.header = out_octree.header;
     tmp_octree.nodes.resize(tl_octree.nodes.size());
-
-    linear_mesh_octree_to_global_octree(mesh, tl_octree, tmp_octree, omp_get_max_threads());
+    if (precision > 0 && min_layer < max_layer)
+    {
+      linear_mesh_octree_to_global_octree_with_precision(mesh, tl_octree, tmp_octree, min_layer, max_layer, precision);
+    }
+    else
+    {
+      linear_mesh_octree_to_global_octree(mesh, tl_octree, tmp_octree, omp_get_max_threads());
+    }
     
     unsigned nn = global_octree_count_and_mark_active_nodes_rec(tmp_octree, 0);
     assert(!is_leaf(tmp_octree.nodes[0].offset));
@@ -1002,7 +998,6 @@ std::chrono::steady_clock::time_point t5 = std::chrono::steady_clock::now();
     out_octree.nodes.push_back(tmp_octree.nodes[0]);
     global_octree_eliminate_invalid_rec(tmp_octree, 0, out_octree, 0);
     out_octree.nodes.shrink_to_fit();
-
     //printf("%u/%u nodes are active\n", nn, (unsigned)tmp_octree.nodes.size());
     //printf("%u/%u nodes are left after elimination\n", (unsigned)out_octree.nodes.size(), (unsigned)tmp_octree.nodes.size());
   }

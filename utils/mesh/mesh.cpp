@@ -411,9 +411,9 @@ namespace cmesh4
       for (int j=1;j<thread_local_nodes[i].size();j++)
       {
         octree.nodes[node_ofs+j-1] = thread_local_nodes[i][j];
-        if (thread_local_nodes[i][j].offset == 0)
-          octree.nodes[node_ofs+j-1].tid_offset += tri_ids_ofs;
-        else
+
+        octree.nodes[node_ofs+j-1].tid_offset += tri_ids_ofs;
+        if (thread_local_nodes[i][j].offset != 0)
           octree.nodes[node_ofs+j-1].offset += node_ofs-1;
       }
 
@@ -423,9 +423,12 @@ namespace cmesh4
       node_ofs += thread_local_nodes[i].size() - 1;
       tri_ids_ofs += thread_local_tri_ids[i].size();
     }
+
+    // int k  = 0;
     // for (auto i : octree.nodes)
     // {
-    //   assert(!(i.offset != 0 && i.tid_count == 0));
+    //   printf("%d: off = %d [%d-%d]\n", k, i.offset, i.tid_offset, i.tid_count);
+    //   k++;
     // }
     //printf("created octee with %d nodes and %d tri ids\n", (int)octree.nodes.size(), (int)octree.triangle_ids.size());
     return octree;
