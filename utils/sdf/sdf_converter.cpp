@@ -60,13 +60,14 @@ namespace sdf_converter
 
   std::vector<SdfFrameOctreeNode> create_sdf_frame_octree(SparseOctreeSettings settings, const cmesh4::SimpleMesh &mesh)
   {
-    auto tlo = cmesh4::create_triangle_list_octree(mesh, settings.depth, 0, 1.0f);
-
     GlobalOctree g;
     g.header.brick_size = 1;
     g.header.brick_pad = 0;
     std::vector<SdfFrameOctreeNode> frame;
-    mesh_octree_to_global_octree(mesh, tlo, g);
+    {
+      auto tlo = cmesh4::create_triangle_list_octree(mesh, settings.depth, 0, 1.0f);
+      mesh_octree_to_global_octree(mesh, tlo, g);
+    }
     global_octree_to_frame_octree(g, frame);
 
     return frame;
@@ -86,13 +87,14 @@ namespace sdf_converter
 
   std::vector<SdfSVSNode> create_sdf_SVS(SparseOctreeSettings settings, const cmesh4::SimpleMesh &mesh)
   {
-    auto tlo = cmesh4::create_triangle_list_octree(mesh, settings.depth, 0, 1.0f);
-
     GlobalOctree g;
     g.header.brick_size = 1;
     g.header.brick_pad = 0;
     std::vector<SdfSVSNode> svs;
-    mesh_octree_to_global_octree(mesh, tlo, g);
+    {
+      auto tlo = cmesh4::create_triangle_list_octree(mesh, settings.depth, 0, 1.0f);
+      mesh_octree_to_global_octree(mesh, tlo, g);
+    }
     global_octree_to_SVS(g, svs);
 
     return svs;
@@ -118,14 +120,15 @@ namespace sdf_converter
     assert(header.brick_pad == 0 || header.brick_pad == 1);
     assert(header.bytes_per_value == 1 || header.bytes_per_value == 2 || header.bytes_per_value == 4);
 
-    auto tlo = cmesh4::create_triangle_list_octree(mesh, settings.depth, 0, 1.0f);
-
     GlobalOctree g;
     g.header.brick_size = header.brick_size;
     g.header.brick_pad = header.brick_pad;
     SdfSBS sbs;
     sbs.header = header;
-    mesh_octree_to_global_octree(mesh, tlo, g);
+    {
+      auto tlo = cmesh4::create_triangle_list_octree(mesh, settings.depth, 0, 1.0f);
+      mesh_octree_to_global_octree(mesh, tlo, g);
+    }
     global_octree_to_SBS(g, sbs);
 
     return sbs;
@@ -136,11 +139,13 @@ namespace sdf_converter
     if (settings.build_type == SparseOctreeBuildType::MESH_TLO)
     {
       //we set max_triangles_per_leaf = 0 to prevent issues with big, textured triangles (see test with textured cube)
-      auto tlo = cmesh4::create_triangle_list_octree(mesh, settings.depth, 0, 1.0f);
       GlobalOctree g;
       g.header.brick_size = 1;
       g.header.brick_pad = 0;
+      {
+      auto tlo = cmesh4::create_triangle_list_octree(mesh, settings.depth, 0, 1.0f);
       mesh_octree_to_global_octree(mesh, tlo, g);
+      }
       std::vector<SdfFrameOctreeTexNode> frame;
       global_octree_to_frame_octree_tex(g, frame);
       return frame;
@@ -191,8 +196,10 @@ namespace sdf_converter
     GlobalOctree g;
     g.header.brick_size = 1;
     g.header.brick_pad = 0;
-    auto tlo = cmesh4::create_triangle_list_octree(mesh, settings.depth, 0, 1.0f);
-    mesh_octree_to_global_octree(mesh, tlo, g);
+    {
+      auto tlo = cmesh4::create_triangle_list_octree(mesh, settings.depth, 0, 1.0f);
+      mesh_octree_to_global_octree(mesh, tlo, g);
+    }
     global_octree_to_COctreeV2(g, coctree);
 
     return coctree;
@@ -206,8 +213,10 @@ namespace sdf_converter
     GlobalOctree g;
     g.header.brick_size = co_settings.brick_size;
     g.header.brick_pad = co_settings.brick_pad;
-    auto tlo = cmesh4::create_triangle_list_octree(mesh, settings.depth, 0, 1.0f);
-    mesh_octree_to_global_octree(mesh, tlo, g);
+    {
+      auto tlo = cmesh4::create_triangle_list_octree(mesh, settings.depth, 0, 1.0f);
+      mesh_octree_to_global_octree(mesh, tlo, g);
+    }
     global_octree_to_COctreeV3(g, coctree, co_settings);
     
     return coctree;
@@ -223,8 +232,10 @@ namespace sdf_converter
     GlobalOctree g;
     g.header.brick_size = co_settings.brick_size;
     g.header.brick_pad = co_settings.brick_pad;
-    auto tlo = cmesh4::create_triangle_list_octree(mesh, settings.depth, 0, 1.0f);
-    mesh_octree_to_global_octree(mesh, tlo, g);
+    {
+      auto tlo = cmesh4::create_triangle_list_octree(mesh, settings.depth, 0, 1.0f);
+      mesh_octree_to_global_octree(mesh, tlo, g);
+    }
     global_octree_to_COctreeV3(g, coctree, co_settings, scom_settings);
 
     return coctree;
@@ -241,10 +252,12 @@ namespace sdf_converter
     }
     float mult = (float) (header.brick_pad * 2 + header.brick_size);
     mult /= (float) header.brick_size;
-    auto tlo = cmesh4::create_triangle_list_octree(mesh, settings.depth, 0, mult);//change 1.0f to another mult depend of the pad
     GlobalOctree glob;
     glob.header = header;
-    mesh_octree_to_global_octree(mesh, tlo, glob);
+    {
+      auto tlo = cmesh4::create_triangle_list_octree(mesh, settings.depth, 0, mult);//change 1.0f to another mult depend of the pad
+      mesh_octree_to_global_octree(mesh, tlo, glob);
+    }
     return glob;
   }
 }
