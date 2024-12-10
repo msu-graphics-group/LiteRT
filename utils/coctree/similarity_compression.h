@@ -23,15 +23,14 @@ namespace scom
 
   enum class SearchAlgorithm
   {
-    BRUTE_FORCE,   //for cycle for all nodes
-    LINEAR_SEARCH, //even slower than BRUTE_FORCE, for debug only
+    LINEAR_SEARCH, //for cycle for all nodes
     BALL_TREE      //use ball tree acceleration structure
   };
 
   struct Settings
   {
     ClusteringAlgorithm clustering_algorithm = ClusteringAlgorithm::REPLACEMENT;
-    SearchAlgorithm search_algorithm = SearchAlgorithm::BRUTE_FORCE;
+    SearchAlgorithm search_algorithm = SearchAlgorithm::BALL_TREE;
     float similarity_threshold = 0.0f; //set negative value to disable and use only target_leaf_count
     int   target_leaf_count = -1;      //set negative value to disable and use only similarity_threshold
     float3 distance_importance = float3(1,1,1); // importance of padding, border, internal distances respectively

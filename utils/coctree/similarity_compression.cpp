@@ -879,6 +879,39 @@ namespace scom
     final_clusters.shrink_to_fit();
   }
 
+  void create_BallTreeAS(const Dataset &dataset, std::unique_ptr<INNSearchAS> &NN_search_AS)
+  {
+    switch (dataset.dim)
+    {
+    case 2 * 2 * 2:
+      NN_search_AS.reset(new BallTreeFD<8>());
+      break;
+    case 32:
+      NN_search_AS.reset(new BallTreeFD<32>());
+      break; // 3*3*3 + padding
+    case 4 * 4 * 4:
+      NN_search_AS.reset(new BallTreeFD<64>());
+      break;
+    case 128:
+      NN_search_AS.reset(new BallTreeFD<128>());
+      break; // 5*5*5 + padding
+    case 6 * 6 * 6:
+      NN_search_AS.reset(new BallTreeFD<216>());
+      break;
+    case 344:
+      NN_search_AS.reset(new BallTreeFD<344>());
+      break; // 7*7*7 + padding
+    case 8 * 8 * 8:
+      NN_search_AS.reset(new BallTreeFD<512>());
+      break;
+    default:
+      NN_search_AS.reset(new BallTree());
+      break;
+    }
+
+    NN_search_AS->build(dataset, 32);
+  }
+
   void similarity_compression_advanced(const sdf_converter::GlobalOctree &g_octree, const Settings &settings, CompressionOutput &output)
   {
     auto tt1 = std::chrono::high_resolution_clock::now();
@@ -921,27 +954,14 @@ namespace scom
 
     std::unique_ptr<INNSearchAS> NN_search_AS;
 
-    if (settings.search_algorithm == SearchAlgorithm::LINEAR_SEARCH ||
-        settings.search_algorithm == SearchAlgorithm::BRUTE_FORCE)
+    if (settings.search_algorithm == SearchAlgorithm::LINEAR_SEARCH)
     {
       NN_search_AS.reset(new LinearSearchAS());
       NN_search_AS->build(dataset, 1);
     }
     else if (settings.search_algorithm == SearchAlgorithm::BALL_TREE)
     {
-      switch (dataset.dim)
-      {
-        case  2*2*2: NN_search_AS.reset(new BallTreeFD<8>());  break;
-        case  32:    NN_search_AS.reset(new BallTreeFD<32>()); break; //3*3*3 + padding
-        case  4*4*4: NN_search_AS.reset(new BallTreeFD<64>()); break;
-        case  128:   NN_search_AS.reset(new BallTreeFD<128>());break;  //5*5*5 + padding
-        case  6*6*6: NN_search_AS.reset(new BallTreeFD<216>());break;
-        case  344:   NN_search_AS.reset(new BallTreeFD<344>());break;  //7*7*7 + padding
-        case  8*8*8: NN_search_AS.reset(new BallTreeFD<512>());break;
-        default: NN_search_AS.reset(new BallTree());       break;
-      }
-      
-      NN_search_AS->build(dataset, 32);
+      create_BallTreeAS(dataset, NN_search_AS);
     }
     dataset.all_points.clear();
     dataset.data_points.clear();
@@ -958,6 +978,8 @@ namespace scom
   
 
   auto t1 = std::chrono::high_resolution_clock::now();
+    std::atomic<uint64_t> total_links(0);
+    std::atomic<uint64_t> active_links(0);
     #pragma omp parallel for schedule(dynamic)
     for (int point_a = 0; point_a < no_rot_dataset.data_points.size(); point_a++)
     {
@@ -1002,8 +1024,21 @@ namespace scom
         }
       }
 
+      total_links += surface_node_count;
+      active_links += real_link_count;
+      // #pragma omp critical
+      // {
+      //   if (point_a % 5000 == 0)
+      //   printf("total links = %luM, active links = %luM (%.2f%%)\n", total_links.load()/1000000, active_links.load()/1000000, 
+      //   (float)((100.0*active_links.load())/total_links.load()));
+      // }
+
       sim_graph[i] = std::vector<Link>(tmp_links[thread_id].begin(), tmp_links[thread_id].begin() + real_link_count);
     }
+
+    int64_t tmp_links_size = omp_get_num_threads()*ROT_COUNT*surface_node_count*sizeof(Link);
+    int64_t sim_graph_size = active_links.load()*sizeof(Link);
+    printf("total links = %lu Mb, active links = %lu Mb )\n", tmp_links_size/1000000, sim_graph_size/1000000);
 
     auto t2 = std::chrono::high_resolution_clock::now();
     printf("build links %.2f ms\n", 1e-3f*std::chrono::duration_cast<std::chrono::microseconds>(t2-t1).count());
@@ -1195,6 +1230,9 @@ namespace scom
 
     auto t1 = std::chrono::high_resolution_clock::now();
 
+    Dataset dataset_no_rot;
+    create_dataset(g_octree, settings, surface_node, surface_node_count, average_brick_val, 0, 1, dataset_no_rot);
+
     Dataset dataset;
     int remapped = 0;
     int rot_start = 0;
@@ -1204,68 +1242,34 @@ namespace scom
 
     std::unique_ptr<INNSearchAS> NN_search_AS;
 
-    if (settings.search_algorithm == SearchAlgorithm::LINEAR_SEARCH ||
-        settings.search_algorithm == SearchAlgorithm::BRUTE_FORCE)
+    if (settings.search_algorithm == SearchAlgorithm::LINEAR_SEARCH)
     {
       NN_search_AS.reset(new LinearSearchAS());
       NN_search_AS->build(dataset, 1);
     }
     else if (settings.search_algorithm == SearchAlgorithm::BALL_TREE)
     {
-      NN_search_AS.reset(new BallTree());
-      NN_search_AS->build(dataset, 32);
+      create_BallTreeAS(dataset, NN_search_AS);
     }
 
-    for (int point_a = 0; point_a < dataset.data_points.size(); point_a+=rot_count)
+    for (int point_a = 0; point_a < dataset_no_rot.data_points.size(); point_a++)
     {
-      int i  = dataset.data_points[point_a].original_id;
+      int i  = dataset_no_rot.data_points[point_a].original_id;
       if (surface_node[i] == false || remap[i] != i)
         continue;
       
       remap_transforms[i].rotation_id = 0;
-      remap_transforms[i].add = dataset.data_points[point_a].average_val;
+      remap_transforms[i].add = dataset_no_rot.data_points[point_a].average_val;
       
-      size_t off_a = dataset.data_points[point_a].data_offset;
+      size_t off_a = dataset_no_rot.data_points[point_a].data_offset;
 
-      if (settings.search_algorithm == SearchAlgorithm::BRUTE_FORCE)
       {
-        #pragma omp parallel for schedule(static)
-        for (int point_b = point_a + rot_count; point_b < dataset.data_points.size(); point_b++)
-        {
-          int j = dataset.data_points[point_b].original_id;
-          size_t off_b = dataset.data_points[point_b].data_offset;
-
-          float diff = 0;
-          float dist = 0;
-          for (int k = 0; k < dist_count; k++)
+        NN_search_AS->scan_near(dataset_no_rot.all_points.data() + off_a, settings.similarity_threshold,
+          [&](float dist, unsigned point_b, const DataPoint &B, const float *)
           {
-            diff = dataset.all_points[off_a + k] - dataset.all_points[off_b + k];
-            dist += diff * diff;
-          }
-          dist = sqrtf(dist);
-
-          if (dist < settings.similarity_threshold)
-          {
-            #pragma omp critical
-            if (dist < closest_dist[j])
-            {
-              remapped += remap[j] == j;
-              remap[j] = i;
-              remap_transforms[j].rotation_id = inverse_indices[dataset.data_points[point_b].rotation_id];
-              remap_transforms[j].add = dataset.data_points[point_b].average_val;
-              closest_dist[j] = dist;
-            }
-          }
-        }
-      }
-      else
-      {
-        NN_search_AS->scan_near(dataset.all_points.data() + off_a, settings.similarity_threshold,
-          [&](float dist, unsigned point_b, const DataPoint &, const float *)
-          {
-            if (point_b < point_a + rot_count)
+            if (point_b < (point_a + 1)*rot_count)
               return;
-            int j = dataset.data_points[point_b].original_id;
+            int j = B.original_id;
 
             #pragma omp critical
             {
@@ -1273,8 +1277,8 @@ namespace scom
               {
                 remapped += remap[j] == j;
                 remap[j] = i;
-                remap_transforms[j].rotation_id = dataset.data_points[point_b].rotation_id;
-                remap_transforms[j].add = dataset.data_points[point_b].average_val;
+                remap_transforms[j].rotation_id = B.rotation_id;
+                remap_transforms[j].add = B.average_val;
                 closest_dist[j] = dist;
               }
             }
