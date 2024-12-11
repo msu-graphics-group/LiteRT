@@ -909,6 +909,8 @@ namespace BenchmarkBackend
       preset.render_mode = MULTI_RENDER_MODE_PHONG;
     else if (render_mode == "HSV_DEPTH")
       preset.render_mode = MULTI_RENDER_MODE_HSV_DEPTH;
+    else if (render_mode == "LOD")
+      preset.render_mode = MULTI_RENDER_MODE_LOD;
 
     preset.spp = spp;
 

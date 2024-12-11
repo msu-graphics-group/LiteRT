@@ -758,7 +758,7 @@ void SimpleRender::Cleanup()
 static constexpr const char* const multi_render_mode_items[] = { "Mask", "Lambert (no tex)", "Depth", "Depth (linear)", "Depth (inverse linear)", "Primitive",
                                                                  "Object type", "Geom", "Normals", "Barycentric", "ST iterations", "Radiance fields",
                                                                  "Phong (no tex)", "Gaussian splats", "Radiance fields (density)", "Tex coords", "Diffuse",
-                                                                 "Lambert", "Phong", "Depth (HSV)" };
+                                                                 "Lambert", "Phong", "Depth (HSV)", "LOD" };
 
 void SimpleRender::SetupGUIElements()
 {

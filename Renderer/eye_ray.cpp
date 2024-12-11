@@ -331,6 +331,12 @@ float4 MultiRenderer::kernel_RayTrace(uint32_t tidX, const float4* rayPosAndNear
   }
   break;
 
+  case MULTI_RENDER_MODE_LOD:
+  {
+    res_color = decode_RGBA8(m_lod_palette[hit.primId % palette_size]);
+  }
+  break;
+
   case MULTI_RENDER_MODE_RF:
   {
     res_color = clamp(float4(hit.coords[1], hit.coords[2], hit.coords[3], 1.0f), 0.0f, 1.0f);

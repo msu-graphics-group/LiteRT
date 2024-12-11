@@ -241,6 +241,14 @@ protected:
     0xff808000, 0xffffd8b1, 0xff000080, 0xff808080
   };
 
+  static constexpr uint32_t m_lod_palette[palette_size] = {
+    0xff000000, 0xff000040, 0xff000080, 0xff0000c0,
+    0xff0040ff, 0xff0080ff, 0xff00c0ff, 0xff00ffff,
+    0xff00ffc0, 0xff00ff80, 0xff00ff40, 0xff00ff00,
+    0xff00c000, 0xff008000, 0xff004000, 0xff000000,
+    0xffff0000, 0xffff0000, 0xffff0000, 0xffff0000,
+  };
+
   //statistics
   std::unordered_map<std::string, float> timeDataByName;
   uint64_t m_totalTris         = 0;

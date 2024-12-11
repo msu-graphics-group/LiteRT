@@ -3507,7 +3507,11 @@ void BVHRT::OctreeIntersectV3(uint32_t type, const float3 ray_pos, const float3 
                                  float3(real_p), float(level_sz), stack[top].info, pHit);
 
         if (pHit->t < old_t)
+        {
           top = -1;
+          if (m_preset.render_mode == MULTI_RENDER_MODE_LOD)
+            pHit->primId = uint32_t(std::log2(float(level_sz*coctree_v3_header.brick_size)));
+        }
         else
           top--;
       }
