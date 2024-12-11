@@ -467,6 +467,8 @@ get_kdtree_leaves_helper(
     float2 box_min,
     float2 box_max,
     int axes = 0) {
+  assert(all_of(box_max >= box_min));
+  assert(any_of(box_max > box_min));
   if (curves.size() == 0) {
     res_leaves.push_back(KdTreeLeave{ -1u, 0 }); 
     res_boxes.push_back(KdTreeBox{box_min, box_max});
@@ -475,6 +477,8 @@ get_kdtree_leaves_helper(
   if (curves.size() == 1) {
     auto &curve = curves[0];
     auto box = calc_box(curve);
+    box.boxMin = max(box.boxMin, box_min);
+    box.boxMax = min(box.boxMax, box_max);
     KdTreeBox box_left, box_right;
     box_left.boxMin = box_right.boxMin = box_min;
     box_left.boxMax = box_right.boxMax = box_max;
@@ -516,23 +520,23 @@ get_kdtree_leaves_helper(
   std::vector<float> split_candidates;
   for (int i = 0; i < curves.size(); ++i) {
     auto box = calc_box(curves[i]);
+    box.boxMin = max(box.boxMin, box_min);
+    box.boxMax = min(box.boxMax, box_max);
     split_candidates.push_back(box.boxMin[axes]);
     split_candidates.push_back(box.boxMax[axes]);
   }
   std::sort(split_candidates.begin(), split_candidates.end());
   split_candidates.resize(
       std::unique(split_candidates.begin(), split_candidates.end())-split_candidates.begin());
-  float middle;
-  if (split_candidates.size() % 2 != 0) {
-    middle = split_candidates[split_candidates.size()/2];
-  } else {
-    middle = split_candidates[split_candidates.size()/2-1];
-    middle += split_candidates[split_candidates.size()/2];
-    middle /= 2.0f;
-  }
+  float middle = split_candidates[split_candidates.size()/2];
 
   for (int i = 0; i < curves.size(); ++i) {
     auto box = calc_box(curves[i]);
+    if (all_of(box.boxMax <= box_min) || all_of(box.boxMin >= box_max)) {
+      continue;
+    }
+    box.boxMin = max(box.boxMin, box_min);
+    box.boxMax = min(box.boxMax, box_max);
     if (box.boxMin[axes] >= middle) {
       right_child_curves.push_back(curves[i]);
       right_child_ids.push_back(curv_ids[i]);
