@@ -1327,6 +1327,7 @@ std::chrono::steady_clock::time_point t5 = std::chrono::steady_clock::now();
   void frame_octree_limit_nodes(std::vector<SdfFrameOctreeNode> &frame, unsigned nodes_limit,
                                 bool count_only_border_nodes)
   {
+    printf("WARNING: fnction is deprecated and probably will be removed in the future\n");
     if (nodes_limit >= frame.size())
       return;
     

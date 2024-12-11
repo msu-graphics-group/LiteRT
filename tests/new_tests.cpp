@@ -269,67 +269,6 @@ namespace litert_tests
     testing::saved_reference_check_psnr(gpu_image, "GPU", "gpu", 75);
   }
 
-  // former 15
-  ADD_TEST(FrameOctreeNodeRemoval, "Testing frame octree node removal")
-  {
-    // auto mesh = cmesh4::LoadMeshFromVSGF(std::string("./scenes/01_simple_scenes/data/teapot.vsgf").c_str());
-
-    auto mesh = testing::load_vsgf_mesh(
-        TEAPOT_MESH,
-        0.999 // heavily changes PSNR
-    );
-
-    // WTF?
-    // cmesh4::normalize_mesh(mesh);   // does nothing
-    // MeshBVH mesh_bvh;               // is not used
-    // mesh_bvh.init(mesh);            // is not used
-
-    std::vector<SdfFrameOctreeNode> octree_nodes_6;
-    std::vector<SdfFrameOctreeNode> octree_nodes_7;
-    std::vector<SdfFrameOctreeNode> octree_nodes_8;
-    const unsigned level_6_nodes = 21603;
-
-    {
-      testing::ScopedTimer timer("creating octree with depth-6, trimmed to " + std::to_string(level_6_nodes));
-      SparseOctreeSettings settings(SparseOctreeBuildType::DEFAULT, 6);
-      octree_nodes_6 = sdf_converter::create_sdf_frame_octree(settings, mesh);
-      sdf_converter::frame_octree_limit_nodes(octree_nodes_6, level_6_nodes, false);
-    }
-
-    {
-      testing::ScopedTimer timer("creating octree with depth-7, trimmed to " + std::to_string(level_6_nodes));
-      SparseOctreeSettings settings(SparseOctreeBuildType::DEFAULT, 7);
-      octree_nodes_7 = sdf_converter::create_sdf_frame_octree(settings, mesh);
-      sdf_converter::frame_octree_limit_nodes(octree_nodes_7, level_6_nodes, false);
-    }
-
-    {
-      testing::ScopedTimer timer("creating octree with depth-8, trimmed to " + std::to_string(level_6_nodes));
-      SparseOctreeSettings settings(SparseOctreeBuildType::DEFAULT, 8);
-      octree_nodes_8 = sdf_converter::create_sdf_frame_octree(settings, mesh);
-      sdf_converter::frame_octree_limit_nodes(octree_nodes_8, level_6_nodes, false);
-    }
-
-    MultiRenderPreset preset = getDefaultPreset();
-    preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
-
-    auto image_6 = testing::create_image();
-    auto image_7 = testing::create_image();
-    auto image_8 = testing::create_image();
-
-    testing::render_scene(image_6, DEVICE_GPU, preset, octree_nodes_6);
-    testing::save_image(image_6, "6");
-
-    testing::render_scene(image_7, DEVICE_GPU, preset, octree_nodes_7);
-    testing::save_image(image_7, "trimmed_7");
-
-    testing::render_scene(image_8, DEVICE_GPU, preset, octree_nodes_8);
-    testing::save_image(image_8, "trimmed_8");
-
-    testing::check_psnr(image_6, image_7, "octree-6", "octree-7", 45);
-    testing::check_psnr(image_6, image_8, "octree-6", "octree-8", 45);
-  }
-
   // former 17
   ADD_TEST(AllTypesSanityCheck, "Testing all")
   {
