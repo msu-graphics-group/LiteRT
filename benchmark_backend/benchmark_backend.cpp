@@ -309,7 +309,7 @@ namespace BenchmarkBackend
     //  Write down measurements
     std::fstream f;
     f.open("benchmark/results/build.csv", std::ios::app);
-    f << get_model_name(model_path) << ", " << repr_type << ", " << original_memory << ", " << memory << ", " << t << std::endl;
+    f << get_model_name(model_path) << ", " << repr_type << ", " << repr_config_name << ", " << original_memory << ", " << memory << ", " << t << std::endl;
   }
 
 // Render
@@ -422,12 +422,17 @@ namespace BenchmarkBackend
       float min_time =  1e8, max_time = -1, average_time = 0;
       float min_psnr = 1000, max_psnr = -1, average_psnr = 0;
       float min_flip = 1000, max_flip = -1, average_flip = 0;
+      float res_time = 1e8, res_psnr = 1000, res_flip = 1000;
       
       for (int iter = 0; iter < iters; ++iter)
       {
+        float avg_per_iter_time = 0;
+        float avg_per_iter_psnr = 0;
+        float avg_per_iter_flip = 0;
+
         for (int camera = 0; camera < cameras; ++camera)
         {
-          const float dist = 2;
+          const float dist = 3;
           float angle = 2.0f * LiteMath::M_PI * camera / (float)cameras;
           const float3 pos = dist * float3(sin(angle), 0, cos(angle));
 
@@ -459,15 +464,27 @@ namespace BenchmarkBackend
             ref_image = LiteImage::LoadImage<uint32_t>(mesh_name.c_str());
           }
 
-          //  calculate metrics
-          calcMetrics(min_psnr, max_psnr, average_psnr, image_metrics::PSNR(image, ref_image));
-          calcMetrics(min_flip, max_flip, average_flip, image_metrics::FLIP(image, ref_image));
+          //  Calculate metrics
+          float psnr = image_metrics::PSNR(image, ref_image);
+          float flip = image_metrics::FLIP(image, ref_image);
+          calcMetrics(min_psnr, max_psnr, average_psnr, psnr);
+          calcMetrics(min_flip, max_flip, average_flip, flip);
+
+          avg_per_iter_time += t;
+          avg_per_iter_psnr += psnr;
+          avg_per_iter_flip += flip;
         }
+
+        avg_per_iter_time /= (float)cameras;
+        avg_per_iter_psnr /= (float)cameras;
+        avg_per_iter_flip /= (float)cameras;
+
+        res_time = std::min(res_time, avg_per_iter_time); // TODO
       }
 
-      average_time /= (float)cameras;
-      average_psnr /= (float)cameras;
-      average_flip /= (float)cameras;
+      average_time /= (float)cameras * iters;
+      average_psnr /= (float)cameras * iters;
+      average_flip /= (float)cameras * iters;
 
       std::string device_name = "CPU";
       if (backend != "CPU")
