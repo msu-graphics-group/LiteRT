@@ -572,7 +572,7 @@ struct COctreeV2View
 
 struct COctreeV3
 {
-  static constexpr unsigned VERSION = 4; // change version if structure changes
+  static constexpr unsigned VERSION = 5; // change version if structure changes
   COctreeV3Header header = get_default_coctree_v3_header();
   std::vector<uint32_t> data;
 };

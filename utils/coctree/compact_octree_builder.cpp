@@ -829,7 +829,7 @@ namespace sdf_converter
                                   COctreeV3Settings co_settings, scom::Settings settings)
   {
 #if ON_CPU == 1
-    assert(COctreeV3::VERSION == 4); // if version is changed, this function should be revisited, as some changes may be needed
+    assert(COctreeV3::VERSION == 5); // if version is changed, this function should be revisited, as some changes may be needed
 #endif
     stat_leaf_bytes.store(0);
     stat_nonleaf_bytes.store(0);

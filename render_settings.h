@@ -91,7 +91,10 @@ struct MultiRenderPreset
   unsigned ray_gen_mode;       //enum RayGenMode
   unsigned interpolation_mode; //enum InterpolationMode
   unsigned representation_mode;//enum RepresentationMode
+
   unsigned spp;                //samples per pixel
+  unsigned fixed_lod;          //0 or 1, use fixed level of detail or dynamic (based on distance)
+  float level_of_detail;       //level of detail that you get on an object 1 meter away from you. It is inverted (worst LOD is 0!)
 };
 
 static MultiRenderPreset getDefaultPreset()
@@ -105,5 +108,7 @@ static MultiRenderPreset getDefaultPreset()
   p.representation_mode = REPRESENTATION_MODE_VOLUME;
 
   p.spp = 1;
+  p.fixed_lod = true;
+  p.level_of_detail = 16.0f; //always max LOD
   return p;
 }
