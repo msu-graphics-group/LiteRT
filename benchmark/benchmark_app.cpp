@@ -622,7 +622,7 @@ int main(int argc, const char **argv)
   f.close();
 
   f.open("benchmark/results/render.csv", std::ios::out);
-  f << "model_name, backend, device, renderer, type, config_name, model_size(Mb), time_min(s), time_max(s), time_average(s), psnr_min, psnr_max, psnr_average, flip_min, flip_max, flip_average\n";
+  f << "model_name, backend, device, renderer, type, config_name, render_mode, model_size(Mb), time_min(s), time_max(s), time_average(s), psnr_min, psnr_max, psnr_average, flip_min, flip_max, flip_average\n";
   f.close();
 
   // Benchmark loop
