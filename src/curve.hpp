@@ -76,11 +76,23 @@ struct KdTreeBox
   LiteMath::float2 boxMax{ -std::numeric_limits<float>::infinity() };
 };
 
+
+struct CurveId
+{
+public:
+  CurveId(uint16_t curve_id = 0xffff, uint16_t monotonic_span = 0xffff)
+      : curve_id(curve_id), monotonic_span(monotonic_span) {}
+  CurveId(uint32_t value): curve_id(value >> 16), monotonic_span(value & 0xffff) {}
+public:
+  operator uint32_t() const { return (curve_id << 16)|monotonic_span; }
+public:
+  uint16_t curve_id;
+  uint16_t monotonic_span;
+};
 struct KdTreeLeave
 {
-  float tmin;
-  float tmax;
   uint32_t curve_id = -1u;
+  bool precalc = 0;
 };
 
 std::array<RBCurve2D, 2>

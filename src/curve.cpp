@@ -468,12 +468,12 @@ get_kdtree_leaves_helper(
     float2 box_max,
     int axes = 0) {
   if (curves.size() == 0) {
-    res_leaves.push_back(KdTreeLeave{ 0.0f, 0.0f, -1u }); 
+    res_leaves.push_back(KdTreeLeave{ -1u, 0 }); 
     res_boxes.push_back(KdTreeBox{box_min, box_max});
     return;
   } 
   if (curves.size() == 1) {
-    res_leaves.push_back(KdTreeLeave{ curves[0].tmin, curves[0].tmax, curv_ids[0] });
+    res_leaves.push_back(KdTreeLeave{ curv_ids[0], 0 });
     res_boxes.push_back(KdTreeBox{box_min, box_max});
     return;
   }
@@ -572,12 +572,16 @@ std::tuple<std::vector<KdTreeBox>, std::vector<KdTreeLeave>>
 get_kdtree_leaves(const std::vector<RBCurve2D> &curves) {
   std::vector<uint32_t> ids;
   std::vector<RBCurve2D> monotonic_curves;
-  for (uint32_t i = 0; i < curves.size(); ++i) {
-    auto cur_monotonic_curves = decompose_to_monotonic(curves[i]);
-    std::copy(cur_monotonic_curves.begin(), cur_monotonic_curves.end(), std::back_inserter(monotonic_curves));
+  for (uint32_t curve_id = 0; curve_id < curves.size(); ++curve_id) {
+    auto cur_monotonic_curves = decompose_to_monotonic(curves[curve_id]);
+    std::copy(cur_monotonic_curves.begin(), cur_monotonic_curves.end(), 
+        std::back_inserter(monotonic_curves));
     size_t offset = ids.size();
-    ids.resize(offset + cur_monotonic_curves.size());
-    std::fill(ids.begin()+offset, ids.begin()+offset+cur_monotonic_curves.size(), i);
+    size_t count = cur_monotonic_curves.size();
+    ids.resize(offset + count);
+    for (int span = 0; span < count; ++span) {
+      ids[span+offset] = CurveId(curve_id, span);
+    }
   }
 
   std::vector<KdTreeBox> res_boxes;
@@ -596,3 +600,4 @@ get_kdtree_leaves(const std::vector<RBCurve2D> &curves) {
 
   return { res_boxes, res_leaves };
 }
+
