@@ -870,7 +870,7 @@ namespace sdf_converter
       global_ctx.cluster_infos.resize(scom_output.leaf_count, CompressedClusterInfo(1000.0f, -1000.0f)); 
       for (int i = 0; i < octree.nodes.size(); i++)
       {
-        if (is_leaf(octree.nodes[i].offset) && octree.nodes[i].is_not_void)
+        if ((is_leaf(octree.nodes[i].offset) || co_settings.use_lods) && octree.nodes[i].is_not_void)
         {
           float add = global_ctx.transforms[i].add;
 

@@ -922,6 +922,31 @@ namespace litert_tests
       testing::check_psnr(img_no_lods_6, img, "dynamic LOD", "Original", 50);
       testing::check_psnr(img_mesh, img, "LOD 6 fixed", "Mesh", 30);
     }   
+
+    {
+      co_settings.use_lods = true;
+      co_settings.sim_compression = true;
+
+      scom::Settings scom_settings;
+      scom_settings.similarity_threshold = 0.0f;
+      scom_settings.search_algorithm = scom::SearchAlgorithm::BALL_TREE;
+      scom_settings.cluster_non_leafs = true;
+
+      auto coctree_comp = sdf_converter::create_COctree_v3(settings_6, co_settings, scom_settings, mesh);
+      auto img = testing::create_image();
+
+      preset.fixed_lod = true;
+      preset.level_of_detail = 7;
+      testing::render_scene(img, device, preset, coctree_comp, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0));
+      testing::save_image(img, "lod_6_scom");
+      testing::check_psnr(img_no_lods_6, img, "LOD 6 fixed + scom", "Original", 35);
+      
+      preset.fixed_lod = true;
+      preset.level_of_detail = 6;
+      testing::render_scene(img, device, preset, coctree_comp, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0));
+      testing::save_image(img, "lod_5_scom");
+      testing::check_psnr(img_no_lods_5, img, "LOD 5 fixed + scom", "Original", 30);
+    }
   }
 
   ADD_TEST(PrecisedOctreeCreation, "Compare precised framed octree and standart framed octree")

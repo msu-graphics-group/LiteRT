@@ -11,6 +11,11 @@
 
 namespace scom
 {
+  static bool is_leaf(unsigned offset)
+  {
+    return (offset == 0) || (offset & INVALID_IDX);
+  }
+
   void save_dataset(const Dataset &dataset, const std::string &filename)
   {
   std::ofstream fs(filename, std::ios::binary);
@@ -931,7 +936,7 @@ namespace scom
     {
       int off = g_octree.nodes[i].val_off;
 
-      if (g_octree.nodes[i].offset == 0 && g_octree.nodes[i].is_not_void)
+      if ((is_leaf(g_octree.nodes[i].offset) || settings.cluster_non_leafs) && g_octree.nodes[i].is_not_void)
       {
         surface_node[i] = true;
         surface_node_count++;
@@ -1217,7 +1222,7 @@ namespace scom
       remap[i] = i;
       remap_transforms[i] = get_identity_transform();
 
-      if (g_octree.nodes[i].offset == 0 && g_octree.nodes[i].is_not_void)
+      if ((is_leaf(g_octree.nodes[i].offset) || settings.cluster_non_leafs) && g_octree.nodes[i].is_not_void)
       {
         surface_node[i] = true;
         surface_node_count++;
