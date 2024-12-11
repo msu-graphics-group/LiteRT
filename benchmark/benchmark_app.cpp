@@ -353,6 +353,8 @@ void call_kernel_slicer(const BenchmarkAppEnums &enums, const std::string &repr_
   // out_f << slicer_command;
   // out_f.close();
 
+  slicer_command += " >> " + curr_p.native() + "/benchmark/saves/slicer_out.txt"; // + " 2>&1";
+
   std::filesystem::current_path(slicer_p);
   std::system(slicer_command.c_str());
   std::filesystem::current_path(curr_p);
@@ -539,7 +541,6 @@ int main(int argc, const char **argv)
   config.render_modes = filter_enum_params(config.render_modes, enums.render_modes);
 
   {
-    printf("Checking types...\n");
     std::vector <std::string> repr_types_vec = { "MESH" };
     std::map <std::string, std::vector<std::string>> repr_types_map;
 
@@ -616,13 +617,19 @@ int main(int argc, const char **argv)
 
   std::fstream f;
   std::filesystem::create_directories("benchmark/results");
+  std::filesystem::create_directories("benchmark/saves");
 
   f.open("benchmark/results/build.csv", std::ios::out);
-  f << "model_name, type, original_model_size(Mb), model_size(Mb), build_time(s)\n";
+  f << "model_name, type, config_name, original_model_size(Mb), model_size(Mb), build_time(s)\n";
   f.close();
 
   f.open("benchmark/results/render.csv", std::ios::out);
-  f << "model_name, backend, device, renderer, type, config_name, model_size(Mb), time_min(s), time_max(s), time_average(s), psnr_min, psnr_max, psnr_average, flip_min, flip_max, flip_average\n";
+  f << "model_name, backend, device, renderer, type, config_name, render_mode, model_size(Mb), time_min(s), time_max(s), time_average(s), psnr_min, psnr_max, psnr_average, flip_min, flip_max, flip_average\n";
+  f.close();
+
+  f.open("benchmark/saves/cmake_out.txt", std::ios::in | std::ios::out | std::ios::trunc);
+  f.close();
+  f.open("benchmark/saves/slicer_out.txt", std::ios::in | std::ios::out | std::ios::trunc);
   f.close();
 
   // Benchmark loop
@@ -636,24 +643,38 @@ int main(int argc, const char **argv)
   render_config.render_modes = config.render_modes;
   render_config.mesh_config_name = "default";
 
+  uint32_t configs_overall = 0u;
+  for (const auto &repr_config : config.repr_configs)
+    configs_overall += repr_config.second.size();
 
+  uint32_t tests_overall = config.models.size() * config.renderers.size() * config.backends.size() * configs_overall;
+
+  int counter_models = -1;
   for (const auto &model : config.models)
   {
+    ++counter_models;
     render_config.model_name = get_model_name(model);
     int model_build_flag_renderers = 0;
+
+    int counter_renderers = -1;
     for (const auto &renderer : config.renderers)
     {
+      ++counter_renderers;
       render_config.renderer = renderer;
       ++model_build_flag_renderers; // we don't need to rebuild models for each renderer
       int model_build_flag_backends = 0;
+
+      int counter_backends = -1;
       for (const auto &backend : config.backends)
       {
+        ++counter_backends;
         render_config.backend = backend;
         ++model_build_flag_backends; // we don't need to rebuild models for each backend
 
         bool do_slicing = backend != "CPU";
         bool recompile = true;
 
+        int counter_configs = -1; // for 2 cycles
         for (const auto &repr_config : config.repr_configs)
         {
           render_config.type = repr_config.first;
@@ -670,19 +691,33 @@ int main(int argc, const char **argv)
           {
             std::string use_gpu = backend != "CPU" ? "ON" : "OFF";
             std::string use_rtx = (backend == "RTX") ? "ON" : "OFF";
-            std::string reconfigure_cmd = "cmake -S . -B build -DUSE_VULKAN=" + use_gpu + " -DUSE_RTX=" + use_rtx + " -DCMAKE_BUILD_TYPE=Debug -DUSE_STB_IMAGE=ON";
+            std::string reconfigure_cmd = "cmake -S . -B build -DUSE_VULKAN=" + use_gpu + " -DUSE_RTX=" + use_rtx + " -DCMAKE_BUILD_TYPE=Debug -DUSE_STB_IMAGE=ON >> benchmark/saves/cmake_out.txt";
 
             std::system(reconfigure_cmd.c_str());
-            std::system("cmake --build build --target render_app -j8");
+            std::system("cmake --build build --target render_app -j8 >> benchmark/saves/cmake_out.txt");
             recompile = false;
           }
 
 
           for (const auto &repr_config_single_n: repr_config.second)
           {
+            ++counter_configs;
             uint32_t bracket_ind = repr_config_single_n.find('{');
             std::string repr_config_name = repr_config_single_n.substr(0, bracket_ind);
             std::string repr_config_single = repr_config_single_n.substr(bracket_ind);
+
+            // Print current test information
+
+            uint32_t current_test_id = counter_configs;
+            current_test_id += counter_backends * configs_overall;
+            current_test_id += counter_renderers * config.backends.size() * configs_overall;
+            current_test_id += counter_models * config.renderers.size() * config.backends.size() * configs_overall;
+            // config.models.size() * config.renderers.size() * config.backends.size() * configs_overall
+
+            printf("BENCHMARK TEST [%d/%d]: %s, %s, %s, %s, %s.\n", current_test_id + 1, tests_overall, render_config.model_name.c_str(), renderer.c_str(),
+                                                                    backend.c_str(), render_config.type.c_str(), repr_config_name.c_str());
+
+
             // Create directories for model and tests
 
             render_config.model = model;
@@ -739,7 +774,7 @@ int main(int argc, const char **argv)
 
   if (config.backends.size() > 1 || (config.backends.size() == 1 && config.backends[0] != "CPU")) {
     // Run "slicer_execute.sh" with all types On
-    std::string slicer_execute_command = "bash slicer_execute.sh " + slicer_adir + " " + slicer_exec;
+    std::string slicer_execute_command = "bash slicer_execute.sh " + slicer_adir + " " + slicer_exec + " >> benchmark/saves/slicer_out.txt"; // + " 2>&1";
     std::system(slicer_execute_command.c_str());
   }
 

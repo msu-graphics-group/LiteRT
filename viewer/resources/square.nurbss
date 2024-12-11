@@ -1,0 +1,12 @@
+n = 1
+m = 1
+points:
+{-1, 0, -1} {1, 0, -1}
+{-1, 0,  1} {1, 0,  1}
+weights:
+1 1
+1 1
+u_degree: 1
+v_degree: 1
+u_knots: 0 0 1 1
+v_knots: 0 0 1 1
