@@ -512,13 +512,31 @@ get_kdtree_leaves_helper(
   
   std::vector<RBCurve2D> left_child_curves, right_child_curves;
   std::vector<uint32_t> left_child_ids, right_child_ids;
-  float middle = ((box_min+box_max)/2)[axes];
+  
+  std::vector<float> split_candidates;
+  for (int i = 0; i < curves.size(); ++i) {
+    auto box = calc_box(curves[i]);
+    split_candidates.push_back(box.boxMin[axes]);
+    split_candidates.push_back(box.boxMax[axes]);
+  }
+  std::sort(split_candidates.begin(), split_candidates.end());
+  split_candidates.resize(
+      std::unique(split_candidates.begin(), split_candidates.end())-split_candidates.begin());
+  float middle;
+  if (split_candidates.size() % 2 != 0) {
+    middle = split_candidates[split_candidates.size()/2];
+  } else {
+    middle = split_candidates[split_candidates.size()/2-1];
+    middle += split_candidates[split_candidates.size()/2];
+    middle /= 2.0f;
+  }
+
   for (int i = 0; i < curves.size(); ++i) {
     auto box = calc_box(curves[i]);
     if (box.boxMin[axes] >= middle) {
       right_child_curves.push_back(curves[i]);
       right_child_ids.push_back(curv_ids[i]);
-    } else if (box.boxMax[axes] < middle) {
+    } else if (box.boxMax[axes] <= middle) {
       left_child_curves.push_back(curves[i]);
       left_child_ids.push_back(curv_ids[i]);
     } else {

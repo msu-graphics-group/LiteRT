@@ -11,10 +11,14 @@ int main(int argc, const char **argv) {
   std::filesystem::current_path(exec_path.parent_path().parent_path());
   auto proj_path = std::filesystem::current_path(); 
 
-  NURBSCurve2D curve = load_nurbs_curve(proj_path / "resources" / "heart.nurbsc");
-  auto rbeziers = curve.decompose();
+  NURBSCurve2D circle = load_nurbs_curve(proj_path / "resources" / "circle.nurbsc");
+  NURBSCurve2D heart = load_nurbs_curve(proj_path / "resources" / "heart.nurbsc");
+  auto rbeziers = circle.decompose();
+  auto heart_rbeziers = heart.decompose();
+  std::copy(heart_rbeziers.begin(), heart_rbeziers.end(), std::back_inserter(rbeziers));
 
   auto [boxes, leaves] = get_kdtree_leaves(rbeziers);
+  std::cout << boxes.size() << std::endl;
 
   int w = 500, h = 500;
   Image2D<uint32_t> img(w, h);
