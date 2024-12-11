@@ -473,8 +473,40 @@ get_kdtree_leaves_helper(
     return;
   } 
   if (curves.size() == 1) {
-    res_leaves.push_back(KdTreeLeave{ curv_ids[0], 0 });
-    res_boxes.push_back(KdTreeBox{box_min, box_max});
+    auto &curve = curves[0];
+    auto box = calc_box(curve);
+    KdTreeBox box_left, box_right;
+    box_left.boxMin = box_right.boxMin = box_min;
+    box_left.boxMax = box_right.boxMax = box_max;
+    std::vector<RBCurve2D> left, right;
+    std::vector<uint32_t> left_ids, right_ids;
+    bool has_to_divide = false;
+    if (box.boxMin[axes] != box_min[axes]) {
+      has_to_divide = true;
+      box_left.boxMax[axes] = box.boxMin[axes];
+      box_right.boxMin[axes] = box.boxMin[axes];
+      right = std::move(curves);
+      right_ids = std::move(curv_ids);
+    } else if (box.boxMax[axes] != box_max[axes]) {
+      has_to_divide = true;
+      box_left.boxMax[axes] = box.boxMax[axes];
+      box_right.boxMin[axes] = box.boxMax[axes];
+      left = std::move(curves);
+      left_ids = std::move(curv_ids);
+    }
+
+    if (has_to_divide) {
+      get_kdtree_leaves_helper(
+        std::move(left), std::move(left_ids), res_boxes, res_leaves,
+        box_left.boxMin, box_left.boxMax, axes^1);
+      get_kdtree_leaves_helper(
+        std::move(right), std::move(right_ids), res_boxes, res_leaves,
+        box_right.boxMin, box_right.boxMax, axes^1);
+    } else {
+      res_leaves.push_back(KdTreeLeave{ curv_ids[0], 0 });
+      res_boxes.push_back(KdTreeBox{box_min, box_max});
+    }
+
     return;
   }
   
