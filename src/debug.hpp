@@ -12,11 +12,13 @@ namespace debug {
   enum class LOG {
     INFO,
     PASSED,
-    FAILED
+    FAILED,
+    STRANGE_PASSED,
+    STRANGE_FAILED
   };
 
   void title(std::string name);
-  void test(std::string name, bool statement);
+  void test(std::string name, bool statement, bool strange = false);
   std::ostream& operator<<(std::ostream& cout, LOG message);
 };
 

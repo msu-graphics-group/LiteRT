@@ -13,10 +13,17 @@ namespace debug {
     std::cout << LOG::INFO << name << std::endl;
   }
 
-  void test(std::string name, bool statement) {
+  void test(std::string name, bool statement, bool strange) {
     LOG message;
-    if (statement) message = LOG::PASSED;
-    else message = LOG::FAILED;
+    if (statement) {
+      if (!strange)
+        message = LOG::PASSED;
+      else message = LOG::STRANGE_PASSED;
+    } else {
+      if (!strange)
+        message = LOG::FAILED;
+      else message = LOG::STRANGE_FAILED;
+    }
     std::cout << message << name << std::endl;
   }
 
@@ -27,7 +34,12 @@ namespace debug {
       return cout << "\x1B[32m[PASSED]\033[0m ";
     else if (message == LOG::FAILED)
       return cout << "\x1B[31m[FAILED]\033[0m ";
-    return cout << "[?]\t\t";
+    else if (message == LOG::STRANGE_PASSED)
+      // 76m 112m 118m 154m 190m
+      return cout << "\x1B[38;5;118m[PASSED]\033[0m ";
+    else if (message == LOG::STRANGE_FAILED)
+      return cout << "\x1B[38;5;202m[FAILED]\033[0m ";
+    return cout << "[?]\t ";
   }
 };
 
