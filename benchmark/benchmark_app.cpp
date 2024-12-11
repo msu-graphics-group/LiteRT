@@ -643,24 +643,38 @@ int main(int argc, const char **argv)
   render_config.render_modes = config.render_modes;
   render_config.mesh_config_name = "default";
 
+  uint32_t configs_overall = 0u;
+  for (const auto &repr_config : config.repr_configs)
+    configs_overall += repr_config.second.size();
 
+  uint32_t tests_overall = config.models.size() * config.renderers.size() * config.backends.size() * configs_overall;
+
+  int counter_models = -1;
   for (const auto &model : config.models)
   {
+    ++counter_models;
     render_config.model_name = get_model_name(model);
     int model_build_flag_renderers = 0;
+
+    int counter_renderers = -1;
     for (const auto &renderer : config.renderers)
     {
+      ++counter_renderers;
       render_config.renderer = renderer;
       ++model_build_flag_renderers; // we don't need to rebuild models for each renderer
       int model_build_flag_backends = 0;
+
+      int counter_backends = -1;
       for (const auto &backend : config.backends)
       {
+        ++counter_backends;
         render_config.backend = backend;
         ++model_build_flag_backends; // we don't need to rebuild models for each backend
 
         bool do_slicing = backend != "CPU";
         bool recompile = true;
 
+        int counter_configs = -1; // for 2 cycles
         for (const auto &repr_config : config.repr_configs)
         {
           render_config.type = repr_config.first;
@@ -687,9 +701,23 @@ int main(int argc, const char **argv)
 
           for (const auto &repr_config_single_n: repr_config.second)
           {
+            ++counter_configs;
             uint32_t bracket_ind = repr_config_single_n.find('{');
             std::string repr_config_name = repr_config_single_n.substr(0, bracket_ind);
             std::string repr_config_single = repr_config_single_n.substr(bracket_ind);
+
+            // Print current test information
+
+            uint32_t current_test_id = counter_configs;
+            current_test_id += counter_backends * configs_overall;
+            current_test_id += counter_renderers * config.backends.size() * configs_overall;
+            current_test_id += counter_models * config.renderers.size() * config.backends.size() * configs_overall;
+            // config.models.size() * config.renderers.size() * config.backends.size() * configs_overall
+
+            printf("BENCHMARK TEST [%d/%d]: %s, %s, %s, %s, %s.\n", current_test_id + 1, tests_overall, render_config.model_name.c_str(), renderer.c_str(),
+                                                                    backend.c_str(), render_config.type.c_str(), repr_config_name.c_str());
+
+
             // Create directories for model and tests
 
             render_config.model = model;
