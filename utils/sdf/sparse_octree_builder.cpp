@@ -303,7 +303,7 @@ namespace sdf_converter
       out_octree.nodes[idx].val_off = idx*v_size*v_size*v_size;
       out_octree.nodes[idx].is_not_void = true;
 
-      if (ofs == 0)
+      //if (ofs == 0)
       {
 
         float min_val =  1000;
@@ -440,8 +440,10 @@ namespace sdf_converter
           //float3 ch_pos = pos + 2*d*float3((i >> 2) & 1, (i >> 1) & 1, i & 1);
           out_octree.nodes[idx].tex_coords[i] = float2(0, 0);//temp stubs
         }*/
-        if (ofs == 0) out_octree.nodes[idx].is_not_void = (min_val <= 0 && max_val >= 0);
-        //else out_octree.nodes[idx].is_not_void = true;
+        if (ofs == 0) 
+          out_octree.nodes[idx].is_not_void = (min_val <= 0 && max_val >= 0);
+        else 
+          out_octree.nodes[idx].is_not_void = true;
       }
     }
   }
