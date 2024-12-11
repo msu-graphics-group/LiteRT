@@ -353,6 +353,8 @@ void call_kernel_slicer(const BenchmarkAppEnums &enums, const std::string &repr_
   // out_f << slicer_command;
   // out_f.close();
 
+  slicer_command += " >> " + curr_p.native() + "/benchmark/saves/slicer_out.txt"; // + " 2>&1";
+
   std::filesystem::current_path(slicer_p);
   std::system(slicer_command.c_str());
   std::filesystem::current_path(curr_p);
@@ -539,7 +541,6 @@ int main(int argc, const char **argv)
   config.render_modes = filter_enum_params(config.render_modes, enums.render_modes);
 
   {
-    printf("Checking types...\n");
     std::vector <std::string> repr_types_vec = { "MESH" };
     std::map <std::string, std::vector<std::string>> repr_types_map;
 
@@ -616,13 +617,19 @@ int main(int argc, const char **argv)
 
   std::fstream f;
   std::filesystem::create_directories("benchmark/results");
+  std::filesystem::create_directories("benchmark/saves");
 
   f.open("benchmark/results/build.csv", std::ios::out);
-  f << "model_name, type, original_model_size(Mb), model_size(Mb), build_time(s)\n";
+  f << "model_name, type, config_name, original_model_size(Mb), model_size(Mb), build_time(s)\n";
   f.close();
 
   f.open("benchmark/results/render.csv", std::ios::out);
   f << "model_name, backend, device, renderer, type, config_name, render_mode, model_size(Mb), time_min(s), time_max(s), time_average(s), psnr_min, psnr_max, psnr_average, flip_min, flip_max, flip_average\n";
+  f.close();
+
+  f.open("benchmark/saves/cmake_out.txt", std::ios::in | std::ios::out | std::ios::trunc);
+  f.close();
+  f.open("benchmark/saves/slicer_out.txt", std::ios::in | std::ios::out | std::ios::trunc);
   f.close();
 
   // Benchmark loop
@@ -670,10 +677,10 @@ int main(int argc, const char **argv)
           {
             std::string use_gpu = backend != "CPU" ? "ON" : "OFF";
             std::string use_rtx = (backend == "RTX") ? "ON" : "OFF";
-            std::string reconfigure_cmd = "cmake -S . -B build -DUSE_VULKAN=" + use_gpu + " -DUSE_RTX=" + use_rtx + " -DCMAKE_BUILD_TYPE=Debug -DUSE_STB_IMAGE=ON";
+            std::string reconfigure_cmd = "cmake -S . -B build -DUSE_VULKAN=" + use_gpu + " -DUSE_RTX=" + use_rtx + " -DCMAKE_BUILD_TYPE=Debug -DUSE_STB_IMAGE=ON >> benchmark/saves/cmake_out.txt";
 
             std::system(reconfigure_cmd.c_str());
-            std::system("cmake --build build --target render_app -j8");
+            std::system("cmake --build build --target render_app -j8 >> benchmark/saves/cmake_out.txt");
             recompile = false;
           }
 
@@ -739,7 +746,7 @@ int main(int argc, const char **argv)
 
   if (config.backends.size() > 1 || (config.backends.size() == 1 && config.backends[0] != "CPU")) {
     // Run "slicer_execute.sh" with all types On
-    std::string slicer_execute_command = "bash slicer_execute.sh " + slicer_adir + " " + slicer_exec;
+    std::string slicer_execute_command = "bash slicer_execute.sh " + slicer_adir + " " + slicer_exec + " >> benchmark/saves/slicer_out.txt"; // + " 2>&1";
     std::system(slicer_execute_command.c_str());
   }
 
