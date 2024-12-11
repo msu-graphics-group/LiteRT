@@ -3097,6 +3097,9 @@ float BVHRT::COctreeV3_LoadDistanceValuesLeafGrid(uint32_t brickOffset, float3 v
   values[7] = min_val + range * dist;
   vmin = std::min(values[7], vmin);
 
+  //printf("loaded values %f %f %f %f %f %f %f %f\n", 
+  //       values[0], values[1], values[2], values[3], values[4], values[5], values[6], values[7]);
+
 #endif
   return vmin;
 }
@@ -3476,7 +3479,28 @@ void BVHRT::OctreeIntersectV3(uint32_t type, const float3 ray_pos, const float3 
       t0 = _t0 + d*p_f * _l;
       t1 = _t0 + d*(p_f + 1) * _l;
 
-      if((stack[top].info & COCTREE_LEAF_TYPE_MASK) != COCTREE_LEAF_TYPE_NOT_A_LEAF) //leaf node
+      bool is_leaf = (stack[top].info & COCTREE_LEAF_TYPE_MASK) != COCTREE_LEAF_TYPE_NOT_A_LEAF;
+      if (coctree_v3_header.lods > 0 && !is_leaf)
+      {
+        float t = std::max(t0.x, std::max(t0.y, t0.z));
+
+        const float base_lod_size = 256;
+        float lod_bias = -2.5;
+        float target_lod = 4;
+
+        float target_lod_size = target_lod >= 0 ? std::pow(2.0f, target_lod) - 0.1f : std::pow(2.0f, lod_bias)*base_lod_size/t;
+        if (float(level_sz) > target_lod_size)
+        {
+          uint32_t lodLeafId = m_SdfCompactOctreeV3Data[stack[top].nodeId + 1];
+          uint32_t type = (m_SdfCompactOctreeV3Data[stack[top].nodeId + 0] >> COCTREE_LOD_LEAF_TYPE_SHIFT) & COCTREE_LEAF_TYPE_MASK;
+          uint32_t infoOffset = stack[top].nodeId + 1 + coctree_v3_header.trans_off;
+          stack[top].nodeId = lodLeafId;
+          stack[top].info = (m_SdfCompactOctreeV3Data[infoOffset] << COCTREE_LEAF_TYPE_BITS) | type;
+          is_leaf = true;
+        }
+      }
+
+      if (is_leaf)
       {
         uint32_t p_mask = level_sz - 1;
         uint3 real_p = uint3(((a & 4) > 0) ? (~p.x & p_mask) : p.x,
@@ -3507,7 +3531,8 @@ void BVHRT::OctreeIntersectV3(uint32_t type, const float3 ray_pos, const float3 
           // if child is active
           if ((childrenInfo & (1u << childNode)) > 0)
           {
-            uint32_t childPos = 1 + coctree_v3_header.uints_per_child_info*bitCount(childrenInfo & ((1u << childNode) - 1));
+            uint32_t localChildPos = coctree_v3_header.lods + bitCount(childrenInfo & ((1u << childNode) - 1));
+            uint32_t childPos = 1 + coctree_v3_header.uints_per_child_info*localChildPos;
             uint32_t childOffset = m_SdfCompactOctreeV3Data[stack[top].nodeId + childPos];
             uint32_t childType = (childrenInfo >> (8 + COCTREE_LEAF_TYPE_BITS*childNode)) & COCTREE_LEAF_TYPE_MASK;
             uint32_t childInfoOffset = stack[top].nodeId + childPos + coctree_v3_header.trans_off;

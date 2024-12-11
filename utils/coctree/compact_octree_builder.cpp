@@ -683,24 +683,21 @@ namespace sdf_converter
     const unsigned ofs = octree.nodes[task.nodeId].offset;
     assert(!is_leaf(ofs)); // octree must have at least two levels
 
-    unsigned ch_count = 0u;
+    unsigned ch_count = header.lods;
     unsigned ch_is_active = 0u; // one bit per child
     unsigned ch_leaf_type = 0u;   // COCTREE_LEAF_TYPE_BITS bit per child
-    int child_offset_pos[8];
     unsigned tmp_node_buf[32];
 
     for (int i = 0; i < 8; i++)
     {
       if (is_leaf(octree.nodes[ofs + i].offset)) // process leaf
       {
-        child_offset_pos[i] = 0;
-
         bool is_border_leaf = octree.nodes[ofs + i].is_not_void;
         if (is_border_leaf)
         {
           unsigned leaf_offset = global_ctx.node_id_compact_offset[ofs + i];
           unsigned leaf_type = global_ctx.node_id_leaf_type[ofs + i];
-          assert(leaf_offset != 0xFFFFFFFFu);
+          assert(leaf_offset != 0xFFFFFFFFu && leaf_type != COCTREE_LEAF_TYPE_NOT_A_LEAF);
 
           tmp_node_buf[1 + header.uints_per_child_info*ch_count] = 0;
           tmp_node_buf[1 + header.uints_per_child_info*ch_count + header.trans_off] = 0;
@@ -729,7 +726,6 @@ namespace sdf_converter
         if (header.trans_off > 0) //if transform code is stored in separate uint, set it to zero to avoid UB
           tmp_node_buf[1 + header.uints_per_child_info*ch_count + header.trans_off] = 0;
 
-        child_offset_pos[i] = header.uints_per_child_info * ch_count + 1;
         ch_is_active |= (1 << i);
         ch_leaf_type |= (COCTREE_LEAF_TYPE_NOT_A_LEAF << i*COCTREE_LEAF_TYPE_BITS);
         ch_count++;
@@ -737,7 +733,30 @@ namespace sdf_converter
     }
     assert(ch_is_active > 0); // we must have at least one active child
     tmp_node_buf[0] = ch_is_active | (ch_leaf_type << 8u);
-    
+
+    if (header.lods > 0)
+    {
+      unsigned leaf_offset = global_ctx.node_id_compact_offset[task.nodeId];
+      unsigned leaf_type = global_ctx.node_id_leaf_type[task.nodeId];
+      assert(leaf_offset != 0xFFFFFFFFu && leaf_type != COCTREE_LEAF_TYPE_NOT_A_LEAF);
+
+      tmp_node_buf[1] = 0;
+      tmp_node_buf[1 + header.trans_off] = 0;
+
+      // if we use small nodes, we have limited space for leaf_offset. Make sure it fits
+      assert((leaf_offset & (header.idx_mask >> header.idx_sh)) == leaf_offset);
+      tmp_node_buf[1] |= leaf_offset << header.idx_sh;
+
+      if (header.sim_compression > 0) // if transform code is required, we save it here
+      {
+        uint32_t code = get_transform_code(header, global_ctx.transforms[task.nodeId], task.lod_size);
+        tmp_node_buf[1 + header.trans_off] |= code;
+      }
+
+      assert(tmp_node_buf[0] & (COCTREE_LEAF_TYPE_MASK << COCTREE_LOD_LEAF_TYPE_SHIFT) == 0);
+      tmp_node_buf[0] |= (leaf_type << COCTREE_LOD_LEAF_TYPE_SHIFT);
+    }
+
     int total_uints = header.uints_per_child_info*ch_count + 1;
     stat_nonleaf_bytes += total_uints * sizeof(uint32_t);
     
@@ -771,18 +790,19 @@ namespace sdf_converter
     // printf(")\n");
   }
 
-  void fill_task_layers_rec(const GlobalOctree &octree, 
+  void fill_task_layers_rec(const GlobalOctree &octree, bool use_lods,
                             std::vector<std::vector<COctreeV3BuildTask>> &node_layers, 
                             std::vector<COctreeV3BuildTask> &leaf_layer,
                             unsigned idx, unsigned level, uint3 p, unsigned lod_size)
   {
     if (octree.nodes[idx].is_not_void)
     {
-      if (is_leaf(octree.nodes[idx].offset))
+      if (is_leaf(octree.nodes[idx].offset) || use_lods)
       {
         leaf_layer.push_back(COctreeV3BuildTask(idx, p, lod_size));
       }
-      else
+      
+      if (!is_leaf(octree.nodes[idx].offset))
       {
         if (level >= node_layers.size())
           node_layers.resize(level+1);
@@ -794,7 +814,7 @@ namespace sdf_converter
           unsigned ch_idx = octree.nodes[idx].offset + i;
           uint3 ch_p = 2 * p + uint3((i & 4) >> 2, (i & 2) >> 1, i & 1);
           if (octree.nodes[ch_idx].is_not_void)
-          fill_task_layers_rec(octree, node_layers, leaf_layer, ch_idx, level + 1, ch_p, 2*lod_size);
+          fill_task_layers_rec(octree, use_lods, node_layers, leaf_layer, ch_idx, level + 1, ch_p, 2*lod_size);
         }
       }
     }
@@ -877,7 +897,7 @@ namespace sdf_converter
       int vox_count = v_size*v_size*v_size;
       for (int i = 0; i < octree.nodes.size(); i++)
       {
-        if (is_leaf(octree.nodes[i].offset) && octree.nodes[i].is_not_void)
+        if ((is_leaf(octree.nodes[i].offset) || co_settings.use_lods) && octree.nodes[i].is_not_void)
         {
           global_ctx.node_id_cleaf_id_remap[i] = global_ctx.compact_leaf_offsets.size();
           global_ctx.transforms[i] = scom::get_identity_transform(); //identity transform
@@ -905,6 +925,7 @@ namespace sdf_converter
     compact_octree.header.brick_pad = co_settings.brick_pad;
     compact_octree.header.sim_compression = co_settings.sim_compression;
     compact_octree.header.uv_size = co_settings.uv_size;
+    compact_octree.header.lods = co_settings.use_lods ? 1 : 0;
 
     //determine leaf packing modes
     bool can_use_bitpack = v_size*v_size*v_size <= 64; //we have 2 bit max on bitfield.
@@ -928,7 +949,7 @@ namespace sdf_converter
     //prepare tasks for compression
     std::vector<std::vector<COctreeV3BuildTask>> node_layers;
     std::vector<COctreeV3BuildTask> leaf_layer;
-    fill_task_layers_rec(octree, node_layers, leaf_layer, 0, 0, uint3(0, 0, 0), 1);
+    fill_task_layers_rec(octree, co_settings.use_lods, node_layers, leaf_layer, 0, 0, uint3(0, 0, 0), 1);
     
     auto t3 = std::chrono::high_resolution_clock::now();
     printf("prepare compression tasks %.2f ms\n", 1e-6f*std::chrono::duration_cast<std::chrono::nanoseconds>(t3 - t2).count());
@@ -937,7 +958,7 @@ namespace sdf_converter
     global_ctx.compact.reserve((1+8*COCTREE_MAX_CHILD_INFO_SIZE) * octree.nodes.size());
     global_ctx.compact.resize(( 1+8*COCTREE_MAX_CHILD_INFO_SIZE), 0u);
     global_ctx.node_id_compact_offset = std::vector<unsigned>(octree.nodes.size(), 0xFFFFFFFFu);
-    global_ctx.node_id_leaf_type = std::vector<unsigned>(octree.nodes.size(), 0u);
+    global_ctx.node_id_leaf_type = std::vector<unsigned>(octree.nodes.size(), COCTREE_LEAF_TYPE_NOT_A_LEAF);
     global_ctx.compact_leaf_types = std::vector<unsigned>(global_ctx.compact_leaf_offsets.size(), COCTREE_LEAF_TYPE_NOT_A_LEAF);
     
     //compress leaves (isn't thread safe)

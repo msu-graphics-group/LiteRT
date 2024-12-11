@@ -197,6 +197,7 @@ static constexpr unsigned COCTREE_LEAF_TYPE_SLICES              = 3; //separate 
 
 static constexpr unsigned COCTREE_LEAF_TYPE_BITS                = 2;
 static constexpr unsigned COCTREE_LEAF_TYPE_MASK                = 0x3;
+static constexpr unsigned COCTREE_LOD_LEAF_TYPE_SHIFT           = 30;
 static constexpr unsigned COCTREE_MAX_CHILD_INFO_SIZE           = 2; //size in uints
 static constexpr unsigned COCTREE_USE_BEST_LEAF_TYPE            = 1000;
 
@@ -210,6 +211,7 @@ struct COctreeV3Header
   uint32_t bits_per_value;  //6, 8, 10, 16, 32 bits per value is allowed
   uint32_t uv_size;         //0 if COctreeV3 is not textured, 1 for default (16 for u and v) and 2 for more precision (32 for u and v, not supported)
   uint32_t sim_compression; //0 or 1, indicates if similarity compression is used
+  uint32_t lods;            //0 or 1
   
   uint32_t default_leaf_type; //enum COctreeLeafType
   uint32_t fallback_leaf_type;//enum COctreeLeafType
@@ -254,6 +256,7 @@ struct COctreeV3Settings
   // If true, bricks can be saved as dense grid (COCTREE_LEAF_TYPE_GRID), if default_leaf_type
   // will result in larger memory footprint. It causes branching in shader and may slow it down.
   bool allow_fallback_to_unpacked_leaves = true;
+  bool use_lods = false;
 };
 
 //based on node_pack_mode and leaf_pack_mode, fill masks and other values dependant on them
@@ -307,6 +310,8 @@ static COctreeV3Header get_default_coctree_v3_header()
   
   header.default_leaf_type  = COCTREE_LEAF_TYPE_SLICES;
   header.fallback_leaf_type = COCTREE_LEAF_TYPE_GRID;
+
+  header.lods = 0;
 
   return header;
 }
