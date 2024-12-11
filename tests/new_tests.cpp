@@ -712,7 +712,7 @@ namespace litert_tests
     MultiRenderPreset preset = getDefaultPreset();
     preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
     preset.spp = 4;
-    SparseOctreeSettings settings(SparseOctreeBuildType::MESH_TLO, 6);
+    SparseOctreeSettings settings(SparseOctreeBuildType::MESH_TLO, 7);
 
     auto img_mesh = testing::create_image();
 
@@ -726,8 +726,12 @@ namespace litert_tests
       COctreeV3Settings co_settings;
       co_settings.brick_size = 3;
       co_settings.brick_pad  = 0;
+      co_settings.use_lods = true;
 
       COctreeV3 coctree = sdf_converter::create_COctree_v3(settings, co_settings, mesh);
+      save_coctree_v3(coctree, "saves/test_coctree_lods.bin");
+      ModelInfo info = get_info_coctree_v3(coctree);
+      save_scene_xml("saves/test_coctree_lods.xml", "test_coctree_lods.bin", info, 0, DemoScene::SINGLE_OBJECT);
       default_size = coctree.data.size();
       testing::render_scene(img, device, preset, coctree, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0));
       testing::save_image(img, "default");
@@ -854,6 +858,70 @@ namespace litert_tests
       testing::check_psnr(img_orig, img_comp, "Compressed (CA::HIERARCHICAL)", "Original", 40);
       testing::check_less(psnr_orig - psnr_comp, 1.5, "PSNR loss (CA::HIERARCHICAL)", "threshold");
     }
+  }
+
+  ADD_TEST(COctreeLODs, "Rendering COctrees with level of detail")
+  {
+    const unsigned device = DEVICE_GPU;
+
+    auto mesh = testing::load_vsgf_mesh(BUNNY_MESH, 0.95);
+
+    MultiRenderPreset preset = getDefaultPreset();
+    preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
+    preset.spp = 4;
+    SparseOctreeSettings settings_5(SparseOctreeBuildType::MESH_TLO, 5);
+    SparseOctreeSettings settings_6(SparseOctreeBuildType::MESH_TLO, 6);
+
+    auto img_mesh = testing::create_image();
+
+    testing::render_scene(img_mesh, device, preset, mesh, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0));
+    testing::save_image(img_mesh, "ref");
+
+    auto img_no_lods_5 = testing::create_image();
+    auto img_no_lods_6 = testing::create_image();
+    
+    COctreeV3Settings co_settings;
+    co_settings.brick_size = 3;
+    co_settings.brick_pad  = 0;
+    
+    {
+      co_settings.use_lods = false;
+
+      COctreeV3 coctree = sdf_converter::create_COctree_v3(settings_6, co_settings, mesh);
+      testing::render_scene(img_no_lods_6, device, preset, coctree, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0));
+      testing::save_image(img_no_lods_6, "no_lods_6");
+    } 
+    {
+      co_settings.use_lods = false;
+
+      COctreeV3 coctree = sdf_converter::create_COctree_v3(settings_5, co_settings, mesh);
+      testing::render_scene(img_no_lods_5, device, preset, coctree, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0));
+      testing::save_image(img_no_lods_5, "no_lods_5");
+    }  
+    {
+      co_settings.use_lods = true;
+      COctreeV3 coctree = sdf_converter::create_COctree_v3(settings_6, co_settings, mesh);
+      auto img = testing::create_image();
+
+      preset.fixed_lod = true;
+      preset.level_of_detail = 7;
+      testing::render_scene(img, device, preset, coctree, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0));
+      testing::save_image(img, "lod_6");
+      testing::check_psnr(img_no_lods_6, img, "LOD 6 fixed", "Original", 50);
+
+      preset.fixed_lod = true;
+      preset.level_of_detail = 6;
+      testing::render_scene(img, device, preset, coctree, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0));
+      testing::save_image(img, "lod_5");
+      testing::check_psnr(img_no_lods_5, img, "LOD 5 fixed", "Original", 50);
+
+      preset.fixed_lod = false;
+      preset.level_of_detail = 16;
+      testing::render_scene(img, device, preset, coctree, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0));
+      testing::save_image(img, "lod_dynamic");
+      testing::check_psnr(img_no_lods_6, img, "dynamic LOD", "Original", 50);
+      testing::check_psnr(img_mesh, img, "LOD 6 fixed", "Mesh", 30);
+    }   
   }
 
   ADD_TEST(PrecisedOctreeCreation, "Compare precised framed octree and standart framed octree")
