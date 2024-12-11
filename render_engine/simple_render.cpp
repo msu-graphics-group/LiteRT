@@ -768,6 +768,8 @@ void SimpleRender::SetupGUIElements()
 
   MultiRenderPreset preset = this->m_pRayTracer->GetPreset();
   int render_mode_int = preset.render_mode;
+  bool fixed_lod = preset.fixed_lod;
+  int level_of_detail = preset.level_of_detail;
   {
 //    ImGui::ShowDemoWindow();
     ImGui::Begin("Your render settings here");
@@ -788,11 +790,15 @@ void SimpleRender::SetupGUIElements()
     ImGui::Text("Fragment shader path: %s", FRAGMENT_SHADER_PATH.c_str());
     ImGui::Text("Render mode (RT):");
     ImGui::ListBox(".", &render_mode_int, multi_render_mode_items, sizeof(multi_render_mode_items) / sizeof(char*));
+    ImGui::Checkbox("Fixed lod", &fixed_lod);
+    ImGui::SliderInt("Level of detail", &level_of_detail, 0, 16);
     ImGui::End();
   }
 
   // Update preset
   preset.render_mode = render_mode_int;
+  preset.fixed_lod = fixed_lod;
+  preset.level_of_detail = level_of_detail;
   this->m_pRayTracer->SetPreset(preset);
 
   // Rendering
