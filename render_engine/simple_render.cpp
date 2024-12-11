@@ -770,6 +770,8 @@ void SimpleRender::SetupGUIElements()
   int render_mode_int = preset.render_mode;
   bool fixed_lod = preset.fixed_lod;
   int level_of_detail = preset.level_of_detail;
+  bool random_subsamples = preset.ray_gen_mode == RAY_GEN_MODE_RANDOM;
+  int spp = preset.spp;
   {
 //    ImGui::ShowDemoWindow();
     ImGui::Begin("Your render settings here");
@@ -792,6 +794,9 @@ void SimpleRender::SetupGUIElements()
     ImGui::ListBox(".", &render_mode_int, multi_render_mode_items, sizeof(multi_render_mode_items) / sizeof(char*));
     ImGui::Checkbox("Fixed lod", &fixed_lod);
     ImGui::SliderInt("Level of detail", &level_of_detail, 0, 16);
+    ImGui::SliderInt("Samples per pixel", &spp, 1, 16);
+    if (spp > 1)
+      ImGui::Checkbox("Random subsamples", &random_subsamples);
     ImGui::End();
   }
 
@@ -799,6 +804,8 @@ void SimpleRender::SetupGUIElements()
   preset.render_mode = render_mode_int;
   preset.fixed_lod = fixed_lod;
   preset.level_of_detail = level_of_detail;
+  preset.spp = spp;
+  preset.ray_gen_mode = random_subsamples ? RAY_GEN_MODE_RANDOM : RAY_GEN_MODE_REGULAR;
   this->m_pRayTracer->SetPreset(preset);
 
   // Rendering

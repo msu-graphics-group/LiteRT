@@ -84,6 +84,8 @@ void SimpleRender::SetupRTScene(const char *path)
   m_pRayTracer->GetAccelStruct()->CommitScene();
   auto preset  =getDefaultPreset();
   preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
+  preset.fixed_lod = false;
+  preset.level_of_detail = 8;
   m_pRayTracer->SetPreset(preset);
   OnScreenResolutionChangeRT();
 }
