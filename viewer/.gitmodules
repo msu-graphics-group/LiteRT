@@ -1,0 +1,9 @@
+[submodule "external/LiteMath"]
+	path = external/LiteMath
+	url = https://github.com/msu-graphics-group/LiteMath
+[submodule "external/imgui"]
+	path = external/imgui
+	url = https://github.com/ocornut/imgui
+[submodule "external/step"]
+	path = external/step
+	url = git@github.com:RevelcoS/STEP-parser.git
