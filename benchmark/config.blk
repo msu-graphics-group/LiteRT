@@ -1,6 +1,6 @@
 {
-backends:arr = { "CPU" }
-renderers:arr = { "MR" }
+backends:arr = { "CPU", "GPU" }
+renderers:arr = { "MR", "Hydra" }
 render_modes:arr = { "LAMBERT_NO_TEX" }
 models:arr = { }
 width:i = 512
@@ -35,6 +35,12 @@ repr_configs
     }
     original {
       decimate_percentage:r = 1.0
+    }
+  }
+  SDF_SVS 
+  {
+    small {
+      depth:i = 6
     }
   }
   SDF_SBS 
