@@ -3048,7 +3048,7 @@ float BVHRT::COctreeV3_LoadDistanceValuesLeafGrid(uint32_t brickOffset, float3 v
   uint32_t bits = header.bits_per_value;
   uint32_t max_val = header.bits_per_value == 32 ? 0xFFFFFFFF : ((1 << bits) - 1);
 
-  float add_transform = header.sim_compression > 0 ? 1.73205081f*sz_inv*(2*(float(transform_code & header.add_mask) / float(header.add_mask)) - 1) : 0.0f;
+  float add_transform = header.sim_compression > 0 ? 2*1.73205081f*sz_inv*(2*(float(transform_code & header.add_mask) / float(header.add_mask)) - 1) : 0.0f;
 
   float min_val = -float(m_SdfCompactOctreeV3Data[brickOffset + off_3 + 0]) / float(0xFFFFFFFFu) + add_transform;
   float range   =  (float(m_SdfCompactOctreeV3Data[brickOffset + off_3 + 1]) / float(0xFFFFFFFFu)) / max_val;
@@ -3097,8 +3097,11 @@ float BVHRT::COctreeV3_LoadDistanceValuesLeafGrid(uint32_t brickOffset, float3 v
   values[7] = min_val + range * dist;
   vmin = std::min(values[7], vmin);
 
-  //printf("loaded values %f %f %f %f %f %f %f %f\n", 
-  //       values[0], values[1], values[2], values[3], values[4], values[5], values[6], values[7]);
+  if (std::abs(add_transform) > 0.001f)
+  {
+  //printf("%u] loaded values %f %f %f %f %f %f %f %f, add = %f\n", 
+  //       brickOffset + off_5, values[0], values[1], values[2], values[3], values[4], values[5], values[6], values[7], add_transform);
+  }
 
 #endif
   return vmin;
@@ -3139,7 +3142,7 @@ float BVHRT::COctreeV3_LoadDistanceValuesLeafBitPack(uint32_t brickOffset, float
   uint32_t bits = header.bits_per_value;
   uint32_t max_val = header.bits_per_value == 32 ? 0xFFFFFFFF : ((1 << bits) - 1);
 
-  float add_transform = header.sim_compression > 0 ? 1.73205081f*sz_inv*(2*(float(transform_code & header.add_mask) / float(header.add_mask)) - 1) : 0.0f;
+  float add_transform = header.sim_compression > 0 ? 2*1.73205081f*sz_inv*(2*(float(transform_code & header.add_mask) / float(header.add_mask)) - 1) : 0.0f;
 
   float min_val = -float(m_SdfCompactOctreeV3Data[brickOffset + off_3 + 0]) / float(0xFFFFFFFFu) + add_transform;
   float range   =  (float(m_SdfCompactOctreeV3Data[brickOffset + off_3 + 1]) / float(0xFFFFFFFFu)) / max_val;
@@ -3208,7 +3211,7 @@ float BVHRT::COctreeV3_LoadDistanceValuesLeafSlices(uint32_t brickOffset, float3
   uint32_t bits = header.bits_per_value;
   uint32_t max_val = header.bits_per_value == 32 ? 0xFFFFFFFF : ((1 << bits) - 1);
 
-  float add_transform = header.sim_compression > 0 ? 1.73205081f*sz_inv*(2*(float(transform_code & header.add_mask) / float(header.add_mask)) - 1) : 0.0f;
+  float add_transform = header.sim_compression > 0 ? 2*1.73205081f*sz_inv*(2*(float(transform_code & header.add_mask) / float(header.add_mask)) - 1) : 0.0f;
 
   float min_val = -float(m_SdfCompactOctreeV3Data[brickOffset + off_3 + 0]) / float(0xFFFFFFFFu) + add_transform;
   float range   =  (float(m_SdfCompactOctreeV3Data[brickOffset + off_3 + 1]) / float(0xFFFFFFFFu)) / max_val;

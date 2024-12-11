@@ -76,13 +76,14 @@ uint32_t get_transform_code(const COctreeV3Header &header, const scom::Transform
   float sz_inv = 1.0f/lod_size;
 
   assert(t.rotation_id < scom::ROT_COUNT);
-  assert(t.add > -1.73205081f*sz_inv && t.add < 1.73205081f*sz_inv);
+  assert(t.add > -2*1.73205081f*sz_inv && t.add < 2*1.73205081f*sz_inv);
 
   uint32_t rot_code = t.rotation_id;
-  uint32_t add_code = uint32_t(((0.5f/1.73205081f)*t.add*lod_size + 0.5f) * float(header.add_mask)) & header.add_mask;
-
-  float add_restored = 1.73205081f*sz_inv*(2*(float(add_code & header.add_mask) / float(header.add_mask)) - 1);
-  //printf("add, restored: %f, %f\n", t.add, add_restored);
+  uint32_t raw_add_code = uint32_t(float((0.25f/1.73205081f)*t.add*lod_size + 0.5f) * float(header.add_mask));
+  uint32_t add_code = raw_add_code & header.add_mask;
+  float add_restored = 2*1.73205081f*sz_inv*(2*(float(add_code & header.add_mask) / float(header.add_mask)) - 1);
+  //if (std::abs(t.add - add_restored) > 0.01)
+  //  printf("add, restored: %f, %f\n", t.add, add_restored);
 
   assert((add_code|rot_code) != 0); //0 transform will be interpreted as non-leaf node, it is not allowed
 
@@ -255,10 +256,20 @@ namespace sdf_converter
         max_active = std::max(max_active, ctx.values_tmp[i]);
       }
     }
-    float range_active = max_active - min_active;
-    assert(range_active > 0 && range_active < 1);
-    //we cannot guarante min_active < 0 with similarity compression
+    // if (min_active > 0 || max_active < 0 || max_active - min_active < 0 || max_active - min_active > 1)
+    // {
+    //   printf("min_active %f %f \n", min_active, max_active);
+    //  for (int i = 0; i < v_size * v_size * v_size; i++)
+    //   ctx.values_tmp[i] = 0;
+    // }
     min_active = std::min(min_active, 0.0f);
+    max_active = std::min(max_active, 0.9999f);
+    if (max_active < 0)
+      max_active = 1e-6f;
+
+    float range_active = max_active - min_active;
+    //assert(range_active > 0 && range_active < 1); //we cannot guarantee range for higher LODs, but don't care
+    min_active = std::min(min_active, 0.0f);        //we cannot guarantee min_active < 0 with similarity compression
 
     uint32_t min_comp = (-min_active) * float(0xFFFFFFFFu);
     uint32_t range_comp = range_active * float(0xFFFFFFFFu);
@@ -343,7 +354,7 @@ namespace sdf_converter
       }
     }
 
-    distances_size_uint = (active_distances + vals_per_int - 1) / vals_per_int;
+    distances_size_uint = std::max(1u, (active_distances + vals_per_int - 1) / vals_per_int);
     assert(distances_size_uint > 0);
   }
 
@@ -753,7 +764,7 @@ namespace sdf_converter
         tmp_node_buf[1 + header.trans_off] |= code;
       }
 
-      assert(tmp_node_buf[0] & (COCTREE_LEAF_TYPE_MASK << COCTREE_LOD_LEAF_TYPE_SHIFT) == 0);
+      assert((tmp_node_buf[0] & (COCTREE_LEAF_TYPE_MASK << COCTREE_LOD_LEAF_TYPE_SHIFT)) == 0);
       tmp_node_buf[0] |= (leaf_type << COCTREE_LOD_LEAF_TYPE_SHIFT);
     }
 
@@ -979,6 +990,7 @@ namespace sdf_converter
       if (leaves_size < (tmp_header.idx_mask >> tmp_header.idx_sh))
         can_use_small_nodes = true;
     }
+    can_use_small_nodes = false; //TODO: give more bits for add transform
 
     //determine (non-leaf) nodes packing mode
     if (co_settings.sim_compression == false)

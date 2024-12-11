@@ -928,7 +928,7 @@ namespace litert_tests
       co_settings.sim_compression = true;
 
       scom::Settings scom_settings;
-      scom_settings.similarity_threshold = 0.0f;
+      scom_settings.similarity_threshold = 0.025f;
       scom_settings.search_algorithm = scom::SearchAlgorithm::BALL_TREE;
       scom_settings.cluster_non_leafs = true;
 
@@ -943,7 +943,7 @@ namespace litert_tests
       
       preset.fixed_lod = true;
       preset.level_of_detail = 6;
-      testing::render_scene(img, device, preset, coctree_comp, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0));
+      testing::render_scene(img, DEVICE_CPU, preset, coctree_comp, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0));
       testing::save_image(img, "lod_5_scom");
       testing::check_psnr(img_no_lods_5, img, "LOD 5 fixed + scom", "Original", 30);
     }

@@ -246,6 +246,16 @@ namespace scom
     int cluster_id = -1;
   };
 
+  void find_level_rec(const sdf_converter::GlobalOctree &g_octree, std::vector<int> &node_levels, int idx, int level)
+  {
+    node_levels[idx] = level;
+    if (!is_leaf(g_octree.nodes[idx].offset))
+    {
+      for (int i=0; i<8; i++)
+        find_level_rec(g_octree, node_levels, g_octree.nodes[idx].offset + i, level+1);
+    }
+  }
+
   void create_dataset(const sdf_converter::GlobalOctree &g_octree, const Settings &settings, const std::vector<bool> &surface_node,
                       unsigned surface_node_count, const std::vector<float> &average_brick_val, int rot_start, int rot_end,
                       /*out*/ Dataset &dataset)
@@ -261,9 +271,19 @@ namespace scom
     std::vector<float4x4> rotations4;
     initialize_rot_transforms(rotations4, v_size);
 
+    //find level of each node in octree to put nodes from different levels far apart
+    //currently clustering nodes with different sizes leads to artifacts
+    //TODO: find out if these artifact can be fixed and enable clustering for nodes 
+    //      with different sizes
+    std::vector<int> node_levels(g_octree.nodes.size(), -1);
+    find_level_rec(g_octree, node_levels, 0, 0);
+    int max_node_level = -1;
+    for (int i=0; i<node_levels.size(); i++)
+      max_node_level = std::max(max_node_level, node_levels[i]);
+
+    //create mult mask
     std::vector<float> distance_mult_mask(dist_count, 1.0f);
     float mult_sum = 0.0f;
-    //assert(settings.distance_importance.x == 1.0f || settings.distance_importance.y == 1.0f || settings.distance_importance.z == 1.0f);
     for (int x = 0; x < v_size; x++)
     {
       for (int y = 0; y < v_size; y++)
@@ -335,9 +355,12 @@ namespace scom
           }
         }
 
-        sum = sqrtf(sum);
-        for (int i=0;i<dataset.dim;i++)
-          dataset.all_points[off_dataset + i] /= sum;
+        float i_sum = 1.0f/sqrtf(sum);
+        for (int j=0;j<dataset.dim;j++)
+        {
+          dataset.all_points[off_dataset + j] = dataset.all_points[off_dataset + j]*powf(2, max_node_level - node_levels[i])*i_sum + 
+                                                node_levels[i];
+        }
       }
       cur_point_group++;
     }
