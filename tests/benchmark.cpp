@@ -33,7 +33,7 @@ void benchmark_framed_octree_intersection()
 {
   constexpr unsigned iters = 3;
   constexpr unsigned pass_size = 50;
-  SparseOctreeSettings settings(SparseOctreeBuildType::DEFAULT, 8);
+  SparseOctreeSettings settings(8);
   SdfSBSHeader header;
   header.brick_size = 1;
   header.brick_pad = 0;
@@ -213,7 +213,7 @@ void quality_check(const char *path)
 
   for (int depth = 6; depth <= 10; depth++)
   {
-    SparseOctreeSettings settings(SparseOctreeBuildType::MESH_TLO, depth);
+    SparseOctreeSettings settings(depth);
     std::vector<SdfSVSNode> svs_nodes = sdf_converter::create_sdf_SVS(settings, mesh);
 
     save_sdf_SVS(svs_nodes, ("saves/svs_"+std::to_string(depth)+".bin").c_str());
@@ -338,7 +338,7 @@ void main_benchmark(const std::string &path, const std::string &mesh_name, unsig
         {
           unsigned all_nodes_limit = 8*nodes_limit/9;
           t1 = std::chrono::steady_clock::now();
-          auto scene = sdf_converter::create_sdf_frame_octree(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, max_depth, all_nodes_limit), mesh);
+          auto scene = sdf_converter::create_sdf_frame_octree(SparseOctreeSettings(max_depth), mesh);
           t2 = std::chrono::steady_clock::now();
           float build_time = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
 
@@ -352,7 +352,7 @@ void main_benchmark(const std::string &path, const std::string &mesh_name, unsig
         else if (structure == "sdf_SVS")
         {
           t1 = std::chrono::steady_clock::now();
-          auto scene = sdf_converter::create_sdf_SVS(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, max_depth, nodes_limit), mesh);
+          auto scene = sdf_converter::create_sdf_SVS(SparseOctreeSettings(max_depth), mesh);
           t2 = std::chrono::steady_clock::now();
           float build_time = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
 
@@ -371,7 +371,7 @@ void main_benchmark(const std::string &path, const std::string &mesh_name, unsig
           header.bytes_per_value = 1;
 
           t1 = std::chrono::steady_clock::now();
-          auto scene = sdf_converter::create_sdf_SBS(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, max_depth, nodes_limit), header, mesh);
+          auto scene = sdf_converter::create_sdf_SBS(SparseOctreeSettings(max_depth), header, mesh);
           t2 = std::chrono::steady_clock::now();
           float build_time = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
 
@@ -391,7 +391,7 @@ void main_benchmark(const std::string &path, const std::string &mesh_name, unsig
           header.bytes_per_value = 1;
 
           t1 = std::chrono::steady_clock::now();
-          auto scene = sdf_converter::create_sdf_SBS(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, max_depth, nodes_limit), header, mesh);
+          auto scene = sdf_converter::create_sdf_SBS(SparseOctreeSettings(max_depth), header, mesh);
           t2 = std::chrono::steady_clock::now();
           float build_time = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
 
@@ -417,7 +417,7 @@ void main_benchmark(const std::string &path, const std::string &mesh_name, unsig
           header.bytes_per_value = 2;
 
           t1 = std::chrono::steady_clock::now();
-          auto scene = sdf_converter::create_sdf_SBS(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, max_depth, nodes_limit), header, mesh);
+          auto scene = sdf_converter::create_sdf_SBS(SparseOctreeSettings(max_depth), header, mesh);
           t2 = std::chrono::steady_clock::now();
           float build_time = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
 
@@ -436,7 +436,7 @@ void main_benchmark(const std::string &path, const std::string &mesh_name, unsig
           header.bytes_per_value = 1;
 
           t1 = std::chrono::steady_clock::now();
-          auto scene = sdf_converter::create_sdf_SBS(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, max_depth, nodes_limit), header, mesh);
+          auto scene = sdf_converter::create_sdf_SBS(SparseOctreeSettings(max_depth), header, mesh);
           t2 = std::chrono::steady_clock::now();
           float build_time = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
 
@@ -598,7 +598,7 @@ void main_benchmark(const std::string &path, const std::string &mesh_name, unsig
                   header.brick_pad = 1;
                   header.bytes_per_value = 1;
 
-                  SparseOctreeSettings settings(SparseOctreeBuildType::MESH_TLO, 5);
+                  SparseOctreeSettings settings(5);
 
                   pRender = CreateMultiRenderer(render_device, sbs.nodes.size()*std::pow(sbs.header.brick_size, 3) + 1);
                   auto indexed_SBS = sdf_converter::create_sdf_SBS_indexed_with_neighbors(settings, header, mesh, 0, pRender->getMaterials(), pRender->getTextures());

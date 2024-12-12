@@ -17,25 +17,26 @@ struct GridSettings
   unsigned size = 16;
 };
 
-enum class SparseOctreeBuildType
-{
-  DEFAULT = 0, //build from abstrace distance function, quite slow, but reliable
-  MESH_TLO = 1 //works only if building from mesh, faster for detailed octrees and medium-sized meshes
-};
-
 struct SparseOctreeSettings
 {
   SparseOctreeSettings() = default;
-  SparseOctreeSettings(SparseOctreeBuildType type, unsigned _depth, unsigned _nodes_limit = 1 << 24)
+  explicit SparseOctreeSettings(unsigned _depth, bool _fill_all_nodes = false)
   {
-    build_type = type;
     depth = _depth;
-    nodes_limit = _nodes_limit;
+    fill_all_nodes = _fill_all_nodes;
   }
-  unsigned depth = 1;
-  float remove_thr = 0.0001; //used only with SparseOctreeBuildType::DEFAULT
-  unsigned nodes_limit = 1 << 24;
-  SparseOctreeBuildType build_type = SparseOctreeBuildType::DEFAULT;
+  SparseOctreeSettings(unsigned _depth, float split_thr, unsigned min_depth = 1, bool _fill_all_nodes = false)
+  {
+    depth = _depth;
+    split_thr = split_thr;
+    min_depth = min_depth;
+    fill_all_nodes = _fill_all_nodes;
+  }
+
+  unsigned depth = 1;     //max depth of octree
+  unsigned min_depth = 1; //if node depth is less, it will be split no matter if it reduces error or not
+  float split_thr = 0.0f; //if and only if splitting the node will decrease error by this value, it will be done
+  bool  fill_all_nodes = false; //if false, only leaf nodes will be filled with actual distances
 };
 
 /*

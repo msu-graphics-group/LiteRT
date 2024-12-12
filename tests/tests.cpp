@@ -54,7 +54,7 @@ void litert_test_1_framed_octree()
     printf("bbox [(%f %f %f)-(%f %f %f)] to [(%f %f %f)-(%f %f %f)]\n",
            mb1.x, mb1.y, mb1.z, mb2.x, mb2.y, mb2.z, ma1.x, ma1.y, ma1.z, ma2.x, ma2.y, ma2.z);
 
-    SparseOctreeSettings settings(SparseOctreeBuildType::DEFAULT, 9);
+    SparseOctreeSettings settings(9);
     std::vector<SdfFrameOctreeNode> frame_nodes = sdf_converter::create_sdf_frame_octree(settings, mesh);
 
     unsigned W = 2048, H = 2048;
@@ -102,7 +102,7 @@ void litert_test_2_SVS()
     printf("bbox [(%f %f %f)-(%f %f %f)] to [(%f %f %f)-(%f %f %f)]\n",
            mb1.x, mb1.y, mb1.z, mb2.x, mb2.y, mb2.z, ma1.x, ma1.y, ma1.z, ma2.x, ma2.y, ma2.z);
 
-    SparseOctreeSettings settings(SparseOctreeBuildType::DEFAULT, 9);
+    SparseOctreeSettings settings(9);
     std::vector<SdfSVSNode> frame_nodes = sdf_converter::create_sdf_SVS(settings, mesh);
 
     unsigned W = 2048, H = 2048;
@@ -146,7 +146,7 @@ void litert_test_3_SBS_verify()
   auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path+"scenes/01_simple_scenes/data/teapot.vsgf").c_str());
   cmesh4::rescale_mesh(mesh, float3(-0.9, -0.9, -0.9), float3(0.9, 0.9, 0.9));
 
-  SparseOctreeSettings settings(SparseOctreeBuildType::DEFAULT, 8);
+  SparseOctreeSettings settings(8);
   SdfSBSHeader header_1_1{1,0,1,SDF_SBS_NODE_LAYOUT_DX};
   SdfSBSHeader header_1_2{1,0,2,SDF_SBS_NODE_LAYOUT_DX};
   SdfSBSHeader header_2_1{2,0,1,SDF_SBS_NODE_LAYOUT_DX};
@@ -326,7 +326,7 @@ void litert_test_4_hydra_scene()
   pRender->SetPreset(preset);
   pRender->SetViewport(0,0,W,H);
   pRender->CreateSceneFromHydra((scenes_folder_path+scene_name).c_str(), TYPE_SDF_SVS, 
-                                SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 9));
+                                SparseOctreeSettings(9));
 
   auto m1 = pRender->getWorldView();
   auto m2 = pRender->getProj();
@@ -379,7 +379,7 @@ void litert_test_5_interval_tracing()
   pRender->SetPreset(preset_1);
   pRender->SetViewport(0,0,W,H);
   pRender->CreateSceneFromHydra((scenes_folder_path+scene_name).c_str(), TYPE_SDF_SVS,
-                                SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 9));
+                                SparseOctreeSettings(9));
 
   auto m1 = pRender->getWorldView();
   auto m2 = pRender->getProj();
@@ -434,7 +434,7 @@ void litert_test_6_faster_bvh_build()
   pRender_1->SetViewport(0,0,W,H);
 auto t1 = std::chrono::steady_clock::now();
   pRender_1->CreateSceneFromHydra((scenes_folder_path+scene_name).c_str(), TYPE_SDF_SVS,
-                                  SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 9));
+                                  SparseOctreeSettings(9));
 auto t2 = std::chrono::steady_clock::now();
   time_1 = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
 
@@ -457,7 +457,7 @@ auto t2 = std::chrono::steady_clock::now();
   pRender_2->SetViewport(0,0,W,H);
 auto t3 = std::chrono::steady_clock::now();
   pRender_2->CreateSceneFromHydra((scenes_folder_path+scene_name).c_str(), TYPE_SDF_SVS,
-                                  SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, 9));
+                                  SparseOctreeSettings(9));
 auto t4 = std::chrono::steady_clock::now();
   time_2 = std::chrono::duration_cast<std::chrono::milliseconds>(t4 - t3).count();
   pRender_2->Render(image_2.data(), image_2.width(), image_2.height(), m1, m2, preset_2);
@@ -508,7 +508,7 @@ void litert_test_8_SDF_grid()
   pRender->SetPreset(preset);
   pRender->SetViewport(0,0,W,H);
   pRender->CreateSceneFromHydra((scenes_folder_path+scene_name).c_str(), TYPE_SDF_GRID, 
-                                SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 7));
+                                SparseOctreeSettings(7));
 
   auto m1 = pRender->getWorldView();
   auto m2 = pRender->getProj();
@@ -700,19 +700,19 @@ void litert_test_15_frame_octree_nodes_removal()
   const unsigned level_6_nodes = 21603;
 
   {
-    SparseOctreeSettings settings(SparseOctreeBuildType::DEFAULT, 6);
+    SparseOctreeSettings settings(6);
     octree_nodes_ref = sdf_converter::create_sdf_frame_octree(settings, mesh);
     sdf_converter::frame_octree_limit_nodes(octree_nodes_ref, level_6_nodes, false);
   }
 
   {
-    SparseOctreeSettings settings(SparseOctreeBuildType::DEFAULT, 7);
+    SparseOctreeSettings settings(7);
     octree_nodes_7 = sdf_converter::create_sdf_frame_octree(settings, mesh);
     sdf_converter::frame_octree_limit_nodes(octree_nodes_7, level_6_nodes, false);
   }
 
   {
-    SparseOctreeSettings settings(SparseOctreeBuildType::DEFAULT, 8);
+    SparseOctreeSettings settings(8);
     octree_nodes_8 = sdf_converter::create_sdf_frame_octree(settings, mesh);
     sdf_converter::frame_octree_limit_nodes(octree_nodes_8, level_6_nodes, false);
   }
@@ -814,7 +814,7 @@ void litert_test_17_all_types_sanity_check()
     }
 
     {
-      auto octree = sdf_converter::create_sdf_frame_octree(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 8, 64*64*64), mesh);
+      auto octree = sdf_converter::create_sdf_frame_octree(SparseOctreeSettings(8), mesh);
       auto pRender = CreateMultiRenderer(modes[m]);
       pRender->SetPreset(preset);
       pRender->SetScene(octree);
@@ -823,7 +823,7 @@ void litert_test_17_all_types_sanity_check()
     }
 
     {
-      auto octree = sdf_converter::create_sdf_SVS(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 8, 64*64*64), mesh);
+      auto octree = sdf_converter::create_sdf_SVS(SparseOctreeSettings(8), mesh);
       auto pRender = CreateMultiRenderer(modes[m]);
       pRender->SetPreset(preset);
       pRender->SetScene(octree);
@@ -838,7 +838,7 @@ void litert_test_17_all_types_sanity_check()
       header.bytes_per_value = 1;
       header.aux_data = SDF_SBS_NODE_LAYOUT_DX;
 
-      auto sbs = sdf_converter::create_sdf_SBS(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 8, 64*64*64), header, mesh);
+      auto sbs = sdf_converter::create_sdf_SBS(SparseOctreeSettings(8), header, mesh);
       auto pRender = CreateMultiRenderer(modes[m]);
       pRender->SetPreset(preset);
       pRender->SetScene(sbs);
@@ -1041,7 +1041,7 @@ void litert_test_18_mesh_normalization()
     render(ref_image, pRender, float3(2, 0, 2), float3(0, 0, 0), float3(0, 1, 0), preset);
     LiteImage::SaveImage<uint32_t>("saves/test_18_1ref.bmp", ref_image);
 
-    auto sdf = sdf_converter::create_sdf_SVS(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 9), mesh);
+    auto sdf = sdf_converter::create_sdf_SVS(SparseOctreeSettings(9), mesh);
     auto pRenderSdf = CreateMultiRenderer(DEVICE_GPU);
     pRenderSdf->SetPreset(preset);
     pRenderSdf->SetViewport(0,0,W,H);
@@ -1065,7 +1065,7 @@ void litert_test_18_mesh_normalization()
     LiteImage::SaveImage<uint32_t>("saves/test_18_2removed_holes.bmp", image_1);
 
 
-    auto sdf = sdf_converter::create_sdf_SVS(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 9), mesh_filled);
+    auto sdf = sdf_converter::create_sdf_SVS(SparseOctreeSettings(9), mesh_filled);
     auto pRenderSdf = CreateMultiRenderer(DEVICE_GPU);
     pRenderSdf->SetPreset(preset);
     pRenderSdf->SetViewport(0,0,W,H);
@@ -1087,7 +1087,7 @@ void litert_test_18_mesh_normalization()
     LiteImage::SaveImage<uint32_t>("saves/test_18_3compressed.bmp", image_2);
 
 
-    auto sdf = sdf_converter::create_sdf_SVS(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 9), mesh_compressed);
+    auto sdf = sdf_converter::create_sdf_SVS(SparseOctreeSettings(9), mesh_compressed);
     auto pRenderSdf = CreateMultiRenderer(DEVICE_GPU);
     pRenderSdf->SetPreset(preset);
     pRenderSdf->SetViewport(0,0,W,H);
@@ -1109,7 +1109,7 @@ void litert_test_18_mesh_normalization()
     LiteImage::SaveImage<uint32_t>("saves/test_18_4n_fixed.bmp", image_3);
 
 
-    auto sdf = sdf_converter::create_sdf_SVS(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 9), mesh_n_fixed);
+    auto sdf = sdf_converter::create_sdf_SVS(SparseOctreeSettings(9), mesh_n_fixed);
     auto pRenderSdf = CreateMultiRenderer(DEVICE_GPU);
     pRenderSdf->SetPreset(preset);
     pRenderSdf->SetViewport(0,0,W,H);
@@ -1312,7 +1312,7 @@ void litert_test_21_rf_to_mesh()
   }
 
   {
-    auto octree = sdf_converter::create_sdf_SVS(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 10), mesh);
+    auto octree = sdf_converter::create_sdf_SVS(SparseOctreeSettings(10), mesh);
     auto pRender = CreateMultiRenderer(DEVICE_GPU);
     pRender->SetPreset(preset);
     pRender->SetViewport(0,0,W,H);
@@ -1474,7 +1474,7 @@ void litert_test_23_textured_sdf()
   unsigned W = 2048, H = 2048;
 
   MultiRenderPreset preset = getDefaultPreset();
-  SparseOctreeSettings settings(SparseOctreeBuildType::MESH_TLO, 9);
+  SparseOctreeSettings settings(9);
   auto textured_octree = sdf_converter::create_sdf_frame_octree_tex(settings, mesh);
 
   LiteImage::Image2D<uint32_t> image(W, H);
@@ -1655,7 +1655,7 @@ void litert_test_24_demo_meshes()
         }
         else if (type_names[type_i] == "sdf_SVS")
         {
-          auto sdf_SVS = sdf_converter::create_sdf_frame_octree_tex(SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, 8), mesh);
+          auto sdf_SVS = sdf_converter::create_sdf_frame_octree_tex(SparseOctreeSettings(8), mesh);
           auto BVH_RT = dynamic_cast<BVHRT*>(pRender->GetAccelStruct()->UnderlyingImpl(0));
           assert(BVH_RT);
           unsigned geomId = BVH_RT->AddGeom_SdfFrameOctreeTex(sdf_SVS, pRender->GetAccelStruct()->UnderlyingImpl(0));
@@ -1763,7 +1763,7 @@ void litert_test_27_textured_colored_SBS()
 
   MultiRenderPreset preset = getDefaultPreset();
   preset.render_mode = MULTI_RENDER_MODE_LAMBERT;
-  SparseOctreeSettings settings(SparseOctreeBuildType::MESH_TLO, 9);
+  SparseOctreeSettings settings(9);
 
   SdfSBSHeader header;
   header.brick_size = 2;
@@ -1910,7 +1910,7 @@ void litert_test_28_sbs_reg()
 
   MultiRenderPreset preset = getDefaultPreset();
   preset.render_mode = MULTI_RENDER_MODE_LAMBERT;
-  SparseOctreeSettings settings(SparseOctreeBuildType::MESH_TLO, 5);
+  SparseOctreeSettings settings(5);
 
   SdfSBSHeader header;
   header.brick_size = 2;
@@ -2005,7 +2005,7 @@ void litert_test_29_smoothed_frame_octree()
 {
   auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path+"scenes/01_simple_scenes/data/teapot.vsgf").c_str());
 
-  SparseOctreeSettings settings(SparseOctreeBuildType::DEFAULT, 9);
+  SparseOctreeSettings settings(9);
 
   unsigned W = 2048, H = 2048;
   LiteImage::Image2D<uint32_t> image(W, H);
@@ -2062,9 +2062,6 @@ void litert_test_29_smoothed_frame_octree()
       
     }
 
-    settings.nodes_limit = frame_nodes.size();
-    //printf("%d\n", frame_nodes.size());
-
     frame_nodes = sdf_converter::create_sdf_frame_octree(settings, real_sdf, 1);
     //std::vector<unsigned> buffer = {0};
 
@@ -2114,7 +2111,7 @@ void litert_test_30_verify_SBS_SBSAdapt()
   auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path+"scenes/01_simple_scenes/data/teapot.vsgf").c_str());
   cmesh4::rescale_mesh(mesh, float3(-0.9, -0.9, -0.9), float3(0.9, 0.9, 0.9));
 
-  SparseOctreeSettings settings(SparseOctreeBuildType::DEFAULT, 8);
+  SparseOctreeSettings settings(8);
   SdfSBSHeader header_1_1{1,0,1,SDF_SBS_NODE_LAYOUT_DX};
   SdfSBSHeader header_1_2{1,0,2,SDF_SBS_NODE_LAYOUT_DX};
   SdfSBSHeader header_2_1{2,0,1,SDF_SBS_NODE_LAYOUT_DX};
@@ -2278,7 +2275,7 @@ void litert_test_32_smooth_sbs_normals()
 
   MultiRenderPreset preset = getDefaultPreset();
   preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
-  SparseOctreeSettings settings(SparseOctreeBuildType::MESH_TLO, 5);
+  SparseOctreeSettings settings(5);
 
   SdfSBSHeader header;
   header.brick_size = 4;
@@ -2343,7 +2340,7 @@ void litert_test_33_verify_SBS_SBSAdapt_split()
   auto mesh = cmesh4::LoadMeshFromVSGF((scenes_folder_path+"scenes/01_simple_scenes/data/teapot.vsgf").c_str());
   cmesh4::rescale_mesh(mesh, float3(-0.9, -0.9, -0.9), float3(0.9, 0.9, 0.9));
 
-  SparseOctreeSettings settings(SparseOctreeBuildType::DEFAULT, 8);
+  SparseOctreeSettings settings(8);
   std::vector<SdfSBSHeader> headers = {{2,0,2,SDF_SBS_NODE_LAYOUT_DX}};
   // Note: when SBS brick size is not a power of 2, it cannot be identically converted to Adaptive SBS
 
@@ -2462,7 +2459,7 @@ litert_test_34_tricubic_sbs()
     header.brick_pad = 1;
     header.bytes_per_value = 1;
 
-    SparseOctreeSettings settings(SparseOctreeBuildType::MESH_TLO, 5);
+    SparseOctreeSettings settings(5);
     MultiRenderPreset preset = getDefaultPreset();
     preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
     preset.interpolation_mode = INTERPOLATION_MODE_TRICUBIC;
@@ -2491,7 +2488,7 @@ litert_test_34_tricubic_sbs()
     header.brick_pad = 1;
     header.bytes_per_value = 1;
 
-    SparseOctreeSettings settings(SparseOctreeBuildType::MESH_TLO, 5);
+    SparseOctreeSettings settings(5);
     MultiRenderPreset preset = getDefaultPreset();
     preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
     preset.interpolation_mode = INTERPOLATION_MODE_TRILINEAR;
@@ -2531,7 +2528,7 @@ void litert_test_35_SBSAdapt_greed_creating()
     auto real_sdf = [&](const float3 &p, unsigned idx) -> float 
     { return bvh[idx].get_signed_distance(p); /*return std::sqrt(p.x * p.x + p.y * p.y + p.z * p.z) - 0.8;*/};
 
-  //SparseOctreeSettings settings(SparseOctreeBuildType::DEFAULT, 8);
+  //SparseOctreeSettings settings(8);
   //std::vector<SdfSBSHeader> headers = {{2,0,2,SDF_SBS_NODE_LAYOUT_DX}};
   // Note: when SBS brick size is not a power of 2, it cannot be identically converted to Adaptive SBS
 
@@ -2550,7 +2547,7 @@ void litert_test_35_SBSAdapt_greed_creating()
     LiteImage::SaveImage<uint32_t>("saves/test_35_mesh.bmp", image);
   }
 
-  SparseOctreeSettings settings(SparseOctreeBuildType::DEFAULT, 4);
+  SparseOctreeSettings settings(4);
   SdfSBSHeader header_1_1{8,0,4,SDF_SBS_NODE_LAYOUT_DX};
 
   SdfSBS sbs_1_1 = sdf_converter::create_sdf_SBS(settings, header_1_1, mesh);
@@ -2674,7 +2671,7 @@ void litert_test_37_sbs_adapt_comparison()
   for (unsigned depth = 2; depth < 6; ++depth, ++num_of_test)
   {
 
-    SparseOctreeSettings settings(SparseOctreeBuildType::DEFAULT, depth + 3);
+    SparseOctreeSettings settings(depth + 3);
     SdfSBSHeader header{2,0,4,SDF_SBS_NODE_LAYOUT_DX};
 
     SdfSBSAdapt sbs_adapt = sdf_converter::greed_sbs_adapt(real_sdf, depth);
@@ -2697,8 +2694,6 @@ void litert_test_37_sbs_adapt_comparison()
     }
 
     uint32_t lim_cnt = (sbs_adapt.nodes.size() * sizeof(SdfSBSAdaptNode) + sizeof(unsigned int) * sbs_adapt.values.size() + sizeof(sbs_adapt.header)) / 44;//44 take from benchmark
-
-    settings.nodes_limit = lim_cnt;
 
     SdfSBS sbs = sdf_converter::create_sdf_SBS(settings, header, mesh);
 
@@ -2735,20 +2730,20 @@ void litert_test_38_direct_octree_traversal()
 
   if (true)
   {
-  auto octree = sdf_converter::create_sdf_frame_octree(SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, 9, 2<<28),
+  auto octree = sdf_converter::create_sdf_frame_octree(SparseOctreeSettings(9),
                                                        mesh);
   save_sdf_frame_octree(octree, "saves/octree.bin");
-  auto SVS = sdf_converter::create_sdf_SVS(SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, 9, 2<<28),
+  auto SVS = sdf_converter::create_sdf_SVS(SparseOctreeSettings(9),
                                            mesh);
   save_sdf_SVS(SVS, "saves/SVS.bin");
   SdfSBSHeader header{4,0,2,SDF_SBS_NODE_LAYOUT_DX};
   
-  SdfSBS sbs = sdf_converter::create_sdf_SBS(SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, 7, 2<<28), header,
+  SdfSBS sbs = sdf_converter::create_sdf_SBS(SparseOctreeSettings(7), header,
                                              mesh);
   save_sdf_SBS(sbs, "saves/sbs.bin");
   }
 
-  COctreeV2 coctree_v2 = sdf_converter::create_COctree_v2(SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, 9, 2<<28),
+  COctreeV2 coctree_v2 = sdf_converter::create_COctree_v2(SparseOctreeSettings(9),
                                                           mesh);
 
   std::vector<SdfFrameOctreeNode> octree;
@@ -2931,7 +2926,7 @@ void litert_test_39_visualize_sbs_bricks()
 
 
   SdfSBSHeader header{2,0,1,SDF_SBS_NODE_LAYOUT_DX};
-  SparseOctreeSettings settings(SparseOctreeBuildType::DEFAULT, 6);
+  SparseOctreeSettings settings(6);
   SdfSBS sbs = sdf_converter::create_sdf_SBS(settings, header, mesh);
 
   GraphicsPrim boxes;
@@ -2982,7 +2977,7 @@ void litert_test_40_psdf_framed_octree()
   //cmesh4::transform_mesh(mesh, rotate4x4Y(M_PI));
   //cmesh4::transform_mesh(mesh, rotate4x4X(M_PI / 2.0f));
 
-  SparseOctreeSettings settings(SparseOctreeBuildType::MESH_TLO, 5);
+  SparseOctreeSettings settings(5);
   std::vector<SdfFrameOctreeNode> frame_nodes = sdf_converter::create_psdf_frame_octree(settings, mesh);
 
   MultiRenderPreset preset = getDefaultPreset();
@@ -3124,7 +3119,7 @@ void litert_test_41_coctree_v3()
     header.bytes_per_value = b/8;
     header.aux_data = SDF_SBS_NODE_LAYOUT_DX;
 
-    SdfSBS sbs = sdf_converter::create_sdf_SBS(SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, base_depth-2, 2<<28), header, mesh);
+    SdfSBS sbs = sdf_converter::create_sdf_SBS(SparseOctreeSettings(base_depth-2), header, mesh);
     
     const int bin_count = 20;
     std::vector<int> bins(bin_count+1, 0);
@@ -3178,9 +3173,9 @@ void litert_test_41_coctree_v3()
   }
 
   {
-    auto octree = sdf_converter::create_sdf_frame_octree(SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, base_depth, 2<<28),
+    auto octree = sdf_converter::create_sdf_frame_octree(SparseOctreeSettings(base_depth),
                                                          mesh);
-    auto coctree_v2 = sdf_converter::create_COctree_v2(SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, base_depth, 2<<28),
+    auto coctree_v2 = sdf_converter::create_COctree_v2(SparseOctreeSettings(base_depth),
                                                        mesh);
     
     auto pRender = CreateMultiRenderer(DEVICE_GPU);
@@ -3220,7 +3215,7 @@ void litert_test_41_coctree_v3()
   co_settings.uv_size = 0;
 
   auto t1 = std::chrono::steady_clock::now();
-  coctree = sdf_converter::create_COctree_v3(SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, base_depth - 2, 2 << 28),
+  coctree = sdf_converter::create_COctree_v3(SparseOctreeSettings(base_depth - 2),
                                              co_settings, mesh);
   auto t2 = std::chrono::steady_clock::now();
 
@@ -3276,7 +3271,7 @@ void litert_test_41_coctree_v3()
 
   if (false)
   {
-    auto octree = sdf_converter::create_sdf_frame_octree_tex(SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, base_depth, 2<<28),
+    auto octree = sdf_converter::create_sdf_frame_octree_tex(SparseOctreeSettings(base_depth),
                                                          mesh);
     
     auto pRender = CreateMultiRenderer(DEVICE_GPU);
@@ -3513,7 +3508,7 @@ void litert_test_43_hydra_integration()
 
   {
     std::string bin_filename = "test_43_svs.bin";
-    auto sdf_SVS = sdf_converter::create_sdf_SVS(SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, 8), mesh);
+    auto sdf_SVS = sdf_converter::create_sdf_SVS(SparseOctreeSettings(8), mesh);
     auto info = get_info_sdf_SVS(sdf_SVS);
     save_sdf_SVS(sdf_SVS, "saves/"+ bin_filename);
     save_scene_xml("saves/test_43_svs.xml", bin_filename, info, mat_id);
@@ -3548,7 +3543,7 @@ void litert_test_44_point_query()
   MultiRenderPreset preset = getDefaultPreset();
   preset.spp = 4;
 
-  SparseOctreeSettings settings(SparseOctreeBuildType::DEFAULT, 6);
+  SparseOctreeSettings settings(6);
   SdfSBSHeader header{};
   header.bytes_per_value = 2;
   header.brick_size = 2;
@@ -3615,7 +3610,7 @@ void litert_test_44_point_query()
 
     {
       printf("Mesh SBS...\n");
-      SdfSBS sbs = sdf_converter::create_sdf_SBS(SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, 6, 2 << 28), header, mesh);
+      SdfSBS sbs = sdf_converter::create_sdf_SBS(SparseOctreeSettings(6), header, mesh);
       auto pRender = CreateMultiRenderer(DEVICE_CPU);
       pRender->SetPreset(preset);
       pRender->SetViewport(0,0,W,H);
@@ -3648,7 +3643,7 @@ void litert_test_44_point_query()
       co_settings.brick_pad = 0;
       co_settings.bits_per_value = 8;
       co_settings.uv_size = 0;
-      coctree = sdf_converter::create_COctree_v3(SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, 6, 2 << 28), co_settings, mesh);
+      coctree = sdf_converter::create_COctree_v3(SparseOctreeSettings(6), co_settings, mesh);
 
       auto pRender = CreateMultiRenderer(DEVICE_CPU);
       pRender->SetPreset(preset);
@@ -3849,7 +3844,7 @@ void litert_test_48_openvdb()
     preset.interpolation_mode = INTERPOLATION_MODE_TRILINEAR;
     preset.spp = 1;
 
-    SparseOctreeSettings settings(SparseOctreeBuildType::MESH_TLO, 6, voxels_vdb);
+    SparseOctreeSettings settings(6);
 
     SdfSBSHeader header;
     header.brick_size = 4;
@@ -3887,7 +3882,7 @@ void litert_test_48_openvdb()
     preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
     preset.spp = 1;
 
-    SparseOctreeSettings settings(SparseOctreeBuildType::DEFAULT, 7);
+    SparseOctreeSettings settings(7);
     std::vector<SdfSVSNode> octree = sdf_converter::create_sdf_SVS(settings, mesh);
 
     auto pRender = CreateMultiRenderer(DEVICE_CPU);
@@ -3938,7 +3933,7 @@ void litert_test_49_similarity_compression()
 
   int depth = 6;
 
-  SparseOctreeSettings settings = SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, depth);
+  SparseOctreeSettings settings = SparseOctreeSettings(depth);
   sdf_converter::GlobalOctree g;
   g.header.brick_size = 2;
   g.header.brick_pad = 1;

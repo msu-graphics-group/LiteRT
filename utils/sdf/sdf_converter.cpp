@@ -66,7 +66,7 @@ namespace sdf_converter
     std::vector<SdfFrameOctreeNode> frame;
     {
       auto tlo = cmesh4::create_triangle_list_octree(mesh, settings.depth, 0, 1.0f);
-      mesh_octree_to_global_octree(mesh, tlo, g);
+      mesh_octree_to_global_octree(mesh, tlo, g, settings.split_thr, settings.min_depth, settings.depth);
     }
     global_octree_to_frame_octree(g, frame);
 
@@ -93,7 +93,7 @@ namespace sdf_converter
     std::vector<SdfSVSNode> svs;
     {
       auto tlo = cmesh4::create_triangle_list_octree(mesh, settings.depth, 0, 1.0f);
-      mesh_octree_to_global_octree(mesh, tlo, g);
+      mesh_octree_to_global_octree(mesh, tlo, g, settings.split_thr, settings.min_depth, settings.depth);
     }
     global_octree_to_SVS(g, svs);
 
@@ -127,7 +127,7 @@ namespace sdf_converter
     sbs.header = header;
     {
       auto tlo = cmesh4::create_triangle_list_octree(mesh, settings.depth, 0, 1.0f);
-      mesh_octree_to_global_octree(mesh, tlo, g);
+      mesh_octree_to_global_octree(mesh, tlo, g, settings.split_thr, settings.min_depth, settings.depth);
     }
     global_octree_to_SBS(g, sbs);
 
@@ -136,25 +136,17 @@ namespace sdf_converter
 
   std::vector<SdfFrameOctreeTexNode> create_sdf_frame_octree_tex(SparseOctreeSettings settings, const cmesh4::SimpleMesh &mesh)
   {
-    if (settings.build_type == SparseOctreeBuildType::MESH_TLO)
+    // we set max_triangles_per_leaf = 0 to prevent issues with big, textured triangles (see test with textured cube)
+    GlobalOctree g;
+    g.header.brick_size = 1;
+    g.header.brick_pad = 0;
     {
-      //we set max_triangles_per_leaf = 0 to prevent issues with big, textured triangles (see test with textured cube)
-      GlobalOctree g;
-      g.header.brick_size = 1;
-      g.header.brick_pad = 0;
-      {
       auto tlo = cmesh4::create_triangle_list_octree(mesh, settings.depth, 0, 1.0f);
-      mesh_octree_to_global_octree(mesh, tlo, g);
-      }
-      std::vector<SdfFrameOctreeTexNode> frame;
-      global_octree_to_frame_octree_tex(g, frame);
-      return frame;
+      mesh_octree_to_global_octree(mesh, tlo, g, settings.split_thr, settings.min_depth, settings.depth);
     }
-    else
-    {
-      printf("Frame octree with texture can be built only from mesh with MESH_TLO build type\n");
-      return {};
-    }
+    std::vector<SdfFrameOctreeTexNode> frame;
+    global_octree_to_frame_octree_tex(g, frame);
+    return frame;
   }
 
   SdfSBS create_sdf_SBS_tex(SparseOctreeSettings settings, SdfSBSHeader header, const cmesh4::SimpleMesh &mesh, bool noisy)
@@ -179,7 +171,7 @@ namespace sdf_converter
     }
     else
     {
-      mesh_octree_to_global_octree(mesh, tlo, g);
+      mesh_octree_to_global_octree(mesh, tlo, g, settings.split_thr, settings.min_depth, settings.depth);
     }
 
     SdfSBS sbs;
@@ -198,7 +190,7 @@ namespace sdf_converter
     g.header.brick_pad = 0;
     {
       auto tlo = cmesh4::create_triangle_list_octree(mesh, settings.depth, 0, 1.0f);
-      mesh_octree_to_global_octree(mesh, tlo, g);
+      mesh_octree_to_global_octree(mesh, tlo, g, settings.split_thr, settings.min_depth, settings.depth);
     }
     global_octree_to_COctreeV2(g, coctree);
 
@@ -215,7 +207,7 @@ namespace sdf_converter
     g.header.brick_pad = co_settings.brick_pad;
     {
       auto tlo = cmesh4::create_triangle_list_octree(mesh, settings.depth, 0, 1.0f + 0.5f*co_settings.brick_pad/(float)co_settings.brick_size);
-      mesh_octree_to_global_octree(mesh, tlo, g);
+      mesh_octree_to_global_octree(mesh, tlo, g, settings.split_thr, settings.min_depth, settings.depth);
     }
     global_octree_to_COctreeV3(g, coctree, co_settings);
     
@@ -234,7 +226,7 @@ namespace sdf_converter
     g.header.brick_pad = co_settings.brick_pad;
     {
       auto tlo = cmesh4::create_triangle_list_octree(mesh, settings.depth, 0, 1.0f);
-      mesh_octree_to_global_octree(mesh, tlo, g);
+      mesh_octree_to_global_octree(mesh, tlo, g, settings.split_thr, settings.min_depth, settings.depth);
     }
     global_octree_to_COctreeV3(g, coctree, co_settings, scom_settings);
 
@@ -245,19 +237,14 @@ namespace sdf_converter
                                             GlobalOctreeHeader &header)
   {
     assert(header.brick_size != 0);
-    if (settings.build_type != SparseOctreeBuildType::MESH_TLO)
-    {
-      printf("WRONG FUNCTION\n");
-      return {};
-    }
     float mult = (float) (header.brick_pad * 2 + header.brick_size);
     mult /= (float) header.brick_size;
-    GlobalOctree glob;
-    glob.header = header;
+    GlobalOctree g;
+    g.header = header;
     {
       auto tlo = cmesh4::create_triangle_list_octree(mesh, settings.depth, 0, mult);//change 1.0f to another mult depend of the pad
-      mesh_octree_to_global_octree(mesh, tlo, glob);
+      mesh_octree_to_global_octree(mesh, tlo, g, settings.split_thr, settings.min_depth, settings.depth);
     }
-    return glob;
+    return g;
   }
 }

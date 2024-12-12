@@ -49,7 +49,7 @@ void diff_render_test_1_forward_pass()
   preset.sdf_node_intersect = SDF_OCTREE_NODE_INTERSECT_NEWTON;
   preset.spp = 16;
   
-  SparseOctreeSettings settings(SparseOctreeBuildType::MESH_TLO, 5);
+  SparseOctreeSettings settings(5);
 
   SdfSBSHeader header;
   header.brick_size = 4;
@@ -574,7 +574,7 @@ void diff_render_test_3_optimize_color()
   preset.ray_gen_mode = RAY_GEN_MODE_RANDOM;
   preset.spp = 16;
   
-  SparseOctreeSettings settings(SparseOctreeBuildType::MESH_TLO, 7);
+  SparseOctreeSettings settings(7);
 
   SdfSBSHeader header;
   header.brick_size = 2;
@@ -1502,7 +1502,7 @@ void diff_render_test_8_optimize_with_lambert()
   preset.ray_gen_mode = RAY_GEN_MODE_RANDOM;
   preset.spp = 16;
   
-  SparseOctreeSettings settings(SparseOctreeBuildType::MESH_TLO, 7);
+  SparseOctreeSettings settings(7);
 
   SdfSBSHeader header;
   header.brick_size = 2;
@@ -2305,7 +2305,7 @@ void diff_render_test_22_border_sampling_accuracy_mask()
     pRender->RenderFloat(image_ref.data(), image_ref.width(), image_ref.height(), view[0], proj[0], preset);
     LiteImage::SaveImage<float4>("saves/test_dr_22_ref.bmp", image_ref); 
 
-    SparseOctreeSettings settings(SparseOctreeBuildType::MESH_TLO, 2);
+    SparseOctreeSettings settings(2);
 
     SdfSBSHeader header;
     header.brick_size = 16;
@@ -2712,7 +2712,7 @@ void diff_render_test_28_border_sampling_normals_vis()
     pRender->RenderFloat(image_ref.data(), image_ref.width(), image_ref.height(), view[0], proj[0], preset);
     LiteImage::SaveImage<float4>("saves/test_dr_27_ref.bmp", image_ref); 
 
-    SparseOctreeSettings settings(SparseOctreeBuildType::MESH_TLO, 2);
+    SparseOctreeSettings settings(2);
 
     SdfSBSHeader header;
     header.brick_size = 16;

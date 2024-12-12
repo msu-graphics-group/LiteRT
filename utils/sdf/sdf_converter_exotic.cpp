@@ -139,19 +139,11 @@ namespace sdf_converter
 
   std::vector<SdfFrameOctreeNode> create_psdf_frame_octree(SparseOctreeSettings settings, const cmesh4::SimpleMesh &mesh)
   {
-    if (settings.build_type == SparseOctreeBuildType::MESH_TLO)
-    {
-      auto tlo = cmesh4::create_triangle_list_octree(mesh, settings.depth, 0, 1.0f);
-      std::vector<SdfFrameOctreeNode> frame;
-      mesh_octree_to_psdf_frame_octree(mesh, tlo, frame);
-      //frame_octree_limit_nodes(frame, settings.nodes_limit, true);
-      return frame;
-    }
-    else
-    {
-      printf("PSDF frame octree can be built only from mesh with MESH_TLO build type\n");
-      return {};
-    }
+    auto tlo = cmesh4::create_triangle_list_octree(mesh, settings.depth, 0, 1.0f);
+    std::vector<SdfFrameOctreeNode> frame;
+    mesh_octree_to_psdf_frame_octree(mesh, tlo, frame);
+    // frame_octree_limit_nodes(frame, settings.nodes_limit, true);
+    return frame;
   }
 
   SdfSBS create_sdf_SBS_col(SparseOctreeSettings settings, SdfSBSHeader header, const cmesh4::SimpleMesh &mesh, unsigned mat_id,
@@ -907,11 +899,6 @@ namespace sdf_converter
   std::vector<SdfFrameOctreeNode> create_vmpdf_frame_octree(SparseOctreeSettings settings, 
                                                                      const cmesh4::SimpleMesh &mesh)
   {
-    if (settings.build_type != SparseOctreeBuildType::MESH_TLO)
-    {
-      printf("VMPDF frame octree can be built only from mesh with MESH_TLO build type\n");
-      return {};
-    }
     auto tlo = cmesh4::create_triangle_list_octree(mesh, settings.depth, 0, 1.0f);
     std::vector<SdfFrameOctreeNode> frame;
     mesh_octree_to_vmpdf(mesh, tlo, frame);
@@ -2040,10 +2027,7 @@ namespace sdf_converter
 
   std::vector<SdfFrameOctreeNode> create_sdf_frame_octree(SparseOctreeSettings settings, MultithreadedDistanceFunction sdf, float eps, bool is_smooth, bool fix_artefacts)
   {
-    assert(settings.remove_thr >= 0);//copy from another functions
     assert(settings.depth > 1);
-    assert(settings.build_type == SparseOctreeBuildType::DEFAULT); //MESH_TLO available only when building from mesh
-
     return construct_sdf_frame_octree(settings, sdf, eps, 1, is_smooth, fix_artefacts);
   }
 }

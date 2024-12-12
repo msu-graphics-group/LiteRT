@@ -180,9 +180,7 @@ namespace BenchmarkBackend
     cmesh4::SimpleMesh mesh = cmesh4::LoadMesh(model_path.c_str());
     cmesh4::set_mat_id(mesh, mat_id);
 
-    SparseOctreeSettings settings{};
-    settings.build_type = SparseOctreeBuildType::MESH_TLO;
-    settings.depth = repr_config.get_int("depth");
+    SparseOctreeSettings settings(repr_config.get_int("depth"));
 
     std::string fname_no_ext = generate_filename_model_no_ext(model_path, repr_type, repr_config_name);
     std::string tmp_fname = get_model_name(fname_no_ext);
@@ -675,7 +673,7 @@ namespace BenchmarkBackend
       depth = 8;
     }
 
-    SparseOctreeSettings settings(SparseOctreeBuildType::DEFAULT, depth);
+    SparseOctreeSettings settings(depth);
     std::vector<SdfSVSNode> frame_nodes = sdf_converter::create_sdf_SVS(settings, mesh);
     memory = sizeof(SdfSVSNode) * frame_nodes.size() / 1024.f / 1024.f;
 
@@ -756,7 +754,7 @@ namespace BenchmarkBackend
       header.brick_size = 5;
     }
 
-    auto sbs = sdf_converter::create_sdf_SBS(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 5), header, mesh);
+    auto sbs = sdf_converter::create_sdf_SBS(SparseOctreeSettings(5), header, mesh);
 
     MultiRenderPreset preset = createPreset(renderer, spp);
 

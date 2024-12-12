@@ -79,7 +79,7 @@ void check_model(const std::string &path)
 	for (int depth = 3; depth < max_depth; depth++)
 	{
 		printf("[check_model::INFO] Building SDF with depth %d\n", depth);
-		SparseOctreeSettings settings = SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, depth);
+		SparseOctreeSettings settings = SparseOctreeSettings(depth);
 		sdf_converter::GlobalOctree g;
 		g.header.brick_size = 4;
 		g.header.brick_pad = 0;
@@ -288,7 +288,7 @@ namespace model_validator
 		for (size_t depth = MIN_DEPTH; depth <= MAX_DEPTH; depth++)
 		{
 
-			SparseOctreeSettings settings = SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, depth);
+			SparseOctreeSettings settings = SparseOctreeSettings(depth);
 			sdf_converter::GlobalOctree g;
 			g.header.brick_size = 4;
 			g.header.brick_pad = 1;

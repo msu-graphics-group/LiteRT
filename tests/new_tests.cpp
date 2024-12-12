@@ -45,7 +45,7 @@ namespace litert_tests
 
     auto mesh = testing::load_vsgf_mesh(TEAPOT_MESH);
 
-    SparseOctreeSettings settings(SparseOctreeBuildType::DEFAULT, OCTREE_DEPTH);
+    SparseOctreeSettings settings(OCTREE_DEPTH);
 
     struct sbs_type
     {
@@ -135,7 +135,7 @@ namespace litert_tests
           bvh_preset,
           scene,
           TYPE_SDF_SVS,
-          SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 9),
+          SparseOctreeSettings(9),
           "creating BVH from Hydra scene");
       testing::save_image(bvh_image, "bvh");
     }
@@ -146,7 +146,7 @@ namespace litert_tests
           tlo_bvh_preset,
           scene,
           TYPE_SDF_SVS,
-          SparseOctreeSettings(SparseOctreeBuildType::MESH_TLO, 9),
+          SparseOctreeSettings(9),
           "creating mesh TLO BVH from Hydra scene");
       testing::save_image(tlo_bvh_image, "tlo_bvh");
     }
@@ -180,7 +180,7 @@ namespace litert_tests
         preset,
         scene,
         TYPE_SDF_GRID,
-        SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 7),
+        SparseOctreeSettings(7),
         "creating SDF grid from Hydra scene");
     testing::save_image(image, "grid");
 
@@ -225,11 +225,11 @@ namespace litert_tests
     timer.end();
 
     timer = testing::ScopedTimer("creating frame octree from mesh");
-    auto octree = sdf_converter::create_sdf_frame_octree(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 8, 64 * 64 * 64), mesh);
+    auto octree = sdf_converter::create_sdf_frame_octree(SparseOctreeSettings(8), mesh);
     timer.end();
 
     timer = testing::ScopedTimer("creating SVS from mesh");
-    auto svs = sdf_converter::create_sdf_SVS(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 8, 64 * 64 * 64), mesh);
+    auto svs = sdf_converter::create_sdf_SVS(SparseOctreeSettings(8), mesh);
     timer.end();
 
     SdfSBSHeader header;
@@ -238,7 +238,7 @@ namespace litert_tests
     header.bytes_per_value = 1;
     header.aux_data = SDF_SBS_NODE_LAYOUT_DX;
     timer = testing::ScopedTimer("creating SDF SBS from mesh");
-    auto sbs = sdf_converter::create_sdf_SBS(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 8, 64 * 64 * 64), header, mesh);
+    auto sbs = sdf_converter::create_sdf_SBS(SparseOctreeSettings(8), header, mesh);
     timer.end();
 
     std::vector<unsigned> modes = {DEVICE_CPU, DEVICE_GPU, DEVICE_GPU_RTX};
@@ -327,7 +327,7 @@ namespace litert_tests
     testing::save_image(ref, "ref");
 
     testing::ScopedTimer timer("creating SDF SVS for Mesh");
-    auto svs = sdf_converter::create_sdf_SVS(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 9), mesh);
+    auto svs = sdf_converter::create_sdf_SVS(SparseOctreeSettings(9), mesh);
     timer.end();
 
     testing::render_scene(ref_svs, DEVICE_GPU, preset, svs, float3(2, 0, 2), float3(0, 0, 0), float3(0, 1, 0));
@@ -351,7 +351,7 @@ namespace litert_tests
       testing::check_psnr(ref, image, "Mesh", mod_names[i] + " Mesh", 45);
 
       testing::ScopedTimer timer("creating SDF SVS for " + mod_names[i] + " Mesh");
-      auto svs = sdf_converter::create_sdf_SVS(SparseOctreeSettings(SparseOctreeBuildType::DEFAULT, 9), mod_meshes[i]);
+      auto svs = sdf_converter::create_sdf_SVS(SparseOctreeSettings(9), mod_meshes[i]);
       timer.end();
 
       testing::render_scene(image, DEVICE_GPU, preset, svs, float3(2, 0, 2), float3(0, 0, 0), float3(0, 1, 0));
@@ -387,7 +387,7 @@ namespace litert_tests
 
     MultiRenderPreset preset = getDefaultPreset();
     preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
-    SparseOctreeSettings settings(SparseOctreeBuildType::MESH_TLO, 5);
+    SparseOctreeSettings settings(5);
 
     SdfSBSHeader header;
     header.brick_size = 4;
@@ -618,8 +618,8 @@ namespace litert_tests
     global_sdf.header = global_mesh.header;
 
 
-    SparseOctreeSettings settings(SparseOctreeBuildType::MESH_TLO, OCTREE_DEPTH), 
-                         settings2(SparseOctreeBuildType::DEFAULT, OCTREE_DEPTH);
+    SparseOctreeSettings settings(OCTREE_DEPTH), 
+                         settings2(OCTREE_DEPTH);
     auto tlo = cmesh4::create_triangle_list_octree(mesh, OCTREE_DEPTH, 0, 1.0f);
 
     
@@ -651,7 +651,7 @@ namespace litert_tests
     MultiRenderPreset preset = getDefaultPreset();
     preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
     preset.spp = 4;
-    SparseOctreeSettings settings(SparseOctreeBuildType::MESH_TLO, 6);
+    SparseOctreeSettings settings(6);
 
     auto img_mesh = testing::create_image();
 
@@ -733,7 +733,7 @@ namespace litert_tests
     MultiRenderPreset preset = getDefaultPreset();
     preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
     preset.spp = 4;
-    SparseOctreeSettings settings(SparseOctreeBuildType::MESH_TLO, 6);
+    SparseOctreeSettings settings(6);
 
     auto img_mesh = testing::create_image();
 
@@ -804,8 +804,8 @@ namespace litert_tests
     MultiRenderPreset preset = getDefaultPreset();
     preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
     preset.spp = 4;
-    SparseOctreeSettings settings_5(SparseOctreeBuildType::MESH_TLO, 5);
-    SparseOctreeSettings settings_6(SparseOctreeBuildType::MESH_TLO, 6);
+    SparseOctreeSettings settings_5(5);
+    SparseOctreeSettings settings_6(6);
 
     auto img_mesh = testing::create_image();
 
@@ -903,8 +903,8 @@ namespace litert_tests
     global_prec.header = global_framed.header;
 
 
-    SparseOctreeSettings settings(SparseOctreeBuildType::MESH_TLO, OCTREE_DEPTH), 
-                         settings2(SparseOctreeBuildType::DEFAULT, OCTREE_DEPTH);
+    SparseOctreeSettings settings(OCTREE_DEPTH), 
+                         settings2(OCTREE_DEPTH);
     auto tlo = cmesh4::create_triangle_list_octree(mesh, OCTREE_DEPTH, 0, 1.0f);
 
     
@@ -959,7 +959,7 @@ namespace litert_tests
     MultiRenderPreset preset = getDefaultPreset();
     preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
     preset.spp = 4;
-    SparseOctreeSettings settings(SparseOctreeBuildType::MESH_TLO, 5);
+    SparseOctreeSettings settings(5);
 
     auto img_mesh = testing::create_image();
     auto img = testing::create_image();
