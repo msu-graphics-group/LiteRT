@@ -11,10 +11,14 @@ int main(int argc, const char **argv) {
   std::filesystem::current_path(exec_path.parent_path().parent_path());
   auto proj_path = std::filesystem::current_path(); 
 
-  NURBSCurve2D curve = load_nurbs_curve(proj_path / "resources" / "heart.nurbsc");
-  auto rbeziers = curve.decompose();
+  NURBSCurve2D circle = load_nurbs_curve(proj_path / "resources" / "circle.nurbsc");
+  NURBSCurve2D heart = load_nurbs_curve(proj_path / "resources" / "heart.nurbsc");
+  auto rbeziers = circle.decompose();
+  auto heart_rbeziers = heart.decompose();
+  std::copy(heart_rbeziers.begin(), heart_rbeziers.end(), std::back_inserter(rbeziers));
 
   auto [boxes, leaves] = get_kdtree_leaves(rbeziers);
+  std::cout << boxes.size() << std::endl;
 
   int w = 500, h = 500;
   Image2D<uint32_t> img(w, h);
@@ -46,8 +50,8 @@ int main(int argc, const char **argv) {
     vs.resize(std::unique(vs.begin(), vs.end())-vs.begin());
     for (int span = 0; span < vs.size()-1; ++span) {
       uchar4 color = (span % 2 == 0) ? uchar4{0, 255, 0, 255} : uchar4{255, 0, 0, 255};
-      int x_min = static_cast<int>(vs[span]*w);
-      int x_max = static_cast<int>(vs[span+1]*h);
+      int x_min = clamp(static_cast<int>(vs[span]*w), 0, w-1);
+      int x_max = clamp(static_cast<int>(vs[span+1]*w), 0, w-1);
       for (int x = x_min; x < x_max; ++x) {
         img[int2{x, y}] = color.u32;
       }
@@ -68,8 +72,8 @@ int main(int argc, const char **argv) {
         int y = static_cast<int>(p.x*h);
         x = clamp(x, 0, w-1);
         y = clamp(y, 0, h-1);
-        for (int dy = -1; dy <= 1; ++dy)
-        for (int dx = -1; dx <= 1; ++dx)
+        for (int dy = 0; dy <= 0; ++dy)
+        for (int dx = 0; dx <= 0; ++dx)
         {
           int2 xy = { x+dx, y+dy };
           if (any_of(xy < int2{0, 0}) || any_of(xy >= int2{w, h})) {
@@ -88,8 +92,8 @@ int main(int argc, const char **argv) {
       static_cast<int>(box.boxMin.y * w), 
       static_cast<int>(box.boxMin.x * h)};
     int2 scr_max = int2{
-      static_cast<int>(box.boxMax.y*w), 
-      static_cast<int>(box.boxMax.x*h)};
+      clamp(static_cast<int>(box.boxMax.y*w), 0, w-1), 
+      clamp(static_cast<int>(box.boxMax.x*h), 0, h-1)};
 
     for (int y = scr_min.y; y <= scr_max.y; ++y) {
       img[int2{scr_min.x, y}] = 0;
@@ -104,6 +108,5 @@ int main(int argc, const char **argv) {
 
   auto save_path = proj_path / "result.bmp";
   SaveBMP(save_path.c_str(), img.data(), w, h);
-
   return 0;
 }

@@ -467,26 +467,80 @@ get_kdtree_leaves_helper(
     float2 box_min,
     float2 box_max,
     int axes = 0) {
+  assert(all_of(box_max >= box_min));
+  assert(any_of(box_max > box_min));
   if (curves.size() == 0) {
     res_leaves.push_back(KdTreeLeave{ -1u, 0 }); 
     res_boxes.push_back(KdTreeBox{box_min, box_max});
     return;
   } 
   if (curves.size() == 1) {
-    res_leaves.push_back(KdTreeLeave{ curv_ids[0], 0 });
-    res_boxes.push_back(KdTreeBox{box_min, box_max});
+    auto &curve = curves[0];
+    auto box = calc_box(curve);
+    box.boxMin = max(box.boxMin, box_min);
+    box.boxMax = min(box.boxMax, box_max);
+    KdTreeBox box_left, box_right;
+    box_left.boxMin = box_right.boxMin = box_min;
+    box_left.boxMax = box_right.boxMax = box_max;
+    std::vector<RBCurve2D> left, right;
+    std::vector<uint32_t> left_ids, right_ids;
+    bool has_to_divide = false;
+    if (box.boxMin[axes] != box_min[axes]) {
+      has_to_divide = true;
+      box_left.boxMax[axes] = box.boxMin[axes];
+      box_right.boxMin[axes] = box.boxMin[axes];
+      right = std::move(curves);
+      right_ids = std::move(curv_ids);
+    } else if (box.boxMax[axes] != box_max[axes]) {
+      has_to_divide = true;
+      box_left.boxMax[axes] = box.boxMax[axes];
+      box_right.boxMin[axes] = box.boxMax[axes];
+      left = std::move(curves);
+      left_ids = std::move(curv_ids);
+    }
+
+    if (has_to_divide) {
+      get_kdtree_leaves_helper(
+        std::move(left), std::move(left_ids), res_boxes, res_leaves,
+        box_left.boxMin, box_left.boxMax, axes^1);
+      get_kdtree_leaves_helper(
+        std::move(right), std::move(right_ids), res_boxes, res_leaves,
+        box_right.boxMin, box_right.boxMax, axes^1);
+    } else {
+      res_leaves.push_back(KdTreeLeave{ curv_ids[0], 0 });
+      res_boxes.push_back(KdTreeBox{box_min, box_max});
+    }
+
     return;
   }
   
   std::vector<RBCurve2D> left_child_curves, right_child_curves;
   std::vector<uint32_t> left_child_ids, right_child_ids;
-  float middle = ((box_min+box_max)/2)[axes];
+  
+  std::vector<float> split_candidates;
   for (int i = 0; i < curves.size(); ++i) {
     auto box = calc_box(curves[i]);
+    box.boxMin = max(box.boxMin, box_min);
+    box.boxMax = min(box.boxMax, box_max);
+    split_candidates.push_back(box.boxMin[axes]);
+    split_candidates.push_back(box.boxMax[axes]);
+  }
+  std::sort(split_candidates.begin(), split_candidates.end());
+  split_candidates.resize(
+      std::unique(split_candidates.begin(), split_candidates.end())-split_candidates.begin());
+  float middle = split_candidates[split_candidates.size()/2];
+
+  for (int i = 0; i < curves.size(); ++i) {
+    auto box = calc_box(curves[i]);
+    if (all_of(box.boxMax <= box_min) || all_of(box.boxMin >= box_max)) {
+      continue;
+    }
+    box.boxMin = max(box.boxMin, box_min);
+    box.boxMax = min(box.boxMax, box_max);
     if (box.boxMin[axes] >= middle) {
       right_child_curves.push_back(curves[i]);
       right_child_ids.push_back(curv_ids[i]);
-    } else if (box.boxMax[axes] < middle) {
+    } else if (box.boxMax[axes] <= middle) {
       left_child_curves.push_back(curves[i]);
       left_child_ids.push_back(curv_ids[i]);
     } else {
