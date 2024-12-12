@@ -192,7 +192,11 @@ namespace sdf_converter
             for (int z = -pad; z <= size + pad; ++z)
             {
               float3 ch_pos = pos + 2*(checks[layer][i].d/out_octree.header.brick_size)*float3(x, y, z);
-              float dist = count_distance_at_brick_on_position(mesh, tl_octree, checks[layer][i].tl_idx, ch_pos, tex_c, mat);
+              float dist = 0;
+              if (layer != 0)
+              {
+                dist = count_distance_at_brick_on_position(mesh, tl_octree, checks[layer][i].tl_idx, ch_pos, tex_c, mat);
+              }
               checks[layer][i].node_distances[ch_pos] = std::pair(dist, dist);
               out_octree.values_f[out_octree.nodes[checks[layer][i].global_idx].val_off + v_size * v_size * (x + pad) + v_size * (y + pad) + z + pad] = dist;
               if ((x == 0 || x == size) && (y == 0 || y == size) && (z == 0 || z == size))
@@ -209,7 +213,7 @@ namespace sdf_converter
             }
           }
         }
-        if (size == 1)
+        if (size == 1 && layer != 0)
         {
           float3 ch_pos = pos + checks[layer][i].d;
           count_distance_at_brick_on_position(mesh, tl_octree, checks[layer][i].tl_idx, ch_pos, tex_c, mat);
@@ -217,7 +221,11 @@ namespace sdf_converter
         }
         //start counting of needs dividing
         bool is_div = checks[layer][i].layer_num <= min_layer;
-        if (tl_octree.nodes[checks[layer][i].tl_idx].tid_count == 0 || checks[layer][i].layer_num >= max_layer || tl_octree.nodes[checks[layer][i].tl_idx].offset == 0)
+        if (layer == 0)
+        {
+          is_div = true;
+        }
+        else if (tl_octree.nodes[checks[layer][i].tl_idx].tid_count == 0 || checks[layer][i].layer_num >= max_layer || tl_octree.nodes[checks[layer][i].tl_idx].offset == 0)
         {
           is_div = false;
         }
@@ -281,6 +289,10 @@ namespace sdf_converter
           out_octree.nodes[checks[layer][i].global_idx].type = is_div ? GlobalOctreeNodeType::NODE : GlobalOctreeNodeType::LEAF;
         else
           out_octree.nodes[checks[layer][i].global_idx].type = is_div ? GlobalOctreeNodeType::EMPTY_NODE : GlobalOctreeNodeType::EMPTY;
+        if (layer == 0)
+        {
+          out_octree.nodes[checks[layer][i].global_idx].type = GlobalOctreeNodeType::EMPTY_NODE;
+        }
 
         //subdividing
         if (is_div)
@@ -328,7 +340,7 @@ namespace sdf_converter
       out_octree.nodes[idx].offset = ofs;
       out_octree.nodes[idx].val_off = idx*v_size*v_size*v_size;
 
-      //if (ofs == 0)
+      if (idx != 0)//if (ofs == 0)
       {
 
         float min_val =  1000;
@@ -472,6 +484,10 @@ namespace sdf_converter
           out_octree.nodes[idx].type = ofs > 0 ? GlobalOctreeNodeType::NODE : GlobalOctreeNodeType::LEAF;
         else
           out_octree.nodes[idx].type = ofs > 0 ? GlobalOctreeNodeType::EMPTY_NODE : GlobalOctreeNodeType::EMPTY;
+      }
+      else
+      {
+        out_octree.nodes[idx].type = GlobalOctreeNodeType::EMPTY_NODE;
       }
     }
     omp_set_num_threads(omp_get_max_threads());
