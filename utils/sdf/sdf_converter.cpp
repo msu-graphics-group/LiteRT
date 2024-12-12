@@ -214,7 +214,7 @@ namespace sdf_converter
     g.header.brick_size = co_settings.brick_size;
     g.header.brick_pad = co_settings.brick_pad;
     {
-      auto tlo = cmesh4::create_triangle_list_octree(mesh, settings.depth, 0, 1.0f);
+      auto tlo = cmesh4::create_triangle_list_octree(mesh, settings.depth, 0, 1.0f + 0.5f*co_settings.brick_pad/(float)co_settings.brick_size);
       mesh_octree_to_global_octree(mesh, tlo, g);
     }
     int types[4] = {0,0,0,0};
