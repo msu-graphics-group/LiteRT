@@ -712,7 +712,7 @@ namespace litert_tests
     MultiRenderPreset preset = getDefaultPreset();
     preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
     preset.spp = 4;
-    SparseOctreeSettings settings(SparseOctreeBuildType::MESH_TLO, 7);
+    SparseOctreeSettings settings(SparseOctreeBuildType::MESH_TLO, 6);
 
     auto img_mesh = testing::create_image();
 
@@ -726,12 +726,8 @@ namespace litert_tests
       COctreeV3Settings co_settings;
       co_settings.brick_size = 3;
       co_settings.brick_pad  = 0;
-      co_settings.use_lods = true;
 
       COctreeV3 coctree = sdf_converter::create_COctree_v3(settings, co_settings, mesh);
-      save_coctree_v3(coctree, "saves/test_coctree_lods.bin");
-      ModelInfo info = get_info_coctree_v3(coctree);
-      save_scene_xml("saves/test_coctree_lods.xml", "test_coctree_lods.bin", info, 0, DemoScene::SINGLE_OBJECT);
       default_size = coctree.data.size();
       testing::render_scene(img, device, preset, coctree, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0));
       testing::save_image(img, "default");
