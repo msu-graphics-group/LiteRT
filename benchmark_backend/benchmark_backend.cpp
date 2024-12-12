@@ -1,4 +1,5 @@
 #include "benchmark_backend.h"
+#include "utils/coctree/similarity_compression.h"
 #ifdef USE_GPU
 #include "vk_context.h"
 #endif
@@ -265,16 +266,30 @@ namespace BenchmarkBackend
     }
     else if (repr_type == "SDF_FRAME_OCTREE_COMPACT")
     {
-      COctreeV3Settings header{};
-      header.brick_size = repr_config.get_int("brick_size", 4);
-      header.brick_pad = repr_config.get_int("brick_pad", 0);
-      header.bits_per_value = repr_config.get_int("bits_per_value", 8);
-      header.uv_size = repr_config.get_int("uv_size", 0);
-      header.sim_compression = repr_config.get_int("sim_compression", 0);
+      COctreeV3Settings co_settings{};
+      co_settings.brick_size = repr_config.get_int("brick_size", 4);
+      co_settings.brick_pad = repr_config.get_int("brick_pad", 0);
+      co_settings.bits_per_value = repr_config.get_int("bits_per_value", 8);
+      co_settings.uv_size = repr_config.get_int("uv_size", 0);
+      co_settings.sim_compression = repr_config.get_int("sim_compression", 0);
+
+      scom::Settings scom_settings;
+      if (co_settings.sim_compression == 1)
+      {
+        std::string clustering_algorithm_str = repr_config.get_string("clustering_algorithm", "HIERARCHICAL");
+        if (clustering_algorithm_str == "REPLACEMENT")
+          scom_settings.clustering_algorithm = scom::ClusteringAlgorithm::REPLACEMENT;
+        else if (clustering_algorithm_str == "COMPONENTS_RECURSIVE_FILL")
+          scom_settings.clustering_algorithm = scom::ClusteringAlgorithm::COMPONENTS_RECURSIVE_FILL;
+        else if (clustering_algorithm_str == "HIERARCHICAL")
+          scom_settings.clustering_algorithm = scom::ClusteringAlgorithm::HIERARCHICAL;
+        scom_settings.similarity_threshold = repr_config.get_double("similarity_threshold", scom_settings.similarity_threshold);
+        scom_settings.target_leaf_count = repr_config.get_int("target_leaf_count", scom_settings.target_leaf_count);
+      }
 
 
       t1 = std::chrono::steady_clock::now();
-      auto model_new = sdf_converter::create_COctree_v3(settings, header, mesh);
+      auto model_new = sdf_converter::create_COctree_v3(settings, co_settings, scom_settings, mesh);
       t2 = std::chrono::steady_clock::now();
       ModelInfo info = get_info_coctree_v3(model_new);
 
