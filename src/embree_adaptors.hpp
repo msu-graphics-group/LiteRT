@@ -9,6 +9,7 @@
 
 #include "Surface.hpp"
 #include "raytracer.hpp"
+#include "curve.hpp"
 
 namespace embree
 {
@@ -79,6 +80,43 @@ namespace embree
     RTCDevice device;
     RTCScene scn;
   };
+
+  struct TrimBVHBox
+  {
+    LiteMath::float2 box_min, box_max;
+    const RBCurve2D *p_curve;
+    int monotonic_span;
+  };
+
+struct EmbreeTrimBVH
+{
+public:
+  EmbreeTrimBVH() {
+    device = rtcNewDevice(nullptr);
+#ifndef NDEBUG
+    rtcSetDeviceErrorFunction(device, errorFunction, nullptr);
+#endif
+    scn = rtcNewScene(device);
+  }
+public:
+  void add_box(
+      LiteMath::float2 box_min, 
+      LiteMath::float2 box_max,
+      const RBCurve2D *p_curve,
+      int monotonic_span);
+public:
+  ~EmbreeTrimBVH() {
+    rtcReleaseScene(scn);
+    rtcReleaseDevice(device);
+  }
+private:
+  RTCDevice device;
+  RTCScene scn;
+  std::list<TrimBVHBox> boxes;
+};
+void curve_bounds_function(const RTCBoundsFunctionArguments *args);
+void curve_occluded_function(const RTCOccludedFunctionNArguments *args);
+
 } // namespace embree
 
 #endif
