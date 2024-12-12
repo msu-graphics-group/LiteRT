@@ -1,0 +1,32 @@
+{
+backends:arr = { "GPU" }
+renderers:arr = { "MR"}
+render_modes:arr = { "LAMBERT_NO_TEX" }
+models:arr = { }
+width:i = 2048
+height:i = 2048
+cameras:i = 4
+iters:i = 4
+spp:i = 4
+repr_configs
+{
+  MESH
+  {
+    default {
+      clustering_algorithm:s = "string"  
+    }
+  }
+  SDF_FRAME_OCTREE_COMPACT
+  {
+    medium_comp {
+      depth:i = 6
+      brick_size:i = 3
+      brick_pad:i  = 0  
+      sim_compression:i = 1    
+      clustering_algorithm:s = "string"
+      similarity_threshold:r = 0.2
+      target_leaf_count:i = 4000
+    }   
+  }
+}
+}
