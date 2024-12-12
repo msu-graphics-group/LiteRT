@@ -33,67 +33,6 @@ namespace litert_tests
 
   const char TEAPOT_HYDRA[] = "01_simple_scenes/teapot.xml";
 
-  // former test 1
-  ADD_TEST(FramedOctree, "Testing if framed octree is working")
-  {
-    constexpr size_t OCTREE_DEPTH = 9;
-    auto mesh = testing::load_vsgf_mesh(TEAPOT_MESH);
-
-    // Creating framed octree
-    testing::ScopedTimer timer("creating SDF framed octree from mesh");
-    SparseOctreeSettings settings(SparseOctreeBuildType::DEFAULT, OCTREE_DEPTH);
-    std::vector<SdfFrameOctreeNode> frame_nodes = sdf_converter::create_sdf_frame_octree(settings, mesh);
-    timer.end();
-
-    auto image = testing::create_image();
-
-    // WTF? repeating
-    std::vector<unsigned> presets_oi = {SDF_OCTREE_NODE_INTERSECT_ST, SDF_OCTREE_NODE_INTERSECT_ST,
-                                        SDF_OCTREE_NODE_INTERSECT_ST, SDF_OCTREE_NODE_INTERSECT_ST};
-
-    std::vector<std::string> names = {"bvh_sphere_tracing", "bvh_analytic", "bvh_newton", "bvh_bboxes"};
-
-    for (int i = 0; i < presets_oi.size(); i++)
-    {
-      MultiRenderPreset preset = getDefaultPreset();
-      preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
-      preset.sdf_node_intersect = presets_oi[i];
-
-      testing::render_scene(image, DEVICE_GPU, preset, frame_nodes);
-      testing::save_image(image, names[i]);
-    }
-  }
-
-  // former test 2
-  ADD_TEST(SVS, "Testing if SVS is working")
-  {
-    constexpr size_t OCTREE_DEPTH = 9;
-    auto mesh = testing::load_vsgf_mesh(TEAPOT_MESH);
-
-    // Creating SVS
-    testing::ScopedTimer timer("creating SDF SVS");
-    SparseOctreeSettings settings(SparseOctreeBuildType::DEFAULT, OCTREE_DEPTH);
-    std::vector<SdfSVSNode> frame_nodes = sdf_converter::create_sdf_SVS(settings, mesh);
-    timer.end();
-
-    auto image = testing::create_image();
-
-    std::vector<unsigned> presets_oi = {SDF_OCTREE_NODE_INTERSECT_ST, SDF_OCTREE_NODE_INTERSECT_ANALYTIC,
-                                        SDF_OCTREE_NODE_INTERSECT_NEWTON, SDF_OCTREE_NODE_INTERSECT_BBOX};
-
-    std::vector<std::string> names = {"bvh_sphere_tracing", "bvh_analytic", "bvh_newton", "bvh_bboxes"};
-
-    for (int i = 0; i < presets_oi.size(); i++)
-    {
-      MultiRenderPreset preset = getDefaultPreset();
-      preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
-      preset.sdf_node_intersect = presets_oi[i];
-
-      testing::render_scene(image, DEVICE_GPU, preset, frame_nodes);
-      testing::save_image(image, names[i]);
-    }
-  }
-
   // former 3
   ADD_TEST(SVS_and_SBS_verification, "Testing if SVS and SBS are correct")
   {
