@@ -771,6 +771,7 @@ void SimpleRender::SetupGUIElements()
   bool fixed_lod = preset.fixed_lod;
   int level_of_detail = preset.level_of_detail;
   bool random_subsamples = preset.ray_gen_mode == RAY_GEN_MODE_RANDOM;
+  bool smooth_normals = (preset.normal_mode == NORMAL_MODE_SDF_SMOOTHED);
   int spp = preset.spp;
   {
 //    ImGui::ShowDemoWindow();
@@ -790,6 +791,7 @@ void SimpleRender::SetupGUIElements()
     ImGui::Text("Changing bindings is not supported.");
     ImGui::Text("Vertex shader path: %s", VERTEX_SHADER_PATH.c_str());
     ImGui::Text("Fragment shader path: %s", FRAGMENT_SHADER_PATH.c_str());
+    ImGui::Checkbox("Smooth normals", &smooth_normals);
     ImGui::Text("Render mode (RT):");
     ImGui::ListBox(".", &render_mode_int, multi_render_mode_items, sizeof(multi_render_mode_items) / sizeof(char*));
     ImGui::Checkbox("Fixed lod", &fixed_lod);
@@ -806,6 +808,7 @@ void SimpleRender::SetupGUIElements()
   preset.level_of_detail = level_of_detail;
   preset.spp = spp;
   preset.ray_gen_mode = random_subsamples ? RAY_GEN_MODE_RANDOM : RAY_GEN_MODE_REGULAR;
+  preset.normal_mode = smooth_normals ? NORMAL_MODE_SDF_SMOOTHED : NORMAL_MODE_VERTEX;
   this->m_pRayTracer->SetPreset(preset);
 
   // Rendering
