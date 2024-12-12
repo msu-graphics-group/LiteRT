@@ -359,8 +359,8 @@ namespace scom
         float i_sum = 1.0f/sqrtf(sum);
         for (int j=0;j<dataset.dim;j++)
         {
-          dataset.all_points[off_dataset + j] = dataset.all_points[off_dataset + j]*powf(2, max_node_level - node_levels[i])*i_sum + 
-                                                node_levels[i];
+          //can also multiply by powf(2, max_node_level - node_levels[i]) to reduce LODs compression
+          dataset.all_points[off_dataset + j] = dataset.all_points[off_dataset + j]*i_sum + node_levels[i];
         }
       }
       cur_point_group++;

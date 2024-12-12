@@ -917,6 +917,9 @@ namespace litert_tests
       testing::save_image(img, "lod_dynamic");
       testing::check_psnr(img_no_lods_6, img, "dynamic LOD", "Original", 50);
       testing::check_psnr(img_mesh, img, "LOD 6 fixed", "Mesh", 30);
+
+      //save_coctree_v3(coctree, "saves/coctree.bin");
+      //save_scene_xml("saves/coctree.xml", "coctree.bin", get_info_coctree_v3(coctree), 0, DemoScene::SINGLE_OBJECT);
     }   
 
     {
@@ -924,7 +927,7 @@ namespace litert_tests
       co_settings.sim_compression = true;
 
       scom::Settings scom_settings;
-      scom_settings.similarity_threshold = 0.025f;
+      scom_settings.similarity_threshold = 0.1f;
       scom_settings.search_algorithm = scom::SearchAlgorithm::BALL_TREE;
       scom_settings.cluster_non_leafs = true;
 
@@ -939,9 +942,12 @@ namespace litert_tests
       
       preset.fixed_lod = true;
       preset.level_of_detail = 6;
-      testing::render_scene(img, DEVICE_CPU, preset, coctree_comp, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0));
+      testing::render_scene(img, device, preset, coctree_comp, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0));
       testing::save_image(img, "lod_5_scom");
-      testing::check_psnr(img_no_lods_5, img, "LOD 5 fixed + scom", "Original", 30);
+      testing::check_psnr(img_no_lods_5, img, "LOD 5 fixed + scom", "Original", 35);
+
+      //save_coctree_v3(coctree_comp, "saves/coctree_comp.bin");
+      //save_scene_xml("saves/coctree_comp.xml", "coctree_comp.bin", get_info_coctree_v3(coctree_comp), 0, DemoScene::SINGLE_OBJECT);
     }
   }
 

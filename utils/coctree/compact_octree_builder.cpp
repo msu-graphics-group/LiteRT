@@ -760,7 +760,7 @@ namespace sdf_converter
 
       if (header.sim_compression > 0) // if transform code is required, we save it here
       {
-        uint32_t code = get_transform_code(header, global_ctx.transforms[task.nodeId], task.lod_size);
+        uint32_t code = get_transform_code(header, global_ctx.transforms[task.nodeId], task.lod_size/2);
         tmp_node_buf[1 + header.trans_off] |= code;
       }
 

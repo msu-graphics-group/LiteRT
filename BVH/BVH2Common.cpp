@@ -3495,6 +3495,13 @@ void BVHRT::OctreeIntersectV3(uint32_t type, const float3 ray_pos, const float3 
           stack[top].nodeId = lodLeafId;
           stack[top].info = (m_SdfCompactOctreeV3Data[infoOffset] << COCTREE_LEAF_TYPE_BITS) | type;
           is_leaf = true;
+
+          //we should stop on this LOD level, but this node is empty, so just skip it
+          if (type == COCTREE_LEAF_TYPE_NOT_A_LEAF)
+          {
+            top--;
+            continue; //
+          }
         }
       }
 
