@@ -54,6 +54,14 @@ namespace sdf_converter
 {
   using MultithreadedDistanceFunction = std::function<float(const float3 &, unsigned idx)>;
 
+  enum class GlobalOctreeNodeType
+  {
+    EMPTY,      //leaf with no surface or node with an empty subtree (the latter is usually removed during build)
+    LEAF,       //leaf node containing surface (i.e. both positive and negative values)
+    EMPTY_NODE, //node with 8 children, but it's own values doesn't represent surface (all values have the same sign)
+    NODE        //node with 8 children, containing surface (i.e. both positive and negative values)
+  };
+  
   struct GlobalOctreeHeader
   {
     uint32_t brick_size;      //number of voxels in each brick, (min 1)
@@ -62,10 +70,10 @@ namespace sdf_converter
 
   struct GlobalOctreeNode
   {
+    GlobalOctreeNodeType type;
     float2 tex_coords[8]; //texture coordinates on corners
     unsigned val_off;     //offset in values_f vectors
     unsigned offset;      //offset in nodes vector for next child (0 if its leaf)
-    bool is_not_void;     //is there any usefull data inside
     unsigned material_id; //material
   };
 

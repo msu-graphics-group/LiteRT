@@ -703,7 +703,7 @@ namespace sdf_converter
     {
       if (is_leaf(octree.nodes[ofs + i].offset)) // process leaf
       {
-        bool is_border_leaf = octree.nodes[ofs + i].is_not_void;
+        bool is_border_leaf = octree.nodes[ofs + i].type != GlobalOctreeNodeType::EMPTY;
         if (is_border_leaf)
         {
           unsigned leaf_offset = global_ctx.node_id_compact_offset[ofs + i];
@@ -749,7 +749,7 @@ namespace sdf_converter
     {
       unsigned leaf_offset = global_ctx.node_id_compact_offset[task.nodeId];
       unsigned leaf_type = global_ctx.node_id_leaf_type[task.nodeId];
-      assert(leaf_offset != 0xFFFFFFFFu && leaf_type != COCTREE_LEAF_TYPE_NOT_A_LEAF);
+      //assert(leaf_offset != 0xFFFFFFFFu && leaf_type != COCTREE_LEAF_TYPE_NOT_A_LEAF);
 
       tmp_node_buf[1] = 0;
       tmp_node_buf[1 + header.trans_off] = 0;
@@ -806,9 +806,10 @@ namespace sdf_converter
                             std::vector<COctreeV3BuildTask> &leaf_layer,
                             unsigned idx, unsigned level, uint3 p, unsigned lod_size)
   {
-    if (octree.nodes[idx].is_not_void)
+    if (octree.nodes[idx].type != GlobalOctreeNodeType::EMPTY)
     {
-      if (is_leaf(octree.nodes[idx].offset) || use_lods)
+      if (octree.nodes[idx].type == GlobalOctreeNodeType::LEAF ||
+         (octree.nodes[idx].type == GlobalOctreeNodeType::NODE && use_lods))
       {
         leaf_layer.push_back(COctreeV3BuildTask(idx, p, lod_size));
       }
@@ -824,8 +825,8 @@ namespace sdf_converter
         {
           unsigned ch_idx = octree.nodes[idx].offset + i;
           uint3 ch_p = 2 * p + uint3((i & 4) >> 2, (i & 2) >> 1, i & 1);
-          if (octree.nodes[ch_idx].is_not_void)
-          fill_task_layers_rec(octree, use_lods, node_layers, leaf_layer, ch_idx, level + 1, ch_p, 2*lod_size);
+          if (octree.nodes[ch_idx].type != GlobalOctreeNodeType::EMPTY)
+            fill_task_layers_rec(octree, use_lods, node_layers, leaf_layer, ch_idx, level + 1, ch_p, 2*lod_size);
         }
       }
     }
@@ -881,7 +882,8 @@ namespace sdf_converter
       global_ctx.cluster_infos.resize(scom_output.leaf_count, CompressedClusterInfo(1000.0f, -1000.0f)); 
       for (int i = 0; i < octree.nodes.size(); i++)
       {
-        if ((is_leaf(octree.nodes[i].offset) || co_settings.use_lods) && octree.nodes[i].is_not_void)
+        if (octree.nodes[i].type == GlobalOctreeNodeType::LEAF ||
+           (octree.nodes[i].type == GlobalOctreeNodeType::NODE && co_settings.use_lods))
         {
           float add = global_ctx.transforms[i].add;
 
@@ -908,7 +910,8 @@ namespace sdf_converter
       int vox_count = v_size*v_size*v_size;
       for (int i = 0; i < octree.nodes.size(); i++)
       {
-        if ((is_leaf(octree.nodes[i].offset) || co_settings.use_lods) && octree.nodes[i].is_not_void)
+        if (octree.nodes[i].type == GlobalOctreeNodeType::LEAF ||
+           (octree.nodes[i].type == GlobalOctreeNodeType::NODE && co_settings.use_lods))
         {
           global_ctx.node_id_cleaf_id_remap[i] = global_ctx.compact_leaf_offsets.size();
           global_ctx.transforms[i] = scom::get_identity_transform(); //identity transform

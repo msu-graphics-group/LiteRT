@@ -217,6 +217,12 @@ namespace sdf_converter
       auto tlo = cmesh4::create_triangle_list_octree(mesh, settings.depth, 0, 1.0f);
       mesh_octree_to_global_octree(mesh, tlo, g);
     }
+    int types[4] = {0,0,0,0};
+    for (int i = 0; i < g.nodes.size(); i++)
+    {
+      types[(int)g.nodes[i].type] += 1;
+    }
+    printf("types: %d %d %d %d\n", types[0], types[1], types[2], types[3]);
     global_octree_to_COctreeV3(g, coctree, co_settings);
     
     return coctree;

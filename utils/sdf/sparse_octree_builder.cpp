@@ -176,8 +176,10 @@ namespace sdf_converter
       float3 pos = 2.0f*(checks[i].d*checks[i].pos) - 1.0f;
       out_octree.nodes[checks[i].global_idx].val_off = out_octree.values_f.size();
       out_octree.values_f.resize(out_octree.values_f.size() + v_size * v_size * v_size);
-      out_octree.nodes[checks[i].global_idx].is_not_void = tl_octree.nodes[checks[i].tl_idx].tid_count != 0;
       out_octree.nodes[checks[i].global_idx].offset = 0;
+      
+      float min_val =  1000;
+      float max_val = -1000;
       for (int x = -pad; x <= size + pad; ++x)
       {
         for (int y = -pad; y <= size + pad; ++y)
@@ -197,6 +199,8 @@ namespace sdf_converter
             {
               out_octree.nodes[checks[i].global_idx].material_id = mat;
             }
+            min_val = std::min(min_val, dist);
+            max_val = std::max(max_val, dist);
           }
         }
       }
@@ -261,6 +265,14 @@ namespace sdf_converter
         error = sqrt(error);
         if (error >= precision) is_div = true;
       }
+
+      //determine node type
+      bool has_surface = min_val <= 0 && max_val >= 0;
+      if (has_surface)
+        out_octree.nodes[checks[i].global_idx].type = is_div ? GlobalOctreeNodeType::NODE : GlobalOctreeNodeType::LEAF;
+      else
+        out_octree.nodes[checks[i].global_idx].type = is_div ? GlobalOctreeNodeType::EMPTY_NODE : GlobalOctreeNodeType::EMPTY;
+
       //subdividing
       if (is_div)
       {
@@ -301,7 +313,6 @@ namespace sdf_converter
       unsigned ofs = tl_octree.nodes[idx].offset;
       out_octree.nodes[idx].offset = ofs;
       out_octree.nodes[idx].val_off = idx*v_size*v_size*v_size;
-      out_octree.nodes[idx].is_not_void = true;
 
       //if (ofs == 0)
       {
@@ -440,10 +451,13 @@ namespace sdf_converter
           //float3 ch_pos = pos + 2*d*float3((i >> 2) & 1, (i >> 1) & 1, i & 1);
           out_octree.nodes[idx].tex_coords[i] = float2(0, 0);//temp stubs
         }*/
-        if (ofs == 0) 
-          out_octree.nodes[idx].is_not_void = (min_val <= 0 && max_val >= 0);
-        else 
-          out_octree.nodes[idx].is_not_void = true;
+        
+        //determine node type
+        bool has_surface = min_val <= 0 && max_val >= 0;
+        if (has_surface)
+          out_octree.nodes[idx].type = ofs > 0 ? GlobalOctreeNodeType::NODE : GlobalOctreeNodeType::LEAF;
+        else
+          out_octree.nodes[idx].type = ofs > 0 ? GlobalOctreeNodeType::EMPTY_NODE : GlobalOctreeNodeType::EMPTY;
       }
     }
   }
@@ -456,8 +470,8 @@ namespace sdf_converter
     float min_val = 1000;
     float max_val = -1000;
     nodes[node_idx].val_off = values_f.size();
-    nodes[node_idx].is_not_void = true;
     nodes[node_idx].offset = 0;
+
     for (int i = 0; i < 8; ++i)
     {
       nodes[node_idx].tex_coords[i] = float2(0, 0);
@@ -481,8 +495,10 @@ namespace sdf_converter
       min_val = std::min(min_val, nodes[node_idx].values[cid]);
       max_val = std::max(max_val, nodes[node_idx].values[cid]);
     }*/
+    bool is_parent = false;
     if (depth < max_depth && (std::abs(value_center) < sqrtf(3) * d || min_val*max_val <= 0))
     {
+      is_parent = true;
       nodes[node_idx].offset = nodes.size();
       
       nodes.resize(nodes.size() + 8);
@@ -493,14 +509,13 @@ namespace sdf_converter
                      idx + cid, depth + 1, max_depth, 2 * p + float3((cid & 4) >> 2, (cid & 2) >> 1, cid & 1), d / 2, brick_size, brick_pad);
       }
     }
-    else if (min_val*max_val <= 0)
-    {
-      nodes[node_idx].is_not_void = true;
-    }
+
+    // determine node type
+    bool has_surface = min_val <= 0 && max_val >= 0;
+    if (has_surface)
+      nodes[node_idx].type = is_parent ? GlobalOctreeNodeType::NODE : GlobalOctreeNodeType::LEAF;
     else
-    {
-      nodes[node_idx].is_not_void = false;
-    }
+      nodes[node_idx].type = is_parent ? GlobalOctreeNodeType::EMPTY_NODE : GlobalOctreeNodeType::EMPTY;
   }
 
   void sdf_to_global_octree(SparseOctreeSettings settings, MultithreadedDistanceFunction sdf, 
@@ -583,7 +598,7 @@ std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
     for (int i=0;i<large_nodes.size();i++)
     {
       res_nodes[i].val_off = values_f.size();
-      res_nodes[i].is_not_void = true;
+      res_nodes[i].type = GlobalOctreeNodeType::NODE; //some shady stuff, can be wrong
       for (int j = 0; j < 8; ++j)
       {
         res_nodes[i].tex_coords[j] = float2(0, 0);
@@ -663,277 +678,12 @@ std::chrono::steady_clock::time_point t5 = std::chrono::steady_clock::now();
     //return res_nodes;
   }
 
-  bool mesh_octree_to_global_octree_rec(const cmesh4::SimpleMesh &mesh,
-                                         const cmesh4::TriangleListOctree &tl_octree,
-                                         GlobalOctree &out_octree,
-                                         unsigned idx, float3 p, float d,
-                                         unsigned real_idx, unsigned &usefull_nodes)
-  {
-    //printf("%u\n", usefull_nodes);
-    const unsigned ofs = tl_octree.nodes[idx].offset;
-    unsigned num = real_idx;
-    out_octree.nodes[num].offset = (ofs == 0) ? 0 : usefull_nodes;
-    bool norm_broken = false;
-
-    unsigned v_size = out_octree.header.brick_size + 2*out_octree.header.brick_pad + 1;
-    float min_val =  1000;
-    float max_val = -1000;
-    if (ofs == 0)
-    {
-      float3 pos = 2.0f*(d*p) - 1.0f;
-      /*groups.push_back(std::vector<float3>());
-      for (int j=0; j<tl_octree.nodes[idx].tid_count; j++)
-      {
-        int t_i = tl_octree.triangle_ids[tl_octree.nodes[idx].tid_offset+j];
-        //printf("%u %u %u -- %u %u\n", 3*t_i+0, tl_octree.nodes[idx].tid_offset, j, tl_octree.triangle_ids.size(), tl_octree.nodes[idx].tid_count);
-        //printf("%u, %u, %u\n", mesh.indices.size(), mesh.indices[3*t_i+0], mesh.vPos4f.size());
-        float3 a = to_float3(mesh.vPos4f[mesh.indices[3*t_i+0]]);
-        float3 b = to_float3(mesh.vPos4f[mesh.indices[3*t_i+1]]);
-        float3 c = to_float3(mesh.vPos4f[mesh.indices[3*t_i+2]]);
-        groups[0].push_back(a);
-        groups[0].push_back(b);
-        groups[0].push_back(c);
-      }*/
-      // for (int j=0; j<tl_octree.nodes[idx].tid_count; j++)
-      // {
-      //   int t_i = tl_octree.triangle_ids[tl_octree.nodes[idx].tid_offset+j];
-      //   float3 a = to_float3(mesh.vPos4f[mesh.indices[3*t_i+0]]);
-      //   float3 b = to_float3(mesh.vPos4f[mesh.indices[3*t_i+1]]);
-      //   float3 c = to_float3(mesh.vPos4f[mesh.indices[3*t_i+2]]);
-      //   float3 t[3] = {a, b, c};
-      //   bool is_find_group = false;
-      //   int real_group = -1;
-      //   bool first_check = false;
-      //   std::vector<int> del_groups = {};
-      //   std::vector<bool> del_checks = {};
-      //   for (int i = 0; i < groups.size(); ++i)
-      //   {
-      //     //if (norm_broken) break;
-          
-      //     bool is_correct_norm = true;
-      //     bool is_first = true;
-      //     for (int u = 0; u < groups[i].size(); u += 3)
-      //     {
-      //       //if (norm_broken) break;
-
-      //       bool check = false;
-      //       float3 x[3] = {groups[i][u], groups[i][u+1], groups[i][u+2]};
-      //       if (is_find_group)
-      //       {
-      //         if (is_tri_have_same_edge(t, x, check))
-      //         {
-      //           if (is_first)
-      //           {
-      //             is_first = false;
-      //             is_correct_norm = check;
-      //             del_groups.push_back(i);
-      //             del_checks.push_back(check);
-      //           }
-      //           else if ((is_correct_norm && !check) || (!is_correct_norm && check))
-      //           {
-      //             norm_broken = true;
-      //           }
-      //         }
-      //       }
-      //       else
-      //       {
-      //         if (is_tri_have_same_edge(t, x, check))
-      //         {
-      //           is_find_group = true;
-      //           is_correct_norm = check;
-      //           first_check = check;
-      //           is_first = false;
-      //           real_group = i;
-      //         }
-      //       }
-      //     }
-      //   }
-      //   //if (norm_broken) break;
-
-      //   if (!is_find_group)
-      //   {
-      //     groups.push_back({a, b, c});
-      //   }
-      //   else
-      //   {
-      //     if (first_check)
-      //     {
-      //       groups[real_group].push_back(a);
-      //       groups[real_group].push_back(b);
-      //       groups[real_group].push_back(c);
-      //     }
-      //     else
-      //     {
-      //       groups[real_group].push_back(b);
-      //       groups[real_group].push_back(a);
-      //       groups[real_group].push_back(c);
-      //     }
-
-      //     for (int i = del_checks.size() - 1; i >= 0; --i)
-      //     {
-      //       for (int k = 0; k < groups[del_groups[i]].size(); k += 3)
-      //       {
-      //         if ((del_checks[i] && first_check) || (!del_checks[i] && !first_check))
-      //         {
-      //           groups[real_group].push_back(groups[del_groups[i]][k+0]);
-      //           groups[real_group].push_back(groups[del_groups[i]][k+1]);
-      //           groups[real_group].push_back(groups[del_groups[i]][k+2]);
-      //         }
-      //         else
-      //         {
-      //           groups[real_group].push_back(groups[del_groups[i]][k+1]);
-      //           groups[real_group].push_back(groups[del_groups[i]][k+0]);
-      //           groups[real_group].push_back(groups[del_groups[i]][k+2]);
-      //         }
-      //       }
-      //       groups.erase(groups.begin() + del_groups[i]);
-      //     }
-      //   }
-      // }
-
-      //fill global octree leaf
-      unsigned cur_values_off = out_octree.values_f.size();
-      out_octree.nodes[num].val_off = cur_values_off;
-      out_octree.values_f.resize(cur_values_off + v_size*v_size*v_size);
-      //printf("%f - %f %d\n", 2*(d/out_octree.header.brick_size), d, out_octree.header.brick_size);
-      for (int i = -(int)out_octree.header.brick_pad; i <= (int)out_octree.header.brick_size + (int)out_octree.header.brick_pad; ++i)
-      {
-        for (int j = -(int)out_octree.header.brick_pad; j <= (int)out_octree.header.brick_size + (int)out_octree.header.brick_pad; ++j)
-        {
-          for (int k = -(int)out_octree.header.brick_pad; k <= (int)out_octree.header.brick_size + (int)out_octree.header.brick_pad; ++k)
-          {
-            float3 ch_pos = pos + 2*(d/out_octree.header.brick_size)*float3(i,j,k);
-            float sign = 1, min_dist_sq = 1000000;
-            //float val = 1000.0f;
-
-            //if (distances.find(ch_pos) == distances.end())
-            //{
-              for (int tri=0; tri<tl_octree.nodes[idx].tid_count; tri++)
-              {
-                int t_i = tl_octree.triangle_ids[tl_octree.nodes[idx].tid_offset+tri];
-                float3 a = to_float3(mesh.vPos4f[mesh.indices[3*t_i+0]]);
-                float3 b = to_float3(mesh.vPos4f[mesh.indices[3*t_i+1]]);
-                float3 c = to_float3(mesh.vPos4f[mesh.indices[3*t_i+2]]);
-                float3 vt = ch_pos - cmesh4::closest_point_triangle(ch_pos, a, b, c);
-                float dst_sq = LiteMath::dot(vt, vt);
-                if (min_dist_sq > dst_sq)
-                {
-                  min_dist_sq = dst_sq;
-                  if (LiteMath::dot(LiteMath::cross(a - b, a - c), vt) < 0)
-                  {
-                    sign = -1;
-                  }
-                  else
-                  {
-                    sign = 1;
-                  }
-                }
-              }
-              /*if (tl_octree.nodes[idx].tid_count != 0) 
-              {
-                distances[ch_pos] = sign * sqrtf(min_dist_sq);
-                val = distances[ch_pos];
-              }*/
-
-              
-            //}
-            /*else
-            {
-              val = distances[ch_pos];
-            }*/
-            
-            out_octree.values_f[cur_values_off + (i+out_octree.header.brick_pad)*v_size*v_size + 
-                                                 (j+out_octree.header.brick_pad)*v_size + 
-                                                 (k+out_octree.header.brick_pad)] = sign * sqrtf(min_dist_sq);//val;
-          
-            if (i >= 0 && j >= 0 && k >= 0 && i <= out_octree.header.brick_size && 
-                j <= out_octree.header.brick_size && k <= out_octree.header.brick_size)
-            {
-              min_val = std::min(min_val, sign * sqrtf(min_dist_sq));
-              max_val = std::max(max_val, sign * sqrtf(min_dist_sq));
-            }
-          }
-        }
-      }
-      //tex coords
-      for (int i = 0; i < 8; ++i)
-      {
-        //float3 ch_pos = pos + 2*d*float3((i >> 2) & 1, (i >> 1) & 1, i & 1);
-        out_octree.nodes[num].tex_coords[i] = float2(0, 0);//temp stubs
-      }
-    }
-    /*else
-    {
-      unsigned cur_values_off = out_octree.values_f.size();
-      out_octree.nodes[num].val_off = cur_values_off;
-      out_octree.values_f.resize(cur_values_off + v_size*v_size*v_size);
-      for (int i = -(int)out_octree.header.brick_pad; i <= (int)out_octree.header.brick_size + (int)out_octree.header.brick_pad; ++i)
-      {
-        for (int j = -(int)out_octree.header.brick_pad; j <= (int)out_octree.header.brick_size + (int)out_octree.header.brick_pad; ++j)
-        {
-          for (int k = -(int)out_octree.header.brick_pad; k <= (int)out_octree.header.brick_size + (int)out_octree.header.brick_pad; ++k)
-          {
-            out_octree.values_f[cur_values_off + (i+out_octree.header.brick_pad)*v_size*v_size + 
-                                                 (j+out_octree.header.brick_pad)*v_size + 
-                                                 (k+out_octree.header.brick_pad)] = 0;
-          }
-        }
-      }
-    }*/
-    
-    if (ofs == 0) 
-    {
-      out_octree.nodes[num].offset = 0;
-      out_octree.nodes[num].is_not_void = (min_val <= 0 && max_val >= 0);
-      //printf("leaf - %u\n", tl_octree.nodes[idx].tid_count);
-      return out_octree.nodes[num].is_not_void;//tl_octree.nodes[idx].tid_count != 0;
-    }
-    else
-    {
-      bool chk = false, is_not_void = false;
-      //if (tl_octree.nodes[idx].tid_count == 0) {printf("AAA\n"); chk = true;}
-      //printf("{");
-      unsigned real_child = usefull_nodes;
-      usefull_nodes += 8;
-      for (int i = 0; i < 8; i++)
-      {
-        float ch_d = d / 2;
-        float3 ch_p = 2 * p + float3((i & 4) >> 2, (i & 2) >> 1, i & 1);
-        bool x = mesh_octree_to_global_octree_rec(mesh, tl_octree, out_octree, /*distances, texs,*/ ofs + i, ch_p, ch_d, real_child + i, usefull_nodes);
-        //if (chk && x) {printf("BBB\n"); chk = false;}
-        is_not_void |= x;
-      }
-      //printf("}");
-      out_octree.nodes[num].is_not_void = is_not_void;
-      if (!is_not_void)
-      {
-        //printf("CCC %u\n", tl_octree.nodes[idx].tid_count);
-        usefull_nodes -= 8;
-        out_octree.nodes[num].offset = 0;
-        for (int i = -(int)out_octree.header.brick_pad; i <= (int)out_octree.header.brick_size + (int)out_octree.header.brick_pad; ++i)
-        {
-          for (int j = -(int)out_octree.header.brick_pad; j <= (int)out_octree.header.brick_size + (int)out_octree.header.brick_pad; ++j)
-          {
-            for (int k = -(int)out_octree.header.brick_pad; k <= (int)out_octree.header.brick_size + (int)out_octree.header.brick_pad; ++k)
-            {
-              out_octree.values_f[out_octree.nodes[num].val_off + (i+out_octree.header.brick_pad)*v_size*v_size + 
-                                                  (j+out_octree.header.brick_pad)*v_size + 
-                                                  (k+out_octree.header.brick_pad)] = sqrt(1000000.0f);
-            }
-          }
-        }
-      }
-      return is_not_void;
-    }
-    return false;
-  }
-
   unsigned global_octree_count_and_mark_active_nodes_rec(GlobalOctree &octree, unsigned nodeId)
   {
     unsigned ofs = octree.nodes[nodeId].offset;
     if (is_leaf(ofs))
     {
-      return (unsigned)octree.nodes[nodeId].is_not_void;
+      return (unsigned)(octree.nodes[nodeId].type == GlobalOctreeNodeType::LEAF);
     }   
     else
     {
@@ -943,12 +693,11 @@ std::chrono::steady_clock::time_point t5 = std::chrono::steady_clock::now();
       if (sum == 0) //parent node has no active children
       {
         octree.nodes[nodeId].offset = INVALID_IDX;
-        octree.nodes[nodeId].is_not_void = false;
+        octree.nodes[nodeId].type = GlobalOctreeNodeType::EMPTY;
       }
-      else  //parent node has active children so it is active too
+      else  //parent node has active children so it is active too, type remains the same (NODE or EMPTY_NODE)
       {
         sum++;
-        octree.nodes[nodeId].is_not_void = true;
       }
 
       return sum;
@@ -1045,7 +794,7 @@ std::chrono::steady_clock::time_point t5 = std::chrono::steady_clock::now();
       //unsigned v_size = sbs.header.brick_size + 2 * sbs.header.brick_pad + 1;
       unsigned v_off = octree.nodes[node_idx].val_off;
 
-      if (octree.nodes[node_idx].is_not_void)
+      if (octree.nodes[node_idx].type != GlobalOctreeNodeType::EMPTY)
       {
         unsigned n_off = svs.size();
         float d_max = 2 * sqrt(3) / lod_size;
@@ -1096,7 +845,7 @@ std::chrono::steady_clock::time_point t5 = std::chrono::steady_clock::now();
       unsigned v_size = sbs.header.brick_size + 2 * sbs.header.brick_pad + 1;
       unsigned v_off = octree.nodes[node_idx].val_off;
 
-      if (octree.nodes[node_idx].is_not_void)
+      if (octree.nodes[node_idx].type != GlobalOctreeNodeType::EMPTY)
       {
         unsigned off = sbs.values.size();
         unsigned n_off = sbs.nodes.size();
@@ -1172,7 +921,7 @@ std::chrono::steady_clock::time_point t5 = std::chrono::steady_clock::now();
     unsigned ofs = octree.nodes[nodeId].offset;
     //printf("node p = (%u, %u, %u), lod_size = %u\n", p.x, p.y, p.z, lod_size);
     unsigned v_off = octree.nodes[nodeId].val_off;
-    assert(!(is_leaf(ofs) && !octree.nodes[nodeId].is_not_void));
+    assert(!(is_leaf(ofs) && octree.nodes[nodeId].type == GlobalOctreeNodeType::EMPTY));
 
     if (is_leaf(ofs))
     {
@@ -1200,7 +949,7 @@ std::chrono::steady_clock::time_point t5 = std::chrono::steady_clock::now();
         if (is_leaf(octree.nodes[ofs + i].offset))
         {
           unsigned v_off = octree.nodes[ofs + i].val_off;
-          if (!octree.nodes[ofs + i].is_not_void)
+          if (octree.nodes[ofs + i].type == GlobalOctreeNodeType::EMPTY)
           {
             ch_ofs[i] = -1;
           }    
