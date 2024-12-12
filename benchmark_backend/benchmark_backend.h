@@ -46,20 +46,4 @@ namespace BenchmarkBackend
   void Render(LiteImage::Image2D<uint32_t> &image, IRenderer* pRender, uint32_t width, uint32_t height, const LiteMath::float3 &pos, std::chrono::steady_clock::time_point &t1, std::chrono::steady_clock::time_point &t2);
 
   void getMetrics(const std::string &render_config_str);
-
-  // void getInfoMesh(const std::string &model, const std::string &backend, const std::string &renderer,
-  //                  const std::string &type, const std::string &lod, const int width, const int height, const int spp, const int cameras);
-
-  // void getInfoGrid(const std::string &model, const std::string &backend, const std::string &renderer,
-  //                  const std::string &type, const std::string &lod, const int width, const int height, const int spp, const int cameras);
-
-  // void getInfoSVS(const std::string &model, const std::string &backend, const std::string &renderer,
-  //                 const std::string &type, const std::string &lod, const int width, const int height, const int spp, const int cameras);
-
-  // void getInfoSBS(const std::string &model, const std::string &backend, const std::string &renderer,
-  //                 const std::string &type, const std::string &lod, const int width, const int height, const int spp, const int cameras);
-
-  // //  very slooooow
-  // void getInfoAdaptSBS(const std::string &model, const std::string &backend, const std::string &renderer,
-  //                      const std::string &type, const std::string &lod, const int width, const int height, const int spp, const int cameras);
 };
