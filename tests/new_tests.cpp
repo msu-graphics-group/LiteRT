@@ -1010,4 +1010,54 @@ namespace litert_tests
 
     testing::check_psnr(img_1, img_2, "Orignal mesh", "Saved and Loaded mesh", 50);
   }
+
+  ADD_TEST(COctreeSmoothNormals, "Testing COctree with Smooth normals")
+  {
+    const unsigned device = DEVICE_GPU;
+
+    auto mesh = testing::load_vsgf_mesh(BUNNY_MESH, 0.95);
+
+    MultiRenderPreset preset = getDefaultPreset();
+    preset.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
+    preset.spp = 4;
+    SparseOctreeSettings settings(SparseOctreeBuildType::MESH_TLO, 5);
+
+    auto img_mesh = testing::create_image();
+    auto img = testing::create_image();
+    auto img_smooth = testing::create_image();
+
+    testing::render_scene(img_mesh, device, preset, mesh, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0));
+    testing::save_image(img_mesh, "ref");
+
+    std::vector<int> brick_sizes = {1, 2, 3};
+    std::vector<int> lods = {4, 5, 6, 7};
+    for (int brick_size : brick_sizes)
+    {
+    COctreeV3Settings co_settings;
+    co_settings.brick_size = brick_size;
+    co_settings.brick_pad  = 1;
+    
+    {
+      co_settings.use_lods = true;
+      COctreeV3 coctree = sdf_converter::create_COctree_v3(settings, co_settings, mesh);
+      for (int lod : lods)
+      {
+        preset.fixed_lod = true;
+        preset.level_of_detail = lod;
+
+        preset.normal_mode = NORMAL_MODE_GEOMETRY;
+        testing::render_scene(img, device, preset, coctree, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0));
+        testing::save_image(img, "base_" + std::to_string(brick_size) + "_" + std::to_string(lod));
+
+        preset.normal_mode = NORMAL_MODE_SDF_SMOOTHED;
+        testing::render_scene(img_smooth, device, preset, coctree, float3(0, 0, 3), float3(0, 0, 0), float3(0, 1, 0));
+        testing::save_image(img_smooth, "smooth_" + std::to_string(brick_size) + "_" + std::to_string(lod));
+        
+        float psnr_1 = image_metrics::PSNR(img_mesh, img);
+        float psnr_2 = image_metrics::PSNR(img_mesh, img_smooth);
+        testing::check_greater(psnr_2, psnr_1 + 0.4, "PSNR with smooth normals", "PSNR with default normals + 0.4");
+      }
+    } 
+    }
+  }
 }
