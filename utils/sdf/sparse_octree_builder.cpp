@@ -124,7 +124,8 @@ namespace sdf_converter
                                          const cmesh4::TriangleListOctree &tl_octree,
                                          GlobalOctree &out_octree,
                                          unsigned min_layer, unsigned max_layer, 
-                                         float precision, unsigned max_threads)
+                                         float precision, bool fill_all_nodes,
+                                         unsigned max_threads)
   {
     assert(min_layer < max_layer);
     omp_set_num_threads(max_threads);
@@ -319,8 +320,9 @@ namespace sdf_converter
   }
 
   void linear_mesh_octree_to_global_octree(const cmesh4::SimpleMesh &mesh,
-                                         const cmesh4::TriangleListOctree &tl_octree,
-                                         GlobalOctree &out_octree, unsigned max_threads)
+                                           const cmesh4::TriangleListOctree &tl_octree,
+                                           GlobalOctree &out_octree, bool fill_all_nodes,
+                                           unsigned max_threads)
   {
     omp_set_num_threads(max_threads);
 
@@ -340,7 +342,7 @@ namespace sdf_converter
       out_octree.nodes[idx].offset = ofs;
       out_octree.nodes[idx].val_off = idx*v_size*v_size*v_size;
 
-      if (idx != 0)//if (ofs == 0)
+      if (idx != 0 && (fill_all_nodes || is_leaf(ofs)))//if (ofs == 0)
       {
 
         float min_val =  1000;
@@ -754,21 +756,20 @@ std::chrono::steady_clock::time_point t5 = std::chrono::steady_clock::now();
     }
   }
 
-  void mesh_octree_to_global_octree(const cmesh4::SimpleMesh &mesh,
-                                    const cmesh4::TriangleListOctree &tl_octree, 
-                                    GlobalOctree &out_octree, float precision,
-                                    unsigned min_layer, unsigned max_layer)
+  void mesh_octree_to_global_octree(const cmesh4::SimpleMesh &mesh, const cmesh4::TriangleListOctree &tl_octree, 
+                                    GlobalOctree &out_octree, float precision, unsigned min_layer, 
+                                    unsigned max_layer, bool fill_all_nodes)
   {
     GlobalOctree tmp_octree;
     tmp_octree.header = out_octree.header;
     tmp_octree.nodes.resize(tl_octree.nodes.size());
     if (precision > 0 && min_layer < max_layer)
     {
-      linear_mesh_octree_to_global_octree_with_precision(mesh, tl_octree, tmp_octree, min_layer, max_layer, precision, omp_get_max_threads());
+      linear_mesh_octree_to_global_octree_with_precision(mesh, tl_octree, tmp_octree, min_layer, max_layer, precision, fill_all_nodes, omp_get_max_threads());
     }
     else
     {
-      linear_mesh_octree_to_global_octree(mesh, tl_octree, tmp_octree, omp_get_max_threads());
+      linear_mesh_octree_to_global_octree(mesh, tl_octree, tmp_octree, fill_all_nodes, omp_get_max_threads());
     }
     unsigned nn = global_octree_count_and_mark_active_nodes_rec(tmp_octree, 0);
     assert(!is_leaf(tmp_octree.nodes[0].offset));

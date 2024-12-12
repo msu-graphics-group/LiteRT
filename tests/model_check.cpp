@@ -100,7 +100,7 @@ void check_model(const std::string &path)
 
 		auto tlo = cmesh4::create_triangle_list_octree(mesh, settings.depth, 0, 1.0f);
 		printf("[check_model::INFO]   Built TLO\n");
-		sdf_converter::mesh_octree_to_global_octree(mesh, tlo, g);
+		sdf_converter::mesh_octree_to_global_octree(mesh, tlo, g, 0.0f, settings.depth, settings.depth, false);
 		printf("[check_model::INFO]   Built Global Octree\n");
 		sdf_converter::global_octree_to_COctreeV3(g, coctree, co_settings, scom_settings);
 		printf("[check_model::INFO]   Built Compact Octree\n");
@@ -310,7 +310,7 @@ namespace model_validator
 
 			auto tlo = cmesh4::create_triangle_list_octree(mesh, settings.depth, 0, 1.0f);
 			// std::cout << "Finished TLO..." << std::endl;
-			sdf_converter::mesh_octree_to_global_octree(mesh, tlo, g);
+			sdf_converter::mesh_octree_to_global_octree(mesh, tlo, g, 0.0f, settings.depth, settings.depth, false);
 			// std::cout << "Finished global octree..." << std::endl;
 			sdf_converter::global_octree_to_COctreeV3(g, coctree, co_settings, scom_settings);
 

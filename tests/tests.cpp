@@ -3939,7 +3939,7 @@ void litert_test_49_similarity_compression()
   g.header.brick_pad = 1;
 
   auto tlo = cmesh4::create_triangle_list_octree(mesh, settings.depth, 0, 1.0f);
-  sdf_converter::mesh_octree_to_global_octree(mesh, tlo, g);
+  sdf_converter::mesh_octree_to_global_octree(mesh, tlo, g, 0.0f, settings.depth, settings.depth, false);
   COctreeV3 coctree, coctree_comp;
   COctreeV3Settings co_settings;
   co_settings.bits_per_value = 8;

@@ -623,7 +623,7 @@ namespace litert_tests
     auto tlo = cmesh4::create_triangle_list_octree(mesh, OCTREE_DEPTH, 0, 1.0f);
 
     
-    sdf_converter::mesh_octree_to_global_octree(mesh, tlo, global_mesh);
+    sdf_converter::mesh_octree_to_global_octree(mesh, tlo, global_mesh, 0.0f, OCTREE_DEPTH, OCTREE_DEPTH, false);
     sdf_converter::sdf_to_global_octree(settings2, sdf, max_threads, global_sdf);
 
     std::vector<SdfFrameOctreeNode> frame_mesh, frame_sdf;
@@ -908,8 +908,8 @@ namespace litert_tests
     auto tlo = cmesh4::create_triangle_list_octree(mesh, OCTREE_DEPTH, 0, 1.0f);
 
     
-    sdf_converter::mesh_octree_to_global_octree(mesh, tlo, global_framed);
-    sdf_converter::mesh_octree_to_global_octree(mesh, tlo, global_prec, 0.001, 2, 7);
+    sdf_converter::mesh_octree_to_global_octree(mesh, tlo, global_framed, 0.0f, OCTREE_DEPTH, OCTREE_DEPTH, false);
+    sdf_converter::mesh_octree_to_global_octree(mesh, tlo, global_prec, 0.001, 2, 7, false);
 
     int nc_1 = global_framed.nodes.size();
     int nc_2 = global_prec.nodes.size();

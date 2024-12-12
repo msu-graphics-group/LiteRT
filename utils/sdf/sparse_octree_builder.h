@@ -24,10 +24,9 @@ namespace sdf_converter
   void sdf_to_global_octree(SparseOctreeSettings settings, MultithreadedDistanceFunction sdf, 
                             unsigned max_threads, GlobalOctree &octree);
 
-  void mesh_octree_to_global_octree(const cmesh4::SimpleMesh &mesh,
-                                    const cmesh4::TriangleListOctree &tl_octree, 
-                                    GlobalOctree &out_octree, float precision = 0.0,
-                                    unsigned min_layer = 0, unsigned max_layer = 20);
+  void mesh_octree_to_global_octree(const cmesh4::SimpleMesh &mesh, const cmesh4::TriangleListOctree &tl_octree, 
+                                    GlobalOctree &out_octree, float precision, unsigned min_layer, 
+                                    unsigned max_layer, bool fill_all_nodes);
 
   void global_octree_to_frame_octree(const GlobalOctree &octree, std::vector<SdfFrameOctreeNode> &out_frame); 
   void global_octree_to_frame_octree_tex(const GlobalOctree &octree, std::vector<SdfFrameOctreeTexNode> &out_frame);

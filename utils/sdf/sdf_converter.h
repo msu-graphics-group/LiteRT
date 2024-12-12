@@ -23,6 +23,8 @@ struct SparseOctreeSettings
   explicit SparseOctreeSettings(unsigned _depth, bool _fill_all_nodes = false)
   {
     depth = _depth;
+    min_depth = _depth;
+    split_thr = 0.0f;
     fill_all_nodes = _fill_all_nodes;
   }
   SparseOctreeSettings(unsigned _depth, float split_thr, unsigned min_depth = 1, bool _fill_all_nodes = false)
