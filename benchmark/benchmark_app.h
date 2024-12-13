@@ -28,6 +28,10 @@ struct BenchmarkAppConfig
   int spp;
   int cameras;
   int iters;
+
+  int hydra_spp;
+  int hydra_material_id;
+  std::string hydra_scene;
 };
 
 // This config is passed to render_app
@@ -46,4 +50,8 @@ struct RenderAppConfig
   int spp;
   int cameras;
   int iters;
+
+  int hydra_spp;
+  int hydra_material_id;
+  std::string hydra_scene;
 };

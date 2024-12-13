@@ -173,10 +173,15 @@ namespace BenchmarkBackend
 
     load_block_from_string(repr_config_str, repr_config);
 
+    const int mat_id = render_config.get_int("mat_id", 6);
+    DemoScene scene = DemoScene::SINGLE_OBJECT;
+
+    if (render_config.get_string("hydra_scene") == "SINGLE_OBJECT")
+      scene = DemoScene::SINGLE_OBJECT;
+    else if (render_config.get_string("hydra_scene") == "CORNELL_BOX")
+      scene = DemoScene::CORNELL_BOX;
 
     // Load mesh
-
-    const int mat_id = 6;
     cmesh4::SimpleMesh mesh = cmesh4::LoadMesh(model_path.c_str());
     cmesh4::set_mat_id(mesh, mat_id);
 
@@ -192,7 +197,7 @@ namespace BenchmarkBackend
     {
       std::string fname_vsgf = fname_no_ext + ".vsgf";
       cmesh4::SaveMeshToVSGF(fname_vsgf.c_str(), mesh);
-      save_scene_xml(fname_no_ext + ".xml", get_model_name(fname_no_ext) + ".vsgf", mesh, DemoScene::SINGLE_OBJECT);
+      save_scene_xml(fname_no_ext + ".xml", get_model_name(fname_no_ext) + ".vsgf", mesh, scene);
     }
     else if (repr_type == "MESH_LOD")
     {
@@ -210,7 +215,7 @@ namespace BenchmarkBackend
 
       std::filesystem::remove(fname_vsgf_before_lod.c_str()); // the only reason to import filesystem, delete original mesh, it can already be found in MESH directory
 
-      save_scene_xml(fname_no_ext + ".xml", get_model_name(fname_no_ext) + ".vsgf", mesh, DemoScene::SINGLE_OBJECT);
+      save_scene_xml(fname_no_ext + ".xml", get_model_name(fname_no_ext) + ".vsgf", mesh, scene);
     }
     else if (repr_type == "SDF_GRID")
     {
@@ -223,7 +228,7 @@ namespace BenchmarkBackend
       ModelInfo info = get_info_sdf_grid(model_new);
 
       save_sdf_grid(model_new, fname_no_ext + ".bin");
-      save_scene_xml(fname_no_ext + ".xml", get_model_name(fname_no_ext) + ".bin", info, mat_id, DemoScene::SINGLE_OBJECT);
+      save_scene_xml(fname_no_ext + ".xml", get_model_name(fname_no_ext) + ".bin", info, mat_id, scene);
     }
     else if (repr_type == "SDF_SVS")
     {
@@ -233,7 +238,7 @@ namespace BenchmarkBackend
       ModelInfo info = get_info_sdf_SVS(model_new);
 
       save_sdf_SVS(model_new, fname_no_ext + ".bin");
-      save_scene_xml(fname_no_ext + ".xml", get_model_name(fname_no_ext) + ".bin", info, mat_id, DemoScene::SINGLE_OBJECT);
+      save_scene_xml(fname_no_ext + ".xml", get_model_name(fname_no_ext) + ".bin", info, mat_id, scene);
     }
     else if (repr_type == "SDF_SBS")
     {
@@ -250,7 +255,7 @@ namespace BenchmarkBackend
       ModelInfo info = get_info_sdf_SBS(model_new);
 
       save_sdf_SBS(model_new, fname_no_ext + ".bin");
-      save_scene_xml(fname_no_ext + ".xml", get_model_name(fname_no_ext) + ".bin", info, mat_id, DemoScene::SINGLE_OBJECT);
+      save_scene_xml(fname_no_ext + ".xml", get_model_name(fname_no_ext) + ".bin", info, mat_id, scene);
     }
     else if (repr_type == "SDF_FRAME_OCTREE")
     {
@@ -260,7 +265,7 @@ namespace BenchmarkBackend
       ModelInfo info = get_info_sdf_frame_octree(model_new);
 
       save_sdf_frame_octree(model_new, fname_no_ext + ".bin");
-      save_scene_xml(fname_no_ext + ".xml", get_model_name(fname_no_ext) + ".bin", info, mat_id, DemoScene::SINGLE_OBJECT);
+      save_scene_xml(fname_no_ext + ".xml", get_model_name(fname_no_ext) + ".bin", info, mat_id, scene);
     }
     else if (repr_type == "SDF_FRAME_OCTREE_COMPACT")
     {
@@ -292,7 +297,7 @@ namespace BenchmarkBackend
       ModelInfo info = get_info_coctree_v3(model_new);
 
       save_coctree_v3(model_new, fname_no_ext + ".bin");
-      save_scene_xml(fname_no_ext + ".xml", get_model_name(fname_no_ext) + ".bin", info, mat_id, DemoScene::SINGLE_OBJECT);
+      save_scene_xml(fname_no_ext + ".xml", get_model_name(fname_no_ext) + ".bin", info, mat_id, scene);
     }
 
     //  Both models' size calculation
@@ -383,6 +388,7 @@ namespace BenchmarkBackend
     int cameras = render_config.get_int("cameras");
     int iters = render_config.get_int("iters");
     int spp = render_config.get_int("spp");
+    int hydra_spp = render_config.get_int("hydra_spp");
 
     //  Start measurements
     std::fstream f;
@@ -409,7 +415,7 @@ namespace BenchmarkBackend
     {
       pRender = std::make_shared<HydraRenderer>(device);
       HydraRenderPreset hydra_preset = getDefaultHydraRenderPreset();
-      hydra_preset.spp = spp;
+      hydra_preset.spp = hydra_spp;
       static_cast<HydraRenderer*>(pRender.get())->SetPreset(width, height, hydra_preset);
     }
     else

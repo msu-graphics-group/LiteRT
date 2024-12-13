@@ -8,6 +8,9 @@ height:i = 2048
 cameras:i = 4
 iters:i = 4
 spp:i = 4
+hydra_spp:i = 256
+hydra_material_id:i = 1
+// hydra_scene:s = "CORNELL_BOX"
 repr_configs
 {
   MESH

@@ -89,6 +89,9 @@ BenchmarkAppConfig read_benchmark_config(const char *benchmark_config_fpath)
   res_benchmark.cameras = block_benchmark.get_int("cameras");
   res_benchmark.iters = block_benchmark.get_int("iters");
   res_benchmark.spp = block_benchmark.get_int("spp");
+  res_benchmark.hydra_material_id = block_benchmark.get_int("hydra_material_id");
+  res_benchmark.hydra_spp = block_benchmark.get_int("hydra_spp");
+  res_benchmark.hydra_scene = block_benchmark.get_string("hydra_scene");
 
   // Get representation configs
   Block *repr_configs = block_benchmark.get_block("repr_configs");
@@ -132,26 +135,6 @@ BenchmarkAppConfig read_benchmark_config(const char *benchmark_config_fpath)
   return res_benchmark;
 }
 
-void write_benchmark_config(const char *benchmark_config_fpath, const BenchmarkAppConfig &in_benchmark)
-{
-  Block block_benchmark{};
-
-  block_benchmark.set_arr("backends", in_benchmark.backends);
-  block_benchmark.set_arr("renderers", in_benchmark.renderers);
-  block_benchmark.set_arr("render_modes", in_benchmark.render_modes);
-  block_benchmark.set_arr("models", in_benchmark.models);
-
-  block_benchmark.set_int("width", in_benchmark.width);
-  block_benchmark.set_int("height", in_benchmark.height);
-  block_benchmark.set_int("cameras", in_benchmark.cameras);
-  block_benchmark.set_int("iters", in_benchmark.iters);
-  block_benchmark.set_int("spp", in_benchmark.spp);
-
-  // THIS FUNCTION IS NOT USED -> NOT UPDATED, TO MAKE IT WORK, ADD repr_config PROCESSING
-
-  save_block_to_file(benchmark_config_fpath, block_benchmark);
-}
-
 std::string write_render_config_s(const RenderAppConfig &in_render)
 {
   std::string res_block_str;
@@ -172,6 +155,10 @@ std::string write_render_config_s(const RenderAppConfig &in_render)
   block_render.set_int("cameras", in_render.cameras);
   block_render.set_int("iters", in_render.iters);
   block_render.set_int("spp", in_render.spp);
+
+  block_render.set_int("hydra_material_id", in_render.hydra_material_id);
+  block_render.set_int("hydra_spp", in_render.hydra_spp);
+  block_render.set_string("hydra_scene", in_render.hydra_scene);
 
   save_block_to_string(res_block_str, block_render);
   return res_block_str;
@@ -642,6 +629,10 @@ int main(int argc, const char **argv)
   render_config.cameras = config.cameras;
   render_config.render_modes = config.render_modes;
   render_config.mesh_config_name = "default";
+  
+  render_config.hydra_material_id = config.hydra_material_id;
+  render_config.hydra_spp = config.hydra_spp;
+  render_config.hydra_scene = config.hydra_scene;
 
   uint32_t configs_overall = 0u;
   for (const auto &repr_config : config.repr_configs)
