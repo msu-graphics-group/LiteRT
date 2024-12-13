@@ -35,144 +35,24 @@ namespace BenchmarkBackend
   }
 
 
-  void parse_param_string(std::string param_string, SdfSBSHeader *sbs_header, COctreeV3Settings *coctree_header)
-  {
-    // Notes:
-    // "size" - sets both COctreeV3 and SBS "brick_size"
-    // "ssize" - sets only       SBS "brick_size"
-    // "csize" - sets only COctreeV3 "brick_size"
-
-    // "pad" - sets both COctreeV3 and SBS "brick_pad"
-    // "spad" - sets only       SBS "brick_pad"
-    // "cpad" - sets only COctreeV3 "brick_pad"
-
-    // param string example: COctreeV3 - 'size_4_pad_1_bits_1_uv_0_sim_0'
-    // param string example:       SBS - 'size_4_pad_0_bytes_1_aux_3'
-    // aux then transformed (aux = aux << 24)
-
-    std::vector<uint32_t> separators = {0};
-
-    for (uint32_t i = 0u; i < param_string.size(); ++i)
-      if (param_string[i] == '_')
-        separators.push_back(i);
-    separators.push_back(param_string.size());
-
-    // Setting default values
-    SdfSBSHeader res_header_sbs{};
-    res_header_sbs.brick_size = 4;
-    res_header_sbs.brick_pad = 0;
-    res_header_sbs.bytes_per_value = 2;
-    res_header_sbs.aux_data = SDF_SBS_NODE_LAYOUT_DX; // 1 << 24
-
-    COctreeV3Settings res_header_coctree{};
-    res_header_coctree.brick_size = 4;
-    res_header_coctree.brick_pad = 0;
-    res_header_coctree.bits_per_value = 8;
-    res_header_coctree.uv_size = 0;
-    res_header_coctree.sim_compression = 0;
-
-    // Process parameters
-    if (!param_string.empty() || param_string != "default") // otherwise load default and skip
-    {
-      if ((separators.size() & 1u) == 0u)
-      {
-        printf("Error: incorrect param_string: '%s'\n", param_string.c_str());
-        exit(-1);
-      }
-      else
-      {
-        for (uint32_t i = 2u; i < separators.size(); i += 2u)
-        {
-          uint32_t tag_beg = separators[i-2] + 1, tag_end = separators[i-1],
-                  val_beg = separators[i-1] + 1, val_end = separators[i  ];
-
-          std::string tag     = param_string.substr(tag_beg, tag_end - tag_beg);
-          std::string val_str = param_string.substr(val_beg, val_end - val_beg);
-          int val = std::atoi(val_str.c_str());
-
-          if (tag == "size")
-          {
-            assert(val >= 1 && val <= 16);
-            res_header_sbs.brick_size = val;
-            res_header_coctree.brick_size = val;
-          }
-          else if (tag == "ssize")
-          {
-            assert(val >= 1 && val <= 16);
-            res_header_sbs.brick_size = val;
-          }
-          else if (tag == "csize")
-          {
-            assert(val >= 1 && val <= 16);
-            res_header_coctree.brick_size = val;
-          }
-          else if (tag == "pad")
-          {
-            assert(val >= 0 && val <= 1);
-            res_header_sbs.brick_pad = val;
-            res_header_coctree.brick_pad = val;
-          }
-          else if (tag == "spad")
-          {
-            assert(val >= 0 && val <= 1);
-            res_header_sbs.brick_pad = val;
-          }
-          else if (tag == "cpad")
-          {
-            assert(val >= 0 && val <= 1);
-            res_header_coctree.brick_pad = val;
-          }
-          else if (tag == "bits")
-          {
-            assert(val == 6 || val == 8 || val == 10 || val == 16 || val == 32);
-            res_header_coctree.bits_per_value = val;
-          }
-          else if (tag == "bytes")
-          {
-            assert(val == 1 || val == 2 || val == 4);
-            res_header_sbs.bytes_per_value = val;
-          }
-          else if (tag == "uv")
-          {
-            assert(val >= 0 && val <= 2);
-            res_header_coctree.uv_size = val;
-          }
-          else if (tag == "sim")
-          {
-            assert(val >= 0 && val <= 1);
-            res_header_coctree.sim_compression = val;
-          }
-          else if (tag == "aux")
-          {
-            assert(val >= 0 && val <= 5);
-            res_header_sbs.aux_data = val << 24u;
-          }
-        }
-      }
-    }
-
-    if (sbs_header != nullptr)
-      *sbs_header = res_header_sbs;
-    if (coctree_header != nullptr)
-      *coctree_header = res_header_coctree;
-  }
-
-
  // Build
 
   void build_model(std::string render_config_str)
   {
     // Read config string
 
-    Block render_config, repr_config;
+    Block render_config;
     load_block_from_string(render_config_str, render_config);
 
     std::string model_path = render_config.get_string("model");
     std::string repr_type = render_config.get_string("type");
-    std::string repr_config_str = render_config.get_string("repr_config");
+    Block *repr_config = render_config.get_block("repr_config");
+    if (repr_config == nullptr)
+    {
+      printf("Warning: no representation config passed to build_model\n");
+      exit(-1);
+    }
     std::string repr_config_name = render_config.get_string("repr_config_name");
-
-    load_block_from_string(repr_config_str, repr_config);
 
     const int mat_id = render_config.get_int("mat_id", 6);
     DemoScene scene = DemoScene::SINGLE_OBJECT;
@@ -186,7 +66,7 @@ namespace BenchmarkBackend
     cmesh4::SimpleMesh mesh = cmesh4::LoadMesh(model_path.c_str());
     cmesh4::set_mat_id(mesh, mat_id);
 
-    SparseOctreeSettings settings(repr_config.get_int("depth"));
+    SparseOctreeSettings settings(repr_config->get_int("depth"));
 
     std::string fname_no_ext = generate_filename_model_no_ext(model_path, repr_type, repr_config_name);
     std::string tmp_fname = get_model_name(fname_no_ext);
@@ -206,9 +86,9 @@ namespace BenchmarkBackend
       std::string fname_vsgf = fname_no_ext + ".vsgf";
       cmesh4::SaveMeshToVSGF(fname_vsgf_before_lod.c_str(), mesh);
 
-      float lod_param = repr_config.get_double("decimate_percentage");
+      float lod_param = repr_config->get_double("decimate_percentage");
 
-      std::string lod_command = "dependencies/lod_maker/lod_maker " + fname_vsgf_before_lod + " " + fname_vsgf + " " + std::to_string(lod_param);
+      std::string lod_command = "dependencies/lod_maker/lod_maker '" + fname_vsgf_before_lod + "' '" + fname_vsgf + "' " + std::to_string(lod_param);
 
       t1 = std::chrono::steady_clock::now();
       std::system(lod_command.c_str());
@@ -221,7 +101,7 @@ namespace BenchmarkBackend
     else if (repr_type == "SDF_GRID")
     {
       GridSettings grid_settings{};
-      grid_settings.size = repr_config.get_int("size");
+      grid_settings.size = repr_config->get_int("size");
 
       t1 = std::chrono::steady_clock::now();
       auto model_new = sdf_converter::create_sdf_grid(grid_settings, mesh);
@@ -244,10 +124,10 @@ namespace BenchmarkBackend
     else if (repr_type == "SDF_SBS")
     {
       SdfSBSHeader header{};
-      header.brick_size = repr_config.get_int("brick_size", 4);
-      header.brick_pad = repr_config.get_int("brick_pad", 0);
-      header.bytes_per_value = repr_config.get_int("bytes_per_value", 2);
-      header.aux_data = repr_config.get_int("aux_data", 1) << 24; // 1 << 24
+      header.brick_size = repr_config->get_int("brick_size", 4);
+      header.brick_pad = repr_config->get_int("brick_pad", 0);
+      header.bytes_per_value = repr_config->get_int("bytes_per_value", 2);
+      header.aux_data = repr_config->get_int("aux_data", 1) << 24; // 1 << 24
 
 
       t1 = std::chrono::steady_clock::now();
@@ -271,24 +151,24 @@ namespace BenchmarkBackend
     else if (repr_type == "SDF_FRAME_OCTREE_COMPACT")
     {
       COctreeV3Settings co_settings{};
-      co_settings.brick_size = repr_config.get_int("brick_size", 4);
-      co_settings.brick_pad = repr_config.get_int("brick_pad", 0);
-      co_settings.bits_per_value = repr_config.get_int("bits_per_value", 8);
-      co_settings.uv_size = repr_config.get_int("uv_size", 0);
-      co_settings.sim_compression = repr_config.get_int("sim_compression", 0);
+      co_settings.brick_size = repr_config->get_int("brick_size", 4);
+      co_settings.brick_pad = repr_config->get_int("brick_pad", 0);
+      co_settings.bits_per_value = repr_config->get_int("bits_per_value", 8);
+      co_settings.uv_size = repr_config->get_int("uv_size", 0);
+      co_settings.sim_compression = repr_config->get_int("sim_compression", 0);
 
       scom::Settings scom_settings;
       if (co_settings.sim_compression == 1)
       {
-        std::string clustering_algorithm_str = repr_config.get_string("clustering_algorithm", "HIERARCHICAL");
+        std::string clustering_algorithm_str = repr_config->get_string("clustering_algorithm", "HIERARCHICAL");
         if (clustering_algorithm_str == "REPLACEMENT")
           scom_settings.clustering_algorithm = scom::ClusteringAlgorithm::REPLACEMENT;
         else if (clustering_algorithm_str == "COMPONENTS_RECURSIVE_FILL")
           scom_settings.clustering_algorithm = scom::ClusteringAlgorithm::COMPONENTS_RECURSIVE_FILL;
         else if (clustering_algorithm_str == "HIERARCHICAL")
           scom_settings.clustering_algorithm = scom::ClusteringAlgorithm::HIERARCHICAL;
-        scom_settings.similarity_threshold = repr_config.get_double("similarity_threshold", scom_settings.similarity_threshold);
-        scom_settings.target_leaf_count = repr_config.get_int("target_leaf_count", scom_settings.target_leaf_count);
+        scom_settings.similarity_threshold = repr_config->get_double("similarity_threshold", scom_settings.similarity_threshold);
+        scom_settings.target_leaf_count = repr_config->get_int("target_leaf_count", scom_settings.target_leaf_count);
       }
 
 
@@ -347,7 +227,7 @@ namespace BenchmarkBackend
     pRender->Render(image.data(), image.width(), image.height(), worldView, proj, preset, a_passNum);
   }
 
-  void Render(LiteImage::Image2D<uint32_t> &image, IRenderer* pRender, uint32_t width, uint32_t height, const LiteMath::float3 &pos, std::chrono::steady_clock::time_point &t1, std::chrono::steady_clock::time_point &t2)
+  void Render(LiteImage::Image2D<uint32_t> &image, IRenderer* pRender, uint32_t width, uint32_t height, const LiteMath::float3 &pos, float &t)
   {
     float fov_degrees = 60;
     float z_near = 0.1f;
@@ -361,9 +241,11 @@ namespace BenchmarkBackend
     pRender->CommitDeviceData();
     pRender->Clear(width, height, "color");
 
-    t1 = std::chrono::steady_clock::now();
     pRender->Render(image.data(), width, height, "color");
-    t2 = std::chrono::steady_clock::now();
+
+    float timings[4] = {0,0,0,0};
+    pRender->GetExecutionTime("CastRaySingleBlock", timings);
+    t = timings[0];
   }
 
 #ifdef USE_GPU
@@ -396,7 +278,6 @@ void shutTheFUpCallback(vk_utils::LogLevel level, const char *msg, const char* f
     std::string model_path = render_config.get_string("model");
     std::string model_name = render_config.get_string("model_name");
     std::string repr_type = render_config.get_string("type");
-    std::string repr_config = render_config.get_string("repr_config");
     std::string repr_config_name = render_config.get_string("repr_config_name");
     std::string mesh_config_name = render_config.get_string("mesh_config_name");
     std::string backend = render_config.get_string("backend");
@@ -480,13 +361,11 @@ void shutTheFUpCallback(vk_utils::LogLevel level, const char *msg, const char* f
 
           LiteImage::Image2D<uint32_t> image(width, height);
 
-          std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
-          std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
-
-          Render(image, pRender.get(), width, height, pos, t1, t2);
+          float t = 0.f;
+          Render(image, pRender.get(), width, height, pos, t);
           
           //  Time calculation
-          float t = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count() / 1000.f;
+          t /= 1000.f;
           calcMetrics(min_time, max_time, average_time, t);
 
           //  Save image
@@ -616,7 +495,6 @@ void shutTheFUpCallback(vk_utils::LogLevel level, const char *msg, const char* f
       return DEVICE_GPU_RTX;
     }
 
-    //  if GPU_RQ -> skip
     return -1;
   }
 

@@ -137,17 +137,19 @@ BenchmarkAppConfig read_benchmark_config(const char *benchmark_config_fpath)
 std::string write_render_config_s(const RenderAppConfig &in_render)
 {
   std::string res_block_str;
-  Block block_render{};
+  Block block_render{}, block_repr_config;
+
+  load_block_from_string(in_render.repr_config, block_repr_config);
 
   block_render.set_string("type", in_render.type);
   block_render.set_string("model", in_render.model);
   block_render.set_string("backend", in_render.backend);
   block_render.set_string("renderer", in_render.renderer);
   block_render.set_string("model_name", in_render.model_name);
-  block_render.set_string("repr_config", in_render.repr_config);
   block_render.set_string("repr_config_name", in_render.repr_config_name);
   block_render.set_string("mesh_config_name", in_render.mesh_config_name);
   block_render.set_arr("render_modes", in_render.render_modes);
+  block_render.add_block("repr_config", &block_repr_config);
 
   block_render.set_int("width", in_render.width);
   block_render.set_int("height", in_render.height);
@@ -536,6 +538,12 @@ int main(int argc, const char **argv)
         repr_types_vec.push_back(repr_config.first);
     }
 
+    if (config.repr_configs.find("MESH") == config.repr_configs.end() || config.repr_configs["MESH"].size() != 1)
+    {
+      printf("Error: only one config for mesh is supported\n");
+      exit(-1);
+    }
+
     repr_types_vec = filter_enum_params(repr_types_vec, enums.repr_types);
 
     for (const auto &repr_type : repr_types_vec)
@@ -620,6 +628,9 @@ int main(int argc, const char **argv)
 
   // Benchmark loop
 
+
+  // Render
+
   RenderAppConfig render_config{};
   render_config.spp = config.spp;
   render_config.iters = config.iters;
@@ -627,7 +638,8 @@ int main(int argc, const char **argv)
   render_config.height = config.height;
   render_config.cameras = config.cameras;
   render_config.render_modes = config.render_modes;
-  render_config.mesh_config_name = "default";
+  render_config.mesh_config_name = config.repr_configs["MESH"][0];
+  render_config.mesh_config_name = render_config.mesh_config_name.substr(0, render_config.mesh_config_name.find('{'));
   
   render_config.hydra_material_id = config.hydra_material_id;
   render_config.hydra_spp = config.hydra_spp;
@@ -639,7 +651,7 @@ int main(int argc, const char **argv)
 
   uint32_t tests_overall = config.models.size() * config.renderers.size() * config.backends.size() * configs_overall;
 
-  printf("START BENCHMARK with config %s\n", base_config_fpath);
+  printf("START BENCHMARK RENDER TESTS\n");
 
   int counter_models = -1;
   for (const auto &model : config.models)
@@ -711,8 +723,8 @@ int main(int argc, const char **argv)
             current_test_id += counter_models * config.renderers.size() * config.backends.size() * configs_overall;
             // config.models.size() * config.renderers.size() * config.backends.size() * configs_overall
 
-            printf("BENCHMARK TEST [%d/%d]: %s, %s, %s, %s, %s.\n", current_test_id + 1, tests_overall, render_config.model_name.c_str(), renderer.c_str(),
-                                                                    backend.c_str(), render_config.type.c_str(), repr_config_name.c_str());
+            printf("\nBENCHMARK TEST [%d/%d]: %s, %s, %s, %s, %s.\n", current_test_id + 1, tests_overall, render_config.model_name.c_str(), renderer.c_str(),
+                                                                      backend.c_str(), render_config.type.c_str(), repr_config_name.c_str());
 
 
             // Create directories for model and tests
@@ -771,7 +783,7 @@ int main(int argc, const char **argv)
 
   if (config.backends.size() > 1 || (config.backends.size() == 1 && config.backends[0] != "CPU")) {
     // Run "slicer_execute.sh" with all types On
-    std::string slicer_execute_command = "bash slicer_execute.sh " + slicer_adir + " " + slicer_exec + " >> benchmark/saves/slicer_out.txt"; // + " 2>&1";
+    std::string slicer_execute_command = "bash slicer_execute.sh " + slicer_adir + " " + slicer_exec + " >> benchmark/saves/slicer_out.txt" + " 2>&1";
     std::system(slicer_execute_command.c_str());
   }
 
