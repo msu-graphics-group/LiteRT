@@ -2,6 +2,7 @@
 #include "utils/coctree/similarity_compression.h"
 #ifdef USE_GPU
 #include "vk_context.h"
+#include "vk_utils.h"
 #endif
 
 namespace BenchmarkBackend
@@ -365,9 +366,30 @@ namespace BenchmarkBackend
     t2 = std::chrono::steady_clock::now();
   }
 
+#ifdef USE_GPU
+void shutTheFUpCallback(vk_utils::LogLevel level, const char *msg, const char* file, int line)
+{
+  if (level == vk_utils::LogLevel::LOG_ERROR || level == vk_utils::LogLevel::LOG_FATAL)
+  {
+    #ifdef _DEBUG
+      fprintf(stderr, "[VkUtils::%s] [%s:%d]: %s\n", logLevelToString(level), file, line, msg);
+    #else
+      fprintf(stderr, "[VkUtils::%s] %s\n", logLevelToString(level), msg);
+    #endif
+    fflush(stderr);
+  }
+}
+#endif
+
+
   void
   getMetrics(const std::string &render_config_str)
   {
+    //disable annoying VkUtils logs
+    #ifdef USE_GPU
+    vk_utils::setLogCallback(shutTheFUpCallback);
+    #endif
+
     Block render_config;
     load_block_from_string(render_config_str, render_config);
 
@@ -443,6 +465,7 @@ namespace BenchmarkBackend
       float min_flip = 1000, max_flip = -1, average_flip = 0;
       float res_time = 1e8, res_psnr = 1000, res_flip = 1000;
       
+      int render_num = 0;
       for (int iter = 0; iter < iters; ++iter)
       {
         float avg_per_iter_time = 0;
@@ -459,6 +482,7 @@ namespace BenchmarkBackend
 
           std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
           std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
+
           Render(image, pRender.get(), width, height, pos, t1, t2);
           
           //  Time calculation
@@ -469,7 +493,8 @@ namespace BenchmarkBackend
           std::string save_name = generate_filename_image(model_name + ".workaround", renderer_type, backend, repr_type, repr_config_name, camera),
                       mesh_name = generate_filename_image(model_name + ".workaround", renderer_type, backend,    "MESH", mesh_config_name, camera);
 
-          printf("SaveImg path: %s\n", save_name.c_str());
+          printf("\r[%d/%d] Rendering: ", ++render_num, iters*cameras);
+          fflush(stdout);
           LiteImage::SaveImage<uint32_t>(save_name.c_str(), image);
 
           LiteImage::Image2D<uint32_t> ref_image;
@@ -500,6 +525,7 @@ namespace BenchmarkBackend
 
         res_time = std::min(res_time, avg_per_iter_time); // TODO
       }
+      printf("\n\n");
 
       average_time /= (float)cameras * iters;
       average_psnr /= (float)cameras * iters;

@@ -125,7 +125,7 @@ void HydraRenderer::SetPreset(uint32_t a_width, uint32_t a_height, HydraRenderPr
     // m_pImpl->SetCamId(0);
     m_pImpl->SetViewport(0, 0, m_width, m_height);
 
-    std::cout << "[main]: PathTraceBlock(MIS-PT) ... " << std::endl;
+    //std::cout << "[main]: PathTraceBlock(MIS-PT) ... " << std::endl;
     std::fill(realColor.begin(), realColor.end(), 0.0f);
     
     m_pImpl->SetIntegratorType(m_preset.integratorType);
@@ -134,10 +134,10 @@ void HydraRenderer::SetPreset(uint32_t a_width, uint32_t a_height, HydraRenderPr
     for (int i = 0; i < a_passNum; i++)
       m_pImpl->PathTraceBlock(m_width*m_height, 4, realColor.data(), m_preset.spp);
       
-    m_pImpl->GetExecutionTime("PathTraceBlock", timings);
-    std::cout << "PathTraceBlock(exec) = " << timings[0]              << " ms " << std::endl;
-    std::cout << "PathTraceBlock(copy) = " << timings[1] + timings[2] << " ms " << std::endl;
-    std::cout << "PathTraceBlock(ovrh) = " << timings[3]              << " ms " << std::endl;
+    // m_pImpl->GetExecutionTime("PathTraceBlock", timings);
+    // std::cout << "PathTraceBlock(exec) = " << timings[0]              << " ms " << std::endl;
+    // std::cout << "PathTraceBlock(copy) = " << timings[1] + timings[2] << " ms " << std::endl;
+    // std::cout << "PathTraceBlock(ovrh) = " << timings[3]              << " ms " << std::endl;
     
     const float normConst = 1.0f/float(a_passNum*m_preset.spp);
     toLDRImage(realColor.data(), m_width, m_height, normConst, GAMMA, imageData, true);

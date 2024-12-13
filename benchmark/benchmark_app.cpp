@@ -2,7 +2,6 @@
 
 #include <fstream>
 
-
 //// Parameters:
 //
 // -s, --slicer        = str str // slicer parameters
@@ -340,7 +339,7 @@ void call_kernel_slicer(const BenchmarkAppEnums &enums, const std::string &repr_
   // out_f << slicer_command;
   // out_f.close();
 
-  slicer_command += " >> " + curr_p.native() + "/benchmark/saves/slicer_out.txt"; // + " 2>&1";
+  slicer_command += " >> " + curr_p.native() + "/benchmark/saves/slicer_out.txt" + " 2>&1";
 
   std::filesystem::current_path(slicer_p);
   std::system(slicer_command.c_str());
@@ -368,7 +367,7 @@ void call_kernel_slicer(const BenchmarkAppEnums &enums, const std::string &repr_
     tmp_p = tmp_p.lexically_normal();
     std::filesystem::current_path(tmp_p);
 
-    std::system("bash build.sh");
+    std::system((std::string("bash build.sh") + " >> " + curr_p.native() + "/benchmark/saves/slicer_out.txt" + " 2>&1").c_str());
     std::string commd = "find -name \"*.spv\" | xargs cp --parents -t ../../" + shaders_dir;
     std::system(commd.c_str());
     std::filesystem::current_path(curr_p);
@@ -380,7 +379,7 @@ void call_kernel_slicer(const BenchmarkAppEnums &enums, const std::string &repr_
     tmp_p = tmp_p.lexically_normal();
     std::filesystem::current_path(tmp_p);
 
-    std::system("bash build.sh");
+    std::system((std::string("bash build.sh") + " >> " + curr_p.native() + "/benchmark/saves/slicer_out.txt" + " 2>&1").c_str());
     std::filesystem::current_path(curr_p);
   }
 }
@@ -640,10 +639,14 @@ int main(int argc, const char **argv)
 
   uint32_t tests_overall = config.models.size() * config.renderers.size() * config.backends.size() * configs_overall;
 
+  printf("START BENCHMARK with config %s\n", base_config_fpath);
+
   int counter_models = -1;
   for (const auto &model : config.models)
   {
     ++counter_models;
+    printf("MODEL [%d/%d]: %s\n", counter_models+1, (int)config.models.size(), model.c_str());
+
     render_config.model_name = get_model_name(model);
     int model_build_flag_renderers = 0;
 
@@ -673,6 +676,7 @@ int main(int argc, const char **argv)
           // Slice
           if (do_slicing)
           {
+            printf("Rebuild shaders\n");
             call_kernel_slicer(enums, render_config.type, render_config.renderer, render_config.backend, slicer_adir, slicer_exec);
             recompile = true;
           }
@@ -680,12 +684,14 @@ int main(int argc, const char **argv)
           // Recompile
           if (recompile)
           {
+            printf("Recompile code\n");
+
             std::string use_gpu = backend != "CPU" ? "ON" : "OFF";
             std::string use_rtx = (backend == "RTX") ? "ON" : "OFF";
             std::string reconfigure_cmd = "cmake -S . -B build -DUSE_VULKAN=" + use_gpu + " -DUSE_RTX=" + use_rtx + " -DCMAKE_BUILD_TYPE=Release -DUSE_STB_IMAGE=ON >> benchmark/saves/cmake_out.txt 2>&1";
 
             std::system(reconfigure_cmd.c_str());
-            std::system("cmake --build build --target render_app -j8 >> benchmark/saves/cmake_out.txt");
+            std::system("cmake --build build --target render_app -j8 >> benchmark/saves/cmake_out.txt 2>&1");
             recompile = false;
           }
 
