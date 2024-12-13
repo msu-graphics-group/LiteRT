@@ -227,7 +227,7 @@ namespace BenchmarkBackend
     pRender->Render(image.data(), image.width(), image.height(), worldView, proj, preset, a_passNum);
   }
 
-  void Render(LiteImage::Image2D<uint32_t> &image, IRenderer* pRender, uint32_t width, uint32_t height, const LiteMath::float3 &pos, float &t)
+  void Render(LiteImage::Image2D<uint32_t> &image, IRenderer* pRender, uint32_t width, uint32_t height, const LiteMath::float3 &pos, float *t)
   {
     float fov_degrees = 60;
     float z_near = 0.1f;
@@ -243,9 +243,7 @@ namespace BenchmarkBackend
 
     pRender->Render(image.data(), width, height, "color");
 
-    float timings[4] = {0,0,0,0};
-    pRender->GetExecutionTime("CastRaySingleBlock", timings);
-    t = timings[0];
+    pRender->GetExecutionTime("CastRaySingleBlock", t);
   }
 
 #ifdef USE_GPU
@@ -362,10 +360,11 @@ void shutTheFUpCallback(vk_utils::LogLevel level, const char *msg, const char* f
           LiteImage::Image2D<uint32_t> image(width, height);
 
           float t = 0.f;
-          Render(image, pRender.get(), width, height, pos, t);
+          float t_arr[4] = {0,0,0,0};
+          Render(image, pRender.get(), width, height, pos, t_arr);
           
           //  Time calculation
-          t /= 1000.f;
+          t = t_arr[0] / 1000.f;
           calcMetrics(min_time, max_time, average_time, t);
 
           //  Save image
