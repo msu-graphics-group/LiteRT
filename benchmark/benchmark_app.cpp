@@ -5,6 +5,7 @@
 //// Parameters:
 //
 // -s, --slicer        = str str // slicer parameters
+//     --delete_models           // deletes 'benchmark/saves/*/models' dirs
 //
 ///  Config files
 // -e, --enum_conf     = str // path to a config file containing enums
@@ -393,7 +394,7 @@ int main(int argc, const char **argv)
   BenchmarkAppEnums enums{};
   BenchmarkAppConfig config{};
 
-  bool verbose = false, force_build = false;
+  bool verbose = false, force_build = false, delete_models = false;
   const char *enums_config_fpath = "benchmark/enums.blk", *base_config_fpath = "benchmark/config.blk";
   const char *slicer_dir = "~/kernel_slicer/", *slicer_exec = "~/kernel_slicer/cmake-build-release/kslicer";
 
@@ -460,6 +461,8 @@ int main(int argc, const char **argv)
       verbose = true;
     else if (flag == "-f" || flag == "--force_build")
       force_build = true;
+    else if (flag == "--delete_models")
+      delete_models = true;
     else if ("-e" == flag || "--enum_conf" == flag || "--conf" == flag)
     {} // skip
     else if (flag == "-b" || flag == "--backends")
@@ -628,6 +631,94 @@ int main(int argc, const char **argv)
 
   // Benchmark loop
 
+  uint32_t configs_overall = 0u;
+  for (const auto &repr_config : config.repr_configs)
+    configs_overall += repr_config.second.size();
+
+  // Build
+
+  RenderAppConfig build_config;
+  build_config.spp = config.spp;
+  build_config.iters = config.iters;
+  build_config.width = config.width;
+  build_config.height = config.height;
+  build_config.cameras = config.cameras;
+  build_config.render_modes = config.render_modes;
+  build_config.mesh_config_name = config.repr_configs["MESH"][0];
+  build_config.mesh_config_name = build_config.mesh_config_name.substr(0, build_config.mesh_config_name.find('{'));
+
+  build_config.hydra_material_id = config.hydra_material_id;
+  build_config.hydra_spp = config.hydra_spp;
+  build_config.hydra_scene = config.hydra_scene;
+
+  auto benchmark_t1 = std::chrono::steady_clock::now();
+
+  printf("\n\nBENCHMARK uses config %s\n", base_config_fpath);
+  printf("BENCHMARK - BUILD\n");
+
+  uint32_t builds_overall = config.models.size() * configs_overall;
+
+  int counter_models = -1;
+  for (const auto &model : config.models)
+  {
+    ++counter_models;
+    printf("\nMODEL [%d/%d]: %s\n", counter_models+1, (int)config.models.size(), model.c_str());
+
+    build_config.model_name = get_model_name(model);
+
+    int counter_configs = -1; // for 2 cycles
+    for (const auto &repr_config : config.repr_configs)
+    {
+      build_config.type = repr_config.first;
+
+      for (const auto &repr_config_single_n: repr_config.second)
+      {
+        ++counter_configs;
+        uint32_t bracket_ind = repr_config_single_n.find('{');
+        std::string repr_config_name = repr_config_single_n.substr(0, bracket_ind);
+        std::string repr_config_single = repr_config_single_n.substr(bracket_ind);
+
+        // Print current model build information
+
+        uint32_t current_test_id = counter_configs;
+        current_test_id += counter_models * configs_overall;
+
+        printf("\nBENCHMARK BUILD [%d/%d]: %s, %s, %s.\n", current_test_id + 1, builds_overall, build_config.model_name.c_str(),
+                                                           build_config.type.c_str(), repr_config_name.c_str());
+
+
+        // Create directories for model and tests
+
+        build_config.model = model;
+        build_config.repr_config = repr_config_single;
+        build_config.repr_config_name = repr_config_name;
+        std::string xml_path = generate_filename_model_no_ext(build_config.model, build_config.type, repr_config_name) + ".xml";
+        std::string experiment_path = generate_filename_image(build_config.model, build_config.renderer, build_config.backend,
+                                                              build_config.type,  repr_config_name, build_config.cameras);
+        std::string dirs_to_create = xml_path.substr(0, (xml_path.rfind('/') != xml_path.npos) ? xml_path.rfind('/') : xml_path.rfind('\\'));
+        printf("Model dir: %s\n", dirs_to_create.c_str());
+        std::filesystem::create_directories(dirs_to_create);
+
+
+        // Build
+
+        if (!std::filesystem::exists(xml_path) || force_build)
+        {
+          build_config.model = model;
+          std::string config_str = write_render_config_s(build_config);
+
+          std::string cmd = "DRI_PRIME=1 ./render_app -backend_benchmark build ";
+          cmd += "'" + config_str + "'";
+
+          std::system(cmd.c_str());
+          // printf("\n\nCommand:\n%s\n\n", cmd.c_str());
+        }
+        else
+          printf("Model already exists.\n");
+      }
+    }
+  }
+
 
   // Render
 
@@ -645,37 +736,29 @@ int main(int argc, const char **argv)
   render_config.hydra_spp = config.hydra_spp;
   render_config.hydra_scene = config.hydra_scene;
 
-  uint32_t configs_overall = 0u;
-  for (const auto &repr_config : config.repr_configs)
-    configs_overall += repr_config.second.size();
-
   uint32_t tests_overall = config.models.size() * config.renderers.size() * config.backends.size() * configs_overall;
 
-  printf("START BENCHMARK RENDER TESTS\n");
+  printf("\n\nBENCHMARK - RENDER\n\n");
 
-  int counter_models = -1;
+  counter_models = -1;
   for (const auto &model : config.models)
   {
     ++counter_models;
     printf("MODEL [%d/%d]: %s\n", counter_models+1, (int)config.models.size(), model.c_str());
 
     render_config.model_name = get_model_name(model);
-    int model_build_flag_renderers = 0;
 
     int counter_renderers = -1;
     for (const auto &renderer : config.renderers)
     {
       ++counter_renderers;
       render_config.renderer = renderer;
-      ++model_build_flag_renderers; // we don't need to rebuild models for each renderer
-      int model_build_flag_backends = 0;
 
       int counter_backends = -1;
       for (const auto &backend : config.backends)
       {
         ++counter_backends;
         render_config.backend = backend;
-        ++model_build_flag_backends; // we don't need to rebuild models for each backend
 
         bool do_slicing = backend != "CPU";
         bool recompile = true;
@@ -723,11 +806,11 @@ int main(int argc, const char **argv)
             current_test_id += counter_models * config.renderers.size() * config.backends.size() * configs_overall;
             // config.models.size() * config.renderers.size() * config.backends.size() * configs_overall
 
-            printf("\nBENCHMARK TEST [%d/%d]: %s, %s, %s, %s, %s.\n", current_test_id + 1, tests_overall, render_config.model_name.c_str(), renderer.c_str(),
-                                                                      backend.c_str(), render_config.type.c_str(), repr_config_name.c_str());
+            printf("BENCHMARK TEST [%d/%d]: %s, %s, %s, %s, %s.\n", current_test_id + 1, tests_overall, render_config.model_name.c_str(), renderer.c_str(),
+                                                                    backend.c_str(), render_config.type.c_str(), repr_config_name.c_str());
 
 
-            // Create directories for model and tests
+            // Create directories for tests
 
             render_config.model = model;
             render_config.repr_config = repr_config_single;
@@ -735,36 +818,13 @@ int main(int argc, const char **argv)
             std::string xml_path = generate_filename_model_no_ext(render_config.model, render_config.type, repr_config_name) + ".xml";
             std::string experiment_path = generate_filename_image(render_config.model, render_config.renderer, render_config.backend,
                                                                   render_config.type,  repr_config_name, render_config.cameras);
-            std::string dirs_to_create = xml_path.substr(0, (xml_path.rfind('/') != xml_path.npos) ? xml_path.rfind('/') : xml_path.rfind('\\'));
-            printf("Creating model dir: %s\n", dirs_to_create.c_str());
-            std::filesystem::create_directories(dirs_to_create);
-            dirs_to_create = experiment_path.substr(0, (experiment_path.rfind('/') != experiment_path.npos) ? experiment_path.rfind('/') : experiment_path.rfind('\\'));
+            std::string dirs_to_create = experiment_path.substr(0, (experiment_path.rfind('/') != experiment_path.npos) ? experiment_path.rfind('/') : experiment_path.rfind('\\'));
             printf("Creating tests dir: %s\n", dirs_to_create.c_str());
             std::filesystem::create_directories(dirs_to_create);
 
 
-            // Build
-
-            if (!std::filesystem::exists(xml_path) || force_build)
-            {
-              printf("1. Build\n");
-
-              render_config.model = model;
-              std::string config_str = write_render_config_s(render_config);
-
-              std::string cmd = "DRI_PRIME=1 ./render_app -backend_benchmark build ";
-              cmd += "'" + config_str + "'";
-
-              std::system(cmd.c_str());
-              // printf("\n\nCommand:\n%s\n\n", cmd.c_str());
-            }
-            else
-              printf("1. Model already exists.\n");
-
-
             // Render
 
-            printf("2. Render\n");
             {
               render_config.model = xml_path;
               std::string config_str = write_render_config_s(render_config);
@@ -781,12 +841,38 @@ int main(int argc, const char **argv)
     }
   }
 
+  auto benchmark_t2 = std::chrono::steady_clock::now();
+  float t = std::chrono::duration_cast<std::chrono::milliseconds>(benchmark_t2 - benchmark_t1).count() / 1000.f; // ms
+
+  printf("Benchmark finished in %f s\n", t);
+
+  if (delete_models)
+  {
+    printf("Deleting generated models...\n");
+    auto saves_entries = std::filesystem::directory_iterator("./benchmark/saves");
+
+    for (auto entry : saves_entries)
+    {
+      if (std::filesystem::is_directory(entry))
+      {
+        std::filesystem::path models_dir = entry;
+        models_dir += "/models";
+        if (std::filesystem::exists(models_dir))
+        {
+          printf("Deleting directory: %s\n", models_dir.c_str());
+          std::filesystem::remove_all(models_dir);
+        }
+      }
+    }
+  }
+
   if (config.backends.size() > 1 || (config.backends.size() == 1 && config.backends[0] != "CPU")) {
     // Run "slicer_execute.sh" with all types On
+    printf("Running slicer_execute...\n");
     std::string slicer_execute_command = "bash slicer_execute.sh " + slicer_adir + " " + slicer_exec + " >> benchmark/saves/slicer_out.txt" + " 2>&1";
     std::system(slicer_execute_command.c_str());
   }
 
-  printf("Benchmark finished\n");
+  printf("Finished\n");
   return 0;
 }
