@@ -682,7 +682,7 @@ int main(int argc, const char **argv)
           {
             std::string use_gpu = backend != "CPU" ? "ON" : "OFF";
             std::string use_rtx = (backend == "RTX") ? "ON" : "OFF";
-            std::string reconfigure_cmd = "cmake -S . -B build -DUSE_VULKAN=" + use_gpu + " -DUSE_RTX=" + use_rtx + " -DCMAKE_BUILD_TYPE=Debug -DUSE_STB_IMAGE=ON >> benchmark/saves/cmake_out.txt";
+            std::string reconfigure_cmd = "cmake -S . -B build -DUSE_VULKAN=" + use_gpu + " -DUSE_RTX=" + use_rtx + " -DCMAKE_BUILD_TYPE=Release -DUSE_STB_IMAGE=ON >> benchmark/saves/cmake_out.txt 2>&1";
 
             std::system(reconfigure_cmd.c_str());
             std::system("cmake --build build --target render_app -j8 >> benchmark/saves/cmake_out.txt");
