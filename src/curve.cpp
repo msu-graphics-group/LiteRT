@@ -130,13 +130,12 @@ LiteMath::float3 RBCurve2D::fg_gf(float u, int order) const {
   int n = degree();
   int m = order;
 
+  // k <= min(n, m) && k >= max(0, m - n)
   // If m < n  => size(ders) = m + 2
   // If m >= n => size(ders) = 2n - m + 2
   // Therefore, size(ders) <= n + 2 and reaches that max when m = n
   float3 result = float3(0.0f);
   if (m < n) {
-    //std::cout << "m < n\n";
-    //int size = min(m, 2*n-m) + 2;
     std::vector<float3> ders(m + 2);
 
     for (int k = 0; k <= m + 1; k++) {
@@ -151,28 +150,20 @@ LiteMath::float3 RBCurve2D::fg_gf(float u, int order) const {
     result = mcomb * (n * ders[1] * ders[m].z - (n-m) * ders[0] * ders[m+1].z);
     if (m == 0) return result;
 
-    //k <= min(n, m) && k >= max(0, m - n)
-    //k <= n && m - k <= n
-    //k <= n && k >= m - n
-
     long long kcomb = 1;
     for (int k = 1; k <= m - 1; k++) {
-      kcomb = kcomb * (n-k+1) / k;
-      mcomb = mcomb * (m-k+1) / (n-m+k);
+      kcomb = kcomb * (n-k+1) / k;       // C(n, k)
+      mcomb = mcomb * (m-k+1) / (n-m+k); // C(n, m-k)
       float3 diff = (n-k) * ders[k+1] * ders[m-k].z - (n-m+k) * ders[k] * ders[m-k+1].z;
       result += kcomb * (mcomb * diff);
     }
     kcomb = kcomb * (n-m+1) / m;
     result += kcomb * ((n-m) * ders[m+1] * ders[0].z - n * ders[m] * ders[1].z);
   } else if (m >= n && m < 2*n) {
-    //std::cout << "m >= n\n";
-    //int size = min(m, 2*n-m) + 2;
     std::vector<float3> ders(2*n - m + 2);
 
     for (int k = m - n; k <= n + 1; k++) {
-      ders[k-m+n] = BCurve3D::der(u, k);
-      //if (order == 3)
-      //  std::cout << k << " " << ders[k-m+n] << std::endl;
+      ders[n-m+k] = BCurve3D::der(u, k);
     }
 
     long long kcomb = 1;
@@ -180,28 +171,19 @@ LiteMath::float3 RBCurve2D::fg_gf(float u, int order) const {
       kcomb = kcomb * (n-k+1) / k;
     }
 
-    result = kcomb * (2*n-m) * ders[m-n+1-m+n] * ders[m-m+n-m+n].z;
-    //                                  (k0-k0)+1   m
-    //if (m == 2*n-1) return result;
-
-    //k <= n && m - k <= n
-    //k <= n && k >= m - n
-    //k <= min(n, m) && k >= max(0, m - n)
+    result = kcomb * (2*n-m) * ders[1] * ders[2*n-m].z;
 
     long long mcomb = 1;
     for (int k = m - n + 1; k <= n - 1; k++) {
-      kcomb = kcomb * (n-k+1) / k;
-      mcomb = mcomb * (m-k+1) / (n-m+k);
-      float3 diff = (n-k) * ders[k+1-m+n] * ders[m-k-m+n].z - (n-m+k) * ders[k-m+n] * ders[m-k+1-m+n].z;
-      result += kcomb * (mcomb * diff); 
+      kcomb = kcomb * (n-k+1) / k;       // C(n, k)
+      mcomb = mcomb * (m-k+1) / (n-m+k); // C(n, m-k)
+      float3 diff = (n-k) * ders[n-m+k+1] * ders[n-k].z - (n-m+k) * ders[n-m+k] * ders[n-k+1].z;
+      result += kcomb * (mcomb * diff);
     }
-    mcomb = mcomb * (m-n+1) / (2*n-m); 
+    mcomb = mcomb * (m-n+1) / (2*n-m);
 
-    result -= mcomb * (2*n-m) * ders[n-m+n] * ders[m-n+1-m+n].z;
-    //if (order == 3)
-    //  std::cout << " " << result << std::endl;
+    result -= mcomb * (2*n-m) * ders[2*n-m] * ders[1].z;
   }
-  //std::cout << result << std::endl;
   return result;
 }
 
