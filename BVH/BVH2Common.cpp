@@ -3279,6 +3279,7 @@ void BVHRT::COctreeV3_BrickIntersect(uint32_t type, const float3 ray_pos, const 
   float3 brick_size = brick_max_pos - brick_min_pos;
 
   float2 brick_fNearFar = RayBoxIntersection2(ray_pos, SafeInverse(ray_dir), brick_min_pos, brick_max_pos);
+  brick_fNearFar.x = std::max(tNear, brick_fNearFar.x);
   float old_t = pHit->t;
   while (brick_fNearFar.x < brick_fNearFar.y && pHit->t == old_t)
   {
@@ -3637,7 +3638,7 @@ void BVHRT::BVH2TraverseF32(const float3 ray_pos, const float3 ray_dir, float tN
       leafInfo.aabbId = EXTRACT_START(leftNodeOffset);
       leafInfo.instId = instId;
 
-      const float SDF_BIAS = 0.1f;
+      const float SDF_BIAS = 0.01f;
       const float tNearSdf = std::max(tNear, SDF_BIAS);
   
       // if (debug_cur_pixel)
