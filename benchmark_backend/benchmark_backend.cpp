@@ -236,7 +236,8 @@ namespace BenchmarkBackend
     pRender->Render(image.data(), image.width(), image.height(), worldView, proj, preset, a_passNum);
   }
 
-  void Render(LiteImage::Image2D<uint32_t> &image, IRenderer* pRender, uint32_t width, uint32_t height, const LiteMath::float3 &pos, float *t)
+  void Render(LiteImage::Image2D<uint32_t> &image, IRenderer* pRender, uint32_t width, uint32_t height, 
+              const LiteMath::float3 &pos, int passes, float *t, float *t2)
   {
     float fov_degrees = 60;
     float z_near = 0.1f;
@@ -250,9 +251,14 @@ namespace BenchmarkBackend
     pRender->CommitDeviceData();
     pRender->Clear(width, height, "color");
 
-    pRender->Render(image.data(), width, height, "color");
+    pRender->Render(image.data(), width, height, "color", passes);
 
-    pRender->GetExecutionTime("CastRaySingleBlock", t);
+    float t_arr[4] = {0,0,0,0};
+    pRender->GetExecutionTime("CastRaySingleBlock", t_arr);
+    *t = t_arr[0] / (float)passes;
+    t_arr[0] = 0;
+    pRender->GetExecutionTime("CastRaySingleMega", t_arr);
+    *t2 = t_arr[0];
   }
 
 #ifdef USE_GPU
@@ -357,16 +363,18 @@ void shutTheFUpCallback(vk_utils::LogLevel level, const char *msg, const char* f
       int real_iters = (renderer_type == "Hydra") ? 1 : iters;
 
       float min_time =  1e8, max_time = -1, average_time = 0;
+      float min_time2=  1e8, max_time2= -1, average_time2= 0;
       float min_psnr = 1000, max_psnr = -1, average_psnr = 0;
       float min_flip = 1000, max_flip = -1, average_flip = 0;
-      float res_time = 1e8, res_psnr = 1000, res_flip = 1000;
+      float min_ssim = 1000, max_ssim = -1, average_ssim = 0;
+      float res_time  = 1e8;
+      float res_time2 = 1e8;
       
       int render_num = 0;
       for (int iter = 0; iter < real_iters; ++iter)
       {
-        float avg_per_iter_time = 0;
-        float avg_per_iter_psnr = 0;
-        float avg_per_iter_flip = 0;
+        float avg_per_iter_time  = 0;
+        float avg_per_iter_time2 = 0;
 
         for (int camera = 0; camera < cameras; ++camera)
         {
@@ -376,13 +384,13 @@ void shutTheFUpCallback(vk_utils::LogLevel level, const char *msg, const char* f
 
           LiteImage::Image2D<uint32_t> image(width, height);
 
-          float t = 0.f;
-          float t_arr[4] = {0,0,0,0};
-          Render(image, pRender.get(), width, height, pos, t_arr);
+          float t  = 0.0f;
+          float t2 = 0.0f;
+          Render(image, pRender.get(), width, height, pos, real_iters, &t, &t2);
           
           //  Time calculation
-          t = t_arr[0] / 1000.f;
           calcMetrics(min_time, max_time, average_time, t);
+          calcMetrics(min_time2, max_time2, average_time2, t2);
 
           //  Save image
           std::string save_name = generate_filename_image(model_name + ".workaround", renderer_type, backend, repr_type, repr_config_name, camera),
@@ -406,25 +414,28 @@ void shutTheFUpCallback(vk_utils::LogLevel level, const char *msg, const char* f
           //  Calculate metrics
           float psnr = image_metrics::PSNR(image, ref_image);
           float flip = image_metrics::FLIP(image, ref_image);
+          float ssim = image_metrics::SSIM(image, ref_image, 4);
           calcMetrics(min_psnr, max_psnr, average_psnr, psnr);
           calcMetrics(min_flip, max_flip, average_flip, flip);
+          calcMetrics(min_ssim, max_ssim, average_ssim, ssim);
 
           avg_per_iter_time += t;
-          avg_per_iter_psnr += psnr;
-          avg_per_iter_flip += flip;
+          avg_per_iter_time2 += t2;
         }
 
-        avg_per_iter_time /= (float)cameras;
-        avg_per_iter_psnr /= (float)cameras;
-        avg_per_iter_flip /= (float)cameras;
+        avg_per_iter_time  /= (float)cameras;
+        avg_per_iter_time2 /= (float)cameras;
 
-        res_time = std::min(res_time, avg_per_iter_time); // TODO
+        res_time = std::min(res_time, avg_per_iter_time);
+        res_time2 = std::min(res_time2, avg_per_iter_time2);
       }
       printf("\n\n");
 
-      average_time /= (float)cameras * real_iters;
-      average_psnr /= (float)cameras * real_iters;
-      average_flip /= (float)cameras * real_iters;
+      average_time  /= (float)cameras * real_iters;
+      average_time2 /= (float)cameras * real_iters;
+      average_psnr  /= (float)cameras * real_iters;
+      average_flip  /= (float)cameras * real_iters;
+      average_ssim  /= (float)cameras * real_iters;
 
       std::string device_name = "CPU";
       if (backend != "CPU")
@@ -437,7 +448,13 @@ void shutTheFUpCallback(vk_utils::LogLevel level, const char *msg, const char* f
 #endif
       }
 
-      f << model_name << "," << backend << "," << device_name << "," << renderer_type << "," << repr_type << "," << repr_config_name << "," << render_mode << "," << memory << "," << min_time << "," << max_time << "," << average_time << "," << min_psnr << "," << max_psnr << "," << average_psnr << "," << min_flip << "," << max_flip << "," << average_flip << std::endl;
+      f << model_name << "," << backend << "," << device_name << "," << renderer_type << "," << repr_type << "," 
+        << repr_config_name << "," << render_mode << "," << memory << "," << res_time << "," << res_time2 << "," 
+        << average_psnr << "," << min_psnr << "," << max_psnr << ","  
+        << average_flip << "," << min_flip << "," << max_flip << "," 
+        << average_ssim << "," << min_ssim << "," << max_ssim << ","
+        << min_time  << "," << max_time  << "," << average_time  << "," 
+        << min_time2 << "," << max_time2 << "," << average_time2 << std::endl;
     }
 
     f.close();

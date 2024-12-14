@@ -633,7 +633,13 @@ int main(int argc, const char **argv)
   if (!std::filesystem::exists(render_results_dir) || clear_results)
   {
     f.open(render_results_dir, std::ios::out);
-    f << "model_name,backend,device,renderer,type,config_name,render_mode,model_size(Mb),time_min(s),time_max(s),time_average(s),psnr_min,psnr_max,psnr_average,flip_min,flip_max,flip_average\n";
+    f << "model_name,backend,device,renderer,type,";
+    f << "config_name,render_mode,model_size(Mb),time(ms),alt time(ms),";
+    f << "psnr_average,psnr_min,psnr_max,";
+    f << "flip_average,flip_min,flip_max,";
+    f << "ssim_average,ssim_min,ssim_max,";
+    f << "time min(ms),time max(ms),time average(ms),";
+    f << "alt time min(ms),alt time max(ms),alt time average(ms)\n";
     f.close();
   }
 
