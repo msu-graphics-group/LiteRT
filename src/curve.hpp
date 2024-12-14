@@ -40,7 +40,9 @@ struct RBCurve2D : public BCurve3D
   static std::vector<LiteMath::float3> Hmap(
       std::vector<LiteMath::float2> points,
       std::vector<float> weights);
+
   void preset(void);
+  void preset_eps_coeff(void);
 
   LiteMath::float3 get_point(float u) const;
   LiteMath::float3 der(float u, int order = 1) const;
@@ -51,6 +53,10 @@ struct RBCurve2D : public BCurve3D
 
   // Monotonic knots
   std::vector<float> knots;
+
+  // Intersection and knots epsilon coefficient
+  // such that if |u - u0| < epsb ==> |C(u) - C(u0)| < eps_coeff * epsb
+  float eps_coeff;
 };
 
 struct NURBSCurve2D
@@ -67,6 +73,6 @@ public:
 NURBSCurve2D load_nurbs_curve(std::filesystem::path path);
 
 std::optional<float>
-bisection(std::function<float(float)> f, float u1, float u2);
+bisection(std::function<float(float)> f, float u1, float u2, float eps);
 
 #endif 

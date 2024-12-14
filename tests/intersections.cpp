@@ -24,12 +24,7 @@ bool test_intersections(
   for (const auto &u : intersections) {
     float x0  = curve(u).x;
     //std::cout << x0 - u0 << std::endl;
-    // TODO: derive the formula for eps. This is heuristic.
-    //int n = curve.degree();
-    //float eps = n * sqrt(10) * c::BISECTION_EPS;
-    //std::cout << eps << std::endl;
-    float eps = 4.0f * sqrt(2.0f) * c::BISECTION_EPS;
-    bool close = isclose(x0, u0, eps);
+    bool close = isclose(x0, u0, 2.0f * c::INTERSECTION_EPS);
     passed = passed && close;
   }
   return passed;

@@ -86,8 +86,8 @@ bool test_fg_gf(
     float step = (float)1 / samples;
     for (float u = 0.0f; u <= 1.0f; u += step) {
       //std::cout << "order = " <<  m << ", u = " << u << std::endl;
-      if (!isclose(Ftest(u).x, Ftruth(u).x, 2.0f * c::BISECTION_EPS) ||
-          !isclose(Ftest(u).y, Ftruth(u).y, 2.0f * c::BISECTION_EPS)) {
+      if (!isclose(Ftest(u).x, Ftruth(u).x, 2.0f * c::TEST_EPS) ||
+          !isclose(Ftest(u).y, Ftruth(u).y, 2.0f * c::TEST_EPS)) {
         std::cout << debug::LOG::INFO << "Failed at order = " << m << ", u = " << u << std::endl;
         std::cout << debug::LOG::INFO << "Test: " << Ftest(u) << " | Truth: " << Ftruth(u) << std::endl;
         std::cout << debug::LOG::INFO << Ftest(u) - Ftruth(u) << std::endl;

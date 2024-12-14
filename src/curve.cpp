@@ -114,7 +114,30 @@ std::vector<float3> RBCurve2D::Hmap(
 }
 
 void RBCurve2D::preset() {
+  preset_eps_coeff();
   knots = monotonic_parts(0);
+}
+
+void RBCurve2D::preset_eps_coeff() {
+  int n = degree();
+  auto points = this->points.row(0);
+
+  float min_w = abs(points[0].z);
+  for (int i = 1; i <= n; i++) {
+    float w = points[i].z;
+    min_w = min(min_w, abs(w));
+  }
+
+  float max_dw = 0.0f;
+  for (int i = 0; i < n; i++) {
+    float w_next = points[i+1].z;
+    float w_cur  = points[i].z;
+    max_dw = max(max_dw, abs(w_next - 2 * w_cur));
+    max_dw = max(max_dw, abs(2 * w_next - w_cur));
+  }
+
+  float w_coeff = max(1.0f, max_dw) / min_w;
+  eps_coeff = n * sqrt(2) * w_coeff;
 }
 
 LiteMath::float3 RBCurve2D::get_point(float u) const {
@@ -238,16 +261,16 @@ RBCurve2D::monotonic_parts(int axes, int order) const {
   for (int span = 0; span < knots.size() - 1; ++span) {
     float a = knots[span], b = knots[span+1];
     //std::cout << a << " " << b << std::endl;
-    auto potential_root = bisection(F, a, b);
+    auto potential_root = bisection(F, a, b, c::RBEZIER_KNOTS_EPS);
     if (potential_root.has_value()) {
       float root = potential_root.value();
-      if (!isclose(root, result.back(), 2.0f * c::BISECTION_EPS)) {
+      if (!isclose(root, result.back(), 2.0f * c::RBEZIER_KNOTS_EPS)) {
         result.push_back(root);
       }
     }
   }
 
-  if (!isclose(tmax, result.back(), c::BISECTION_EPS)) {
+  if (!isclose(tmax, result.back(), c::RBEZIER_KNOTS_EPS)) {
     result.push_back(tmax);
   }
 
@@ -256,6 +279,9 @@ RBCurve2D::monotonic_parts(int axes, int order) const {
 
 std::vector<float>
 RBCurve2D::intersections(float u0) const {
+  // |f(u) - f(u0)| < eps_coeff * EPSb = EPS
+  // EPSb = EPS / eps_coeff;
+  float eps = c::INTERSECTION_EPS / eps_coeff;
   std::vector<float> result;
   for (int span = 0; span < knots.size() - 1; ++span) {
     float umin = knots[span];
@@ -265,7 +291,7 @@ RBCurve2D::intersections(float u0) const {
       return p.x - u0;
     };
 
-    auto potential_hit = bisection(f, umin, umax);
+    auto potential_hit = bisection(f, umin, umax, eps);
     if (potential_hit.has_value()) {
       auto u = potential_hit.value();
       result.push_back(u);
@@ -299,7 +325,7 @@ NURBSCurve2D::decompose() const {
 
   std::vector<float> unique_knots;
   for (int i = 0; i < m; i++) {
-    if (!isclose(knots[i], knots[i+1], c::KNOTS_EPS)) {
+    if (!isclose(knots[i], knots[i+1], c::NURBS_UNIQUE_KNOTS_EPS)) {
       unique_knots.push_back(knots[i]);
     }
   }
@@ -428,20 +454,20 @@ NURBSCurve2D load_nurbs_curve(std::filesystem::path path) {
 
 // *********************** Utilities *********************** //
 std::optional<float>
-bisection(std::function<float(float)> f, float u1, float u2) {
+bisection(std::function<float(float)> f, float u1, float u2, float eps) {
   float l = u1;
   float r = u2;
   {
     float f1 = f(u1);
     float f2 = f(u2);
-    if (std::abs(f1) < c::BISECTION_EPS && std::abs(f2) < c::BISECTION_EPS) {
+    if (std::abs(f1) < eps && std::abs(f2) < eps) {
       //This should be tested
       return {};//(l + r) / 2;
     }
-    if (f1 > c::BISECTION_EPS  && f2 > c::BISECTION_EPS ) {
+    if (f1 > eps && f2 > eps) {
       return {};
     }
-    if (f1 < -c::BISECTION_EPS  && f2 < -c::BISECTION_EPS ) {
+    if (f1 < -eps && f2 < -eps) {
       return {};
     }
     if (f1 > f2) {
@@ -452,7 +478,7 @@ bisection(std::function<float(float)> f, float u1, float u2) {
 
   // I tried using error of function instead of error of l-r
   // (Don't do this)
-  while (std::abs(l-r) > c::BISECTION_EPS) {
+  while (std::abs(l-r) > eps) {
     float m = (l+r) / 2.0f;
     float value = f(m);
     if (value < 0.0f) {
