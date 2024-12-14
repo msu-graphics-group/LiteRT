@@ -11,12 +11,14 @@
 #include "constants.hpp"
 #include "curve.hpp"
 
+#include "debug.hpp"
+
 using namespace LiteMath;
 
 namespace c = constants;
 
 // *********************** Bezier curve 3D *********************** //
-uint BCurve3D::degree() const {
+int BCurve3D::degree() const {
   return points.get_n() - 1;
 }
 
@@ -28,24 +30,23 @@ BCurve3D::BCurve3D(
     std::vector<LiteMath::float3> points,
     float tmin, float tmax) : tmin(tmin), tmax(tmax) {
   assert(points.size() > 0);
-  uint p = points.size() - 1;
+  int p = points.size() - 1;
   this->points = Matrix2D<float3>(p + 1, p + 1);
 
-  for (uint j = 0; j <= p; j++) {
+  for (int j = 0; j <= p; j++) {
     auto index = std::make_pair(0, j);
     this->points[index] = points[j];
   }
 
-  // Cm(t) = C( (t - a) / (b - a) )
-  // Cm'(t) = C'( (t - a) / (b - a) ) * (1 / (b - a))
-  // Cm''(t) = C''(  (t - a) / (b - a) ) * (1 / (b - a) ^ 2)
-  for (uint i = 1; i <= p; i++) {
-    for (uint j = 0; j <= p - i; j++) {
+  // Store just the differences of points
+  // P(i, j) = P(i-1, j+1) - P(i-1, j)
+  // without multiplying by (p-i+1)/(tmax-tmin) to avoid overflow
+  for (int i = 1; i <= p; i++) {
+    for (int j = 0; j <= p - i; j++) {
       auto index = std::make_pair(i,   j);
       auto left  = std::make_pair(i-1, j);
       auto right = std::make_pair(i-1, j+1);
-      auto dP    = this->points[right] - this->points[left];
-      this->points[index] = ( float(p - i + 1) / (tmax - tmin) ) * dP;
+      this->points[index] = this->points[right] - this->points[left];
     }
   }
 }
@@ -56,7 +57,7 @@ LiteMath::float3 BCurve3D::get_point(float u) const {
 
 LiteMath::float3 BCurve3D::der(float u, int order) const {
   u = ilerp(tmin, tmax, u);
-  uint p = degree();
+  int p = degree();
   if (order < 0 || order > p)
     return float3(0.0f);
 
@@ -65,7 +66,7 @@ LiteMath::float3 BCurve3D::der(float u, int order) const {
 
   // Note: C(n, k) can store only up to n = 67 for 64-bit integer.
   // Critical no-overflow value appears for C(67, 33).
-  unsigned long long comb = 1;
+  long long comb = 1;
   auto points = this->points.row(order);
   p -= order;
 
@@ -74,7 +75,7 @@ LiteMath::float3 BCurve3D::der(float u, int order) const {
   }
 
   float3 res = points[0] * _1_u;
-  for (uint i = 1; i <= p-1; ++i) {
+  for (int i = 1; i <= p-1; ++i) {
     u_n *= u;
     comb = comb * (p-i+1) / i;
     res = (res + u_n * comb * points[i]) * _1_u;
@@ -90,17 +91,13 @@ RBCurve2D::RBCurve2D(
     std::vector<float> weights,
     float tmin,
     float tmax) :
-  BCurve3D( RBCurve2D::Hmap(points, weights), tmin, tmax ) {
-  knots = monotonic_parts(0);
-}
+  BCurve3D( RBCurve2D::Hmap(points, weights), tmin, tmax ) {}
 
 RBCurve2D::RBCurve2D(
     std::vector<LiteMath::float3> Hpoints,
     float tmin,
     float tmax) :
-  BCurve3D( Hpoints, tmin, tmax ) {
-  knots = monotonic_parts(0);
-}
+  BCurve3D( Hpoints, tmin, tmax ) {}
 
 // Homorgeneous map to 3D space coodinates
 std::vector<float3> RBCurve2D::Hmap(
@@ -117,32 +114,100 @@ std::vector<float3> RBCurve2D::Hmap(
   return Hpoints;
 }
 
+void RBCurve2D::preset() {
+  preset_eps_coeff();
+  knots = monotonic_parts(0);
+}
+
+void RBCurve2D::preset_eps_coeff() {
+  int n = degree();
+  auto points = this->points.row(0);
+
+  float min_w = abs(points[0].z);
+  for (int i = 1; i <= n; i++) {
+    float w = points[i].z;
+    min_w = min(min_w, abs(w));
+  }
+
+  float max_dw = 0.0f;
+  for (int i = 0; i < n; i++) {
+    float w_next = points[i+1].z;
+    float w_cur  = points[i].z;
+    max_dw = max(max_dw, abs(w_next - 2 * w_cur));
+    max_dw = max(max_dw, abs(2 * w_next - w_cur));
+  }
+
+  float w_coeff = max(1.0f, max_dw) / min_w;
+  eps_coeff = n * sqrt(2) * w_coeff;
+}
+
 LiteMath::float3 RBCurve2D::get_point(float u) const {
   float3 p = BCurve3D::get_point(u);
   return p / p.z;
 }
 
-// Returns n-order derivative of F(u) = f(u)g'(u)-f'(u)g(u),
-// where f(u) - numerator of RBezier and g(u) is the denominator
+// Returns n-order derivative of F(u) = f'(u)g(u)-f(u)g'(u),
+// where f(u) - numerator of RBezier and g(u) is the denominator.
 // Complexity: O(n^2)
 LiteMath::float3 RBCurve2D::fg_gf(float u, int order) const {
   assert(order >= 0);
-  uint p = order;
-  std::vector<float3> ders(p + 2);
+  int n = degree();
+  int m = order;
 
-  for (uint i = 0; i <= p + 1; i++) {
-    ders[i] = BCurve3D::der(u, i);
+  // k <= min(n, m) && k >= max(0, m - n)
+  // If m < n  => size(ders) = m + 2
+  // If m >= n => size(ders) = 2n - m + 2
+  // Therefore, size(ders) <= n + 2 and reaches that max when m = n
+  float3 result = float3(0.0f);
+  if (m < n) {
+    std::vector<float3> ders(m + 2);
+
+    for (int k = 0; k <= m + 1; k++) {
+      ders[k] = BCurve3D::der(u, k); 
+    }
+
+    long long mcomb = 1;
+    for (int k = 1; k <= m; k++) {
+      mcomb = mcomb * (n-k+1) / k;
+    }
+
+    result = mcomb * (n * ders[1] * ders[m].z - (n-m) * ders[0] * ders[m+1].z);
+    if (m == 0) return result;
+
+    long long kcomb = 1;
+    for (int k = 1; k <= m - 1; k++) {
+      kcomb = kcomb * (n-k+1) / k;       // C(n, k)
+      mcomb = mcomb * (m-k+1) / (n-m+k); // C(n, m-k)
+      float3 diff = (n-k) * ders[k+1] * ders[m-k].z - (n-m+k) * ders[k] * ders[m-k+1].z;
+      result += kcomb * (mcomb * diff);
+    }
+    kcomb = kcomb * (n-m+1) / m;
+    result += kcomb * ((n-m) * ders[m+1] * ders[0].z - n * ders[m] * ders[1].z);
+  } else if (m >= n && m < 2*n) {
+    std::vector<float3> ders(2*n - m + 2);
+
+    for (int k = m - n; k <= n + 1; k++) {
+      ders[n-m+k] = BCurve3D::der(u, k);
+    }
+
+    long long kcomb = 1;
+    for (int k = 1; k <= m - n; k++) {
+      kcomb = kcomb * (n-k+1) / k;
+    }
+
+    result = kcomb * (2*n-m) * ders[1] * ders[2*n-m].z;
+
+    long long mcomb = 1;
+    for (int k = m - n + 1; k <= n - 1; k++) {
+      kcomb = kcomb * (n-k+1) / k;       // C(n, k)
+      mcomb = mcomb * (m-k+1) / (n-m+k); // C(n, m-k)
+      float3 diff = (n-k) * ders[n-m+k+1] * ders[n-k].z - (n-m+k) * ders[n-m+k] * ders[n-k+1].z;
+      result += kcomb * (mcomb * diff);
+    }
+    mcomb = mcomb * (m-n+1) / (2*n-m);
+
+    result -= mcomb * (2*n-m) * ders[2*n-m] * ders[1].z;
   }
-
-  float3 result = ders[0] * ders[p+1].z - ders[1] * ders[p].z;
-  if (order == 0) return result;
-
-  unsigned long long comb = 1;
-  for (uint i = 1; i <= order - 1; i++) {
-    comb = comb * (p-i+1) / i;
-    result += comb * (ders[i] * ders[p-i+1].z - ders[i+1] * ders[p-i].z);
-  }
-  result += ders[p] * ders[1].z - ders[p+1] * ders[0].z;
   return result;
 }
 
@@ -159,7 +224,7 @@ LiteMath::float3 RBCurve2D::der(float u, int order) const {
     return (d*p.z - d.z*p) / (p.z * p.z);
   }
 
-  unsigned long long comb = 1;
+  long long comb = 1;
   float3 left = float3(0.0f);
   for (int i = 0; i < order; ++i) {
     float3 a = der(u, i);
@@ -191,32 +256,35 @@ RBCurve2D::monotonic_parts(int axes, int order) const {
     return fg_gf(u, order)[axes];
   };
 
-  // TODO: remove recursion
+  // TODO: remove recursions
   auto knots = monotonic_parts(axes, order+1);
   //std::cout << "ORDER = " << order << " AXES = " << axes << std::endl;
   for (int span = 0; span < knots.size() - 1; ++span) {
     float a = knots[span], b = knots[span+1];
     //std::cout << a << " " << b << std::endl;
-    auto potential_root = bisection(F, a, b);
+    auto potential_root = bisection(F, a, b, c::RBEZIER_KNOTS_EPS);
     if (potential_root.has_value()) {
       float root = potential_root.value();
-      if (!isclose(root, result.back(), 2.0f * c::BISECTION_EPS)) {
+      if (!isclose(root, result.back(), 2.0f * c::RBEZIER_KNOTS_EPS)) {
         result.push_back(root);
       }
     }
   }
 
-  if (!isclose(tmax, result.back(), c::BISECTION_EPS)) {
+  if (!isclose(tmax, result.back(), c::RBEZIER_KNOTS_EPS)) {
     result.push_back(tmax);
   }
-  result.back() = tmax;
+  //result.back() = tmax;
 
   return result;
 }
 
-std::vector<float>
+std::vector<float3>
 RBCurve2D::intersections(float u0) const {
-  std::vector<float> result;
+  // |f(u) - f(u0)| < eps_coeff * EPSb = EPS
+  // EPSb = EPS / eps_coeff;
+  float eps = c::INTERSECTION_EPS / eps_coeff;
+  std::vector<float3> result;
   for (int span = 0; span < knots.size() - 1; ++span) {
     float umin = knots[span];
     float umax = knots[span+1];
@@ -225,12 +293,11 @@ RBCurve2D::intersections(float u0) const {
       return p.x - u0;
     };
 
-    auto potential_hit = bisection(f, umin, umax);
+    auto potential_hit = bisection(f, umin, umax, eps);
     if (potential_hit.has_value()) {
       auto u = potential_hit.value();
       auto p = get_point(u);
-      p /= p.z;
-      result.push_back(p.y);
+      result.push_back(p);
     }
   }
   return result;
@@ -261,7 +328,7 @@ NURBSCurve2D::decompose() const {
 
   std::vector<float> unique_knots;
   for (int i = 0; i < m; i++) {
-    if (!isclose(knots[i], knots[i+1], c::KNOTS_EPS)) {
+    if (!isclose(knots[i], knots[i+1], c::NURBS_UNIQUE_KNOTS_EPS)) {
       unique_knots.push_back(knots[i]);
     }
   }
@@ -315,6 +382,7 @@ NURBSCurve2D::decompose() const {
   for (int i = 0; i < Qw.size(); ++i) {
     //auto curve = RBCurve2D(Qw[i], knots[i], knots[i+1]);
     auto curve = RBCurve2D(Qw[i]);
+    curve.preset();
     result.push_back(curve);
   }
   return result;
@@ -389,36 +457,44 @@ NURBSCurve2D load_nurbs_curve(std::filesystem::path path) {
 
 // *********************** Utilities *********************** //
 std::optional<float>
-bisection(std::function<float(float)> f, float u1, float u2) {
+bisection(std::function<float(float)> f, float u1, float u2, float eps) {
   float l = u1;
   float r = u2;
   {
     float f1 = f(u1);
     float f2 = f(u2);
-    if (std::abs(f1) < c::BISECTION_EPS && std::abs(f2) < c::BISECTION_EPS) {
+    if (std::abs(f1) < eps && std::abs(f2) < eps) {
       //This should be tested
       return {};//(l + r) / 2;
     }
-    if (f1 > c::BISECTION_EPS  && f2 > c::BISECTION_EPS ) {
+    if (f1 > eps && f2 > eps) {
       return {};
     }
-    if (f1 < -c::BISECTION_EPS  && f2 < -c::BISECTION_EPS ) {
+    if (f1 < -eps && f2 < -eps) {
       return {};
     }
     if (f1 > f2) {
       std::swap(l, r);
+      //std::swap(f1, f2);
     }
   }
 
   // I tried using error of function instead of error of l-r
   // (Don't do this)
-  while (std::abs(l-r) > c::BISECTION_EPS) { 
+  while (std::abs(l-r) > eps) {
     float m = (l+r) / 2.0f;
     float value = f(m);
-    if (value < 0.0f)
+    if (value < 0.0f) {
+      //std::cout << l << " " << r << std::endl;
+      //std::cout << "LEFT " << f1 << " " << f2 << std::endl;
       l = m;
-    else
+      //f1 = value;
+    } else {
+      //std::cout << l << " " << r << std::endl;
+      //std::cout << "RIGHT  " << f1 << " " << f2 << std::endl;
       r = m;
+      //f2 = value;
+    }
   }
 
   return (l+r) / 2.0f;
@@ -550,7 +626,8 @@ get_kdtree_leaves_helper(
         p /= p.z;
         return p[axes] - middle;
       };
-      auto t = bisection(f, curve.tmin, curve.tmax); // TODO define child to put curve if no intersections
+      // TODO define child to put curve if no intersections
+      auto t = bisection(f, curve.tmin, curve.tmax, c::KD_TREE_BISECTION_EPS);
       if (!t.has_value()) {
         auto test_point = curve.points[{0, 0}];
         test_point /= test_point.z;

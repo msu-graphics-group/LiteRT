@@ -1,7 +1,9 @@
 #include <iostream>
-#include <curve.hpp>
+#include <filesystem>
 #include <LiteMath.h>
 #include <Image2d.h>
+
+#include "curve.hpp"
 
 using namespace LiteMath;
 using namespace LiteImage;
@@ -40,7 +42,10 @@ int main(int argc, const char **argv) {
     float u = y * 1.0f / h;
     std::vector<float> vs;
     for (auto &c: rbeziers) {
-      auto cur_vs = c.intersections(u);
+      auto cur_points = c.intersections(u);
+      std::vector<float> cur_vs;
+      for (auto point : cur_points)
+        cur_vs.push_back(point.y);
       std::copy(cur_vs.begin(), cur_vs.end(), std::back_inserter(vs));
     }
     vs.push_back(0.0f);
