@@ -333,6 +333,9 @@ void shutTheFUpCallback(vk_utils::LogLevel level, const char *msg, const char* f
       // TODO: throw something at someone
     }
 
+    Block *repr_config = render_config.get_block("repr_config");
+    BVHRT::preferredBVHLevel = repr_config->get_int("bvh_level", 0);
+
     pRender->LoadScene(model_path.c_str());
     BVHRT *bvhrt = dynamic_cast<BVHRT*>(pRender->GetAccelStruct()->UnderlyingImpl(0));
     memory = bvhrt->get_model_size() * (1.f / (1024 * 1024));

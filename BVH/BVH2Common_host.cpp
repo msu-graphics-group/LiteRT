@@ -22,6 +22,8 @@
 
 constexpr std::size_t reserveSize = 1000;
 
+uint32_t BVHRT::preferredBVHLevel = 0;
+
 uint32_t type_to_tag(uint32_t type)
 {
   switch (type)
@@ -174,7 +176,7 @@ uint32_t BVHRT::AddCustomGeom_FromFile(const char *geom_type_name, const char *f
     std::cout << "[LoadScene]: SDF compact octree = " << filename << std::endl;
     COctreeV3 scene;
     load_coctree_v3(scene, filename);
-    return AddGeom_COctreeV3(scene, 0, fake_this);
+    return AddGeom_COctreeV3(scene, preferredBVHLevel, fake_this);
   }
   else
   {
