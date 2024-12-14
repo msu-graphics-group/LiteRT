@@ -616,7 +616,8 @@ struct ModelInfo
 enum class DemoScene
 {
   SINGLE_OBJECT,
-  CORNELL_BOX
+  CORNELL_BOX,
+  SINGLE_OBJECT_CUBEMAP
 };
 
 namespace cmesh4

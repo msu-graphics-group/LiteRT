@@ -61,6 +61,8 @@ namespace BenchmarkBackend
       scene = DemoScene::SINGLE_OBJECT;
     else if (render_config.get_string("hydra_scene") == "CORNELL_BOX")
       scene = DemoScene::CORNELL_BOX;
+    else if (render_config.get_string("hydra_scene") == "SINGLE_OBJECT_CUBEMAP")
+      scene = DemoScene::SINGLE_OBJECT_CUBEMAP;
 
     // Load mesh
     cmesh4::SimpleMesh mesh = cmesh4::LoadMesh(model_path.c_str());
