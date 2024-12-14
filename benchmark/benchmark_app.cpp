@@ -17,6 +17,7 @@
 // -r, --renderers     = {MR|Hydra}
 // -m, --models        = str str str...
 // -f, --force_build                           // rebuild existing models
+//     --clear                                 // clear csv files with build and render results
 //
 ///  Render_app-level
 // -rm, --render_modes = {LAMBERT_NO_TEX|...}  // see "MULTI_RENDER_MODE" enum
@@ -395,6 +396,7 @@ int main(int argc, const char **argv)
   BenchmarkAppConfig config{};
 
   bool verbose = false, force_build = false, delete_models = false;
+  bool clear_results = false;
   const char *enums_config_fpath = "benchmark/enums.blk", *base_config_fpath = "benchmark/config.blk";
   const char *slicer_dir = "~/kernel_slicer/", *slicer_exec = "~/kernel_slicer/cmake-build-release/kslicer";
 
@@ -461,6 +463,8 @@ int main(int argc, const char **argv)
       verbose = true;
     else if (flag == "-f" || flag == "--force_build")
       force_build = true;
+    else if (flag == "--clear")
+      clear_results = true;
     else if (flag == "--delete_models")
       delete_models = true;
     else if ("-e" == flag || "--enum_conf" == flag || "--conf" == flag)
@@ -616,13 +620,22 @@ int main(int argc, const char **argv)
   std::filesystem::create_directories("benchmark/results");
   std::filesystem::create_directories("benchmark/saves");
 
-  f.open("benchmark/results/build.csv", std::ios::out);
-  f << "model_name,type,config_name,original_model_size(Mb),model_size(Mb),build_time(s)\n";
-  f.close();
+  std::string build_results_dir = "benchmark/results/build.csv";
+  std::string render_results_dir = "benchmark/results/render.csv";
 
-  f.open("benchmark/results/render.csv", std::ios::out);
-  f << "model_name,backend,device,renderer,type,config_name,render_mode,model_size(Mb),time_min(s),time_max(s),time_average(s),psnr_min,psnr_max,psnr_average,flip_min,flip_max,flip_average\n";
-  f.close();
+  if (!std::filesystem::exists(build_results_dir) || clear_results)
+  {
+    f.open(build_results_dir, std::ios::out);
+    f << "model_name,type,config_name,original_model_size(Mb),model_size(Mb),build_time(s)\n";
+    f.close();
+  }
+
+  if (!std::filesystem::exists(render_results_dir) || clear_results)
+  {
+    f.open(render_results_dir, std::ios::out);
+    f << "model_name,backend,device,renderer,type,config_name,render_mode,model_size(Mb),time_min(s),time_max(s),time_average(s),psnr_min,psnr_max,psnr_average,flip_min,flip_max,flip_average\n";
+    f.close();
+  }
 
   f.open("benchmark/saves/cmake_out.txt", std::ios::in | std::ios::out | std::ios::trunc);
   f.close();
