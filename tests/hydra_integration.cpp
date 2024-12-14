@@ -167,7 +167,12 @@ void HydraRenderer::SetPreset(uint32_t a_width, uint32_t a_height, HydraRenderPr
   void HydraRenderer::GetExecutionTime(const char* a_funcName, float a_out[4])
   {
     assert(m_pImpl);
-    m_pImpl->GetExecutionTime(a_funcName, a_out);
+    if (std::string (a_funcName) == "CastRaySingleBlock")
+      m_pImpl->GetExecutionTime("PathTraceBlock", a_out);
+    else if (std::string (a_funcName) == "CastRaySingleMega")
+      m_pImpl->GetExecutionTime("PathTraceMega", a_out);
+    else
+      m_pImpl->GetExecutionTime(a_funcName, a_out);
   }
 
   void HydraRenderer::CommitDeviceData()

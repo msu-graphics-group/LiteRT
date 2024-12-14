@@ -98,6 +98,11 @@ namespace BenchmarkBackend
 
       std::filesystem::remove(fname_vsgf_before_lod.c_str()); // the only reason to import filesystem, delete original mesh, it can already be found in MESH directory
 
+      //load mesh to set proper material id, then save it back
+      auto mesh_lod = cmesh4::LoadMesh(fname_vsgf.c_str());
+      cmesh4::set_mat_id(mesh_lod, mat_id);
+      cmesh4::SaveMeshToVSGF(fname_vsgf.c_str(), mesh_lod);
+
       save_scene_xml(fname_no_ext + ".xml", get_model_name(fname_no_ext) + ".vsgf", mesh, scene);
     }
     else if (repr_type == "SDF_GRID")
