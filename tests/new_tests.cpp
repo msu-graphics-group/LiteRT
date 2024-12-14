@@ -24,6 +24,7 @@
 #include "utils/sdf/iou.h"
 #include "nurbs/nurbs_common_host.h"
 #include "utils/coctree/ball_tree.h"
+#include "hydra_integration.h"
 
 namespace litert_tests
 {
@@ -998,5 +999,38 @@ namespace litert_tests
       }
     } 
     }
+  }
+
+  ADD_TEST(HydraReflections, "HydraReflections")
+  {
+    int W  = 256;
+    int H = 256;
+    LiteImage::Image2D<uint32_t> img1(W, H);
+    LiteImage::Image2D<uint32_t> img2(W, H);
+
+    HydraRenderPreset preset = getDefaultHydraRenderPreset();
+    preset.spp = 1024;
+
+    {
+      HydraRenderer renderer(DEVICE_GPU);
+      renderer.SetPreset(img1.width(), img1.height(), preset);
+      renderer.LoadScene("./refs/HydraReflections/MESH/default.xml");
+      renderer.SetViewport(0,0, img1.width(), img1.height());
+      renderer.CommitDeviceData();
+      renderer.Clear(img1.width(), img1.height(), "color");
+      renderer.Render(img1.data(), img1.width(), img1.height(), "color", 1); 
+      testing::save_image(img1, "ref");
+    }
+    {
+      HydraRenderer renderer(DEVICE_GPU);
+      renderer.SetPreset(img2.width(), img2.height(), preset);
+      renderer.LoadScene("./refs/HydraReflections/SDF_FRAME_OCTREE_COMPACT/medium.xml");
+      renderer.SetViewport(0,0, img2.width(), img2.height());
+      renderer.CommitDeviceData();
+      renderer.Clear(img2.width(), img2.height(), "color");
+      renderer.Render(img2.data(), img2.width(), img2.height(), "color", 1); 
+      testing::save_image(img2, "res");
+    }
+    testing::check_psnr(img1, img2, "ref", "res", 40);
   }
 }
