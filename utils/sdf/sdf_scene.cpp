@@ -413,7 +413,7 @@ std::string insert_in_demo_scene_cornell_box(const std::string &geom_info_str, c
         <method_secondary>pathtracing</method_secondary>
         <method_tertiary>pathtracing</method_tertiary>
         <method_caustic>pathtracing</method_caustic>
-        <trace_depth>4</trace_depth>
+        <trace_depth>3</trace_depth>
         <diff_trace_depth>4</diff_trace_depth>
         <maxRaysPerPixel>1024</maxRaysPerPixel>
         <qmc_variant>7</qmc_variant>
@@ -530,7 +530,7 @@ constexpr unsigned MAX_BUF_SIZE = 8192;
     <method_secondary>pathtracing</method_secondary>
     <method_tertiary>pathtracing</method_tertiary>
     <method_caustic>pathtracing</method_caustic>
-    <trace_depth>6</trace_depth>
+    <trace_depth>3</trace_depth>
     <diff_trace_depth>3</diff_trace_depth>
     <maxRaysPerPixel>1024</maxRaysPerPixel>
     <qmc_variant>7</qmc_variant>
@@ -647,7 +647,7 @@ constexpr unsigned MAX_BUF_SIZE = 8192;
     <method_secondary>pathtracing</method_secondary>
     <method_tertiary>pathtracing</method_tertiary>
     <method_caustic>pathtracing</method_caustic>
-    <trace_depth>6</trace_depth>
+    <trace_depth>3</trace_depth>
     <diff_trace_depth>3</diff_trace_depth>
     <maxRaysPerPixel>1024</maxRaysPerPixel>
     <qmc_variant>7</qmc_variant>
