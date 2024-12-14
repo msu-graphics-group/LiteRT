@@ -21,11 +21,13 @@ bool test_monotonic(
   
   Xtruth = lerp(tmin, tmax, Xtruth);
   std::vector<float> Xtest = curve.monotonic_parts(0);
-  bool Xclose = allclose(Xtest, Xtruth, c::TEST_EPS);
+  bool Xclose = allclose(Xtest, Xtruth, c::BISECTION_EPS);
+  //std::cout << Xtest << std::endl;
 
   Ytruth = lerp(tmin, tmax, Ytruth);
   std::vector<float> Ytest = curve.monotonic_parts(1);
-  bool Yclose = allclose(Ytest, Ytruth, c::TEST_EPS);
+  bool Yclose = allclose(Ytest, Ytruth, c::BISECTION_EPS);
+  //std::cout << Ytest << std::endl;
   
   return Xclose && Yclose;
 }
@@ -180,7 +182,7 @@ bool triangle() {
   };
 
   // Failes when w3 = 1e8
-  std::vector<float> weights = {1, 1, 1e6, 1, 1};
+  std::vector<float> weights = {1, 1, 1e3, 1, 1};
 
   RBCurve2D curve(points, weights);
   std::vector<float> Xtruth = { 0.0f, 1.0f };

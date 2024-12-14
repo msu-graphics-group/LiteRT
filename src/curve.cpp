@@ -10,12 +10,14 @@
 #include "constants.hpp"
 #include "curve.hpp"
 
+#include "debug.hpp"
+
 using namespace LiteMath;
 
 namespace c = constants;
 
 // *********************** Bezier curve 3D *********************** //
-uint BCurve3D::degree() const {
+int BCurve3D::degree() const {
   return points.get_n() - 1;
 }
 
@@ -27,24 +29,23 @@ BCurve3D::BCurve3D(
     std::vector<LiteMath::float3> points,
     float tmin, float tmax) : tmin(tmin), tmax(tmax) {
   assert(points.size() > 0);
-  uint p = points.size() - 1;
+  int p = points.size() - 1;
   this->points = Matrix2D<float3>(p + 1, p + 1);
 
-  for (uint j = 0; j <= p; j++) {
+  for (int j = 0; j <= p; j++) {
     auto index = std::make_pair(0, j);
     this->points[index] = points[j];
   }
 
-  // Cm(t) = C( (t - a) / (b - a) )
-  // Cm'(t) = C'( (t - a) / (b - a) ) * (1 / (b - a))
-  // Cm''(t) = C''(  (t - a) / (b - a) ) * (1 / (b - a) ^ 2)
-  for (uint i = 1; i <= p; i++) {
-    for (uint j = 0; j <= p - i; j++) {
+  // Store just the differences of points
+  // P(i, j) = P(i-1, j+1) - P(i-1, j)
+  // without multiplying by (p-i+1)/(tmax-tmin) to avoid overflow
+  for (int i = 1; i <= p; i++) {
+    for (int j = 0; j <= p - i; j++) {
       auto index = std::make_pair(i,   j);
       auto left  = std::make_pair(i-1, j);
       auto right = std::make_pair(i-1, j+1);
-      auto dP    = this->points[right] - this->points[left];
-      this->points[index] = ( float(p - i + 1) / (tmax - tmin) ) * dP;
+      this->points[index] = this->points[right] - this->points[left];
     }
   }
 }
@@ -55,7 +56,7 @@ LiteMath::float3 BCurve3D::get_point(float u) const {
 
 LiteMath::float3 BCurve3D::der(float u, int order) const {
   u = ilerp(tmin, tmax, u);
-  uint p = degree();
+  int p = degree();
   if (order < 0 || order > p)
     return float3(0.0f);
 
@@ -64,7 +65,7 @@ LiteMath::float3 BCurve3D::der(float u, int order) const {
 
   // Note: C(n, k) can store only up to n = 67 for 64-bit integer.
   // Critical no-overflow value appears for C(67, 33).
-  unsigned long long comb = 1;
+  long long comb = 1;
   auto points = this->points.row(order);
   p -= order;
 
@@ -73,7 +74,7 @@ LiteMath::float3 BCurve3D::der(float u, int order) const {
   }
 
   float3 res = points[0] * _1_u;
-  for (uint i = 1; i <= p-1; ++i) {
+  for (int i = 1; i <= p-1; ++i) {
     u_n *= u;
     comb = comb * (p-i+1) / i;
     res = (res + u_n * comb * points[i]) * _1_u;
@@ -121,27 +122,86 @@ LiteMath::float3 RBCurve2D::get_point(float u) const {
   return p / p.z;
 }
 
-// Returns n-order derivative of F(u) = f(u)g'(u)-f'(u)g(u),
-// where f(u) - numerator of RBezier and g(u) is the denominator
+// Returns n-order derivative of F(u) = f'(u)g(u)-f(u)g'(u),
+// where f(u) - numerator of RBezier and g(u) is the denominator.
 // Complexity: O(n^2)
 LiteMath::float3 RBCurve2D::fg_gf(float u, int order) const {
   assert(order >= 0);
-  uint p = order;
-  std::vector<float3> ders(p + 2);
+  int n = degree();
+  int m = order;
 
-  for (uint i = 0; i <= p + 1; i++) {
-    ders[i] = BCurve3D::der(u, i);
+  // If m < n  => size(ders) = m + 2
+  // If m >= n => size(ders) = 2n - m + 2
+  // Therefore, size(ders) <= n + 2 and reaches that max when m = n
+  float3 result = float3(0.0f);
+  if (m < n) {
+    //std::cout << "m < n\n";
+    //int size = min(m, 2*n-m) + 2;
+    std::vector<float3> ders(m + 2);
+
+    for (int k = 0; k <= m + 1; k++) {
+      ders[k] = BCurve3D::der(u, k); 
+    }
+
+    long long mcomb = 1;
+    for (int k = 1; k <= m; k++) {
+      mcomb = mcomb * (n-k+1) / k;
+    }
+
+    result = mcomb * (n * ders[1] * ders[m].z - (n-m) * ders[0] * ders[m+1].z);
+    if (m == 0) return result;
+
+    //k <= min(n, m) && k >= max(0, m - n)
+    //k <= n && m - k <= n
+    //k <= n && k >= m - n
+
+    long long kcomb = 1;
+    for (int k = 1; k <= m - 1; k++) {
+      kcomb = kcomb * (n-k+1) / k;
+      mcomb = mcomb * (m-k+1) / (n-m+k);
+      float3 diff = (n-k) * ders[k+1] * ders[m-k].z - (n-m+k) * ders[k] * ders[m-k+1].z;
+      result += kcomb * (mcomb * diff);
+    }
+    kcomb = kcomb * (n-m+1) / m;
+    result += kcomb * ((n-m) * ders[m+1] * ders[0].z - n * ders[m] * ders[1].z);
+  } else if (m >= n && m < 2*n) {
+    //std::cout << "m >= n\n";
+    //int size = min(m, 2*n-m) + 2;
+    std::vector<float3> ders(2*n - m + 2);
+
+    for (int k = m - n; k <= n + 1; k++) {
+      ders[k-m+n] = BCurve3D::der(u, k);
+      //if (order == 3)
+      //  std::cout << k << " " << ders[k-m+n] << std::endl;
+    }
+
+    long long kcomb = 1;
+    for (int k = 1; k <= m - n; k++) {
+      kcomb = kcomb * (n-k+1) / k;
+    }
+
+    result = kcomb * (2*n-m) * ders[m-n+1-m+n] * ders[m-m+n-m+n].z;
+    //                                  (k0-k0)+1   m
+    //if (m == 2*n-1) return result;
+
+    //k <= n && m - k <= n
+    //k <= n && k >= m - n
+    //k <= min(n, m) && k >= max(0, m - n)
+
+    long long mcomb = 1;
+    for (int k = m - n + 1; k <= n - 1; k++) {
+      kcomb = kcomb * (n-k+1) / k;
+      mcomb = mcomb * (m-k+1) / (n-m+k);
+      float3 diff = (n-k) * ders[k+1-m+n] * ders[m-k-m+n].z - (n-m+k) * ders[k-m+n] * ders[m-k+1-m+n].z;
+      result += kcomb * (mcomb * diff); 
+    }
+    mcomb = mcomb * (m-n+1) / (2*n-m); 
+
+    result -= mcomb * (2*n-m) * ders[n-m+n] * ders[m-n+1-m+n].z;
+    //if (order == 3)
+    //  std::cout << " " << result << std::endl;
   }
-
-  float3 result = ders[0] * ders[p+1].z - ders[1] * ders[p].z;
-  if (order == 0) return result;
-
-  unsigned long long comb = 1;
-  for (uint i = 1; i <= order - 1; i++) {
-    comb = comb * (p-i+1) / i;
-    result += comb * (ders[i] * ders[p-i+1].z - ders[i+1] * ders[p-i].z);
-  }
-  result += ders[p] * ders[1].z - ders[p+1] * ders[0].z;
+  //std::cout << result << std::endl;
   return result;
 }
 
@@ -158,7 +218,7 @@ LiteMath::float3 RBCurve2D::der(float u, int order) const {
     return (d*p.z - d.z*p) / (p.z * p.z);
   }
 
-  unsigned long long comb = 1;
+  long long comb = 1;
   float3 left = float3(0.0f);
   for (int i = 0; i < order; ++i) {
     float3 a = der(u, i);
@@ -190,7 +250,7 @@ RBCurve2D::monotonic_parts(int axes, int order) const {
     return fg_gf(u, order)[axes];
   };
 
-  // TODO: remove recursion
+  // TODO: remove recursions
   auto knots = monotonic_parts(axes, order+1);
   //std::cout << "ORDER = " << order << " AXES = " << axes << std::endl;
   for (int span = 0; span < knots.size() - 1; ++span) {
@@ -403,18 +463,26 @@ bisection(std::function<float(float)> f, float u1, float u2) {
     }
     if (f1 > f2) {
       std::swap(l, r);
+      //std::swap(f1, f2);
     }
   }
 
   // I tried using error of function instead of error of l-r
   // (Don't do this)
-  while (std::abs(l-r) > c::BISECTION_EPS) { 
+  while (std::abs(l-r) > c::BISECTION_EPS) {
     float m = (l+r) / 2.0f;
     float value = f(m);
-    if (value < 0.0f)
+    if (value < 0.0f) {
+      //std::cout << l << " " << r << std::endl;
+      //std::cout << "LEFT " << f1 << " " << f2 << std::endl;
       l = m;
-    else
+      //f1 = value;
+    } else {
+      //std::cout << l << " " << r << std::endl;
+      //std::cout << "RIGHT  " << f1 << " " << f2 << std::endl;
       r = m;
+      //f2 = value;
+    }
   }
 
   return (l+r) / 2.0f;

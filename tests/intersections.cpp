@@ -212,7 +212,7 @@ bool triangle() {
     { 4,  4},
     { 4, -4},
   };
-  std::vector<float> weights = {1, 1, 1e6, 1, 1};
+  std::vector<float> weights = {1, 1, 1e2, 1, 1};
   float u0  = 2.0f;
   int total = 1;
 

@@ -11,7 +11,7 @@
 
 struct BCurve3D
 {
-  LiteMath::uint degree() const;
+  int degree() const;
 
   BCurve3D() {};
   BCurve3D(std::vector<LiteMath::float3> points,
