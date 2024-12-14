@@ -346,13 +346,17 @@ void shutTheFUpCallback(vk_utils::LogLevel level, const char *msg, const char* f
         static_cast<MultiRenderer*>(pRender.get())->SetPreset(mr_preset);
       }
 
+      //Hydra is slow, so we should use more that one iteration
+      //One iteration will still give pretty stable timings
+      int real_iters = (renderer_type == "Hydra") ? 1 : iters;
+
       float min_time =  1e8, max_time = -1, average_time = 0;
       float min_psnr = 1000, max_psnr = -1, average_psnr = 0;
       float min_flip = 1000, max_flip = -1, average_flip = 0;
       float res_time = 1e8, res_psnr = 1000, res_flip = 1000;
       
       int render_num = 0;
-      for (int iter = 0; iter < iters; ++iter)
+      for (int iter = 0; iter < real_iters; ++iter)
       {
         float avg_per_iter_time = 0;
         float avg_per_iter_psnr = 0;
@@ -378,7 +382,7 @@ void shutTheFUpCallback(vk_utils::LogLevel level, const char *msg, const char* f
           std::string save_name = generate_filename_image(model_name + ".workaround", renderer_type, backend, repr_type, repr_config_name, camera),
                       mesh_name = generate_filename_image(model_name + ".workaround", renderer_type, backend,    "MESH", mesh_config_name, camera);
 
-          printf("\r[%d/%d] Rendering: ", ++render_num, iters*cameras);
+          printf("\r[%d/%d] Rendering: ", ++render_num, real_iters*cameras);
           fflush(stdout);
           LiteImage::SaveImage<uint32_t>(save_name.c_str(), image);
 
@@ -412,9 +416,9 @@ void shutTheFUpCallback(vk_utils::LogLevel level, const char *msg, const char* f
       }
       printf("\n\n");
 
-      average_time /= (float)cameras * iters;
-      average_psnr /= (float)cameras * iters;
-      average_flip /= (float)cameras * iters;
+      average_time /= (float)cameras * real_iters;
+      average_psnr /= (float)cameras * real_iters;
+      average_flip /= (float)cameras * real_iters;
 
       std::string device_name = "CPU";
       if (backend != "CPU")
