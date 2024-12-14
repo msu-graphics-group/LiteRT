@@ -90,17 +90,13 @@ RBCurve2D::RBCurve2D(
     std::vector<float> weights,
     float tmin,
     float tmax) :
-  BCurve3D( RBCurve2D::Hmap(points, weights), tmin, tmax ) {
-  knots = monotonic_parts(0);
-}
+  BCurve3D( RBCurve2D::Hmap(points, weights), tmin, tmax ) {}
 
 RBCurve2D::RBCurve2D(
     std::vector<LiteMath::float3> Hpoints,
     float tmin,
     float tmax) :
-  BCurve3D( Hpoints, tmin, tmax ) {
-  knots = monotonic_parts(0);
-}
+  BCurve3D( Hpoints, tmin, tmax ) {}
 
 // Homorgeneous map to 3D space coodinates
 std::vector<float3> RBCurve2D::Hmap(
@@ -115,6 +111,10 @@ std::vector<float3> RBCurve2D::Hmap(
     Hpoints[i] = weights[i] * point;
   }
   return Hpoints;
+}
+
+void RBCurve2D::preset() {
+  knots = monotonic_parts(0);
 }
 
 LiteMath::float3 RBCurve2D::get_point(float u) const {
@@ -353,6 +353,7 @@ NURBSCurve2D::decompose() const {
   for (int i = 0; i < Qw.size(); ++i) {
     //auto curve = RBCurve2D(Qw[i], knots[i], knots[i+1]);
     auto curve = RBCurve2D(Qw[i]);
+    curve.preset();
     result.push_back(curve);
   }
   return result;

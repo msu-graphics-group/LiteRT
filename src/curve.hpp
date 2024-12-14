@@ -40,6 +40,7 @@ struct RBCurve2D : public BCurve3D
   static std::vector<LiteMath::float3> Hmap(
       std::vector<LiteMath::float2> points,
       std::vector<float> weights);
+  void preset(void);
 
   LiteMath::float3 get_point(float u) const;
   LiteMath::float3 der(float u, int order = 1) const;
