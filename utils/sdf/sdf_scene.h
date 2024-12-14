@@ -661,7 +661,6 @@ void save_scene_xml(std::string path, std::string bin_file_name, const cmesh4::S
                     DemoScene scene = DemoScene::CORNELL_BOX);
 
 void load_neural_sdf_scene_SIREN(SdfScene &scene, const std::string &path); // loads scene from raw SIREN weights file
-void save_sdf_scene_hydra(const SdfScene &scene, const std::string &folder, const std::string &name);
 
 SdfSBSAdaptView convert_sbs_to_adapt(SdfSBSAdapt &adapt_scene, const SdfSBSView &scene);
 SdfSBSAdaptView convert_sbs_to_adapt_with_split(SdfSBSAdapt &adapt_scene, const SdfSBSView &scene);
