@@ -617,11 +617,11 @@ int main(int argc, const char **argv)
   std::filesystem::create_directories("benchmark/saves");
 
   f.open("benchmark/results/build.csv", std::ios::out);
-  f << "model_name, type, config_name, original_model_size(Mb), model_size(Mb), build_time(s)\n";
+  f << "model_name,type,config_name,original_model_size(Mb),model_size(Mb),build_time(s)\n";
   f.close();
 
   f.open("benchmark/results/render.csv", std::ios::out);
-  f << "model_name, backend, device, renderer, type, config_name, render_mode, model_size(Mb), time_min(s), time_max(s), time_average(s), psnr_min, psnr_max, psnr_average, flip_min, flip_max, flip_average\n";
+  f << "model_name,backend,device,renderer,type,config_name,render_mode,model_size(Mb),time_min(s),time_max(s),time_average(s),psnr_min,psnr_max,psnr_average,flip_min,flip_max,flip_average\n";
   f.close();
 
   f.open("benchmark/saves/cmake_out.txt", std::ios::in | std::ios::out | std::ios::trunc);

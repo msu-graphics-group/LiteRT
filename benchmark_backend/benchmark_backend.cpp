@@ -215,7 +215,7 @@ namespace BenchmarkBackend
     //  Write down measurements
     std::fstream f;
     f.open("benchmark/results/build.csv", std::ios::app);
-    f << get_model_name(model_path) << ", " << repr_type << ", " << repr_config_name << ", " << original_memory << ", " << memory << ", " << t << std::endl;
+    f << get_model_name(model_path) << "," << repr_type << "," << repr_config_name << "," << original_memory << "," << memory << "," << t << std::endl;
   }
 
 // Render
@@ -427,7 +427,7 @@ void shutTheFUpCallback(vk_utils::LogLevel level, const char *msg, const char* f
 #endif
       }
 
-      f << model_name << ", " << backend << ", " << device_name << ", " << renderer_type << ", " << repr_type << ", " << repr_config_name << ", " << render_mode << ", " << memory << ", " << min_time << ", " << max_time << ", " << average_time << ", " << min_psnr << ", " << max_psnr << ", " << average_psnr << ", " << min_flip << ", " << max_flip << ", " << average_flip << std::endl;
+      f << model_name << "," << backend << "," << device_name << "," << renderer_type << "," << repr_type << "," << repr_config_name << "," << render_mode << "," << memory << "," << min_time << "," << max_time << "," << average_time << "," << min_psnr << "," << max_psnr << "," << average_psnr << "," << min_flip << "," << max_flip << "," << average_flip << std::endl;
     }
 
     f.close();
