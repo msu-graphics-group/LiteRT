@@ -49,7 +49,7 @@ repr_configs
       brick_pad:i  = 0      
     }
   }
-  SDF_FRAME_OCTREE_COMPACT
+  SDF_COCTREE_V3
   {
     small {
       depth:i = 5

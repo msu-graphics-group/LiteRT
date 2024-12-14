@@ -324,7 +324,7 @@ struct BVHRT : public ISceneObject
 #ifndef DISABLE_SDF_FRAME_OCTREE
   virtual float eval_distance_sdf_frame_octree(unsigned octree_id, float3 p);
 #endif
-#ifndef DISABLE_SDF_FRAME_OCTREE_COMPACT
+#ifndef DISABLE_SDF_COCTREE_V3
   virtual float eval_distance_sdf_coctree_v3(unsigned octree_id, float3 p);
 #endif
   virtual uint32_t eval_distance_traverse_bvh(uint32_t geom_id, float3 pos);
@@ -333,7 +333,7 @@ struct BVHRT : public ISceneObject
                                     float tNear, const float3 &pos, const float3 &dir, bool need_norm);    
 
   // BVH orig nodes
-#if !defined(DISABLE_SDF_FRAME_OCTREE) || !defined(DISABLE_RF_GRID) || !defined(DISABLE_SDF_FRAME_OCTREE_COMPACT) || !defined(DISABLE_SDF_FRAME_OCTREE_TEX)
+#if !defined(DISABLE_SDF_FRAME_OCTREE) || !defined(DISABLE_RF_GRID) || !defined(DISABLE_SDF_COCTREE_V3) || !defined(DISABLE_SDF_FRAME_OCTREE_TEX)
   std::vector<BVHNode> m_origNodes;
 #endif
 
@@ -373,15 +373,18 @@ std::vector<OpenVDB_Grid> m_VDBData;
   std::vector<uint32_t> m_SdfFrameOctreeRoots;     //root node ids for each SDF octree
 #endif
 
-#ifndef DISABLE_SDF_FRAME_OCTREE_COMPACT
 #ifndef KERNEL_SLICER
   std::vector<SdfCompactOctreeNode> m_SdfCompactOctreeV1Data; //not used in actually
 #endif
-  std::vector<uint32_t>             m_SdfCompactOctreeV2Data;
-  std::vector<uint32_t>             m_SdfCompactOctreeV3Data;
 
+#ifndef DISABLE_SDF_COCTREE_V2
+  std::vector<uint32_t>             m_SdfCompactOctreeV2Data;
+#endif
+
+#ifndef DISABLE_SDF_COCTREE_V3
   COctreeV3Header coctree_v3_header;
   static constexpr uint32_t ROT_COUNT = 48;
+  std::vector<uint32_t>             m_SdfCompactOctreeV3Data;
   std::vector<int4>     m_SdfCompactOctreeRotModifiers;
 #endif
 

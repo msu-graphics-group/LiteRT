@@ -2486,7 +2486,7 @@ float BVHRT::eval_distance_sdf_sbs(uint32_t sbs_id, float3 pos)
 }
 #endif
 
-#ifndef DISABLE_SDF_FRAME_OCTREE_COMPACT
+#ifndef DISABLE_SDF_COCTREE_V3
 float BVHRT::eval_distance_sdf_coctree_v3(uint32_t octree_id, float3 pos)
 {
 #if ON_CPU==1
@@ -2858,7 +2858,7 @@ void BVHRT::OctreeIntersect(uint32_t type, const float3 ray_pos, const float3 ra
                             uint32_t a_start, uint32_t a_count,
                             CRT_Hit *pHit)
 {
-#ifndef DISABLE_SDF_FRAME_OCTREE_COMPACT
+#ifndef DISABLE_SDF_COCTREE_V2
   float3 pos_ray_pos = ray_pos;
   float3 pos_ray_dir = ray_dir;
   //assume octree is box [-1,1]^3
@@ -3035,7 +3035,7 @@ float BVHRT::COctreeV3_LoadDistanceValuesLeafGrid(uint32_t brickOffset, float3 v
 #endif
 
   float vmin = 1e6f;
-#ifndef DISABLE_SDF_FRAME_OCTREE_COMPACT
+#ifndef DISABLE_SDF_COCTREE_V3
   uint32_t rotIdx = transform_code & header.rot_mask;
   const unsigned min_range_size_uints = 2;
 
@@ -3116,7 +3116,7 @@ float BVHRT::COctreeV3_LoadDistanceValuesLeafBitPack(uint32_t brickOffset, float
 #endif
 
   float vmin = 1e6f;
-#ifndef DISABLE_SDF_FRAME_OCTREE_COMPACT
+#ifndef DISABLE_SDF_COCTREE_V3
   uint32_t rotIdx = transform_code & header.rot_mask;
   uint32_t p_size = header.brick_size + 2 * header.brick_pad;
   uint32_t PFlagPos = uint32_t(dot(m_SdfCompactOctreeRotModifiers[ROT_COUNT + rotIdx], 
@@ -3177,7 +3177,7 @@ float BVHRT::COctreeV3_LoadDistanceValuesLeafSlices(uint32_t brickOffset, float3
 #endif
 
   float vmin = 1e6f;
-#ifndef DISABLE_SDF_FRAME_OCTREE_COMPACT
+#ifndef DISABLE_SDF_COCTREE_V3
   uint32_t rotIdx = transform_code & header.rot_mask;
   uint32_t p_size = header.brick_size + 2 * header.brick_pad;
   uint32_t PFlagPos = uint32_t(dot(m_SdfCompactOctreeRotModifiers[ROT_COUNT + rotIdx], 
@@ -3255,7 +3255,7 @@ void BVHRT::COctreeV3_BrickIntersect(uint32_t type, const float3 ray_pos, const 
   assert(COctreeV3::VERSION == 5); //if version is changed, this function should be revisited, as some changes may be needed
 #endif
 
-#ifndef DISABLE_SDF_FRAME_OCTREE_COMPACT
+#ifndef DISABLE_SDF_COCTREE_V3
   float values[8];
 
   float d, qNear, qFar;
@@ -3409,7 +3409,7 @@ void BVHRT::OctreeIntersectV3(uint32_t type, const float3 ray_pos, const float3 
   assert(COctreeV3::VERSION == 5); //if version is changed, this function should be revisited, as some changes may be needed
 #endif
 
-#ifndef DISABLE_SDF_FRAME_OCTREE_COMPACT
+#ifndef DISABLE_SDF_COCTREE_V3
   float3 pos_ray_pos = ray_pos;
   float3 pos_ray_dir = ray_dir;
 

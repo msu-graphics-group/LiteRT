@@ -1876,14 +1876,14 @@ size_t BVHRT::get_model_size(uint32_t geomId)
     }
     case AbstractObject::TAG_COCTREE_SIMPLE:
     {
-#ifndef DISABLE_SDF_FRAME_OCTREE_COMPACT
+#ifndef DISABLE_SDF_COCTREE_V3
       model_size = sizeof(SdfCompactOctreeNode) * m_SdfCompactOctreeV1Data.size();
 #endif
       break;
     }
     case AbstractObject::TAG_COCTREE_BRICKED:
     {
-#ifndef DISABLE_SDF_FRAME_OCTREE_COMPACT
+#ifndef DISABLE_SDF_COCTREE_V3
       model_size = sizeof(uint32_t) * (m_SdfCompactOctreeV2Data.size() + m_SdfCompactOctreeV3Data.size())
                  + sizeof(LiteMath::int4) * m_SdfCompactOctreeRotModifiers.size();
       if (geom_data.type == TYPE_COCTREE_V3)

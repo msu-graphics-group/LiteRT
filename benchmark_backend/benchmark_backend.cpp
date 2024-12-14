@@ -155,7 +155,7 @@ namespace BenchmarkBackend
       save_sdf_frame_octree(model_new, fname_no_ext + ".bin");
       save_scene_xml(fname_no_ext + ".xml", get_model_name(fname_no_ext) + ".bin", info, mat_id, scene);
     }
-    else if (repr_type == "SDF_FRAME_OCTREE_COMPACT")
+    else if (repr_type == "SDF_COCTREE_V3")
     {
       COctreeV3Settings co_settings{};
       co_settings.brick_size = repr_config->get_int("brick_size", 4);

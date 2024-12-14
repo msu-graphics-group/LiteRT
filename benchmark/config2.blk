@@ -16,7 +16,7 @@ repr_configs
       clustering_algorithm:s = "string"  
     }
   }
-  SDF_FRAME_OCTREE_COMPACT
+  SDF_COCTREE_V3
   {
     medium_comp {
       depth:i = 6
