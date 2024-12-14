@@ -361,7 +361,7 @@ std::string insert_in_demo_scene_cornell_box(const std::string &geom_info_str, c
         <reflectivity brdf_type="phong">
           <extrusion val="maxcolor" />
           <color val="0.85 0.85 0.85" />
-          <glossiness val="1" />
+          <glossiness val="0.8" />
           <fresnel val="1" />
           <fresnel_ior val="1.5" />
         </reflectivity>
@@ -494,7 +494,7 @@ constexpr unsigned MAX_BUF_SIZE = 8192;
     <reflectivity brdf_type="phong">
       <extrusion val="maxcolor" />
       <color val="0.85 0.85 0.85" />
-      <glossiness val="1" />
+      <glossiness val="0.8" />
       <fresnel val="1" />
       <fresnel_ior val="1.5" />
     </reflectivity>
@@ -610,7 +610,7 @@ constexpr unsigned MAX_BUF_SIZE = 8192;
     <reflectivity brdf_type="phong">
       <extrusion val="maxcolor" />
       <color val="0.85 0.85 0.85" />
-      <glossiness val="1" />
+      <glossiness val="0.8" />
       <fresnel val="1" />
       <fresnel_ior val="1.5" />
     </reflectivity>
