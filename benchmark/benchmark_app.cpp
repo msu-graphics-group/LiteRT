@@ -796,7 +796,10 @@ int main(int argc, const char **argv)
 
             std::string use_gpu = backend != "CPU" ? "ON" : "OFF";
             std::string use_rtx = (backend == "RTX") ? "ON" : "OFF";
-            std::string reconfigure_cmd = "cmake -S . -B build -DUSE_VULKAN=" + use_gpu + " -DUSE_RTX=" + use_rtx + " -DCMAKE_BUILD_TYPE=Release -DUSE_STB_IMAGE=ON >> benchmark/saves/cmake_out.txt 2>&1";
+            std::string use_gpu_rq = (backend == "GPU_RQ") ? "ON" : "OFF";
+            std::string reconfigure_cmd = "cmake -S . -B build -DUSE_VULKAN=" + use_gpu + 
+                                          " -DUSE_RTX=" + use_rtx + " -DUSE_GPU_RQ=" + use_gpu_rq +
+                                          " -DCMAKE_BUILD_TYPE=Release -DUSE_STB_IMAGE=ON >> benchmark/saves/cmake_out.txt 2>&1";
 
             std::system(reconfigure_cmd.c_str());
             std::system("cmake --build build --target render_app -j8 >> benchmark/saves/cmake_out.txt 2>&1");
@@ -842,6 +845,8 @@ int main(int argc, const char **argv)
               render_config.model = xml_path;
               std::string config_str = write_render_config_s(render_config);
 
+              //do this if shit happens
+              //std::string cmd = "gdb -ex=run --args ./render_app -backend_benchmark render ";
               std::string cmd = "DRI_PRIME=1 ./render_app -backend_benchmark render ";
               cmd += "'" + config_str + "'";
 

@@ -368,7 +368,8 @@ std::string insert_in_demo_scene_cornell_box(const std::string &geom_info_str, c
       </material>
     </materials_lib>
     <geometry_lib total_chunks="4">
-      <mesh id="0" name="my_box" type="vsgf" bytesize="1304" loc="%s/01_simple_scenes/data/cornell_open.vsgf" offset="0" vertNum="20" triNum="10" dl="0" path="" bbox="    -4 4 -4 4 -4 4">
+      %s
+      <mesh id="1" name="my_box" type="vsgf" bytesize="1304" loc="%s/01_simple_scenes/data/cornell_open.vsgf" offset="0" vertNum="20" triNum="10" dl="0" path="" bbox="    -4 4 -4 4 -4 4">
         <positions type="array4f" bytesize="320" offset="24" apply="vertex" />
         <normals type="array4f" bytesize="320" offset="344" apply="vertex" />
         <tangents type="array4f" bytesize="320" offset="664" apply="vertex" />
@@ -376,7 +377,6 @@ std::string insert_in_demo_scene_cornell_box(const std::string &geom_info_str, c
         <indices type="array1i" bytesize="120" offset="1144" apply="tlist" />
         <matindices type="array1i" bytesize="40" offset="1264" apply="primitive" />
       </mesh>
-      %s
       <mesh id="2" name="my_area_light_lightmesh" type="vsgf" bytesize="280" loc="%s/01_simple_scenes/data/chunk_00003.vsgf" offset="0" vertNum="4" triNum="2" dl="0" path="" light_id="0" bbox="    -1 1 0 0 -1 1">
         <positions type="array4f" bytesize="64" offset="24" apply="vertex" />
         <normals type="array4f" bytesize="64" offset="88" apply="vertex" />
@@ -424,8 +424,8 @@ std::string insert_in_demo_scene_cornell_box(const std::string &geom_info_str, c
         <remap_lists>
           <remap_list id="0" size="2" val="0 4 " />
         </remap_lists>
-        <instance id="0" mesh_id="1" rmap_id="0" scn_id="0" scn_sid="0" matrix="3 0 0 0   0 3 0 -1.4   0 0 -3 0   0 0 0 1 " />
-        <instance id="1" mesh_id="0" rmap_id="-1" scn_id="0" scn_sid="0" matrix="-1 0 -8.74228e-08 0 0 1 0 0 8.74228e-08 0 -1 0 0 0 0 1 " />
+        <instance id="0" mesh_id="0" rmap_id="0" scn_id="0" scn_sid="0" matrix="3 0 0 0   0 3 0 -1.4   0 0 -3 0   0 0 0 1 " />
+        <instance id="1" mesh_id="1" rmap_id="-1" scn_id="0" scn_sid="0" matrix="-1 0 -8.74228e-08 0 0 1 0 0 8.74228e-08 0 -1 0 0 0 0 1 " />
         <instance_light id="0" light_id="0" matrix="1 0 0 0 0 1 0 3.85 0 0 1 0 0 0 0 1 " lgroup_id="-1" />
         <instance id="2" mesh_id="2" rmap_id="-1" matrix="1 0 0 0 0 1 0 3.85 0 0 1 0 0 0 0 1 " light_id="0" linst_id="0" />
       </scene>
@@ -697,7 +697,7 @@ std::string get_xml_string_model_demo_scene(std::string bin_file_name, std::stri
   char buf[MAX_BUF_SIZE];
 
     snprintf(buf, MAX_BUF_SIZE, R""""(
-    <%s id="1" name="demo_model" type="%s" bytesize="%d" loc="%s" num_primitives="%d" mat_id="%d">
+    <%s id="0" name="demo_model" type="%s" bytesize="%d" loc="%s" num_primitives="%d" mat_id="%d">
     </%s>
     )"""",
     info.name.c_str(), info.name.c_str(), info.bytesize, bin_file_name.c_str(), info.num_primitives, mat_id, info.name.c_str());
@@ -729,7 +729,7 @@ std::string get_xml_string_model_demo_scene(std::string bin_file_name, std::stri
   unsigned base_offset = 6*sizeof(unsigned);
 
     snprintf(buf, MAX_BUF_SIZE, R""""(
-      <mesh id="1" name="demo_mesh" type="vsgf" bytesize="%d" loc="%s" offset="0" vertNum="%d" triNum="%d" dl="0" path="" bbox="%f %f %f %f %f %f">
+      <mesh id="0" name="demo_mesh" type="vsgf" bytesize="%d" loc="%s" offset="0" vertNum="%d" triNum="%d" dl="0" path="" bbox="%f %f %f %f %f %f">
         <positions type="array4f" bytesize="%d" offset="%d" apply="vertex" />
         <normals type="array4f" bytesize="%d" offset="%d" apply="vertex" />
         <tangents type="array4f" bytesize="%d" offset="%d" apply="vertex" />

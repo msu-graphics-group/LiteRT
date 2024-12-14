@@ -197,7 +197,8 @@ namespace BenchmarkBackend
       mr_renderer->SetPreset(getDefaultPreset());
       mr_renderer->SetScene(mesh);
 
-      original_memory = static_cast<BVHRT*>(mr_renderer->GetAccelStruct().get())->get_model_size() * (1.f / (1024 * 1024));
+      BVHRT *bvhrt = dynamic_cast<BVHRT*>(mr_renderer->GetAccelStruct()->UnderlyingImpl(0));
+      original_memory = bvhrt->get_model_size() * (1.f / (1024 * 1024));
     }
     {
       std::string fname_str = fname_no_ext + ".xml";
@@ -206,7 +207,8 @@ namespace BenchmarkBackend
       mr_renderer->SetPreset(getDefaultPreset());
       mr_renderer->LoadScene(fname_str.c_str());
 
-      memory = static_cast<BVHRT*>(mr_renderer->GetAccelStruct().get())->get_model_size() * (1.f / (1024 * 1024));
+      BVHRT *bvhrt = dynamic_cast<BVHRT*>(mr_renderer->GetAccelStruct()->UnderlyingImpl(0));
+      memory = bvhrt->get_model_size() * (1.f / (1024 * 1024));
     }
 
     //  Time calculation
@@ -332,7 +334,8 @@ void shutTheFUpCallback(vk_utils::LogLevel level, const char *msg, const char* f
     }
 
     pRender->LoadScene(model_path.c_str());
-    memory = static_cast<BVHRT*>(pRender->GetAccelStruct().get())->get_model_size() * (1.f / (1024 * 1024));
+    BVHRT *bvhrt = dynamic_cast<BVHRT*>(pRender->GetAccelStruct()->UnderlyingImpl(0));
+    memory = bvhrt->get_model_size() * (1.f / (1024 * 1024));
 
 
     // Render modes loop
