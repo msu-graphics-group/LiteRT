@@ -27,11 +27,11 @@ struct SparseOctreeSettings
     split_thr = 0.0f;
     fill_all_nodes = _fill_all_nodes;
   }
-  SparseOctreeSettings(unsigned _depth, float split_thr, unsigned min_depth = 1, bool _fill_all_nodes = false)
+  SparseOctreeSettings(unsigned _depth, float _split_thr, unsigned _min_depth = 1, bool _fill_all_nodes = false)
   {
     depth = _depth;
-    split_thr = split_thr;
-    min_depth = min_depth;
+    split_thr = _split_thr;
+    min_depth = _min_depth;
     fill_all_nodes = _fill_all_nodes;
   }
 

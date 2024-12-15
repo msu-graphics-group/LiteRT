@@ -74,7 +74,7 @@ namespace BenchmarkBackend
     cmesh4::SimpleMesh mesh = cmesh4::LoadMesh(model_path.c_str());
     cmesh4::set_mat_id(mesh, mat_id);
 
-    SparseOctreeSettings settings(repr_config->get_int("depth"));
+    SparseOctreeSettings settings(repr_config->get_int("depth"), repr_config->get_double("split_thr"), 1u, false);
 
     std::string fname_no_ext = generate_filename_model_no_ext(model_path, repr_type, repr_config_name);
     std::string tmp_fname = get_model_name(fname_no_ext);
