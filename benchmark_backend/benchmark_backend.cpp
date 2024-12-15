@@ -290,12 +290,12 @@ namespace BenchmarkBackend
 // Render
 
   void RenderExternal(LiteImage::Image2D<uint32_t> &image, uint32_t width, uint32_t height,
-                      const LiteMath::float3 &pos, int passes, std::string repr_type, 
+                      const LiteMath::float3 &pos, int passes, std::string renderer_type, std::string repr_type, 
                       std::string model_path, std::string repr_config_name, const Block *repr_config,
                       float *memory_Mb, float *t, float *t2)
   {
     std::string fname_no_ext = generate_filename_model_no_ext(model_path + ".workaround", repr_type, repr_config_name);
-    if (repr_type == "NEURAL_SDF")
+    if (repr_type == "NEURAL_SDF" && renderer_type == "MR")
     {
       constexpr float distance_mult = 1.0f;
       float3 direction = LiteMath::normalize(float3(0,0,0) - pos);
@@ -527,7 +527,7 @@ void shutTheFUpCallback(vk_utils::LogLevel level, const char *msg, const char* f
           float t2 = 0.0f;
 
           if (external_builder)
-            RenderExternal(image, width, height, pos, real_iters, repr_type, model_name, repr_config_name, repr_config, 
+            RenderExternal(image, width, height, pos, real_iters, renderer_type, repr_type, model_name, repr_config_name, repr_config, 
                            &memory, &t, &t2);
           else
             Render(image, pRender.get(), width, height, pos, real_iters, &t, &t2);
