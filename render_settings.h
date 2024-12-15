@@ -103,7 +103,7 @@ static MultiRenderPreset getDefaultPreset()
   MultiRenderPreset p;
   p.render_mode = MULTI_RENDER_MODE_LAMBERT_NO_TEX;
   p.sdf_node_intersect = SDF_OCTREE_NODE_INTERSECT_ST;
-  p.normal_mode = NORMAL_MODE_GEOMETRY;
+  p.normal_mode = NORMAL_MODE_VERTEX;
   p.ray_gen_mode = RAY_GEN_MODE_REGULAR;
   p.interpolation_mode = INTERPOLATION_MODE_TRILINEAR;
   p.representation_mode = REPRESENTATION_MODE_VOLUME;

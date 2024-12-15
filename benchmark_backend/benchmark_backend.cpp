@@ -175,7 +175,7 @@ namespace BenchmarkBackend
       scom::Settings scom_settings;
       if (co_settings.sim_compression == 1)
       {
-        std::string clustering_algorithm_str = repr_config->get_string("clustering_algorithm", "HIERARCHICAL");
+        std::string clustering_algorithm_str = repr_config->get_string("clustering_algorithm", "REPLACEMENT");
         if (clustering_algorithm_str == "REPLACEMENT")
           scom_settings.clustering_algorithm = scom::ClusteringAlgorithm::REPLACEMENT;
         else if (clustering_algorithm_str == "COMPONENTS_RECURSIVE_FILL")
