@@ -1,0 +1,52 @@
+{
+backends:arr = {"GPU_RQ"}
+renderers:arr = {"MR"}
+render_modes:arr = { "LAMBERT_NO_TEX" }
+models:arr = { }
+width:i = 1024
+height:i = 1024
+cameras:i = 4
+iters:i = 8
+spp:i = 1
+hydra_spp:i = 2048
+hydra_scene:s = "SINGLE_OBJECT_CUBEMAP"
+
+repr_configs
+{
+  MESH
+  {
+    default {
+      
+    }
+  }
+  SDF_SBS 
+  {
+    medium {
+      depth:i = 6
+      brick_size:i = 3
+      brick_pad:i  = 0      
+    }
+  }
+  SDF_COCTREE_V3
+  {
+    b0 {
+      depth:i = 6
+      brick_size:i = 3
+      brick_pad:i  = 0  
+      bvh_level:i  = 0    
+    }      
+    b2 {
+      depth:i = 6
+      brick_size:i = 3
+      brick_pad:i  = 0     
+      bvh_level:i  = 2 
+    }   
+    b4 {
+      depth:i = 6
+      brick_size:i = 3
+      brick_pad:i  = 0 
+      bvh_level:i  = 4     
+    }   
+  }
+}
+}

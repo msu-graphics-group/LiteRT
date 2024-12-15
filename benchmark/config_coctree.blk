@@ -1,0 +1,255 @@
+{
+backends:arr = {"GPU_RQ"}
+renderers:arr = {"MR"}
+render_modes:arr = { "LAMBERT_NO_TEX" }
+models:arr = { }
+width:i = 2048
+height:i = 2048
+cameras:i = 4
+iters:i = 1
+spp:i = 4
+hydra_spp:i = 2048
+hydra_scene:s = "SINGLE_OBJECT_CUBEMAP"
+
+repr_configs
+{
+  MESH
+  {
+    default {
+      
+    }
+  }
+  SDF_COCTREE_V3
+  {
+    t2_0 {
+      tag:s = "COctree_1_160"
+      depth:i = 7
+      brick_size:i = 3
+      brick_pad:i  = 0      
+      split_thr:r = 0.002
+      sim_compression:i = 1    
+      similarity_threshold:r = 0.00625
+    }
+    t4_0 {
+      tag:s = "COctree_1_160"
+      depth:i = 7
+      brick_size:i = 3
+      brick_pad:i  = 0      
+      split_thr:r = 0.004
+      sim_compression:i = 1    
+      similarity_threshold:r = 0.00625
+    }
+    t6_0 {
+      tag:s = "COctree_1_160"
+      depth:i = 7
+      brick_size:i = 3
+      brick_pad:i  = 0      
+      split_thr:r = 0.006
+      sim_compression:i = 1    
+      similarity_threshold:r = 0.00625
+    }
+    t8_0 {
+      tag:s = "COctree_1_160"
+      depth:i = 7
+      brick_size:i = 3
+      brick_pad:i  = 0      
+      split_thr:r = 0.008
+      sim_compression:i = 1    
+      similarity_threshold:r = 0.00625
+    }
+    t10_0 {
+      tag:s = "COctree_1_160"
+      depth:i = 7
+      brick_size:i = 3
+      brick_pad:i  = 0      
+      split_thr:r = 0.010
+      sim_compression:i = 1    
+      similarity_threshold:r = 0.00625
+    }
+
+    t2_1 {
+      tag:s = "COctree_1_80"
+      depth:i = 7
+      brick_size:i = 3
+      brick_pad:i  = 0      
+      split_thr:r = 0.002
+      sim_compression:i = 1    
+      similarity_threshold:r = 0.0125
+    }
+    t4_1 {
+      tag:s = "COctree_1_80"
+      depth:i = 7
+      brick_size:i = 3
+      brick_pad:i  = 0      
+      split_thr:r = 0.004
+      sim_compression:i = 1    
+      similarity_threshold:r = 0.0125
+    }
+    t6_1 {
+      tag:s = "COctree_1_80"
+      depth:i = 7
+      brick_size:i = 3
+      brick_pad:i  = 0      
+      split_thr:r = 0.006
+      sim_compression:i = 1    
+      similarity_threshold:r = 0.0125
+    }
+    t8_1 {
+      tag:s = "COctree_1_80"
+      depth:i = 7
+      brick_size:i = 3
+      brick_pad:i  = 0      
+      split_thr:r = 0.008
+      sim_compression:i = 1    
+      similarity_threshold:r = 0.0125
+    }
+    t10_1 {
+      tag:s = "COctree_1_80"
+      depth:i = 7
+      brick_size:i = 3
+      brick_pad:i  = 0      
+      split_thr:r = 0.010
+      sim_compression:i = 1    
+      similarity_threshold:r = 0.0125
+    }
+
+    t2_2 {
+      tag:s = "COctree_1_40"
+      depth:i = 7
+      brick_size:i = 3
+      brick_pad:i  = 0      
+      split_thr:r = 0.002
+      sim_compression:i = 1    
+      similarity_threshold:r = 0.025
+    }
+    t4_2 {
+      tag:s = "COctree_1_40"
+      depth:i = 7
+      brick_size:i = 3
+      brick_pad:i  = 0      
+      split_thr:r = 0.004
+      sim_compression:i = 1    
+      similarity_threshold:r = 0.025
+    }
+    t6_2 {
+      tag:s = "COctree_1_40"
+      depth:i = 7
+      brick_size:i = 3
+      brick_pad:i  = 0      
+      split_thr:r = 0.006
+      sim_compression:i = 1    
+      similarity_threshold:r = 0.025
+    }
+    t8_2 {
+      tag:s = "COctree_1_40"
+      depth:i = 7
+      brick_size:i = 3
+      brick_pad:i  = 0      
+      split_thr:r = 0.008
+      sim_compression:i = 1    
+      similarity_threshold:r = 0.025
+    }
+    t10_2 {
+      tag:s = "COctree_1_40"
+      depth:i = 7
+      brick_size:i = 3
+      brick_pad:i  = 0      
+      split_thr:r = 0.010
+      sim_compression:i = 1    
+      similarity_threshold:r = 0.025
+    }
+
+    t2_3 {
+      tag:s = "COctree_1_20"
+      depth:i = 7
+      brick_size:i = 3
+      brick_pad:i  = 0      
+      split_thr:r = 0.002
+      sim_compression:i = 1    
+      similarity_threshold:r = 0.05
+    }
+    t4_3 {
+      tag:s = "COctree_1_20"
+      depth:i = 7
+      brick_size:i = 3
+      brick_pad:i  = 0      
+      split_thr:r = 0.004
+      sim_compression:i = 1    
+      similarity_threshold:r = 0.05
+    }
+    t6_3 {
+      tag:s = "COctree_1_20"
+      depth:i = 7
+      brick_size:i = 3
+      brick_pad:i  = 0      
+      split_thr:r = 0.006
+      sim_compression:i = 1    
+      similarity_threshold:r = 0.05
+    }
+    t8_3 {
+      tag:s = "COctree_1_20"
+      depth:i = 7
+      brick_size:i = 3
+      brick_pad:i  = 0      
+      split_thr:r = 0.008
+      sim_compression:i = 1    
+      similarity_threshold:r = 0.05
+    }
+    t10_3 {
+      tag:s = "COctree_1_20"
+      depth:i = 7
+      brick_size:i = 3
+      brick_pad:i  = 0      
+      split_thr:r = 0.010
+      sim_compression:i = 1    
+      similarity_threshold:r = 0.05
+    }
+
+    t2_4 {
+      tag:s = "COctree_1_10"
+      depth:i = 7
+      brick_size:i = 3
+      brick_pad:i  = 0      
+      split_thr:r = 0.002
+      sim_compression:i = 1    
+      similarity_threshold:r = 0.1
+    }
+    t4_4 {
+      tag:s = "COctree_1_10"
+      depth:i = 7
+      brick_size:i = 3
+      brick_pad:i  = 0      
+      split_thr:r = 0.004
+      sim_compression:i = 1    
+      similarity_threshold:r = 0.1
+    }
+    t6_4 {
+      tag:s = "COctree_1_10"
+      depth:i = 7
+      brick_size:i = 3
+      brick_pad:i  = 0      
+      split_thr:r = 0.006
+      sim_compression:i = 1    
+      similarity_threshold:r = 0.1
+    }
+    t8_4 {
+      tag:s = "COctree_1_10"
+      depth:i = 7
+      brick_size:i = 3
+      brick_pad:i  = 0      
+      split_thr:r = 0.008
+      sim_compression:i = 1    
+      similarity_threshold:r = 0.1
+    }
+    t10_4 {
+      tag:s = "COctree_1_10"
+      depth:i = 7
+      brick_size:i = 3
+      brick_pad:i  = 0      
+      split_thr:r = 0.010
+      sim_compression:i = 1    
+      similarity_threshold:r = 0.1
+    }
+  }
+}
+}
