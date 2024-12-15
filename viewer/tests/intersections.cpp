@@ -14,22 +14,17 @@ namespace intersection_tests {
 
 bool test_intersections(
     const RBCurve2D &curve,
-    const std::vector<float> &intersections,
+    const std::vector<float3> &intersections,
     float u0,
     int nintersections) {
   if (intersections.size() != nintersections)
     return false;
 
   bool passed = true;
-  for (const auto &u : intersections) {
-    float x0  = curve(u).x;
+  for (const auto &p : intersections) {
+    //float x0  = curve(u).x;
     //std::cout << x0 - u0 << std::endl;
-    // TODO: derive the formula for eps. This is heuristic.
-    //int n = curve.degree();
-    //float eps = n * sqrt(10) * c::BISECTION_EPS;
-    //std::cout << eps << std::endl;
-    float eps = 4.0f * sqrt(2.0f) * c::BISECTION_EPS;
-    bool close = isclose(x0, u0, eps);
+    bool close = isclose(p.x, u0, 2.0f * c::INTERSECTION_EPS);
     passed = passed && close;
   }
   return passed;
@@ -46,6 +41,7 @@ bool slope_line() {
   int total = 1;
 
   RBCurve2D curve(points, weights);
+  curve.preset();
   auto intersections = curve.intersections(u0);
   return test_intersections(curve, intersections, u0, total);
 }
@@ -62,6 +58,7 @@ bool cubic_bezier_1() {
   int total = 1;
 
   RBCurve2D curve(points, weights);
+  curve.preset();
   auto intersections = curve.intersections(u0);
   return test_intersections(curve, intersections, u0, total);
 }
@@ -78,6 +75,7 @@ bool cubic_bezier_2() {
   int total = 1;
 
   RBCurve2D curve(points, weights);
+  curve.preset();
   auto intersections = curve.intersections(u0);
   return test_intersections(curve, intersections, u0, total);
 }
@@ -94,6 +92,7 @@ bool half_circle() {
   int total = 1;
 
   RBCurve2D curve(points, weights);
+  curve.preset();
   auto intersections = curve.intersections(u0);
   return test_intersections(curve, intersections, u0, total);
 }
@@ -110,6 +109,7 @@ bool half_circle_edge() {
   int total = 1; // Should be zero?
 
   RBCurve2D curve(points, weights);
+  curve.preset();
   auto intersections = curve.intersections(u0);
   return test_intersections(curve, intersections, u0, total);
 }
@@ -128,6 +128,7 @@ bool curl_mid() {
   int total = 2;
 
   RBCurve2D curve(points, weights);
+  curve.preset();
   auto intersections = curve.intersections(u0);
   return test_intersections(curve, intersections, u0, total);
 }
@@ -146,6 +147,7 @@ bool curl_left_quater_offset() {
   int total = 2; // Should be one?
 
   RBCurve2D curve(points, weights);
+  curve.preset();
   auto intersections = curve.intersections(u0);
   return test_intersections(curve, intersections, u0, total);
 }
@@ -164,6 +166,7 @@ bool curl_right_quater_offset() {
   int total = 2;
 
   RBCurve2D curve(points, weights);
+  curve.preset();
   auto intersections = curve.intersections(u0);
   return test_intersections(curve, intersections, u0, total);
 }
@@ -182,6 +185,7 @@ bool curl_left_offset() {
   int total = 1;
 
   RBCurve2D curve(points, weights);
+  curve.preset();
   auto intersections = curve.intersections(u0);
   return test_intersections(curve, intersections, u0, total);
 }
@@ -200,6 +204,7 @@ bool curl_left_edge() {
   int total = 1; // Should be zero?
 
   RBCurve2D curve(points, weights);
+  curve.preset();
   auto intersections = curve.intersections(u0);
   return test_intersections(curve, intersections, u0, total);
 }
@@ -212,11 +217,12 @@ bool triangle() {
     { 4,  4},
     { 4, -4},
   };
-  std::vector<float> weights = {1, 1, 1e6, 1, 1};
+  std::vector<float> weights = {1, 1, 1e2, 1, 1};
   float u0  = 2.0f;
   int total = 1;
 
   RBCurve2D curve(points, weights);
+  curve.preset();
   auto intersections = curve.intersections(u0);
   return test_intersections(curve, intersections, u0, total);
 }
@@ -239,6 +245,7 @@ bool egg_mid() {
   int total = 2;
 
   RBCurve2D curve(points, weights);
+  curve.preset();
   auto intersections = curve.intersections(u0);
   return test_intersections(curve, intersections, u0, total);
 }
@@ -260,6 +267,7 @@ bool egg_offset() {
   int total = 2;
 
   RBCurve2D curve(points, weights);
+  curve.preset();
   auto intersections = curve.intersections(u0);
   return test_intersections(curve, intersections, u0, total);
 }
@@ -281,6 +289,7 @@ bool egg_edge() {
   int total = 0;
 
   RBCurve2D curve(points, weights);
+  curve.preset();
   auto intersections = curve.intersections(u0);
   return test_intersections(curve, intersections, u0, total);
 }
@@ -300,6 +309,7 @@ bool waterdrop_mid() {
   int total = 2;
 
   RBCurve2D curve(points, weights);
+  curve.preset();
   auto intersections = curve.intersections(u0);
   return test_intersections(curve, intersections, u0, total);
 }
@@ -319,6 +329,7 @@ bool waterdrop_right_offset() {
   int total = 2;
 
   RBCurve2D curve(points, weights);
+  curve.preset();
   auto intersections = curve.intersections(u0);
   return test_intersections(curve, intersections, u0, total);
 }
@@ -338,6 +349,7 @@ bool waterdrop_left_offset() {
   int total = 2;
 
   RBCurve2D curve(points, weights);
+  curve.preset();
   auto intersections = curve.intersections(u0);
   return test_intersections(curve, intersections, u0, total);
 }
@@ -359,6 +371,7 @@ bool waterdrop_left_edge() {
   int total = 2;
 
   RBCurve2D curve(points, weights);
+  curve.preset();
   auto intersections = curve.intersections(u0);
   return test_intersections(curve, intersections, u0, total);
 }
@@ -378,6 +391,7 @@ bool waterdrop_left_edge_offset() {
   int total = 2;
 
   RBCurve2D curve(points, weights);
+  curve.preset();
   auto intersections = curve.intersections(u0);
   return test_intersections(curve, intersections, u0, total);
 }

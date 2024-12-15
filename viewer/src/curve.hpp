@@ -13,7 +13,7 @@
 
 struct BCurve3D
 {
-  LiteMath::uint degree() const;
+  int degree() const;
 
   BCurve3D() {};
   BCurve3D(std::vector<LiteMath::float3> points,
@@ -43,15 +43,22 @@ struct RBCurve2D : public BCurve3D
       std::vector<LiteMath::float2> points,
       std::vector<float> weights);
 
+  void preset(void);
+  void preset_eps_coeff(void);
+
   LiteMath::float3 get_point(float u) const;
   LiteMath::float3 der(float u, int order = 1) const;
   LiteMath::float3 fg_gf(float u, int order = 0) const;
   std::vector<float> monotonic_parts(int axes, int order = 0) const;
-  std::vector<float> intersections(float u0) const;
+  std::vector<LiteMath::float3> intersections(float u0) const;
   LiteMath::float3 operator()(float u) const;
 
   // Monotonic knots
   std::vector<float> knots;
+
+  // Intersection and knots epsilon coefficient
+  // such that if |u - u0| < epsb ==> |C(u) - C(u0)| < eps_coeff * epsb
+  float eps_coeff;
 };
 
 struct NURBSCurve2D
@@ -68,7 +75,7 @@ public:
 NURBSCurve2D load_nurbs_curve(std::filesystem::path path);
 
 std::optional<float>
-bisection(std::function<float(float)> f, float u1, float u2);
+bisection(std::function<float(float)> f, float u1, float u2, float eps);
 
 struct KdTreeBox
 {

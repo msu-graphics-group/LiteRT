@@ -470,4 +470,42 @@ namespace embree
       }
     }
   }
+
+  void curve_bounds_function(const RTCBoundsFunctionArguments *args) {
+    const auto &leaf = *reinterpret_cast<const TrimBVHBox*>(args->geometryUserPtr);
+    args->bounds_o->lower_x = leaf.box_min.x;
+    args->bounds_o->lower_y = leaf.box_min.y;
+    args->bounds_o->lower_z = -1.0f;
+
+    args->bounds_o->upper_x = leaf.box_max.x;
+    args->bounds_o->upper_y = leaf.box_max.y;
+    args->bounds_o->upper_z = 1.0f;
+  }
+
+  void EmbreeTrimBVH::add_box(
+        LiteMath::float2 box_min, 
+        LiteMath::float2 box_max,
+        const RBCurve2D *p_curve,
+        int monotonic_span) {
+    boxes.push_back(TrimBVHBox{ box_min, box_max, p_curve, monotonic_span });
+    auto &box = boxes.back();
+    RTCGeometry geom = rtcNewGeometry(device, RTC_GEOMETRY_TYPE_USER);
+    rtcSetGeometryUserPrimitiveCount(geom, 1);
+    rtcSetGeometryUserData(geom, &box);
+    rtcSetGeometryBoundsFunction(geom, curve_bounds_function, nullptr);
+    rtcSetGeometryOccludedFunction(geom, curve_occluded_function);
+    rtcCommitGeometry(geom);
+    rtcAttachGeometry(scn, geom);
+    rtcReleaseGeometry(geom);
+  }
+
+  void curve_occluded_function(const RTCOccludedFunctionNArguments *args) {
+    const auto &leaf = *reinterpret_cast<const TrimBVHBox*>(args->geometryUserPtr);
+    assert(args->N == 1);
+    if (!args->valid[0])
+      return;
+
+    auto &ray = const_cast<RTCRay&>(*reinterpret_cast<const RTCRay*>(args->ray));
+    float2 uv0{ ray.org_x, ray.org_y };
+  }
 } // namespace embree
