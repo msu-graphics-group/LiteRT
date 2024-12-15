@@ -1,0 +1,31 @@
+{
+backends:arr = {"GPU_RQ"}
+renderers:arr = {"MR"}
+render_modes:arr = { "LAMBERT_NO_TEX" }
+models:arr = { }
+width:i = 1024
+height:i = 1024
+cameras:i = 4
+iters:i = 1
+spp:i = 1
+hydra_spp:i = 2048
+hydra_scene:s = "SINGLE_OBJECT_CUBEMAP"
+
+repr_configs
+{
+  MESH
+  {
+    default {
+      
+    }
+  }
+  NEURAL_SDF
+  {
+    test {
+      path:s = "../nglod"
+      num_lods:i = 2
+      epochs:i = 100
+    }
+  }
+}
+}

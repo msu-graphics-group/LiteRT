@@ -36,6 +36,12 @@ namespace BenchmarkBackend
 
 
  // Build
+  bool is_external_builder(std::string repr_type)
+  {
+    bool external_builder = (repr_type == "NEURAL_SDF");
+
+    return external_builder;
+  }
 
   void build_model(std::string render_config_str)
   {
@@ -75,6 +81,8 @@ namespace BenchmarkBackend
 
     std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
     std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
+
+    bool external_builder = is_external_builder(repr_type);
 
     if (repr_type == "MESH")
     {
@@ -187,11 +195,60 @@ namespace BenchmarkBackend
       save_coctree_v3(model_new, fname_no_ext + ".bin");
       save_scene_xml(fname_no_ext + ".xml", get_model_name(fname_no_ext) + ".bin", info, mat_id, scene);
     }
+    else if (repr_type == "NEURAL_SDF")
+    {
+      // https://github.com/Egor-eth/nglod/tree/litert_integration
+
+      // Get parameters for neural sdf builder from config
+
+      std::string nglod_path = repr_config->get_string("path", "../nglod");
+      int num_lods = repr_config->get_int("num_lods", 3);
+      int epochs = repr_config->get_int("epochs", 100);
+
+      std::string model_name = get_model_name(fname_no_ext);
+      std::string obj_save_path = nglod_path + "/sdf-net/data/" + model_name + ".obj";
+      std::string weights_path =  nglod_path + "/sdf-net/_results/models/" + model_name + ".pth";
+
+
+      // Save original mesh to obj and put in into  
+      cmesh4::SaveMeshToObj(obj_save_path.c_str(), mesh);
+
+      // Change current path to nglod/sdf_net
+      auto old_path = std::filesystem::current_path();
+      std::filesystem::current_path(nglod_path + "/sdf-net");
+      
+      // train model
+      constexpr unsigned MAX_BUF_SIZE = 8192;
+      char buf[MAX_BUF_SIZE];
+
+      snprintf(buf, MAX_BUF_SIZE,
+               "python app/main.py --net OctreeSDF --num-lods %d --dataset-path \"data/%s.obj\" --epoch %d --exp-name \"%s\" > ./build_log.txt 2>&1",
+               num_lods, model_name.c_str(), epochs, model_name.c_str());
+      printf("starting nglod with command: %s\n", buf);
+
+      t1 = std::chrono::steady_clock::now();
+      std::system(buf);
+      t2 = std::chrono::steady_clock::now();
+
+      //restore path
+      std::filesystem::current_path(old_path);
+
+      //copy model from nglod and
+      std::filesystem::copy_file(weights_path, fname_no_ext + ".pth", std::filesystem::copy_options::overwrite_existing);
+
+      //save dummy xml
+      {
+        std::fstream f;  
+        f.open(fname_no_ext + ".xml", std::ios::in | std::ios::out | std::ios::trunc);
+        f.close();
+      }
+    }
 
     //  Both models' size calculation
 
     float original_memory = 0.f, memory = 0.f;
 
+    if (!external_builder)
     {
       auto mr_renderer = CreateMultiRenderer(DEVICE_CPU);
       mr_renderer->SetPreset(getDefaultPreset());
@@ -200,6 +257,12 @@ namespace BenchmarkBackend
       BVHRT *bvhrt = dynamic_cast<BVHRT*>(mr_renderer->GetAccelStruct()->UnderlyingImpl(0));
       original_memory = bvhrt->get_model_size() * (1.f / (1024 * 1024));
     }
+    else
+    {
+      original_memory = 0.0f; // real size will be (hopefully) shown in render
+    }
+
+    if (!external_builder)
     {
       std::string fname_str = fname_no_ext + ".xml";
 
@@ -209,6 +272,10 @@ namespace BenchmarkBackend
 
       BVHRT *bvhrt = dynamic_cast<BVHRT*>(mr_renderer->GetAccelStruct()->UnderlyingImpl(0));
       memory = bvhrt->get_model_size() * (1.f / (1024 * 1024));
+    }
+    else
+    {
+      memory = 0.0f; // real size will be (hopefully) shown in render
     }
 
     //  Time calculation
@@ -222,18 +289,84 @@ namespace BenchmarkBackend
 
 // Render
 
-  void render(LiteImage::Image2D<uint32_t> &image, std::shared_ptr<MultiRenderer> pRender,
-              float3 pos, float3 target, float3 up,
-              MultiRenderPreset preset, int a_passNum)
+  void RenderExternal(LiteImage::Image2D<uint32_t> &image, uint32_t width, uint32_t height,
+                      const LiteMath::float3 &pos, int passes, std::string repr_type, 
+                      std::string model_path, std::string repr_config_name, const Block *repr_config,
+                      float *memory_Mb, float *t, float *t2)
   {
-    float fov_degrees = 60;
-    float z_near = 0.1f;
-    float z_far = 100.0f;
-    float aspect = 1.0f;
-    auto proj = LiteMath::perspectiveMatrix(fov_degrees, aspect, z_near, z_far);
-    auto worldView = LiteMath::lookAt(pos, target, up);
+    std::string fname_no_ext = generate_filename_model_no_ext(model_path + ".workaround", repr_type, repr_config_name);
+    if (repr_type == "NEURAL_SDF")
+    {
+      constexpr float distance_mult = 1.0f;
+      float3 direction = LiteMath::normalize(float3(0,0,0) - pos);
+      std::string nglod_path = repr_config->get_string("path", "../nglod");
+      int num_lods = repr_config->get_int("num_lods", 3);
 
-    pRender->Render(image.data(), image.width(), image.height(), worldView, proj, preset, a_passNum);
+      std::string model_name = get_model_name(fname_no_ext);
+      std::string obj_save_path = nglod_path + "/sdf-net/data/" + model_name + ".obj";
+      std::string tmp_weights_path  = nglod_path + "/sdf-net/tmp_model.pth";
+      std::string image_path    = nglod_path + "/sdf-net/_results/render_app/imgs/tmp_model/rgb/000000.png";
+      std::string log_path = nglod_path + "/sdf-net/render_log.txt";
+
+      //copy model to nglod
+      std::filesystem::copy_file(fname_no_ext + ".pth", tmp_weights_path, std::filesystem::copy_options::overwrite_existing);
+
+      // Change current path to nglod/sdf_net
+      auto old_path = std::filesystem::current_path();
+      std::filesystem::current_path(nglod_path + "/sdf-net");
+      
+      // render image
+      constexpr unsigned MAX_BUF_SIZE = 8192;
+      char buf[MAX_BUF_SIZE];
+
+      snprintf(buf, MAX_BUF_SIZE, R""""(
+               python app/sdf_renderer.py     \
+                --net OctreeSDF     \
+                --num-lods %d     \
+                --pretrained tmp_model.pth     \
+                --render-res %d %d     \
+                --shading-mode lambert     \
+                --bg-color 0.0 0.0 0.0     \
+                --camera %f %f %f  %f %f %f 60 \
+                --light  1 1 1   0.6667 \
+                --disable-aa \
+                --perf \
+                --lod %d >./render_log.txt
+               )"""", num_lods, width, height, 
+               distance_mult*pos.x, distance_mult*pos.y, distance_mult*pos.z,
+               direction.x, direction.y, direction.z,
+               num_lods-1);
+      //printf("starting nglod rendering with command: %s\n", buf);
+
+      std::system(buf);
+
+      //restore path
+      std::filesystem::current_path(old_path);
+
+      //wait to prevent issues with reading image that was just created (there are issues)
+      std::system("sleep 1");
+
+      //get values
+      {
+        std::ifstream f(log_path);
+        std::stringstream log_buf;
+        log_buf << f.rdbuf();
+        Block res_blk;
+        load_block_from_string(log_buf.str(), res_blk);
+
+        *memory_Mb = res_blk.get_double("size", -1.0f);
+        *t         = res_blk.get_double("time", -1.0f);
+        *t2        = *t;
+      }
+
+      //load image
+      LiteImage::Image2D<uint32_t> image_tmp = LiteImage::LoadImage<uint32_t>(image_path.c_str());
+      assert(image_tmp.width() == image.width() && image_tmp.height() == image.height());
+      for (size_t i = 0; i < image_tmp.width() * image_tmp.height(); i++)
+      {
+        image.data()[i] = image_tmp.data()[i] | 0xFF000000u; //no alpha
+      }
+    }
   }
 
   void Render(LiteImage::Image2D<uint32_t> &image, IRenderer* pRender, uint32_t width, uint32_t height, 
@@ -306,6 +439,8 @@ void shutTheFUpCallback(vk_utils::LogLevel level, const char *msg, const char* f
     int spp = render_config.get_int("spp");
     int hydra_spp = render_config.get_int("hydra_spp");
 
+    bool external_builder = is_external_builder(repr_type);
+
     //  Start measurements
     std::fstream f;
     f.open("benchmark/results/render.csv", std::ios::app);
@@ -342,9 +477,12 @@ void shutTheFUpCallback(vk_utils::LogLevel level, const char *msg, const char* f
     Block *repr_config = render_config.get_block("repr_config");
     BVHRT::preferredBVHLevel = repr_config->get_int("bvh_level", 0);
 
-    pRender->LoadScene(model_path.c_str());
-    BVHRT *bvhrt = dynamic_cast<BVHRT*>(pRender->GetAccelStruct()->UnderlyingImpl(0));
-    memory = bvhrt->get_model_size() * (1.f / (1024 * 1024));
+    if (!external_builder)
+    {
+      pRender->LoadScene(model_path.c_str());
+      BVHRT *bvhrt = dynamic_cast<BVHRT*>(pRender->GetAccelStruct()->UnderlyingImpl(0));
+      memory = bvhrt->get_model_size() * (1.f / (1024 * 1024));
+    }
 
 
     // Render modes loop
@@ -386,7 +524,12 @@ void shutTheFUpCallback(vk_utils::LogLevel level, const char *msg, const char* f
 
           float t  = 0.0f;
           float t2 = 0.0f;
-          Render(image, pRender.get(), width, height, pos, real_iters, &t, &t2);
+
+          if (external_builder)
+            RenderExternal(image, width, height, pos, real_iters, repr_type, model_name, repr_config_name, repr_config, 
+                           &memory, &t, &t2);
+          else
+            Render(image, pRender.get(), width, height, pos, real_iters, &t, &t2);
           
           //  Time calculation
           calcMetrics(min_time, max_time, average_time, t);
