@@ -16,12 +16,13 @@ repr_configs
   MESH
   {
     default {
-      
+      tag:s = "Reference"
     }
   }
   NEURAL_SDF
   {
     test {
+      tag:s = "Neural SDF"
       path:s = "../nglod"
       num_lods:i = 2
       epochs:i = 100

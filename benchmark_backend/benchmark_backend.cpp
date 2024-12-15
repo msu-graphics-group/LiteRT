@@ -475,6 +475,7 @@ void shutTheFUpCallback(vk_utils::LogLevel level, const char *msg, const char* f
     }
 
     Block *repr_config = render_config.get_block("repr_config");
+    std::string tag = repr_config->get_string("tag", repr_config_name);
     BVHRT::preferredBVHLevel = repr_config->get_int("bvh_level", 0);
 
     if (!external_builder)
@@ -591,7 +592,7 @@ void shutTheFUpCallback(vk_utils::LogLevel level, const char *msg, const char* f
 #endif
       }
 
-      f << model_name << "," << backend << "," << device_name << "," << renderer_type << "," << repr_type << "," 
+      f << model_name << "," << backend << "," << device_name << "," << renderer_type << "," << repr_type << "," << tag << ","
         << repr_config_name << "," << render_mode << "," << memory << "," << res_time << "," << res_time2 << "," 
         << average_psnr << "," << min_psnr << "," << max_psnr << ","  
         << average_flip << "," << min_flip << "," << max_flip << "," 
