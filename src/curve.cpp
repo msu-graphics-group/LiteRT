@@ -274,7 +274,7 @@ RBCurve2D::monotonic_parts(int axes, int order) const {
   if (!isclose(tmax, result.back(), c::RBEZIER_KNOTS_EPS)) {
     result.push_back(tmax);
   }
-  //result.back() = tmax;
+  result.back() = tmax;
 
   return result;
 }

@@ -44,6 +44,7 @@ target_link_libraries(ImGui glfw SDL2main SDL2)
 target_include_directories(ImGui PUBLIC external/imgui external/imgui/backends ${ImGUI_INCLUDE_DIRS})
 
 enable_language(ISPC)
+set(CMAKE_ISPC_FLAGS "${CMAKE_ISPC_FLAGS} --pic")
 add_library(ispc_ray_pack src/ispc_ray_pack.ispc)
 target_include_directories(ispc_ray_pack PUBLIC ${EMBREE_INCLUDE_DIR})
 
