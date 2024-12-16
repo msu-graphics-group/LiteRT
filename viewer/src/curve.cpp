@@ -274,7 +274,7 @@ RBCurve2D::monotonic_parts(int axes, int order) const {
   if (!isclose(tmax, result.back(), c::RBEZIER_KNOTS_EPS)) {
     result.push_back(tmax);
   }
-  //result.back() = tmax;
+  result.back() = tmax;
 
   return result;
 }
@@ -534,6 +534,15 @@ KdTreeBox calc_box(const RBCurve2D &curve) {
   return res;
 }
 
+bool get_precalc(KdTreeBox cur, const std::vector<KdTreeBox> &left) {
+  float sample = (cur.boxMin[0]+cur.boxMax[0])/2.0f;
+  bool ans = 0;
+  for (auto &box : left) {
+    ans ^= (box.boxMin[0] <= sample && sample <= box.boxMax[0]);
+  }
+  return ans;
+}
+
 void 
 get_kdtree_leaves_helper(
     std::vector<RBCurve2D> curves,
@@ -542,11 +551,12 @@ get_kdtree_leaves_helper(
     std::vector<KdTreeLeave> &res_leaves,
     float2 box_min,
     float2 box_max,
+    std::vector<KdTreeBox> &left_boxes,
     int axes = 0) {
   assert(all_of(box_max >= box_min));
   assert(any_of(box_max > box_min));
   if (curves.size() == 0) {
-    res_leaves.push_back(KdTreeLeave{ -1u, 0 }); 
+    res_leaves.push_back(KdTreeLeave{ -1u, get_precalc(KdTreeBox{box_min, box_max}, left_boxes) }); 
     res_boxes.push_back(KdTreeBox{box_min, box_max});
     return;
   } 
@@ -560,7 +570,7 @@ get_kdtree_leaves_helper(
     box_left.boxMax = box_right.boxMax = box_max;
     std::vector<RBCurve2D> left, right;
     std::vector<uint32_t> left_ids, right_ids;
-    bool has_to_divide = false;
+    bool has_to_divide = (box_min[0] < box.boxMin[0] || box_max[0] > box.boxMax[0]);
     if (box.boxMin[axes] != box_min[axes]) {
       has_to_divide = true;
       box_left.boxMax[axes] = box.boxMin[axes];
@@ -573,17 +583,29 @@ get_kdtree_leaves_helper(
       box_right.boxMin[axes] = box.boxMax[axes];
       left = std::move(curves);
       left_ids = std::move(curv_ids);
+    } else if (has_to_divide) {
+      box_left.boxMax = float2{box_min[0],box_max[1]};
+
+      right = std::move(curves);
+      right_ids = std::move(curv_ids);
     }
 
     if (has_to_divide) {
-      get_kdtree_leaves_helper(
-        std::move(left), std::move(left_ids), res_boxes, res_leaves,
-        box_left.boxMin, box_left.boxMax, axes^1);
+      int left_size = left.size() * (axes == 1);
+      if (left_size)
+        left_boxes.push_back(calc_box(left[0]));
+
       get_kdtree_leaves_helper(
         std::move(right), std::move(right_ids), res_boxes, res_leaves,
-        box_right.boxMin, box_right.boxMax, axes^1);
+        box_right.boxMin, box_right.boxMax, left_boxes, axes^1);
+      
+      left_boxes.resize(left_boxes.size()-left_size);
+    
+      get_kdtree_leaves_helper(
+        std::move(left), std::move(left_ids), res_boxes, res_leaves,
+        box_left.boxMin, box_left.boxMax, left_boxes, axes^1);
     } else {
-      res_leaves.push_back(KdTreeLeave{ curv_ids[0], 0 });
+      res_leaves.push_back(KdTreeLeave{ curv_ids[0], get_precalc(KdTreeBox{box_min, box_max}, left_boxes) });
       res_boxes.push_back(KdTreeBox{box_min, box_max});
     }
 
@@ -663,14 +685,23 @@ get_kdtree_leaves_helper(
   lmx[axes] = middle;
   rmn[axes] = middle;
 
-  get_kdtree_leaves_helper(
-      std::move(left_child_curves), std::move(left_child_ids), 
-      res_boxes, res_leaves,
-      lmn, lmx, axes^1);
+  int left_size = (left_child_curves.size()) * (axes == 1);
+  if (left_size) {
+    for (auto &curve: left_child_curves) {
+      left_boxes.push_back(calc_box(curve));
+    }
+  }
   get_kdtree_leaves_helper(
       std::move(right_child_curves), std::move(right_child_ids), 
       res_boxes, res_leaves,
-      rmn, rmx, axes^1);
+      rmn, rmx, left_boxes, axes^1);
+
+  left_boxes.resize(left_boxes.size()-left_size);
+
+  get_kdtree_leaves_helper(
+      std::move(left_child_curves), std::move(left_child_ids), 
+      res_boxes, res_leaves,
+      lmn, lmx, left_boxes, axes^1);
 }
 
 std::vector<RBCurve2D>
@@ -717,6 +748,7 @@ get_kdtree_leaves(const std::vector<RBCurve2D> &curves) {
 
   std::vector<KdTreeBox> res_boxes;
   std::vector<KdTreeLeave> res_leaves;
+  std::vector<KdTreeBox> left_boxes;
 
   KdTreeBox box;
   for (auto &curve: monotonic_curves) {
@@ -727,7 +759,7 @@ get_kdtree_leaves(const std::vector<RBCurve2D> &curves) {
 
   get_kdtree_leaves_helper(
     std::move(monotonic_curves), std::move(ids), 
-    res_boxes, res_leaves, box.boxMin, box.boxMax);
+    res_boxes, res_leaves, box.boxMin, box.boxMax, left_boxes);
 
   return { res_boxes, res_leaves };
 }
