@@ -23,7 +23,7 @@ int main(int argc, const char **argv) {
   std::cout << boxes.size() << std::endl;
 
   int w = 500, h = 500;
-  Image2D<uint32_t> img(w, h);
+  Image2D<uint32_t> img(w, h), img2(w, h);
 
 
   for (auto &curve: rbeziers) {
@@ -111,7 +111,36 @@ int main(int argc, const char **argv) {
     }
   }
 
+  for (int i = 0; i < boxes.size(); ++i) {
+    auto &box = boxes[i];
+
+    int2 scr_min = int2{
+      static_cast<int>(box.boxMin.y * w), 
+      static_cast<int>(box.boxMin.x * h)};
+    int2 scr_max = int2{
+      clamp(static_cast<int>(box.boxMax.y*w), 0, w-1), 
+      clamp(static_cast<int>(box.boxMax.x*h), 0, h-1)};
+
+    for (int y = scr_min.y; y <= scr_max.y; ++y) 
+    for (int x = scr_min.x; x <= scr_max.x; ++x) 
+    {
+      img2[int2{x, y}] = leaves[i].precalc ? 0xff0000ff : 0xff00ff00;
+    }
+
+    for (int y = scr_min.y; y <= scr_max.y; ++y) {
+      img2[int2{scr_min.x, y}] = 0;
+      img2[int2{scr_max.x, y}] = 0;
+    }
+
+    for (int x = scr_min.x; x <= scr_max.x; ++x) {
+      img2[int2{x, scr_min.y}] = 0;
+      img2[int2{x, scr_max.y}] = 0;
+    }
+  }
+
   auto save_path = proj_path / "result.bmp";
+  auto precalc_mask_path = proj_path / "precalc.bmp";
   SaveBMP(save_path.c_str(), img.data(), w, h);
+  SaveBMP(precalc_mask_path.c_str(), img2.data(), w, h);
   return 0;
 }
