@@ -10,7 +10,7 @@
 #include <cstdint>
 #include <sstream>
 
-#include "Camera.h"
+#include "utils/Camera.h"
 
 #ifdef NDEBUG
 constexpr bool g_enableValidationLayers = false;

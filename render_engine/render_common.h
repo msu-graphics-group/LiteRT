@@ -3,7 +3,7 @@
 
 #include "volk.h"
 #include "vk_utils.h"
-#include "Camera.h"
+#include "utils/Camera.h"
 #include <cstring>
 
 struct AppInput
