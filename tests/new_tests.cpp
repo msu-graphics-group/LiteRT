@@ -564,6 +564,7 @@ namespace litert_tests
   ADD_TEST(PlyReader, "Testing reader for .ply files")
   {
     MultiRenderPreset preset = getDefaultPreset();
+    preset.normal_mode = NORMAL_MODE_GEOMETRY;
     auto image = testing::create_image();
 
     std::string path = "./scenes/01_simple_scenes/test_1.ply";
@@ -935,6 +936,7 @@ namespace litert_tests
   ADD_TEST(SaveToObj, "Save mesh to obj")
   {
     MultiRenderPreset preset = getDefaultPreset();
+    preset.normal_mode = NORMAL_MODE_GEOMETRY;
 
     auto mesh_1 = cmesh4::LoadMesh("scenes/01_simple_scenes/data/bunny.vsgf");
 
