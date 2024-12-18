@@ -12,17 +12,6 @@ else()
   set(CMAKE_CXX_COMPILER "/usr/bin/g++")
 endif()
 
-# Turn on/off OpenVDB
-option(USE_OPENVDB "Enable OpenVDB" OFF)
-if(USE_OPENVDB)
-  message("-- OpenVDB is ON")
-  target_link_libraries(render_app PUBLIC tbb openvdb)
-else()
-  message("-- OpenVDB is OFF")
-  add_definitions(-DDISABLE_OPENVDB)
-endif()
-
-
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
@@ -124,7 +113,7 @@ set(TESTS_SRC
     ${CMAKE_SOURCE_DIR}/tests/benchmark.cpp
     ${CMAKE_SOURCE_DIR}/tests/model_check.cpp)
 
-set(DR_SRC 
+set(DR_SRC
     ${CMAKE_SOURCE_DIR}/diff_render/DR_common.cpp
     ${CMAKE_SOURCE_DIR}/diff_render/BVH2DR.cpp
     ${CMAKE_SOURCE_DIR}/diff_render/MultiRendererDR.cpp
@@ -176,8 +165,8 @@ set(OpenMP_libomp_LIBRARY ${OpenMP_CXX_LIB_NAMES})
 if (USE_VULKAN)
   list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}")
   set(SLICER_DIR "/home/sammael/kernel_slicer" CACHE STRING "Custom diff render location")
-  
-  set(MODULES_INCLUDE_DIRS ${MODULES_INCLUDE_DIRS} 
+
+  set(MODULES_INCLUDE_DIRS ${MODULES_INCLUDE_DIRS}
       ${Vulkan_INCLUDE_DIR}
       ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/vkutils
       ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/volk)
@@ -185,9 +174,9 @@ if (USE_VULKAN)
   add_compile_definitions(USE_GPU)
   add_compile_definitions(USE_VOLK)
 
-  set(VKGEN_SOURCE 
-      ${CMAKE_SOURCE_DIR}/Renderer/eye_ray_gpu.cpp 
-      ${CMAKE_SOURCE_DIR}/Renderer/eye_ray_gpu_ds.cpp 
+  set(VKGEN_SOURCE
+      ${CMAKE_SOURCE_DIR}/Renderer/eye_ray_gpu.cpp
+      ${CMAKE_SOURCE_DIR}/Renderer/eye_ray_gpu_ds.cpp
       ${CMAKE_SOURCE_DIR}/Renderer/eye_ray_gpu_init.cpp)
 
   set(VKUTILS_SOURCE ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/vkutils/vk_utils.cpp
@@ -202,30 +191,30 @@ if (USE_VULKAN)
                      ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/vkutils/vk_quad.cpp
                      ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/vkutils/vk_fbuf_attachment.cpp
                      ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/vkutils/ray_tracing/vk_rt_utils.cpp
-                     
+
                      ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/CrossRT/EmbreeRT.cpp
                      ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/CrossRT/VulkanRTX.cpp
-                     ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/LiteScene/scene_mgr.cpp         
+                     ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/LiteScene/scene_mgr.cpp
                      ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/vkutils/geom/cmesh.cpp
                      ${CMAKE_SOURCE_DIR}/dependencies/HydraCore3/external/vkutils/geom/vk_mesh.cpp
-                     )    
+                     )
 
   set(VKGEN_SOURCE_RTX "")
   set(VKGEN_SOURCE_GPU_RQ "")
   if (USE_RTX)
     add_compile_definitions(USE_RTX)
     set(VKGEN_SOURCE_RTX
-        ${CMAKE_SOURCE_DIR}/Renderer/eye_ray_rtx.cpp 
-        ${CMAKE_SOURCE_DIR}/Renderer/eye_ray_rtx_ds.cpp 
+        ${CMAKE_SOURCE_DIR}/Renderer/eye_ray_rtx.cpp
+        ${CMAKE_SOURCE_DIR}/Renderer/eye_ray_rtx_ds.cpp
         ${CMAKE_SOURCE_DIR}/Renderer/eye_ray_rtx_init.cpp)
   endif()
 
   if (USE_GPU_RQ)
     add_compile_definitions(USE_GPU_RQ)
     set(VKGEN_SOURCE_GPU_RQ
-        ${CMAKE_SOURCE_DIR}/Renderer/eye_ray_gpu_rq.cpp 
-        ${CMAKE_SOURCE_DIR}/Renderer/eye_ray_gpu_rq_ds.cpp 
-        ${CMAKE_SOURCE_DIR}/Renderer/eye_ray_gpu_rq_init.cpp) 
+        ${CMAKE_SOURCE_DIR}/Renderer/eye_ray_gpu_rq.cpp
+        ${CMAKE_SOURCE_DIR}/Renderer/eye_ray_gpu_rq_ds.cpp
+        ${CMAKE_SOURCE_DIR}/Renderer/eye_ray_gpu_rq_init.cpp)
   endif()
 
   set(MODULES_SRC ${MODULES_SRC} ${VKGEN_SOURCE} ${VKUTILS_SOURCE} ${VKGEN_SOURCE_RTX} ${VKGEN_SOURCE_GPU_RQ})
@@ -275,6 +264,17 @@ set_property(TARGET render_lib PROPERTY CXX_STANDARD 17)
 target_link_libraries(render_lib PUBLIC Threads::Threads dl ${RAYTRACING_EMBREE_LIBS} ${MODULES_LIBRARIES} step)
 target_link_libraries(render_lib PUBLIC hydra OpenMP::OpenMP_CXX)
 
+
+target_sources(render_lib PRIVATE
+              ${MODULES_SRC}
+              ${CORE_SRC}
+              ${ENGINE_SOURCE}
+              ${IMGUI_SRC}
+              ${NURBS_SRC}
+              ${CATMUL_CLARK_SRC}
+              ${RIBBON_SRC})
+
+
 add_executable(render_app main.cpp)
 target_link_libraries(render_app PRIVATE render_lib)
 
@@ -293,7 +293,7 @@ if (USE_VULKAN)
           ${CMAKE_SOURCE_DIR}/dependencies/imgui/backends/imgui_impl_glfw.cpp
           ${CMAKE_SOURCE_DIR}/dependencies/imgui/misc/cpp/imgui_stdlib.cpp)
 
-  set(ENGINE_SOURCE 
+  set(ENGINE_SOURCE
       ${CMAKE_SOURCE_DIR}/render_engine/glfw_window.cpp
       ${CMAKE_SOURCE_DIR}/render_engine/gltf_utils.cpp
       ${CMAKE_SOURCE_DIR}/render_engine/image_loader.cpp
@@ -302,7 +302,7 @@ if (USE_VULKAN)
       ${CMAKE_SOURCE_DIR}/render_engine/scn_manager_load.cpp
       ${CMAKE_SOURCE_DIR}/render_engine/simple_render_rt.cpp
       ${CMAKE_SOURCE_DIR}/render_engine/simple_render.cpp
-  )   
+  )
 
   add_compile_definitions(IMGUI_USER_CONFIG="${CMAKE_SOURCE_DIR}/render_engine/my_imgui_config.h")
 
@@ -312,14 +312,25 @@ if (USE_VULKAN)
   target_link_directories(engine PRIVATE step)
   find_package(glfw3 REQUIRED)
 
-  target_sources(engine PRIVATE                
+  target_sources(engine PRIVATE
                 ${MODULES_SRC}
                 ${CORE_SRC}
-                ${ENGINE_SOURCE} 
+                ${ENGINE_SOURCE}
                 ${IMGUI_SRC}
                 ${NURBS_SRC}
                 ${CATMUL_CLARK_SRC}
                 ${RIBBON_SRC})
+
+
+    # Turn on/off OpenVDB
+    option(USE_OPENVDB "Enable OpenVDB" OFF)
+    if(USE_OPENVDB)
+      message("-- OpenVDB is ON")
+      target_link_libraries(engine PUBLIC tbb openvdb)
+    else()
+      message("-- OpenVDB is OFF")
+      add_definitions(-DDISABLE_OPENVDB)
+    endif()
 
   set_property(TARGET engine PROPERTY CXX_STANDARD 17)
   target_link_libraries(engine PRIVATE Threads::Threads dl glfw ${RAYTRACING_EMBREE_LIBS} ${MODULES_LIBRARIES})
