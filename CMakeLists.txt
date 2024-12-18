@@ -265,14 +265,15 @@ target_link_libraries(render_lib PUBLIC Threads::Threads dl ${RAYTRACING_EMBREE_
 target_link_libraries(render_lib PUBLIC hydra OpenMP::OpenMP_CXX)
 
 
-target_sources(render_lib PRIVATE
-              ${MODULES_SRC}
-              ${CORE_SRC}
-              ${ENGINE_SOURCE}
-              ${IMGUI_SRC}
-              ${NURBS_SRC}
-              ${CATMUL_CLARK_SRC}
-              ${RIBBON_SRC})
+# Turn on/off OpenVDB
+option(USE_OPENVDB "Enable OpenVDB" OFF)
+if(USE_OPENVDB)
+  message("-- OpenVDB is ON")
+  target_link_libraries(render_lib PUBLIC tbb openvdb)
+else()
+  message("-- OpenVDB is OFF")
+  add_definitions(-DDISABLE_OPENVDB)
+endif()
 
 
 add_executable(render_app main.cpp)
