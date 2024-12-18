@@ -1,4 +1,5 @@
-#include "general_gltf_writer.h"
+#include "gltf_writer.h"
+#include "gltf_structure.h"
 
 #include <cstring>
 #include <fstream>
@@ -7,6 +8,23 @@
 
 namespace gltf
 {
+  struct Settings
+  {
+    unsigned max_binary_file_size = 64 * (2 << 20); // 64 Mb
+    unsigned max_models = 8192;
+    unsigned max_cameras = 16;
+    float max_bound = 25000;
+    bool debug = true;
+    bool calc_exact_bbox = true;
+  } settings;
+
+  bool model_to_gltf(const cmesh4::SimpleMesh &m, FullData &full_data, int id);
+  bool camera_to_gltf(const ::Camera &c, FullData &full_data, int id);
+  bool write_to_binary_file(const char *data, int size, std::string file_name);
+  bool add_to_binary_file(const char *data, int size, BinaryFile &b_file);
+
+  bool write_to_json(FullData &FullData, std::string name);
+
   void convert_texture(const LiteImage::ICombinedImageSampler *in_tex,
                        std::string tex_file_name,
                        TextureFile &out_tex,
@@ -58,7 +76,7 @@ namespace gltf
     }
   }
 
-  void GeneralGltfWriter::convert_to_gltf(const HydraScene &scene, std::string asset_name)
+  void convert_to_gltf(const HydraScene &scene, std::string asset_name)
   {
     FullData fullData;
 
@@ -440,10 +458,9 @@ namespace gltf
         camera_id++;
     }
 
-    GltfStructureWriter gsw;
-    gsw.write_to_json(fullData, asset_name);
+    write_to_json(fullData, asset_name);
   }
-  bool GeneralGltfWriter::model_to_gltf(const cmesh4::SimpleMesh &m, FullData &full_data, int bin_file_id)
+  bool model_to_gltf(const cmesh4::SimpleMesh &m, FullData &full_data, int bin_file_id)
   {
     bool ok = true;
 
@@ -478,11 +495,11 @@ namespace gltf
 
     return ok;
   }
-  bool GeneralGltfWriter::camera_to_gltf(const ::Camera &c, FullData &full_data, int id)
+  bool camera_to_gltf(const ::Camera &c, FullData &full_data, int id)
   {
     return true;
   }
-  bool GeneralGltfWriter::add_to_binary_file(const char *data, int size, BinaryFile &b_file)
+  bool add_to_binary_file(const char *data, int size, BinaryFile &b_file)
   {
     if (size + b_file.cur_size <= b_file.max_size)
     {
@@ -492,7 +509,7 @@ namespace gltf
     }
     return false;
   }
-  bool GeneralGltfWriter::write_to_binary_file(const char *data, int size, std::string file_name)
+  bool write_to_binary_file(const char *data, int size, std::string file_name)
   {
     std::ofstream fs(file_name, std::ios::out | std::ios::binary);
     fs.write(data, size);

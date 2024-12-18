@@ -1,4 +1,4 @@
-#include "gltf_structure_writer.h"
+#include "gltf_structure.h"
 #include <iostream>
 #include <fstream>
 #include "utils/common/matrix_transform.h"
@@ -12,7 +12,7 @@ namespace gltf
                                                 "COLOR_0", "JOINTS_0", "WEIGHTS_0"};
   std::string cameraTypeNames[2] = {"perspective", "orthographic"};
   std::string materialAlphaModeNames[3] = {"OPAQUE", "MASK", "BLEND"};
-  bool GltfStructureWriter::write_to_json(FullData &fullData, std::string name)
+  bool write_to_json(FullData &fullData, std::string name)
   {
     std::string str;
     auto &a = fullData.gltf_file;

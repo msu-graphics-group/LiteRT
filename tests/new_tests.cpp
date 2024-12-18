@@ -26,7 +26,7 @@
 #include "utils/coctree/ball_tree.h"
 #include "hydra_integration.h"
 #include "utils/scene.h"
-#include "utils/gltf_utils/general_gltf_writer.h"
+#include "utils/gltf_utils/gltf_writer.h"
 
 namespace litert_tests
 {
@@ -1042,7 +1042,7 @@ namespace litert_tests
   {
     HydraScene scene;
     load_hydra_scene_xml("saves/gltf/input/GLTF_sphere_metal_hydra3.xml", scene);
-    gltf::GeneralGltfWriter writer;
-    writer.convert_to_gltf(scene, "AAA_sphere_metal_hydra3");
+    cmesh4::set_mat_id(scene.meshes[1].mesh, 4);
+    gltf::convert_to_gltf(scene, "saves/gltf/test");
   }
 }
