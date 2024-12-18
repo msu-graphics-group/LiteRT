@@ -25,6 +25,8 @@
 #include "nurbs/nurbs_common_host.h"
 #include "utils/coctree/ball_tree.h"
 #include "hydra_integration.h"
+#include "utils/scene.h"
+#include "utils/gltf_utils/general_gltf_writer.h"
 
 namespace litert_tests
 {
@@ -1034,5 +1036,13 @@ namespace litert_tests
       testing::save_image(img2, "res");
     }
     testing::check_psnr(img1, img2, "ref", "res", 40);
+  }
+
+  ADD_TEST(glTFWiter, "glTFWiter")
+  {
+    HydraScene scene;
+    load_hydra_scene_xml("saves/gltf/input/GLTF_sphere_metal_hydra3.xml", scene);
+    gltf::GeneralGltfWriter writer;
+    writer.convert_to_gltf(scene, "AAA_sphere_metal_hydra3");
   }
 }

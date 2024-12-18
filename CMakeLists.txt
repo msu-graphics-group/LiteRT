@@ -103,9 +103,6 @@ set(CORE_SRC
     ${CMAKE_SOURCE_DIR}/utils/sdf/iou.cpp
     ${CMAKE_SOURCE_DIR}/utils/sdf/sdf_scene.cpp
 
-    ${CMAKE_SOURCE_DIR}/utils/gltf_utils/gltf_structure_writer.cpp
-    ${CMAKE_SOURCE_DIR}/utils/gltf_utils/general_gltf_writer.cpp
-
     ${CMAKE_SOURCE_DIR}/utils/radiance_field.cpp
     ${CMAKE_SOURCE_DIR}/utils/gaussian_field.cpp
     ${CMAKE_SOURCE_DIR}/utils/image_metrics.cpp
@@ -114,7 +111,6 @@ set(CORE_SRC
     ${CMAKE_SOURCE_DIR}/utils/cbvh.cpp
     ${CMAKE_SOURCE_DIR}/utils/cbvh_fat.cpp
     ${CMAKE_SOURCE_DIR}/utils/cbvh_embree2.cpp
-    ${CMAKE_SOURCE_DIR}/utils/scene.cpp
 
     ${CMAKE_SOURCE_DIR}/Renderer/eye_ray.cpp
     ${CMAKE_SOURCE_DIR}/Renderer/eye_ray_host.cpp
@@ -136,7 +132,10 @@ set(DR_SRC
     ${CMAKE_SOURCE_DIR}/diff_render/tests_diff_render.cpp)
 
 set(HYDRA_SRC
-    ${CMAKE_SOURCE_DIR}/tests/hydra_integration.cpp)
+    ${CMAKE_SOURCE_DIR}/utils/scene.cpp
+    ${CMAKE_SOURCE_DIR}/tests/hydra_integration.cpp
+    ${CMAKE_SOURCE_DIR}/utils/gltf_utils/gltf_structure_writer.cpp
+    ${CMAKE_SOURCE_DIR}/utils/gltf_utils/general_gltf_writer.cpp)
 
 message(STATUS "CMAKE_BUILD_TYPE = ${CMAKE_BUILD_TYPE}")
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")

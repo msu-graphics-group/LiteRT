@@ -7,10 +7,60 @@
 
 namespace gltf
 {
-  void GeneralGltfWriter::convert_to_gltf(const HydraScene &scene, std::string name)
+  void convert_texture(const LiteImage::ICombinedImageSampler *in_tex,
+                       std::string tex_file_name,
+                       TextureFile &out_tex,
+                       Image &out_image,
+                       Sampler &out_sampler)
+  {
+    out_tex.existed_texture = true;
+    out_tex.file_name = tex_file_name;
+
+    out_image.picture = &out_tex;
+
+    out_sampler = Sampler();
+    //TODO: load sampler
+  }
+
+  void convert_material(const ::Material &in_mat, 
+                        Material &out_mat)
+  {
+    out_mat.alpha_cutoff = 0.5;
+    out_mat.alpha_mode = materialAlphaMode::OPAQUE;
+    out_mat.double_sided = false;
+    out_mat.baseColorFactor = float4(1,0,1,1); //purple color marks that something is wrong
+
+    if (in_mat.mtype == MAT_TYPE_GLTF)
+    {
+      out_mat.baseColorFactor = in_mat.colors[GLTF_COLOR_BASE];
+      out_mat.roughness = in_mat.data[GLTF_FLOAT_GLOSINESS];
+      out_mat.metallic  = in_mat.data[GLTF_FLOAT_ALPHA];
+
+      //texId=0 in Hydra is reserved to stub empty texture that should always exist
+      out_mat.baseColorTex.texCoord = 0; //we have only one set of texture coordinates
+      out_mat.baseColorTex.texture_index = in_mat.texid[0];
+
+      //we have either both roughness/metallness textures or none
+      if (in_mat.cflags & FLAG_FOUR_TEXTURES)
+      {
+        //TODO: store all in one texture or support two textures
+        printf("glTF saver does not support roughness/metallness textures\n");
+      }
+    }
+    else if (in_mat.mtype == MAT_TYPE_LIGHT_SOURCE)
+    {
+      out_mat.baseColorFactor = float4(1,1,1,1);
+      out_mat.emissive_factor = in_mat.data[EMISSION_MULT] * to_float3(in_mat.colors[EMISSION_COLOR]);
+    }
+    else
+    {
+      printf("Hydra mat type %u is not compatible with glTF\n",in_mat.mtype);
+    }
+  }
+
+  void GeneralGltfWriter::convert_to_gltf(const HydraScene &scene, std::string asset_name)
   {
     FullData fullData;
-    std::string asset_name = name;
 
     fullData.gltf_file.main_scene = 0;
     fullData.gltf_file.scenes.emplace_back();
@@ -18,31 +68,74 @@ namespace gltf
     // create textures, samplers and materials
     if (!scene.textures.empty())
     {
-      fullData.gltf_file.samplers.push_back(Sampler());
       fullData.textures_files.resize(scene.textures.size());
       fullData.gltf_file.images.resize(scene.textures.size());
       fullData.gltf_file.textures.resize(scene.textures.size());
-      fullData.gltf_file.materials.resize(scene.textures.size());
+      fullData.gltf_file.samplers.resize(scene.textures.size());
 
       for (int i = 0; i < scene.textures.size(); i++)
       {
         auto *t = scene.textures[i].get();
-
-        fullData.textures_files[i].existed_texture = true;
-        fullData.textures_files[i].file_name = "unknown"; //TODO:set name here and then save texture by this name
-
-        fullData.gltf_file.images[i].picture = &fullData.textures_files[i];
-
+        
+        if (t->bpp() != 4 && t->bpp() != 16)
+        {
+          printf("texture %d bpp is not 4 or 16\n", i);
+        }
+        bool is_exr = t->bpp() == 16;
+        std::string save_format = is_exr ? ".exr" : ".png";
+        std::string tex_file_name = asset_name + "_tex" + std::to_string(i) + save_format;
+        
+        if (is_exr)
+          printf("texture %d is exr, unable to save it\n", i);
+        else
+        {
+          LiteImage::Image2D<uint32_t> t_img(t->width(), t->height(), (const uint32_t *)t->data());
+          LiteImage::SaveImage(tex_file_name.c_str(), t_img);
+        }
+          
         fullData.gltf_file.textures[i].image = i;
-        fullData.gltf_file.textures[i].sampler = 0;
+        fullData.gltf_file.textures[i].sampler = i;
 
-        fullData.gltf_file.materials[i].alpha_cutoff = 0.5;
-        fullData.gltf_file.materials[i].alpha_mode = materialAlphaMode::MASK;
-        fullData.gltf_file.materials[i].double_sided = true;
-        fullData.gltf_file.materials[i].baseColorTex.texCoord = 0;
-        fullData.gltf_file.materials[i].baseColorTex.texture_index = i;
+        convert_texture(t, tex_file_name, fullData.textures_files[i], 
+                        fullData.gltf_file.images[i], fullData.gltf_file.samplers[i]);
       }
     }
+
+    assert(scene.materials.size() > 0);
+
+    fullData.gltf_file.materials.resize(scene.materials.size());
+    for (int i = 0; i < scene.materials.size(); i++)
+    {
+      convert_material(scene.materials[i], fullData.gltf_file.materials[i]);
+    }
+
+    // if (!scene.textures.empty())
+    // {
+    //   fullData.gltf_file.samplers.push_back(Sampler());
+    //   fullData.textures_files.resize(scene.textures.size());
+    //   fullData.gltf_file.images.resize(scene.textures.size());
+    //   fullData.gltf_file.textures.resize(scene.textures.size());
+    //   fullData.gltf_file.materials.resize(scene.textures.size());
+
+    //   for (int i = 0; i < scene.textures.size(); i++)
+    //   {
+    //     auto *t = scene.textures[i].get();
+
+    //     fullData.textures_files[i].existed_texture = true;
+    //     fullData.textures_files[i].file_name = "unknown"; //TODO:set name here and then save texture by this name
+
+    //     fullData.gltf_file.images[i].picture = &fullData.textures_files[i];
+
+    //     fullData.gltf_file.textures[i].image = i;
+    //     fullData.gltf_file.textures[i].sampler = 0;
+
+    //     fullData.gltf_file.materials[i].alpha_cutoff = 0.5;
+    //     fullData.gltf_file.materials[i].alpha_mode = materialAlphaMode::MASK;
+    //     fullData.gltf_file.materials[i].double_sided = true;
+    //     fullData.gltf_file.materials[i].baseColorTex.texCoord = 0;
+    //     fullData.gltf_file.materials[i].baseColorTex.texture_index = i;
+    //   }
+    // }
     int bin_file_id = 0;
     int model_n = 0;
     int max_model = std::min<int>(settings.max_models, scene.meshes.size());
@@ -79,7 +172,8 @@ namespace gltf
         }
 
         ind_count += m.indices.size();
-        vert_count += m.vPos4f.size() / 3;
+        vert_count += m.vPos4f.size();
+
         if (std::max(sizeof(uint32_t) * ind_count, 3 * sizeof(float) * vert_count) > settings.max_binary_file_size)
         {
           break;
@@ -347,7 +441,7 @@ namespace gltf
     }
 
     GltfStructureWriter gsw;
-    gsw.write_to_json(fullData, name);
+    gsw.write_to_json(fullData, asset_name);
   }
   bool GeneralGltfWriter::model_to_gltf(const cmesh4::SimpleMesh &m, FullData &full_data, int bin_file_id)
   {

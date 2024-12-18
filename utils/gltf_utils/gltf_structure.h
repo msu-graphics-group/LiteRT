@@ -119,6 +119,7 @@ namespace gltf
     std::vector<int> child_nodes;
     float4x4 transform = float4x4();
     int mesh = -1;
+    bool use_RTS = false;   //use rotation-translation-scale instead of matrix
     float4 rotation = float4(0, 0, 0, 1);
     float3 scale = float3(0.1, 0.1, 0.1);
     float3 translation = float3(0, 0, 0);
@@ -198,6 +199,7 @@ namespace gltf
     TextureUsage occlusionTex;
     TextureUsage emissiveTex;
 
+    float4 baseColorFactor = float4(1,1,1,1);
     float roughness = 0.95;
     float metallic = 0.25;
   };

@@ -106,55 +106,54 @@ namespace gltf
         }
         if (b.mesh >= 0)
         {
-          float4x4 tr = b.transform;
-          // tr *= LiteMath::translate(tr, b.translation);
-          tr = LiteMath::scale(float4x4(), b.scale) * tr;
-          if (!first)
+          if (b.use_RTS == false)
           {
-            str += ",\n";
-          }
-          str += "\"matrix\" : [";
-          for (int j = 0; j < 4; j++)
-          {
-            for (int k = 0; k < 4; k++)
+            float4x4 tr = b.transform;
+            // tr *= LiteMath::translate(tr, b.translation);
+            tr = LiteMath::scale(float4x4(), b.scale) * tr;
+            if (!first)
             {
-              str += std::to_string(tr(k, j));
-              if (j < 3 || k < 3)
-                str += ", ";
+              str += ",\n";
             }
+            str += "\"matrix\" : [";
+            for (int j = 0; j < 4; j++)
+            {
+              for (int k = 0; k < 4; k++)
+              {
+                str += std::to_string(tr(k, j));
+                if (j < 3 || k < 3)
+                  str += ", ";
+              }
+            }
+            str += "]";
+            first = false;
           }
-          str += "]";
-          first = false;
-        }
-        if (b.mesh >= 0)
-        {
-          if (!first)
+          else
           {
-            str += ",\n";
+            if (!first)
+            {
+              str += ",\n";
+            }
+            str += "\"rotation\" : [" + std::to_string(b.rotation.x) + ", " + std::to_string(b.rotation.y) + ", " +
+                  std::to_string(b.rotation.z) + ", " + std::to_string(b.rotation.w) + "]";
+            first = false;
+
+            if (!first)
+            {
+              str += ",\n";
+            }
+            str += "\"translation\" : [" + std::to_string(b.translation.x) + ", " + std::to_string(b.translation.y) + ", " +
+                  std::to_string(b.translation.z) + "]";
+            first = false;
+  
+            if (!first)
+            {
+              str += ",\n";
+            }
+            str += "\"scale\" : [" + std::to_string(b.scale.x) + ", " + std::to_string(b.scale.y) + ", " +
+                  std::to_string(b.scale.z) + "]";
+            first = false;
           }
-          str += "\"rotation\" : [" + std::to_string(b.rotation.x) + ", " + std::to_string(b.rotation.y) + ", " +
-                 std::to_string(b.rotation.z) + ", " + std::to_string(b.rotation.w) + "]";
-          first = false;
-        }
-        if (b.mesh >= 0)
-        {
-          if (!first)
-          {
-            str += ",\n";
-          }
-          str += "\"translation\" : [" + std::to_string(b.translation.x) + ", " + std::to_string(b.translation.y) + ", " +
-                 std::to_string(b.translation.z) + "]";
-          first = false;
-        }
-        if (b.mesh >= 0)
-        {
-          if (!first)
-          {
-            str += ",\n";
-          }
-          str += "\"scale\" : [" + std::to_string(b.scale.x) + ", " + std::to_string(b.scale.y) + ", " +
-                 std::to_string(b.scale.z) + "]";
-          first = false;
         }
         if (!b.child_nodes.empty())
         {
@@ -360,10 +359,11 @@ namespace gltf
 
         str += "\"emissiveFactor\": [" + std::to_string(b.emissive_factor.x) + "," + std::to_string(b.emissive_factor.y) +
                "," + std::to_string(b.emissive_factor.z) + "],\n";
-        str += "\"alphaCutoff\": " + std::to_string(b.alpha_cutoff) + ",\n";
+        if (b.alpha_mode == materialAlphaMode::MASK)
+          str += "\"alphaCutoff\": " + std::to_string(b.alpha_cutoff) + ",\n";
         str += "\"doubleSided\": ";
         b.double_sided ? str += "true,\n" : str += "false,\n";
-        str += "\"alphaMode\": \"" + materialAlphaModeNames[(int)b.alpha_mode] + "\",";
+        str += "\"alphaMode\": \"" + materialAlphaModeNames[(int)b.alpha_mode] + "\",\n";
 
         if (b.normalTex.texture_index >= 0)
         {
@@ -388,6 +388,9 @@ namespace gltf
         }
 
         str += "\"pbrMetallicRoughness\": {\n";
+        str += "\"baseColorFactor\": [" + 
+              std::to_string(b.baseColorFactor.x) + "," + std::to_string(b.baseColorFactor.y) + "," + 
+              std::to_string(b.baseColorFactor.z) + "," + std::to_string(b.baseColorFactor.w)+ "],\n";
         if (b.baseColorTex.texture_index >= 0)
         {
           str += "\"baseColorTexture\": {\n";
