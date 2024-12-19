@@ -1,11 +1,11 @@
 {
-backends:arr = {"GPU_RQ"}
+backends:arr = {"GPU"}
 renderers:arr = {"MR"}
 render_modes:arr = { "LAMBERT_NO_TEX" }
 models:arr = { }
 width:i = 2048
 height:i = 2048
-cameras:i = 4
+cameras:i = 1
 iters:i = 1
 spp:i = 4
 hydra_spp:i = 2048
@@ -21,11 +21,12 @@ repr_configs
   }
   SDF_COCTREE_V3
   {
+
     t2_0 {
       tag:s = "COctree_1_160"
       depth:i = 4
       brick_size:i = 3
-      brick_pad:i  = 0     
+      brick_pad:i  = 0
       sim_compression:i = 1    
       similarity_threshold:r = 0.00625
     }
@@ -33,7 +34,7 @@ repr_configs
       tag:s = "COctree_1_160"
       depth:i = 5
       brick_size:i = 3
-      brick_pad:i  = 0     
+      brick_pad:i  = 0
       sim_compression:i = 1    
       similarity_threshold:r = 0.00625
     }
@@ -41,7 +42,7 @@ repr_configs
       tag:s = "COctree_1_160"
       depth:i = 6
       brick_size:i = 3
-      brick_pad:i  = 0     
+      brick_pad:i  = 0
       sim_compression:i = 1    
       similarity_threshold:r = 0.00625
     }
@@ -49,7 +50,7 @@ repr_configs
       tag:s = "COctree_1_160"
       depth:i = 7
       brick_size:i = 3
-      brick_pad:i  = 0    
+      brick_pad:i  = 0
       sim_compression:i = 1    
       similarity_threshold:r = 0.00625
     }
@@ -57,11 +58,10 @@ repr_configs
       tag:s = "COctree_1_160"
       depth:i = 8
       brick_size:i = 3
-      brick_pad:i  = 0      
+      brick_pad:i  = 0
       sim_compression:i = 1    
       similarity_threshold:r = 0.00625
     }
-
     t2_1 {
       tag:s = "COctree_1_80"
       depth:i = 4
@@ -224,6 +224,47 @@ repr_configs
       brick_pad:i  = 0
       sim_compression:i = 1    
       similarity_threshold:r = 0.1
+    }
+
+    t2_5 {
+      tag:s = "COctree_1_5"
+      depth:i = 4
+      brick_size:i = 3
+      brick_pad:i  = 0
+      sim_compression:i = 1    
+      similarity_threshold:r = 0.2
+    }
+    t4_5 {
+      tag:s = "COctree_1_5"
+      depth:i = 5
+      brick_size:i = 3
+      brick_pad:i  = 0
+      sim_compression:i = 1    
+      similarity_threshold:r = 0.2
+    }
+    t6_5 {
+      tag:s = "COctree_1_5"
+      depth:i = 6
+      brick_size:i = 3
+      brick_pad:i  = 0
+      sim_compression:i = 1    
+      similarity_threshold:r = 0.2
+    }
+    t8_5 {
+      tag:s = "COctree_1_5"
+      depth:i = 7
+      brick_size:i = 3
+      brick_pad:i  = 0
+      sim_compression:i = 1    
+      similarity_threshold:r = 0.2
+    }
+    t10_5 {
+      tag:s = "COctree_1_5"
+      depth:i = 8
+      brick_size:i = 3
+      brick_pad:i  = 0
+      sim_compression:i = 1    
+      similarity_threshold:r = 0.2
     }
   }
 }
