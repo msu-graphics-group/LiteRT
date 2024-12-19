@@ -3281,6 +3281,8 @@ void BVHRT::COctreeV3_BrickIntersect(uint32_t type, const float3 ray_pos, const 
   float2 brick_fNearFar = RayBoxIntersection2(ray_pos, SafeInverse(ray_dir), brick_min_pos, brick_max_pos);
   brick_fNearFar.x = std::max(tNear, brick_fNearFar.x);
   float old_t = pHit->t;
+  // if (ray_pos.x != 0.f || ray_pos.y != 0.f)
+  //   printf("Pos: [%f, %f, %f]: brick_t: [%f, %f], t: %f\n", ray_pos.x, ray_pos.y, ray_pos.z, brick_fNearFar.x, brick_fNearFar.y, old_t);
   while (brick_fNearFar.x < brick_fNearFar.y && pHit->t == old_t)
   {
     float3 hit_pos = ray_pos + brick_fNearFar.x*ray_dir;
@@ -3482,6 +3484,13 @@ void BVHRT::OctreeIntersectV3(uint32_t type, const float3 ray_pos, const float3 
       p_f = float3(p);
       t0 = _t0 + d*p_f * _l;
       t1 = _t0 + d*(p_f + 1) * _l;
+
+      float t_out = std::min(std::min(t1.x, t1.y), t1.z);
+      if (t_out < tNear)
+      {
+        top--;
+        continue;
+      }
 
       bool is_leaf = (stack[top].info & COCTREE_LEAF_TYPE_MASK) != COCTREE_LEAF_TYPE_NOT_A_LEAF;
       if (coctree_v3_header.lods > 0 && !is_leaf)
