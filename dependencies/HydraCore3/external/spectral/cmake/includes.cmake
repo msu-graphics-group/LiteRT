@@ -1,0 +1,5 @@
+include_directories(include)
+include_directories(include/spectral)
+include_directories(3rd_party)
+include_directories(3rd_party/stb) 
+include_directories(3rd_party/include) 

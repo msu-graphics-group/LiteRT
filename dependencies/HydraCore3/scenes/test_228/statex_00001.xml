@@ -1,0 +1,93 @@
+<?xml version="1.0"?>
+<textures_lib total_chunks="4">
+  <texture id="0" name="Map#0" loc="data/chunk_00000.image4ub" offset="8" bytesize="16" width="2" height="2" channels="4" dl="0" />
+</textures_lib>
+<materials_lib>
+  <material id="0" name="matGray" type="hydra_material">
+    <diffuse brdf_type="lambert">
+      <color val="0.5 0.5 0.5" />
+    </diffuse>
+  </material>
+  <material id="1" name="spot1_material" type="hydra_material" light_id="0" visible="1">
+    <emission>
+      <color val="31.4159 31.4159 31.4159" />
+    </emission>
+  </material>
+</materials_lib>
+<geometry_lib total_chunks="4">
+  <mesh id="0" name="sph1" type="vsgf" bytesize="185680" loc="data/chunk_00001.vsgf" offset="0" vertNum="2145" triNum="4096" dl="0" path="" bbox="    -2 2 -2 2 -2 2">
+    <positions type="array4f" bytesize="34320" offset="24" apply="vertex" />
+    <normals type="array4f" bytesize="34320" offset="34344" apply="vertex" />
+    <tangents type="array4f" bytesize="34320" offset="68664" apply="vertex" />
+    <texcoords type="array2f" bytesize="17160" offset="102984" apply="vertex" />
+    <indices type="array1i" bytesize="49152" offset="120144" apply="tlist" />
+    <matindices type="array1i" bytesize="16384" offset="169296" apply="primitive" />
+  </mesh>
+  <mesh id="1" name="sph2" type="vsgf" bytesize="185680" loc="data/chunk_00002.vsgf" offset="0" vertNum="2145" triNum="4096" dl="0" path="" bbox="    -2 2 -2 2 -2 2">
+    <positions type="array4f" bytesize="34320" offset="24" apply="vertex" />
+    <normals type="array4f" bytesize="34320" offset="34344" apply="vertex" />
+    <tangents type="array4f" bytesize="34320" offset="68664" apply="vertex" />
+    <texcoords type="array2f" bytesize="17160" offset="102984" apply="vertex" />
+    <indices type="array1i" bytesize="49152" offset="120144" apply="tlist" />
+    <matindices type="array1i" bytesize="16384" offset="169296" apply="primitive" />
+  </mesh>
+  <mesh id="2" name="my_cube" type="vsgf" bytesize="1304" loc="data/chunk_00003.vsgf" offset="0" vertNum="20" triNum="10" dl="0" path="" bbox="    -6 6 -6 6 -6 6">
+    <positions type="array4f" bytesize="320" offset="24" apply="vertex" />
+    <normals type="array4f" bytesize="320" offset="344" apply="vertex" />
+    <tangents type="array4f" bytesize="320" offset="664" apply="vertex" />
+    <texcoords type="array2f" bytesize="160" offset="984" apply="vertex" />
+    <indices type="array1i" bytesize="120" offset="1144" apply="tlist" />
+    <matindices type="array1i" bytesize="40" offset="1264" apply="primitive" />
+  </mesh>
+</geometry_lib>
+<lights_lib>
+  <light id="0" name="spot1" type="point" shape="point" distribution="ies" visible="1" mat_id="1">
+    <intensity>
+      <color val="1 1 1" />
+      <multiplier val="31.4159279" />
+    </intensity>
+    <ies data="data/ies/ies_1.ies" matrix="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" loc="data/ies_0.ies" />
+  </light>
+</lights_lib>
+<cam_lib>
+  <camera id="0" name="my camera" type="uvn">
+    <fov>45</fov>
+    <nearClipPlane>0.01</nearClipPlane>
+    <farClipPlane>100.0</farClipPlane>
+    <up>0 1 0</up>
+    <position>0 3 18</position>
+    <look_at>0 3 0</look_at>
+  </camera>
+</cam_lib>
+<render_lib>
+  <render_settings type="HydraModern" id="0">
+    <width>512</width>
+    <height>512</height>
+    <method_primary>pathtracing</method_primary>
+    <method_secondary>pathtracing</method_secondary>
+    <method_tertiary>pathtracing</method_tertiary>
+    <method_caustic>pathtracing</method_caustic>
+    <qmc_variant>7</qmc_variant>
+    <trace_depth>6</trace_depth>
+    <diff_trace_depth>4</diff_trace_depth>
+    <maxRaysPerPixel>2048</maxRaysPerPixel>
+    <resources_path>..</resources_path>
+    <offline_pt>0</offline_pt>
+  </render_settings>
+</render_lib>
+<scenes>
+  <scene id="0" name="my scene" discard="1" bbox="    -6 6 -3 9 -6 6">
+    <instance id="0" mesh_id="2" rmap_id="-1" scn_id="0" scn_sid="0" matrix="-1 0 -8.74228e-08 0 0 1 0 3 8.74228e-08 0 -1 0 0 0 0 1 ">
+      <transform_sequence transformation="scale * rotation * position" rotation="Euler in dergees" />
+    </instance>
+    <instance id="1" mesh_id="0" rmap_id="-1" scn_id="0" scn_sid="0" matrix="1 0 0 -3 0 1 0 1.25 0 0 1 0 0 0 0 1 ">
+      <transform_sequence transformation="scale * rotation * position" rotation="Euler in dergees" />
+    </instance>
+    <instance id="2" mesh_id="1" rmap_id="-1" scn_id="0" scn_sid="0" matrix="1 0 0 3 0 1 0 1.25 0 0 1 0 0 0 0 1 ">
+      <transform_sequence transformation="scale * rotation * position" rotation="Euler in dergees" />
+    </instance>
+    <instance_light id="0" light_id="0" matrix="1 0 0 0 0 1 0 8.95 0 0 1 -5 0 0 0 1 " lgroup_id="-1">
+      <transform_sequence transformation="scale * rotation * position" rotation="Euler in dergees" />
+    </instance_light>
+  </scene>
+</scenes>

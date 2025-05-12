@@ -1,0 +1,82 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+#extension GL_EXT_ray_query : require
+#extension GL_EXT_buffer_reference : require
+
+#include "common_generated.h"
+layout (constant_id = 1) const int KSPEC_MAT_TYPE_GLTF = 1;
+layout (constant_id = 10) const int KSPEC_BLEND_STACK_SIZE = 10;
+layout (constant_id = 11) const int KSPEC_BUMP_MAPPING = 11;
+layout (constant_id = 12) const int KSPEC_MAT_TYPE_DIELECTRIC = 12;
+layout (constant_id = 13) const int KSPEC_MAT_FOUR_TEXTURES = 13;
+layout (constant_id = 14) const int KSPEC_LIGHT_IES = 14;
+layout (constant_id = 15) const int KSPEC_LIGHT_ENV = 15;
+layout (constant_id = 16) const int KSPEC_MOTION_BLUR = 16;
+layout (constant_id = 17) const int KSPEC_OPTIC_SIM = 17;
+layout (constant_id = 18) const int KSPEC_LIGHT_PROJECTIVE = 18;
+layout (constant_id = 19) const int KSPEC_SPD_TEX = 19;
+layout (constant_id = 2) const int KSPEC_MAT_TYPE_GLASS = 2;
+layout (constant_id = 3) const int KSPEC_MAT_TYPE_CONDUCTOR = 3;
+layout (constant_id = 4) const int KSPEC_MAT_TYPE_DIFFUSE = 4;
+layout (constant_id = 5) const int KSPEC_MAT_TYPE_PLASTIC = 5;
+layout (constant_id = 6) const int KSPEC_FILMS_STACK_SIZE = 6;
+layout (constant_id = 7) const int KSPEC_MAT_TYPE_THIN_FILM = 7;
+layout (constant_id = 8) const int KSPEC_SPECTRAL_RENDERING = 8;
+layout (constant_id = 9) const int KSPEC_MAT_TYPE_BLEND = 9;
+struct AllBufferReferences
+{
+  uint dummy[2];
+};
+layout(binding = 0, set = 0) buffer data0 { uint m_packedXY[]; }; // 
+layout(binding = 1, set = 0) buffer dataUBO { Integrator_Generated_UBO_Data ubo; };
+
+
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+layout( push_constant ) uniform kernelArgs
+{
+  uint iNumElementsX; 
+  uint iNumElementsY; 
+  uint iNumElementsZ; 
+  uint tFlagsMask;    
+} kgenArgs;
+
+///////////////////////////////////////////////////////////////// subkernels here
+void kernel_PackXY_m_packedXY(uint tidX, uint tidY, uint out_pakedXYOffset) 
+{
+  
+  if(int(tidX) >= ubo.m_winWidth || int(tidY) >= ubo.m_winHeight)
+    return;
+  uint offset = tidY*uint(ubo.m_winWidth) + tidX;
+  if(ubo.m_tileSize != 1)
+  {
+    const uint inBlockIdX = tidX % ubo.m_tileSize; // 8x8 blocks
+    const uint inBlockIdY = tidY % ubo.m_tileSize; // 8x8 blocks
+   
+    const uint localIndex = inBlockIdY*ubo.m_tileSize + inBlockIdX;
+    const uint wBlocks    = uint(ubo.m_winWidth)/ubo.m_tileSize;
+  
+    const uint blockX     = tidX/ubo.m_tileSize;
+    const uint blockY     = tidY/ubo.m_tileSize;
+    offset                = (blockX + blockY*wBlocks)*ubo.m_tileSize*ubo.m_tileSize + localIndex;
+  }
+  m_packedXY[offset + out_pakedXYOffset] = ((tidY << 16) & 0xFFFF0000) | (tidX & 0x0000FFFF);
+
+}
+
+///////////////////////////////////////////////////////////////// subkernels here
+
+void main()
+{
+  ///////////////////////////////////////////////////////////////// prolog
+  const uint tidX = uint(gl_GlobalInvocationID[0]); 
+  const uint tidY = uint(gl_GlobalInvocationID[1]); 
+  ///////////////////////////////////////////////////////////////// prolog
+
+  
+  kernel_PackXY_m_packedXY(tidX, tidY, 0);
+
+}
+
