@@ -171,6 +171,7 @@ namespace BenchmarkBackend
       co_settings.bits_per_value = repr_config->get_int("bits_per_value", 8);
       co_settings.uv_size = repr_config->get_int("uv_size", 0);
       co_settings.sim_compression = repr_config->get_int("sim_compression", 0);
+      co_settings.use_lods = repr_config->get_bool("use_lods", false);
 
       scom::Settings scom_settings;
       if (co_settings.sim_compression == 1)
