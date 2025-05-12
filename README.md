@@ -1,11 +1,3 @@
-# LiteRT
-
-## Build
-Clone this repo with all its submodules:
-
-    $ git clone https://github.com/msu-graphics-group/LiteRT.git
-    $ git submodule update --init --recursive
-
 ### Build (CPU)
 
     $ cmake -S . -B build -DUSE_VULKAN=OFF -DUSE_RTX=OFF -DCMAKE_BUILD_TYPE=Release -DUSE_STB_IMAGE=ON
