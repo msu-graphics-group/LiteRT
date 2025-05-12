@@ -1,0 +1,29 @@
+{
+backends:arr = {"CPU"}
+renderers:arr = {"MR"}
+render_modes:arr = { "LAMBERT_NO_TEX" }
+models:arr = { }
+width:i = 1024
+height:i = 1024
+cameras:i = 4
+iters:i = 1
+spp:i = 16
+hydra_spp:i = 2048
+hydra_scene:s = "SINGLE_OBJECT_CUBEMAP"
+
+repr_configs
+{
+  MESH
+  {
+    default {
+      
+    }
+  }
+  SDF_COCTREE_V3
+  {
+    d_6 {depth:i = 6 similarity_threshold:r = 0.05 brick_size:i = 3 brick_pad:i = 0 sim_compression:i = 1 print_build_stats:b = true}
+    d_7 {depth:i = 7 similarity_threshold:r = 0.05 brick_size:i = 3 brick_pad:i = 0 sim_compression:i = 1 print_build_stats:b = true}
+    d_7l {depth:i = 7 similarity_threshold:r = 0.05 brick_size:i = 3 brick_pad:i = 0 sim_compression:i = 1 use_lods:b = true print_build_stats:b = true}
+  }
+}
+}
