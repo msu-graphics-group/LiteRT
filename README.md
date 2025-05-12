@@ -42,4 +42,6 @@ Then run:
   Level of detail will increase as you move further away, you can set fixed LODs and change it manually
   with a slider in the app.
 
+## Important note
+  The engine may show lower performance than stated in the paper results. The reason for this is that the shaders for the engine contain all functions for intersection with all supported types of geometry, while for the benchmark, shaders are assembled so that they include only the type of geometry used in a specific scene scene (for example, only the SCom Tree). When rendering with the GPU, the benchmark uses the auto-programming tool, which takes C++ code as input and ports this code to the GPU. We cannot provide this tool as part of this archive, this the benchmark can only be used to measure the quality and size, but not the rendering speed.
 
