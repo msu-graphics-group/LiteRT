@@ -1,5 +1,3 @@
-// Original Copyright 2017 Vladimir Frolov, Ray Tracing Systems
-// Updated by Vadim Sanzharov, 2021
 #pragma once
 #include "LiteMath.h"
 

@@ -1,5 +1,3 @@
-// � Copyright 2017 Vladimir Frolov, MSU Grapics & Media Lab
-
 #include <vector>
 #include <iostream>
 #include <cstring>

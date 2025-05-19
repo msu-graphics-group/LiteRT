@@ -362,8 +362,6 @@ get_nurbs_bvh_leaves(const RBezierGrid &rbezier) {
   return { ans_boxes, ans_uv };
 }
 
-
-//copy from Basic NURBS Viewer https://github.com/iMacsimus/Basic-NURBS-Viewer
 LiteMath::float4 rbezier_curve_point(
     float u,
     int p,

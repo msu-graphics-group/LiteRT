@@ -553,17 +553,6 @@ if __name__ == '__main__':
                                       PATH_TO_HYDRA3_SCENS + "/Tests/Motion-blur/0002/Images/spectral-motion-blur-hydra3.png"],
                                       imsize = [(1024, 1024), (1024, 1024)], naivemul = 4, integrators = ["naivept","mispt"], is_spectral = True))
 
-  '''
-  reqs.append( REQ_HP("perf_test", [PATH_TO_HYDRA2_TESTS + "/tests_f/test_102/statex_00001.xml",  
-                                    "/home/frol/PROG/msu-graphics-group/scenes/03_classic_scenes/01_sponza/statex_00001.xml",
-                                    "/home/frol/PROG/msu-graphics-group/scenes/03_classic_scenes/02_cry_sponza/statex_00001.xml"],
-                                  [PATH_TO_HYDRA2_TESTS + "/tests_images/test_102/z0_gpumispt.bmp", 
-                                    PATH_TO_HYDRA2_TESTS + "/tests_images/test_102/z1_gpumispt.bmp",
-                                    PATH_TO_HYDRA2_TESTS + "/tests_images/test_102/z2_gpumispt.bmp"],
-                                    [(1024,1024), (1024,1024), (1024,1024)]))
-
-  '''
-
   Log().set_workdir(".")
   Log().info("PATH_TO_TESTS = {}".format(PATH_TO_HYDRA2_TESTS))
 

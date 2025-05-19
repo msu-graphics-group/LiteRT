@@ -198,8 +198,6 @@ namespace BenchmarkBackend
     }
     else if (repr_type == "NEURAL_SDF")
     {
-      // https://github.com/Egor-eth/nglod/tree/litert_integration
-
       // Get parameters for neural sdf builder from config
 
       std::string nglod_path = repr_config->get_string("path", "../nglod");

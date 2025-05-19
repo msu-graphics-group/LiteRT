@@ -8,7 +8,3 @@ symbol. For Cmake-based projects you can do this by adding the following line to
 ```cmake
 add_compile_definitions(USE_VOLK)
 ```
-
-Main repo URL: https://gitlab.com/vsan/vkutils
-
-Mirror: https://github.com/msu-graphics-group/vk-utils

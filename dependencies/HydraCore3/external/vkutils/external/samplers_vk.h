@@ -17,7 +17,6 @@
  * SPDX-License-Identifier: Apache-2.0
  *
  *
- * Modified by Vadim Sanzharov, 2022
  */
 
 
